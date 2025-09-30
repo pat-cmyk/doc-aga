@@ -124,11 +124,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
       if (statsError) {
         console.error("Error fetching daily stats:", statsError);
-        toast({
-          title: "Error loading chart data",
-          description: statsError.message,
-          variant: "destructive"
-        });
       }
 
       // Create array of dates for the selected period
@@ -150,20 +145,39 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         };
       });
 
-      // Populate data from daily_farm_stats table
-      dailyStats?.forEach(stat => {
-        const date = stat.stat_date;
-        if (combinedDataMap[date]) {
-          combinedDataMap[date].milkTotal = Number(stat.total_milk_liters);
-          
-          // Add stage counts from JSONB
-          const stageCounts = stat.stage_counts as Record<string, number>;
-          Object.entries(stageCounts).forEach(([stage, count]) => {
-            combinedDataMap[date][stage] = count;
-            allStageKeys.add(stage);
-          });
-        }
-      });
+      // Check if we have pre-calculated data
+      if (dailyStats && dailyStats.length > 0) {
+        // Use pre-calculated data from daily_farm_stats
+        dailyStats.forEach(stat => {
+          const date = stat.stat_date;
+          if (combinedDataMap[date]) {
+            combinedDataMap[date].milkTotal = Number(stat.total_milk_liters);
+            
+            // Add stage counts from JSONB
+            const stageCounts = stat.stage_counts as Record<string, number>;
+            Object.entries(stageCounts).forEach(([stage, count]) => {
+              combinedDataMap[date][stage] = count;
+              allStageKeys.add(stage);
+            });
+          }
+        });
+      } else {
+        // Fallback: Calculate from milking_records in real-time
+        console.log("No pre-calculated stats found, using fallback calculation");
+        const { data: milkRecords } = await supabase
+          .from("milking_records")
+          .select("liters, record_date, animals!inner(farm_id)")
+          .eq("animals.farm_id", farmId)
+          .gte("record_date", startDate.toISOString().split("T")[0])
+          .lte("record_date", endDate.toISOString().split("T")[0]);
+
+        milkRecords?.forEach(record => {
+          const date = record.record_date;
+          if (combinedDataMap[date]) {
+            combinedDataMap[date].milkTotal += Number(record.liters);
+          }
+        });
+      }
 
       const finalData = dateArray.map(date => combinedDataMap[date]);
       const stageKeysArray = Array.from(allStageKeys);

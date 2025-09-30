@@ -49,12 +49,34 @@ Deno.serve(async (req) => {
 
     console.log('Starting daily stats calculation...');
 
-    // Get yesterday's date (since we're calculating for the previous day)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const targetDate = yesterday.toISOString().split('T')[0];
+    // Check if table is empty and backfill if needed
+    const { data: existingStats, error: checkError } = await supabase
+      .from('daily_farm_stats')
+      .select('id')
+      .limit(1);
 
-    console.log(`Calculating stats for date: ${targetDate}`);
+    if (checkError) {
+      console.error('Error checking existing stats:', checkError);
+    }
+
+    let datesToProcess: string[] = [];
+
+    if (!existingStats || existingStats.length === 0) {
+      console.log('Table is empty, backfilling last 30 days...');
+      // Backfill last 30 days
+      for (let i = 1; i <= 30; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        datesToProcess.push(date.toISOString().split('T')[0]);
+      }
+    } else {
+      // Regular mode: just yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      datesToProcess = [yesterday.toISOString().split('T')[0]];
+    }
+
+    console.log(`Processing ${datesToProcess.length} dates: ${datesToProcess.join(', ')}`);
 
     // Get all farms
     const { data: farms, error: farmsError } = await supabase
@@ -69,9 +91,13 @@ Deno.serve(async (req) => {
 
     console.log(`Processing ${farms?.length || 0} farms`);
 
-    // Process each farm
-    for (const farm of farms || []) {
-      console.log(`Processing farm: ${farm.id}`);
+    // Process each date
+    for (const targetDate of datesToProcess) {
+      console.log(`\nProcessing date: ${targetDate}`);
+
+      // Process each farm for this date
+      for (const farm of farms || []) {
+        console.log(`Processing farm: ${farm.id} for date: ${targetDate}`);
 
       // Get daily milk total for the farm
       const { data: milkingData, error: milkError } = await supabase
@@ -167,7 +193,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      console.log(`Successfully saved stats for farm ${farm.id}`);
+        console.log(`Successfully saved stats for farm ${farm.id} for date: ${targetDate}`);
+      }
     }
 
     console.log('Daily stats calculation completed successfully');
@@ -175,8 +202,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Calculated stats for ${farms?.length || 0} farms`,
-        date: targetDate 
+        message: `Calculated stats for ${farms?.length || 0} farms across ${datesToProcess.length} dates`,
+        dates: datesToProcess,
+        farmsProcessed: farms?.length || 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
