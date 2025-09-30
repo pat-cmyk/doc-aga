@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -14,11 +15,27 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ date: new Date().toISOString().split("T")[0], liters: "" });
+  const [filterPeriod, setFilterPeriod] = useState<"all" | "cycle" | "month">("all");
+  const [latestCalvingDate, setLatestCalvingDate] = useState<Date | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     loadRecords();
+    loadLatestCalvingDate();
   }, [animalId]);
+
+  const loadLatestCalvingDate = async () => {
+    const { data } = await supabase
+      .from("animals")
+      .select("birth_date")
+      .eq("mother_id", animalId)
+      .order("birth_date", { ascending: false })
+      .limit(1);
+    
+    if (data && data.length > 0 && data[0].birth_date) {
+      setLatestCalvingDate(new Date(data[0].birth_date));
+    }
+  };
 
   const loadRecords = async () => {
     const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: true });
@@ -36,7 +53,27 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
-  const chartData = records.map(r => ({
+  const getFilteredRecords = () => {
+    const now = new Date();
+    
+    switch (filterPeriod) {
+      case "cycle":
+        if (!latestCalvingDate) return records;
+        return records.filter(r => new Date(r.record_date) >= latestCalvingDate);
+      
+      case "month":
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return records.filter(r => new Date(r.record_date) >= startOfMonth);
+      
+      case "all":
+      default:
+        return records;
+    }
+  };
+
+  const filteredRecords = getFilteredRecords();
+  
+  const chartData = filteredRecords.map(r => ({
     date: new Date(r.record_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     liters: parseFloat(r.liters)
   }));
@@ -54,11 +91,27 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
         <CardTitle>Milking Production</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!showForm ? (
-          <Button onClick={() => setShowForm(true)} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />Add Milking Record
-          </Button>
-        ) : (
+        <div className="flex items-center justify-between gap-4">
+          {!showForm ? (
+            <Button onClick={() => setShowForm(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />Add Record
+            </Button>
+          ) : (
+            <Button onClick={() => setShowForm(false)} size="sm" variant="outline">
+              Cancel
+            </Button>
+          )}
+          
+          <Tabs value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as "all" | "cycle" | "month")} className="ml-auto">
+            <TabsList>
+              <TabsTrigger value="all" className="text-xs">All-Time</TabsTrigger>
+              <TabsTrigger value="cycle" className="text-xs" disabled={!latestCalvingDate}>This Cycle</TabsTrigger>
+              <TabsTrigger value="month" className="text-xs">Month-to-Date</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        
+        {showForm && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} required /></div>
             <div><Label>Liters</Label><Input type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required /></div>
