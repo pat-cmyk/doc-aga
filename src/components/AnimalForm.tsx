@@ -42,8 +42,18 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     breed: "",
     breed1: "",
     breed2: "",
+    gender: "",
     birth_date: ""
   });
+
+  // Calculate recommended first AI date (15 months after birth for heifers)
+  const getFirstAIDate = (birthDate: string) => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    const aiDate = new Date(birth);
+    aiDate.setMonth(aiDate.getMonth() + 15);
+    return aiDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +81,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       name: formData.name || null,
       ear_tag: formData.ear_tag,
       breed: finalBreed || null,
+      gender: formData.gender || null,
       birth_date: formData.birth_date || null,
       created_by: user?.id
     });
@@ -111,6 +122,21 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               placeholder="A001"
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender</Label>
+            <Select
+              value={formData.gender}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="breed">Breed</Label>
@@ -178,6 +204,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               value={formData.birth_date}
               onChange={(e) => setFormData(prev => ({ ...prev, birth_date: e.target.value }))}
             />
+            {formData.birth_date && formData.gender === "Female" && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Recommended first AI date: <span className="font-medium">{getFirstAIDate(formData.birth_date)}</span>
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
