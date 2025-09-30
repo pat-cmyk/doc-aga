@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MilkingRecords from "./MilkingRecords";
@@ -16,6 +17,7 @@ interface Animal {
   breed: string | null;
   birth_date: string | null;
   milking_start_date: string | null;
+  avatar_url: string | null;
 }
 
 interface AnimalDetailsProps {
@@ -26,6 +28,8 @@ interface AnimalDetailsProps {
 const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,6 +55,64 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
     setLoading(false);
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${animalId}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('animal-photos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('animal-photos')
+        .getPublicUrl(filePath);
+
+      // Update animal record
+      const { error: updateError } = await supabase
+        .from('animals')
+        .update({ avatar_url: publicUrl })
+        .eq('id', animalId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success!",
+        description: "Avatar updated successfully"
+      });
+
+      loadAnimal();
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -74,10 +136,32 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
+            <div className="relative">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
+                <AvatarFallback>{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </div>
             <div className="flex-1">
               <CardTitle className="text-2xl">{animal.name}</CardTitle>
               <CardDescription>
