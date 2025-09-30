@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout, LogOut, MessageCircle } from "lucide-react";
+import { Sprout, LogOut, MessageCircle, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import FarmList from "@/components/FarmList";
 import FarmDashboard from "@/components/FarmDashboard";
@@ -64,15 +64,21 @@ const Dashboard = () => {
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Sprout className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold">FarmTrack</h1>
-              <p className="text-xs text-muted-foreground">Welcome back!</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-bold">FarmTrack</h1>
+            <p className="text-xs text-muted-foreground">Welcome back!</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
+            <UserIcon className="h-4 w-4 mr-2" />
+            Profile
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>
+        </div>
         </div>
       </header>
 
