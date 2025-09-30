@@ -10,20 +10,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const PHILIPPINE_PROVINCES = [
-  "Abra", "Agusan del Norte", "Agusan del Sur", "Aklan", "Albay", "Antique", "Apayao", "Aurora",
-  "Basilan", "Bataan", "Batanes", "Batangas", "Benguet", "Biliran", "Bohol", "Bukidnon", "Bulacan",
-  "Cagayan", "Camarines Norte", "Camarines Sur", "Camiguin", "Capiz", "Catanduanes", "Cavite", "Cebu",
-  "Cotabato", "Davao de Oro", "Davao del Norte", "Davao del Sur", "Davao Occidental", "Davao Oriental",
-  "Dinagat Islands", "Eastern Samar", "Guimaras", "Ifugao", "Ilocos Norte", "Ilocos Sur", "Iloilo",
-  "Isabela", "Kalinga", "La Union", "Laguna", "Lanao del Norte", "Lanao del Sur", "Leyte",
-  "Maguindanao del Norte", "Maguindanao del Sur", "Marinduque", "Masbate", "Misamis Occidental",
-  "Misamis Oriental", "Mountain Province", "Negros Occidental", "Negros Oriental", "Northern Samar",
-  "Nueva Ecija", "Nueva Vizcaya", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Pampanga",
-  "Pangasinan", "Quezon", "Quirino", "Rizal", "Romblon", "Samar", "Sarangani", "Siquijor", "Sorsogon",
-  "South Cotabato", "Southern Leyte", "Sultan Kudarat", "Sulu", "Surigao del Norte", "Surigao del Sur",
-  "Tarlac", "Tawi-Tawi", "Zambales", "Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay"
-];
+const REGIONS_WITH_PROVINCES = {
+  "Region I (Ilocos)": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
+  "Region II (Cagayan Valley)": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
+  "Region III (Central Luzon)": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
+  "Region IV-A (CALABARZON)": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
+  "MIMAROPA Region": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
+  "Region V (Bicol)": ["Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon"],
+  "Region VI (Western Visayas)": ["Aklan", "Antique", "Capiz", "Guimaras", "Iloilo", "Negros Occidental"],
+  "Region VII (Central Visayas)": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
+  "Region VIII (Eastern Visayas)": ["Biliran", "Eastern Samar", "Leyte", "Northern Samar", "Samar", "Southern Leyte"],
+  "Region IX (Zamboanga Peninsula)": ["Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay"],
+  "Region X (Northern Mindanao)": ["Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental"],
+  "Region XI (Davao)": ["Davao de Oro", "Davao del Norte", "Davao del Sur", "Davao Occidental", "Davao Oriental"],
+  "Region XII (SOCCSKSARGEN)": ["Cotabato", "Sarangani", "South Cotabato", "Sultan Kudarat"],
+  "NCR (National Capital Region)": ["Metro Manila"],
+  "CAR (Cordillera)": ["Abra", "Apayao", "Benguet", "Ifugao", "Kalinga", "Mountain Province"],
+  "BARMM": ["Basilan", "Lanao del Sur", "Maguindanao del Norte", "Maguindanao del Sur", "Sulu", "Tawi-Tawi"],
+  "Region XIII (Caraga)": ["Agusan del Norte", "Agusan del Sur", "Dinagat Islands", "Surigao del Norte", "Surigao del Sur"]
+};
 
 interface Farm {
   id: string;
@@ -45,11 +50,13 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   const [open, setOpen] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     name: "",
     region: "",
+    province: "",
     gps_lat: "",
     gps_lng: ""
   });
@@ -145,7 +152,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     if (!formData.name || !formData.gps_lat || !formData.gps_lng) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all required fields",
+        description: "Please fill in farm name and GPS coordinates",
         variant: "destructive"
       });
       return;
@@ -154,10 +161,15 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Store the full region and province info together
+    const regionInfo = selectedRegion && formData.province 
+      ? `${selectedRegion} - ${formData.province}`
+      : formData.province || selectedRegion || null;
+    
     const { error } = await supabase.from("farms").insert({
       owner_id: user?.id,
       name: formData.name,
-      region: formData.region || null,
+      region: regionInfo,
       gps_lat: parseFloat(formData.gps_lat),
       gps_lng: parseFloat(formData.gps_lng)
     });
@@ -175,9 +187,17 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
         description: "Farm created successfully"
       });
       setOpen(false);
-      setFormData({ name: "", region: "", gps_lat: "", gps_lng: "" });
+      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "" });
+      setSelectedRegion("");
       loadFarms();
     }
+  };
+
+  const availableProvinces = selectedRegion ? REGIONS_WITH_PROVINCES[selectedRegion as keyof typeof REGIONS_WITH_PROVINCES] || [] : [];
+
+  const handleRegionChange = (region: string) => {
+    setSelectedRegion(region);
+    setFormData(prev => ({ ...prev, region, province: "" }));
   };
 
   if (loading) {
@@ -231,24 +251,10 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">Province</Label>
-              <Select value={formData.region} onValueChange={(value) => setFormData(prev => ({ ...prev, region: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a province" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {PHILIPPINE_PROVINCES.map((province) => (
-                    <SelectItem key={province} value={province}>
-                      {province}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>GPS Coordinates *</Label>
+                <Label>GPS Location *</Label>
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -278,6 +284,42 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="region">Region</Label>
+              <Select value={selectedRegion} onValueChange={handleRegionChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a region" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {Object.keys(REGIONS_WITH_PROVINCES).map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="province">Province</Label>
+              <Select 
+                value={formData.province} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, province: value }))}
+                disabled={!selectedRegion}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedRegion ? "Select a province" : "Select region first"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {availableProvinces.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" className="w-full" disabled={creating}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Farm"}
