@@ -5,6 +5,7 @@ import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, ComposedChart, Legend } from "recharts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { calculateLifeStage, calculateMilkingStage, type AnimalStageData } from "@/lib/animalStages";
 
@@ -38,14 +39,35 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
+  const [timePeriod, setTimePeriod] = useState<"mtd" | "ytd" | "all">("mtd");
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
-  }, [farmId]);
+  }, [farmId, timePeriod]);
+
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timePeriod) {
+      case "mtd": // Month to Date
+        startDate.setDate(1); // First day of current month
+        break;
+      case "ytd": // Year to Date
+        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+        break;
+      case "all": // All time - use a far back date
+        startDate = new Date(2000, 0, 1); // January 1st, 2000
+        break;
+    }
+    
+    return { startDate, endDate: now };
+  };
 
   const loadDashboardData = async () => {
     try {
+      const { startDate, endDate } = getDateRange();
       // Get total animals
       const { count: animalCount } = await supabase
         .from("animals")
@@ -54,14 +76,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("is_deleted", false);
 
       // Get average daily milk
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
       const { data: milkingData } = await supabase
         .from("milking_records")
         .select("liters, animals!inner(farm_id)")
         .eq("animals.farm_id", farmId)
-        .gte("record_date", thirtyDaysAgo.toISOString().split("T")[0]);
+        .gte("record_date", startDate.toISOString().split("T")[0]);
 
       const avgMilk = milkingData && milkingData.length > 0
         ? milkingData.reduce((sum, r) => sum + Number(r.liters), 0) / milkingData.length
@@ -74,19 +93,19 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("animals.farm_id", farmId)
         .eq("event_type", "pregnancy_confirmed");
 
-      // Get recent health events (last 30 days)
+      // Get recent health events
       const { count: healthCount } = await supabase
         .from("health_records")
         .select("*, animals!inner(farm_id)", { count: "exact", head: true })
         .eq("animals.farm_id", farmId)
-        .gte("visit_date", thirtyDaysAgo.toISOString().split("T")[0]);
+        .gte("visit_date", startDate.toISOString().split("T")[0]);
 
-      // Get daily milk totals for chart (last 30 days)
+      // Get daily milk totals for chart
       const { data: dailyMilk } = await supabase
         .from("milking_records")
         .select("record_date, liters, animals!inner(farm_id)")
         .eq("animals.farm_id", farmId)
-        .gte("record_date", thirtyDaysAgo.toISOString().split("T")[0])
+        .gte("record_date", startDate.toISOString().split("T")[0])
         .order("record_date", { ascending: true });
 
       // Get cattle data for stage calculations
@@ -97,8 +116,8 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("is_deleted", false);
 
       // BATCH OPTIMIZATION: Fetch all required data upfront (4 queries instead of 900+)
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const sixtyDaysBeforeStart = new Date(startDate);
+      sixtyDaysBeforeStart.setDate(sixtyDaysBeforeStart.getDate() - 60);
 
       // Fetch all offspring for all animals in the farm
       const { data: allOffspring } = await supabase
@@ -108,12 +127,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .not("mother_id", "is", null)
         .order("birth_date", { ascending: false });
 
-      // Fetch all milking records for the last 60 days
+      // Fetch all milking records for the date range
       const { data: allMilkingRecords } = await supabase
         .from("milking_records")
         .select("animal_id, record_date, animals!inner(farm_id)")
         .eq("animals.farm_id", farmId)
-        .gte("record_date", sixtyDaysAgo.toISOString().split("T")[0]);
+        .gte("record_date", sixtyDaysBeforeStart.toISOString().split("T")[0]);
 
       // Fetch all AI records for all animals
       const { data: allAIRecords } = await supabase
@@ -150,12 +169,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         });
       });
 
-      // Create array of last 30 days
+      // Create array of dates for the selected period
       const dateArray: string[] = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        dateArray.push(d.toISOString().split("T")[0]);
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        dateArray.push(currentDate.toISOString().split("T")[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
       }
 
       // Initialize combined data structure
@@ -294,7 +313,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.avgDailyMilk}L</div>
-          <p className="text-xs text-muted-foreground">Per animal (30 days)</p>
+          <p className="text-xs text-muted-foreground">
+            Per animal ({timePeriod === "mtd" ? "MTD" : timePeriod === "ytd" ? "YTD" : "All-Time"})
+          </p>
         </CardContent>
       </Card>
 
@@ -319,7 +340,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.recentHealthEvents}</div>
-          <p className="text-xs text-muted-foreground">Last 30 days</p>
+          <p className="text-xs text-muted-foreground">
+            {timePeriod === "mtd" ? "This month" : timePeriod === "ytd" ? "This year" : "All-Time"}
+          </p>
         </CardContent>
       </Card>
       </div>
@@ -327,7 +350,16 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {/* Combined Milk Production & Cattle Count Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Daily Milk Production & Cattle Head Count by Stage</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle>Daily Milk Production & Cattle Head Count by Stage</CardTitle>
+            <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "mtd" | "ytd" | "all")} className="w-auto">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="mtd">MTD</TabsTrigger>
+                <TabsTrigger value="ytd">YTD</TabsTrigger>
+                <TabsTrigger value="all">All-Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
           {combinedData.length > 0 ? (
