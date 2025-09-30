@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, ComposedChart, Legend } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { calculateLifeStage, calculateMilkingStage, type AnimalStageData } from "@/lib/animalStages";
 
@@ -39,30 +40,41 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
-  const [timePeriod, setTimePeriod] = useState<"mtd" | "ytd" | "all">("mtd");
+  const [timePeriod, setTimePeriod] = useState<"mtd" | "ytd">("mtd");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
-  }, [farmId, timePeriod]);
+  }, [farmId, timePeriod, selectedYear]);
 
   const getDateRange = () => {
     const now = new Date();
     let startDate = new Date();
+    let endDate = new Date();
     
     switch (timePeriod) {
       case "mtd": // Month to Date
-        startDate.setDate(1); // First day of current month
+        startDate = new Date(selectedYear, now.getMonth(), 1);
+        // If selected year is current year, use today, otherwise use end of current month
+        if (selectedYear === now.getFullYear() && now.getMonth() === now.getMonth()) {
+          endDate = now;
+        } else {
+          endDate = new Date(selectedYear, now.getMonth() + 1, 0); // Last day of month
+        }
         break;
       case "ytd": // Year to Date
-        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
-        break;
-      case "all": // All time - use a far back date
-        startDate = new Date(2000, 0, 1); // January 1st, 2000
+        startDate = new Date(selectedYear, 0, 1); // January 1st of selected year
+        // If selected year is current year, use today, otherwise use end of year
+        if (selectedYear === now.getFullYear()) {
+          endDate = now;
+        } else {
+          endDate = new Date(selectedYear, 11, 31); // December 31st of selected year
+        }
         break;
     }
     
-    return { startDate, endDate: now };
+    return { startDate, endDate };
   };
 
   const loadDashboardData = async () => {
@@ -314,7 +326,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <CardContent>
           <div className="text-2xl font-bold">{stats.avgDailyMilk}L</div>
           <p className="text-xs text-muted-foreground">
-            Per animal ({timePeriod === "mtd" ? "MTD" : timePeriod === "ytd" ? "YTD" : "All-Time"})
+            Per animal ({timePeriod === "mtd" ? "MTD" : "YTD"} {selectedYear})
           </p>
         </CardContent>
       </Card>
@@ -341,7 +353,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <CardContent>
           <div className="text-2xl font-bold">{stats.recentHealthEvents}</div>
           <p className="text-xs text-muted-foreground">
-            {timePeriod === "mtd" ? "This month" : timePeriod === "ytd" ? "This year" : "All-Time"}
+            {timePeriod === "mtd" ? `${new Date().toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}
           </p>
         </CardContent>
       </Card>
@@ -352,13 +364,24 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle>Daily Milk Production & Cattle Head Count by Stage</CardTitle>
-            <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "mtd" | "ytd" | "all")} className="w-auto">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="mtd">MTD</TabsTrigger>
-                <TabsTrigger value="ytd">YTD</TabsTrigger>
-                <TabsTrigger value="all">All-Time</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-3">
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "mtd" | "ytd")} className="w-auto">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="mtd">MTD</TabsTrigger>
+                  <TabsTrigger value="ytd">YTD</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
