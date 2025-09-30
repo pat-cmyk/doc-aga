@@ -120,15 +120,20 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
         )}
         
         {records.length > 0 ? (
-          <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="date" className="text-xs" />
-              <YAxis className="text-xs" label={{ value: 'Liters', angle: -90, position: 'insideLeft' }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
-            </LineChart>
-          </ChartContainer>
+          <>
+            <div className="text-xs text-muted-foreground mb-2">
+              Showing {filteredRecords.length} records {filterPeriod === "all" ? "(all-time)" : filterPeriod === "cycle" ? "(current cycle)" : "(this month)"}
+            </div>
+            <ChartContainer key={filterPeriod} config={chartConfig} className="h-[300px] w-full">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="date" className="text-xs" />
+                <YAxis className="text-xs" label={{ value: 'Liters', angle: -90, position: 'insideLeft' }} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+              </LineChart>
+            </ChartContainer>
+          </>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             No milking records yet. Add your first record to see the production chart.
