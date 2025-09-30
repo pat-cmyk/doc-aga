@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, ComposedChart, Legend } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Line, ComposedChart, Legend } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HealthEventsDialog from "./HealthEventsDialog";
@@ -413,7 +413,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
               }}
               className="h-[400px] w-full"
             >
-              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }} barSize={20}>
+              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }}>
                 <defs>
                   <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -464,13 +464,15 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                     "hsl(340, 75%, 55%)", // Pink
                   ];
                   return (
-                    <Bar
+                    <Line
                       key={stage}
                       yAxisId="right"
+                      type="monotone"
                       dataKey={stage}
-                      stackId="stages"
-                      fill={colors[idx % colors.length]}
-                      radius={[2, 2, 0, 0]}
+                      stroke={colors[idx % colors.length]}
+                      strokeWidth={2.5}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
                     />
                   );
                 })}
