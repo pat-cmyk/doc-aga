@@ -278,6 +278,15 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       const finalData = dateArray.map(date => combinedDataMap[date]);
       const stageKeysArray = Array.from(allStageKeys);
 
+      // Calculate max cattle count for Y-axis scaling
+      let maxCattleCount = 0;
+      finalData.forEach(dataPoint => {
+        stageKeysArray.forEach(stage => {
+          const count = dataPoint[stage] as number || 0;
+          if (count > maxCattleCount) maxCattleCount = count;
+        });
+      });
+
       setCombinedData(finalData);
       setStageKeys(stageKeysArray);
 
@@ -448,7 +457,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   tickLine={false}
                   axisLine={false}
                   label={{ value: "Cattle Count", angle: 90, position: "insideRight" }}
-                  domain={[0, 4]}
+                  domain={[0, 'auto']}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
