@@ -17,6 +17,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("farms");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,6 +43,11 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
+  };
+
+  const handleFarmSelect = (farmId: string) => {
+    setSelectedFarmId(farmId);
+    setActiveTab("dashboard"); // Automatically switch to dashboard tab
   };
 
   if (loading) {
@@ -84,7 +90,7 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        <Tabs defaultValue="farms" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="farms">Farms</TabsTrigger>
             <TabsTrigger value="dashboard" disabled={!selectedFarmId}>Dashboard</TabsTrigger>
@@ -98,7 +104,7 @@ const Dashboard = () => {
                 <CardDescription>Manage your farms and livestock operations</CardDescription>
               </CardHeader>
               <CardContent>
-                <FarmList onSelectFarm={setSelectedFarmId} />
+                <FarmList onSelectFarm={handleFarmSelect} />
               </CardContent>
             </Card>
           </TabsContent>
