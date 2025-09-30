@@ -96,6 +96,60 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
+      // BATCH OPTIMIZATION: Fetch all required data upfront (4 queries instead of 900+)
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+      // Fetch all offspring for all animals in the farm
+      const { data: allOffspring } = await supabase
+        .from("animals")
+        .select("id, mother_id, birth_date")
+        .eq("farm_id", farmId)
+        .not("mother_id", "is", null)
+        .order("birth_date", { ascending: false });
+
+      // Fetch all milking records for the last 60 days
+      const { data: allMilkingRecords } = await supabase
+        .from("milking_records")
+        .select("animal_id, record_date, animals!inner(farm_id)")
+        .eq("animals.farm_id", farmId)
+        .gte("record_date", sixtyDaysAgo.toISOString().split("T")[0]);
+
+      // Fetch all AI records for all animals
+      const { data: allAIRecords } = await supabase
+        .from("ai_records")
+        .select("animal_id, performed_date, scheduled_date, animals!inner(farm_id)")
+        .eq("animals.farm_id", farmId);
+
+      // Create Maps for fast in-memory lookups
+      const offspringByMother = new Map<string, Array<{ birth_date: string }>>();
+      allOffspring?.forEach(offspring => {
+        if (!offspring.mother_id) return;
+        if (!offspringByMother.has(offspring.mother_id)) {
+          offspringByMother.set(offspring.mother_id, []);
+        }
+        offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
+      });
+
+      const milkingByAnimal = new Map<string, Array<{ record_date: string }>>();
+      allMilkingRecords?.forEach(record => {
+        if (!milkingByAnimal.has(record.animal_id)) {
+          milkingByAnimal.set(record.animal_id, []);
+        }
+        milkingByAnimal.get(record.animal_id)!.push({ record_date: record.record_date });
+      });
+
+      const aiByAnimal = new Map<string, Array<{ performed_date: string | null, scheduled_date: string | null }>>();
+      allAIRecords?.forEach(record => {
+        if (!aiByAnimal.has(record.animal_id)) {
+          aiByAnimal.set(record.animal_id, []);
+        }
+        aiByAnimal.get(record.animal_id)!.push({
+          performed_date: record.performed_date,
+          scheduled_date: record.scheduled_date
+        });
+      });
+
       // Create array of last 30 days
       const dateArray: string[] = [];
       for (let i = 29; i >= 0; i--) {
@@ -123,7 +177,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         }
       });
 
-      // Calculate stage counts for each day
+      // Calculate stage counts for each day using in-memory data
       if (animals) {
         for (const targetDate of dateArray) {
           const targetDateObj = new Date(targetDate);
@@ -131,52 +185,42 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
           for (const animal of animals) {
             if (animal.gender?.toLowerCase() !== "female") continue;
-
-            // Calculate age on target date
             if (!animal.birth_date) continue;
+
             const birthDate = new Date(animal.birth_date);
-            const ageOnDate = Math.floor((targetDateObj.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            // Get offspring data
-            const { data: offspring, count: offspringCount } = await supabase
-              .from("animals")
-              .select("birth_date", { count: "exact" })
-              .eq("mother_id", animal.id)
-              .lte("birth_date", targetDate)
-              .order("birth_date", { ascending: false });
+            // Get offspring data from Map (in-memory lookup)
+            const offspring = offspringByMother.get(animal.id) || [];
+            const offspringBeforeDate = offspring.filter(o => o.birth_date <= targetDate);
+            const offspringCount = offspringBeforeDate.length;
+            const lastCalvingDate = offspringBeforeDate[0]?.birth_date 
+              ? new Date(offspringBeforeDate[0].birth_date) 
+              : null;
 
-            // Calculate last calving before target date
-            const lastCalvingDate = offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null;
-
-            // Check for milking records around target date (within 30 days before)
+            // Check for milking records from Map (in-memory lookup)
             const thirtyDaysBeforeTarget = new Date(targetDateObj);
             thirtyDaysBeforeTarget.setDate(thirtyDaysBeforeTarget.getDate() - 30);
+            const thirtyDaysBeforeStr = thirtyDaysBeforeTarget.toISOString().split("T")[0];
 
-            const { data: milkingRecords } = await supabase
-              .from("milking_records")
-              .select("id")
-              .eq("animal_id", animal.id)
-              .gte("record_date", thirtyDaysBeforeTarget.toISOString().split("T")[0])
-              .lte("record_date", targetDate)
-              .limit(1);
+            const animalMilkingRecords = milkingByAnimal.get(animal.id) || [];
+            const hasRecentMilking = animalMilkingRecords.some(
+              r => r.record_date >= thirtyDaysBeforeStr && r.record_date <= targetDate
+            );
 
-            // Check for AI records
-            const { data: aiRecords } = await supabase
-              .from("ai_records")
-              .select("performed_date")
-              .eq("animal_id", animal.id)
-              .lte("scheduled_date", targetDate)
-              .order("scheduled_date", { ascending: false })
-              .limit(1);
+            // Check for AI records from Map (in-memory lookup)
+            const animalAIRecords = aiByAnimal.get(animal.id) || [];
+            const hasActiveAI = animalAIRecords.some(
+              r => r.scheduled_date && r.scheduled_date <= targetDate
+            ) && offspringCount === 0;
 
             const stageData: AnimalStageData = {
               birthDate: birthDate,
               gender: animal.gender,
               milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
-              offspringCount: offspringCount || 0,
+              offspringCount: offspringCount,
               lastCalvingDate: lastCalvingDate,
-              hasRecentMilking: (milkingRecords?.length || 0) > 0,
-              hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
+              hasRecentMilking: hasRecentMilking,
+              hasActiveAI: hasActiveAI,
             };
 
             const milkingStage = calculateMilkingStage(stageData);
