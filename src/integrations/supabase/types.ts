@@ -633,6 +633,10 @@ export type Database = {
         Args: { fid: string }
         Returns: boolean
       }
+      is_farm_member: {
+        Args: { farm_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       animal_event_type:
