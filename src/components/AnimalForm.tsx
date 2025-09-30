@@ -12,6 +12,7 @@ interface ParentAnimal {
   id: string;
   name: string | null;
   ear_tag: string | null;
+  breed?: string | null;
 }
 
 interface AnimalFormProps {
@@ -45,6 +46,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
+    animal_type: "new_entrant", // "offspring" or "new_entrant"
     name: "",
     ear_tag: "",
     breed: "",
@@ -56,12 +58,23 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     father_id: "",
     is_father_ai: false,
     ai_bull_brand: "",
-    ai_bull_reference: ""
+    ai_bull_reference: "",
+    ai_bull_breed: ""
   });
 
   useEffect(() => {
     loadParentAnimals();
   }, [farmId]);
+
+  // Load parent breed information
+  const getParentBreed = async (parentId: string) => {
+    const { data } = await supabase
+      .from("animals")
+      .select("breed")
+      .eq("id", parentId)
+      .single();
+    return data?.breed || "Unknown";
+  };
 
   const loadParentAnimals = async () => {
     // Calculate date 18 months ago
@@ -72,26 +85,26 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     // Load female animals for mother selection (18+ months old)
     const { data: femaleData } = await supabase
       .from("animals")
-      .select("id, name, ear_tag, birth_date")
+      .select("id, name, ear_tag, birth_date, breed")
       .eq("farm_id", farmId)
       .ilike("gender", "female")
       .eq("is_deleted", false)
       .lte("birth_date", minBirthDate)
       .order("name");
 
-    if (femaleData) setMothers(femaleData);
+    if (femaleData) setMothers(femaleData as any);
 
     // Load male animals for father selection (18+ months old)
     const { data: maleData } = await supabase
       .from("animals")
-      .select("id, name, ear_tag, birth_date")
+      .select("id, name, ear_tag, birth_date, breed")
       .eq("farm_id", farmId)
       .ilike("gender", "male")
       .eq("is_deleted", false)
       .lte("birth_date", minBirthDate)
       .order("name");
 
-    if (maleData) setFathers(maleData);
+    if (maleData) setFathers(maleData as any);
   };
 
   // Calculate recommended first AI date (15 months after birth for heifers)
@@ -115,12 +128,58 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       return;
     }
 
+    // Validate offspring requirements
+    if (formData.animal_type === "offspring") {
+      if (!formData.mother_id || formData.mother_id === "none") {
+        toast({
+          title: "Missing fields",
+          description: "Mother is required for offspring",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!formData.is_father_ai && (!formData.father_id || formData.father_id === "none")) {
+        toast({
+          title: "Missing fields",
+          description: "Father or AI information is required for offspring",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (formData.is_father_ai && !formData.ai_bull_breed) {
+        toast({
+          title: "Missing fields",
+          description: "AI bull breed is required for offspring",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     setCreating(true);
     
     // Determine final breed value
     let finalBreed = formData.breed;
-    if (formData.breed === "Mix Breed" && formData.breed1 && formData.breed2) {
-      finalBreed = `${formData.breed1} x ${formData.breed2}`;
+    
+    if (formData.animal_type === "offspring") {
+      // Calculate breed from parents
+      const mother = mothers.find(m => m.id === formData.mother_id);
+      const motherBreed = mother?.breed || "Unknown";
+      
+      let fatherBreed = "Unknown";
+      if (formData.is_father_ai) {
+        fatherBreed = formData.ai_bull_breed;
+      } else {
+        const father = fathers.find(f => f.id === formData.father_id);
+        fatherBreed = father?.breed || "Unknown";
+      }
+      
+      finalBreed = `${motherBreed} x ${fatherBreed}`;
+    } else {
+      // New entrant - use selected breed
+      if (formData.breed === "Mix Breed" && formData.breed1 && formData.breed2) {
+        finalBreed = `${formData.breed1} x ${formData.breed2}`;
+      }
     }
     
     const { data, error } = await supabase.from("animals").insert({
@@ -163,6 +222,27 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="animal_type">Animal Type *</Label>
+            <Select
+              value={formData.animal_type}
+              onValueChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                animal_type: value,
+                breed: "",
+                breed1: "",
+                breed2: ""
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new_entrant">New Entrant</SelectItem>
+                <SelectItem value="offspring">Offspring</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
@@ -196,37 +276,19 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="breed">Breed</Label>
-            <Select
-              value={formData.breed}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value, breed1: "", breed2: "" }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select breed" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATTLE_BREEDS.map((breed) => (
-                  <SelectItem key={breed} value={breed}>
-                    {breed}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {formData.breed === "Mix Breed" && (
+          {formData.animal_type === "new_entrant" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="breed1">First Breed</Label>
+                <Label htmlFor="breed">Breed</Label>
                 <Select
-                  value={formData.breed1}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
+                  value={formData.breed}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value, breed1: "", breed2: "" }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select first breed" />
+                    <SelectValue placeholder="Select breed" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                    {CATTLE_BREEDS.map((breed) => (
                       <SelectItem key={breed} value={breed}>
                         {breed}
                       </SelectItem>
@@ -234,25 +296,55 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="breed2">Second Breed</Label>
-                <Select
-                  value={formData.breed2}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select second breed" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
-                      <SelectItem key={breed} value={breed}>
-                        {breed}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formData.breed === "Mix Breed" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="breed1">First Breed</Label>
+                    <Select
+                      value={formData.breed1}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select first breed" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                          <SelectItem key={breed} value={breed}>
+                            {breed}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="breed2">Second Breed</Label>
+                    <Select
+                      value={formData.breed2}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select second breed" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                          <SelectItem key={breed} value={breed}>
+                            {breed}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </>
+          )}
+          {formData.animal_type === "offspring" && (
+            <div className="space-y-2">
+              <Label>Breed</Label>
+              <p className="text-sm text-muted-foreground">
+                Breed will be automatically determined from parents
+              </p>
+            </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="birth_date">Birth Date</Label>
@@ -271,7 +363,9 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
 
           {/* Parent Selection */}
           <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-sm font-semibold">Parent Information (Optional)</h3>
+            <h3 className="text-sm font-semibold">
+              Parent Information {formData.animal_type === "offspring" ? "*" : "(Optional)"}
+            </h3>
             
             <div className="space-y-2">
               <Label htmlFor="mother_id">Mother</Label>
@@ -340,6 +434,26 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                     placeholder="Enter bull reference or name"
                   />
                 </div>
+                {formData.animal_type === "offspring" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ai_bull_breed">Bull Breed *</Label>
+                    <Select
+                      value={formData.ai_bull_breed}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select bull breed" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                          <SelectItem key={breed} value={breed}>
+                            {breed}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
           </div>
