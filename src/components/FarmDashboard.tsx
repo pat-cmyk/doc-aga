@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, BarChart, Legend } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, ComposedChart, Legend } from "recharts";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { calculateLifeStage, calculateMilkingStage, type AnimalStageData } from "@/lib/animalStages";
 
@@ -21,15 +21,10 @@ interface DashboardStats {
   recentHealthEvents: number;
 }
 
-interface DailyMilkData {
+interface CombinedDailyData {
   date: string;
-  total: number;
-}
-
-interface StageCountData {
-  stage: string;
-  count: number;
-  type: "Life Stage" | "Milking Stage";
+  milkTotal: number;
+  [key: string]: string | number; // Dynamic stage counts
 }
 
 const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails }: FarmDashboardProps) => {
@@ -39,8 +34,8 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     pregnantCount: 0,
     recentHealthEvents: 0
   });
-  const [dailyMilkData, setDailyMilkData] = useState<DailyMilkData[]>([]);
-  const [stageData, setStageData] = useState<StageCountData[]>([]);
+  const [combinedData, setCombinedData] = useState<CombinedDailyData[]>([]);
+  const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -94,101 +89,116 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .gte("record_date", thirtyDaysAgo.toISOString().split("T")[0])
         .order("record_date", { ascending: true });
 
-      // Group by date and sum liters
-      const milkByDate = dailyMilk?.reduce((acc, record) => {
-        const date = record.record_date;
-        if (!acc[date]) {
-          acc[date] = 0;
-        }
-        acc[date] += Number(record.liters);
-        return acc;
-      }, {} as Record<string, number>) || {};
-
-      const chartData = Object.entries(milkByDate).map(([date, total]) => ({
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        total: Number(total.toFixed(2))
-      }));
-
-      // Get cattle counts by stage
+      // Get cattle data for stage calculations
       const { data: animals } = await supabase
         .from("animals")
         .select("id, birth_date, gender, milking_start_date, mother_id")
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
-      const stageCounts: Record<string, number> = {};
-      const milkingStageCounts: Record<string, number> = {};
+      // Create array of last 30 days
+      const dateArray: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        dateArray.push(d.toISOString().split("T")[0]);
+      }
 
+      // Initialize combined data structure
+      const combinedDataMap: Record<string, CombinedDailyData> = {};
+      const allStageKeys = new Set<string>();
+
+      dateArray.forEach(date => {
+        combinedDataMap[date] = {
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          milkTotal: 0
+        };
+      });
+
+      // Add milk data
+      dailyMilk?.forEach(record => {
+        const date = record.record_date;
+        if (combinedDataMap[date]) {
+          combinedDataMap[date].milkTotal += Number(record.liters);
+        }
+      });
+
+      // Calculate stage counts for each day
       if (animals) {
-        for (const animal of animals) {
-          if (animal.gender?.toLowerCase() !== "female") continue;
+        for (const targetDate of dateArray) {
+          const targetDateObj = new Date(targetDate);
+          const stageCounts: Record<string, number> = {};
 
-          // Get offspring count
-          const { count: offspringCount } = await supabase
-            .from("animals")
-            .select("*", { count: "exact", head: true })
-            .eq("mother_id", animal.id);
+          for (const animal of animals) {
+            if (animal.gender?.toLowerCase() !== "female") continue;
 
-          // Get last calving date
-          const { data: offspring } = await supabase
-            .from("animals")
-            .select("birth_date")
-            .eq("mother_id", animal.id)
-            .order("birth_date", { ascending: false })
-            .limit(1);
+            // Calculate age on target date
+            if (!animal.birth_date) continue;
+            const birthDate = new Date(animal.birth_date);
+            const ageOnDate = Math.floor((targetDateObj.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24));
 
-          // Check for recent milking records
-          const { data: recentMilking } = await supabase
-            .from("milking_records")
-            .select("id")
-            .eq("animal_id", animal.id)
-            .gte("record_date", new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-            .limit(1);
+            // Get offspring data
+            const { data: offspring, count: offspringCount } = await supabase
+              .from("animals")
+              .select("birth_date", { count: "exact" })
+              .eq("mother_id", animal.id)
+              .lte("birth_date", targetDate)
+              .order("birth_date", { ascending: false });
 
-          // Check for active AI records
-          const { data: aiRecords } = await supabase
-            .from("ai_records")
-            .select("performed_date")
-            .eq("animal_id", animal.id)
-            .order("scheduled_date", { ascending: false })
-            .limit(1);
+            // Calculate last calving before target date
+            const lastCalvingDate = offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null;
 
-          const stageData: AnimalStageData = {
-            birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
-            gender: animal.gender,
-            milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
-            offspringCount: offspringCount || 0,
-            lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
-            hasRecentMilking: (recentMilking?.length || 0) > 0,
-            hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
-          };
+            // Check for milking records around target date (within 30 days before)
+            const thirtyDaysBeforeTarget = new Date(targetDateObj);
+            thirtyDaysBeforeTarget.setDate(thirtyDaysBeforeTarget.getDate() - 30);
 
-          const lifeStage = calculateLifeStage(stageData);
-          const milkingStage = calculateMilkingStage(stageData);
+            const { data: milkingRecords } = await supabase
+              .from("milking_records")
+              .select("id")
+              .eq("animal_id", animal.id)
+              .gte("record_date", thirtyDaysBeforeTarget.toISOString().split("T")[0])
+              .lte("record_date", targetDate)
+              .limit(1);
 
-          if (lifeStage) {
-            stageCounts[lifeStage] = (stageCounts[lifeStage] || 0) + 1;
+            // Check for AI records
+            const { data: aiRecords } = await supabase
+              .from("ai_records")
+              .select("performed_date")
+              .eq("animal_id", animal.id)
+              .lte("scheduled_date", targetDate)
+              .order("scheduled_date", { ascending: false })
+              .limit(1);
+
+            const stageData: AnimalStageData = {
+              birthDate: birthDate,
+              gender: animal.gender,
+              milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
+              offspringCount: offspringCount || 0,
+              lastCalvingDate: lastCalvingDate,
+              hasRecentMilking: (milkingRecords?.length || 0) > 0,
+              hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
+            };
+
+            const milkingStage = calculateMilkingStage(stageData);
+
+            if (milkingStage) {
+              stageCounts[milkingStage] = (stageCounts[milkingStage] || 0) + 1;
+              allStageKeys.add(milkingStage);
+            }
           }
-          if (milkingStage) {
-            milkingStageCounts[milkingStage] = (milkingStageCounts[milkingStage] || 0) + 1;
-          }
+
+          // Add stage counts to combined data
+          Object.entries(stageCounts).forEach(([stage, count]) => {
+            combinedDataMap[targetDate][stage] = count;
+          });
         }
       }
 
-      // Convert to chart data format
-      const lifeStageData: StageCountData[] = Object.entries(stageCounts).map(([stage, count]) => ({
-        stage,
-        count,
-        type: "Life Stage" as const
-      }));
+      const finalData = dateArray.map(date => combinedDataMap[date]);
+      const stageKeysArray = Array.from(allStageKeys);
 
-      const milkingStageDataArr: StageCountData[] = Object.entries(milkingStageCounts).map(([stage, count]) => ({
-        stage,
-        count,
-        type: "Milking Stage" as const
-      }));
-
-      setStageData([...lifeStageData, ...milkingStageDataArr]);
+      setCombinedData(finalData);
+      setStageKeys(stageKeysArray);
 
       setStats({
         totalAnimals: animalCount || 0,
@@ -196,7 +206,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         pregnantCount: pregnancyData?.length || 0,
         recentHealthEvents: healthCount || 0
       });
-      setDailyMilkData(chartData);
     } catch (error: any) {
       toast({
         title: "Error loading dashboard",
@@ -271,117 +280,93 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       </Card>
       </div>
 
-      {/* Daily Milk Production Chart */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily Milk Production</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dailyMilkData.length > 0 ? (
-              <ChartContainer
-                config={{
-                  total: {
-                    label: "Total Liters",
-                    color: "hsl(var(--primary))",
-                  },
-                }}
-                className="h-[300px] w-full"
-              >
-                <AreaChart data={dailyMilkData}>
-                  <defs>
-                    <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="date"
-                    className="text-xs"
-                    tickLine={false}
-                    axisLine={false}
+      {/* Combined Milk Production & Cattle Count Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Milk Production & Cattle Head Count by Stage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {combinedData.length > 0 ? (
+            <ChartContainer
+              config={{
+                milkTotal: {
+                  label: "Milk (Liters)",
+                  color: "hsl(var(--primary))",
+                },
+                ...Object.fromEntries(
+                  stageKeys.map((stage, idx) => [
+                    stage,
+                    {
+                      label: stage,
+                      color: `hsl(var(--chart-${(idx % 5) + 1}))`,
+                    },
+                  ])
+                ),
+              }}
+              className="h-[400px] w-full"
+            >
+              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }}>
+                <defs>
+                  <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis
+                  dataKey="date"
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}L`}
+                  label={{ value: "Milk (Liters)", angle: -90, position: "insideLeft" }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "Cattle Count", angle: 90, position: "insideRight" }}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="milkTotal"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  fill="url(#fillMilk)"
+                  name="Milk (L)"
+                />
+                {stageKeys.map((stage, idx) => (
+                  <Bar
+                    key={stage}
+                    yAxisId="right"
+                    dataKey={stage}
+                    stackId="stages"
+                    fill={`hsl(var(--chart-${(idx % 5) + 1}))`}
                   />
-                  <YAxis
-                    className="text-xs"
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}L`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="total"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fill="url(#fillTotal)"
-                  />
-                </AreaChart>
-              </ChartContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Milk className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                  <p>No milking records yet</p>
-                </div>
+                ))}
+              </ComposedChart>
+            </ChartContainer>
+          ) : (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <Milk className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                <p>No data available</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Cattle by Stage Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cattle Head Count by Stage</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stageData.length > 0 ? (
-              <ChartContainer
-                config={{
-                  lifeStage: {
-                    label: "Life Stage",
-                    color: "hsl(var(--primary))",
-                  },
-                  milkingStage: {
-                    label: "Milking Stage",
-                    color: "hsl(var(--chart-2))",
-                  },
-                }}
-                className="h-[300px] w-full"
-              >
-                <BarChart 
-                  data={stageData}
-                  layout="vertical"
-                  margin={{ left: 100, right: 20, top: 10, bottom: 10 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" className="text-xs" />
-                  <YAxis 
-                    dataKey="stage" 
-                    type="category" 
-                    className="text-xs"
-                    width={90}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Bar 
-                    dataKey="count" 
-                    fill="hsl(var(--primary))"
-                    radius={[0, 4, 4, 0]}
-                  />
-                </BarChart>
-              </ChartContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                  <p>No stage data available</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <HealthEventsDialog
         farmId={farmId}
