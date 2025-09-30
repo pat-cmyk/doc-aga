@@ -11,6 +11,7 @@ import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   calculateLifeStage, 
   calculateMilkingStage, 
@@ -18,6 +19,43 @@ import {
   getMilkingStageBadgeColor,
   type AnimalStageData 
 } from "@/lib/animalStages";
+
+// Helper function to get stage definitions
+const getLifeStageDefinition = (stage: string | null): string => {
+  switch (stage) {
+    case "Calf":
+      return "Young cattle aged 0-8 months";
+    case "Heifer Calf":
+      return "Female cattle aged 8-12 months";
+    case "Yearling Heifer":
+      return "Female cattle aged 12-15 months";
+    case "Breeding Heifer":
+      return "Female cattle 15+ months old, ready for breeding but not yet bred";
+    case "Pregnant Heifer":
+      return "Female cattle 15+ months old with confirmed pregnancy, no previous offspring";
+    case "First-Calf Heifer":
+      return "Female cattle with one offspring";
+    case "Mature Cow":
+      return "Female cattle with two or more offspring";
+    default:
+      return "";
+  }
+};
+
+const getMilkingStageDefinition = (stage: string | null): string => {
+  switch (stage) {
+    case "Early Lactation":
+      return "0-100 days after calving - Peak milk production period";
+    case "Mid-Lactation":
+      return "100-200 days after calving - Sustained production period";
+    case "Late Lactation":
+      return "200-305 days after calving - Declining production period";
+    case "Dry Period":
+      return "Non-lactating period before next calving, typically 60 days";
+    default:
+      return "";
+  }
+};
 
 interface Animal {
   id: string;
@@ -293,16 +331,32 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-2xl">{animal.name}</CardTitle>
-                {computedLifeStage && (
-                  <Badge className={`${getLifeStageBadgeColor(computedLifeStage)} text-xs font-medium border-0`}>
-                    {computedLifeStage}
-                  </Badge>
-                )}
-                {computedMilkingStage && (
-                  <Badge className={`${getMilkingStageBadgeColor(computedMilkingStage)} text-xs font-medium border-0`}>
-                    {computedMilkingStage}
-                  </Badge>
-                )}
+                <TooltipProvider>
+                  {computedLifeStage && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className={`${getLifeStageBadgeColor(computedLifeStage)} text-xs font-medium border-0 cursor-help`}>
+                          {computedLifeStage}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{getLifeStageDefinition(computedLifeStage)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {computedMilkingStage && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className={`${getMilkingStageBadgeColor(computedMilkingStage)} text-xs font-medium border-0 cursor-help`}>
+                          {computedMilkingStage}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{getMilkingStageDefinition(computedMilkingStage)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </TooltipProvider>
               </div>
               <CardDescription>
                 {animal.breed} • Tag: {animal.ear_tag}

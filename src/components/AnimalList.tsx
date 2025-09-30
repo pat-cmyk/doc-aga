@@ -5,9 +5,47 @@ import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
+
+// Helper function to get stage definitions
+const getLifeStageDefinition = (stage: string | null): string => {
+  switch (stage) {
+    case "Calf":
+      return "Young cattle aged 0-8 months";
+    case "Heifer Calf":
+      return "Female cattle aged 8-12 months";
+    case "Yearling Heifer":
+      return "Female cattle aged 12-15 months";
+    case "Breeding Heifer":
+      return "Female cattle 15+ months old, ready for breeding but not yet bred";
+    case "Pregnant Heifer":
+      return "Female cattle 15+ months old with confirmed pregnancy, no previous offspring";
+    case "First-Calf Heifer":
+      return "Female cattle with one offspring";
+    case "Mature Cow":
+      return "Female cattle with two or more offspring";
+    default:
+      return "";
+  }
+};
+
+const getMilkingStageDefinition = (stage: string | null): string => {
+  switch (stage) {
+    case "Early Lactation":
+      return "0-100 days after calving - Peak milk production period";
+    case "Mid-Lactation":
+      return "100-200 days after calving - Sustained production period";
+    case "Late Lactation":
+      return "200-305 days after calving - Declining production period";
+    case "Dry Period":
+      return "Non-lactating period before next calving, typically 60 days";
+    default:
+      return "";
+  }
+};
 
 interface Animal {
   id: string;
@@ -176,18 +214,34 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
                   Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}
                 </p>
                 {(animal.lifeStage || animal.milkingStage) && (
-                  <div className="flex flex-wrap gap-2">
-                    {animal.lifeStage && (
-                      <Badge className={`${getLifeStageBadgeColor(animal.lifeStage)} text-xs font-medium border-0`}>
-                        {animal.lifeStage}
-                      </Badge>
-                    )}
-                    {animal.milkingStage && (
-                      <Badge className={`${getMilkingStageBadgeColor(animal.milkingStage)} text-xs font-medium border-0`}>
-                        {animal.milkingStage}
-                      </Badge>
-                    )}
-                  </div>
+                  <TooltipProvider>
+                    <div className="flex flex-wrap gap-2">
+                      {animal.lifeStage && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={`${getLifeStageBadgeColor(animal.lifeStage)} text-xs font-medium border-0 cursor-help`}>
+                              {animal.lifeStage}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{getLifeStageDefinition(animal.lifeStage)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {animal.milkingStage && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={`${getMilkingStageBadgeColor(animal.milkingStage)} text-xs font-medium border-0 cursor-help`}>
+                              {animal.milkingStage}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{getMilkingStageDefinition(animal.milkingStage)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TooltipProvider>
                 )}
               </CardContent>
             </Card>
