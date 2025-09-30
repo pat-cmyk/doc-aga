@@ -165,6 +165,8 @@ export type Database = {
           gender: string | null
           id: string
           is_deleted: boolean
+          life_stage: string | null
+          milking_stage: string | null
           milking_start_date: string | null
           mother_id: string | null
           name: string | null
@@ -182,6 +184,8 @@ export type Database = {
           gender?: string | null
           id?: string
           is_deleted?: boolean
+          life_stage?: string | null
+          milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null
@@ -199,6 +203,8 @@ export type Database = {
           gender?: string | null
           id?: string
           is_deleted?: boolean
+          life_stage?: string | null
+          milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null

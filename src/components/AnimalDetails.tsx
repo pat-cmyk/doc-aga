@@ -21,6 +21,9 @@ interface Animal {
   avatar_url: string | null;
   mother_id: string | null;
   father_id: string | null;
+  gender: string | null;
+  life_stage: string | null;
+  milking_stage: string | null;
 }
 
 interface ParentAnimal {
@@ -213,7 +216,19 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
               />
             </div>
             <div className="flex-1">
-              <CardTitle className="text-2xl">{animal.name}</CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-2xl">{animal.name}</CardTitle>
+                {animal.gender === "Female" && animal.life_stage && (
+                  <Badge variant="secondary" className="text-xs">
+                    {animal.life_stage}
+                  </Badge>
+                )}
+                {animal.gender === "Female" && animal.milking_stage && (
+                  <Badge variant="outline" className="text-xs">
+                    {animal.milking_stage}
+                  </Badge>
+                )}
+              </div>
               <CardDescription>
                 {animal.breed} • Tag: {animal.ear_tag}
               </CardDescription>
