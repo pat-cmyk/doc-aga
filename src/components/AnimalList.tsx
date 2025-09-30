@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StageBadge } from "@/components/ui/stage-badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
@@ -68,6 +70,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(initialSelectedAnimalId || null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [breedFilter, setBreedFilter] = useState<string>("all");
+  const [genderFilter, setGenderFilter] = useState<string>("all");
+  const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
+  const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -181,6 +188,25 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
     );
   }
 
+  // Get unique values for filters
+  const uniqueBreeds = Array.from(new Set(animals.map(a => a.breed).filter(Boolean)));
+  const uniqueLifeStages = Array.from(new Set(animals.map(a => a.lifeStage).filter(Boolean)));
+  const uniqueMilkingStages = Array.from(new Set(animals.map(a => a.milkingStage).filter(Boolean)));
+
+  // Apply filters
+  const filteredAnimals = animals.filter(animal => {
+    const matchesSearch = searchQuery === "" || 
+      animal.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      animal.ear_tag?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesBreed = breedFilter === "all" || animal.breed === breedFilter;
+    const matchesGender = genderFilter === "all" || animal.gender?.toLowerCase() === genderFilter.toLowerCase();
+    const matchesLifeStage = lifeStageFilter === "all" || animal.lifeStage === lifeStageFilter;
+    const matchesMilkingStage = milkingStageFilter === "all" || animal.milkingStage === milkingStageFilter;
+
+    return matchesSearch && matchesBreed && matchesGender && matchesLifeStage && matchesMilkingStage;
+  });
+
   return (
     <div className="space-y-4">
       <Button onClick={() => setShowForm(true)} className="w-full">
@@ -188,15 +214,92 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
         Add New Animal
       </Button>
 
-      {animals.length === 0 ? (
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or ear tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Filter dropdowns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Select value={breedFilter} onValueChange={setBreedFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Breed" />
+              </SelectTrigger>
+              <SelectContent className="bg-card z-50">
+                <SelectItem value="all">All Breeds</SelectItem>
+                {uniqueBreeds.map(breed => (
+                  <SelectItem key={breed} value={breed!}>{breed}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={genderFilter} onValueChange={setGenderFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Gender" />
+              </SelectTrigger>
+              <SelectContent className="bg-card z-50">
+                <SelectItem value="all">All Genders</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={lifeStageFilter} onValueChange={setLifeStageFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Life Stage" />
+              </SelectTrigger>
+              <SelectContent className="bg-card z-50">
+                <SelectItem value="all">All Life Stages</SelectItem>
+                {uniqueLifeStages.map(stage => (
+                  <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={milkingStageFilter} onValueChange={setMilkingStageFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Milking Stage" />
+              </SelectTrigger>
+              <SelectContent className="bg-card z-50">
+                <SelectItem value="all">All Milking Stages</SelectItem>
+                {uniqueMilkingStages.map(stage => (
+                  <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Results count */}
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredAnimals.length} of {animals.length} animals
+          </p>
+        </CardContent>
+      </Card>
+
+      {filteredAnimals.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
-            No animals yet. Add your first animal to start tracking!
+            {animals.length === 0 ? "No animals yet. Add your first animal to start tracking!" : "No animals match your filters."}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {animals.map((animal) => (
+          {filteredAnimals.map((animal) => (
             <Card
               key={animal.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
