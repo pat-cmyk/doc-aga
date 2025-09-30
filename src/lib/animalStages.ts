@@ -11,57 +11,79 @@ export interface AnimalStageData {
 }
 
 export function calculateLifeStage(data: AnimalStageData): string | null {
-  const { birthDate, gender, offspringCount, lastCalvingDate, hasActiveAI } = data;
-  
-  if (!birthDate || gender !== "Female") return null;
-  
-  const ageInMonths = differenceInMonths(new Date(), birthDate);
-  
-  // Calf (0-8 months)
-  if (ageInMonths < 8) return "Calf";
-  
-  // Heifer Calf (8-12 months)
-  if (ageInMonths < 12) return "Heifer Calf";
-  
-  // Yearling Heifer (12-15 months)
-  if (ageInMonths < 15) return "Yearling Heifer";
-  
-  // For animals 15+ months
-  if (offspringCount === 0) {
-    // Pregnant Heifer (has AI record but no offspring)
-    if (hasActiveAI) return "Pregnant Heifer";
-    // Breeding Heifer (ready for breeding)
-    return "Breeding Heifer";
+  try {
+    const { birthDate, gender, offspringCount, hasActiveAI } = data;
+    
+    if (!birthDate || gender !== "Female") return null;
+    
+    // Ensure birthDate is a valid date
+    if (isNaN(birthDate.getTime())) return null;
+    
+    const ageInMonths = differenceInMonths(new Date(), birthDate);
+    
+    // Ensure ageInMonths is a valid number
+    if (isNaN(ageInMonths) || ageInMonths < 0) return null;
+    
+    // Calf (0-8 months)
+    if (ageInMonths < 8) return "Calf";
+    
+    // Heifer Calf (8-12 months)
+    if (ageInMonths < 12) return "Heifer Calf";
+    
+    // Yearling Heifer (12-15 months)
+    if (ageInMonths < 15) return "Yearling Heifer";
+    
+    // For animals 15+ months
+    if (offspringCount === 0) {
+      // Pregnant Heifer (has AI record but no offspring)
+      if (hasActiveAI) return "Pregnant Heifer";
+      // Breeding Heifer (ready for breeding)
+      return "Breeding Heifer";
+    }
+    
+    // First-Calf Heifer (has exactly 1 offspring)
+    if (offspringCount === 1) return "First-Calf Heifer";
+    
+    // Mature Cow (has 2+ offspring)
+    return "Mature Cow";
+  } catch (error) {
+    console.error("Error in calculateLifeStage:", error);
+    return null;
   }
-  
-  // First-Calf Heifer (has exactly 1 offspring)
-  if (offspringCount === 1) return "First-Calf Heifer";
-  
-  // Mature Cow (has 2+ offspring)
-  return "Mature Cow";
 }
 
 export function calculateMilkingStage(data: AnimalStageData): string | null {
-  const { birthDate, gender, lastCalvingDate, hasRecentMilking } = data;
-  
-  if (!birthDate || gender !== "Female" || !lastCalvingDate) return null;
-  
-  const daysSinceCalving = differenceInDays(new Date(), lastCalvingDate);
-  
-  // If no recent milking records, consider it dry period
-  if (!hasRecentMilking && daysSinceCalving > 60) return "Dry Period";
-  
-  // Early Lactation (0-100 days)
-  if (daysSinceCalving <= 100) return "Early Lactation";
-  
-  // Mid-Lactation (100-200 days)
-  if (daysSinceCalving <= 200) return "Mid-Lactation";
-  
-  // Late Lactation (200-305 days)
-  if (daysSinceCalving <= 305) return "Late Lactation";
-  
-  // Dry Period (305+ days)
-  return "Dry Period";
+  try {
+    const { birthDate, gender, lastCalvingDate, hasRecentMilking } = data;
+    
+    if (!birthDate || gender !== "Female" || !lastCalvingDate) return null;
+    
+    // Ensure dates are valid
+    if (isNaN(birthDate.getTime()) || isNaN(lastCalvingDate.getTime())) return null;
+    
+    const daysSinceCalving = differenceInDays(new Date(), lastCalvingDate);
+    
+    // Ensure daysSinceCalving is a valid number
+    if (isNaN(daysSinceCalving) || daysSinceCalving < 0) return null;
+    
+    // If no recent milking records, consider it dry period
+    if (!hasRecentMilking && daysSinceCalving > 60) return "Dry Period";
+    
+    // Early Lactation (0-100 days)
+    if (daysSinceCalving <= 100) return "Early Lactation";
+    
+    // Mid-Lactation (100-200 days)
+    if (daysSinceCalving <= 200) return "Mid-Lactation";
+    
+    // Late Lactation (200-305 days)
+    if (daysSinceCalving <= 305) return "Late Lactation";
+    
+    // Dry Period (305+ days)
+    return "Dry Period";
+  } catch (error) {
+    console.error("Error in calculateMilkingStage:", error);
+    return null;
+  }
 }
 
 export function getLifeStageBadgeColor(stage: string | null): string {
