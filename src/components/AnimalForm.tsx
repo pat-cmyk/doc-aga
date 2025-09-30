@@ -53,7 +53,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     gender: "",
     birth_date: "",
     mother_id: "",
-    father_id: ""
+    father_id: "",
+    is_father_ai: false,
+    ai_bull_brand: "",
+    ai_bull_reference: ""
   });
 
   useEffect(() => {
@@ -61,24 +64,31 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   }, [farmId]);
 
   const loadParentAnimals = async () => {
-    // Load female animals for mother selection
+    // Calculate date 18 months ago
+    const eighteenMonthsAgo = new Date();
+    eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 18);
+    const minBirthDate = eighteenMonthsAgo.toISOString().split('T')[0];
+
+    // Load female animals for mother selection (18+ months old)
     const { data: femaleData } = await supabase
       .from("animals")
-      .select("id, name, ear_tag")
+      .select("id, name, ear_tag, birth_date")
       .eq("farm_id", farmId)
-      .eq("gender", "Female")
+      .ilike("gender", "female")
       .eq("is_deleted", false)
+      .lte("birth_date", minBirthDate)
       .order("name");
 
     if (femaleData) setMothers(femaleData);
 
-    // Load male animals for father selection
+    // Load male animals for father selection (18+ months old)
     const { data: maleData } = await supabase
       .from("animals")
-      .select("id, name, ear_tag")
+      .select("id, name, ear_tag, birth_date")
       .eq("farm_id", farmId)
-      .eq("gender", "Male")
+      .ilike("gender", "male")
       .eq("is_deleted", false)
+      .lte("birth_date", minBirthDate)
       .order("name");
 
     if (maleData) setFathers(maleData);
@@ -113,7 +123,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       finalBreed = `${formData.breed1} x ${formData.breed2}`;
     }
     
-    const { error } = await supabase.from("animals").insert({
+    const { data, error } = await supabase.from("animals").insert({
       farm_id: farmId,
       name: formData.name || null,
       ear_tag: formData.ear_tag,
@@ -121,8 +131,18 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       gender: formData.gender || null,
       birth_date: formData.birth_date || null,
       mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
-      father_id: formData.father_id && formData.father_id !== "none" ? formData.father_id : null
-    });
+      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null)
+    }).select();
+
+    // If AI was used and animal was created successfully, create AI record
+    if (!error && formData.is_father_ai && data && data[0]) {
+      await supabase.from("ai_records").insert({
+        animal_id: data[0].id,
+        scheduled_date: formData.birth_date || null,
+        performed_date: formData.birth_date || null,
+        notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`
+      });
+    }
 
     setCreating(false);
     if (error) {
@@ -276,14 +296,21 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             <div className="space-y-2">
               <Label htmlFor="father_id">Father</Label>
               <Select
-                value={formData.father_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, father_id: value }))}
+                value={formData.is_father_ai ? "ai" : formData.father_id}
+                onValueChange={(value) => {
+                  if (value === "ai") {
+                    setFormData(prev => ({ ...prev, is_father_ai: true, father_id: "" }));
+                  } else {
+                    setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value }));
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select father" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="ai">Artificial Insemination</SelectItem>
                   {fathers.map((father) => (
                     <SelectItem key={father.id} value={father.id}>
                       {father.name || father.ear_tag || "Unnamed"}
@@ -292,6 +319,29 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.is_father_ai && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="ai_bull_brand">Bull Semen Brand</Label>
+                  <Input
+                    id="ai_bull_brand"
+                    value={formData.ai_bull_brand}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_brand: e.target.value }))}
+                    placeholder="Enter bull semen brand"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ai_bull_reference">Bull Reference/Name</Label>
+                  <Input
+                    id="ai_bull_reference"
+                    value={formData.ai_bull_reference}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_reference: e.target.value }))}
+                    placeholder="Enter bull reference or name"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex gap-2">
