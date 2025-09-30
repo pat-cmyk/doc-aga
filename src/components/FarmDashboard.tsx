@@ -387,7 +387,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   tickLine={false}
                   axisLine={false}
                   label={{ value: "Cattle Count", angle: 90, position: "insideRight" }}
-                  domain={[0, 'auto']}
+                  domain={[0, 4]}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
