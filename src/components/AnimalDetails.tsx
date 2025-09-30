@@ -11,7 +11,7 @@ import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { StageBadge } from "@/components/ui/stage-badge";
 import { 
   calculateLifeStage, 
   calculateMilkingStage, 
@@ -331,32 +331,20 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-2xl">{animal.name}</CardTitle>
-                <TooltipProvider>
-                  {computedLifeStage && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge className={`${getLifeStageBadgeColor(computedLifeStage)} text-xs font-medium border-0 cursor-help`}>
-                          {computedLifeStage}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{getLifeStageDefinition(computedLifeStage)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {computedMilkingStage && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge className={`${getMilkingStageBadgeColor(computedMilkingStage)} text-xs font-medium border-0 cursor-help`}>
-                          {computedMilkingStage}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{getMilkingStageDefinition(computedMilkingStage)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </TooltipProvider>
+                {computedLifeStage && (
+                  <StageBadge 
+                    stage={computedLifeStage}
+                    definition={getLifeStageDefinition(computedLifeStage)}
+                    colorClass={getLifeStageBadgeColor(computedLifeStage)}
+                  />
+                )}
+                {computedMilkingStage && (
+                  <StageBadge 
+                    stage={computedMilkingStage}
+                    definition={getMilkingStageDefinition(computedMilkingStage)}
+                    colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
+                  />
+                )}
               </div>
               <CardDescription>
                 {animal.breed} • Tag: {animal.ear_tag}

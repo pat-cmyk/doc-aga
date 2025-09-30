@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { StageBadge } from "@/components/ui/stage-badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
@@ -214,34 +213,22 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
                   Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}
                 </p>
                 {(animal.lifeStage || animal.milkingStage) && (
-                  <TooltipProvider>
-                    <div className="flex flex-wrap gap-2">
-                      {animal.lifeStage && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className={`${getLifeStageBadgeColor(animal.lifeStage)} text-xs font-medium border-0 cursor-help`}>
-                              {animal.lifeStage}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getLifeStageDefinition(animal.lifeStage)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      {animal.milkingStage && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className={`${getMilkingStageBadgeColor(animal.milkingStage)} text-xs font-medium border-0 cursor-help`}>
-                              {animal.milkingStage}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getMilkingStageDefinition(animal.milkingStage)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </TooltipProvider>
+                  <div className="flex flex-wrap gap-2">
+                    {animal.lifeStage && (
+                      <StageBadge 
+                        stage={animal.lifeStage}
+                        definition={getLifeStageDefinition(animal.lifeStage)}
+                        colorClass={getLifeStageBadgeColor(animal.lifeStage)}
+                      />
+                    )}
+                    {animal.milkingStage && (
+                      <StageBadge 
+                        stage={animal.milkingStage}
+                        definition={getMilkingStageDefinition(animal.milkingStage)}
+                        colorClass={getMilkingStageBadgeColor(animal.milkingStage)}
+                      />
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
