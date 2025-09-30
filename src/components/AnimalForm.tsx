@@ -120,8 +120,8 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       breed: finalBreed || null,
       gender: formData.gender || null,
       birth_date: formData.birth_date || null,
-      mother_id: formData.mother_id || null,
-      father_id: formData.father_id || null
+      mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
+      father_id: formData.father_id && formData.father_id !== "none" ? formData.father_id : null
     });
 
     setCreating(false);
@@ -263,7 +263,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   <SelectValue placeholder="Select mother" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {mothers.map((mother) => (
                     <SelectItem key={mother.id} value={mother.id}>
                       {mother.name || mother.ear_tag || "Unnamed"}
@@ -283,7 +283,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   <SelectValue placeholder="Select father" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {fathers.map((father) => (
                     <SelectItem key={father.id} value={father.id}>
                       {father.name || father.ear_tag || "Unnamed"}
