@@ -160,6 +160,7 @@ export type Database = {
           created_at: string
           ear_tag: string | null
           farm_id: string
+          gender: string | null
           id: string
           is_deleted: boolean
           milking_start_date: string | null
@@ -173,6 +174,7 @@ export type Database = {
           created_at?: string
           ear_tag?: string | null
           farm_id: string
+          gender?: string | null
           id?: string
           is_deleted?: boolean
           milking_start_date?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           created_at?: string
           ear_tag?: string | null
           farm_id?: string
+          gender?: string | null
           id?: string
           is_deleted?: boolean
           milking_start_date?: string | null
