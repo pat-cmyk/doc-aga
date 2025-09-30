@@ -6,10 +6,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { differenceInDays } from "date-fns";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
 import { Badge } from "@/components/ui/badge";
+import { 
+  calculateLifeStage, 
+  calculateMilkingStage, 
+  getLifeStageBadgeColor, 
+  getMilkingStageBadgeColor,
+  type AnimalStageData 
+} from "@/lib/animalStages";
 
 interface Animal {
   id: string;
@@ -51,6 +59,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [offspring, setOffspring] = useState<OffspringAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [stageData, setStageData] = useState<AnimalStageData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -97,6 +106,47 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
         .order("birth_date", { ascending: false });
 
       if (offspringData) setOffspring(offspringData);
+
+      // Fetch additional data for stage calculation
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      // Get latest AI record
+      const { data: aiRecords } = await supabase
+        .from("ai_records")
+        .select("performed_date")
+        .eq("animal_id", animalId)
+        .not("performed_date", "is", null)
+        .order("performed_date", { ascending: false })
+        .limit(1);
+      
+      // Get recent milking records (last 30 days)
+      const { data: milkingRecords } = await supabase
+        .from("milking_records")
+        .select("record_date")
+        .eq("animal_id", animalId)
+        .gte("record_date", thirtyDaysAgo.toISOString().split('T')[0])
+        .limit(1);
+      
+      // Calculate last calving date from youngest offspring
+      const lastCalvingDate = offspringData && offspringData.length > 0 && offspringData[0].birth_date
+        ? new Date(offspringData[0].birth_date)
+        : null;
+      
+      // Check if there's an active AI (within last 283 days for gestation)
+      const hasActiveAI = aiRecords && aiRecords.length > 0 && aiRecords[0].performed_date
+        ? differenceInDays(now, new Date(aiRecords[0].performed_date)) <= 283
+        : false;
+      
+      setStageData({
+        birthDate: data.birth_date ? new Date(data.birth_date) : null,
+        gender: data.gender,
+        milkingStartDate: data.milking_start_date ? new Date(data.milking_start_date) : null,
+        offspringCount: offspringData ? offspringData.length : 0,
+        lastCalvingDate,
+        hasRecentMilking: milkingRecords ? milkingRecords.length > 0 : false,
+        hasActiveAI
+      });
     } catch (error: any) {
       toast({
         title: "Error loading animal",
@@ -185,6 +235,9 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
     );
   }
 
+  const computedLifeStage = stageData ? calculateLifeStage(stageData) : null;
+  const computedMilkingStage = stageData ? calculateMilkingStage(stageData) : null;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -218,14 +271,14 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-2xl">{animal.name}</CardTitle>
-                {animal.gender === "Female" && animal.life_stage && (
-                  <Badge variant="secondary" className="text-xs">
-                    {animal.life_stage}
+                {computedLifeStage && (
+                  <Badge className={`text-xs ${getLifeStageBadgeColor(computedLifeStage)}`}>
+                    {computedLifeStage}
                   </Badge>
                 )}
-                {animal.gender === "Female" && animal.milking_stage && (
-                  <Badge variant="outline" className="text-xs">
-                    {animal.milking_stage}
+                {computedMilkingStage && (
+                  <Badge className={`text-xs ${getMilkingStageBadgeColor(computedMilkingStage)}`}>
+                    {computedMilkingStage}
                   </Badge>
                 )}
               </div>

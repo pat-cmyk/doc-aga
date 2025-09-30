@@ -59,9 +59,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     is_father_ai: false,
     ai_bull_brand: "",
     ai_bull_reference: "",
-    ai_bull_breed: "",
-    life_stage: "",
-    milking_stage: ""
+    ai_bull_breed: ""
   });
 
   useEffect(() => {
@@ -192,9 +190,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       gender: formData.gender || null,
       birth_date: formData.birth_date || null,
       mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
-      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
-      life_stage: formData.gender === "Female" && formData.life_stage ? formData.life_stage : null,
-      milking_stage: formData.gender === "Female" && formData.milking_stage ? formData.milking_stage : null
+      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null)
     }).select();
 
     // If AI was used and animal was created successfully, create AI record
@@ -364,52 +360,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               </p>
             )}
           </div>
-
-          {/* Female Cattle Stages */}
-          {formData.gender === "Female" && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="life_stage">Life Stage</Label>
-                <Select
-                  value={formData.life_stage}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, life_stage: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select life stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Calf">Calf (Birth - 6-8 months)</SelectItem>
-                    <SelectItem value="Heifer Calf">Heifer Calf (Weaned, pre-mature)</SelectItem>
-                    <SelectItem value="Yearling Heifer">Yearling Heifer (~1 year)</SelectItem>
-                    <SelectItem value="Breeding Heifer">Breeding Heifer (12-15 months)</SelectItem>
-                    <SelectItem value="Pregnant Heifer">Pregnant Heifer (First pregnancy)</SelectItem>
-                    <SelectItem value="First-Calf Heifer">First-Calf Heifer (First calving)</SelectItem>
-                    <SelectItem value="Mature Cow">Mature Cow (2+ calvings)</SelectItem>
-                    <SelectItem value="Dry Cow">Dry Cow (45-60 days pre-calving)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="milking_stage">Milking Stage</Label>
-                <Select
-                  value={formData.milking_stage}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, milking_stage: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select milking stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Not Milking">Not Milking</SelectItem>
-                    <SelectItem value="Early Lactation">Early Lactation (0-100 days)</SelectItem>
-                    <SelectItem value="Mid-Lactation">Mid-Lactation (100-200 days)</SelectItem>
-                    <SelectItem value="Late Lactation">Late Lactation (200-305 days)</SelectItem>
-                    <SelectItem value="Dry Period">Dry Period (45-60 days pre-calving)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
 
           {/* Parent Selection */}
           <div className="space-y-4 pt-4 border-t">
