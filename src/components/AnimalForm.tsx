@@ -64,20 +64,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <CardTitle>Add New Animal</CardTitle>
-            <CardDescription>Create a digital baby book for your animal</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -124,8 +111,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
   );
 };
 
