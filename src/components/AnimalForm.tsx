@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface ParentAnimal {
+  id: string;
+  name: string | null;
+  ear_tag: string | null;
+}
 
 interface AnimalFormProps {
   farmId: string;
@@ -35,6 +41,8 @@ const CATTLE_BREEDS = [
 
 const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const [creating, setCreating] = useState(false);
+  const [mothers, setMothers] = useState<ParentAnimal[]>([]);
+  const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
@@ -43,8 +51,38 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     breed1: "",
     breed2: "",
     gender: "",
-    birth_date: ""
+    birth_date: "",
+    mother_id: "",
+    father_id: ""
   });
+
+  useEffect(() => {
+    loadParentAnimals();
+  }, [farmId]);
+
+  const loadParentAnimals = async () => {
+    // Load female animals for mother selection
+    const { data: femaleData } = await supabase
+      .from("animals")
+      .select("id, name, ear_tag")
+      .eq("farm_id", farmId)
+      .eq("gender", "Female")
+      .eq("is_deleted", false)
+      .order("name");
+
+    if (femaleData) setMothers(femaleData);
+
+    // Load male animals for father selection
+    const { data: maleData } = await supabase
+      .from("animals")
+      .select("id, name, ear_tag")
+      .eq("farm_id", farmId)
+      .eq("gender", "Male")
+      .eq("is_deleted", false)
+      .order("name");
+
+    if (maleData) setFathers(maleData);
+  };
 
   // Calculate recommended first AI date (15 months after birth for heifers)
   const getFirstAIDate = (birthDate: string) => {
@@ -81,7 +119,9 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       ear_tag: formData.ear_tag,
       breed: finalBreed || null,
       gender: formData.gender || null,
-      birth_date: formData.birth_date || null
+      birth_date: formData.birth_date || null,
+      mother_id: formData.mother_id || null,
+      father_id: formData.father_id || null
     });
 
     setCreating(false);
@@ -208,6 +248,52 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               </p>
             )}
           </div>
+
+          {/* Parent Selection */}
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="text-sm font-semibold">Parent Information (Optional)</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="mother_id">Mother</Label>
+              <Select
+                value={formData.mother_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select mother" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {mothers.map((mother) => (
+                    <SelectItem key={mother.id} value={mother.id}>
+                      {mother.name || mother.ear_tag || "Unnamed"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="father_id">Father</Label>
+              <Select
+                value={formData.father_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, father_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select father" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {fathers.map((father) => (
+                    <SelectItem key={father.id} value={father.id}>
+                      {father.name || father.ear_tag || "Unnamed"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
               Cancel

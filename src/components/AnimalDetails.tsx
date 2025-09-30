@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
+import { Badge } from "@/components/ui/badge";
 
 interface Animal {
   id: string;
@@ -18,6 +19,21 @@ interface Animal {
   birth_date: string | null;
   milking_start_date: string | null;
   avatar_url: string | null;
+  mother_id: string | null;
+  father_id: string | null;
+}
+
+interface ParentAnimal {
+  id: string;
+  name: string | null;
+  ear_tag: string | null;
+}
+
+interface OffspringAnimal {
+  id: string;
+  name: string | null;
+  ear_tag: string | null;
+  birth_date: string | null;
 }
 
 interface AnimalDetailsProps {
@@ -27,6 +43,9 @@ interface AnimalDetailsProps {
 
 const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [animal, setAnimal] = useState<Animal | null>(null);
+  const [mother, setMother] = useState<ParentAnimal | null>(null);
+  const [father, setFather] = useState<ParentAnimal | null>(null);
+  const [offspring, setOffspring] = useState<OffspringAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,22 +56,53 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   }, [animalId]);
 
   const loadAnimal = async () => {
-    const { data, error } = await supabase
-      .from("animals")
-      .select("*")
-      .eq("id", animalId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("animals")
+        .select("*")
+        .eq("id", animalId)
+        .single();
 
-    if (error) {
+      if (error) throw error;
+      setAnimal(data);
+
+      // Load parent information
+      if (data.mother_id) {
+        const { data: motherData } = await supabase
+          .from("animals")
+          .select("id, name, ear_tag")
+          .eq("id", data.mother_id)
+          .single();
+        if (motherData) setMother(motherData);
+      }
+
+      if (data.father_id) {
+        const { data: fatherData } = await supabase
+          .from("animals")
+          .select("id, name, ear_tag")
+          .eq("id", data.father_id)
+          .single();
+        if (fatherData) setFather(fatherData);
+      }
+
+      // Load offspring
+      const { data: offspringData } = await supabase
+        .from("animals")
+        .select("id, name, ear_tag, birth_date")
+        .or(`mother_id.eq.${animalId},father_id.eq.${animalId}`)
+        .eq("is_deleted", false)
+        .order("birth_date", { ascending: false });
+
+      if (offspringData) setOffspring(offspringData);
+    } catch (error: any) {
       toast({
         title: "Error loading animal",
         description: error.message,
         variant: "destructive"
       });
-    } else {
-      setAnimal(data);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,6 +235,56 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
               </p>
             </div>
           </div>
+
+          {/* Parents Section */}
+          {(mother || father) && (
+            <div className="mt-6 pt-6 border-t">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Parents
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {mother && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Mother</p>
+                    <Badge variant="secondary" className="text-sm">
+                      {mother.name || mother.ear_tag || "Unknown"}
+                    </Badge>
+                  </div>
+                )}
+                {father && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Father</p>
+                    <Badge variant="secondary" className="text-sm">
+                      {father.name || father.ear_tag || "Unknown"}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Offspring Section */}
+          {offspring.length > 0 && (
+            <div className="mt-6 pt-6 border-t">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Offspring ({offspring.length})
+              </h3>
+              <div className="space-y-2">
+                {offspring.map((child) => (
+                  <div key={child.id} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium">{child.name || child.ear_tag || "Unnamed"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Born: {child.birth_date ? new Date(child.birth_date).toLocaleDateString() : "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

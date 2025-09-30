@@ -161,10 +161,12 @@ export type Database = {
           created_at: string
           ear_tag: string | null
           farm_id: string
+          father_id: string | null
           gender: string | null
           id: string
           is_deleted: boolean
           milking_start_date: string | null
+          mother_id: string | null
           name: string | null
           updated_at: string
         }
@@ -176,10 +178,12 @@ export type Database = {
           created_at?: string
           ear_tag?: string | null
           farm_id: string
+          father_id?: string | null
           gender?: string | null
           id?: string
           is_deleted?: boolean
           milking_start_date?: string | null
+          mother_id?: string | null
           name?: string | null
           updated_at?: string
         }
@@ -191,10 +195,12 @@ export type Database = {
           created_at?: string
           ear_tag?: string | null
           farm_id?: string
+          father_id?: string | null
           gender?: string | null
           id?: string
           is_deleted?: boolean
           milking_start_date?: string | null
+          mother_id?: string | null
           name?: string | null
           updated_at?: string
         }
@@ -204,6 +210,20 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_father_id_fkey"
+            columns: ["father_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_mother_id_fkey"
+            columns: ["mother_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
         ]
