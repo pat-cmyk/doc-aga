@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, MapPin, Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalForm from "./AnimalForm";
@@ -163,18 +164,20 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
                   Add Animal
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Add New Animal</DialogTitle>
                   <DialogDescription>
                     Create a digital baby book for your animal
                   </DialogDescription>
                 </DialogHeader>
-                <AnimalForm
-                  farmId={farmId}
-                  onSuccess={handleAnimalAdded}
-                  onCancel={() => setShowAddDialog(false)}
-                />
+                <ScrollArea className="flex-1 pr-4">
+                  <AnimalForm
+                    farmId={farmId}
+                    onSuccess={handleAnimalAdded}
+                    onCancel={() => setShowAddDialog(false)}
+                  />
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>
