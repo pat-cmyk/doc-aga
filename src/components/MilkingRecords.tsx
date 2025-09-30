@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { LineChart, Line, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
 
 const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -19,7 +21,7 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   }, [animalId]);
 
   const loadRecords = async () => {
-    const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: false });
+    const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: true });
     setRecords(data || []);
     setLoading(false);
   };
@@ -34,16 +36,53 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
+  const chartData = records.map(r => ({
+    date: new Date(r.record_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    liters: parseFloat(r.liters)
+  }));
+
+  const chartConfig = {
+    liters: {
+      label: "Liters",
+      color: "hsl(var(--primary))",
+    },
+  };
+
   return (
-    <Card><CardContent className="pt-6 space-y-4">
-      {!showForm ? <Button onClick={() => setShowForm(true)} className="w-full"><Plus className="h-4 w-4 mr-2" />Add Milking Record</Button> : 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} required /></div>
-        <div><Label>Liters</Label><Input type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required /></div>
-        <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1">Cancel</Button><Button type="submit" className="flex-1">Save</Button></div>
-      </form>}
-      <div className="space-y-2">{records.map(r => <Card key={r.id}><CardContent className="p-3 flex justify-between"><span className="text-sm">{new Date(r.record_date).toLocaleDateString()}</span><span className="font-semibold">{r.liters}L</span></CardContent></Card>)}</div>
-    </CardContent></Card>
+    <Card>
+      <CardHeader>
+        <CardTitle>Milking Production</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!showForm ? (
+          <Button onClick={() => setShowForm(true)} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />Add Milking Record
+          </Button>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} required /></div>
+            <div><Label>Liters</Label><Input type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required /></div>
+            <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1">Cancel</Button><Button type="submit" className="flex-1">Save</Button></div>
+          </form>
+        )}
+        
+        {records.length > 0 ? (
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="date" className="text-xs" />
+              <YAxis className="text-xs" label={{ value: 'Liters', angle: -90, position: 'insideLeft' }} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+            </LineChart>
+          </ChartContainer>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            No milking records yet. Add your first record to see the production chart.
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
