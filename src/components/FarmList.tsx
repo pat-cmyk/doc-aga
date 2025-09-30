@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +27,8 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -58,29 +61,66 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     setLoading(false);
   };
 
-  const getCurrentLocation = () => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData(prev => ({
-            ...prev,
-            gps_lat: position.coords.latitude.toFixed(6),
-            gps_lng: position.coords.longitude.toFixed(6)
-          }));
-          toast({
-            title: "Location captured",
-            description: "GPS coordinates added successfully"
-          });
-        },
-        (error) => {
-          toast({
-            title: "Location error",
-            description: "Could not get current location",
-            variant: "destructive"
-          });
-        }
-      );
+  const requestLocationPermission = () => {
+    setShowLocationDialog(true);
+  };
+
+  const fetchCurrentLocation = () => {
+    if (!("geolocation" in navigator)) {
+      toast({
+        title: "Not supported",
+        description: "Geolocation is not supported by your browser",
+        variant: "destructive"
+      });
+      return;
     }
+
+    setFetchingLocation(true);
+    setShowLocationDialog(false);
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000 // 5 minutes
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          gps_lat: position.coords.latitude.toFixed(6),
+          gps_lng: position.coords.longitude.toFixed(6)
+        }));
+        toast({
+          title: "Location captured",
+          description: "GPS coordinates added successfully"
+        });
+        setFetchingLocation(false);
+      },
+      (error) => {
+        setFetchingLocation(false);
+        let errorMessage = "Could not get current location";
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access was denied. Please enable it in your browser settings or enter GPS coordinates manually";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location services are unavailable. Please check your device settings or enter coordinates manually";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again or enter coordinates manually";
+            break;
+        }
+        
+        toast({
+          title: "Location error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      },
+      options
+    );
   };
 
   const handleCreateFarm = async (e: React.FormEvent) => {
@@ -134,6 +174,24 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
 
   return (
     <div className="space-y-4">
+      <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Allow Location Access</AlertDialogTitle>
+            <AlertDialogDescription>
+              We need your location to automatically fill in the GPS coordinates for your farm. 
+              This helps ensure accurate tracking and management of your farm location.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Enter Manually</AlertDialogCancel>
+            <AlertDialogAction onClick={fetchCurrentLocation}>
+              Allow Location Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button className="w-full">
@@ -169,8 +227,18 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>GPS Coordinates *</Label>
-                <Button type="button" variant="outline" size="sm" onClick={getCurrentLocation}>
-                  <MapPin className="h-4 w-4 mr-2" />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={requestLocationPermission}
+                  disabled={fetchingLocation}
+                >
+                  {fetchingLocation ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4 mr-2" />
+                  )}
                   Use Current Location
                 </Button>
               </div>
