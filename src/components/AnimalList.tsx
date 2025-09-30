@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
+import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
 
 interface Animal {
   id: string;
@@ -13,6 +15,10 @@ interface Animal {
   ear_tag: string | null;
   breed: string | null;
   birth_date: string | null;
+  gender: string | null;
+  milking_start_date: string | null;
+  lifeStage?: string | null;
+  milkingStage?: string | null;
 }
 
 interface AnimalListProps {
@@ -51,9 +57,65 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
         description: error.message,
         variant: "destructive"
       });
-    } else {
-      setAnimals(data || []);
+      setLoading(false);
+      return;
     }
+
+    // Calculate stages for each animal
+    const animalsWithStages = await Promise.all(
+      (data || []).map(async (animal) => {
+        if (animal.gender?.toLowerCase() !== "female") {
+          return { ...animal, lifeStage: null, milkingStage: null };
+        }
+
+        // Get offspring count
+        const { count: offspringCount } = await supabase
+          .from("animals")
+          .select("*", { count: "exact", head: true })
+          .eq("mother_id", animal.id);
+
+        // Get last calving date (most recent offspring birth date)
+        const { data: offspring } = await supabase
+          .from("animals")
+          .select("birth_date")
+          .eq("mother_id", animal.id)
+          .order("birth_date", { ascending: false })
+          .limit(1);
+
+        // Check for recent milking records (within last 60 days)
+        const { data: recentMilking } = await supabase
+          .from("milking_records")
+          .select("id")
+          .eq("animal_id", animal.id)
+          .gte("record_date", new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        // Check for active AI records
+        const { data: aiRecords } = await supabase
+          .from("ai_records")
+          .select("performed_date")
+          .eq("animal_id", animal.id)
+          .order("scheduled_date", { ascending: false })
+          .limit(1);
+
+        const stageData = {
+          birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
+          gender: animal.gender,
+          milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
+          offspringCount: offspringCount || 0,
+          lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
+          hasRecentMilking: (recentMilking?.length || 0) > 0,
+          hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
+        };
+
+        const lifeStage = calculateLifeStage(stageData);
+        const milkingStage = calculateMilkingStage(stageData);
+
+        return { ...animal, lifeStage, milkingStage };
+      })
+    );
+
+    setAnimals(animalsWithStages);
     setLoading(false);
   };
 
@@ -109,10 +171,24 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
                   {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}
                 </p>
+                {(animal.lifeStage || animal.milkingStage) && (
+                  <div className="flex flex-wrap gap-2">
+                    {animal.lifeStage && (
+                      <Badge className={`${getLifeStageBadgeColor(animal.lifeStage)} text-xs font-medium border-0`}>
+                        {animal.lifeStage}
+                      </Badge>
+                    )}
+                    {animal.milkingStage && (
+                      <Badge className={`${getMilkingStageBadgeColor(animal.milkingStage)} text-xs font-medium border-0`}>
+                        {animal.milkingStage}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
