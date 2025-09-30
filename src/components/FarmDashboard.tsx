@@ -80,6 +80,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const loadDashboardData = async () => {
     try {
       const { startDate, endDate } = getDateRange();
+      
       // Get total animals
       const { count: animalCount } = await supabase
         .from("animals")
@@ -112,74 +113,23 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("animals.farm_id", farmId)
         .gte("visit_date", startDate.toISOString().split("T")[0]);
 
-      // Get daily milk totals for chart
-      const { data: dailyMilk } = await supabase
-        .from("milking_records")
-        .select("record_date, liters, animals!inner(farm_id)")
-        .eq("animals.farm_id", farmId)
-        .gte("record_date", startDate.toISOString().split("T")[0])
-        .order("record_date", { ascending: true });
-
-      // Get cattle data for stage calculations
-      const { data: animals } = await supabase
-        .from("animals")
-        .select("id, birth_date, gender, milking_start_date, mother_id")
+      // Fetch pre-aggregated data from daily_farm_stats table
+      const { data: dailyStats, error: statsError } = await supabase
+        .from("daily_farm_stats")
+        .select("*")
         .eq("farm_id", farmId)
-        .eq("is_deleted", false);
+        .gte("stat_date", startDate.toISOString().split("T")[0])
+        .lte("stat_date", endDate.toISOString().split("T")[0])
+        .order("stat_date", { ascending: true });
 
-      // BATCH OPTIMIZATION: Fetch all required data upfront (4 queries instead of 900+)
-      const sixtyDaysBeforeStart = new Date(startDate);
-      sixtyDaysBeforeStart.setDate(sixtyDaysBeforeStart.getDate() - 60);
-
-      // Fetch all offspring for all animals in the farm
-      const { data: allOffspring } = await supabase
-        .from("animals")
-        .select("id, mother_id, birth_date")
-        .eq("farm_id", farmId)
-        .not("mother_id", "is", null)
-        .order("birth_date", { ascending: false });
-
-      // Fetch all milking records for the date range
-      const { data: allMilkingRecords } = await supabase
-        .from("milking_records")
-        .select("animal_id, record_date, animals!inner(farm_id)")
-        .eq("animals.farm_id", farmId)
-        .gte("record_date", sixtyDaysBeforeStart.toISOString().split("T")[0]);
-
-      // Fetch all AI records for all animals
-      const { data: allAIRecords } = await supabase
-        .from("ai_records")
-        .select("animal_id, performed_date, scheduled_date, animals!inner(farm_id)")
-        .eq("animals.farm_id", farmId);
-
-      // Create Maps for fast in-memory lookups
-      const offspringByMother = new Map<string, Array<{ birth_date: string }>>();
-      allOffspring?.forEach(offspring => {
-        if (!offspring.mother_id) return;
-        if (!offspringByMother.has(offspring.mother_id)) {
-          offspringByMother.set(offspring.mother_id, []);
-        }
-        offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
-      });
-
-      const milkingByAnimal = new Map<string, Array<{ record_date: string }>>();
-      allMilkingRecords?.forEach(record => {
-        if (!milkingByAnimal.has(record.animal_id)) {
-          milkingByAnimal.set(record.animal_id, []);
-        }
-        milkingByAnimal.get(record.animal_id)!.push({ record_date: record.record_date });
-      });
-
-      const aiByAnimal = new Map<string, Array<{ performed_date: string | null, scheduled_date: string | null }>>();
-      allAIRecords?.forEach(record => {
-        if (!aiByAnimal.has(record.animal_id)) {
-          aiByAnimal.set(record.animal_id, []);
-        }
-        aiByAnimal.get(record.animal_id)!.push({
-          performed_date: record.performed_date,
-          scheduled_date: record.scheduled_date
+      if (statsError) {
+        console.error("Error fetching daily stats:", statsError);
+        toast({
+          title: "Error loading chart data",
+          description: statsError.message,
+          variant: "destructive"
         });
-      });
+      }
 
       // Create array of dates for the selected period
       const dateArray: string[] = [];
@@ -200,74 +150,20 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         };
       });
 
-      // Add milk data
-      dailyMilk?.forEach(record => {
-        const date = record.record_date;
+      // Populate data from daily_farm_stats table
+      dailyStats?.forEach(stat => {
+        const date = stat.stat_date;
         if (combinedDataMap[date]) {
-          combinedDataMap[date].milkTotal += Number(record.liters);
-        }
-      });
-
-      // Calculate stage counts for each day using in-memory data
-      if (animals) {
-        for (const targetDate of dateArray) {
-          const targetDateObj = new Date(targetDate);
-          const stageCounts: Record<string, number> = {};
-
-          for (const animal of animals) {
-            if (animal.gender?.toLowerCase() !== "female") continue;
-            if (!animal.birth_date) continue;
-
-            const birthDate = new Date(animal.birth_date);
-
-            // Get offspring data from Map (in-memory lookup)
-            const offspring = offspringByMother.get(animal.id) || [];
-            const offspringBeforeDate = offspring.filter(o => o.birth_date <= targetDate);
-            const offspringCount = offspringBeforeDate.length;
-            const lastCalvingDate = offspringBeforeDate[0]?.birth_date 
-              ? new Date(offspringBeforeDate[0].birth_date) 
-              : null;
-
-            // Check for milking records from Map (in-memory lookup)
-            const thirtyDaysBeforeTarget = new Date(targetDateObj);
-            thirtyDaysBeforeTarget.setDate(thirtyDaysBeforeTarget.getDate() - 30);
-            const thirtyDaysBeforeStr = thirtyDaysBeforeTarget.toISOString().split("T")[0];
-
-            const animalMilkingRecords = milkingByAnimal.get(animal.id) || [];
-            const hasRecentMilking = animalMilkingRecords.some(
-              r => r.record_date >= thirtyDaysBeforeStr && r.record_date <= targetDate
-            );
-
-            // Check for AI records from Map (in-memory lookup)
-            const animalAIRecords = aiByAnimal.get(animal.id) || [];
-            const hasActiveAI = animalAIRecords.some(
-              r => r.scheduled_date && r.scheduled_date <= targetDate
-            ) && offspringCount === 0;
-
-            const stageData: AnimalStageData = {
-              birthDate: birthDate,
-              gender: animal.gender,
-              milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
-              offspringCount: offspringCount,
-              lastCalvingDate: lastCalvingDate,
-              hasRecentMilking: hasRecentMilking,
-              hasActiveAI: hasActiveAI,
-            };
-
-            const milkingStage = calculateMilkingStage(stageData);
-
-            if (milkingStage) {
-              stageCounts[milkingStage] = (stageCounts[milkingStage] || 0) + 1;
-              allStageKeys.add(milkingStage);
-            }
-          }
-
-          // Add stage counts to combined data
+          combinedDataMap[date].milkTotal = Number(stat.total_milk_liters);
+          
+          // Add stage counts from JSONB
+          const stageCounts = stat.stage_counts as Record<string, number>;
           Object.entries(stageCounts).forEach(([stage, count]) => {
-            combinedDataMap[targetDate][stage] = count;
+            combinedDataMap[date][stage] = count;
+            allStageKeys.add(stage);
           });
         }
-      }
+      });
 
       const finalData = dateArray.map(date => combinedDataMap[date]);
       const stageKeysArray = Array.from(allStageKeys);
