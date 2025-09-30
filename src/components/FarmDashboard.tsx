@@ -8,6 +8,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface FarmDashboardProps {
   farmId: string;
+  onNavigateToAnimals?: () => void;
 }
 
 interface DashboardStats {
@@ -22,7 +23,7 @@ interface DailyMilkData {
   total: number;
 }
 
-const FarmDashboard = ({ farmId }: FarmDashboardProps) => {
+const FarmDashboard = ({ farmId, onNavigateToAnimals }: FarmDashboardProps) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
     avgDailyMilk: 0,
@@ -127,7 +128,10 @@ const FarmDashboard = ({ farmId }: FarmDashboardProps) => {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+          onClick={onNavigateToAnimals}
+        >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Animals</CardTitle>
           <Activity className="h-4 w-4 text-muted-foreground" />

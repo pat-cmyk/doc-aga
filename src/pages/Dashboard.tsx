@@ -149,7 +149,7 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            {farmId && <FarmDashboard farmId={farmId} />}
+            {farmId && <FarmDashboard farmId={farmId} onNavigateToAnimals={() => setActiveTab("animals")} />}
           </TabsContent>
 
           <TabsContent value="animals" className="space-y-6">
