@@ -68,7 +68,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     }
 
     setCreating(true);
-    const { data: { user } } = await supabase.auth.getUser();
     
     // Determine final breed value
     let finalBreed = formData.breed;
@@ -82,8 +81,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       ear_tag: formData.ear_tag,
       breed: finalBreed || null,
       gender: formData.gender || null,
-      birth_date: formData.birth_date || null,
-      created_by: user?.id
+      birth_date: formData.birth_date || null
     });
 
     setCreating(false);
