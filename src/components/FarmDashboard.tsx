@@ -5,10 +5,12 @@ import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import HealthEventsDialog from "./HealthEventsDialog";
 
 interface FarmDashboardProps {
   farmId: string;
   onNavigateToAnimals?: () => void;
+  onNavigateToAnimalDetails?: (animalId: string) => void;
 }
 
 interface DashboardStats {
@@ -23,7 +25,7 @@ interface DailyMilkData {
   total: number;
 }
 
-const FarmDashboard = ({ farmId, onNavigateToAnimals }: FarmDashboardProps) => {
+const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails }: FarmDashboardProps) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
     avgDailyMilk: 0,
@@ -32,6 +34,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals }: FarmDashboardProps) => {
   });
   const [dailyMilkData, setDailyMilkData] = useState<DailyMilkData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -164,7 +167,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals }: FarmDashboardProps) => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+        onClick={() => setHealthDialogOpen(true)}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Health Events</CardTitle>
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -232,6 +238,17 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals }: FarmDashboardProps) => {
           )}
         </CardContent>
       </Card>
+
+      <HealthEventsDialog
+        farmId={farmId}
+        open={healthDialogOpen}
+        onClose={() => setHealthDialogOpen(false)}
+        onNavigateToAnimal={(animalId) => {
+          if (onNavigateToAnimalDetails) {
+            onNavigateToAnimalDetails(animalId);
+          }
+        }}
+      />
     </div>
   );
 };

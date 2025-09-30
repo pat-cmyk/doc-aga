@@ -17,14 +17,21 @@ interface Animal {
 
 interface AnimalListProps {
   farmId: string;
+  initialSelectedAnimalId?: string | null;
 }
 
-const AnimalList = ({ farmId }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(initialSelectedAnimalId || null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialSelectedAnimalId) {
+      setSelectedAnimalId(initialSelectedAnimalId);
+    }
+  }, [initialSelectedAnimalId]);
 
   useEffect(() => {
     loadAnimals();

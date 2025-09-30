@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -101,6 +102,11 @@ const Dashboard = () => {
     navigate("/auth");
   };
 
+  const handleNavigateToAnimalDetails = (animalId: string) => {
+    setSelectedAnimalId(animalId);
+    setActiveTab("animals");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -149,7 +155,13 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            {farmId && <FarmDashboard farmId={farmId} onNavigateToAnimals={() => setActiveTab("animals")} />}
+            {farmId && (
+              <FarmDashboard 
+                farmId={farmId} 
+                onNavigateToAnimals={() => setActiveTab("animals")}
+                onNavigateToAnimalDetails={handleNavigateToAnimalDetails}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="animals" className="space-y-6">
@@ -159,7 +171,12 @@ const Dashboard = () => {
                 <CardDescription>Manage your livestock and animal records</CardDescription>
               </CardHeader>
               <CardContent>
-                {farmId && <AnimalList farmId={farmId} />}
+                {farmId && (
+                  <AnimalList 
+                    farmId={farmId} 
+                    initialSelectedAnimalId={selectedAnimalId}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
