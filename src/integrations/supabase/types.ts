@@ -234,6 +234,44 @@ export type Database = {
           },
         ]
       }
+      daily_farm_stats: {
+        Row: {
+          created_at: string
+          farm_id: string
+          id: string
+          stage_counts: Json
+          stat_date: string
+          total_milk_liters: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          farm_id: string
+          id?: string
+          stage_counts?: Json
+          stat_date: string
+          total_milk_liters?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          farm_id?: string
+          id?: string
+          stage_counts?: Json
+          stat_date?: string
+          total_milk_liters?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_farm_stats_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doc_aga_faqs: {
         Row: {
           answer: string
