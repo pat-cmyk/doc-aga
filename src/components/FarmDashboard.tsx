@@ -338,25 +338,34 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   color: "hsl(var(--primary))",
                 },
                 ...Object.fromEntries(
-                  stageKeys.map((stage, idx) => [
-                    stage,
-                    {
-                      label: stage,
-                      color: `hsl(var(--chart-${(idx % 5) + 1}))`,
-                    },
-                  ])
+                  stageKeys.map((stage, idx) => {
+                    const colors = [
+                      "hsl(220, 70%, 60%)", // Blue
+                      "hsl(160, 60%, 50%)", // Teal
+                      "hsl(280, 65%, 60%)", // Purple
+                      "hsl(30, 80%, 55%)",  // Orange
+                      "hsl(340, 75%, 55%)", // Pink
+                    ];
+                    return [
+                      stage,
+                      {
+                        label: stage,
+                        color: colors[idx % colors.length],
+                      },
+                    ];
+                  })
                 ),
               }}
               className="h-[400px] w-full"
             >
-              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }}>
+              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }} barSize={20}>
                 <defs>
                   <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis
                   dataKey="date"
                   className="text-xs"
@@ -378,27 +387,38 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   tickLine={false}
                   axisLine={false}
                   label={{ value: "Cattle Count", angle: 90, position: "insideRight" }}
+                  domain={[0, 'auto']}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
                 <Area
                   yAxisId="left"
                   type="monotone"
                   dataKey="milkTotal"
                   stroke="hsl(var(--primary))"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   fill="url(#fillMilk)"
                   name="Milk (L)"
                 />
-                {stageKeys.map((stage, idx) => (
-                  <Bar
-                    key={stage}
-                    yAxisId="right"
-                    dataKey={stage}
-                    stackId="stages"
-                    fill={`hsl(var(--chart-${(idx % 5) + 1}))`}
-                  />
-                ))}
+                {stageKeys.map((stage, idx) => {
+                  const colors = [
+                    "hsl(220, 70%, 60%)", // Blue
+                    "hsl(160, 60%, 50%)", // Teal
+                    "hsl(280, 65%, 60%)", // Purple
+                    "hsl(30, 80%, 55%)",  // Orange
+                    "hsl(340, 75%, 55%)", // Pink
+                  ];
+                  return (
+                    <Bar
+                      key={stage}
+                      yAxisId="right"
+                      dataKey={stage}
+                      stackId="stages"
+                      fill={colors[idx % colors.length]}
+                      radius={[2, 2, 0, 0]}
+                    />
+                  );
+                })}
               </ComposedChart>
             </ChartContainer>
           ) : (
