@@ -164,19 +164,21 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
                   Add Animal
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+              <DialogContent className="max-w-md max-h-[90vh] flex flex-col gap-4">
                 <DialogHeader>
                   <DialogTitle>Add New Animal</DialogTitle>
                   <DialogDescription>
                     Create a digital baby book for your animal
                   </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="flex-1 pr-4">
-                  <AnimalForm
-                    farmId={farmId}
-                    onSuccess={handleAnimalAdded}
-                    onCancel={() => setShowAddDialog(false)}
-                  />
+                <ScrollArea className="flex-1 pr-4 max-h-[calc(90vh-120px)]">
+                  <div className="pr-2">
+                    <AnimalForm
+                      farmId={farmId}
+                      onSuccess={handleAnimalAdded}
+                      onCancel={() => setShowAddDialog(false)}
+                    />
+                  </div>
                 </ScrollArea>
               </DialogContent>
             </Dialog>
