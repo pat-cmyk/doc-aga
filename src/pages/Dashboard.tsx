@@ -5,10 +5,9 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout, LogOut, Plus, Milk, Syringe, Calendar, MessageCircle } from "lucide-react";
+import { Sprout, LogOut, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import FarmList from "@/components/FarmList";
-import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import DocAga from "@/components/DocAga";
 
@@ -80,9 +79,8 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs defaultValue="farms" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="farms">Farms</TabsTrigger>
-            <TabsTrigger value="animals" disabled={!selectedFarmId}>Animals</TabsTrigger>
             <TabsTrigger value="dashboard" disabled={!selectedFarmId}>Dashboard</TabsTrigger>
             <TabsTrigger value="assistant">Doc Aga</TabsTrigger>
           </TabsList>
@@ -97,20 +95,6 @@ const Dashboard = () => {
                 <FarmList onSelectFarm={setSelectedFarmId} />
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="animals" className="space-y-6">
-            {selectedFarmId && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>My Herd</CardTitle>
-                  <CardDescription>Digital baby books for all your animals</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AnimalList farmId={selectedFarmId} />
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-6">
