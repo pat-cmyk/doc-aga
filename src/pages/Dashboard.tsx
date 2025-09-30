@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sprout, LogOut, MessageCircle, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import FarmList from "@/components/FarmList";
+import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import DocAga from "@/components/DocAga";
 
@@ -16,18 +16,74 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("farms");
+  const [farmId, setFarmId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initializeUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session) {
         navigate("/auth");
-      } else {
-        setUser(session.user);
+        return;
       }
+      
+      setUser(session.user);
+      
+      // Check if user has a farm, create one if not
+      const { data: farms, error: farmError } = await supabase
+        .from("farms")
+        .select("id")
+        .eq("owner_id", session.user.id)
+        .eq("is_deleted", false)
+        .limit(1);
+      
+      if (farmError) {
+        toast({
+          title: "Error loading farm",
+          description: farmError.message,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (farms && farms.length > 0) {
+        // User has a farm
+        setFarmId(farms[0].id);
+      } else {
+        // Create a default farm for the user
+        const { data: newFarm, error: createError } = await supabase
+          .from("farms")
+          .insert({
+            name: "My Farm",
+            owner_id: session.user.id,
+            gps_lat: 0,
+            gps_lng: 0,
+            region: "Not specified"
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          toast({
+            title: "Error creating farm",
+            description: createError.message,
+            variant: "destructive"
+          });
+        } else if (newFarm) {
+          setFarmId(newFarm.id);
+          toast({
+            title: "Welcome!",
+            description: "Your farm has been created automatically."
+          });
+        }
+      }
+      
       setLoading(false);
-    });
+    };
+
+    initializeUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
@@ -38,16 +94,11 @@ const Dashboard = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
-  };
-
-  const handleFarmSelect = (farmId: string) => {
-    setSelectedFarmId(farmId);
-    setActiveTab("dashboard"); // Automatically switch to dashboard tab
   };
 
   if (loading) {
@@ -92,25 +143,25 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="farms">Farms</TabsTrigger>
-            <TabsTrigger value="dashboard" disabled={!selectedFarmId}>Dashboard</TabsTrigger>
+            <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
+            <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
             <TabsTrigger value="assistant">Doc Aga</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="farms" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Farms</CardTitle>
-                <CardDescription>Manage your farms and livestock operations</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FarmList onSelectFarm={handleFarmSelect} />
-              </CardContent>
-            </Card>
+          <TabsContent value="dashboard" className="space-y-6">
+            {farmId && <FarmDashboard farmId={farmId} />}
           </TabsContent>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            {selectedFarmId && <FarmDashboard farmId={selectedFarmId} />}
+          <TabsContent value="animals" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Animals</CardTitle>
+                <CardDescription>Manage your livestock and animal records</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {farmId && <AnimalList farmId={farmId} />}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="assistant" className="space-y-6">
