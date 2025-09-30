@@ -162,8 +162,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           }
         });
       } else {
-        // Fallback: Calculate from milking_records in real-time
+        // Fallback: Calculate from milking_records and animals in real-time
         console.log("No pre-calculated stats found, using fallback calculation");
+        
+        // Get milk records
         const { data: milkRecords } = await supabase
           .from("milking_records")
           .select("liters, record_date, animals!inner(farm_id)")
@@ -176,6 +178,100 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           if (combinedDataMap[date]) {
             combinedDataMap[date].milkTotal += Number(record.liters);
           }
+        });
+
+        // Get all animals for the farm to calculate stages
+        const { data: allAnimals } = await supabase
+          .from("animals")
+          .select("id, birth_date, gender, milking_start_date, mother_id")
+          .eq("farm_id", farmId)
+          .eq("is_deleted", false);
+
+        // Get offspring data for last calving dates
+        const { data: allOffspring } = await supabase
+          .from("animals")
+          .select("id, mother_id, birth_date")
+          .eq("farm_id", farmId)
+          .not("mother_id", "is", null)
+          .order("birth_date", { ascending: false });
+
+        // Get recent AI records (last 90 days)
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const { data: aiRecords } = await supabase
+          .from("ai_records")
+          .select("animal_id")
+          .gte("scheduled_date", ninetyDaysAgo.toISOString().split("T")[0]);
+
+        const animalsWithActiveAI = new Set(aiRecords?.map(r => r.animal_id) || []);
+
+        // Get recent milking records (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const { data: recentMilking } = await supabase
+          .from("milking_records")
+          .select("animal_id")
+          .gte("record_date", thirtyDaysAgo.toISOString().split("T")[0]);
+
+        const animalsWithRecentMilking = new Set(recentMilking?.map(r => r.animal_id) || []);
+
+        // Create offspring lookup map
+        const offspringByMother = new Map<string, Array<{ birth_date: string }>>();
+        allOffspring?.forEach(offspring => {
+          if (!offspring.mother_id) return;
+          if (!offspringByMother.has(offspring.mother_id)) {
+            offspringByMother.set(offspring.mother_id, []);
+          }
+          offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
+        });
+
+        // Calculate stages for each date in the range
+        dateArray.forEach(date => {
+          const stageCounts: Record<string, number> = {};
+
+          allAnimals?.forEach(animal => {
+            if (!animal.birth_date) return;
+
+            const birthDate = new Date(animal.birth_date);
+            const offspring = offspringByMother.get(animal.id) || [];
+            const lastCalvingDate = offspring[0]?.birth_date ? new Date(offspring[0].birth_date) : null;
+
+            const stageData: AnimalStageData = {
+              birthDate,
+              gender: animal.gender,
+              milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
+              offspringCount: offspring.length,
+              lastCalvingDate,
+              hasRecentMilking: animalsWithRecentMilking.has(animal.id),
+              hasActiveAI: animalsWithActiveAI.has(animal.id),
+            };
+
+            let stageForCount: string | null = null;
+
+            if (animal.gender?.toLowerCase() === 'female') {
+              const lifeStage = calculateLifeStage(stageData);
+              const milkingStage = calculateMilkingStage(stageData);
+              stageForCount = milkingStage || lifeStage;
+            } else if (animal.gender?.toLowerCase() === 'male') {
+              // Basic male categorization
+              const ageInMonths = Math.floor((new Date().getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+              if (ageInMonths < 12) stageForCount = "Bull Calf";
+              else if (ageInMonths < 24) stageForCount = "Young Bull";
+              else stageForCount = "Mature Bull";
+            }
+
+            if (stageForCount) {
+              stageCounts[stageForCount] = (stageCounts[stageForCount] || 0) + 1;
+              allStageKeys.add(stageForCount);
+            }
+          });
+
+          // Add stage counts to the date
+          Object.entries(stageCounts).forEach(([stage, count]) => {
+            if (combinedDataMap[date]) {
+              combinedDataMap[date][stage] = count;
+            }
+          });
         });
       }
 

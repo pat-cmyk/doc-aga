@@ -105,6 +105,34 @@ export function getLifeStageBadgeColor(stage: string | null): string {
   }
 }
 
+export function calculateMaleStage(data: AnimalStageData): string | null {
+  try {
+    const { birthDate, gender } = data;
+    
+    if (!birthDate || gender !== "Male") return null;
+    
+    // Ensure birthDate is a valid date
+    if (isNaN(birthDate.getTime())) return null;
+    
+    const ageInMonths = differenceInMonths(new Date(), birthDate);
+    
+    // Ensure ageInMonths is a valid number
+    if (isNaN(ageInMonths) || ageInMonths < 0) return null;
+    
+    // Bull Calf (0-12 months)
+    if (ageInMonths < 12) return "Bull Calf";
+    
+    // Young Bull (12-24 months)
+    if (ageInMonths < 24) return "Young Bull";
+    
+    // Mature Bull (24+ months)
+    return "Mature Bull";
+  } catch (error) {
+    console.error("Error in calculateMaleStage:", error);
+    return null;
+  }
+}
+
 export function getMilkingStageBadgeColor(stage: string | null): string {
   switch (stage) {
     case "Early Lactation":

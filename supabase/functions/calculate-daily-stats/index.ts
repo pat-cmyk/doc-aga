@@ -15,26 +15,75 @@ interface AnimalStageData {
   hasActiveAI: boolean;
 }
 
+function calculateLifeStage(data: AnimalStageData): string | null {
+  try {
+    const { birthDate, gender, offspringCount, hasActiveAI } = data;
+    
+    if (!birthDate || gender?.toLowerCase() !== 'female') return null;
+    
+    const now = new Date();
+    const ageInMonths = Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+    
+    if (ageInMonths < 0) return null;
+    
+    if (ageInMonths < 8) return "Calf";
+    if (ageInMonths < 12) return "Heifer Calf";
+    if (ageInMonths < 15) return "Yearling Heifer";
+    
+    if (offspringCount === 0) {
+      if (hasActiveAI) return "Pregnant Heifer";
+      return "Breeding Heifer";
+    }
+    
+    if (offspringCount === 1) return "First-Calf Heifer";
+    return "Mature Cow";
+  } catch (error) {
+    console.error("Error in calculateLifeStage:", error);
+    return null;
+  }
+}
+
 function calculateMilkingStage(data: AnimalStageData): string | null {
-  if (data.gender?.toLowerCase() !== 'female') return null;
-  
-  const now = new Date();
-  const ageInMonths = data.birthDate 
-    ? Math.floor((now.getTime() - data.birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30)) 
-    : 0;
-
-  if (ageInMonths < 15) return null;
-
-  if (data.lastCalvingDate) {
-    const daysSinceCalving = Math.floor((now.getTime() - data.lastCalvingDate.getTime()) / (1000 * 60 * 60 * 24));
+  try {
+    const { birthDate, gender, lastCalvingDate, hasRecentMilking } = data;
+    
+    if (!birthDate || gender?.toLowerCase() !== 'female' || !lastCalvingDate) return null;
+    
+    const now = new Date();
+    const daysSinceCalving = Math.floor((now.getTime() - lastCalvingDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceCalving < 0) return null;
+    
+    if (!hasRecentMilking && daysSinceCalving > 60) return "Dry Period";
     
     if (daysSinceCalving <= 100) return "Early Lactation";
     if (daysSinceCalving <= 200) return "Mid-Lactation";
     if (daysSinceCalving <= 305) return "Late Lactation";
     return "Dry Period";
+  } catch (error) {
+    console.error("Error in calculateMilkingStage:", error);
+    return null;
   }
+}
 
-  return "Dry Period";
+function calculateMaleStage(data: AnimalStageData): string | null {
+  try {
+    const { birthDate, gender } = data;
+    
+    if (!birthDate || gender?.toLowerCase() !== 'male') return null;
+    
+    const now = new Date();
+    const ageInMonths = Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+    
+    if (ageInMonths < 0) return null;
+    
+    if (ageInMonths < 12) return "Bull Calf";
+    if (ageInMonths < 24) return "Young Bull";
+    return "Mature Bull";
+  } catch (error) {
+    console.error("Error in calculateMaleStage:", error);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -145,11 +194,31 @@ Deno.serve(async (req) => {
         offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
       });
 
-      // Calculate stage counts
+      // Get AI records to check for active AIs
+      const { data: aiRecords } = await supabase
+        .from('ai_records')
+        .select('animal_id')
+        .gte('scheduled_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .lte('scheduled_date', targetDate);
+
+      const animalsWithActiveAI = new Set(aiRecords?.map(r => r.animal_id) || []);
+
+      // Get recent milking records (last 30 days from target date)
+      const thirtyDaysAgo = new Date(targetDate);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data: recentMilking } = await supabase
+        .from('milking_records')
+        .select('animal_id')
+        .gte('record_date', thirtyDaysAgo.toISOString().split('T')[0])
+        .lte('record_date', targetDate);
+
+      const animalsWithRecentMilking = new Set(recentMilking?.map(r => r.animal_id) || []);
+
+      // Calculate stage counts and update animal stages
       const stageCounts: Record<string, number> = {};
+      const animalUpdates: Array<{ id: string; life_stage: string | null; milking_stage: string | null }> = [];
 
       for (const animal of animals || []) {
-        if (animal.gender?.toLowerCase() !== 'female') continue;
         if (!animal.birth_date) continue;
 
         const birthDate = new Date(animal.birth_date);
@@ -162,15 +231,49 @@ Deno.serve(async (req) => {
           milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
           offspringCount: offspring.length,
           lastCalvingDate,
-          hasRecentMilking: false,
-          hasActiveAI: false,
+          hasRecentMilking: animalsWithRecentMilking.has(animal.id),
+          hasActiveAI: animalsWithActiveAI.has(animal.id),
         };
 
-        const milkingStage = calculateMilkingStage(stageData);
+        let stageForCount: string | null = null;
 
-        if (milkingStage) {
-          stageCounts[milkingStage] = (stageCounts[milkingStage] || 0) + 1;
+        if (animal.gender?.toLowerCase() === 'female') {
+          const lifeStage = calculateLifeStage(stageData);
+          const milkingStage = calculateMilkingStage(stageData);
+          
+          // Use milking stage for counting if available, otherwise life stage
+          stageForCount = milkingStage || lifeStage;
+          
+          animalUpdates.push({
+            id: animal.id,
+            life_stage: lifeStage,
+            milking_stage: milkingStage,
+          });
+        } else if (animal.gender?.toLowerCase() === 'male') {
+          const maleStage = calculateMaleStage(stageData);
+          stageForCount = maleStage;
+          
+          animalUpdates.push({
+            id: animal.id,
+            life_stage: maleStage,
+            milking_stage: null,
+          });
         }
+
+        if (stageForCount) {
+          stageCounts[stageForCount] = (stageCounts[stageForCount] || 0) + 1;
+        }
+      }
+
+      // Update animal stages in the database
+      for (const update of animalUpdates) {
+        await supabase
+          .from('animals')
+          .update({
+            life_stage: update.life_stage,
+            milking_stage: update.milking_stage,
+          })
+          .eq('id', update.id);
       }
 
       console.log(`Stage counts for farm ${farm.id}:`, stageCounts);
