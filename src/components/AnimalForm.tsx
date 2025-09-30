@@ -26,10 +26,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.ear_tag) {
+    if (!formData.ear_tag) {
       toast({
         title: "Missing fields",
-        description: "Name and ear tag are required",
+        description: "Ear tag is required",
         variant: "destructive"
       });
       return;
@@ -40,7 +40,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     
     const { error } = await supabase.from("animals").insert({
       farm_id: farmId,
-      name: formData.name,
+      name: formData.name || null,
       ear_tag: formData.ear_tag,
       breed: formData.breed || null,
       birth_date: formData.birth_date || null,
@@ -79,13 +79,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name *</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Bessie"
-              required
             />
           </div>
           <div className="space-y-2">
