@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, MapPin, Loader2 } from "lucide-react";
+import { Plus, MapPin, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const REGIONS_WITH_PROVINCES = {
@@ -48,6 +48,10 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [farmToDelete, setFarmToDelete] = useState<Farm | null>(null);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
@@ -193,6 +197,105 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     }
   };
 
+  const handleUpdateFarm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.gps_lat || !formData.gps_lng || !editingFarm) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCreating(true);
+    
+    const regionInfo = selectedRegion && formData.province 
+      ? `${selectedRegion} - ${formData.province}`
+      : formData.province || selectedRegion || null;
+    
+    const { error } = await supabase
+      .from("farms")
+      .update({
+        name: formData.name,
+        region: regionInfo,
+        gps_lat: parseFloat(formData.gps_lat),
+        gps_lng: parseFloat(formData.gps_lng)
+      })
+      .eq("id", editingFarm.id);
+
+    setCreating(false);
+    if (error) {
+      toast({
+        title: "Error updating farm",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Success!",
+        description: "Farm updated successfully"
+      });
+      setEditOpen(false);
+      setEditingFarm(null);
+      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "" });
+      setSelectedRegion("");
+      loadFarms();
+    }
+  };
+
+  const handleDeleteFarm = async () => {
+    if (!farmToDelete) return;
+
+    const { error } = await supabase
+      .from("farms")
+      .update({ is_deleted: true })
+      .eq("id", farmToDelete.id);
+
+    if (error) {
+      toast({
+        title: "Error deleting farm",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Success!",
+        description: "Farm deleted successfully"
+      });
+      setDeleteDialogOpen(false);
+      setFarmToDelete(null);
+      loadFarms();
+    }
+  };
+
+  const openEditDialog = (farm: Farm, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingFarm(farm);
+    
+    // Parse region and province from stored data
+    const regionData = farm.region?.split(" - ") || [];
+    const region = regionData[0] || "";
+    const province = regionData[1] || "";
+    
+    setSelectedRegion(region);
+    setFormData({
+      name: farm.name,
+      region,
+      province,
+      gps_lat: farm.gps_lat.toString(),
+      gps_lng: farm.gps_lng.toString()
+    });
+    setEditOpen(true);
+  };
+
+  const openDeleteDialog = (farm: Farm, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFarmToDelete(farm);
+    setDeleteDialogOpen(true);
+  };
+
   const availableProvinces = selectedRegion ? REGIONS_WITH_PROVINCES[selectedRegion as keyof typeof REGIONS_WITH_PROVINCES] || [] : [];
 
   const handleRegionChange = (region: string) => {
@@ -223,6 +326,23 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
             <AlertDialogCancel>Enter Manually</AlertDialogCancel>
             <AlertDialogAction onClick={fetchCurrentLocation}>
               Allow Location Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Farm</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{farmToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFarm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -328,6 +448,100 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Farm</DialogTitle>
+            <DialogDescription>Update farm details and GPS coordinates</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateFarm} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Farm Name *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Golden Forage Farm"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>GPS Location *</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={requestLocationPermission}
+                  disabled={fetchingLocation}
+                >
+                  {fetchingLocation ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4 mr-2" />
+                  )}
+                  Use Current Location
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Latitude"
+                  value={formData.gps_lat}
+                  onChange={(e) => setFormData(prev => ({ ...prev, gps_lat: e.target.value }))}
+                  required
+                />
+                <Input
+                  placeholder="Longitude"
+                  value={formData.gps_lng}
+                  onChange={(e) => setFormData(prev => ({ ...prev, gps_lng: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-region">Region</Label>
+              <Select value={selectedRegion} onValueChange={handleRegionChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a region" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {Object.keys(REGIONS_WITH_PROVINCES).map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-province">Province</Label>
+              <Select 
+                value={formData.province} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, province: value }))}
+                disabled={!selectedRegion}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedRegion ? "Select a province" : "Select region first"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {availableProvinces.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full" disabled={creating}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Farm"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {farms.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
@@ -339,11 +553,29 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
           {farms.map((farm) => (
             <Card
               key={farm.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:shadow-md transition-shadow relative"
               onClick={() => onSelectFarm(farm.id)}
             >
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => openEditDialog(farm, e)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={(e) => openDeleteDialog(farm, e)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
               <CardHeader>
-                <CardTitle className="text-lg">{farm.name}</CardTitle>
+                <CardTitle className="text-lg pr-16">{farm.name}</CardTitle>
                 <CardDescription className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   {farm.region || "No region specified"}
