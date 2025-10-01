@@ -143,6 +143,7 @@ Guidelines:
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // First attempt without streaming to check for tool calls
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -156,7 +157,7 @@ Guidelines:
           ...messages,
         ],
         tools,
-        stream: true,
+        stream: false,
       }),
     });
 
@@ -181,65 +182,77 @@ Guidelines:
       });
     }
 
-    // Check if response contains tool calls (non-streaming check)
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
-      const data = await response.json();
+    // Check if response contains tool calls
+    const data = await response.json();
+    
+    // Handle tool calls
+    if (data.choices?.[0]?.message?.tool_calls) {
+      const toolCalls = data.choices[0].message.tool_calls;
+      const toolResults = [];
       
-      // Handle tool calls
-      if (data.choices?.[0]?.message?.tool_calls) {
-        const toolCalls = data.choices[0].message.tool_calls;
-        const toolResults = [];
+      for (const toolCall of toolCalls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
         
-        for (const toolCall of toolCalls) {
-          const toolName = toolCall.function.name;
-          const toolArgs = JSON.parse(toolCall.function.arguments);
-          
-          const result = await executeToolCall(toolName, toolArgs, supabase, farmId);
-          toolResults.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            name: toolName,
-            content: JSON.stringify(result)
-          });
-        }
+        console.log(`Executing tool: ${toolName}`, toolArgs);
+        const result = await executeToolCall(toolName, toolArgs, supabase, farmId);
+        console.log(`Tool result:`, result);
         
-        // Make a second request with tool results
-        const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...messages,
-              data.choices[0].message,
-              ...toolResults
-            ],
-            stream: true,
-          }),
-        });
-        
-        if (!followUpResponse.ok) {
-          const errorText = await followUpResponse.text();
-          console.error("Follow-up AI gateway error:", followUpResponse.status, errorText);
-          return new Response(JSON.stringify({ error: "AI gateway error" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        
-        return new Response(followUpResponse.body, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        toolResults.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          name: toolName,
+          content: JSON.stringify(result)
         });
       }
+      
+      // Make a second request with tool results (now streaming)
+      const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+            data.choices[0].message,
+            ...toolResults
+          ],
+          stream: true,
+        }),
+      });
+      
+      if (!followUpResponse.ok) {
+        const errorText = await followUpResponse.text();
+        console.error("Follow-up AI gateway error:", followUpResponse.status, errorText);
+        return new Response(JSON.stringify({ error: "AI gateway error" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      return new Response(followUpResponse.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
     }
 
-    // Return the streaming response
-    return new Response(response.body, {
+    // No tool calls, convert to streaming response
+    const stream = new ReadableStream({
+      start(controller) {
+        const text = data.choices?.[0]?.message?.content || '';
+        const chunk = `data: ${JSON.stringify({
+          choices: [{ delta: { content: text } }]
+        })}\n\n`;
+        controller.enqueue(new TextEncoder().encode(chunk));
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        controller.close();
+      }
+    });
+
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error: any) {
