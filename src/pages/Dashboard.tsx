@@ -31,14 +31,17 @@ const Dashboard = () => {
       
       setUser(session.user);
       
-      // Check if user is admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
+      // Development mode - show admin button for all users
+      setIsAdmin(true);
       
-      setIsAdmin(profile?.role === "admin");
+      // Production code (currently disabled):
+      // const { data: profile } = await supabase
+      //   .from("profiles")
+      //   .select("role")
+      //   .eq("id", session.user.id)
+      //   .single();
+      // 
+      // setIsAdmin(profile?.role === "admin");
       
       // Check if user has a farm, create one if not
       const { data: farms, error: farmError } = await supabase

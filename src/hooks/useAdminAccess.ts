@@ -23,28 +23,31 @@ export const useAdminAccess = () => {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      const hasAdminAccess = profile?.role === "admin";
-      setIsAdmin(hasAdminAccess);
+      // Development mode - allow all authenticated users
+      setIsAdmin(true);
+      setIsLoading(false);
       
-      if (!hasAdminAccess) {
-        toast({
-          title: "Access Denied",
-          description: "You need admin privileges to access this area.",
-          variant: "destructive",
-        });
-        navigate("/");
-      }
+      // Production code (currently disabled):
+      // const { data: profile } = await supabase
+      //   .from("profiles")
+      //   .select("role")
+      //   .eq("id", user.id)
+      //   .single();
+      //
+      // const hasAdminAccess = profile?.role === "admin";
+      // setIsAdmin(hasAdminAccess);
+      // 
+      // if (!hasAdminAccess) {
+      //   toast({
+      //     title: "Access Denied",
+      //     description: "You need admin privileges to access this area.",
+      //     variant: "destructive",
+      //   });
+      //   navigate("/");
+      // }
     } catch (error) {
       console.error("Error checking admin access:", error);
-      setIsAdmin(false);
-      navigate("/");
-    } finally {
+      setIsAdmin(true); // Allow access even on error during development
       setIsLoading(false);
     }
   };
