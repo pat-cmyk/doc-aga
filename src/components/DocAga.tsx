@@ -39,35 +39,133 @@ const DocAga = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("doc-aga", {
-        body: { question: userMessage }
+      const DOC_AGA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/doc-aga`;
+      
+      const resp = await fetch(DOC_AGA_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          messages: messages.filter(m => m.role !== "assistant" || m.content !== "Hello! I'm Doc Aga, your farm assistant. I can answer questions about livestock health, nutrition, breeding, and management based on proven farming practices. How can I help you today?")
+        }),
       });
 
-      if (error) throw error;
+      if (!resp.ok) {
+        if (resp.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again in a moment.");
+        }
+        if (resp.status === 402) {
+          throw new Error("Service unavailable. Please contact support.");
+        }
+        throw new Error("Failed to get response from Doc Aga");
+      }
 
-      const answer = data.answer || "I don't know the answer to that question. Please ask about livestock health, nutrition, breeding, or farm management.";
-      
-      setMessages(prev => [...prev, { role: "assistant", content: answer }]);
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let streamDone = false;
+      let assistantResponse = "";
+
+      // Add placeholder for assistant message
+      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantResponse += content;
+              setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  role: "assistant",
+                  content: assistantResponse
+                };
+                return newMessages;
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantResponse += content;
+              setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  role: "assistant",
+                  content: assistantResponse
+                };
+                return newMessages;
+              });
+            }
+          } catch { /* ignore partial leftovers */ }
+        }
+      }
 
       // Log the query
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("doc_aga_queries").insert({
         user_id: user?.id,
         question: userMessage,
-        answer: answer,
-        matched_faq_id: data.matched_faq_id || null
+        answer: assistantResponse,
       });
 
     } catch (error: any) {
+      console.error("Doc Aga error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to get response from Doc Aga",
         variant: "destructive"
       });
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: "I'm having trouble answering that right now. Please try again."
-      }]);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        if (newMessages[newMessages.length - 1]?.content === "") {
+          newMessages[newMessages.length - 1] = {
+            role: "assistant",
+            content: "I'm having trouble answering that right now. Please try again."
+          };
+        }
+        return newMessages;
+      });
     } finally {
       setLoading(false);
     }
