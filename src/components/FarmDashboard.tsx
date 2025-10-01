@@ -22,6 +22,7 @@ interface DashboardStats {
   totalAnimals: number;
   avgDailyMilk: number;
   pregnantCount: number;
+  pendingConfirmation: number;
   recentHealthEvents: number;
 }
 
@@ -41,6 +42,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     totalAnimals: 0,
     avgDailyMilk: 0,
     pregnantCount: 0,
+    pendingConfirmation: 0,
     recentHealthEvents: 0
   });
   const [combinedData, setCombinedData] = useState<CombinedDailyData[]>([]);
@@ -136,6 +138,14 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .select("animal_id, animals!inner(farm_id)")
         .eq("animals.farm_id", farmId)
         .eq("pregnancy_confirmed", true);
+
+      // Get AI performed but pending confirmation
+      const { data: pendingAI } = await supabase
+        .from("ai_records")
+        .select("animal_id, animals!inner(farm_id)")
+        .eq("animals.farm_id", farmId)
+        .eq("pregnancy_confirmed", false)
+        .not("performed_date", "is", null);
 
       // Get recent health events
       const { count: healthCount } = await supabase
@@ -458,6 +468,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         totalAnimals: animalCount || 0,
         avgDailyMilk: Number(avgMilk.toFixed(2)),
         pregnantCount: pregnancyData?.length || 0,
+        pendingConfirmation: pendingAI?.length || 0,
         recentHealthEvents: healthCount || 0
       });
     } catch (error: any) {
@@ -523,7 +534,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card 
           className="cursor-pointer transition-all hover:shadow-lg hover:scale-105"
           onClick={onNavigateToAnimals}
@@ -562,7 +573,18 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         </CardContent>
       </Card>
 
-      <Card 
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Confirmation</CardTitle>
+          <Activity className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.pendingConfirmation}</div>
+          <p className="text-xs text-muted-foreground">AI performed, awaiting</p>
+        </CardContent>
+      </Card>
+
+      <Card
         className="cursor-pointer transition-all hover:shadow-lg hover:scale-105"
         onClick={() => setHealthDialogOpen(true)}
       >
