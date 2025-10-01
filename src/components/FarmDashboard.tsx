@@ -5,7 +5,7 @@ import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Line, ComposedChart, Legend } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Bar, BarChart, Legend, ResponsiveContainer } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HealthEventsDialog from "./HealthEventsDialog";
@@ -474,44 +474,78 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         </CardContent>
       </Card>
 
-      {/* Monthly Cattle Headcount Table */}
+      {/* Monthly Cattle Headcount Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Monthly Cattle Headcount by Stage</CardTitle>
         </CardHeader>
         <CardContent>
-          {monthlyHeadcount.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-semibold">Month</TableHead>
-                    {stageKeys.map(stage => (
-                      <TableHead key={stage} className="text-right font-semibold">
-                        {stage}
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-right font-semibold">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthlyHeadcount.map((monthData) => {
-                    const total = stageKeys.reduce((sum, stage) => sum + (monthData[stage] as number || 0), 0);
-                    return (
-                      <TableRow key={monthData.month}>
-                        <TableCell className="font-medium">{monthData.month}</TableCell>
-                        {stageKeys.map(stage => (
-                          <TableCell key={stage} className="text-right">
-                            {monthData[stage] || 0}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-right font-semibold">{total}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+          {monthlyHeadcount.length > 0 && stageKeys.length > 0 ? (
+            <ChartContainer
+              config={{
+                ...Object.fromEntries(
+                  stageKeys.map((stage, idx) => {
+                    const colors = [
+                      "hsl(220, 70%, 60%)", // Blue
+                      "hsl(160, 60%, 50%)", // Teal
+                      "hsl(280, 65%, 60%)", // Purple
+                      "hsl(30, 80%, 55%)",  // Orange
+                      "hsl(340, 75%, 55%)", // Pink
+                      "hsl(120, 60%, 50%)", // Green
+                      "hsl(200, 70%, 55%)", // Cyan
+                      "hsl(350, 80%, 60%)", // Red
+                    ];
+                    return [
+                      stage,
+                      {
+                        label: stage,
+                        color: colors[idx % colors.length],
+                      },
+                    ];
+                  })
+                ),
+              }}
+              className="h-[400px] w-full"
+            >
+              <BarChart data={monthlyHeadcount} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "Head Count", angle: -90, position: "insideLeft" }}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                {stageKeys.map((stage, idx) => {
+                  const colors = [
+                    "hsl(220, 70%, 60%)", // Blue
+                    "hsl(160, 60%, 50%)", // Teal
+                    "hsl(280, 65%, 60%)", // Purple
+                    "hsl(30, 80%, 55%)",  // Orange
+                    "hsl(340, 75%, 55%)", // Pink
+                    "hsl(120, 60%, 50%)", // Green
+                    "hsl(200, 70%, 55%)", // Cyan
+                    "hsl(350, 80%, 60%)", // Red
+                  ];
+                  return (
+                    <Bar
+                      key={stage}
+                      dataKey={stage}
+                      stackId="a"
+                      fill={colors[idx % colors.length]}
+                      radius={idx === stageKeys.length - 1 ? [4, 4, 0, 0] : 0}
+                    />
+                  );
+                })}
+              </BarChart>
+            </ChartContainer>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
