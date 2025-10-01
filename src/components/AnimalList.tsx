@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter } from "lucide-react";
+import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -75,6 +75,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -216,79 +217,101 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filters
+        <CardHeader 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setFiltersExpanded(!filtersExpanded)}
+        >
+          <CardTitle className="text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filters
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFiltersExpanded(!filtersExpanded);
+              }}
+            >
+              {filtersExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or ear tag..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        {filtersExpanded && (
+          <CardContent className="space-y-4 animate-accordion-down">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or ear tag..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-          {/* Filter dropdowns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Select value={breedFilter} onValueChange={setBreedFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Breed" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">All Breeds</SelectItem>
-                {uniqueBreeds.map(breed => (
-                  <SelectItem key={breed} value={breed!}>{breed}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filter dropdowns */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Select value={breedFilter} onValueChange={setBreedFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Breed" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">All Breeds</SelectItem>
+                  {uniqueBreeds.map(breed => (
+                    <SelectItem key={breed} value={breed!}>{breed}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={genderFilter} onValueChange={setGenderFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Gender" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">All Genders</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="male">Male</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={genderFilter} onValueChange={setGenderFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Gender" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">All Genders</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={lifeStageFilter} onValueChange={setLifeStageFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Life Stage" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">All Life Stages</SelectItem>
-                {uniqueLifeStages.map(stage => (
-                  <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={lifeStageFilter} onValueChange={setLifeStageFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Life Stage" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">All Life Stages</SelectItem>
+                  {uniqueLifeStages.map(stage => (
+                    <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={milkingStageFilter} onValueChange={setMilkingStageFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Milking Stage" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">All Milking Stages</SelectItem>
-                {uniqueMilkingStages.map(stage => (
-                  <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <Select value={milkingStageFilter} onValueChange={setMilkingStageFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Milking Stage" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">All Milking Stages</SelectItem>
+                  {uniqueMilkingStages.map(stage => (
+                    <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Results count */}
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredAnimals.length} of {animals.length} animals
-          </p>
-        </CardContent>
+            {/* Results count */}
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredAnimals.length} of {animals.length} animals
+            </p>
+          </CardContent>
+        )}
       </Card>
 
       {filteredAnimals.length === 0 ? (
