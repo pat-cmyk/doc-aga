@@ -374,11 +374,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       </Card>
       </div>
 
-      {/* Combined Milk Production & Cattle Count Chart */}
+      {/* Milk Production Chart */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle>Daily Milk Production & Cattle Head Count by Stage</CardTitle>
+            <CardTitle>Daily Milk Production</CardTitle>
             <div className="flex items-center gap-3">
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
                 <SelectTrigger className="w-[120px]">
@@ -407,28 +407,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   label: "Milk (Liters)",
                   color: "hsl(var(--primary))",
                 },
-                ...Object.fromEntries(
-                  stageKeys.map((stage, idx) => {
-                    const colors = [
-                      "hsl(220, 70%, 60%)", // Blue
-                      "hsl(160, 60%, 50%)", // Teal
-                      "hsl(280, 65%, 60%)", // Purple
-                      "hsl(30, 80%, 55%)",  // Orange
-                      "hsl(340, 75%, 55%)", // Pink
-                    ];
-                    return [
-                      stage,
-                      {
-                        label: stage,
-                        color: colors[idx % colors.length],
-                      },
-                    ];
-                  })
-                ),
               }}
               className="h-[400px] w-full"
             >
-              <ComposedChart data={combinedData} margin={{ left: 20, right: 60, top: 20, bottom: 20 }}>
+              <AreaChart data={combinedData} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
                 <defs>
                   <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -443,26 +425,13 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   axisLine={false}
                 />
                 <YAxis
-                  yAxisId="left"
                   className="text-xs"
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}L`}
-                  label={{ value: "Milk (Liters)", angle: -90, position: "insideLeft" }}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                  label={{ value: "Cattle Count", angle: 90, position: "insideRight" }}
-                  domain={[0, 'auto']}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
                 <Area
-                  yAxisId="left"
                   type="monotone"
                   dataKey="milkTotal"
                   stroke="hsl(var(--primary))"
@@ -470,28 +439,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   fill="url(#fillMilk)"
                   name="Milk (L)"
                 />
-                {stageKeys.map((stage, idx) => {
-                  const colors = [
-                    "hsl(220, 70%, 60%)", // Blue
-                    "hsl(160, 60%, 50%)", // Teal
-                    "hsl(280, 65%, 60%)", // Purple
-                    "hsl(30, 80%, 55%)",  // Orange
-                    "hsl(340, 75%, 55%)", // Pink
-                  ];
-                  return (
-                    <Line
-                      key={stage}
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey={stage}
-                      stroke={colors[idx % colors.length]}
-                      strokeWidth={2.5}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  );
-                })}
-              </ComposedChart>
+              </AreaChart>
             </ChartContainer>
           ) : (
             <div className="h-[400px] flex items-center justify-center text-muted-foreground">
