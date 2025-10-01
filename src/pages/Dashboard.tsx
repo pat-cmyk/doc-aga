@@ -5,11 +5,10 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout, LogOut, MessageCircle, User as UserIcon } from "lucide-react";
+import { Sprout, LogOut, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
-import DocAga from "@/components/DocAga";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -148,10 +147,9 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
             <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
             <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
-            <TabsTrigger value="assistant">Doc Aga</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -177,23 +175,6 @@ const Dashboard = () => {
                     initialSelectedAnimalId={selectedAnimalId}
                   />
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="assistant" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-primary" />
-                  Doc Aga - Your Farm Assistant
-                </CardTitle>
-                <CardDescription>
-                  Ask questions about livestock management, health, breeding, and more
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DocAga />
               </CardContent>
             </Card>
           </TabsContent>

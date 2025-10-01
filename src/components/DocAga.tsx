@@ -178,43 +178,44 @@ const DocAga = () => {
   };
 
   return (
-    <div className="flex flex-col h-[600px]">
-      <ScrollArea className="flex-1 p-4 space-y-4" ref={scrollRef}>
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {message.role === "assistant" && (
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-            )}
-            <Card className={`p-3 max-w-[80%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-            </Card>
-            {message.role === "user" && (
-              <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-secondary" />
-              </div>
-            )}
-          </div>
-        ))}
-        {loading && (
-          <div className="flex gap-3 justify-start">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bot className="h-4 w-4 text-primary" />
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1 p-3" ref={scrollRef}>
+        <div className="space-y-3">
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {message.role === "assistant" && (
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-primary" />
+                </div>
+              )}
+              <Card className={`p-2.5 max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
+                <p className="text-xs whitespace-pre-wrap leading-relaxed">{message.content}</p>
+              </Card>
+              {message.role === "user" && (
+                <div className="h-7 w-7 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-3.5 w-3.5 text-secondary" />
+                </div>
+              )}
             </div>
-            <Card className="p-3">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            </Card>
-          </div>
-        )}
+          ))}
+          {loading && (
+            <div className="flex gap-2 justify-start">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                <Bot className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <Card className="p-2.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              </Card>
+            </div>
+          )}
+        </div>
       </ScrollArea>
 
-      <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
-
-      <div className="border-t p-4">
+      <div className="border-t p-3 space-y-2">
+        <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -225,12 +226,12 @@ const DocAga = () => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question or record voice..."
+            placeholder="Ask a question..."
             disabled={loading}
-            className="flex-1"
+            className="flex-1 text-sm h-9"
           />
-          <Button type="submit" disabled={loading || !input.trim()}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button type="submit" disabled={loading || !input.trim()} size="sm">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
         </form>
       </div>
