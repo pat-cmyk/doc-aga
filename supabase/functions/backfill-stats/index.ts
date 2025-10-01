@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Backfilled ${statsToUpsert.length} days of data`,
+        message: `Backfilled ${statsToUpsert.length} months of data`,
         processed: statsToUpsert.length 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
