@@ -97,7 +97,21 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription }) => {
         body: { audio: base64Audio }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function invocation error:', error);
+        throw new Error('Failed to connect to transcription service');
+      }
+
+      if (data.error) {
+        console.error('Transcription error:', data.error);
+        
+        // Check for quota/billing errors
+        if (data.error.includes('quota') || data.error.includes('insufficient_quota')) {
+          throw new Error('OpenAI quota exceeded. Please add credits to your OpenAI account at platform.openai.com/account/billing');
+        }
+        
+        throw new Error(data.error);
+      }
 
       if (data.text) {
         console.log('Transcription:', data.text);
