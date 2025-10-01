@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Calendar, CheckCircle } from "lucide-react";
+import { Loader2, Calendar, CheckCircle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ScheduleAIDialog from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
+import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
 
 const AIRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -42,20 +43,34 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
             {records.map((r) => (
               <Card key={r.id}>
                 <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <p className="text-sm font-medium">
                           Scheduled: {r.scheduled_date ? new Date(r.scheduled_date).toLocaleDateString() : "N/A"}
                         </p>
                       </div>
-                      {r.pregnancy_confirmed && (
-                        <Badge variant="default" className="bg-green-500">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Pregnant
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!r.performed_date && (
+                          <Badge variant="secondary">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Scheduled
+                          </Badge>
+                        )}
+                        {r.performed_date && !r.pregnancy_confirmed && (
+                          <Badge variant="outline">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Performed
+                          </Badge>
+                        )}
+                        {r.pregnancy_confirmed && (
+                          <Badge variant="default" className="bg-green-500">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Pregnant
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     
                     {r.performed_date && (
@@ -77,15 +92,25 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
                     )}
                     
                     {r.pregnancy_confirmed && r.expected_delivery_date && (
-                      <div className="mt-3 p-2 bg-green-50 dark:bg-green-950 rounded-md">
+                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-md">
                         <p className="text-sm font-medium text-green-700 dark:text-green-300">
                           Expected Delivery: {new Date(r.expected_delivery_date).toLocaleDateString()}
                         </p>
                       </div>
                     )}
                     
+                    {!r.performed_date && r.scheduled_date && (
+                      <div className="mt-2">
+                        <MarkAIPerformedDialog 
+                          recordId={r.id}
+                          scheduledDate={r.scheduled_date}
+                          onSuccess={loadRecords}
+                        />
+                      </div>
+                    )}
+                    
                     {r.performed_date && !r.pregnancy_confirmed && (
-                      <div className="mt-3">
+                      <div className="mt-2">
                         <ConfirmPregnancyDialog 
                           recordId={r.id}
                           performedDate={r.performed_date}

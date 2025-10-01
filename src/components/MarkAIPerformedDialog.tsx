@@ -1,0 +1,91 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCircle, Loader2 } from "lucide-react";
+
+interface MarkAIPerformedDialogProps {
+  recordId: string;
+  scheduledDate: string | null;
+  onSuccess: () => void;
+}
+
+const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPerformedDialogProps) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [performedDate, setPerformedDate] = useState("");
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!performedDate) {
+      toast({ title: "Please select a date", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase
+      .from("ai_records")
+      .update({ performed_date: performedDate })
+      .eq("id", recordId);
+
+    setLoading(false);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "AI breeding marked as performed" });
+      setOpen(false);
+      setPerformedDate("");
+      onSuccess();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <CheckCircle className="h-4 w-4 mr-2" />
+          Mark as Performed
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mark AI Breeding as Performed</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="performedDate">Performed Date</Label>
+            <Input
+              id="performedDate"
+              type="date"
+              value={performedDate}
+              onChange={(e) => setPerformedDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+              min={scheduledDate || undefined}
+            />
+            {scheduledDate && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Scheduled: {new Date(scheduledDate).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading || !performedDate}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirm
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default MarkAIPerformedDialog;
