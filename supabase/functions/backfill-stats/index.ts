@@ -100,32 +100,32 @@ Deno.serve(async (req) => {
       offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
     });
 
-    // Create array of last day of each month between start and end dates
-    const monthEndDates: string[] = [];
+    // Create array of last days of each month
+    const monthDates: string[] = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
     
-    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+    let currentMonth = new Date(start.getFullYear(), start.getMonth(), 1);
     
-    while (current <= end) {
+    while (currentMonth <= end) {
       // Get last day of current month
-      const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
       
       // Only add if it's within our range
       if (lastDay >= start && lastDay <= end) {
-        monthEndDates.push(lastDay.toISOString().split('T')[0]);
+        monthDates.push(lastDay.toISOString().split('T')[0]);
       }
       
       // Move to next month
-      current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
     }
 
-    console.log(`Processing ${monthEndDates.length} month-end dates...`);
+    console.log(`Processing ${monthDates.length} months...`);
 
-    // Process each month-end date
+    // Process each month (last day of each month)
     const statsToUpsert = [];
     
-    for (const date of monthEndDates) {
+    for (const date of monthDates) {
       const stageCounts: Record<string, number> = {};
 
       // Get AI records within 90 days of this date
