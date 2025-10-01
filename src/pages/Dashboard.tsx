@@ -140,7 +140,7 @@ const Dashboard = () => {
               <Sprout className="h-6 w-6 text-primary" />
             </div>
           <div>
-            <h1 className="text-xl font-bold">FarmTrack</h1>
+            <h1 className="text-xl font-bold">AgriPal</h1>
             <p className="text-xs text-muted-foreground">Welcome back!</p>
           </div>
         </div>
