@@ -60,6 +60,29 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     loadDashboardData();
   }, [farmId, timePeriod, selectedYear, monthlyTimePeriod]);
 
+  // Real-time subscription for milking records
+  useEffect(() => {
+    const channel = supabase
+      .channel('milking-records-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'milking_records'
+        },
+        () => {
+          console.log('New milking record added, refreshing dashboard...');
+          loadDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [farmId, timePeriod, selectedYear, monthlyTimePeriod]);
+
   const getDateRange = () => {
     const now = new Date();
     let startDate = new Date();
