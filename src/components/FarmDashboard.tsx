@@ -88,6 +88,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     try {
       const { startDate, endDate } = getDateRange();
       
+      // For monthly headcount, always use YTD of selected year to show historical data
+      const monthlyStartDate = new Date(selectedYear, 0, 1);
+      const monthlyEndDate = selectedYear === new Date().getFullYear() 
+        ? new Date() 
+        : new Date(selectedYear, 11, 31);
+      
       // Get total animals
       const { count: animalCount } = await supabase
         .from("animals")
@@ -120,7 +126,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .eq("animals.farm_id", farmId)
         .gte("visit_date", startDate.toISOString().split("T")[0]);
 
-      // Fetch pre-aggregated data from daily_farm_stats table
+      // Fetch pre-aggregated data from daily_farm_stats table for milk production
       const { data: dailyStats, error: statsError } = await supabase
         .from("daily_farm_stats")
         .select("*")
@@ -129,8 +135,20 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .lte("stat_date", endDate.toISOString().split("T")[0])
         .order("stat_date", { ascending: true });
 
+      // Fetch pre-aggregated data for monthly headcount (YTD)
+      const { data: monthlyStats, error: monthlyStatsError } = await supabase
+        .from("daily_farm_stats")
+        .select("*")
+        .eq("farm_id", farmId)
+        .gte("stat_date", monthlyStartDate.toISOString().split("T")[0])
+        .lte("stat_date", monthlyEndDate.toISOString().split("T")[0])
+        .order("stat_date", { ascending: true });
+
       if (statsError) {
         console.error("Error fetching daily stats:", statsError);
+      }
+      if (monthlyStatsError) {
+        console.error("Error fetching monthly stats:", monthlyStatsError);
       }
 
       // Create array of dates for the selected period
@@ -285,26 +303,132 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       const finalData = dateArray.map(date => combinedDataMap[date]);
       const stageKeysArray = Array.from(allStageKeys);
 
-      // Calculate monthly headcount aggregation
+      // Calculate monthly headcount aggregation from YTD data
       const monthlyMap: Record<string, MonthlyHeadcount> = {};
-      finalData.forEach(dataPoint => {
-        // Extract month from date (e.g., "Jan 2024")
-        const fullDate = new Date(dateArray[finalData.indexOf(dataPoint)]);
-        const monthKey = fullDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        if (!monthlyMap[monthKey]) {
-          monthlyMap[monthKey] = { month: monthKey };
-          stageKeysArray.forEach(stage => {
-            monthlyMap[monthKey][stage] = 0;
+      
+      // Process monthly stats data
+      if (monthlyStats && monthlyStats.length > 0) {
+        // Use pre-calculated stats for monthly aggregation
+        monthlyStats.forEach(stat => {
+          const statDate = new Date(stat.stat_date);
+          const monthKey = statDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          
+          if (!monthlyMap[monthKey]) {
+            monthlyMap[monthKey] = { month: monthKey };
+            stageKeysArray.forEach(stage => {
+              monthlyMap[monthKey][stage] = 0;
+            });
+          }
+
+          // Use the last day of each month as the snapshot
+          const stageCounts = stat.stage_counts as Record<string, number>;
+          Object.entries(stageCounts).forEach(([stage, count]) => {
+            monthlyMap[monthKey][stage] = count;
           });
+        });
+      } else {
+        // Fallback: calculate from animals if no pre-calculated stats
+        const monthlyDateArray: string[] = [];
+        const currentMonthDate = new Date(monthlyStartDate);
+        while (currentMonthDate <= monthlyEndDate) {
+          monthlyDateArray.push(currentMonthDate.toISOString().split("T")[0]);
+          currentMonthDate.setDate(currentMonthDate.getDate() + 1);
         }
 
-        // Aggregate stage counts for the month (taking the last value of each month as snapshot)
-        stageKeysArray.forEach(stage => {
-          const count = dataPoint[stage] as number || 0;
-          monthlyMap[monthKey][stage] = count; // Use latest count for the month
+        // Get all animals for the farm
+        const { data: allAnimals } = await supabase
+          .from("animals")
+          .select("id, birth_date, gender, milking_start_date, mother_id")
+          .eq("farm_id", farmId)
+          .eq("is_deleted", false);
+
+        const { data: allOffspring } = await supabase
+          .from("animals")
+          .select("id, mother_id, birth_date")
+          .eq("farm_id", farmId)
+          .not("mother_id", "is", null)
+          .order("birth_date", { ascending: false });
+
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const { data: aiRecords } = await supabase
+          .from("ai_records")
+          .select("animal_id")
+          .gte("scheduled_date", ninetyDaysAgo.toISOString().split("T")[0]);
+
+        const animalsWithActiveAI = new Set(aiRecords?.map(r => r.animal_id) || []);
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const { data: recentMilking } = await supabase
+          .from("milking_records")
+          .select("animal_id")
+          .gte("record_date", thirtyDaysAgo.toISOString().split("T")[0]);
+
+        const animalsWithRecentMilking = new Set(recentMilking?.map(r => r.animal_id) || []);
+
+        const offspringByMother = new Map<string, Array<{ birth_date: string }>>();
+        allOffspring?.forEach(offspring => {
+          if (!offspring.mother_id) return;
+          if (!offspringByMother.has(offspring.mother_id)) {
+            offspringByMother.set(offspring.mother_id, []);
+          }
+          offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
         });
-      });
+
+        // Group dates by month and calculate stages for last day of each month
+        const monthGroups: Record<string, string[]> = {};
+        monthlyDateArray.forEach(date => {
+          const dateObj = new Date(date);
+          const monthKey = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          if (!monthGroups[monthKey]) {
+            monthGroups[monthKey] = [];
+          }
+          monthGroups[monthKey].push(date);
+        });
+
+        Object.entries(monthGroups).forEach(([monthKey, dates]) => {
+          const lastDateOfMonth = dates[dates.length - 1]; // Use last day of month
+          const stageCounts: Record<string, number> = {};
+
+          allAnimals?.forEach(animal => {
+            if (!animal.birth_date) return;
+
+            const birthDate = new Date(animal.birth_date);
+            const offspring = offspringByMother.get(animal.id) || [];
+            const lastCalvingDate = offspring[0]?.birth_date ? new Date(offspring[0].birth_date) : null;
+
+            const stageData: AnimalStageData = {
+              birthDate,
+              gender: animal.gender,
+              milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
+              offspringCount: offspring.length,
+              lastCalvingDate,
+              hasRecentMilking: animalsWithRecentMilking.has(animal.id),
+              hasActiveAI: animalsWithActiveAI.has(animal.id),
+            };
+
+            let stageForCount: string | null = null;
+
+            if (animal.gender?.toLowerCase() === 'female') {
+              const lifeStage = calculateLifeStage(stageData);
+              const milkingStage = calculateMilkingStage(stageData);
+              stageForCount = milkingStage || lifeStage;
+            } else if (animal.gender?.toLowerCase() === 'male') {
+              const ageInMonths = Math.floor((new Date(lastDateOfMonth).getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+              if (ageInMonths < 12) stageForCount = "Bull Calf";
+              else if (ageInMonths < 24) stageForCount = "Young Bull";
+              else stageForCount = "Mature Bull";
+            }
+
+            if (stageForCount) {
+              stageCounts[stageForCount] = (stageCounts[stageForCount] || 0) + 1;
+            }
+          });
+
+          monthlyMap[monthKey] = { month: monthKey, ...stageCounts };
+        });
+      }
 
       const monthlyData = Object.values(monthlyMap);
 
