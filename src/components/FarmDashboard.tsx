@@ -49,11 +49,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
-  }, [farmId, timePeriod, selectedYear]);
+  }, [farmId, timePeriod, selectedYear, monthlyTimePeriod]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -84,11 +85,30 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     try {
       const { startDate, endDate } = getDateRange();
       
-      // For monthly headcount, always use YTD of selected year to show historical data
-      const monthlyStartDate = new Date(selectedYear, 0, 1);
-      const monthlyEndDate = selectedYear === new Date().getFullYear() 
-        ? new Date() 
-        : new Date(selectedYear, 11, 31);
+      // For monthly headcount, use filter setting
+      let monthlyStartDate: Date;
+      let monthlyEndDate: Date;
+      
+      if (monthlyTimePeriod === "all") {
+        // Get the earliest animal birth date for all-time view
+        const { data: oldestAnimal } = await supabase
+          .from("animals")
+          .select("birth_date")
+          .eq("farm_id", farmId)
+          .order("birth_date", { ascending: true })
+          .limit(1);
+        
+        monthlyStartDate = oldestAnimal?.[0]?.birth_date 
+          ? new Date(oldestAnimal[0].birth_date)
+          : new Date(selectedYear, 0, 1);
+        monthlyEndDate = new Date();
+      } else {
+        // YTD of selected year
+        monthlyStartDate = new Date(selectedYear, 0, 1);
+        monthlyEndDate = selectedYear === new Date().getFullYear() 
+          ? new Date() 
+          : new Date(selectedYear, 11, 31);
+      }
       
       // Get total animals
       const { count: animalCount } = await supabase
@@ -597,7 +617,18 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {/* Monthly Cattle Headcount Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Cattle Headcount by Stage</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Monthly Cattle Headcount by Stage
+            </CardTitle>
+            <Tabs value={monthlyTimePeriod} onValueChange={(v) => setMonthlyTimePeriod(v as "all" | "ytd")}>
+              <TabsList>
+                <TabsTrigger value="ytd">YTD</TabsTrigger>
+                <TabsTrigger value="all">All Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
           {monthlyHeadcount.length > 0 && stageKeys.length > 0 ? (
