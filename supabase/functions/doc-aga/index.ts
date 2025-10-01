@@ -62,6 +62,7 @@ Guidelines:
 - When users report health issues or treatments, offer to create health records
 - When users mention milk production, offer to log milking records
 - Always confirm before creating records
+- All records are automatically timestamped with the current date in Philippine timezone - you don't need to ask for dates
 - Provide clear, practical advice based on proven farming practices
 - Be conversational and remember the context of previous messages`;
 
@@ -100,17 +101,16 @@ Guidelines:
         type: "function",
         function: {
           name: "add_health_record",
-          description: "Create a new health record for an animal",
+          description: "Create a new health record for an animal. The date is automatically set to current Philippine time.",
           parameters: {
             type: "object",
             properties: {
               animal_identifier: { type: "string", description: "Animal ear tag or name" },
               diagnosis: { type: "string", description: "Health diagnosis or condition" },
               treatment: { type: "string", description: "Treatment administered" },
-              notes: { type: "string", description: "Additional notes" },
-              visit_date: { type: "string", description: "Date of visit (YYYY-MM-DD)" }
+              notes: { type: "string", description: "Additional notes" }
             },
-            required: ["animal_identifier", "visit_date"]
+            required: ["animal_identifier"]
           }
         }
       },
@@ -118,15 +118,14 @@ Guidelines:
         type: "function",
         function: {
           name: "add_milking_record",
-          description: "Log milk production for an animal",
+          description: "Log milk production for an animal. The date is automatically set to current Philippine time.",
           parameters: {
             type: "object",
             properties: {
               animal_identifier: { type: "string", description: "Animal ear tag or name" },
-              liters: { type: "number", description: "Liters of milk produced" },
-              record_date: { type: "string", description: "Date of milking (YYYY-MM-DD)" }
+              liters: { type: "number", description: "Liters of milk produced" }
             },
-            required: ["animal_identifier", "liters", "record_date"]
+            required: ["animal_identifier", "liters"]
           }
         }
       },

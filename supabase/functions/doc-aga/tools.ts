@@ -125,12 +125,15 @@ async function addHealthRecord(args: any, supabase: SupabaseClient, farmId: stri
   // Get user ID
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Get current date in PH timezone (UTC+8)
+  const phDate = new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString().split('T')[0];
+
   // Create health record
   const { data, error } = await supabase
     .from('health_records')
     .insert({
       animal_id: animal.id,
-      visit_date: args.visit_date,
+      visit_date: phDate,
       diagnosis: args.diagnosis || null,
       treatment: args.treatment || null,
       notes: args.notes || null,
@@ -169,12 +172,15 @@ async function addMilkingRecord(args: any, supabase: SupabaseClient, farmId: str
   // Get user ID
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Get current date in PH timezone (UTC+8)
+  const phDate = new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString().split('T')[0];
+
   // Create milking record
   const { data, error } = await supabase
     .from('milking_records')
     .insert({
       animal_id: animal.id,
-      record_date: args.record_date,
+      record_date: phDate,
       liters: args.liters,
       created_by: user?.id,
     })
