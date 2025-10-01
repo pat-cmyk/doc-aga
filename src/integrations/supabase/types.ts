@@ -17,31 +17,40 @@ export type Database = {
       ai_records: {
         Row: {
           animal_id: string
+          confirmed_at: string | null
           created_at: string
           created_by: string | null
+          expected_delivery_date: string | null
           id: string
           notes: string | null
           performed_date: string | null
+          pregnancy_confirmed: boolean | null
           scheduled_date: string | null
           technician: string | null
         }
         Insert: {
           animal_id: string
+          confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
+          expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           performed_date?: string | null
+          pregnancy_confirmed?: boolean | null
           scheduled_date?: string | null
           technician?: string | null
         }
         Update: {
           animal_id?: string
+          confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
+          expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           performed_date?: string | null
+          pregnancy_confirmed?: boolean | null
           scheduled_date?: string | null
           technician?: string | null
         }

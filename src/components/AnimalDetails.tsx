@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, formatDistanceToNow } from "date-fns";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
@@ -98,6 +98,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [stageData, setStageData] = useState<AnimalStageData | null>(null);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -150,14 +151,21 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
-        // Get latest AI record
+        // Get latest AI record with pregnancy info
         const { data: aiRecords } = await supabase
           .from("ai_records")
-          .select("performed_date")
+          .select("performed_date, pregnancy_confirmed, expected_delivery_date")
           .eq("animal_id", animalId)
           .not("performed_date", "is", null)
           .order("performed_date", { ascending: false })
           .limit(1);
+        
+        // Check for confirmed pregnancy with expected delivery date
+        if (aiRecords && aiRecords.length > 0 && aiRecords[0].pregnancy_confirmed && aiRecords[0].expected_delivery_date) {
+          setExpectedDeliveryDate(aiRecords[0].expected_delivery_date);
+        } else {
+          setExpectedDeliveryDate(null);
+        }
         
         // Get recent milking records (last 30 days)
         const { data: milkingRecords } = await supabase
@@ -344,6 +352,12 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                     definition={getMilkingStageDefinition(computedMilkingStage)}
                     colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
                   />
+                )}
+                {expectedDeliveryDate && (
+                  <Badge className="bg-green-500 hover:bg-green-600">
+                    <Baby className="h-3 w-3 mr-1" />
+                    Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                  </Badge>
                 )}
               </div>
               <CardDescription>
