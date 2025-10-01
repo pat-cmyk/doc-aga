@@ -45,25 +45,26 @@ serve(async (req) => {
     const { data: faqs } = await supabase.from('doc_aga_faqs').select('*').eq('is_active', true);
     const faqContext = faqs?.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
     
-    const systemPrompt = `You are Doc Aga, an expert farm assistant with access to the user's farm data and the ability to manage animal records.
+    const systemPrompt = `You are Doc Aga, a knowledgeable and friendly livestock veterinarian assistant specializing in Philippine dairy farming. You help farmers manage their cattle operations by:
+
+1. **Answering Questions**: Provide advice on animal health, breeding, nutrition, and farm management based on the FAQ knowledge base and general veterinary practices
+2. **Accessing Records**: Look up complete animal profiles including health, milking, AI, events, feeding, and injection records
+3. **Logging Data**: Create health, milking, AI, event, feeding, and injection records
+4. **Farm Analytics**: Provide detailed statistics, trends, and insights about farm performance
+5. **Breeding Management**: Track pregnant animals, AI records, and breeding events
+6. **Historical Data**: Access daily and monthly farm statistics for trend analysis
 
 Your knowledge base includes:
 ${faqContext}
 
-You can access and modify farm data using these tools:
-- get_animal_profile: Get detailed information about a specific animal
-- search_animals: Search for animals by various criteria
-- add_health_record: Create a health record for an animal
-- add_milking_record: Log milking production for an animal
-- get_farm_overview: Get farm statistics and overview
-
 Guidelines:
-- When users ask about specific animals, use get_animal_profile or search_animals to fetch accurate data
+- Use the FAQ knowledge base to answer common questions accurately
 - When users report health issues or treatments, offer to create health records
 - When users mention milk production, offer to log milking records
-- Always confirm before creating records
+- For breeding-related queries, access AI records and pregnancy events
+- Provide data-driven insights using farm analytics and historical trends
 - All records are automatically timestamped with the current date in Philippine timezone - you don't need to ask for dates
-- Provide clear, practical advice based on proven farming practices
+- Provide clear, practical advice based on proven farming practices and actual farm data
 - Be conversational and remember the context of previous messages`;
 
     const tools = [
@@ -71,12 +72,26 @@ Guidelines:
         type: "function",
         function: {
           name: "get_animal_profile",
-          description: "Get complete profile information for a specific animal including health records, milking data, and parentage",
+          description: "Get basic profile of a specific animal with recent health and milking records only",
           parameters: {
             type: "object",
             properties: {
-              ear_tag: { type: "string", description: "The animal's ear tag identifier" },
-              name: { type: "string", description: "The animal's name" }
+              ear_tag: { type: "string", description: "Animal ear tag number" },
+              name: { type: "string", description: "Animal name (partial match supported)" }
+            }
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_animal_complete_profile",
+          description: "Get comprehensive profile with ALL record types: health, milking, AI, events, feeding, injections, and parentage info",
+          parameters: {
+            type: "object",
+            properties: {
+              ear_tag: { type: "string", description: "Animal ear tag number" },
+              name: { type: "string", description: "Animal name (partial match supported)" }
             }
           }
         }
@@ -132,9 +147,115 @@ Guidelines:
       {
         type: "function",
         function: {
+          name: "add_ai_record",
+          description: "Create an artificial insemination (AI) record for an animal. Date is automatically set to current Philippine time.",
+          parameters: {
+            type: "object",
+            properties: {
+              animal_identifier: { type: "string", description: "Animal ear tag or name" },
+              technician: { type: "string", description: "Name of AI technician" },
+              notes: { type: "string", description: "Additional notes about the AI procedure" }
+            },
+            required: ["animal_identifier"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_animal_event",
+          description: "Create an animal event (pregnancy_confirmed, calving, etc.). Date is automatically set to current Philippine time.",
+          parameters: {
+            type: "object",
+            properties: {
+              animal_identifier: { type: "string", description: "Animal ear tag or name" },
+              event_type: { type: "string", enum: ["pregnancy_confirmed", "calving", "weaning", "heat_detected"], description: "Type of event" },
+              notes: { type: "string", description: "Additional notes" }
+            },
+            required: ["animal_identifier", "event_type"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_feeding_record",
+          description: "Create a feeding record for an animal. Time is automatically set to current Philippine time.",
+          parameters: {
+            type: "object",
+            properties: {
+              animal_identifier: { type: "string", description: "Animal ear tag or name" },
+              feed_type: { type: "string", description: "Type of feed given" },
+              kilograms: { type: "number", description: "Amount of feed in kilograms" },
+              notes: { type: "string", description: "Additional notes" }
+            },
+            required: ["animal_identifier"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_injection_record",
+          description: "Create an injection/vaccine record for an animal. Time is automatically set to current Philippine time.",
+          parameters: {
+            type: "object",
+            properties: {
+              animal_identifier: { type: "string", description: "Animal ear tag or name" },
+              medicine_name: { type: "string", description: "Name of medicine or vaccine" },
+              dosage: { type: "string", description: "Dosage administered" },
+              instructions: { type: "string", description: "Special instructions or notes" }
+            },
+            required: ["animal_identifier"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
           name: "get_farm_overview",
-          description: "Get farm statistics and overview",
-          parameters: { type: "object", properties: {} }
+          description: "Get basic farm statistics: animal counts by stage and today's milk production",
+          parameters: {
+            type: "object",
+            properties: {}
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_farm_analytics",
+          description: "Get detailed farm analytics including daily/monthly stats and milk production trends over a period",
+          parameters: {
+            type: "object",
+            properties: {
+              days: { type: "number", description: "Number of days to analyze (default: 30)" }
+            }
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_pregnant_animals",
+          description: "Get list of all currently pregnant animals (pregnancy confirmed but no calving yet)",
+          parameters: {
+            type: "object",
+            properties: {}
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_recent_events",
+          description: "Get recent farm events (calvings, pregnancies, heat detection, weaning)",
+          parameters: {
+            type: "object",
+            properties: {
+              limit: { type: "number", description: "Maximum number of events to return (default: 20)" }
+            }
+          }
         }
       }
     ];
