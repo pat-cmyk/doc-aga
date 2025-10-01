@@ -27,6 +27,27 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
 
   useEffect(() => {
     loadRecords();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('health_records_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'health_records',
+          filter: `animal_id=eq.${animalId}`
+        },
+        () => {
+          loadRecords();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [animalId]);
 
   const loadRecords = async () => {
