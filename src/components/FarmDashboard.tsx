@@ -130,12 +130,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         ? milkingData.reduce((sum, r) => sum + Number(r.liters), 0) / milkingData.length
         : 0;
 
-      // Get pregnant animals (from AI records with pregnancy confirmed events)
+      // Get pregnant animals (from AI records with pregnancy confirmed)
       const { data: pregnancyData } = await supabase
-        .from("animal_events")
+        .from("ai_records")
         .select("animal_id, animals!inner(farm_id)")
         .eq("animals.farm_id", farmId)
-        .eq("event_type", "pregnancy_confirmed");
+        .eq("pregnancy_confirmed", true);
 
       // Get recent health events
       const { count: healthCount } = await supabase
