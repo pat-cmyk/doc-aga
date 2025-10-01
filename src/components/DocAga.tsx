@@ -17,7 +17,7 @@ const DocAga = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm Doc Aga, your farm assistant. I can answer questions about livestock health, nutrition, breeding, and management based on proven farming practices. You can type your question or use voice recording. How can I help you today?"
+      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• Provide farm management advice\n\nYou can type your question or use voice recording. How can I help you today?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -44,11 +44,14 @@ const DocAga = () => {
     try {
       const DOC_AGA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/doc-aga`;
       
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const resp = await fetch(DOC_AGA_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ 
           messages: [
