@@ -17,12 +17,11 @@ const DocAga = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm Doc Aga, your farm assistant. I can answer questions about livestock health, nutrition, breeding, and management based on proven farming practices. How can I help you today?"
+      content: "Hello! I'm Doc Aga, your farm assistant. I can answer questions about livestock health, nutrition, breeding, and management based on proven farming practices. You can type your question or use voice recording. How can I help you today?"
     }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -32,12 +31,14 @@ const DocAga = () => {
     }
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || input.trim();
+    if (!textToSend || loading) return;
 
-    const userMessage = input.trim();
-    setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    if (!messageText) {
+      setInput("");
+    }
+    setMessages(prev => [...prev, { role: "user", content: textToSend }]);
     setLoading(true);
 
     try {
@@ -50,7 +51,10 @@ const DocAga = () => {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ 
-          messages: messages.filter(m => m.role !== "assistant" || m.content !== "Hello! I'm Doc Aga, your farm assistant. I can answer questions about livestock health, nutrition, breeding, and management based on proven farming practices. How can I help you today?")
+          messages: [
+            ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Hello! I'm Doc Aga")),
+            { role: "user", content: textToSend }
+          ]
         }),
       });
 
@@ -147,7 +151,7 @@ const DocAga = () => {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("doc_aga_queries").insert({
         user_id: user?.id,
-        question: userMessage,
+        question: textToSend,
         answer: assistantResponse,
       });
 
@@ -208,7 +212,7 @@ const DocAga = () => {
         )}
       </ScrollArea>
 
-      <VoiceInterface onSpeakingChange={setIsVoiceSpeaking} />
+      <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
 
       <div className="border-t p-4">
         <form
@@ -221,11 +225,11 @@ const DocAga = () => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isVoiceSpeaking ? "Voice active..." : "Ask about livestock management..."}
-            disabled={loading || isVoiceSpeaking}
+            placeholder="Type your question or record voice..."
+            disabled={loading}
             className="flex-1"
           />
-          <Button type="submit" disabled={loading || !input.trim() || isVoiceSpeaking}>
+          <Button type="submit" disabled={loading || !input.trim()}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>

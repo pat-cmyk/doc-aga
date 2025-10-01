@@ -1,133 +1,193 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { Mic, Square, Loader2, Send } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceInterfaceProps {
-  onSpeakingChange: (speaking: boolean) => void;
+  onTranscription: (text: string) => void;
 }
 
-const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => {
+const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription }) => {
   const { toast } = useToast();
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const chatRef = useRef<RealtimeChat | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  const handleMessage = (event: any) => {
-    console.log('Voice event:', event.type);
-    
-    // Handle different event types
-    if (event.type === 'response.audio.delta') {
-      setIsSpeaking(true);
-      onSpeakingChange(true);
-    } else if (event.type === 'response.audio.done') {
-      setIsSpeaking(false);
-      onSpeakingChange(false);
-    } else if (event.type === 'input_audio_buffer.speech_started') {
-      console.log('User started speaking');
-    } else if (event.type === 'input_audio_buffer.speech_stopped') {
-      console.log('User stopped speaking');
-    } else if (event.type === 'error') {
-      console.error('Voice error:', event);
-      toast({
-        title: "Voice Error",
-        description: event.error?.message || "An error occurred",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const startConversation = async () => {
+  const startRecording = async () => {
     try {
-      setIsConnecting(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Request microphone permission first
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
       
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init();
-      
-      setIsConnected(true);
-      setIsConnecting(false);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
       
       toast({
-        title: "Voice Connected",
-        description: "You can now speak with Doc Aga",
+        title: "Recording Started",
+        description: "Speak your question to Doc Aga",
       });
     } catch (error) {
-      console.error('Error starting conversation:', error);
-      setIsConnecting(false);
+      console.error('Error starting recording:', error);
       toast({
-        title: "Connection Error",
-        description: error instanceof Error ? error.message : 'Failed to start voice conversation',
+        title: "Recording Error",
+        description: "Could not access microphone",
         variant: "destructive",
       });
     }
   };
 
-  const endConversation = () => {
-    chatRef.current?.disconnect();
-    setIsConnected(false);
-    setIsSpeaking(false);
-    onSpeakingChange(false);
-    
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      toast({
+        title: "Recording Stopped",
+        description: "Click send to transcribe and submit",
+      });
+    }
+  };
+
+  const sendAudio = async () => {
+    if (!audioBlob) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          // Remove data URL prefix
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+      });
+
+      console.log('Sending audio for transcription...');
+
+      // Send to voice-to-text edge function
+      const { data, error } = await supabase.functions.invoke('voice-to-text', {
+        body: { audio: base64Audio }
+      });
+
+      if (error) throw error;
+
+      if (data.text) {
+        console.log('Transcription:', data.text);
+        onTranscription(data.text);
+        setAudioBlob(null);
+        
+        toast({
+          title: "Transcription Complete",
+          description: "Processing your question...",
+        });
+      } else {
+        throw new Error('No transcription returned');
+      }
+
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      toast({
+        title: "Processing Error",
+        description: error instanceof Error ? error.message : 'Failed to process audio',
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const discardRecording = () => {
+    setAudioBlob(null);
     toast({
-      title: "Voice Disconnected",
-      description: "Voice conversation ended",
+      title: "Recording Discarded",
+      description: "Ready to record again",
     });
   };
 
-  useEffect(() => {
-    return () => {
-      chatRef.current?.disconnect();
-    };
-  }, []);
-
   return (
     <div className="flex items-center justify-center gap-2 p-4 border-t bg-muted/30">
-      {!isConnected ? (
-        <Button 
-          onClick={startConversation}
-          disabled={isConnecting}
-          className="gap-2"
-        >
-          {isConnecting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Connecting...
-            </>
-          ) : (
-            <>
-              <Mic className="h-4 w-4" />
-              Start Voice Conversation
-            </>
-          )}
-        </Button>
-      ) : (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {isSpeaking ? (
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                Doc Aga is speaking...
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mic className="h-4 w-4 text-primary" />
-                Listening...
-              </div>
-            )}
-          </div>
+      {!audioBlob ? (
+        !isRecording ? (
           <Button 
-            onClick={endConversation}
-            variant="destructive"
-            size="sm"
+            onClick={startRecording}
+            className="gap-2"
+            variant="secondary"
+          >
+            <Mic className="h-4 w-4" />
+            Record Voice Question
+          </Button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
+              Recording...
+            </div>
+            <Button 
+              onClick={stopRecording}
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+            >
+              <Square className="h-4 w-4" />
+              Stop Recording
+            </Button>
+          </div>
+        )
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Recording ready</span>
+          <Button 
+            onClick={sendAudio}
+            disabled={isProcessing}
             className="gap-2"
           >
-            <MicOff className="h-4 w-4" />
-            End Voice
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Send
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={discardRecording}
+            variant="outline"
+            size="sm"
+            disabled={isProcessing}
+          >
+            Discard
           </Button>
         </div>
       )}
