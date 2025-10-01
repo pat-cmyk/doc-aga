@@ -47,13 +47,14 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [monthlyHeadcount, setMonthlyHeadcount] = useState<MonthlyHeadcount[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
-  const [timePeriod, setTimePeriod] = useState<"mtd" | "ytd">("mtd");
+  const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
-  }, [farmId, timePeriod, selectedYear]);
+  }, [farmId, timePeriod, selectedYear, selectedMonth]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -61,14 +62,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     let endDate = new Date();
     
     switch (timePeriod) {
-      case "mtd": // Month to Date
-        startDate = new Date(selectedYear, now.getMonth(), 1);
-        // If selected year is current year, use today, otherwise use end of current month
-        if (selectedYear === now.getFullYear() && now.getMonth() === now.getMonth()) {
-          endDate = now;
-        } else {
-          endDate = new Date(selectedYear, now.getMonth() + 1, 0); // Last day of month
-        }
+      case "last30": // Last 30 Days
+        endDate = now;
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
         break;
       case "ytd": // Year to Date
         startDate = new Date(selectedYear, 0, 1); // January 1st of selected year
@@ -487,7 +484,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <CardContent>
           <div className="text-2xl font-bold">{stats.avgDailyMilk}L</div>
           <p className="text-xs text-muted-foreground">
-            Per animal ({timePeriod === "mtd" ? "MTD" : "YTD"} {selectedYear})
+            Per animal ({timePeriod === "last30" ? "Last 30 Days" : `YTD ${selectedYear}`})
           </p>
         </CardContent>
       </Card>
@@ -514,7 +511,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <CardContent>
           <div className="text-2xl font-bold">{stats.recentHealthEvents}</div>
           <p className="text-xs text-muted-foreground">
-            {timePeriod === "mtd" ? `${new Date().toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}
+            {timePeriod === "last30" ? "Last 30 Days" : `Year ${selectedYear}`}
           </p>
         </CardContent>
       </Card>
@@ -527,7 +524,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
             <CardTitle>Daily Milk Production</CardTitle>
             <div className="flex items-center gap-3">
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[100px]">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
@@ -536,9 +533,23 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   ))}
                 </SelectContent>
               </Select>
-              <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "mtd" | "ytd")} className="w-auto">
+              {timePeriod === "last30" && (
+                <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card z-50">
+                    {Array.from({ length: 12 }, (_, i) => i).map(month => (
+                      <SelectItem key={month} value={month.toString()}>
+                        {new Date(2024, month).toLocaleString('default', { month: 'short' })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "last30" | "ytd")} className="w-auto">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="mtd">MTD</TabsTrigger>
+                  <TabsTrigger value="last30">Last 30 Days</TabsTrigger>
                   <TabsTrigger value="ytd">YTD</TabsTrigger>
                 </TabsList>
               </Tabs>
