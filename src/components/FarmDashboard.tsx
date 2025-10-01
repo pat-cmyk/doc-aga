@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Line, ComposedChart, Legend } from "recharts";
@@ -29,6 +30,11 @@ interface CombinedDailyData {
   [key: string]: string | number; // Dynamic stage counts
 }
 
+interface MonthlyHeadcount {
+  month: string;
+  [key: string]: string | number; // Dynamic stage counts
+}
+
 const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails }: FarmDashboardProps) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
@@ -38,6 +44,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   });
   const [combinedData, setCombinedData] = useState<CombinedDailyData[]>([]);
   const [stageKeys, setStageKeys] = useState<string[]>([]);
+  const [monthlyHeadcount, setMonthlyHeadcount] = useState<MonthlyHeadcount[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<"mtd" | "ytd">("mtd");
@@ -278,17 +285,32 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       const finalData = dateArray.map(date => combinedDataMap[date]);
       const stageKeysArray = Array.from(allStageKeys);
 
-      // Calculate max cattle count for Y-axis scaling
-      let maxCattleCount = 0;
+      // Calculate monthly headcount aggregation
+      const monthlyMap: Record<string, MonthlyHeadcount> = {};
       finalData.forEach(dataPoint => {
+        // Extract month from date (e.g., "Jan 2024")
+        const fullDate = new Date(dateArray[finalData.indexOf(dataPoint)]);
+        const monthKey = fullDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        if (!monthlyMap[monthKey]) {
+          monthlyMap[monthKey] = { month: monthKey };
+          stageKeysArray.forEach(stage => {
+            monthlyMap[monthKey][stage] = 0;
+          });
+        }
+
+        // Aggregate stage counts for the month (taking the last value of each month as snapshot)
         stageKeysArray.forEach(stage => {
           const count = dataPoint[stage] as number || 0;
-          if (count > maxCattleCount) maxCattleCount = count;
+          monthlyMap[monthKey][stage] = count; // Use latest count for the month
         });
       });
 
+      const monthlyData = Object.values(monthlyMap);
+
       setCombinedData(finalData);
       setStageKeys(stageKeysArray);
+      setMonthlyHeadcount(monthlyData);
 
       setStats({
         totalAnimals: animalCount || 0,
@@ -447,6 +469,53 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                 <Milk className="h-12 w-12 mx-auto mb-2 opacity-20" />
                 <p>No data available</p>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Monthly Cattle Headcount Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Cattle Headcount by Stage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {monthlyHeadcount.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold">Month</TableHead>
+                    {stageKeys.map(stage => (
+                      <TableHead key={stage} className="text-right font-semibold">
+                        {stage}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-right font-semibold">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monthlyHeadcount.map((monthData) => {
+                    const total = stageKeys.reduce((sum, stage) => sum + (monthData[stage] as number || 0), 0);
+                    return (
+                      <TableRow key={monthData.month}>
+                        <TableCell className="font-medium">{monthData.month}</TableCell>
+                        {stageKeys.map(stage => (
+                          <TableCell key={stage} className="text-right">
+                            {monthData[stage] || 0}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-semibold">{total}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              <p>No headcount data available</p>
             </div>
           )}
         </CardContent>
