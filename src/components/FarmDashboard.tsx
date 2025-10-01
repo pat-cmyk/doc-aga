@@ -49,12 +49,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
-  }, [farmId, timePeriod, selectedYear, selectedMonth]);
+  }, [farmId, timePeriod, selectedYear]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -533,20 +532,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   ))}
                 </SelectContent>
               </Select>
-              {timePeriod === "last30" && (
-                <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Month" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card z-50">
-                    {Array.from({ length: 12 }, (_, i) => i).map(month => (
-                      <SelectItem key={month} value={month.toString()}>
-                        {new Date(2024, month).toLocaleString('default', { month: 'short' })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
               <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "last30" | "ytd")} className="w-auto">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="last30">Last 30 Days</TabsTrigger>
