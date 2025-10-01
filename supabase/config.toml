@@ -2,3 +2,6 @@ project_id = "sxorybjlxyquxteptdyk"
 
 [functions.realtime-token]
 verify_jwt = true
+
+[functions.backfill-stats]
+verify_jwt = false

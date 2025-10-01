@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Milk, Activity, Calendar, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Milk, Activity, Calendar, TrendingUp, Database } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -50,6 +51,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
+  const [backfilling, setBackfilling] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -469,6 +471,47 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   };
 
+  const handleBackfillData = async () => {
+    setBackfilling(true);
+    try {
+      // Backfill from earliest animal birth date to today
+      const startDate = '2020-01-01'; // Start from beginning or earliest date
+      const endDate = new Date().toISOString().split('T')[0];
+
+      toast({
+        title: "Backfilling historical data...",
+        description: "This may take a minute or two.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('backfill-stats', {
+        body: {
+          farmId,
+          startDate,
+          endDate,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: `Backfilled ${data.processed} days of historical data.`,
+      });
+
+      // Reload dashboard data
+      await loadDashboardData();
+    } catch (error: any) {
+      console.error('Error backfilling data:', error);
+      toast({
+        title: "Error backfilling data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -622,12 +665,32 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
               <TrendingUp className="h-5 w-5" />
               Monthly Cattle Headcount by Stage
             </CardTitle>
-            <Tabs value={monthlyTimePeriod} onValueChange={(v) => setMonthlyTimePeriod(v as "all" | "ytd")}>
-              <TabsList>
-                <TabsTrigger value="ytd">YTD</TabsTrigger>
-                <TabsTrigger value="all">All Time</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackfillData}
+                disabled={backfilling}
+              >
+                {backfilling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Fill Historical Data
+                  </>
+                )}
+              </Button>
+              <Tabs value={monthlyTimePeriod} onValueChange={(v) => setMonthlyTimePeriod(v as "all" | "ytd")}>
+                <TabsList>
+                  <TabsTrigger value="ytd">YTD</TabsTrigger>
+                  <TabsTrigger value="all">All Time</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
