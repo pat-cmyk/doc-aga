@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       throw new Error('startDate, endDate, and farmId are required');
     }
 
-    console.log(`Backfilling stats for farm ${farmId} from ${startDate} to ${endDate}`);
+    console.log(`Backfilling monthly stats for farm ${farmId} from ${startDate} to ${endDate}`);
 
     // Get all animals for the farm
     const { data: allAnimals, error: animalsError } = await supabaseClient
@@ -100,41 +100,33 @@ Deno.serve(async (req) => {
       offspringByMother.get(offspring.mother_id)!.push({ birth_date: offspring.birth_date });
     });
 
-    // Get all milking records for the date range
-    // First get animal IDs for the farm
-    const animalIds = allAnimals?.map(a => a.id) || [];
-    
-    const { data: milkRecords, error: milkError } = await supabaseClient
-      .from('milking_records')
-      .select('liters, record_date, animal_id')
-      .in('animal_id', animalIds)
-      .gte('record_date', startDate)
-      .lte('record_date', endDate);
-
-    if (milkError) console.error('Error fetching milk records:', milkError);
-
-    // Create date array
-    const dateArray: string[] = [];
-    const currentDate = new Date(startDate);
+    // Create array of last day of each month between start and end dates
+    const monthEndDates: string[] = [];
+    const start = new Date(startDate);
     const end = new Date(endDate);
     
-    while (currentDate <= end) {
-      dateArray.push(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
+    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+    
+    while (current <= end) {
+      // Get last day of current month
+      const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      
+      // Only add if it's within our range
+      if (lastDay >= start && lastDay <= end) {
+        monthEndDates.push(lastDay.toISOString().split('T')[0]);
+      }
+      
+      // Move to next month
+      current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
     }
 
-    console.log(`Processing ${dateArray.length} dates...`);
+    console.log(`Processing ${monthEndDates.length} month-end dates...`);
 
-    // Process each date
+    // Process each month-end date
     const statsToUpsert = [];
     
-    for (const date of dateArray) {
+    for (const date of monthEndDates) {
       const stageCounts: Record<string, number> = {};
-      let totalMilk = 0;
-
-      // Calculate milk for this date
-      const dayMilk = milkRecords?.filter(r => r.record_date === date) || [];
-      totalMilk = dayMilk.reduce((sum, r) => sum + Number(r.liters), 0);
 
       // Get AI records within 90 days of this date
       const ninetyDaysBefore = new Date(date);
@@ -203,13 +195,12 @@ Deno.serve(async (req) => {
 
       statsToUpsert.push({
         farm_id: farmId,
-        stat_date: date,
-        total_milk_liters: totalMilk,
+        month_date: date,
         stage_counts: stageCounts,
       });
     }
 
-    console.log(`Upserting ${statsToUpsert.length} stat records...`);
+    console.log(`Upserting ${statsToUpsert.length} monthly stat records...`);
 
     // Upsert in batches of 100
     const batchSize = 100;
@@ -217,9 +208,9 @@ Deno.serve(async (req) => {
       const batch = statsToUpsert.slice(i, i + batchSize);
       
       const { error: upsertError } = await supabaseClient
-        .from('daily_farm_stats')
+        .from('monthly_farm_stats')
         .upsert(batch, {
-          onConflict: 'farm_id,stat_date',
+          onConflict: 'farm_id,month_date',
         });
 
       if (upsertError) {

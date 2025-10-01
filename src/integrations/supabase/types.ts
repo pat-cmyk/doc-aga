@@ -629,6 +629,41 @@ export type Database = {
           },
         ]
       }
+      monthly_farm_stats: {
+        Row: {
+          created_at: string
+          farm_id: string
+          id: string
+          month_date: string
+          stage_counts: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          farm_id: string
+          id?: string
+          month_date: string
+          stage_counts?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          farm_id?: string
+          id?: string
+          month_date?: string
+          stage_counts?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_farm_stats_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

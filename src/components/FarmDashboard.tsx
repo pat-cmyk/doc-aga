@@ -153,14 +153,14 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         .lte("stat_date", endDate.toISOString().split("T")[0])
         .order("stat_date", { ascending: true });
 
-      // Fetch pre-aggregated data for monthly headcount (YTD)
+      // Fetch pre-aggregated data for monthly headcount
       const { data: monthlyStats, error: monthlyStatsError } = await supabase
-        .from("daily_farm_stats")
+        .from("monthly_farm_stats")
         .select("*")
         .eq("farm_id", farmId)
-        .gte("stat_date", monthlyStartDate.toISOString().split("T")[0])
-        .lte("stat_date", monthlyEndDate.toISOString().split("T")[0])
-        .order("stat_date", { ascending: true });
+        .gte("month_date", monthlyStartDate.toISOString().split("T")[0])
+        .lte("month_date", monthlyEndDate.toISOString().split("T")[0])
+        .order("month_date", { ascending: true });
 
       if (statsError) {
         console.error("Error fetching daily stats:", statsError);
@@ -328,7 +328,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       if (monthlyStats && monthlyStats.length > 0) {
         // Use pre-calculated stats for monthly aggregation
         monthlyStats.forEach(stat => {
-          const statDate = new Date(stat.stat_date);
+          const statDate = new Date(stat.month_date);
           const monthKey = statDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
           
           if (!monthlyMap[monthKey]) {
