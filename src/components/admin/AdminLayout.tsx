@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Building2, MessageSquare, Activity, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
