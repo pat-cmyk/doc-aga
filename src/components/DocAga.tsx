@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, Bot, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import VoiceInterface from "./VoiceInterface";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,6 +22,7 @@ const DocAga = () => {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -206,6 +208,8 @@ const DocAga = () => {
         )}
       </ScrollArea>
 
+      <VoiceInterface onSpeakingChange={setIsVoiceSpeaking} />
+
       <div className="border-t p-4">
         <form
           onSubmit={(e) => {
@@ -217,11 +221,11 @@ const DocAga = () => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about livestock management..."
-            disabled={loading}
+            placeholder={isVoiceSpeaking ? "Voice active..." : "Ask about livestock management..."}
+            disabled={loading || isVoiceSpeaking}
             className="flex-1"
           />
-          <Button type="submit" disabled={loading || !input.trim()}>
+          <Button type="submit" disabled={loading || !input.trim() || isVoiceSpeaking}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
