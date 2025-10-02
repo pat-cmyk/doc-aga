@@ -13,6 +13,20 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
     
+    // Transform messages to support vision (images)
+    const transformedMessages = messages.map((msg: any) => {
+      if (msg.imageUrl) {
+        return {
+          role: msg.role,
+          content: [
+            { type: "text", text: msg.content || "Please analyze this image" },
+            { type: "image_url", image_url: { url: msg.imageUrl } }
+          ]
+        };
+      }
+      return msg;
+    });
+    
     // Get auth token from request
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
@@ -274,7 +288,7 @@ Guidelines:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...transformedMessages,
         ],
         tools,
         stream: false,
@@ -337,7 +351,7 @@ Guidelines:
           model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
-            ...messages,
+            ...transformedMessages,
             data.choices[0].message,
             ...toolResults
           ],

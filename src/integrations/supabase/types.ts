@@ -317,6 +317,7 @@ export type Database = {
           created_at: string
           farm_id: string | null
           id: string
+          image_url: string | null
           matched_faq_id: string | null
           question: string
           user_id: string | null
@@ -326,6 +327,7 @@ export type Database = {
           created_at?: string
           farm_id?: string | null
           id?: string
+          image_url?: string | null
           matched_faq_id?: string | null
           question: string
           user_id?: string | null
@@ -335,6 +337,7 @@ export type Database = {
           created_at?: string
           farm_id?: string | null
           id?: string
+          image_url?: string | null
           matched_faq_id?: string | null
           question?: string
           user_id?: string | null

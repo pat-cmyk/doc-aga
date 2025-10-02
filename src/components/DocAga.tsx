@@ -13,18 +13,22 @@ interface Message {
   content: string;
   audioUrl?: string;
   showText?: boolean;
+  imageUrl?: string;
 }
 
 const DocAga = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• Provide farm management advice\n\nYou can type your question or use voice recording. How can I help you today?"
+      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• Provide farm management advice\n\nYou can type your question, attach an image, or use voice recording. How can I help you today?"
     }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,14 +37,65 @@ const DocAga = () => {
     }
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
-    if (!textToSend || loading) return;
+    if ((!textToSend && !selectedImage) || loading) return;
+
+    let uploadedImageUrl: string | null = null;
+
+    // Upload image if selected
+    if (selectedImage) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
+        const fileExt = selectedImage.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('doc-aga-images')
+          .upload(fileName, selectedImage);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('doc-aga-images')
+          .getPublicUrl(fileName);
+
+        uploadedImageUrl = publicUrl;
+      } catch (error: any) {
+        toast({
+          title: "Upload Error",
+          description: error.message || "Failed to upload image",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
     if (!messageText) {
       setInput("");
     }
-    setMessages(prev => [...prev, { role: "user", content: textToSend }]);
+    setSelectedImage(null);
+    setImagePreview(null);
+    
+    setMessages(prev => [...prev, { 
+      role: "user", 
+      content: textToSend || "Attached an image",
+      imageUrl: uploadedImageUrl || undefined
+    }]);
     setLoading(true);
 
     try {
@@ -58,7 +113,11 @@ const DocAga = () => {
         body: JSON.stringify({ 
           messages: [
             ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Hello! I'm Doc Aga")),
-            { role: "user", content: textToSend }
+            { 
+              role: "user", 
+              content: textToSend,
+              imageUrl: uploadedImageUrl
+            }
           ]
         }),
       });
@@ -191,6 +250,7 @@ const DocAga = () => {
         user_id: user?.id,
         question: textToSend,
         answer: assistantResponse,
+        image_url: uploadedImageUrl
       });
 
     } catch (error: any) {
@@ -230,7 +290,14 @@ const DocAga = () => {
                 </div>
               )}
               <Card className={`p-2.5 max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
-              {message.role === "assistant" && message.audioUrl && (
+                {message.imageUrl && (
+                  <img 
+                    src={message.imageUrl} 
+                    alt="Attached" 
+                    className="max-w-full h-auto rounded mb-2 max-h-64 object-contain"
+                  />
+                )}
+                {message.role === "assistant" && message.audioUrl && (
                   <div className="flex items-center gap-2 mb-2">
                     <audio src={message.audioUrl} controls className="max-w-full" />
                     <Button
@@ -273,6 +340,22 @@ const DocAga = () => {
 
       <div className="border-t p-3 space-y-2">
         <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
+        {imagePreview && (
+          <div className="relative inline-block">
+            <img src={imagePreview} alt="Preview" className="h-20 rounded" />
+            <Button
+              size="sm"
+              variant="destructive"
+              className="absolute -top-2 -right-2 h-5 w-5 p-0 rounded-full"
+              onClick={() => {
+                setSelectedImage(null);
+                setImagePreview(null);
+              }}
+            >
+              ×
+            </Button>
+          </div>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -280,6 +363,22 @@ const DocAga = () => {
           }}
           className="flex gap-2"
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -287,7 +386,7 @@ const DocAga = () => {
             disabled={loading}
             className="flex-1 text-sm h-9"
           />
-          <Button type="submit" disabled={loading || !input.trim()} size="sm">
+          <Button type="submit" disabled={loading || (!input.trim() && !selectedImage)} size="sm">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
         </form>
