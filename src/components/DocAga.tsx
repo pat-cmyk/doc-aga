@@ -230,7 +230,7 @@ const DocAga = () => {
                 </div>
               )}
               <Card className={`p-2.5 max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
-                {message.role === "assistant" && message.audioUrl && (
+              {message.role === "assistant" && message.audioUrl && (
                   <div className="flex items-center gap-2 mb-2">
                     <audio src={message.audioUrl} controls className="max-w-full" />
                     <Button
@@ -247,7 +247,7 @@ const DocAga = () => {
                     </Button>
                   </div>
                 )}
-                {(message.role === "user" || !message.audioUrl || message.showText) && (
+                {(message.role === "user" || !message.audioUrl || message.showText === true) && (
                   <p className="text-xs whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 )}
               </Card>
