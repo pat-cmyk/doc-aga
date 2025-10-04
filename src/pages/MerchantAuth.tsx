@@ -59,7 +59,9 @@ const MerchantAuth = () => {
     setIsLoading(true);
 
     try {
-      // 1. Create auth user
+      let session;
+      
+      // 1. Try to create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -71,14 +73,31 @@ const MerchantAuth = () => {
         }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("User creation failed");
+      // If user already exists, sign them in instead
+      if (authError?.message?.includes("already registered")) {
+        console.log("User already exists, signing in...");
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      // 2. Get session for authenticated request
-      const { data: { session } } = await supabase.auth.getSession();
+        if (signInError) {
+          throw new Error("Email already registered. Please sign in or use a different email.");
+        }
+        
+        session = signInData.session;
+      } else if (authError) {
+        throw authError;
+      } else {
+        // New user created successfully
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        session = newSession;
+      }
+
       if (!session) throw new Error("No session found");
 
-      // 3. Call edge function to complete merchant signup
+      // 2. Call edge function to complete merchant signup
+      console.log("Calling merchant-signup function...");
       const { data, error: functionError } = await supabase.functions.invoke('merchant-signup', {
         body: {
           fullName,
@@ -90,8 +109,17 @@ const MerchantAuth = () => {
         },
       });
 
-      if (functionError) throw functionError;
-      if (data.error) throw new Error(data.error);
+      if (functionError) {
+        console.error("Function error:", functionError);
+        throw functionError;
+      }
+      
+      if (data?.error) {
+        console.error("Function returned error:", data.error);
+        throw new Error(data.error);
+      }
+
+      console.log("Merchant signup successful");
 
       toast({
         title: "Success!",
