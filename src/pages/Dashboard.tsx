@@ -166,10 +166,15 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
-            <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-4 flex-wrap">
+            <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+              <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
+              <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
+            </TabsList>
+            <Button variant="outline" onClick={() => navigate("/marketplace")}>
+              Marketplace
+            </Button>
+          </div>
 
           <TabsContent value="dashboard" className="space-y-6">
             {farmId && (
