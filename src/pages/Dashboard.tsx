@@ -31,6 +31,20 @@ const Dashboard = () => {
       
       setUser(session.user);
       
+      // Check user roles first - redirect merchants to their dashboard
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+      
+      const userRoles = roles?.map(r => r.role) || [];
+      
+      // If user is a merchant, redirect to merchant dashboard
+      if (userRoles.includes("merchant")) {
+        navigate("/merchant");
+        return;
+      }
+      
       // Development mode - show admin button for all users
       setIsAdmin(true);
       
@@ -43,7 +57,7 @@ const Dashboard = () => {
       // 
       // setIsAdmin(profile?.role === "admin");
       
-      // Check if user has a farm, create one if not
+      // Check if user has a farm, create one if not (only for farmers)
       const { data: farms, error: farmError } = await supabase
         .from("farms")
         .select("id")
