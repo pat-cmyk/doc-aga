@@ -4,9 +4,10 @@ import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText } from "lucide-react";
+import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductManagement } from "@/components/merchant/ProductManagement";
+import { MerchantProfile } from "@/components/merchant/MerchantProfile";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ const MerchantDashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-7 w-full mb-6">
+          <TabsList className="grid grid-cols-8 w-full mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Store className="h-4 w-4" />
               Dashboard
@@ -93,6 +94,10 @@ const MerchantDashboard = () => {
             <TabsTrigger value="billing" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Billing
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Profile
             </TabsTrigger>
           </TabsList>
 
@@ -222,6 +227,10 @@ const MerchantDashboard = () => {
                 <p className="text-muted-foreground">Billing interface coming soon...</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="profile">
+            <MerchantProfile />
           </TabsContent>
         </Tabs>
       </main>
