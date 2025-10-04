@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp, Scale } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ interface Animal {
   birth_date: string | null;
   gender: string | null;
   milking_start_date: string | null;
+  current_weight_kg: number | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
 }
@@ -335,9 +336,15 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}
-                </p>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}</span>
+                  {animal.current_weight_kg && (
+                    <span className="flex items-center gap-1 font-medium text-foreground">
+                      <Scale className="h-3 w-3" />
+                      {animal.current_weight_kg} kg
+                    </span>
+                  )}
+                </div>
                 {(animal.lifeStage || animal.milkingStage) && (
                   <div className="flex flex-wrap gap-2">
                     {animal.lifeStage && (

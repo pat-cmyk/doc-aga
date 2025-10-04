@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Milk, Activity, Calendar, TrendingUp, Database } from "lucide-react";
+import { Loader2, Milk, Activity, Calendar, TrendingUp, Database, Sprout } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -11,6 +11,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { calculateLifeStage, calculateMilkingStage, type AnimalStageData } from "@/lib/animalStages";
+import { generateFeedForecast, type MonthlyFeedForecast } from "@/lib/feedForecast";
+import { FeedForecast } from "./FeedForecast";
+import { estimateWeightByAge } from "@/lib/weightEstimates";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -48,16 +51,20 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [combinedData, setCombinedData] = useState<CombinedDailyData[]>([]);
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [monthlyHeadcount, setMonthlyHeadcount] = useState<MonthlyHeadcount[]>([]);
+  const [feedForecast, setFeedForecast] = useState<MonthlyFeedForecast[]>([]);
+  const [showFeedForecast, setShowFeedForecast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
   const [backfilling, setBackfilling] = useState(false);
+  const [populatingWeights, setPopulatingWeights] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
+    loadFeedForecast();
   }, [farmId, timePeriod, selectedYear, monthlyTimePeriod]);
 
   // Real-time subscription for milking records
@@ -546,6 +553,120 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   };
 
+  const loadFeedForecast = async () => {
+    try {
+      // Get all animals with weight data
+      const { data: animals, error } = await supabase
+        .from("animals")
+        .select("id, birth_date, gender, current_weight_kg")
+        .eq("farm_id", farmId)
+        .eq("is_deleted", false);
+
+      if (error) throw error;
+
+      // Get stage data for each animal
+      const animalsWithStages = await Promise.all(
+        (animals || []).map(async (animal) => {
+          if (!animal.birth_date) return null;
+
+          // Get offspring count
+          const { count: offspringCount } = await supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("mother_id", animal.id);
+
+          // Get last calving date
+          const { data: offspring } = await supabase
+            .from("animals")
+            .select("birth_date")
+            .eq("mother_id", animal.id)
+            .order("birth_date", { ascending: false })
+            .limit(1);
+
+          // Check for recent milking
+          const { data: recentMilking } = await supabase
+            .from("milking_records")
+            .select("id")
+            .eq("animal_id", animal.id)
+            .gte("record_date", new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
+            .limit(1);
+
+          const stageData: AnimalStageData = {
+            birthDate: new Date(animal.birth_date),
+            gender: animal.gender,
+            milkingStartDate: null,
+            offspringCount: offspringCount || 0,
+            lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
+            hasRecentMilking: (recentMilking?.length || 0) > 0,
+            hasActiveAI: false,
+          };
+
+          const lifeStage = calculateLifeStage(stageData);
+          const milkingStage = calculateMilkingStage(stageData);
+
+          // Estimate weight if not set
+          let weight = animal.current_weight_kg;
+          if (!weight) {
+            weight = estimateWeightByAge({
+              birthDate: new Date(animal.birth_date),
+              gender: animal.gender || "female",
+              lifeStage,
+            });
+          }
+
+          return {
+            id: animal.id,
+            birth_date: animal.birth_date,
+            gender: animal.gender || "female",
+            life_stage: lifeStage,
+            milking_stage: milkingStage,
+            current_weight_kg: weight,
+          };
+        })
+      );
+
+      const validAnimals = animalsWithStages.filter(a => a !== null);
+      const forecast = generateFeedForecast(validAnimals as any);
+      setFeedForecast(forecast);
+    } catch (error: any) {
+      console.error("Error loading feed forecast:", error);
+    }
+  };
+
+  const handlePopulateWeights = async () => {
+    setPopulatingWeights(true);
+    try {
+      toast({
+        title: "Populating weight estimates...",
+        description: "Calculating weights for all animals",
+      });
+
+      const { data, error } = await supabase.functions.invoke('populate-weights', {
+        body: { farmId },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: `Weight estimates added for ${data.populated} animals.`,
+      });
+
+      // Reload dashboard and forecast
+      await loadDashboardData();
+      await loadFeedForecast();
+    } catch (error: any) {
+      console.error('Error populating weights:', error);
+      toast({
+        title: "Error populating weights",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setPopulatingWeights(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -813,6 +934,66 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           )}
         </CardContent>
       </Card>
+
+      {/* Feed Forecast Section */}
+      {feedForecast.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Sprout className="h-5 w-5" />
+                Feed Requirements Forecast (6 Months)
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePopulateWeights}
+                  disabled={populatingWeights}
+                >
+                  {populatingWeights ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Calculating...
+                    </>
+                  ) : (
+                    "Initialize Weights"
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFeedForecast(!showFeedForecast)}
+                >
+                  {showFeedForecast ? "Hide Details" : "Show Details"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showFeedForecast ? (
+              <FeedForecast forecasts={feedForecast} />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Next Month</p>
+                  <p className="text-2xl font-bold">{feedForecast[0]?.totalFeedKgPerMonth.toLocaleString()} kg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Daily Average</p>
+                  <p className="text-2xl font-bold">{feedForecast[0]?.totalFeedKgPerDay} kg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">6-Month Total</p>
+                  <p className="text-2xl font-bold">
+                    {feedForecast.reduce((sum, f) => sum + f.totalFeedKgPerMonth, 0).toLocaleString()} kg
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <HealthEventsDialog
         farmId={farmId}

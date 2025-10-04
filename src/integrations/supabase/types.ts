@@ -281,6 +281,7 @@ export type Database = {
           breed: string | null
           client_generated_id: string | null
           created_at: string
+          current_weight_kg: number | null
           ear_tag: string | null
           farm_id: string
           father_id: string | null
@@ -300,6 +301,7 @@ export type Database = {
           breed?: string | null
           client_generated_id?: string | null
           created_at?: string
+          current_weight_kg?: number | null
           ear_tag?: string | null
           farm_id: string
           father_id?: string | null
@@ -319,6 +321,7 @@ export type Database = {
           breed?: string | null
           client_generated_id?: string | null
           created_at?: string
+          current_weight_kg?: number | null
           ear_tag?: string | null
           farm_id?: string
           father_id?: string | null
@@ -1242,6 +1245,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      weight_records: {
+        Row: {
+          animal_id: string
+          created_at: string
+          id: string
+          measurement_date: string
+          measurement_method: string | null
+          notes: string | null
+          recorded_by: string | null
+          weight_kg: number
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          id?: string
+          measurement_date: string
+          measurement_method?: string | null
+          notes?: string | null
+          recorded_by?: string | null
+          weight_kg: number
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          id?: string
+          measurement_date?: string
+          measurement_method?: string | null
+          notes?: string | null
+          recorded_by?: string | null
+          weight_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weight_records_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
