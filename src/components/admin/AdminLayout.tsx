@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Home } from "lucide-react";
+import { Shield, Users, Building2, MessageSquare, Activity, Home, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -43,7 +43,7 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="overview">
               <Activity className="h-4 w-4 mr-2" />
               Overview
@@ -59,6 +59,10 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
             <TabsTrigger value="docaga">
               <MessageSquare className="h-4 w-4 mr-2" />
               Doc Aga
+            </TabsTrigger>
+            <TabsTrigger value="merchants">
+              <Store className="h-4 w-4 mr-2" />
+              Merchants
             </TabsTrigger>
             <TabsTrigger value="system">
               <Shield className="h-4 w-4 mr-2" />

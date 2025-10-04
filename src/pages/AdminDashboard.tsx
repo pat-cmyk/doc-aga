@@ -5,6 +5,7 @@ import { UserManagement } from "@/components/admin/UserManagement";
 import { FarmOversight } from "@/components/admin/FarmOversight";
 import { DocAgaManagement } from "@/components/admin/DocAgaManagement";
 import { SystemAdmin } from "@/components/admin/SystemAdmin";
+import MerchantOversight from "@/components/admin/MerchantOversight";
 import { TabsContent } from "@/components/ui/tabs";
 
 const AdminDashboard = () => {
@@ -26,6 +27,10 @@ const AdminDashboard = () => {
       
       <TabsContent value="docaga">
         <DocAgaManagement />
+      </TabsContent>
+      
+      <TabsContent value="merchants">
+        <MerchantOversight />
       </TabsContent>
       
       <TabsContent value="system">
