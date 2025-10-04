@@ -171,6 +171,20 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+          
+          <div className="mt-6 pt-6 border-t text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Are you a merchant or supplier?
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/auth/merchant")}
+              type="button"
+            >
+              Register as a Merchant
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
