@@ -1226,19 +1226,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: Database["public"]["Enums"]["user_role"]
           user_id?: string
         }
         Relationships: []
@@ -1258,7 +1258,7 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
+          _role: Database["public"]["Enums"]["user_role"]
           _user_id: string
         }
         Returns: boolean
@@ -1282,12 +1282,6 @@ export type Database = {
         | "health_diagnosis"
         | "treatment"
         | "note"
-      app_role:
-        | "admin"
-        | "farmer_owner"
-        | "farmer_staff"
-        | "merchant"
-        | "distributor"
       message_party: "farmer" | "merchant" | "vet" | "admin"
       notification_type: "order_update" | "vet_update" | "message" | "system"
       order_status:
@@ -1296,7 +1290,13 @@ export type Database = {
         | "in_transit"
         | "delivered"
         | "cancelled"
-      user_role: "farmer_owner" | "farmhand" | "merchant" | "vet" | "admin"
+      user_role:
+        | "farmer_owner"
+        | "farmhand"
+        | "merchant"
+        | "vet"
+        | "admin"
+        | "distributor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1434,13 +1434,6 @@ export const Constants = {
         "treatment",
         "note",
       ],
-      app_role: [
-        "admin",
-        "farmer_owner",
-        "farmer_staff",
-        "merchant",
-        "distributor",
-      ],
       message_party: ["farmer", "merchant", "vet", "admin"],
       notification_type: ["order_update", "vet_update", "message", "system"],
       order_status: [
@@ -1450,7 +1443,14 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      user_role: ["farmer_owner", "farmhand", "merchant", "vet", "admin"],
+      user_role: [
+        "farmer_owner",
+        "farmhand",
+        "merchant",
+        "vet",
+        "admin",
+        "distributor",
+      ],
     },
   },
 } as const
