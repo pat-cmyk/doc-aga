@@ -1,13 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Search, ShoppingCart, ArrowLeft, Package } from "lucide-react";
+import { useProducts } from "@/hooks/useProducts";
+import { ProductCard } from "@/components/marketplace/ProductCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 const Marketplace = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: products, isLoading } = useProducts(searchQuery);
+  const { toast } = useToast();
+
+  const handleOrderClick = (productId: string) => {
+    // TODO: Implement order creation flow
+    toast({
+      title: "Order Feature",
+      description: "Order creation coming soon!",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,16 +56,37 @@ const Marketplace = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Browse Products</CardTitle>
-          </CardHeader>
-          <CardContent>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="aspect-square w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : products && products.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                {...product}
+                onOrderClick={handleOrderClick}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Products Found</h3>
             <p className="text-muted-foreground">
-              Product catalog coming soon. Merchants can list their products here and farmers can browse and purchase.
+              {searchQuery
+                ? "Try adjusting your search terms"
+                : "No products are currently available"}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </main>
     </div>
   );
