@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search } from "lucide-react";
-import { ProductList } from "./ProductList";
-import { ProductFormDialog } from "./ProductFormDialog";
+import { ProductList } from "@/components/merchant/ProductList";
+import { ProductFormDialog } from "@/components/merchant/ProductFormDialog";
 
 interface Product {
   id: string;
