@@ -74,34 +74,28 @@ const MerchantAuth = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("User creation failed");
 
-      // 2. Insert into user_roles table
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: authData.user.id,
-          role: "merchant"
-        });
+      // 2. Get session for authenticated request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session found");
 
-      if (roleError) throw roleError;
+      // 3. Call edge function to complete merchant signup
+      const { data, error: functionError } = await supabase.functions.invoke('merchant-signup', {
+        body: {
+          fullName,
+          businessName,
+          businessDescription,
+          contactPhone,
+          contactEmail,
+          businessAddress,
+        },
+      });
 
-      // 3. Insert into merchants table
-      const { error: merchantError } = await supabase
-        .from("merchants")
-        .insert({
-          user_id: authData.user.id,
-          business_name: businessName,
-          business_description: businessDescription,
-          contact_email: contactEmail,
-          contact_phone: contactPhone,
-          business_address: businessAddress,
-          is_verified: false
-        });
-
-      if (merchantError) throw merchantError;
+      if (functionError) throw functionError;
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Success!",
-        description: "Your merchant account has been created. Please check your email to verify your account.",
+        description: "Your merchant account has been created successfully!",
       });
 
       // Redirect to merchant dashboard

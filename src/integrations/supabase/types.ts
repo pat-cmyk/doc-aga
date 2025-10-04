@@ -1256,6 +1256,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      handle_merchant_signup: {
+        Args: {
+          _business_address: string
+          _business_description: string
+          _business_name: string
+          _contact_email: string
+          _contact_phone: string
+          _full_name: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
