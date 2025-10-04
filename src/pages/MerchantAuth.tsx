@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
 
@@ -14,7 +15,11 @@ const MerchantAuth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Form state
+  // Form state for sign in
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  
+  // Form state for sign up
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +48,58 @@ const MerchantAuth = () => {
     };
     checkAuth();
   }, [navigate]);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!signInEmail || !signInPassword) {
+      toast({
+        title: "Missing fields",
+        description: "Please enter email and password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: signInEmail,
+        password: signInPassword,
+      });
+
+      if (error) throw error;
+
+      // Check if user is a merchant
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id)
+        .eq("role", "merchant");
+
+      if (!roles || roles.length === 0) {
+        await supabase.auth.signOut();
+        throw new Error("This account is not registered as a merchant. Please sign up as a merchant first.");
+      }
+
+      toast({
+        title: "Success!",
+        description: "Signed in successfully",
+      });
+
+      navigate("/merchant");
+    } catch (error: any) {
+      console.error("Sign in error:", error);
+      toast({
+        title: "Sign in failed",
+        description: error.message || "An error occurred during sign in",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +139,7 @@ const MerchantAuth = () => {
         });
 
         if (signInError) {
-          throw new Error("Email already registered. Please sign in or use a different email.");
+          throw new Error("Email already registered with incorrect password. Please use the correct password or sign in.");
         }
         
         session = signInData.session;
@@ -148,140 +205,187 @@ const MerchantAuth = () => {
           <div className="flex items-center justify-center mb-4">
             <Store className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl text-center">Become a Merchant</CardTitle>
+          <CardTitle className="text-2xl text-center">Merchant Portal</CardTitle>
           <CardDescription className="text-center">
-            Join our marketplace and start selling your products to farmers
+            Sign in or register your business to sell products to farmers
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignUp} className="space-y-4">
-            {/* Personal Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm text-muted-foreground">Personal Information</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    placeholder="merchant@example.com"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Personal Information</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name *</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="John Doe"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
 
-            {/* Business Information */}
-            <div className="space-y-4 pt-4 border-t">
-              <h3 className="font-semibold text-sm text-muted-foreground">Business Information</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name *</Label>
-                <Input
-                  id="businessName"
-                  type="text"
-                  placeholder="Acme Agriculture Supplies"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  required
-                />
-              </div>
+                {/* Business Information */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Business Information</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="businessName">Business Name *</Label>
+                    <Input
+                      id="businessName"
+                      type="text"
+                      placeholder="Acme Agriculture Supplies"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="businessDescription">Business Description</Label>
-                <Textarea
-                  id="businessDescription"
-                  placeholder="Tell us about your business..."
-                  value={businessDescription}
-                  onChange={(e) => setBusinessDescription(e.target.value)}
-                  rows={3}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="businessDescription">Business Description</Label>
+                    <Textarea
+                      id="businessDescription"
+                      placeholder="Tell us about your business..."
+                      value={businessDescription}
+                      onChange={(e) => setBusinessDescription(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Business Contact Email *</Label>
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  placeholder="business@example.com"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactEmail">Business Contact Email *</Label>
+                    <Input
+                      id="contactEmail"
+                      type="email"
+                      placeholder="business@example.com"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="contactPhone">Business Phone</Label>
-                <Input
-                  id="contactPhone"
-                  type="tel"
-                  placeholder="+1234567890"
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPhone">Business Phone</Label>
+                    <Input
+                      id="contactPhone"
+                      type="tel"
+                      placeholder="+1234567890"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="businessAddress">Business Address</Label>
-                <Textarea
-                  id="businessAddress"
-                  placeholder="123 Main St, City, Country"
-                  value={businessAddress}
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="businessAddress">Business Address</Label>
+                    <Textarea
+                      id="businessAddress"
+                      placeholder="123 Main St, City, Country"
+                      value={businessAddress}
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
-                </>
-              ) : (
-                "Create Merchant Account"
-              )}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Create Merchant Account"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="mt-6 pt-6 border-t text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Are you a farmer?
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/auth")}
+              type="button"
+            >
+              Go to Farmer Portal
             </Button>
-
-            <div className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Button
-                variant="link"
-                className="p-0"
-                onClick={() => navigate("/auth")}
-                type="button"
-              >
-                Sign in here
-              </Button>
-            </div>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </div>

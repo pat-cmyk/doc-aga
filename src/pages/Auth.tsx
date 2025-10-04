@@ -92,8 +92,8 @@ const Auth = () => {
               <Sprout className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">AgriPal</CardTitle>
-          <CardDescription>Digital livestock management for modern farmers</CardDescription>
+          <CardTitle className="text-2xl font-bold">Farmer Portal</CardTitle>
+          <CardDescription>Sign in or create your farmer account to manage your livestock</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
