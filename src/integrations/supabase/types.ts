@@ -14,6 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaigns: {
+        Row: {
+          budget: number
+          clicks: number
+          cost_per_click: number
+          created_at: string
+          description: string | null
+          end_date: string
+          id: string
+          image_url: string | null
+          impressions: number
+          is_active: boolean
+          merchant_id: string
+          product_id: string | null
+          spent: number
+          start_date: string
+          target_farm_size_max: number | null
+          target_farm_size_min: number | null
+          target_region: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget: number
+          clicks?: number
+          cost_per_click?: number
+          created_at?: string
+          description?: string | null
+          end_date: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          merchant_id: string
+          product_id?: string | null
+          spent?: number
+          start_date: string
+          target_farm_size_max?: number | null
+          target_farm_size_min?: number | null
+          target_region?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget?: number
+          clicks?: number
+          cost_per_click?: number
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          merchant_id?: string
+          product_id?: string | null
+          spent?: number
+          start_date?: string
+          target_farm_size_max?: number | null
+          target_farm_size_min?: number | null
+          target_region?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaigns_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_campaigns_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_impressions: {
+        Row: {
+          campaign_id: string
+          clicked: boolean
+          created_at: string
+          farmer_id: string
+          id: string
+        }
+        Insert: {
+          campaign_id: string
+          clicked?: boolean
+          created_at?: string
+          farmer_id: string
+          id?: string
+        }
+        Update: {
+          campaign_id?: string
+          clicked?: boolean
+          created_at?: string
+          farmer_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_records: {
         Row: {
           animal_id: string
@@ -277,6 +390,62 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributors: {
+        Row: {
+          address: string
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          gps_lat: number
+          gps_lng: number
+          id: string
+          is_active: boolean
+          merchant_id: string
+          name: string
+          phone: string
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          gps_lat: number
+          gps_lng: number
+          id?: string
+          is_active?: boolean
+          merchant_id: string
+          name: string
+          phone: string
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          gps_lat?: number
+          gps_lng?: number
+          id?: string
+          is_active?: boolean
+          merchant_id?: string
+          name?: string
+          phone?: string
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributors_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
         ]
@@ -599,6 +768,148 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          is_paid: boolean
+          issued_date: string
+          order_id: string
+          paid_date: string | null
+          tax_amount: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          is_paid?: boolean
+          issued_date?: string
+          order_id: string
+          paid_date?: string | null
+          tax_amount?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          is_paid?: boolean
+          issued_date?: string
+          order_id?: string
+          paid_date?: string | null
+          tax_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merchants: {
+        Row: {
+          business_address: string | null
+          business_description: string | null
+          business_logo_url: string | null
+          business_name: string
+          contact_email: string
+          contact_phone: string | null
+          created_at: string
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          is_verified: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_address?: string | null
+          business_description?: string | null
+          business_logo_url?: string | null
+          business_name: string
+          contact_email: string
+          contact_phone?: string | null
+          created_at?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          is_verified?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_address?: string | null
+          business_description?: string | null
+          business_logo_url?: string | null
+          business_name?: string
+          contact_email?: string
+          contact_phone?: string | null
+          created_at?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          is_verified?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          order_id: string | null
+          recipient_id: string
+          recipient_type: Database["public"]["Enums"]["message_party"]
+          sender_id: string
+          sender_type: Database["public"]["Enums"]["message_party"]
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          order_id?: string | null
+          recipient_id: string
+          recipient_type: Database["public"]["Enums"]["message_party"]
+          sender_id: string
+          sender_type: Database["public"]["Enums"]["message_party"]
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          order_id?: string | null
+          recipient_id?: string
+          recipient_type?: Database["public"]["Enums"]["message_party"]
+          sender_id?: string
+          sender_type?: Database["public"]["Enums"]["message_party"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       milking_records: {
         Row: {
           animal_id: string
@@ -714,6 +1025,176 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string
+          quantity: number
+          subtotal: number
+          unit_price: number
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          product_id: string
+          quantity: number
+          subtotal: number
+          unit_price: number
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          product_id?: string
+          quantity?: number
+          subtotal?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          delivery_address: string | null
+          farmer_id: string
+          id: string
+          merchant_id: string
+          notes: string | null
+          order_number: string
+          status: Database["public"]["Enums"]["order_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_address?: string | null
+          farmer_id: string
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          order_number: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_address?: string | null
+          farmer_id?: string
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          order_number?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_categories: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          merchant_id: string
+          name: string
+          price: number
+          stock_quantity: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          merchant_id: string
+          name: string
+          price: number
+          stock_quantity?: number
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          merchant_id?: string
+          name?: string
+          price?: number
+          stock_quantity?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -741,6 +1222,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -750,8 +1252,23 @@ export type Database = {
         Args: { fid: string }
         Returns: boolean
       }
+      generate_order_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_farm_member: {
         Args: { farm_id: string }
+        Returns: boolean
+      }
+      is_merchant: {
+        Args: { _user_id: string }
         Returns: boolean
       }
     }
@@ -765,6 +1282,12 @@ export type Database = {
         | "health_diagnosis"
         | "treatment"
         | "note"
+      app_role:
+        | "admin"
+        | "farmer_owner"
+        | "farmer_staff"
+        | "merchant"
+        | "distributor"
       message_party: "farmer" | "merchant" | "vet" | "admin"
       notification_type: "order_update" | "vet_update" | "message" | "system"
       order_status:
@@ -910,6 +1433,13 @@ export const Constants = {
         "health_diagnosis",
         "treatment",
         "note",
+      ],
+      app_role: [
+        "admin",
+        "farmer_owner",
+        "farmer_staff",
+        "merchant",
+        "distributor",
       ],
       message_party: ["farmer", "merchant", "vet", "admin"],
       notification_type: ["order_update", "vet_update", "message", "system"],
