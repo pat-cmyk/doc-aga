@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import Marketplace from "./pages/Marketplace";
+import Checkout from "./pages/Checkout";
 import DistributorFinder from "./pages/DistributorFinder";
 import OrderHistory from "./pages/OrderHistory";
 import MessagingPage from "./pages/MessagingPage";
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/merchant" element={<MerchantDashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/checkout" element={<Checkout />} />
           <Route path="/distributors" element={<DistributorFinder />} />
           <Route path="/orders" element={<OrderHistory />} />
           <Route path="/messages" element={<MessagingPage />} />
