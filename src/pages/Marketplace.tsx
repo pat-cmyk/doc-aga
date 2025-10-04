@@ -7,19 +7,35 @@ import { useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/hooks/useCart";
+import { CartDrawer } from "@/components/marketplace/CartDrawer";
+import { Badge } from "@/components/ui/badge";
 
 const Marketplace = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [cartOpen, setCartOpen] = useState(false);
   const { data: products, isLoading } = useProducts(searchQuery);
+  const { addToCart, getTotalItems } = useCart();
   const { toast } = useToast();
 
   const handleOrderClick = (productId: string) => {
-    // TODO: Implement order creation flow
-    toast({
-      title: "Order Feature",
-      description: "Order creation coming soon!",
-    });
+    const product = products?.find((p) => p.id === productId);
+    if (product) {
+      if (product.stock_quantity <= 0) {
+        toast({
+          title: "Out of Stock",
+          description: "This product is currently unavailable",
+          variant: "destructive",
+        });
+        return;
+      }
+      addToCart(product, 1);
+      toast({
+        title: "Added to Cart",
+        description: `${product.name} added to your cart`,
+      });
+    }
   };
 
   return (
@@ -34,12 +50,24 @@ const Marketplace = () => {
             </Button>
             <h1 className="text-2xl font-bold">Marketplace</h1>
           </div>
-          <Button variant="outline" onClick={() => navigate("/orders")}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            My Orders
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCartOpen(true)} className="relative">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Cart
+              {getTotalItems() > 0 && (
+                <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {getTotalItems()}
+                </Badge>
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/orders")}>
+              My Orders
+            </Button>
+          </div>
         </div>
       </header>
+
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
 
       {/* Search Bar */}
       <div className="container mx-auto px-4 py-6">

@@ -1252,6 +1252,10 @@ export type Database = {
         Args: { fid: string }
         Returns: boolean
       }
+      generate_invoice_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_order_number: {
         Args: Record<PropertyKey, never>
         Returns: string

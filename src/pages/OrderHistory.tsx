@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, ArrowLeft } from "lucide-react";
+import { OrderList } from "@/components/farmer/OrderList";
 
 const OrderHistory = () => {
   const navigate = useNavigate();
@@ -26,16 +26,7 @@ const OrderHistory = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Order History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Your order history and tracking information will appear here.
-            </p>
-          </CardContent>
-        </Card>
+        <OrderList />
       </main>
     </div>
   );

@@ -8,6 +8,9 @@ import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileTex
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductManagement } from "@/components/merchant/ProductManagement";
 import { MerchantProfile } from "@/components/merchant/MerchantProfile";
+import { OrderManagement } from "@/components/merchant/OrderManagement";
+import { InvoiceList } from "@/components/merchant/InvoiceList";
+import { NotificationBell } from "@/components/merchant/NotificationBell";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
@@ -56,9 +59,12 @@ const MerchantDashboard = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-2">
-            <Store className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Merchant Portal</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Store className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold">Merchant Portal</h1>
+            </div>
+            <NotificationBell />
           </div>
         </div>
       </header>
@@ -175,14 +181,7 @@ const MerchantDashboard = () => {
           </TabsContent>
 
           <TabsContent value="orders">
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Order tracking interface coming soon...</p>
-              </CardContent>
-            </Card>
+            <OrderManagement />
           </TabsContent>
 
           <TabsContent value="campaigns">
@@ -219,14 +218,7 @@ const MerchantDashboard = () => {
           </TabsContent>
 
           <TabsContent value="billing">
-            <Card>
-              <CardHeader>
-                <CardTitle>Billing & Invoices</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Billing interface coming soon...</p>
-              </CardContent>
-            </Card>
+            <InvoiceList />
           </TabsContent>
 
           <TabsContent value="profile">
