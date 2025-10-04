@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductManagement } from "@/components/merchant/ProductManagement";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
@@ -175,14 +176,7 @@ const MerchantDashboard = () => {
           </TabsContent>
 
           <TabsContent value="products">
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Product management interface coming soon...</p>
-              </CardContent>
-            </Card>
+            <ProductManagement />
           </TabsContent>
 
           <TabsContent value="orders">
