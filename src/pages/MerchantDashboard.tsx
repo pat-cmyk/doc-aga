@@ -4,7 +4,7 @@ import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, ArrowLeft } from "lucide-react";
+import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductManagement } from "@/components/merchant/ProductManagement";
 
@@ -54,20 +54,10 @@ const MerchantDashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div className="flex items-center gap-2">
-              <Store className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold">Merchant Portal</h1>
-            </div>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-2">
+            <Store className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold">Merchant Portal</h1>
           </div>
         </div>
       </header>
