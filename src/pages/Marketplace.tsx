@@ -3,18 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ShoppingCart, ArrowLeft, Package } from "lucide-react";
-import { useProducts } from "@/hooks/useProducts";
+import { useProducts, Product } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/hooks/useCart";
 import { CartDrawer } from "@/components/marketplace/CartDrawer";
 import { Badge } from "@/components/ui/badge";
+import { AddToCartDialog } from "@/components/marketplace/AddToCartDialog";
 
 const Marketplace = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
+  const [addToCartDialogOpen, setAddToCartDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const { data: products, isLoading } = useProducts(searchQuery);
   const { addToCart, getTotalItems } = useCart();
   const { toast } = useToast();
@@ -30,11 +33,19 @@ const Marketplace = () => {
         });
         return;
       }
-      addToCart(product, 1);
+      setSelectedProduct(product);
+      setAddToCartDialogOpen(true);
+    }
+  };
+
+  const handleAddToCart = (quantity: number) => {
+    if (selectedProduct) {
+      addToCart(selectedProduct, quantity);
       toast({
         title: "Added to Cart",
-        description: `${product.name} added to your cart`,
+        description: `${quantity} x ${selectedProduct.name} added to your cart`,
       });
+      setCartOpen(true);
     }
   };
 
@@ -78,6 +89,12 @@ const Marketplace = () => {
       </header>
 
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+      <AddToCartDialog
+        open={addToCartDialogOpen}
+        onOpenChange={setAddToCartDialogOpen}
+        product={selectedProduct}
+        onAddToCart={handleAddToCart}
+      />
 
       {/* Search Bar */}
       <div className="container mx-auto px-4 py-6">
