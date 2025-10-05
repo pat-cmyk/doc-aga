@@ -748,11 +748,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {/* Milk Production Chart */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle>Daily Milk Production</CardTitle>
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <CardTitle className="text-base sm:text-lg">Daily Milk Production</CardTitle>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-[100px]">
+                <SelectTrigger className="w-full sm:w-[100px] min-h-[44px]">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
@@ -761,10 +761,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   ))}
                 </SelectContent>
               </Select>
-              <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "last30" | "ytd")} className="w-auto">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="last30">Last 30 Days</TabsTrigger>
-                  <TabsTrigger value="ytd">YTD</TabsTrigger>
+              <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as "last30" | "ytd")} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-2 min-h-[44px]">
+                  <TabsTrigger value="last30" className="min-h-[40px]">Last 30 Days</TabsTrigger>
+                  <TabsTrigger value="ytd" className="min-h-[40px]">YTD</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -779,41 +779,43 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   color: "hsl(var(--primary))",
                 },
               }}
-              className="h-[400px] w-full"
+              className="h-[250px] sm:h-[350px] lg:h-[400px] w-full"
             >
-              <AreaChart data={combinedData} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
-                <defs>
-                  <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}L`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="milkTotal"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2.5}
-                  fill="url(#fillMilk)"
-                  name="Milk (L)"
-                />
-              </AreaChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={combinedData} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fillMilk" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    className="text-xs"
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    className="text-xs"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value}L`}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="milkTotal"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2.5}
+                    fill="url(#fillMilk)"
+                    name="Milk (L)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </ChartContainer>
           ) : (
-            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[250px] sm:h-[350px] lg:h-[400px] flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Milk className="h-12 w-12 mx-auto mb-2 opacity-20" />
                 <p>No data available</p>
@@ -826,17 +828,18 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {/* Monthly Cattle Headcount Chart */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Monthly Cattle Headcount by Stage
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-sm sm:text-base">Monthly Cattle Headcount by Stage</span>
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleBackfillData}
                 disabled={backfilling}
+                className="min-h-[44px] w-full sm:w-auto"
               >
                 {backfilling ? (
                   <>
@@ -846,14 +849,15 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                 ) : (
                   <>
                     <Database className="h-4 w-4 mr-2" />
-                    Fill Historical Data
+                    <span className="hidden sm:inline">Fill Historical Data</span>
+                    <span className="sm:hidden">Fill Data</span>
                   </>
                 )}
               </Button>
-              <Tabs value={monthlyTimePeriod} onValueChange={(v) => setMonthlyTimePeriod(v as "all" | "ytd")}>
-                <TabsList>
-                  <TabsTrigger value="ytd">YTD</TabsTrigger>
-                  <TabsTrigger value="all">All Time</TabsTrigger>
+              <Tabs value={monthlyTimePeriod} onValueChange={(v) => setMonthlyTimePeriod(v as "all" | "ytd")} className="w-full sm:w-auto">
+                <TabsList className="w-full min-h-[44px]">
+                  <TabsTrigger value="ytd" className="min-h-[40px] flex-1">YTD</TabsTrigger>
+                  <TabsTrigger value="all" className="min-h-[40px] flex-1">All Time</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -861,71 +865,75 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         </CardHeader>
         <CardContent>
           {monthlyHeadcount.length > 0 && stageKeys.length > 0 ? (
-            <ChartContainer
-              config={{
-                ...Object.fromEntries(
-                  stageKeys.map((stage, idx) => {
-                    const colors = [
-                      "hsl(220, 70%, 60%)", // Blue
-                      "hsl(160, 60%, 50%)", // Teal
-                      "hsl(280, 65%, 60%)", // Purple
-                      "hsl(30, 80%, 55%)",  // Orange
-                      "hsl(340, 75%, 55%)", // Pink
-                      "hsl(120, 60%, 50%)", // Green
-                      "hsl(200, 70%, 55%)", // Cyan
-                      "hsl(350, 80%, 60%)", // Red
-                    ];
-                    return [
-                      stage,
-                      {
-                        label: stage,
-                        color: colors[idx % colors.length],
-                      },
-                    ];
-                  })
-                ),
-              }}
-              className="h-[400px] w-full"
-            >
-              <BarChart data={monthlyHeadcount} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                  label={{ value: "Head Count", angle: -90, position: "insideLeft" }}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                {stageKeys.map((stage, idx) => {
-                  const colors = [
-                    "hsl(220, 70%, 60%)", // Blue
-                    "hsl(160, 60%, 50%)", // Teal
-                    "hsl(280, 65%, 60%)", // Purple
-                    "hsl(30, 80%, 55%)",  // Orange
-                    "hsl(340, 75%, 55%)", // Pink
-                    "hsl(120, 60%, 50%)", // Green
-                    "hsl(200, 70%, 55%)", // Cyan
-                    "hsl(350, 80%, 60%)", // Red
-                  ];
-                  return (
-                    <Bar
-                      key={stage}
-                      dataKey={stage}
-                      stackId="a"
-                      fill={colors[idx % colors.length]}
-                      radius={idx === stageKeys.length - 1 ? [4, 4, 0, 0] : 0}
+            <div className="w-full overflow-x-auto">
+              <ChartContainer
+                config={{
+                  ...Object.fromEntries(
+                    stageKeys.map((stage, idx) => {
+                      const colors = [
+                        "hsl(220, 70%, 60%)", // Blue
+                        "hsl(160, 60%, 50%)", // Teal
+                        "hsl(280, 65%, 60%)", // Purple
+                        "hsl(30, 80%, 55%)",  // Orange
+                        "hsl(340, 75%, 55%)", // Pink
+                        "hsl(120, 60%, 50%)", // Green
+                        "hsl(200, 70%, 55%)", // Cyan
+                        "hsl(350, 80%, 60%)", // Red
+                      ];
+                      return [
+                        stage,
+                        {
+                          label: stage,
+                          color: colors[idx % colors.length],
+                        },
+                      ];
+                    })
+                  ),
+                }}
+                className="h-[300px] sm:h-[350px] lg:h-[400px] w-full min-w-[500px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyHeadcount} margin={{ left: 0, right: 0, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      className="text-xs"
+                      tickLine={false}
+                      axisLine={false}
                     />
-                  );
-                })}
-              </BarChart>
-            </ChartContainer>
+                    <YAxis
+                      className="text-xs"
+                      tickLine={false}
+                      axisLine={false}
+                      label={{ value: "Head Count", angle: -90, position: "insideLeft" }}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                    {stageKeys.map((stage, idx) => {
+                      const colors = [
+                        "hsl(220, 70%, 60%)", // Blue
+                        "hsl(160, 60%, 50%)", // Teal
+                        "hsl(280, 65%, 60%)", // Purple
+                        "hsl(30, 80%, 55%)",  // Orange
+                        "hsl(340, 75%, 55%)", // Pink
+                        "hsl(120, 60%, 50%)", // Green
+                        "hsl(200, 70%, 55%)", // Cyan
+                        "hsl(350, 80%, 60%)", // Red
+                      ];
+                      return (
+                        <Bar
+                          key={stage}
+                          dataKey={stage}
+                          stackId="a"
+                          fill={colors[idx % colors.length]}
+                          radius={idx === stageKeys.length - 1 ? [4, 4, 0, 0] : 0}
+                        />
+                      );
+                    })}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
@@ -939,10 +947,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {feedForecast.length > 0 && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Sprout className="h-5 w-5" />
-                Feed Requirements Forecast (6 Months)
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Sprout className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="text-sm sm:text-base">Feed Requirements Forecast (6 Months)</span>
               </CardTitle>
               <div className="flex gap-2">
                 <Button
@@ -950,22 +958,27 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
                   size="sm"
                   onClick={handlePopulateWeights}
                   disabled={populatingWeights}
+                  className="min-h-[44px] flex-1 sm:flex-none"
                 >
                   {populatingWeights ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Calculating...
+                      <span className="hidden sm:inline">Calculating...</span>
                     </>
                   ) : (
-                    "Initialize Weights"
+                    <>
+                      <span className="hidden sm:inline">Initialize Weights</span>
+                      <span className="sm:hidden">Init Weights</span>
+                    </>
                   )}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFeedForecast(!showFeedForecast)}
+                  className="min-h-[44px] flex-1 sm:flex-none"
                 >
-                  {showFeedForecast ? "Hide Details" : "Show Details"}
+                  {showFeedForecast ? "Hide" : "Show"}<span className="hidden sm:inline"> Details</span>
                 </Button>
               </div>
             </div>

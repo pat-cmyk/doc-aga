@@ -211,7 +211,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
 
   return (
     <div className="space-y-4">
-      <Button onClick={() => setShowForm(true)} className="w-full">
+      <Button onClick={() => setShowForm(true)} className="w-full min-h-[48px]">
         <Plus className="h-4 w-4 mr-2" />
         Add New Animal
       </Button>
@@ -258,7 +258,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
             </div>
 
             {/* Filter dropdowns */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Select value={breedFilter} onValueChange={setBreedFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Breed" />

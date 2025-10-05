@@ -47,27 +47,27 @@ export const OrderTable = ({ orders }: OrderTableProps) => {
 
   return (
     <>
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Order #</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="whitespace-nowrap">Order #</TableHead>
+              <TableHead className="whitespace-nowrap">Customer</TableHead>
+              <TableHead className="whitespace-nowrap">Date</TableHead>
+              <TableHead className="whitespace-nowrap">Items</TableHead>
+              <TableHead className="whitespace-nowrap">Total</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {orders.map((order) => (
               <TableRow key={order.id}>
-                <TableCell className="font-medium">{order.order_number}</TableCell>
-                <TableCell>{order.farmer.full_name || "Customer"}</TableCell>
-                <TableCell>{format(new Date(order.created_at), "MMM dd, yyyy")}</TableCell>
+                <TableCell className="font-medium whitespace-nowrap">{order.order_number}</TableCell>
+                <TableCell className="whitespace-nowrap">{order.farmer.full_name || "Customer"}</TableCell>
+                <TableCell className="whitespace-nowrap">{format(new Date(order.created_at), "MMM dd, yyyy")}</TableCell>
                 <TableCell>{order.order_items.length}</TableCell>
-                <TableCell>KES {order.total_amount.toLocaleString()}</TableCell>
+                <TableCell className="whitespace-nowrap">KES {order.total_amount.toLocaleString()}</TableCell>
                 <TableCell>
                   <Badge className={statusColors[order.status] || "bg-gray-500"}>
                     {statusLabels[order.status] || order.status}
@@ -78,6 +78,7 @@ export const OrderTable = ({ orders }: OrderTableProps) => {
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedOrder(order)}
+                    className="min-h-[44px] whitespace-nowrap"
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     View

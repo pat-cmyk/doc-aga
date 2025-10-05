@@ -42,27 +42,37 @@ const Marketplace = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold">Marketplace</h1>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setCartOpen(true)} className="relative">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Cart
-              {getTotalItems() > 0 && (
-                <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                  {getTotalItems()}
-                </Badge>
-              )}
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/orders")}>
-              My Orders
-            </Button>
+        <div className="container mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="shrink-0 min-h-[44px]">
+                <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+              <h1 className="text-lg sm:text-2xl font-bold truncate">Marketplace</h1>
+            </div>
+            <div className="flex gap-1 sm:gap-2 shrink-0">
+              <Button 
+                variant="outline" 
+                onClick={() => setCartOpen(true)} 
+                className="relative min-h-[44px] px-3 sm:px-4"
+              >
+                <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Cart</span>
+                {getTotalItems() > 0 && (
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                    {getTotalItems()}
+                  </Badge>
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate("/orders")}
+                className="hidden sm:flex min-h-[44px]"
+              >
+                My Orders
+              </Button>
+            </div>
           </div>
         </div>
       </header>

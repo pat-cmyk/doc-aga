@@ -174,7 +174,7 @@ export const ProductManagement = () => {
             />
           </div>
         </div>
-        <Button onClick={handleAddProduct}>
+        <Button onClick={handleAddProduct} className="w-full sm:w-auto min-h-[48px]">
           <Plus className="h-4 w-4 mr-2" />
           Add Product
         </Button>

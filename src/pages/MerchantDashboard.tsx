@@ -42,9 +42,9 @@ const MerchantDashboard = () => {
             <p className="text-muted-foreground mb-4">
               You need a merchant account to access this area. Would you like to register as a merchant?
             </p>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate("/")}>Go to Dashboard</Button>
-              <Button variant="outline" onClick={() => navigate("/merchant/register")}>
+            <div className="flex gap-1 sm:gap-2">
+              <Button onClick={() => navigate("/")} className="min-h-[44px]">Go to Dashboard</Button>
+              <Button variant="outline" onClick={() => navigate("/merchant/register")} className="min-h-[44px]">
                 Register as Merchant
               </Button>
             </div>
@@ -72,38 +72,38 @@ const MerchantDashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-8 w-full mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <Store className="h-4 w-4" />
-              Dashboard
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 w-full mb-6 h-auto gap-1 p-1">
+            <TabsTrigger value="dashboard" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <Store className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Products
+            <TabsTrigger value="products" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <Package className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Products</span>
             </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Orders
+            <TabsTrigger value="orders" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Orders</span>
             </TabsTrigger>
-            <TabsTrigger value="campaigns" className="flex items-center gap-2">
-              <Megaphone className="h-4 w-4" />
-              Campaigns
+            <TabsTrigger value="campaigns" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <Megaphone className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Campaigns</span>
             </TabsTrigger>
-            <TabsTrigger value="distributors" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Distributors
+            <TabsTrigger value="distributors" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Distributors</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Messages
+            <TabsTrigger value="messages" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <MessageSquare className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Billing
+            <TabsTrigger value="billing" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <FileText className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Billing</span>
             </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Profile
+            <TabsTrigger value="profile" className="flex items-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm min-h-[44px]">
+              <User className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
           </TabsList>
 
@@ -163,11 +163,11 @@ const MerchantDashboard = () => {
                   Get started by adding your first product or creating an ad campaign to reach farmers in your area.
                 </p>
                 <div className="flex gap-2">
-                  <Button onClick={() => setActiveTab("products")}>
+                  <Button onClick={() => setActiveTab("products")} className="min-h-[44px]">
                     <Package className="h-4 w-4 mr-2" />
                     Add Product
                   </Button>
-                  <Button variant="outline" onClick={() => setActiveTab("campaigns")}>
+                  <Button variant="outline" onClick={() => setActiveTab("campaigns")} className="min-h-[44px]">
                     <Megaphone className="h-4 w-4 mr-2" />
                     Create Campaign
                   </Button>
