@@ -131,13 +131,35 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
         <CardContent className="pt-6">
           <div className="flex gap-2 text-sm">
             <Sprout className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium">Feed Forecast Methodology</p>
-              <p className="text-muted-foreground mt-1">
-                Calculations based on standard dairy cattle feed requirements (2-3.5% of body weight per day).
-                Lactating cows require more feed than dry cows. Growing animals have higher requirements for growth.
-                Forecasts assume normal growth rates and may vary based on breed, health, and environmental factors.
-              </p>
+            <div className="space-y-4">
+              <div>
+                <p className="font-medium">Feed Forecast Methodology</p>
+                <p className="text-muted-foreground mt-1">
+                  Calculations based on standard dairy cattle feed requirements (2-3.5% of body weight per day).
+                  Lactating cows require more feed than dry cows. Growing animals have higher requirements for growth.
+                  Forecasts assume normal growth rates and may vary based on breed, health, and environmental factors.
+                </p>
+              </div>
+              
+              <div className="border-t border-primary/10 pt-4">
+                <p className="font-medium mb-2">Formula by Category:</p>
+                <ul className="text-muted-foreground space-y-1 ml-4">
+                  <li>• <span className="font-medium text-foreground">Lactating cows:</span> Weight × 3.5%</li>
+                  <li>• <span className="font-medium text-foreground">Calves:</span> Weight × 3.0%</li>
+                  <li>• <span className="font-medium text-foreground">Growing heifers/bulls:</span> Weight × 2.5%</li>
+                  <li>• <span className="font-medium text-foreground">Mature bulls:</span> Weight × 2.5%</li>
+                  <li>• <span className="font-medium text-foreground">Dry/pregnant cows:</span> Weight × 2.0%</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-primary/10 pt-4">
+                <p className="font-medium mb-2">Sample Computation:</p>
+                <div className="text-muted-foreground space-y-1 bg-background/50 p-3 rounded-md">
+                  <p><span className="font-medium text-foreground">Lactating cow</span> weighing 450 kg:</p>
+                  <p className="ml-4">Daily feed = 450 kg × 3.5% = <span className="font-semibold text-foreground">15.75 kg/day</span></p>
+                  <p className="ml-4">Monthly feed = 15.75 kg × 30 days = <span className="font-semibold text-foreground">472.5 kg/month</span></p>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
