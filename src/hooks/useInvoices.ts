@@ -89,8 +89,8 @@ export const useInvoices = () => {
 
       if (invoiceNumberError) throw invoiceNumberError;
 
-      // Calculate tax (assuming 16% VAT)
-      const taxAmount = order.total_amount * 0.16;
+      // Calculate tax (12% VAT for Philippines)
+      const taxAmount = order.total_amount * 0.12;
       const totalWithTax = order.total_amount + taxAmount;
 
       // Create invoice

@@ -12,7 +12,7 @@ export const OrderSummary = () => {
             <span>
               {item.name} x {item.quantity}
             </span>
-            <span>KES {(item.price * item.quantity).toLocaleString()}</span>
+            <span>PHP {(item.price * item.quantity).toLocaleString()}</span>
           </div>
         ))}
       </div>
@@ -22,11 +22,11 @@ export const OrderSummary = () => {
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span>Subtotal</span>
-          <span>KES {getTotalPrice().toLocaleString()}</span>
+          <span>PHP {getTotalPrice().toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold text-lg">
           <span>Total</span>
-          <span>KES {getTotalPrice().toLocaleString()}</span>
+          <span>PHP {getTotalPrice().toLocaleString()}</span>
         </div>
       </div>
     </div>

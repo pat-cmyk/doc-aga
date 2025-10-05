@@ -76,11 +76,11 @@ export const OrderDetails = ({ order, open, onOpenChange }: OrderDetailsProps) =
                     <div className="flex-1">
                       <p className="font-medium">{item.product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.quantity} x KES {item.unit_price.toLocaleString()} / {item.product.unit}
+                        {item.quantity} x PHP {item.unit_price.toLocaleString()} / {item.product.unit}
                       </p>
                     </div>
                     <p className="font-semibold">
-                      KES {item.subtotal.toLocaleString()}
+                      PHP {item.subtotal.toLocaleString()}
                     </p>
                   </div>
                 ))}
@@ -124,7 +124,7 @@ export const OrderDetails = ({ order, open, onOpenChange }: OrderDetailsProps) =
               <Separator className="my-3" />
               <div className="flex justify-between font-semibold text-lg">
                 <span>Total Amount</span>
-                <span>KES {order.total_amount.toLocaleString()}</span>
+                <span>PHP {order.total_amount.toLocaleString()}</span>
               </div>
             </div>
           </div>

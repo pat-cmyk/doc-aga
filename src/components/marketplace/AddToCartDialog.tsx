@@ -82,7 +82,7 @@ export const AddToCartDialog = ({
                 {product.merchant.business_name}
               </p>
               <p className="text-sm font-medium mt-1">
-                KES {product.price.toLocaleString()} / {product.unit}
+                PHP {product.price.toLocaleString()} / {product.unit}
               </p>
             </div>
           </div>
@@ -124,7 +124,7 @@ export const AddToCartDialog = ({
             <div className="flex justify-between items-center">
               <span className="font-semibold">Total:</span>
               <span className="text-2xl font-bold">
-                KES {totalPrice.toLocaleString()}
+                PHP {totalPrice.toLocaleString()}
               </span>
             </div>
           </div>
