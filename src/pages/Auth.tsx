@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, Loader2 } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -40,9 +41,15 @@ const Auth = () => {
 
     setLoading(false);
     if (error) {
+      const isLeakedPassword = error.message?.includes("password has been exposed") || 
+                               error.message?.includes("breached") || 
+                               error.message?.includes("leaked");
+      
       toast({
-        title: "Signup failed",
-        description: error.message,
+        title: isLeakedPassword ? "Weak Password Detected" : "Signup failed",
+        description: isLeakedPassword 
+          ? "This password has been exposed in a data breach. Please choose a stronger, unique password."
+          : error.message,
         variant: "destructive"
       });
     } else {
@@ -162,8 +169,10 @@ const Auth = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    minLength={8}
                     required
                   />
+                  <PasswordStrengthIndicator password={password} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}

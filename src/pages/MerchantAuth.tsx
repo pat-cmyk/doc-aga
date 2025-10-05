@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const MerchantAuth = () => {
   const navigate = useNavigate();
@@ -144,6 +145,14 @@ const MerchantAuth = () => {
         
         session = signInData.session;
       } else if (authError) {
+        // Check for leaked password error
+        const isLeakedPassword = authError.message?.includes("password has been exposed") || 
+                                 authError.message?.includes("breached") || 
+                                 authError.message?.includes("leaked");
+        
+        if (isLeakedPassword) {
+          throw new Error("This password has been exposed in a data breach. Please choose a stronger, unique password.");
+        }
         throw authError;
       } else {
         // New user created successfully
@@ -292,8 +301,9 @@ const MerchantAuth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
+                      minLength={8}
                     />
+                    <PasswordStrengthIndicator password={password} />
                   </div>
                 </div>
 

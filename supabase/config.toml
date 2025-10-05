@@ -1,5 +1,10 @@
 project_id = "sxorybjlxyquxteptdyk"
 
+[auth.password]
+hibp_enabled = true
+min_length = 8
+required_characters = ["upper", "lower", "number", "symbol"]
+
 [functions.realtime-token]
 verify_jwt = true
 

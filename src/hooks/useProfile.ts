@@ -73,7 +73,22 @@ export const useProfile = () => {
         password: newPassword
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check for leaked password error
+        const isLeakedPassword = error.message?.includes("password has been exposed") || 
+                                 error.message?.includes("breached") || 
+                                 error.message?.includes("leaked");
+        
+        if (isLeakedPassword) {
+          toast({
+            title: "Weak Password Detected",
+            description: "This password has been exposed in a data breach. Please choose a stronger, unique password.",
+            variant: "destructive"
+          });
+          return false;
+        }
+        throw error;
+      }
 
       toast({
         title: "Success",

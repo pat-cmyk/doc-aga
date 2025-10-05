@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { ArrowLeft, Loader2, User, Mail, Phone, Shield } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -48,10 +49,20 @@ const Profile = () => {
       return;
     }
     setUpdating(true);
-    const success = await updatePassword(newPassword);
-    if (success) {
-      setNewPassword("");
-      setConfirmPassword("");
+    try {
+      const success = await updatePassword(newPassword);
+      if (success) {
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (error: any) {
+      const isLeakedPassword = error?.message?.includes("password has been exposed") || 
+                               error?.message?.includes("breached") || 
+                               error?.message?.includes("leaked");
+      
+      if (isLeakedPassword) {
+        // This error is already handled by useProfile hook, but we can add additional UI feedback here if needed
+      }
     }
     setUpdating(false);
   };
@@ -181,8 +192,9 @@ const Profile = () => {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    minLength={6}
+                    minLength={8}
                   />
+                  <PasswordStrengthIndicator password={newPassword} />
                 </div>
 
                 <div className="space-y-2">
@@ -193,7 +205,7 @@ const Profile = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    minLength={6}
+                    minLength={8}
                   />
                   {newPassword && confirmPassword && newPassword !== confirmPassword && (
                     <p className="text-xs text-destructive">Passwords do not match</p>
