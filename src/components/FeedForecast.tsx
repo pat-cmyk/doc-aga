@@ -87,8 +87,8 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
               <YAxis label={{ value: 'kg/day', angle: -90, position: 'insideLeft' }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="dryMatter" fill="hsl(var(--primary))" name="Dry Matter (kg/day)" />
-              <Bar dataKey="freshForage" fill="hsl(var(--chart-2))" name="Fresh Forage (kg/day)" />
+              <Bar dataKey="dryMatter" fill="hsl(var(--foreground))" name="Dry Matter (kg/day)" />
+              <Bar dataKey="freshForage" fill="hsl(var(--primary))" name="Fresh Forage (kg/day)" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
