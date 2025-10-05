@@ -157,11 +157,11 @@ const MerchantDashboard = () => {
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                  <CardTitle className="text-sm font-medium">Sales</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">KES {revenue.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">PHP {revenue.toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground">Total from delivered orders</p>
                 </CardContent>
               </Card>
