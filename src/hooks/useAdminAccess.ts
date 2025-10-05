@@ -19,36 +19,34 @@ export const useAdminAccess = () => {
       if (!user) {
         setIsAdmin(false);
         setIsLoading(false);
-        navigate("/auth");
+        navigate("/auth/admin");
         return;
       }
 
-      // Development mode - allow all authenticated users
-      setIsAdmin(true);
+      // Check if user has admin role in user_roles table
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin");
+
+      const hasAdminAccess = roles && roles.length > 0;
+      setIsAdmin(hasAdminAccess);
       setIsLoading(false);
       
-      // Production code (currently disabled):
-      // const { data: profile } = await supabase
-      //   .from("profiles")
-      //   .select("role")
-      //   .eq("id", user.id)
-      //   .single();
-      //
-      // const hasAdminAccess = profile?.role === "admin";
-      // setIsAdmin(hasAdminAccess);
-      // 
-      // if (!hasAdminAccess) {
-      //   toast({
-      //     title: "Access Denied",
-      //     description: "You need admin privileges to access this area.",
-      //     variant: "destructive",
-      //   });
-      //   navigate("/");
-      // }
+      if (!hasAdminAccess) {
+        toast({
+          title: "Access Denied",
+          description: "You need admin privileges to access this area.",
+          variant: "destructive",
+        });
+        navigate("/");
+      }
     } catch (error) {
       console.error("Error checking admin access:", error);
-      setIsAdmin(true); // Allow access even on error during development
+      setIsAdmin(false);
       setIsLoading(false);
+      navigate("/auth/admin");
     }
   };
 

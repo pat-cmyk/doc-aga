@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,31 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+
+  useEffect(() => {
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Check user roles and redirect accordingly
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        
+        const userRoles = roles?.map(r => r.role) || [];
+        
+        if (userRoles.includes("admin")) {
+          navigate("/admin");
+        } else if (userRoles.includes("merchant")) {
+          navigate("/merchant");
+        } else {
+          navigate("/");
+        }
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,20 +111,40 @@ const Auth = () => {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    setLoading(false);
-    if (error) {
+      if (error) throw error;
+
+      // Check user role to ensure farmer login only
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id);
+
+      const userRoles = roles?.map(r => r.role) || [];
+
+      // Redirect based on role
+      if (userRoles.includes("admin")) {
+        navigate("/admin");
+      } else if (userRoles.includes("merchant")) {
+        navigate("/merchant");
+      } else {
+        // Farmer (no specific role or farmer role)
+        navigate("/");
+      }
+    } catch (error: any) {
       toast({
         title: "Login failed",
         description: error.message,
         variant: "destructive"
       });
-    } else {
-      navigate("/");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,18 +239,28 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
           
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              Are you a merchant or supplier?
+          <div className="mt-6 pt-6 border-t text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Looking for a different portal?
             </p>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/auth/merchant")}
-              type="button"
-            >
-              Register as a Merchant
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate("/auth/merchant")}
+                type="button"
+              >
+                Merchant Portal
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate("/auth/admin")}
+                type="button"
+              >
+                Admin Portal
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

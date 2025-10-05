@@ -5,7 +5,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout, LogOut, User as UserIcon, Shield } from "lucide-react";
+import { Sprout, LogOut, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
@@ -18,7 +18,6 @@ const Dashboard = () => {
   const [farmId, setFarmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -39,23 +38,16 @@ const Dashboard = () => {
       
       const userRoles = roles?.map(r => r.role) || [];
       
-      // If user is a merchant, redirect to merchant dashboard
+      // Redirect users based on their role
+      if (userRoles.includes("admin")) {
+        navigate("/admin");
+        return;
+      }
+      
       if (userRoles.includes("merchant")) {
         navigate("/merchant");
         return;
       }
-      
-      // Development mode - show admin button for all users
-      setIsAdmin(true);
-      
-      // Production code (currently disabled):
-      // const { data: profile } = await supabase
-      //   .from("profiles")
-      //   .select("role")
-      //   .eq("id", session.user.id)
-      //   .single();
-      // 
-      // setIsAdmin(profile?.role === "admin");
       
       // Check if user has a farm, create one if not (only for farmers)
       const { data: farms, error: farmError } = await supabase
@@ -163,12 +155,6 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
-              <Shield className="h-4 w-4 mr-2" />
-              Admin Panel
-            </Button>
-          )}
           <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
             <UserIcon className="h-4 w-4 mr-2" />
             Profile
