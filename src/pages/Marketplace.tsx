@@ -19,7 +19,7 @@ const Marketplace = () => {
   const [addToCartDialogOpen, setAddToCartDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const { data: products, isLoading } = useProducts(searchQuery);
-  const { addToCart, getTotalItems } = useCart();
+  const { addToCart, cart } = useCart();
   const { toast } = useToast();
 
   const handleOrderClick = (productId: string) => {
@@ -70,9 +70,9 @@ const Marketplace = () => {
               >
                 <ShoppingCart className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Cart</span>
-                {getTotalItems() > 0 && (
+                {cart.length > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    {getTotalItems()}
+                    {cart.length}
                   </Badge>
                 )}
               </Button>
