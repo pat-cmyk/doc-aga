@@ -80,11 +80,24 @@ const Dashboard = () => {
         setFarmId(farms[0].id);
       } else {
         // Create a default farm for the user
+        // Verify session is active before creating farm
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (!currentSession) {
+          toast({
+            title: "Authentication required",
+            description: "Please sign in again to create your farm",
+            variant: "destructive"
+          });
+          navigate("/auth");
+          return;
+        }
+
         const { data: newFarm, error: createError } = await supabase
           .from("farms")
           .insert({
             name: "My Farm",
-            owner_id: session.user.id,
+            owner_id: currentSession.user.id,
             gps_lat: 0,
             gps_lng: 0,
             region: "Not specified"
@@ -93,6 +106,7 @@ const Dashboard = () => {
           .single();
         
         if (createError) {
+          console.error("Farm creation error:", createError);
           toast({
             title: "Error creating farm",
             description: createError.message,

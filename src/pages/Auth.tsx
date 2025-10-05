@@ -30,7 +30,7 @@ const Auth = () => {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -39,8 +39,8 @@ const Auth = () => {
       }
     });
 
-    setLoading(false);
     if (error) {
+      setLoading(false);
       const isLeakedPassword = error.message?.includes("password has been exposed") || 
                                error.message?.includes("breached") || 
                                error.message?.includes("leaked");
@@ -52,12 +52,25 @@ const Auth = () => {
           : error.message,
         variant: "destructive"
       });
-    } else {
+      return;
+    }
+
+    // Wait for session to be established before redirecting
+    if (data.session) {
+      // Session is available immediately (auto-confirm is enabled)
       toast({
         title: "Success!",
         description: "Account created successfully"
       });
+      setLoading(false);
       navigate("/");
+    } else {
+      // Email confirmation required
+      setLoading(false);
+      toast({
+        title: "Check your email",
+        description: "Please confirm your email address to complete registration"
+      });
     }
   };
 
