@@ -79,44 +79,34 @@ const Dashboard = () => {
         // User has a farm
         setFarmId(farms[0].id);
       } else {
-        // Create a default farm for the user
-        // Verify session is active before creating farm
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        
-        if (!currentSession) {
-          toast({
-            title: "Authentication required",
-            description: "Please sign in again to create your farm",
-            variant: "destructive"
-          });
-          navigate("/auth");
-          return;
-        }
-
-        const { data: newFarm, error: createError } = await supabase
-          .from("farms")
-          .insert({
-            name: "My Farm",
-            owner_id: currentSession.user.id,
-            gps_lat: 0,
-            gps_lng: 0,
-            region: "Not specified"
-          })
-          .select()
-          .single();
-        
-        if (createError) {
-          console.error("Farm creation error:", createError);
+        // Create a default farm using secure database function
+        try {
+          const { data: farmId, error: createError } = await supabase
+            .rpc('create_default_farm', {
+              _name: 'My Farm',
+              _region: 'Not specified'
+            });
+          
+          if (createError) {
+            console.error("Farm creation error:", createError);
+            toast({
+              title: "Error creating farm",
+              description: createError.message,
+              variant: "destructive"
+            });
+          } else if (farmId) {
+            setFarmId(farmId);
+            toast({
+              title: "Welcome!",
+              description: "Your farm has been created automatically."
+            });
+          }
+        } catch (err: any) {
+          console.error("Unexpected farm creation error:", err);
           toast({
             title: "Error creating farm",
-            description: createError.message,
+            description: err.message || "An unexpected error occurred",
             variant: "destructive"
-          });
-        } else if (newFarm) {
-          setFarmId(newFarm.id);
-          toast({
-            title: "Welcome!",
-            description: "Your farm has been created automatically."
           });
         }
       }

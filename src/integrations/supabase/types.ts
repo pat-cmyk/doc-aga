@@ -1296,6 +1296,10 @@ export type Database = {
         Args: { fid: string }
         Returns: boolean
       }
+      create_default_farm: {
+        Args: { _name?: string; _region?: string }
+        Returns: string
+      }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
         Returns: string
