@@ -23,7 +23,7 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Month Total</CardTitle>
+            <CardTitle className="text-sm font-medium">Next Month Total (Dry Matter)</CardTitle>
             <Sprout className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -31,7 +31,10 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
               {forecasts[0]?.totalFeedKgPerMonth.toLocaleString()} kg
             </div>
             <p className="text-xs text-muted-foreground">
-              ~{forecasts[0]?.totalFeedKgPerDay} kg/day
+              ~{forecasts[0]?.totalFeedKgPerDay} kg/day dry matter
+            </p>
+            <p className="text-xs text-primary font-medium mt-1">
+              {forecasts[0]?.totalFreshForageKgPerMonth.toLocaleString()} kg fresh forage/month
             </p>
           </CardContent>
         </Card>
@@ -74,13 +77,18 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
+            <BarChart data={chartData.map(d => ({
+              month: d.month,
+              dryMatter: d.feed,
+              freshForage: Math.round((d.feed / 0.30) * 10) / 10
+            }))}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis label={{ value: 'kg/day', angle: -90, position: 'insideLeft' }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="feed" fill="hsl(var(--primary))" name="Feed (kg/day)" />
+              <Bar dataKey="dryMatter" fill="hsl(var(--primary))" name="Dry Matter (kg/day)" />
+              <Bar dataKey="freshForage" fill="hsl(var(--chart-2))" name="Fresh Forage (kg/day)" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -96,8 +104,9 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
-                <TableHead className="text-right">Daily (kg)</TableHead>
-                <TableHead className="text-right">Monthly (kg)</TableHead>
+                <TableHead className="text-right">Daily Dry Matter</TableHead>
+                <TableHead className="text-right">Daily Fresh Forage</TableHead>
+                <TableHead className="text-right">Monthly Fresh Forage</TableHead>
                 <TableHead>Stage Breakdown</TableHead>
               </TableRow>
             </TableHeader>
@@ -105,16 +114,22 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
               {forecasts.map((forecast, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="font-medium">{forecast.month}</TableCell>
-                  <TableCell className="text-right">{forecast.totalFeedKgPerDay}</TableCell>
+                  <TableCell className="text-right">{forecast.totalFeedKgPerDay} kg</TableCell>
+                  <TableCell className="text-right font-semibold text-primary">
+                    {forecast.totalFreshForageKgPerDay} kg
+                  </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {forecast.totalFeedKgPerMonth.toLocaleString()}
+                    {forecast.totalFreshForageKgPerMonth.toLocaleString()} kg
                   </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-1">
                       {Object.entries(forecast.breakdownByStage).map(([stage, data]) => (
                         <div key={stage} className="flex justify-between gap-4">
                           <span className="text-muted-foreground">{stage} ({data.count}):</span>
-                          <span className="font-medium">{Math.round(data.feedKgPerDay)} kg/day</span>
+                          <div className="text-right">
+                            <div className="font-medium">{Math.round(data.feedKgPerDay)} kg DM</div>
+                            <div className="text-xs text-primary">{Math.round(data.freshForageKgPerDay)} kg fresh</div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -154,10 +169,15 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
 
               <div className="border-t border-primary/10 pt-4">
                 <p className="font-medium mb-2">Sample Computation:</p>
-                <div className="text-muted-foreground space-y-1 bg-background/50 p-3 rounded-md">
+                <div className="text-muted-foreground space-y-2 bg-background/50 p-3 rounded-md">
                   <p><span className="font-medium text-foreground">Lactating cow</span> weighing 450 kg:</p>
-                  <p className="ml-4">Daily feed = 450 kg × 3.5% = <span className="font-semibold text-foreground">15.75 kg/day</span></p>
-                  <p className="ml-4">Monthly feed = 15.75 kg × 30 days = <span className="font-semibold text-foreground">472.5 kg/month</span></p>
+                  <div className="ml-4 space-y-1">
+                    <p>Daily dry matter = 450 kg × 3.5% = <span className="font-semibold text-foreground">15.75 kg/day</span></p>
+                    <p className="text-primary">Daily fresh forage = 15.75 kg ÷ 30% = <span className="font-semibold">52.5 kg/day</span></p>
+                    <p className="border-t border-primary/10 pt-2 mt-2">Monthly dry matter = 15.75 kg × 30 days = <span className="font-semibold text-foreground">472.5 kg/month</span></p>
+                    <p className="text-primary">Monthly fresh forage = 52.5 kg × 30 days = <span className="font-semibold">1,575 kg/month</span></p>
+                  </div>
+                  <p className="text-xs italic pt-2 border-t border-primary/10">*Assumes forage has 30% dry matter content</p>
                 </div>
               </div>
             </div>

@@ -15,9 +15,12 @@ export interface MonthlyFeedForecast {
   monthDate: Date;
   totalFeedKgPerDay: number;
   totalFeedKgPerMonth: number;
+  totalFreshForageKgPerDay: number;
+  totalFreshForageKgPerMonth: number;
   breakdownByStage: Record<string, {
     count: number;
     feedKgPerDay: number;
+    freshForageKgPerDay: number;
   }>;
 }
 
@@ -63,10 +66,12 @@ function calculateDailyFeedRequirement(
 
 /**
  * Generate 6-month feed forecast for all animals
+ * Assumes forage has 30% dry matter content
  */
 export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
   const forecasts: MonthlyFeedForecast[] = [];
   const today = new Date();
+  const DRY_MATTER_PERCENTAGE = 0.30; // 30% dry matter in fresh forage
   
   // Generate forecast for next 6 months
   for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
@@ -74,7 +79,7 @@ export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
     const monthLabel = format(forecastDate, "MMM yyyy");
     
     let totalFeedKgPerDay = 0;
-    const breakdownByStage: Record<string, { count: number; feedKgPerDay: number }> = {};
+    const breakdownByStage: Record<string, { count: number; feedKgPerDay: number; freshForageKgPerDay: number }> = {};
     
     animals.forEach(animal => {
       // Estimate weight for this future month
@@ -88,7 +93,7 @@ export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
         monthOffset
       );
       
-      // Calculate feed requirement
+      // Calculate feed requirement (dry matter)
       const dailyFeed = calculateDailyFeedRequirement(
         futureWeight,
         animal.life_stage,
@@ -101,20 +106,26 @@ export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
       // Group by life stage
       const stageKey = animal.life_stage || "Unknown";
       if (!breakdownByStage[stageKey]) {
-        breakdownByStage[stageKey] = { count: 0, feedKgPerDay: 0 };
+        breakdownByStage[stageKey] = { count: 0, feedKgPerDay: 0, freshForageKgPerDay: 0 };
       }
       breakdownByStage[stageKey].count += 1;
       breakdownByStage[stageKey].feedKgPerDay += dailyFeed;
+      // Convert dry matter to fresh forage weight
+      breakdownByStage[stageKey].freshForageKgPerDay += dailyFeed / DRY_MATTER_PERCENTAGE;
     });
     
     // Assume 30 days per month for simplicity
     const totalFeedKgPerMonth = totalFeedKgPerDay * 30;
+    const totalFreshForageKgPerDay = totalFeedKgPerDay / DRY_MATTER_PERCENTAGE;
+    const totalFreshForageKgPerMonth = totalFreshForageKgPerDay * 30;
     
     forecasts.push({
       month: monthLabel,
       monthDate: forecastDate,
       totalFeedKgPerDay: Math.round(totalFeedKgPerDay * 10) / 10,
       totalFeedKgPerMonth: Math.round(totalFeedKgPerMonth),
+      totalFreshForageKgPerDay: Math.round(totalFreshForageKgPerDay * 10) / 10,
+      totalFreshForageKgPerMonth: Math.round(totalFreshForageKgPerMonth),
       breakdownByStage,
     });
   }
