@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
+import { useMerchantProducts } from "@/hooks/useMerchantProducts";
+import { useMerchantOrders } from "@/hooks/useMerchantOrders";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +18,17 @@ const MerchantDashboard = () => {
   const navigate = useNavigate();
   const { isMerchant, isLoading } = useRole();
   const [activeTab, setActiveTab] = useState("dashboard");
+  
+  const { products } = useMerchantProducts();
+  const { orders } = useMerchantOrders("all");
+
+  // Calculate statistics
+  const totalProducts = products?.filter(p => p.is_active).length || 0;
+  const activeOrders = orders?.filter(o => 
+    ['received', 'in_process', 'in_transit'].includes(o.status)
+  ).length || 0;
+  const revenue = orders?.filter(o => o.status === 'delivered')
+    .reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
 
   if (isLoading) {
     return (
@@ -115,7 +128,7 @@ const MerchantDashboard = () => {
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">{totalProducts}</div>
                   <p className="text-xs text-muted-foreground">Active listings</p>
                 </CardContent>
               </Card>
@@ -126,7 +139,7 @@ const MerchantDashboard = () => {
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">{activeOrders}</div>
                   <p className="text-xs text-muted-foreground">Pending fulfillment</p>
                 </CardContent>
               </Card>
@@ -148,8 +161,8 @@ const MerchantDashboard = () => {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">$0</div>
-                  <p className="text-xs text-muted-foreground">This month</p>
+                  <div className="text-2xl font-bold">KES {revenue.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Total from delivered orders</p>
                 </CardContent>
               </Card>
             </div>
