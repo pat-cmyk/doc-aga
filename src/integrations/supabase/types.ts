@@ -1343,7 +1343,12 @@ export type Database = {
         | "treatment"
         | "note"
       message_party: "farmer" | "merchant" | "vet" | "admin"
-      notification_type: "order_update" | "vet_update" | "message" | "system"
+      notification_type:
+        | "order_update"
+        | "vet_update"
+        | "message"
+        | "system"
+        | "order_received"
       order_status:
         | "received"
         | "in_process"
@@ -1495,7 +1500,13 @@ export const Constants = {
         "note",
       ],
       message_party: ["farmer", "merchant", "vet", "admin"],
-      notification_type: ["order_update", "vet_update", "message", "system"],
+      notification_type: [
+        "order_update",
+        "vet_update",
+        "message",
+        "system",
+        "order_received",
+      ],
       order_status: [
         "received",
         "in_process",
