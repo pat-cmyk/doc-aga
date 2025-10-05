@@ -7,7 +7,7 @@ interface CartSummaryProps {
 }
 
 export const CartSummary = ({ onClose }: CartSummaryProps) => {
-  const { getTotalPrice, getTotalItems } = useCart();
+  const { cart, getTotalPrice, getTotalItems } = useCart();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -19,7 +19,7 @@ export const CartSummary = ({ onClose }: CartSummaryProps) => {
     <div className="border-t pt-4 space-y-4">
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Subtotal ({getTotalItems()} items)</span>
+          <span>Subtotal ({cart.length} items)</span>
           <span>PHP {getTotalPrice().toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold text-lg">

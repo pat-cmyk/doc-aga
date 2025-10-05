@@ -17,32 +17,35 @@ import OrderHistory from "./pages/OrderHistory";
 import MessagingPage from "./pages/MessagingPage";
 import NotFound from "./pages/NotFound";
 import { FloatingDocAga } from "./components/FloatingDocAga";
+import { CartProvider } from "./hooks/useCart";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/merchant" element={<MerchantAuth />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/merchant" element={<MerchantDashboard />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/distributors" element={<DistributorFinder />} />
-          <Route path="/orders" element={<OrderHistory />} />
-          <Route path="/messages" element={<MessagingPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <FloatingDocAga />
-      </BrowserRouter>
+      <CartProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/merchant" element={<MerchantAuth />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/merchant" element={<MerchantDashboard />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/distributors" element={<DistributorFinder />} />
+            <Route path="/orders" element={<OrderHistory />} />
+            <Route path="/messages" element={<MessagingPage />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <FloatingDocAga />
+        </BrowserRouter>
+      </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

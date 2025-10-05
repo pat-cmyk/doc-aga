@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "./useProducts";
 
 export interface CartItem extends Product {
@@ -7,7 +7,19 @@ export interface CartItem extends Product {
 
 const CART_STORAGE_KEY = "farmplus_cart";
 
-export const useCart = () => {
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Product, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  getTotalItems: () => number;
+  getTotalPrice: () => number;
+}
+
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Load cart from localStorage on mount
@@ -69,13 +81,27 @@ export const useCart = () => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
-  return {
-    cart,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    clearCart,
-    getTotalItems,
-    getTotalPrice,
-  };
+  return (
+    <CartContext.Provider
+      value={{
+        cart,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        getTotalItems,
+        getTotalPrice,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
+  );
+};
+
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
 };
