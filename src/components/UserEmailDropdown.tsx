@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, User, LogOut, LayoutDashboard, Store, Shield } from "lucide-react";
+import { ChevronDown, User, LogOut, LayoutDashboard, Store, Shield, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export const UserEmailDropdown = () => {
@@ -123,6 +123,11 @@ export const UserEmailDropdown = () => {
           </DropdownMenuItem>
         ) : null}
         
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/profile")}>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>My Profile</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
