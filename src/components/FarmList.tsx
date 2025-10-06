@@ -64,7 +64,8 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     region: "",
     province: "",
     gps_lat: "",
-    gps_lng: ""
+    gps_lng: "",
+    role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet",
   });
 
   useEffect(() => {
@@ -155,10 +156,10 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   const handleCreateFarm = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.gps_lat || !formData.gps_lng) {
+    if (!formData.name || !formData.gps_lat || !formData.gps_lng || !formData.role_in_farm) {
       toast({
         title: "Missing fields",
-        description: "Please fill in farm name and GPS coordinates",
+        description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
@@ -172,31 +173,58 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
       ? `${selectedRegion} - ${formData.province}`
       : formData.province || selectedRegion || null;
     
-    const { error } = await supabase.from("farms").insert({
-      owner_id: user?.id,
-      name: formData.name,
-      region: regionInfo,
-      gps_lat: parseFloat(formData.gps_lat),
-      gps_lng: parseFloat(formData.gps_lng)
-    });
+    // Create the farm
+    const { data: newFarm, error: farmError } = await supabase
+      .from("farms")
+      .insert({
+        owner_id: user?.id,
+        name: formData.name,
+        region: regionInfo,
+        gps_lat: parseFloat(formData.gps_lat),
+        gps_lng: parseFloat(formData.gps_lng)
+      })
+      .select()
+      .single();
 
-    setCreating(false);
-    if (error) {
+    if (farmError) {
+      setCreating(false);
       toast({
         title: "Error creating farm",
-        description: error.message,
+        description: farmError.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create the farm membership with selected role
+    const { error: membershipError } = await supabase
+      .from("farm_memberships")
+      .insert({
+        farm_id: newFarm.id,
+        user_id: user?.id,
+        role_in_farm: formData.role_in_farm
+      });
+
+    setCreating(false);
+    
+    if (membershipError) {
+      toast({
+        title: "Warning",
+        description: "Farm created but membership role assignment failed",
         variant: "destructive"
       });
     } else {
+      const roleLabel = formData.role_in_farm.replace('_', ' ');
       toast({
         title: "Success!",
-        description: "Farm created successfully"
+        description: `Farm created successfully. You are now a ${roleLabel}.`
       });
-      setOpen(false);
-      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "" });
-      setSelectedRegion("");
-      loadFarms();
     }
+    
+    setOpen(false);
+    setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
+    setSelectedRegion("");
+    loadFarms();
   };
 
   const handleUpdateFarm = async (e: React.FormEvent) => {
@@ -241,7 +269,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
       });
       setEditOpen(false);
       setEditingFarm(null);
-      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "" });
+      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
       setSelectedRegion("");
       loadFarms();
     }
@@ -287,7 +315,8 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
       region,
       province,
       gps_lat: farm.gps_lat.toString(),
-      gps_lng: farm.gps_lng.toString()
+      gps_lng: farm.gps_lng.toString(),
+      role_in_farm: "farmer_owner"
     });
     setEditOpen(true);
   };
@@ -381,6 +410,39 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                 placeholder="Golden Forage Farm"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Your Role in this Farm *</Label>
+              <Select 
+                value={formData.role_in_farm} 
+                onValueChange={(value: "farmer_owner" | "farmhand" | "vet") => setFormData(prev => ({ ...prev, role_in_farm: value }))}
+                required
+              >
+                <SelectTrigger id="role" className="bg-background">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="farmer_owner">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Farm Owner</span>
+                      <span className="text-xs text-muted-foreground">I own and manage this farm</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="farmhand">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Farm Hand</span>
+                      <span className="text-xs text-muted-foreground">I work on this farm</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="vet">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Veterinarian</span>
+                      <span className="text-xs text-muted-foreground">I provide veterinary services</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
