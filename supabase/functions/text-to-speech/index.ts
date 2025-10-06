@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json()
+    const { text, voice = 'Aria' } = await req.json()
 
     if (!text) {
       throw new Error('Text is required')
@@ -20,24 +20,42 @@ serve(async (req) => {
 
     console.log('Generating speech for text:', text.substring(0, 100) + '...')
 
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY')
+    if (!ELEVENLABS_API_KEY) {
+      throw new Error('ELEVENLABS_API_KEY is not configured')
+    }
+
+    // Map voice names to ElevenLabs voice IDs
+    const voiceMap: Record<string, string> = {
+      'Aria': '9BWtsMINqrJLrRacOk9x',
+      'Roger': 'CwhRBWXzGAHq8TQ4Fs17',
+      'Sarah': 'EXAVITQu4vr4xnSDxMaL',
+      'Laura': 'FGY2WhTYpPnrIDTdsKH5',
+      'Charlie': 'IKne3meq5aSn9XLyUdCD',
+    }
+
+    const voiceId = voiceMap[voice] || voiceMap['Aria']
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'xi-api-key': ELEVENLABS_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
-        input: text,
-        voice: 'alloy',
-        response_format: 'mp3',
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('OpenAI API error:', errorText)
-      throw new Error(`OpenAI API error: ${response.status}`)
+      console.error('ElevenLabs API error:', errorText)
+      throw new Error(`ElevenLabs API error: ${response.status}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
