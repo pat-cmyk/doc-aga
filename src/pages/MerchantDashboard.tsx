@@ -39,7 +39,7 @@ const MerchantDashboard = () => {
         title: "Logged out successfully",
         description: "You have been logged out of your merchant account.",
       });
-      navigate("/merchant/auth");
+      navigate("/auth/merchant");
     } catch (error) {
       toast({
         title: "Logout failed",
