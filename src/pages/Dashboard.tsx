@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import FarmSetup from "@/components/FarmSetup";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const Dashboard = () => {
   const [farmId, setFarmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [showFarmSetup, setShowFarmSetup] = useState(false);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -72,36 +74,8 @@ const Dashboard = () => {
         // User has a farm
         setFarmId(farms[0].id);
       } else {
-        // Create a default farm using secure database function
-        try {
-          const { data: farmId, error: createError } = await supabase
-            .rpc('create_default_farm', {
-              _name: 'My Farm',
-              _region: 'Not specified'
-            });
-          
-          if (createError) {
-            console.error("Farm creation error:", createError);
-            toast({
-              title: "Error creating farm",
-              description: createError.message,
-              variant: "destructive"
-            });
-          } else if (farmId) {
-            setFarmId(farmId);
-            toast({
-              title: "Welcome!",
-              description: "Your farm has been created automatically."
-            });
-          }
-        } catch (err: any) {
-          console.error("Unexpected farm creation error:", err);
-          toast({
-            title: "Error creating farm",
-            description: err.message || "An unexpected error occurred",
-            variant: "destructive"
-          });
-        }
+        // Show farm setup for new users
+        setShowFarmSetup(true);
       }
       
       setLoading(false);
@@ -135,6 +109,13 @@ const Dashboard = () => {
         </div>
       </div>
     );
+  }
+
+  if (showFarmSetup) {
+    return <FarmSetup onFarmCreated={(farmId) => {
+      setFarmId(farmId);
+      setShowFarmSetup(false);
+    }} />;
   }
 
   return (

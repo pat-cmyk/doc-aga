@@ -1297,7 +1297,11 @@ export type Database = {
         Returns: boolean
       }
       create_default_farm: {
-        Args: { _name?: string; _region?: string }
+        Args: {
+          _name?: string
+          _region?: string
+          _role?: Database["public"]["Enums"]["user_role"]
+        }
         Returns: string
       }
       generate_invoice_number: {
