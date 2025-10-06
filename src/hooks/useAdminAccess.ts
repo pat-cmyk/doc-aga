@@ -23,21 +23,25 @@ export const useAdminAccess = () => {
         return;
       }
 
-      // Check if user has admin role in user_roles table
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin");
+      // Check if user is super admin (pat@goldenforage.com with admin role)
+      const { data: isSuperAdmin, error } = await supabase
+        .rpc("is_super_admin", { _user_id: user.id });
 
-      const hasAdminAccess = roles && roles.length > 0;
-      setIsAdmin(hasAdminAccess);
+      if (error) {
+        console.error("Error checking super admin status:", error);
+        setIsAdmin(false);
+        setIsLoading(false);
+        navigate("/");
+        return;
+      }
+
+      setIsAdmin(isSuperAdmin || false);
       setIsLoading(false);
       
-      if (!hasAdminAccess) {
+      if (!isSuperAdmin) {
         toast({
           title: "Access Denied",
-          description: "You need admin privileges to access this area.",
+          description: "Only the super admin (pat@goldenforage.com) can access this area.",
           variant: "destructive",
         });
         navigate("/");
@@ -46,7 +50,7 @@ export const useAdminAccess = () => {
       console.error("Error checking admin access:", error);
       setIsAdmin(false);
       setIsLoading(false);
-      navigate("/auth/admin");
+      navigate("/");
     }
   };
 

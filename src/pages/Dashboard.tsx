@@ -5,10 +5,11 @@ import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout, LogOut, User as UserIcon } from "lucide-react";
+import { Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
+import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -119,10 +120,6 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
 
   const handleNavigateToAnimalDetails = (animalId: string) => {
     setSelectedAnimalId(animalId);
@@ -155,14 +152,7 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-            <UserIcon className="h-4 w-4 mr-2" />
-            Profile
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <UserEmailDropdown />
         </div>
         </div>
       </header>

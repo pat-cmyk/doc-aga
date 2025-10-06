@@ -1,9 +1,8 @@
 import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Home, Store } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { Shield, Users, Building2, MessageSquare, Activity, Store } from "lucide-react";
+import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -13,7 +12,6 @@ interface AdminLayoutProps {
 
 export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutProps) => {
   const { isLoading } = useAdminAccess();
-  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -34,10 +32,7 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
               <p className="text-sm text-muted-foreground">System Administration</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}>
-            <Home className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <UserEmailDropdown />
         </div>
       </header>
 

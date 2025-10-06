@@ -6,8 +6,7 @@ import { useMerchantOrders } from "@/hooks/useMerchantOrders";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, User, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductManagement } from "@/components/merchant/ProductManagement";
@@ -15,6 +14,7 @@ import { MerchantProfile } from "@/components/merchant/MerchantProfile";
 import { OrderManagement } from "@/components/merchant/OrderManagement";
 import { InvoiceList } from "@/components/merchant/InvoiceList";
 import { NotificationBell } from "@/components/merchant/NotificationBell";
+import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
@@ -32,22 +32,6 @@ const MerchantDashboard = () => {
   const revenue = orders?.filter(o => o.status === 'delivered')
     .reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your merchant account.",
-      });
-      navigate("/auth/merchant");
-    } catch (error) {
-      toast({
-        title: "Logout failed",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -98,15 +82,7 @@ const MerchantDashboard = () => {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={handleLogout}
-                className="min-h-[44px] min-w-[44px]"
-                title="Logout"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
+              <UserEmailDropdown />
             </div>
           </div>
         </div>

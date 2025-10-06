@@ -1335,6 +1335,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_super_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       animal_event_type:
