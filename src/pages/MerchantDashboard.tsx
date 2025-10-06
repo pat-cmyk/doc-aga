@@ -6,7 +6,9 @@ import { useMerchantOrders } from "@/hooks/useMerchantOrders";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, User } from "lucide-react";
+import { Store, Package, ShoppingCart, Megaphone, MapPin, MessageSquare, FileText, User, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductManagement } from "@/components/merchant/ProductManagement";
 import { MerchantProfile } from "@/components/merchant/MerchantProfile";
@@ -29,6 +31,23 @@ const MerchantDashboard = () => {
   ).length || 0;
   const revenue = orders?.filter(o => o.status === 'delivered')
     .reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your merchant account.",
+      });
+      navigate("/merchant/auth");
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -77,7 +96,18 @@ const MerchantDashboard = () => {
               <Store className="h-6 w-6 text-primary" />
               <h1 className="text-2xl font-bold">Merchant Portal</h1>
             </div>
-            <NotificationBell />
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleLogout}
+                className="min-h-[44px] min-w-[44px]"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
