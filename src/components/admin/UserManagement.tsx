@@ -24,13 +24,14 @@ export const UserManagement = () => {
   const { data: users, isLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["admin-users"],
     queryFn: async (): Promise<UserWithDetails[]> => {
-      // Get profiles with email from auth.users
+      // Get profiles with email
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select(`
           id,
           full_name,
           phone,
+          email,
           role,
           created_at
         `)
@@ -43,19 +44,14 @@ export const UserManagement = () => {
         id: string;
         full_name: string | null;
         phone: string | null;
+        email: string | null;
         role: string;
         created_at: string;
       }>;
-
-      // Get emails from auth.users (admin only)
-      const authUsersResponse = await supabase.auth.admin.listUsers();
-      const authUsers = authUsersResponse.data?.users || [];
       
       // Get farm memberships and ownership counts
       const usersWithDetails: UserWithDetails[] = await Promise.all(
         profiles.map(async (profile): Promise<UserWithDetails> => {
-          const authUser = authUsers.find(u => u.id === profile.id);
-          
           // Count farms owned
           const { count: farmsOwned } = await supabase
             .from("farms")
@@ -74,7 +70,7 @@ export const UserManagement = () => {
             phone: profile.phone,
             role: profile.role as UserRole,
             created_at: profile.created_at,
-            email: authUser?.email || "N/A",
+            email: profile.email || "N/A",
             farm_count: (farmsOwned || 0) + (farmMemberships || 0)
           };
         })
