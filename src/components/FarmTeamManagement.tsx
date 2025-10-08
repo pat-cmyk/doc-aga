@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Mail, Calendar } from "lucide-react";
+import { UserPlus, Trash2, Mail, Calendar, Send } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -147,6 +147,63 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
       toast({
         title: "Error",
         description: error.message || "Failed to send invitation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Resend invitation mutation
+  const resendMutation = useMutation({
+    mutationFn: async (member: TeamMember) => {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      
+      // Get farm name and membership data
+      const { data: membershipData, error: fetchError } = await supabase
+        .from("farm_memberships")
+        .select(`
+          id,
+          invitation_token,
+          farms!inner (name)
+        `)
+        .eq("id", member.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get inviter name
+      const { data: inviterProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", currentUser?.id)
+        .single();
+
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke(
+        "send-team-invitation",
+        {
+          body: {
+            membershipId: membershipData.id,
+            invitedEmail: member.invited_email,
+            farmName: (membershipData.farms as any).name,
+            inviterName: inviterProfile?.full_name || "A team member",
+            role: member.role_in_farm,
+            invitationToken: membershipData.invitation_token,
+          },
+        }
+      );
+
+      if (emailError) throw emailError;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Invitation resent successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend invitation",
         variant: "destructive",
       });
     },
@@ -309,14 +366,27 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                   </div>
                 </div>
                 {isOwner && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeMutation.mutate(member.id)}
-                    disabled={removeMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {member.invitation_status === "pending" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => resendMutation.mutate(member)}
+                        disabled={resendMutation.isPending}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Resend
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeMutation.mutate(member.id)}
+                      disabled={removeMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}
