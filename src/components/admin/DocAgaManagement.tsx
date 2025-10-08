@@ -235,6 +235,37 @@ export const DocAgaManagement = () => {
     });
   };
 
+  const handleExportFAQsCSV = () => {
+    if (!faqsWithMatches) return;
+
+    const csv = [
+      ["Question", "Answer", "Category", "Status", "Match Count", "Created At"],
+      ...faqsWithMatches.map((faq) => [
+        faq.question,
+        faq.answer,
+        faq.category || "",
+        faq.is_active ? "Active" : "Inactive",
+        faq.matchCount || 0,
+        format(new Date(faq.created_at), "yyyy-MM-dd HH:mm:ss"),
+      ]),
+    ]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `doc-aga-faqs-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "FAQs exported to CSV successfully",
+    });
+  };
+
   const filteredQueries = recentQueries?.filter((q) => {
     const matchesSearch = q.question.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter =
@@ -469,18 +500,23 @@ export const DocAgaManagement = () => {
                   <CardTitle>FAQ Management</CardTitle>
                   <CardDescription>Manage Doc Aga's knowledge base</CardDescription>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={() => {
-                        setEditingFaq(null);
-                        setFormData({ question: "", answer: "", category: "", is_active: true });
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add FAQ
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex gap-2">
+                  <Button onClick={handleExportFAQsCSV} variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        onClick={() => {
+                          setEditingFaq(null);
+                          setFormData({ question: "", answer: "", category: "", is_active: true });
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add FAQ
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>{editingFaq ? "Edit FAQ" : "Create New FAQ"}</DialogTitle>
@@ -535,6 +571,7 @@ export const DocAgaManagement = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+            </div>
             </CardHeader>
             <CardContent>
               <Table>
