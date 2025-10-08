@@ -65,28 +65,62 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
 
   // Invite team member mutation
   const inviteMutation = useMutation({
-    mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
+    mutationFn: async ({ email, role }: { email: string; role: string }) => {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      
+      const { data: membershipData, error: insertError } = await supabase
         .from("farm_memberships")
-        .insert([{
+        .insert({
           farm_id: farmId,
-          user_id: user.id, // Temporary - will be updated when user accepts
-          role_in_farm: inviteRole as any,
-          invited_email: inviteEmail,
+          user_id: currentUser?.id || "",
+          invited_email: email,
+          role_in_farm: role as any,
           invitation_status: "pending",
-          invited_by: user.id,
-        }] as any);
+          invited_by: currentUser?.id,
+        } as any)
+        .select(`
+          id,
+          invitation_token,
+          farms!inner (name)
+        `)
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Get inviter name
+      const { data: inviterProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", currentUser?.id)
+        .single();
+
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke(
+        "send-team-invitation",
+        {
+          body: {
+            membershipId: membershipData.id,
+            invitedEmail: email,
+            farmName: (membershipData.farms as any).name,
+            inviterName: inviterProfile?.full_name || "A team member",
+            role: role,
+            invitationToken: membershipData.invitation_token,
+          },
+        }
+      );
+
+      if (emailError) {
+        console.error("Failed to send invitation email:", emailError);
+        // Don't throw - membership was created successfully
+      }
+
+      return membershipData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["farm-team", farmId] });
       toast({
-        title: "Invitation sent",
-        description: `Invitation sent to ${inviteEmail}`,
+        title: "Success",
+        description: "Invitation sent successfully! The team member will receive an email.",
       });
       setIsInviteDialogOpen(false);
       setInviteEmail("");
@@ -95,7 +129,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send invitation",
         variant: "destructive",
       });
     },
@@ -136,7 +170,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
       });
       return;
     }
-    inviteMutation.mutate();
+    inviteMutation.mutate({ email: inviteEmail, role: inviteRole });
   };
 
   const getRoleBadge = (role: string) => {

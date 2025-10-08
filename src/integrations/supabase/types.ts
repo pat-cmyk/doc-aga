@@ -544,10 +544,12 @@ export type Database = {
           farm_id: string
           id: string
           invitation_status: string | null
+          invitation_token: string | null
           invited_at: string | null
           invited_by: string | null
           invited_email: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
+          token_expires_at: string | null
           user_id: string
         }
         Insert: {
@@ -555,10 +557,12 @@ export type Database = {
           farm_id: string
           id?: string
           invitation_status?: string | null
+          invitation_token?: string | null
           invited_at?: string | null
           invited_by?: string | null
           invited_email?: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
+          token_expires_at?: string | null
           user_id: string
         }
         Update: {
@@ -566,10 +570,12 @@ export type Database = {
           farm_id?: string
           id?: string
           invitation_status?: string | null
+          invitation_token?: string | null
           invited_at?: string | null
           invited_by?: string | null
           invited_email?: string | null
           role_in_farm?: Database["public"]["Enums"]["user_role"]
+          token_expires_at?: string | null
           user_id?: string
         }
         Relationships: [

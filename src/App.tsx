@@ -16,6 +16,7 @@ import Checkout from "./pages/Checkout";
 import DistributorFinder from "./pages/DistributorFinder";
 import OrderHistory from "./pages/OrderHistory";
 import MessagingPage from "./pages/MessagingPage";
+import InviteAccept from "./pages/InviteAccept";
 import NotFound from "./pages/NotFound";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { CartProvider } from "./hooks/useCart";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/distributors" element={<DistributorFinder />} />
             <Route path="/orders" element={<OrderHistory />} />
             <Route path="/messages" element={<MessagingPage />} />
+            <Route path="/invite/accept/:token" element={<InviteAccept />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
