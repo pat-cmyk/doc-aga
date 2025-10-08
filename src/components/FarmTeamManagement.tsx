@@ -68,11 +68,31 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
     mutationFn: async ({ email, role }: { email: string; role: string }) => {
       const currentUser = (await supabase.auth.getUser()).data.user;
       
+      // Check if an invitation already exists for this email
+      const { data: existingInvite } = await supabase
+        .from("farm_memberships")
+        .select("id, invitation_status")
+        .eq("farm_id", farmId)
+        .eq("invited_email", email)
+        .maybeSingle();
+
+      if (existingInvite) {
+        if (existingInvite.invitation_status === "pending") {
+          throw new Error("An invitation has already been sent to this email");
+        } else if (existingInvite.invitation_status === "accepted") {
+          throw new Error("This user is already a member of your farm");
+        }
+      }
+
+      // Create a placeholder UUID for pending invitations
+      // The actual user_id will be set when they accept the invitation
+      const placeholderUserId = "00000000-0000-0000-0000-000000000000";
+      
       const { data: membershipData, error: insertError } = await supabase
         .from("farm_memberships")
         .insert({
           farm_id: farmId,
-          user_id: currentUser?.id || "",
+          user_id: placeholderUserId,
           invited_email: email,
           role_in_farm: role as any,
           invitation_status: "pending",
