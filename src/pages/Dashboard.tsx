@@ -11,6 +11,7 @@ import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import FarmSetup from "@/components/FarmSetup";
+import FarmProfile from "@/components/FarmProfile";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -142,9 +143,10 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
+              <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/marketplace")}>
               Marketplace
@@ -176,6 +178,10 @@ const Dashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="farm" className="space-y-6">
+            {farmId && <FarmProfile farmId={farmId} />}
           </TabsContent>
         </Tabs>
       </main>

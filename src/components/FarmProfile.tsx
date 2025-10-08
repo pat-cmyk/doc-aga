@@ -28,7 +28,7 @@ interface Animal {
 
 interface FarmProfileProps {
   farmId: string;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
@@ -119,9 +119,11 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
       <Card>
         <CardContent className="pt-6">
           <p className="text-center text-muted-foreground">Farm not found</p>
-          <Button onClick={onBack} className="mt-4 mx-auto block">
-            Go Back
-          </Button>
+          {onBack && (
+            <Button onClick={onBack} className="mt-4 mx-auto block">
+              Go Back
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
@@ -133,9 +135,11 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            {onBack && (
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <div className="flex-1">
               <CardTitle>{farm.name}</CardTitle>
               <CardDescription className="flex items-center gap-1 mt-1">
