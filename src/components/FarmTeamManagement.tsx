@@ -33,7 +33,7 @@ interface TeamMember {
 export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps) => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"farm_hand" | "farm_owner">("farm_hand");
+  const [inviteRole, setInviteRole] = useState<"farmhand" | "farmer_owner">("farmhand");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -90,7 +90,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
       });
       setIsInviteDialogOpen(false);
       setInviteEmail("");
-      setInviteRole("farm_hand");
+      setInviteRole("farmhand");
     },
     onError: (error: any) => {
       toast({
@@ -141,8 +141,8 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
 
   const getRoleBadge = (role: string) => {
     const roleConfig = {
-      farm_owner: { label: "Farm Manager", variant: "default" as const },
-      farm_hand: { label: "Farm Hand", variant: "secondary" as const },
+      farmer_owner: { label: "Farm Manager", variant: "default" as const },
+      farmhand: { label: "Farm Hand", variant: "secondary" as const },
     };
     const config = roleConfig[role as keyof typeof roleConfig] || { label: role, variant: "outline" as const };
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -205,12 +205,12 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="farm_hand">Farm Hand</SelectItem>
-                        <SelectItem value="farm_owner">Farm Manager</SelectItem>
+                        <SelectItem value="farmhand">Farm Hand</SelectItem>
+                        <SelectItem value="farmer_owner">Farm Manager</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {inviteRole === "farm_owner" 
+                      {inviteRole === "farmer_owner" 
                         ? "Farm Managers can manage animals and records but cannot add/remove team members"
                         : "Farm Hands have limited access to assigned animals"}
                     </p>
