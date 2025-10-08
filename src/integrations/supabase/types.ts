@@ -550,7 +550,7 @@ export type Database = {
           invited_email: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           token_expires_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -563,7 +563,7 @@ export type Database = {
           invited_email?: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -576,7 +576,7 @@ export type Database = {
           invited_email?: string | null
           role_in_farm?: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

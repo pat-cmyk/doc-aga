@@ -84,15 +84,12 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
         }
       }
 
-      // Create a placeholder UUID for pending invitations
-      // The actual user_id will be set when they accept the invitation
-      const placeholderUserId = "00000000-0000-0000-0000-000000000000";
-      
+      // For pending invitations, user_id is null until they accept
       const { data: membershipData, error: insertError } = await supabase
         .from("farm_memberships")
         .insert({
           farm_id: farmId,
-          user_id: placeholderUserId,
+          user_id: null,
           invited_email: email,
           role_in_farm: role as any,
           invitation_status: "pending",
