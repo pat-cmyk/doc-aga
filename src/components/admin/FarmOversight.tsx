@@ -27,6 +27,7 @@ interface FarmWithDetails {
   owner_email: string;
   owner_phone: string | null;
   animal_count: number;
+  team_members_count: number;
   is_deleted: boolean;
 }
 
@@ -46,7 +47,8 @@ export const FarmOversight = () => {
           owner_id,
           is_deleted,
           profiles:owner_id (full_name, phone),
-          animals:animals(count)
+          animals:animals(count),
+          farm_memberships:farm_memberships(count)
         `)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false });
@@ -63,6 +65,7 @@ export const FarmOversight = () => {
         is_deleted: boolean;
         profiles: { full_name: string | null; phone: string | null } | null;
         animals: Array<{ count: number }>;
+        farm_memberships: Array<{ count: number }>;
       }>;
 
       // Get emails from auth.users
@@ -81,6 +84,7 @@ export const FarmOversight = () => {
           owner_email: authUser?.email || "N/A",
           owner_phone: farm.profiles?.phone || "N/A",
           animal_count: farm.animals?.[0]?.count || 0,
+          team_members_count: farm.farm_memberships?.[0]?.count || 0,
           is_deleted: farm.is_deleted,
         };
       });
@@ -172,6 +176,7 @@ export const FarmOversight = () => {
               <TableHead>Phone</TableHead>
               <TableHead>Region</TableHead>
               <TableHead>Animals</TableHead>
+              <TableHead>Team Members</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -185,6 +190,7 @@ export const FarmOversight = () => {
                 <TableCell>{farm.owner_phone}</TableCell>
                 <TableCell>{farm.region || "N/A"}</TableCell>
                 <TableCell>{farm.animal_count}</TableCell>
+                <TableCell>{farm.team_members_count}</TableCell>
                 <TableCell>
                   {new Date(farm.created_at).toLocaleDateString()}
                 </TableCell>
