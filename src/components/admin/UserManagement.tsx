@@ -8,13 +8,24 @@ import { toast } from "@/hooks/use-toast";
 
 type UserRole = "admin" | "farmer_owner" | "farmhand" | "merchant" | "vet";
 
+interface UserWithDetails {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: UserRole;
+  created_at: string;
+  email: string;
+  farm_count: number;
+}
+
 export const UserManagement = () => {
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["admin-users"],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async (): Promise<UserWithDetails[]> => {
+      // Get profiles with email from auth.users
+      const { data, error: profileError } = await supabase
         .from("profiles")
         .select(`
           id,
@@ -25,8 +36,51 @@ export const UserManagement = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (profileError) throw profileError;
+      if (!data) return [];
+      
+      const profiles = data as Array<{
+        id: string;
+        full_name: string | null;
+        phone: string | null;
+        role: string;
+        created_at: string;
+      }>;
+
+      // Get emails from auth.users (admin only)
+      const authUsersResponse = await supabase.auth.admin.listUsers();
+      const authUsers = authUsersResponse.data?.users || [];
+      
+      // Get farm memberships and ownership counts
+      const usersWithDetails: UserWithDetails[] = await Promise.all(
+        profiles.map(async (profile): Promise<UserWithDetails> => {
+          const authUser = authUsers.find(u => u.id === profile.id);
+          
+          // Count farms owned
+          const { count: farmsOwned } = await supabase
+            .from("farms")
+            .select("*", { count: "exact", head: true })
+            .eq("owner_id", profile.id);
+          
+          // Count farm memberships
+          const { count: farmMemberships } = await supabase
+            .from("farm_memberships")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", profile.id);
+          
+          return {
+            id: profile.id,
+            full_name: profile.full_name,
+            phone: profile.phone,
+            role: profile.role as UserRole,
+            created_at: profile.created_at,
+            email: authUser?.email || "N/A",
+            farm_count: (farmsOwned || 0) + (farmMemberships || 0)
+          };
+        })
+      );
+
+      return usersWithDetails;
     },
   });
 
@@ -83,8 +137,10 @@ export const UserManagement = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Farms</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -93,12 +149,14 @@ export const UserManagement = () => {
             {users?.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.full_name}</TableCell>
+                <TableCell>{user.email}</TableCell>
                 <TableCell>{user.phone || "N/A"}</TableCell>
                 <TableCell>
                   <Badge variant={getRoleBadgeVariant(user.role)}>
                     {user.role}
                   </Badge>
                 </TableCell>
+                <TableCell>{user.farm_count}</TableCell>
                 <TableCell>
                   {new Date(user.created_at).toLocaleDateString()}
                 </TableCell>
