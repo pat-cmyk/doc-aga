@@ -1,0 +1,277 @@
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { UserPlus, Trash2, Mail, Calendar } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+
+interface FarmTeamManagementProps {
+  farmId: string;
+  isOwner: boolean;
+}
+
+interface TeamMember {
+  id: string;
+  user_id: string;
+  role_in_farm: string;
+  invitation_status: string;
+  invited_email: string | null;
+  invited_at: string;
+  profiles: {
+    full_name: string;
+    email: string;
+  } | null;
+}
+
+export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps) => {
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"farm_hand" | "farm_owner">("farm_hand");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch team members
+  const { data: teamMembers, isLoading } = useQuery({
+    queryKey: ["farm-team", farmId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("farm_memberships")
+        .select(`
+          id,
+          user_id,
+          role_in_farm,
+          invitation_status,
+          invited_email,
+          invited_at,
+          profiles:user_id (
+            full_name,
+            email
+          )
+        `)
+        .eq("farm_id", farmId)
+        .order("invited_at", { ascending: false });
+
+      if (error) throw error;
+      return data as TeamMember[];
+    },
+  });
+
+  // Invite team member mutation
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("farm_memberships")
+        .insert([{
+          farm_id: farmId,
+          user_id: user.id, // Temporary - will be updated when user accepts
+          role_in_farm: inviteRole as any,
+          invited_email: inviteEmail,
+          invitation_status: "pending",
+          invited_by: user.id,
+        }] as any);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["farm-team", farmId] });
+      toast({
+        title: "Invitation sent",
+        description: `Invitation sent to ${inviteEmail}`,
+      });
+      setIsInviteDialogOpen(false);
+      setInviteEmail("");
+      setInviteRole("farm_hand");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Remove team member mutation
+  const removeMutation = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const { error } = await supabase
+        .from("farm_memberships")
+        .delete()
+        .eq("id", membershipId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["farm-team", farmId] });
+      toast({
+        title: "Success",
+        description: "Team member removed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleInvite = () => {
+    if (!inviteEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    inviteMutation.mutate();
+  };
+
+  const getRoleBadge = (role: string) => {
+    const roleConfig = {
+      farm_owner: { label: "Farm Manager", variant: "default" as const },
+      farm_hand: { label: "Farm Hand", variant: "secondary" as const },
+    };
+    const config = roleConfig[role as keyof typeof roleConfig] || { label: role, variant: "outline" as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      accepted: { label: "Active", variant: "default" as const },
+      pending: { label: "Pending", variant: "outline" as const },
+      declined: { label: "Declined", variant: "destructive" as const },
+    };
+    const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: "outline" as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  if (isLoading) {
+    return <div>Loading team members...</div>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Team Members</CardTitle>
+            <CardDescription>
+              {isOwner ? "Manage your farm team members" : "View farm team members"}
+            </CardDescription>
+          </div>
+          {isOwner && (
+            <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Invite Member
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite Team Member</DialogTitle>
+                  <DialogDescription>
+                    Send an invitation to join your farm team
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="member@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={inviteRole} onValueChange={(value: any) => setInviteRole(value)}>
+                      <SelectTrigger id="role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="farm_hand">Farm Hand</SelectItem>
+                        <SelectItem value="farm_owner">Farm Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {inviteRole === "farm_owner" 
+                        ? "Farm Managers can manage animals and records but cannot add/remove team members"
+                        : "Farm Hands have limited access to assigned animals"}
+                    </p>
+                  </div>
+                  <Button onClick={handleInvite} disabled={inviteMutation.isPending} className="w-full">
+                    {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!teamMembers || teamMembers.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            No team members yet. {isOwner && "Invite someone to get started!"}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {teamMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium">
+                      {member.profiles?.full_name || member.invited_email}
+                    </span>
+                    {getRoleBadge(member.role_in_farm)}
+                    {getStatusBadge(member.invitation_status)}
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    {member.profiles?.email && (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {member.profiles.email}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Invited {format(new Date(member.invited_at), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                </div>
+                {isOwner && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeMutation.mutate(member.id)}
+                    disabled={removeMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

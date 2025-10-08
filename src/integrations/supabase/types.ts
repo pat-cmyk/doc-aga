@@ -543,6 +543,10 @@ export type Database = {
           created_at: string
           farm_id: string
           id: string
+          invitation_status: string | null
+          invited_at: string | null
+          invited_by: string | null
+          invited_email: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
@@ -550,6 +554,10 @@ export type Database = {
           created_at?: string
           farm_id: string
           id?: string
+          invitation_status?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
+          invited_email?: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
@@ -557,6 +565,10 @@ export type Database = {
           created_at?: string
           farm_id?: string
           id?: string
+          invitation_status?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
+          invited_email?: string | null
           role_in_farm?: Database["public"]["Enums"]["user_role"]
           user_id?: string
         }
@@ -1334,8 +1346,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_farm_manager: {
+        Args: { _farm_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_farm_member: {
         Args: { farm_id: string }
+        Returns: boolean
+      }
+      is_farm_owner: {
+        Args: { _farm_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_farm_owner_or_manager: {
+        Args: { _farm_id: string; _user_id: string }
         Returns: boolean
       }
       is_merchant: {

@@ -8,6 +8,7 @@ import { ArrowLeft, MapPin, Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
+import { FarmTeamManagement } from "./FarmTeamManagement";
 
 interface Farm {
   id: string;
@@ -36,6 +37,7 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,6 +62,10 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
       });
     } else {
       setFarm(farmData);
+      
+      // Check if current user is owner
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsOwner(farmData.owner_id === user?.id);
     }
 
     // Load animals
@@ -148,6 +154,9 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Team Management Section */}
+      <FarmTeamManagement farmId={farmId} isOwner={isOwner} />
 
       {/* Animals Section */}
       <Card>
