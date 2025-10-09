@@ -53,12 +53,19 @@ const Dashboard = () => {
         return;
       }
       
-      // Check if user has a farm, create one if not (only for farmers)
-      const { data: farms, error: farmError } = await supabase
+      // Check if user owns a farm OR is a member of a farm
+      const { data: ownedFarms, error: farmError } = await supabase
         .from("farms")
         .select("id")
         .eq("owner_id", session.user.id)
         .eq("is_deleted", false)
+        .limit(1);
+
+      const { data: memberFarms } = await supabase
+        .from("farm_memberships")
+        .select("farm_id")
+        .eq("user_id", session.user.id)
+        .eq("invitation_status", "accepted")
         .limit(1);
       
       if (farmError) {
@@ -71,11 +78,14 @@ const Dashboard = () => {
         return;
       }
       
-      if (farms && farms.length > 0) {
-        // User has a farm
-        setFarmId(farms[0].id);
+      if (ownedFarms && ownedFarms.length > 0) {
+        // User owns a farm
+        setFarmId(ownedFarms[0].id);
+      } else if (memberFarms && memberFarms.length > 0) {
+        // User is a member of a farm
+        setFarmId(memberFarms[0].farm_id);
       } else {
-        // Show farm setup for new users
+        // Show farm setup for new users without any farm access
         setShowFarmSetup(true);
       }
       

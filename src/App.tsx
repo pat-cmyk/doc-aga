@@ -17,6 +17,7 @@ import DistributorFinder from "./pages/DistributorFinder";
 import OrderHistory from "./pages/OrderHistory";
 import MessagingPage from "./pages/MessagingPage";
 import InviteAccept from "./pages/InviteAccept";
+import AdminCreateUser from "./pages/AdminCreateUser";
 import NotFound from "./pages/NotFound";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { CartProvider } from "./hooks/useCart";
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/orders" element={<OrderHistory />} />
             <Route path="/messages" element={<MessagingPage />} />
             <Route path="/invite/accept/:token" element={<InviteAccept />} />
+            <Route path="/admin/create-user" element={<AdminCreateUser />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

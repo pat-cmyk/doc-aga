@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { FarmTeamManagement } from "./FarmTeamManagement";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Farm {
   id: string;
@@ -37,8 +38,8 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
   const { toast } = useToast();
+  const { canManageTeam, canAddAnimals, isLoading: permissionsLoading } = usePermissions(farmId);
 
   useEffect(() => {
     loadFarmData();
@@ -62,10 +63,6 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
       });
     } else {
       setFarm(farmData);
-      
-      // Check if current user is owner
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsOwner(farmData.owner_id === user?.id);
     }
 
     // Load animals
@@ -159,8 +156,8 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
         </CardContent>
       </Card>
 
-      {/* Team Management Section */}
-      <FarmTeamManagement farmId={farmId} isOwner={isOwner} />
+      {/* Team Management Section - Only visible to farm owners */}
+      {canManageTeam && <FarmTeamManagement farmId={farmId} isOwner={canManageTeam} />}
 
       {/* Animals Section */}
       <Card>
@@ -170,13 +167,14 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
               <CardTitle>Animals</CardTitle>
               <CardDescription>Manage animals in this farm</CardDescription>
             </div>
-            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Animal
-                </Button>
-              </DialogTrigger>
+            {canAddAnimals && (
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Animal
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Animal</DialogTitle>
@@ -191,6 +189,7 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
                 />
               </DialogContent>
             </Dialog>
+            )}
           </div>
         </CardHeader>
         <CardContent>

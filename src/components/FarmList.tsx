@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, MapPin, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import FarmProfile from "./FarmProfile";
+import { RoleBadge } from "./RoleBadge";
 
 const REGIONS_WITH_PROVINCES = {
   "Region I (Ilocos)": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
@@ -73,20 +74,53 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   }, []);
 
   const loadFarms = async () => {
-    const { data, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Query farms where user is owner OR member
+    const { data: memberFarms, error: memberError } = await supabase
+      .from("farm_memberships")
+      .select("farm_id, role_in_farm, farms(*)")
+      .eq("user_id", user.id)
+      .eq("invitation_status", "accepted");
+
+    const { data: ownedFarms, error: ownedError } = await supabase
       .from("farms")
       .select("*")
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: false });
+      .eq("owner_id", user.id)
+      .eq("is_deleted", false);
 
-    if (error) {
+    if (memberError || ownedError) {
       toast({
         title: "Error loading farms",
-        description: error.message,
+        description: memberError?.message || ownedError?.message,
         variant: "destructive"
       });
     } else {
-      setFarms(data || []);
+      // Combine and deduplicate farms
+      const allFarms = [...(ownedFarms || [])];
+      const memberFarmData = memberFarms?.map(m => ({
+        ...(m.farms as any),
+        userRole: m.role_in_farm,
+        isOwner: false
+      })) || [];
+      
+      // Add member farms that aren't already owned
+      memberFarmData.forEach(mf => {
+        if (!allFarms.find(f => f.id === mf.id)) {
+          allFarms.push(mf);
+        }
+      });
+      
+      // Mark owned farms
+      allFarms.forEach(f => {
+        if (ownedFarms?.find(of => of.id === f.id)) {
+          (f as any).isOwner = true;
+          (f as any).userRole = "owner";
+        }
+      });
+      
+      setFarms(allFarms);
     }
     setLoading(false);
   };
@@ -648,7 +682,20 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                 </Button>
               </div>
               <CardHeader>
-                <CardTitle className="text-lg pr-16">{farm.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg pr-16">{farm.name}</CardTitle>
+                  {(farm as any).userRole && (
+                    <RoleBadge 
+                      role={
+                        (farm as any).userRole === 'owner' 
+                          ? 'owner' 
+                          : (farm as any).userRole === 'farmer_owner' 
+                          ? 'manager' 
+                          : 'farmhand'
+                      } 
+                    />
+                  )}
+                </div>
                 <CardDescription className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   {farm.region || "No region specified"}
