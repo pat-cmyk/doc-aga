@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Sprout, Loader2 } from "lucide-react";
+import { Sprout, Stethoscope } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import { Button } from "@/components/ui/button";
 import VoiceRecordButton from "@/components/farmhand/VoiceRecordButton";
+import DocAgaConsultation from "@/components/farmhand/DocAgaConsultation";
 import AnimalList from "@/components/AnimalList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,6 +17,7 @@ const FarmhandDashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
+  const [showDocAga, setShowDocAga] = useState(false);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -128,18 +131,41 @@ const FarmhandDashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
-        {/* Voice Recording Section */}
-        <VoiceRecordButton farmId={farmId} />
+        {showDocAga ? (
+          <DocAgaConsultation 
+            initialQuery=""
+            onClose={() => setShowDocAga(false)}
+            farmId={farmId}
+          />
+        ) : (
+          <>
+            {/* Voice Recording Section */}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <VoiceRecordButton farmId={farmId} />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowDocAga(true)}
+                className="gap-2 h-auto py-6 px-6 flex-col"
+                size="lg"
+              >
+                <Stethoscope className="h-6 w-6" />
+                <span className="text-sm">Ask Dok Aga</span>
+              </Button>
+            </div>
 
-        {/* Animals List - Read Only */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Animals</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AnimalList farmId={farmId} readOnly />
-          </CardContent>
-        </Card>
+            {/* Animals List - Read Only */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Animals</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnimalList farmId={farmId} readOnly />
+              </CardContent>
+            </Card>
+          </>
+        )}
       </main>
     </div>
   );

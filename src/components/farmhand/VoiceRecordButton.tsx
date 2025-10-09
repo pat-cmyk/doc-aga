@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ActivityConfirmation from './ActivityConfirmation';
+import DocAgaConsultation from './DocAgaConsultation';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -15,6 +16,8 @@ const VoiceRecordButton = ({ farmId }: VoiceRecordButtonProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [mode, setMode] = useState<'idle' | 'activity' | 'doc-aga'>('idle');
+  const [docAgaQuery, setDocAgaQuery] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -95,22 +98,43 @@ const VoiceRecordButton = ({ farmId }: VoiceRecordButtonProps) => {
         throw new Error('No transcription returned');
       }
 
-      console.log('Transcription:', transcriptData.text);
+      const transcriptionText = transcriptData.text;
+      console.log('Transcription:', transcriptionText);
 
-      // Step 2: Process transcription with AI
-      const { data: aiData, error: aiError } = await supabase.functions.invoke('process-farmhand-activity', {
-        body: { 
-          transcription: transcriptData.text,
-          farmId
+      // Check if user is calling Dok Aga
+      const isDocAgaQuery = /dok\s*aga|doc\s*aga|doktor\s*aga/i.test(transcriptionText);
+
+      if (isDocAgaQuery) {
+        // Route to Dok Aga mode
+        toast({
+          title: "🩺 Connecting to Dok Aga...",
+          description: "Opening veterinary consultation"
+        });
+        setMode('doc-aga');
+        setDocAgaQuery(transcriptionText);
+      } else {
+        // Route to activity logging mode
+        toast({
+          title: "📝 Processing Activity...",
+          description: "Creating your record"
+        });
+
+        // Step 2: Process transcription with AI
+        const { data: aiData, error: aiError } = await supabase.functions.invoke('process-farmhand-activity', {
+          body: { 
+            transcription: transcriptionText,
+            farmId
+          }
+        });
+
+        if (aiError || aiData.error) {
+          throw new Error(aiData?.error || 'AI processing failed');
         }
-      });
 
-      if (aiError || aiData.error) {
-        throw new Error(aiData?.error || 'AI processing failed');
+        console.log('Extracted data:', aiData);
+        setMode('activity');
+        setExtractedData(aiData);
       }
-
-      console.log('Extracted data:', aiData);
-      setExtractedData(aiData);
 
     } catch (error) {
       console.error('Error processing audio:', error);
@@ -126,17 +150,30 @@ const VoiceRecordButton = ({ farmId }: VoiceRecordButtonProps) => {
 
   const handleCancel = () => {
     setExtractedData(null);
+    setMode('idle');
   };
 
   const handleSuccess = () => {
     setExtractedData(null);
+    setMode('idle');
     toast({
       title: "Record Created",
       description: "Activity successfully logged",
     });
   };
 
-  if (extractedData) {
+  const handleDocAgaClose = () => {
+    setDocAgaQuery(null);
+    setMode('idle');
+  };
+
+  // Show Dok Aga consultation
+  if (mode === 'doc-aga' && docAgaQuery) {
+    return <DocAgaConsultation initialQuery={docAgaQuery} onClose={handleDocAgaClose} farmId={farmId} />;
+  }
+
+  // Show activity confirmation
+  if (mode === 'activity' && extractedData) {
     return <ActivityConfirmation data={extractedData} onCancel={handleCancel} onSuccess={handleSuccess} />;
   }
 
