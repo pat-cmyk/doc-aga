@@ -50,62 +50,50 @@ serve(async (req) => {
 
     console.log('Received audio data, processing...');
 
-    const GOOGLE_CLOUD_API_KEY = Deno.env.get('GOOGLE_CLOUD_API_KEY');
-    if (!GOOGLE_CLOUD_API_KEY) {
-      throw new Error('GOOGLE_CLOUD_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
     }
 
     // Process audio in chunks
     const binaryAudio = processBase64Chunks(audio);
     console.log(`Audio size: ${binaryAudio.length} bytes`);
 
-    // Convert audio to base64 for Google Cloud
-    let base64Audio = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < binaryAudio.length; i += chunkSize) {
-      const chunk = binaryAudio.subarray(i, i + chunkSize);
-      base64Audio += String.fromCharCode(...chunk);
-    }
-    const encodedAudio = btoa(base64Audio);
+    // Create blob from binary audio data
+    const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
+    
+    // Prepare form data for OpenAI Whisper API
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'en');
 
-    // Send to Google Cloud Speech-to-Text
-    console.log('Sending to Google Cloud Speech-to-Text...');
+    // Send to OpenAI Whisper API
+    console.log('Sending to OpenAI Whisper API...');
     const response = await fetch(
-      `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_CLOUD_API_KEY}`,
+      'https://api.openai.com/v1/audio/transcriptions',
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
-        body: JSON.stringify({
-          config: {
-            encoding: 'WEBM_OPUS',
-            sampleRateHertz: 48000,
-            languageCode: 'en-US',
-            enableAutomaticPunctuation: true,
-          },
-          audio: {
-            content: encodedAudio,
-          },
-        }),
+        body: formData,
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Cloud API error:', errorText);
-      throw new Error(`Google Cloud API error: ${errorText}`);
+      console.error('OpenAI Whisper API error:', errorText);
+      throw new Error(`OpenAI Whisper API error: ${errorText}`);
     }
 
     const result = await response.json();
     
-    if (!result.results || result.results.length === 0) {
-      throw new Error('No transcription results returned');
+    if (!result.text) {
+      throw new Error('No transcription text returned');
     }
 
-    const transcript = result.results
-      .map((r: any) => r.alternatives[0].transcript)
-      .join(' ');
+    const transcript = result.text;
 
     console.log('Transcription successful:', transcript);
 
