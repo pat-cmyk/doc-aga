@@ -435,12 +435,14 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="milking" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="milking">
-            <Milk className="h-4 w-4 mr-2" />
-            Milking
-          </TabsTrigger>
+      <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
+        <TabsList className={`grid w-full grid-cols-${animal?.gender?.toLowerCase() === 'female' ? '4' : '3'}`}>
+          {animal?.gender?.toLowerCase() === 'female' && (
+            <TabsTrigger value="milking">
+              <Milk className="h-4 w-4 mr-2" />
+              Milking
+            </TabsTrigger>
+          )}
           <TabsTrigger value="weight">
             <Scale className="h-4 w-4 mr-2" />
             Weight
@@ -455,9 +457,11 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="milking">
-          <MilkingRecords animalId={animalId} />
-        </TabsContent>
+        {animal?.gender?.toLowerCase() === 'female' && (
+          <TabsContent value="milking">
+            <MilkingRecords animalId={animalId} />
+          </TabsContent>
+        )}
 
         <TabsContent value="weight">
           <WeightRecords animalId={animalId} />

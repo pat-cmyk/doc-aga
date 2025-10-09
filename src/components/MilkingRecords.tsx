@@ -17,9 +17,11 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [formData, setFormData] = useState({ date: new Date().toISOString().split("T")[0], liters: "" });
   const [filterPeriod, setFilterPeriod] = useState<"all" | "cycle" | "month">("all");
   const [latestCalvingDate, setLatestCalvingDate] = useState<Date | null>(null);
+  const [animalGender, setAnimalGender] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    loadAnimalGender();
     loadRecords();
     loadLatestCalvingDate();
 
@@ -44,6 +46,15 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
       supabase.removeChannel(channel);
     };
   }, [animalId]);
+
+  const loadAnimalGender = async () => {
+    const { data } = await supabase
+      .from("animals")
+      .select("gender")
+      .eq("id", animalId)
+      .single();
+    setAnimalGender(data?.gender || null);
+  };
 
   const loadLatestCalvingDate = async () => {
     const { data } = await supabase
@@ -73,6 +84,22 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   };
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
+
+  // Show message for male animals
+  if (animalGender?.toLowerCase() === 'male') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Milking Production</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-center py-8">
+            Milking records are only available for female cattle.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getFilteredRecords = () => {
     const now = new Date();
