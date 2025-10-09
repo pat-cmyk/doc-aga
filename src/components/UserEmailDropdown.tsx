@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useRole } from "@/hooks/useRole";
+import { useRole, type UserRole } from "@/hooks/useRole";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,15 +55,17 @@ export const UserEmailDropdown = () => {
     }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case "admin":
-        return "destructive";
-      case "merchant":
-        return "default";
-      default:
-        return "secondary";
-    }
+  const getRoleBadgeVariant = (role: UserRole) => {
+    if (role === 'admin') return 'destructive';
+    if (role === 'merchant') return 'default';
+    if (role === 'farmhand') return 'outline';
+    return 'secondary';
+  };
+
+  const getRoleLabel = (role: UserRole) => {
+    if (role === 'farmhand') return 'Farmhand';
+    if (role === 'farmer_owner') return 'Farm Owner';
+    return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
   if (isLoading || !userEmail) {
@@ -94,7 +96,7 @@ export const UserEmailDropdown = () => {
             <div className="flex flex-wrap gap-1 mt-2">
               {roles.map((role) => (
                 <Badge key={role} variant={getRoleBadgeVariant(role)} className="text-xs">
-                  {role.replace("_", " ")}
+                  {getRoleLabel(role)}
                 </Badge>
               ))}
             </div>
@@ -102,7 +104,7 @@ export const UserEmailDropdown = () => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        {roles.includes("farmer_owner") || roles.includes("farmer_staff") ? (
+        {roles.includes("farmer_owner") || roles.includes("farmhand") ? (
           <DropdownMenuItem onClick={() => navigate("/")}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Farm Dashboard</span>

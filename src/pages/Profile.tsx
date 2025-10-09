@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
+import { useRole } from "@/hooks/useRole";
 import { ArrowLeft, Loader2, User, Mail, Phone, Shield } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
+import { Badge } from "@/components/ui/badge";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile, updatePassword } = useProfile();
+  const { roles, isLoading: rolesLoading } = useRole();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -76,7 +79,13 @@ const Profile = () => {
       .slice(0, 2);
   };
 
-  if (loading) {
+  const getRoleLabel = (role: string) => {
+    if (role === 'farmhand') return 'Farmhand';
+    if (role === 'farmer_owner') return 'Farm Owner';
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
+  if (loading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -108,9 +117,19 @@ const Profile = () => {
                 </Avatar>
               </div>
               <CardTitle className="text-2xl">{profile?.full_name || "User Profile"}</CardTitle>
-              <CardDescription className="flex items-center justify-center gap-2">
+              <CardDescription className="flex items-center justify-center gap-2 flex-wrap">
                 <Shield className="h-4 w-4" />
-                {profile?.role || "farmer_owner"}
+                {roles.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap justify-center">
+                    {roles.map((role) => (
+                      <Badge key={role} variant="secondary" className="text-xs">
+                        {getRoleLabel(role)}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  "No roles assigned"
+                )}
               </CardDescription>
             </CardHeader>
           </Card>

@@ -46,12 +46,12 @@ serve(async (req) => {
 
     if (membershipError) throw membershipError;
 
-    // Add farmer_staff role
+    // Add farmhand role
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
         user_id: userData.user.id,
-        role: 'farmer_staff'
+        role: 'farmhand'
       });
 
     if (roleError) throw roleError;

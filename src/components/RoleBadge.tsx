@@ -6,8 +6,8 @@ interface RoleBadgeProps {
 
 export const RoleBadge = ({ role }: RoleBadgeProps) => {
   const variants = {
-    owner: { label: "Owner", variant: "default" as const },
-    manager: { label: "Manager", variant: "secondary" as const },
+    owner: { label: "Farm Owner", variant: "default" as const },
+    manager: { label: "Farm Manager", variant: "secondary" as const },
     farmhand: { label: "Farmhand", variant: "outline" as const }
   };
 
