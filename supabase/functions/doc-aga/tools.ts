@@ -518,46 +518,44 @@ async function getFarmAnalytics(args: any, supabase: SupabaseClient, farmId: str
 async function getPregnantAnimals(supabase: SupabaseClient, farmId: string | undefined) {
   if (!farmId) return { error: "No farm found for user" };
 
-  // Get animals with pregnancy_confirmed events that don't have subsequent calving events
-  const { data: pregnancyEvents } = await supabase
-    .from('animal_events')
-    .select('animal_id, event_date')
-    .eq('event_type', 'pregnancy_confirmed')
-    .order('event_date', { ascending: false });
+  // Get AI records with confirmed pregnancies - matching dashboard logic
+  const { data: pregnantRecords, error } = await supabase
+    .from('ai_records')
+    .select(`
+      animal_id,
+      performed_date,
+      pregnancy_confirmed,
+      animals!inner(
+        id,
+        name,
+        ear_tag,
+        breed,
+        life_stage,
+        farm_id
+      )
+    `)
+    .eq('animals.farm_id', farmId)
+    .eq('pregnancy_confirmed', true)
+    .eq('animals.is_deleted', false);
 
-  if (!pregnancyEvents || pregnancyEvents.length === 0) {
+  if (error || !pregnantRecords) {
     return { pregnant_animals: [], count: 0 };
   }
 
-  const pregnantAnimalIds = [];
-  
-  for (const pe of pregnancyEvents) {
-    // Check if there's a calving event after this pregnancy
-    const { data: calvings } = await supabase
-      .from('animal_events')
-      .select('event_date')
-      .eq('animal_id', pe.animal_id)
-      .eq('event_type', 'calving')
-      .gte('event_date', pe.event_date);
-    
-    if (!calvings || calvings.length === 0) {
-      pregnantAnimalIds.push(pe.animal_id);
-    }
-  }
-
-  if (pregnantAnimalIds.length === 0) {
-    return { pregnant_animals: [], count: 0 };
-  }
-
-  const { data: animals } = await supabase
-    .from('animals')
-    .select('name, ear_tag, breed, life_stage')
-    .in('id', pregnantAnimalIds)
-    .eq('is_deleted', false);
+  // Format the response
+  const animals = pregnantRecords.map(record => {
+    const animal = Array.isArray(record.animals) ? record.animals[0] : record.animals;
+    return {
+      name: animal.name,
+      ear_tag: animal.ear_tag,
+      breed: animal.breed,
+      life_stage: animal.life_stage
+    };
+  });
 
   return {
-    pregnant_animals: animals || [],
-    count: animals?.length || 0,
+    pregnant_animals: animals,
+    count: animals.length
   };
 }
 
