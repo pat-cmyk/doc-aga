@@ -1368,6 +1368,10 @@ export type Database = {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
       }
+      is_farmhand: {
+        Args: { _farm_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_merchant: {
         Args: { _user_id: string }
         Returns: boolean

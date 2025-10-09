@@ -53,6 +53,11 @@ const Dashboard = () => {
         return;
       }
       
+      if (userRoles.includes("farmhand")) {
+        navigate("/farmhand");
+        return;
+      }
+      
       // Check if user owns a farm OR is a member of a farm
       const { data: ownedFarms, error: farmError } = await supabase
         .from("farms")

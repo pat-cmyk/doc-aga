@@ -64,9 +64,10 @@ interface Animal {
 interface AnimalListProps {
   farmId: string;
   initialSelectedAnimalId?: string | null;
+  readOnly?: boolean;
 }
 
-const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false }: AnimalListProps) => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -211,10 +212,12 @@ const AnimalList = ({ farmId, initialSelectedAnimalId }: AnimalListProps) => {
 
   return (
     <div className="space-y-4">
-      <Button onClick={() => setShowForm(true)} className="w-full min-h-[48px]">
-        <Plus className="h-4 w-4 mr-2" />
-        Add New Animal
-      </Button>
+      {!readOnly && (
+        <Button onClick={() => setShowForm(true)} className="w-full min-h-[48px]">
+          <Plus className="h-4 w-4 mr-2" />
+          Add New Animal
+        </Button>
+      )}
 
       {/* Filters */}
       <Card>

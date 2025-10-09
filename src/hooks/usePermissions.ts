@@ -46,22 +46,26 @@ export const usePermissions = (farmId: string | undefined) => {
     checkPermissions();
   }, [farmId]);
 
+  const isFarmhand = roles.includes('farmhand');
   const canManageTeam = isOwner || isAdmin;
   const canManageFarm = isOwner || isManager || isAdmin;
   const canAddAnimals = isOwner || isManager || isAdmin;
   const canEditAnimals = isOwner || isManager || isAdmin;
   const canDeleteAnimals = isOwner || isAdmin;
   const canViewAnimals = true; // All farm members can view
+  const canCreateRecords = isOwner || isManager || isFarmhand || isAdmin;
 
   return {
     isOwner,
     isManager,
+    isFarmhand,
     canManageTeam,
     canManageFarm,
     canAddAnimals,
     canEditAnimals,
     canDeleteAnimals,
     canViewAnimals,
+    canCreateRecords,
     isLoading
   };
 };
