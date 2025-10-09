@@ -51,19 +51,21 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
   }, [animalId]);
 
   const loadRecords = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("health_records")
-      .select(`
-        *,
-        photos:animal_photos!animal_id(
-          id,
-          photo_path,
-          label,
-          created_at
-        )
-      `)
+      .select("*")
       .eq("animal_id", animalId)
       .order("visit_date", { ascending: false });
+    
+    if (error) {
+      console.error('Error loading health records:', error);
+      toast({
+        title: "Error loading records",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+    
     setRecords(data || []);
     setLoading(false);
   };
@@ -309,22 +311,6 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
                   {r.diagnosis && <p className="text-sm text-muted-foreground mt-1">Diagnosis: {r.diagnosis}</p>}
                   {r.treatment && <p className="text-sm text-muted-foreground">Treatment: {r.treatment}</p>}
                   {r.notes && <p className="text-sm text-muted-foreground mt-2">{r.notes}</p>}
-                  {r.photos && r.photos.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-sm font-medium mb-2">Photos:</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {r.photos.map((photo: any) => (
-                          <img 
-                            key={photo.id} 
-                            src={photo.photo_path} 
-                            alt={photo.label || "Health record photo"} 
-                            className="w-full h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => window.open(photo.photo_path, '_blank')}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
