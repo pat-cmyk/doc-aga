@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Sprout, Stethoscope } from "lucide-react";
+import { Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
-import { Button } from "@/components/ui/button";
 import VoiceRecordButton from "@/components/farmhand/VoiceRecordButton";
 import DocAgaConsultation from "@/components/farmhand/DocAgaConsultation";
 import AnimalList from "@/components/AnimalList";
@@ -140,20 +139,7 @@ const FarmhandDashboard = () => {
         ) : (
           <>
             {/* Voice Recording Section */}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <VoiceRecordButton farmId={farmId} />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowDocAga(true)}
-                className="gap-2 h-auto py-6 px-6 flex-col"
-                size="lg"
-              >
-                <Stethoscope className="h-6 w-6" />
-                <span className="text-sm">Ask Dok Aga</span>
-              </Button>
-            </div>
+            <VoiceRecordButton farmId={farmId} />
 
             {/* Animals List - Read Only */}
             <Card>
