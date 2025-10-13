@@ -436,22 +436,22 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
       </Card>
 
       <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
-        <TabsList className={`grid w-full grid-cols-${animal?.gender?.toLowerCase() === 'female' ? '4' : '3'}`}>
+        <TabsList className="w-full justify-between gap-2">
           {animal?.gender?.toLowerCase() === 'female' && (
-            <TabsTrigger value="milking">
+            <TabsTrigger value="milking" className="flex-1">
               <Milk className="h-4 w-4 mr-2" />
               Milking
             </TabsTrigger>
           )}
-          <TabsTrigger value="weight">
+          <TabsTrigger value="weight" className="flex-1">
             <Scale className="h-4 w-4 mr-2" />
             Weight
           </TabsTrigger>
-          <TabsTrigger value="health">
+          <TabsTrigger value="health" className="flex-1">
             <Stethoscope className="h-4 w-4 mr-2" />
             Health
           </TabsTrigger>
-          <TabsTrigger value="ai">
+          <TabsTrigger value="ai" className="flex-1">
             <Calendar className="h-4 w-4 mr-2" />
             AI/Breeding
           </TabsTrigger>
