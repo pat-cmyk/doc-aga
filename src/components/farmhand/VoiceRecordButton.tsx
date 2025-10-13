@@ -215,6 +215,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
         <Button 
           onClick={startRecording}
           size="lg"
+          variant="destructive"
           className="h-20 w-20 rounded-full shadow-lg hover:shadow-xl transition-shadow"
         >
           <Mic className="h-10 w-10" />
