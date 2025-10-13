@@ -94,11 +94,13 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
         case 'weight_measurement':
           if (!data.animal_id) throw new Error('Animal not identified');
+          const weight = Number(data.quantity);
+          if (!weight || weight <= 0) throw new Error('Weight must be a positive number');
           await supabase.from('weight_records').insert({
             animal_id: data.animal_id,
             measurement_date: today,
-            weight_kg: data.quantity,
-            measurement_method: 'Voice recording',
+            weight_kg: weight,
+            measurement_method: 'visual_estimate',
             notes: data.notes,
             recorded_by: user.id
           });
