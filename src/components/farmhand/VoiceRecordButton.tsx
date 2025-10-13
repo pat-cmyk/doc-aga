@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -178,56 +177,42 @@ const VoiceRecordButton = ({ farmId }: VoiceRecordButtonProps) => {
   }
 
   return (
-    <Card className="border-2 border-primary/20">
-      <CardContent className="flex flex-col items-center justify-center py-12 space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Record Activity</h2>
-          <p className="text-muted-foreground">
-            Tap to record your daily tasks like milking, feeding, or health observations
-          </p>
-        </div>
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4">
+      {!isRecording && !isProcessing && (
+        <Button 
+          onClick={startRecording}
+          size="lg"
+          className="h-20 w-20 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+        >
+          <Mic className="h-10 w-10" />
+        </Button>
+      )}
 
-        {!isRecording && !isProcessing && (
+      {isRecording && (
+        <div className="flex flex-col items-center gap-4 bg-card p-6 rounded-2xl shadow-xl border border-primary/20">
+          <div className="flex items-center gap-3 text-destructive">
+            <div className="h-4 w-4 rounded-full bg-destructive animate-pulse" />
+            <span className="text-lg font-semibold">Recording...</span>
+          </div>
           <Button 
-            onClick={startRecording}
+            onClick={stopRecording}
+            variant="destructive"
             size="lg"
-            className="h-32 w-32 rounded-full text-lg"
+            className="gap-2"
           >
-            <Mic className="h-12 w-12" />
+            <Square className="h-6 w-6" />
+            Stop & Process
           </Button>
-        )}
-
-        {isRecording && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-3 text-destructive">
-              <div className="h-4 w-4 rounded-full bg-destructive animate-pulse" />
-              <span className="text-xl font-semibold">Recording...</span>
-            </div>
-            <Button 
-              onClick={stopRecording}
-              variant="destructive"
-              size="lg"
-              className="gap-2"
-            >
-              <Square className="h-6 w-6" />
-              Stop & Process
-            </Button>
-          </div>
-        )}
-
-        {isProcessing && (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground">Processing your activity...</p>
-          </div>
-        )}
-
-        <div className="text-center text-sm text-muted-foreground max-w-md">
-          <p className="font-medium mb-2">Example:</p>
-          <p className="italic">"I just milked cow number 247, got 15 liters"</p>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {isProcessing && (
+        <div className="flex flex-col items-center gap-3 bg-card p-6 rounded-2xl shadow-xl border border-primary/20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Processing...</p>
+        </div>
+      )}
+    </div>
   );
 };
 
