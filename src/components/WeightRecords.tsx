@@ -40,6 +40,28 @@ export function WeightRecords({ animalId }: WeightRecordsProps) {
 
   useEffect(() => {
     loadWeightRecords();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('weight_records_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'weight_records',
+          filter: `animal_id=eq.${animalId}`
+        },
+        () => {
+          console.log('New weight record detected, reloading...');
+          loadWeightRecords();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [animalId]);
 
   const loadWeightRecords = async () => {
