@@ -12,13 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription, farmId } = await req.json();
+    const { transcription, farmId, animalId } = await req.json();
 
     if (!transcription || !farmId) {
       throw new Error('Transcription and farmId are required');
     }
 
     console.log('Processing transcription:', transcription);
+    console.log('Animal context:', animalId || 'none');
 
     // Initialize Supabase client
     const supabase = createClient(
@@ -52,7 +53,24 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
+            content: animalId 
+              ? `You are an assistant helping farmhands log their daily activities. The farmhand is recording an activity for a SPECIFIC ANIMAL (ID: ${animalId}).
+
+IMPORTANT: 
+- The animal is already identified, so you DO NOT need to extract animal_identifier from the transcription unless the farmhand explicitly mentions a DIFFERENT animal
+- Focus on extracting: activity type, quantity, and any additional notes
+- If no animal is mentioned, assume they're talking about the current animal being viewed
+
+Activity types you can identify:
+- milking: Recording milk production
+- feeding: Recording feed given to animals
+- health_observation: General health checks or observations
+- weight_measurement: Recording animal weight
+- injection: Medicine or vaccine administration
+- cleaning: General cleaning tasks
+
+Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
+              : `You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
 
 Always identify which animal the activity is about by looking for:
 - Ear tag numbers (e.g., "247", "number 247", "tag 247")
@@ -66,8 +84,7 @@ Activity types you can identify:
 - injection: Medicine or vaccine administration
 - cleaning: General cleaning tasks
 
-Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
-`
+Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
           },
           {
             role: 'user',
@@ -90,7 +107,9 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
                   },
                   animal_identifier: {
                     type: 'string',
-                    description: 'Animal ear tag number or name mentioned'
+                    description: animalId 
+                      ? 'Optional - only if farmhand explicitly mentions a DIFFERENT animal'
+                      : 'Animal ear tag number or name mentioned'
                   },
                   quantity: {
                     type: 'number',
@@ -113,7 +132,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
                     description: 'Additional observations or notes'
                   }
                 },
-                required: ['activity_type', 'animal_identifier']
+                required: animalId ? ['activity_type'] : ['activity_type', 'animal_identifier']
               }
             }
           }
@@ -139,9 +158,10 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
     const extractedData = JSON.parse(toolCall.function.arguments);
     console.log('Extracted data:', extractedData);
 
-    // Find the animal in the database
-    let animalId = null;
-    if (extractedData.animal_identifier) {
+    // Use provided animalId if available, otherwise look up from identifier
+    let finalAnimalId = animalId;
+
+    if (!animalId && extractedData.animal_identifier) {
       const identifier = extractedData.animal_identifier.toLowerCase();
       
       // Try to find by ear tag or name
@@ -159,7 +179,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
       );
 
       if (animal) {
-        animalId = animal.id;
+        finalAnimalId = animal.id;
         console.log('Found animal:', animal);
       } else {
         console.log('Animal not found for identifier:', identifier);
@@ -169,7 +189,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).
     return new Response(
       JSON.stringify({
         ...extractedData,
-        animal_id: animalId
+        animal_id: finalAnimalId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

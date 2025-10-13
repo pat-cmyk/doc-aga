@@ -65,9 +65,10 @@ interface AnimalListProps {
   farmId: string;
   initialSelectedAnimalId?: string | null;
   readOnly?: boolean;
+  onAnimalSelect?: (animalId: string | null) => void;
 }
 
-const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect }: AnimalListProps) => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -167,7 +168,10 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false }: Anima
   };
 
   if (selectedAnimalId) {
-    return <AnimalDetails animalId={selectedAnimalId} onBack={() => setSelectedAnimalId(null)} />;
+    return <AnimalDetails animalId={selectedAnimalId} onBack={() => {
+      setSelectedAnimalId(null);
+      onAnimalSelect?.(null);
+    }} />;
   }
 
   if (showForm) {
@@ -330,7 +334,10 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false }: Anima
             <Card
               key={animal.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setSelectedAnimalId(animal.id)}
+              onClick={() => {
+                setSelectedAnimalId(animal.id);
+                onAnimalSelect?.(animal.id);
+              }}
             >
               <CardHeader>
                 <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>

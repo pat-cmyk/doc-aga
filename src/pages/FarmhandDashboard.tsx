@@ -17,6 +17,7 @@ const FarmhandDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
   const [showDocAga, setShowDocAga] = useState(false);
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -139,7 +140,7 @@ const FarmhandDashboard = () => {
         ) : (
           <>
             {/* Voice Recording Section */}
-            <VoiceRecordButton farmId={farmId} />
+            <VoiceRecordButton farmId={farmId} animalId={selectedAnimalId} />
 
             {/* Animals List - Read Only */}
             <Card>
@@ -147,7 +148,11 @@ const FarmhandDashboard = () => {
                 <CardTitle>Animals</CardTitle>
               </CardHeader>
               <CardContent>
-                <AnimalList farmId={farmId} readOnly />
+                <AnimalList 
+                  farmId={farmId} 
+                  readOnly 
+                  onAnimalSelect={setSelectedAnimalId}
+                />
               </CardContent>
             </Card>
           </>
