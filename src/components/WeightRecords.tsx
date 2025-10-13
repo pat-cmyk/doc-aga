@@ -24,9 +24,10 @@ interface WeightRecord {
 
 interface WeightRecordsProps {
   animalId: string;
+  animalBirthDate?: string;
 }
 
-export function WeightRecords({ animalId }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,12 +119,38 @@ export function WeightRecords({ animalId }: WeightRecordsProps) {
     setSubmitting(false);
   };
 
+  const calculateAgeInMonths = (measurementDate: string) => {
+    if (!animalBirthDate) return null;
+    const birth = new Date(animalBirthDate);
+    const measurement = new Date(measurementDate);
+    const diffTime = measurement.getTime() - birth.getTime();
+    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
+    return Math.ceil(diffMonths); // Round up
+  };
+
+  const CustomXAxisTick = ({ x, y, payload }: any) => {
+    const dataPoint = chartData.find((d: any) => d.date === payload.value);
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12}>
+          {payload.value}
+        </text>
+        {dataPoint?.ageMonths && (
+          <text x={0} y={0} dy={32} textAnchor="middle" fill="#999" fontSize={10}>
+            {dataPoint.ageMonths}mo
+          </text>
+        )}
+      </g>
+    );
+  };
+
   // Prepare chart data
   const chartData = [...records]
     .reverse()
     .map(r => ({
       date: format(new Date(r.measurement_date), "MMM dd"),
       weight: r.weight_kg,
+      ageMonths: calculateAgeInMonths(r.measurement_date),
     }));
 
   const latestWeight = records[0]?.weight_kg;
@@ -235,7 +262,7 @@ export function WeightRecords({ animalId }: WeightRecordsProps) {
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
+                <XAxis dataKey="date" tick={<CustomXAxisTick />} height={60} />
                 <YAxis />
                 <Tooltip />
                 <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} />

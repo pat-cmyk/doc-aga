@@ -464,7 +464,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
         )}
 
         <TabsContent value="weight">
-          <WeightRecords animalId={animalId} />
+          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} />
         </TabsContent>
 
         <TabsContent value="health">
