@@ -113,7 +113,14 @@ export function AddFeedStockDialog({
         const { error: updateError } = await supabase
           .from('feed_inventory')
           .update({
-            ...data,
+            feed_type: data.feed_type,
+            quantity_kg: data.quantity_kg,
+            unit: data.unit,
+            weight_per_unit: data.weight_per_unit,
+            cost_per_unit: data.cost_per_unit,
+            reorder_threshold: data.reorder_threshold,
+            supplier: data.supplier,
+            notes: data.notes,
             last_updated: new Date().toISOString(),
           })
           .eq('id', editItem.id);
@@ -148,6 +155,7 @@ export function AddFeedStockDialog({
             feed_type: data.feed_type,
             quantity_kg: data.quantity_kg,
             unit: data.unit,
+            weight_per_unit: data.weight_per_unit,
             cost_per_unit: data.cost_per_unit,
             reorder_threshold: data.reorder_threshold,
             supplier: data.supplier,

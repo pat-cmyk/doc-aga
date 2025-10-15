@@ -7,6 +7,7 @@ export interface FeedInventoryItem {
   feed_type: string;
   quantity_kg: number;
   unit: string;
+  weight_per_unit?: number;
   cost_per_unit?: number;
   reorder_threshold?: number;
   supplier?: string;

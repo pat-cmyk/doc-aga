@@ -656,6 +656,7 @@ export type Database = {
           reorder_threshold: number | null
           supplier: string | null
           unit: string
+          weight_per_unit: number | null
         }
         Insert: {
           cost_per_unit?: number | null
@@ -670,6 +671,7 @@ export type Database = {
           reorder_threshold?: number | null
           supplier?: string | null
           unit?: string
+          weight_per_unit?: number | null
         }
         Update: {
           cost_per_unit?: number | null
@@ -684,6 +686,7 @@ export type Database = {
           reorder_threshold?: number | null
           supplier?: string | null
           unit?: string
+          weight_per_unit?: number | null
         }
         Relationships: [
           {

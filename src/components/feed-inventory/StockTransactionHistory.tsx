@@ -35,7 +35,10 @@ export function StockTransactionHistory({
 }: StockTransactionHistoryProps) {
   const [transactions, setTransactions] = useState<FeedStockTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [feedType, setFeedType] = useState<string>("");
+  const [feedInfo, setFeedInfo] = useState<{ feed_type: string; unit: string; weight_per_unit?: number }>({ 
+    feed_type: "", 
+    unit: "kg" 
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,14 +52,18 @@ export function StockTransactionHistory({
     try {
       const { data, error } = await supabase
         .from('feed_inventory')
-        .select('feed_type')
+        .select('feed_type, unit, weight_per_unit')
         .eq('id', feedInventoryId)
         .single();
 
       if (error) throw error;
-      setFeedType(data.feed_type);
+      setFeedInfo({
+        feed_type: data.feed_type,
+        unit: data.unit,
+        weight_per_unit: data.weight_per_unit || undefined
+      });
     } catch (error) {
-      console.error('Error fetching feed type:', error);
+      console.error('Error fetching feed info:', error);
     }
   };
 
@@ -101,9 +108,21 @@ export function StockTransactionHistory({
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${feedType}_transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `${feedInfo.feed_type}_transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const formatBalance = (balanceKg: number) => {
+    const needsConversion = feedInfo.unit === 'bags' || feedInfo.unit === 'bales' || feedInfo.unit === 'barrels';
+    
+    if (needsConversion && feedInfo.weight_per_unit) {
+      const units = balanceKg / feedInfo.weight_per_unit;
+      const unitLabel = feedInfo.unit === 'bags' ? 'bags' : feedInfo.unit === 'bales' ? 'bales' : 'barrels';
+      return `${units.toFixed(1)} ${unitLabel} × ${feedInfo.weight_per_unit} kg = ${balanceKg.toLocaleString()} kg`;
+    }
+    
+    return `${balanceKg.toLocaleString()} kg`;
   };
 
   const getTransactionColor = (type: string) => {
@@ -127,7 +146,7 @@ export function StockTransactionHistory({
             <div>
               <DialogTitle>Transaction History</DialogTitle>
               <DialogDescription>
-                {feedType} - All stock movements
+                {feedInfo.feed_type} - All stock movements
               </DialogDescription>
             </div>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
@@ -172,7 +191,7 @@ export function StockTransactionHistory({
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {transaction.balance_after.toLocaleString()} kg
+                    {formatBalance(transaction.balance_after)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {transaction.notes || '-'}
