@@ -36,6 +36,7 @@ const formSchema = z.object({
   feed_type: z.string().min(1, "Feed type is required"),
   quantity_kg: z.coerce.number().positive("Quantity must be positive"),
   unit: z.string().min(1, "Unit is required"),
+  weight_per_unit: z.coerce.number().positive("Weight per unit must be positive").optional(),
   cost_per_unit: z.coerce.number().nonnegative().optional(),
   reorder_threshold: z.coerce.number().nonnegative().optional(),
   supplier: z.string().optional(),
@@ -64,6 +65,7 @@ export function AddFeedStockDialog({
       feed_type: "",
       quantity_kg: 0,
       unit: "kg",
+      weight_per_unit: undefined,
       cost_per_unit: undefined,
       reorder_threshold: undefined,
       supplier: "",
@@ -71,12 +73,15 @@ export function AddFeedStockDialog({
     },
   });
 
+  const selectedUnit = form.watch("unit");
+
   useEffect(() => {
     if (editItem) {
       form.reset({
         feed_type: editItem.feed_type,
         quantity_kg: Number(editItem.quantity_kg),
         unit: editItem.unit,
+        weight_per_unit: undefined,
         cost_per_unit: editItem.cost_per_unit ? Number(editItem.cost_per_unit) : undefined,
         reorder_threshold: editItem.reorder_threshold ? Number(editItem.reorder_threshold) : undefined,
         supplier: editItem.supplier || "",
@@ -87,6 +92,7 @@ export function AddFeedStockDialog({
         feed_type: "",
         quantity_kg: 0,
         unit: "kg",
+        weight_per_unit: undefined,
         cost_per_unit: undefined,
         reorder_threshold: undefined,
         supplier: "",
@@ -251,6 +257,31 @@ export function AddFeedStockDialog({
                 )}
               />
             </div>
+
+            {/* Conditional weight per unit field */}
+            {(selectedUnit === "bags" || selectedUnit === "bales" || selectedUnit === "barrels") && (
+              <FormField
+                control={form.control}
+                name="weight_per_unit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Average Weight per {selectedUnit === "bags" ? "Bag" : selectedUnit === "bales" ? "Bale" : "Barrel"} (kg) *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="e.g., 50" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter the average weight in kilograms for conversion
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
