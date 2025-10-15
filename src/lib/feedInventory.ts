@@ -79,7 +79,7 @@ export function calculateStockoutDate(
 }
 
 /**
- * Compare inventory vs forecast requirements
+ * Compare inventory vs forecast requirements (using fresh weight)
  */
 export function compareInventoryToForecast(
   inventory: FeedInventoryItem[],
@@ -90,11 +90,11 @@ export function compareInventoryToForecast(
   }
 
   const nextMonthForecast = forecast[0];
-  const sixMonthTotal = forecast.reduce((sum, f) => sum + f.totalFeedKgPerMonth, 0);
+  const sixMonthTotal = forecast.reduce((sum, f) => sum + f.totalFreshForageKgPerMonth, 0);
 
   return inventory.map(item => {
     const currentStock = item.quantity_kg;
-    const nextMonthReq = nextMonthForecast.totalFeedKgPerMonth;
+    const nextMonthReq = nextMonthForecast.totalFreshForageKgPerMonth;
     const sixMonthReq = sixMonthTotal;
     const surplusDeficit = currentStock - sixMonthReq;
     const daysOfCoverage = Math.floor((currentStock / nextMonthReq) * 30);
