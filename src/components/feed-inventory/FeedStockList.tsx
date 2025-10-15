@@ -154,7 +154,14 @@ export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-muted-foreground">Current Stock</span>
                     <span className="font-semibold">
-                      {item.quantity_kg.toLocaleString()} {item.unit}
+                      {(() => {
+                        const needsConversion = ['bags', 'bales', 'barrels'].includes(item.unit);
+                        if (needsConversion && item.weight_per_unit) {
+                          const unitCount = Math.round(item.quantity_kg / item.weight_per_unit);
+                          return `${unitCount.toLocaleString()} ${item.unit} / ${item.quantity_kg.toLocaleString()} kg`;
+                        }
+                        return `${item.quantity_kg.toLocaleString()} ${item.unit}`;
+                      })()}
                     </span>
                   </div>
                   {item.reorder_threshold && (
