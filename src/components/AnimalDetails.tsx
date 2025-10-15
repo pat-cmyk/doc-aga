@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
 import { WeightRecords } from "./WeightRecords";
+import { FeedingRecords } from "./FeedingRecords";
 import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { 
@@ -447,6 +448,10 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
             <Scale className="h-4 w-4 mr-2" />
             Weight
           </TabsTrigger>
+          <TabsTrigger value="feeding" className="flex-1">
+            <Wheat className="h-4 w-4 mr-2" />
+            Feeding
+          </TabsTrigger>
           <TabsTrigger value="health" className="flex-1">
             <Stethoscope className="h-4 w-4 mr-2" />
             Health
@@ -465,6 +470,10 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
 
         <TabsContent value="weight">
           <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} />
+        </TabsContent>
+
+        <TabsContent value="feeding">
+          <FeedingRecords animalId={animalId} />
         </TabsContent>
 
         <TabsContent value="health">
