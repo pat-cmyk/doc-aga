@@ -71,6 +71,18 @@ serve(async (req) => {
 Your knowledge base includes:
 ${faqContext}
 
+FILIPINO FARMING VOCABULARY (for better understanding):
+Common terms you should recognize:
+- Animals: "baka"=cow, "toro"=bull, "guya"=dairy cow, "nagsususo"=lactating, "buntis"=pregnant
+- Feed: "dayami"=rice straw, "mais"=corn, "darak"=rice bran, "concentrates"=pellets, "pulot"=molasses
+- Health: "may sakit"=sick, "lagnat"=fever, "ubo"=cough, "trangkaso"=flu, "pamamaga"=swelling
+- Breeding: "buntis"=pregnant, "nanganak"=gave birth, "pagpapaanak"=calving, "AI"=artificial insemination
+- Activities: "paggatas"=milking, "pagpapakain"=feeding, "pagturuk"=injection, "pagbakunat"=vaccination
+- Time: "kahapon"=yesterday, "ngayon"=now/today, "kanina"=earlier, "kamakalawa"=2 days ago
+- Bisaya: "gabie"=yesterday, "karon"=now, "papakaon"=feeding, "pagatas"=milking
+
+When users use these Filipino terms, understand them correctly and respond naturally in Filipino.
+
 CRITICAL LANGUAGE INSTRUCTIONS:
 - **ALWAYS respond in Tagalog (Filipino) by default** - this is your primary language
 - Match the language of the user's question - if they ask in Tagalog, respond in Tagalog; if in English, respond in English

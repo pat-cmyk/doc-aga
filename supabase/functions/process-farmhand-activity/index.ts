@@ -13,6 +13,75 @@ const DEFAULT_WEIGHTS = {
   barrels: 200, // kg per barrel/drum
 };
 
+// Parse and validate date with Filipino language support
+function parseAndValidateDate(dateReference: string | undefined): { 
+  date: string, 
+  datetime: string, 
+  isValid: boolean, 
+  error?: string 
+} {
+  const now = new Date();
+  let targetDate = new Date();
+  
+  if (!dateReference) {
+    return {
+      date: now.toISOString().split('T')[0],
+      datetime: now.toISOString(),
+      isValid: true
+    };
+  }
+  
+  const ref = dateReference.toLowerCase();
+  
+  // Enhanced future detection (Filipino + English)
+  const futureKeywords = [
+    'tomorrow', 'later', 'next week', 'next month', 'will', 'going to',
+    'in 2 days', 'in 3 days', 'in a week',
+    'bukas', 'mamaya', 'sa susunod', 'mamayang gabi', 'bukas ng umaga',
+    'ugma', 'sa sunod'
+  ];
+  
+  if (futureKeywords.some(keyword => ref.includes(keyword))) {
+    return {
+      date: '',
+      datetime: '',
+      isValid: false,
+      error: 'Hindi pwedeng mag-record ng activities sa hinaharap. Mag-record lang ng mga activities na tapos na o nangyayari ngayon. / Cannot record activities for future dates. Please only record activities that have already happened or are happening now.'
+    };
+  }
+  
+  // Enhanced retroactive date parsing (Filipino + English)
+  if (ref.includes('yesterday') || ref.includes('kahapon') || ref.includes('gabie')) {
+    targetDate.setDate(targetDate.getDate() - 1);
+  } else if (ref.includes('kamakalawa') || ref.includes('2 days ago')) {
+    targetDate.setDate(targetDate.getDate() - 2);
+  } else if (ref.includes('3 days ago')) {
+    targetDate.setDate(targetDate.getDate() - 3);
+  } else if (ref.includes('noong isang araw') || ref.includes('the other day')) {
+    targetDate.setDate(targetDate.getDate() - 2);
+  } else if (ref.includes('last monday') || ref.includes('noong lunes')) {
+    const daysSinceMonday = (targetDate.getDay() + 6) % 7;
+    targetDate.setDate(targetDate.getDate() - daysSinceMonday);
+  }
+  
+  // Validate not too old (30 days limit)
+  const daysDiff = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysDiff > 30) {
+    return {
+      date: '',
+      datetime: '',
+      isValid: false,
+      error: 'Hindi pwedeng mag-record ng activities na mas luma sa 30 days. Makipag-ugnayan sa farm manager para sa lumang records. / Cannot record activities older than 30 days. Please contact your farm manager for historical records.'
+    };
+  }
+  
+  return {
+    date: targetDate.toISOString().split('T')[0],
+    datetime: targetDate.toISOString(),
+    isValid: true
+  };
+}
+
 // FIFO: Get latest weight per unit from inventory (oldest stock first)
 async function getLatestWeightPerUnit(
   supabase: any,
@@ -102,39 +171,87 @@ IMPORTANT:
 - Focus on extracting: activity type, quantity, and any additional notes
 - If no animal is mentioned, assume they're talking about the current animal being viewed
 
+**FILIPINO LANGUAGE SUPPORT**:
+You MUST recognize Filipino/Tagalog and Bisaya/Cebuano farming terms and extract the correct English equivalents:
+
+Common Filipino/Tagalog Terms:
+- Feed Types: "dayami"=rice straw, "mais"=corn, "darak"=rice bran, "concentrates"/"pellets"=concentrates, "pulot"=molasses, "napier"=napier grass
+- Units: "supot"/"sako"=bag, "balde"=bucket, "bigkis"/"pakete"/"bale"=bale, "drum"/"bariles"=barrel
+- Activities: "pagpapakain"=feeding, "paggatas"=milking, "pagbakunat"=vaccination, "pagturuk"=injection, "pagtimbang"=weighing
+- Time: "ngayon"=now/today, "kahapon"=yesterday, "bukas"=tomorrow, "kanina"=earlier, "kamakalawa"=day before yesterday
+- Animals: "baka"=cow, "toro"=bull, "guya"=dairy cow, "nagsususo"=lactating, "buntis"=pregnant
+
+Bisaya/Cebuano: "gabie"=yesterday, "karon"=now, "ugma"=tomorrow, "papakaon"=feeding, "pagatas"=milking
+
 **IMPORTANT - Unit Recognition (DO NOT convert manually)**:
-- When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
-- DO NOT multiply by weight - the system will look up the correct weight from inventory
+- Extract COUNT and UNIT separately
+- DO NOT multiply by weight - system will look up from inventory
 - Extract: quantity (count), unit (type), and feed_type (name)
 
 Examples:
-- "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage", notes: ""
-- "Opened 5 bags of concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates", notes: ""
-- "Used 2 barrels of molasses" → quantity: 2, unit: "barrels", feed_type: "molasses", notes: ""
+- "Nagbigay ako ng 10 bigkis ng mais" → quantity: 10, unit: "bales", feed_type: "corn"
+- "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage"
+- "5 sako ng concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates"
 
-Activity types you can identify:
-- milking: Recording milk production
-- feeding: Recording feed given to animals
-- health_observation: General health checks or observations
-- weight_measurement: Recording animal weight
-- injection: Medicine or vaccine administration
-- cleaning: General cleaning tasks
+Activity types: milking, feeding, health_observation, weight_measurement, injection, cleaning
 
 Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
               : `You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
 
+**FILIPINO LANGUAGE SUPPORT - COMPREHENSIVE VOCABULARY**:
+You MUST recognize and correctly interpret Filipino/Tagalog and Bisaya farming terms:
+
+Feed Types (dayami, mais, darak, etc.):
+- "dayami"/"rice straw" = rice straw
+- "mais"/"corn" = corn  
+- "darak"/"rice bran" = rice bran
+- "concentrates"/"pellets" = concentrates
+- "pulot"/"molasses" = molasses
+- "palay" = unhusked rice
+- "kamoteng kahoy" = cassava
+- "napier" = napier grass
+
+Units/Containers:
+- "supot"/"sako"/"bag" = bag/sack
+- "balde"/"bucket" = bucket
+- "bigkis"/"pakete"/"bale" = bundle/bale
+- "kaserola"/"pot" = pot
+- "drum"/"bariles" = barrel/drum
+
+Activities:
+- "pagpapakain"/"feeding" = feeding
+- "paggatas"/"milking" = milking
+- "pagbakunat"/"vaccination" = vaccination
+- "pagbigay ng gamot"/"pagturuk" = medicine/injection
+- "pagtimbang" = weighing
+
+Time References:
+- "ngayon"/"now"/"today" = current time
+- "kahapon"/"yesterday" = yesterday
+- "bukas"/"tomorrow" = tomorrow (FUTURE - reject this!)
+- "kanina"/"earlier" = earlier today
+- "kamakalawa" = day before yesterday
+- "sa umaga"/"morning" = morning
+- "sa tanghali"/"noon" = noon
+- "sa hapon"/"afternoon" = afternoon
+- "sa gabi"/"night" = evening/night
+
+Bisaya/Cebuano:
+- Time: "gabie"=yesterday, "karon"=now, "ugma"=tomorrow (FUTURE)
+- Activities: "papakaon"=feeding, "pagatas"=milking
+
+Mixed Language (Taglish):
+- "Nag-feed ako ng 10 bales" = I fed 10 bales
+- "Pinakain ko ang 5 sako" = I fed 5 bags
+- "Nag-milk ng 20 litro" = Milked 20 liters
+
+CRITICAL: Extract correct English equivalents for database storage!
+
 **IMPORTANT - Feeding Activity Logic**:
-- If the farmhand mentions SPECIFIC animals (by ear tag, name, or says "cattle", "cow", etc. with a number), extract the animal_identifier
-- If the farmhand says things like "I fed all animals", "fed the herd", "gave feed to everyone", or just mentions a quantity without specifying animals, DO NOT extract animal_identifier - this will be distributed proportionally across all animals
-- Proportional distribution will divide the total feed based on animal weights
-- DO NOT extract "cat" or similar words that are not actual animal identifiers - these are likely mishearing "cattle" or general terms
-
-Always identify which animal the activity is about ONLY if explicitly mentioned:
-- Ear tag numbers (e.g., "247", "number 247", "tag 247")
-- Animal names (specific names given to animals)
-- Specific animal references with identifiers
-
-If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
+- If farmhand mentions SPECIFIC animals (ear tag, name), extract animal_identifier
+- If says "lahat"/"all"/"everyone"/"herd", NO animal_identifier (proportional distribution)
+- Proportional distribution divides feed by animal weights
+- DO NOT extract "cat" (likely mishearing "cattle")
 
 **CRITICAL - Feed Type vs Unit Distinction**:
 For feeding activities, you MUST correctly distinguish between feed_type and unit:
@@ -226,6 +343,16 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                     type: 'string',
                     description: 'Dosage amount (if injection activity)'
                   },
+                  date_reference: {
+                    type: 'string',
+                    description: `Date or time reference in ANY language:
+- English: "today", "yesterday", "2 days ago", "last Monday", "this morning"
+- Tagalog: "ngayon", "kahapon", "kanina", "kamakalawa", "noong isang araw", "sa umaga"
+- Bisaya: "karon", "gabie"
+- Time: "umaga"=morning, "tanghali"=noon, "hapon"=afternoon, "gabi"=night
+
+CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa susunod"`
+                  },
                   notes: {
                     type: 'string',
                     description: 'Additional observations or notes'
@@ -269,6 +396,17 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       
       if (data.activity_type === 'feeding') {
         console.log(`✓ Validation passed - feed_type: ${data.feed_type}`);
+      }
+      
+      // Validate and parse date reference if provided
+      if (data.date_reference) {
+        const dateValidation = parseAndValidateDate(data.date_reference);
+        if (!dateValidation.isValid) {
+          throw new Error(dateValidation.error);
+        }
+        data.validated_date = dateValidation.date;
+        data.validated_datetime = dateValidation.datetime;
+        console.log(`✓ Date validated: ${data.date_reference} → ${data.validated_date}`);
       }
       
       return data;
