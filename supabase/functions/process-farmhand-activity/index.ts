@@ -72,16 +72,24 @@ Activity types you can identify:
 Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
               : `You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
 
-Always identify which animal the activity is about by looking for:
+**IMPORTANT - Feeding Activity Logic**:
+- If the farmhand mentions SPECIFIC animals (by ear tag, name), extract the animal_identifier
+- If the farmhand says things like "I fed all animals", "fed the herd", "gave feed to everyone", or just mentions a quantity without specifying animals, DO NOT try to extract animal_identifier - this will be distributed proportionally across all animals
+- Proportional distribution will divide the total feed based on animal weights
+
+Always identify which animal the activity is about ONLY if explicitly mentioned:
 - Ear tag numbers (e.g., "247", "number 247", "tag 247")
 - Animal names
+- Specific animal references
+
+If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
 
 Activity types you can identify:
-- milking: Recording milk production
-- feeding: Recording feed given to animals
-- health_observation: General health checks or observations
-- weight_measurement: Recording animal weight
-- injection: Medicine or vaccine administration
+- feeding: Recording feed given to animals (can be bulk or specific)
+- milking: Recording milk production (requires specific animal)
+- health_observation: General health checks
+- weight_measurement: Recording animal weight (requires specific animal)
+- injection: Medicine or vaccine administration (requires specific animal)
 - cleaning: General cleaning tasks
 
 Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
@@ -184,6 +192,64 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       } else {
         console.log('Animal not found for identifier:', identifier);
       }
+    }
+
+    // Check if this is a bulk feeding scenario (feeding without specific animal)
+    if (extractedData.activity_type === 'feeding' && !extractedData.animal_identifier && !animalId && extractedData.quantity) {
+      console.log('Bulk feeding detected - calculating proportional distribution');
+      
+      // Fetch all active animals for the farm
+      const { data: animals, error: animalsError } = await supabase
+        .from('animals')
+        .select('id, name, ear_tag, current_weight_kg, life_stage')
+        .eq('farm_id', farmId)
+        .eq('is_deleted', false);
+
+      if (animalsError) {
+        console.error('Error fetching animals:', animalsError);
+        throw new Error('Failed to fetch animals for distribution');
+      }
+
+      if (!animals || animals.length === 0) {
+        throw new Error('No animals found in this farm');
+      }
+
+      console.log(`Found ${animals.length} animals for distribution`);
+
+      // Calculate total weight
+      const totalWeight = animals.reduce((sum, a) => sum + (a.current_weight_kg || 0), 0);
+      console.log('Total weight:', totalWeight);
+
+      // Calculate proportional distribution
+      const distributions = animals.map(animal => {
+        const weight = animal.current_weight_kg || 0;
+        const proportion = totalWeight > 0 ? weight / totalWeight : 1 / animals.length;
+        const feedAmount = extractedData.quantity * proportion;
+        
+        return {
+          animal_id: animal.id,
+          animal_name: animal.name || `Tag ${animal.ear_tag}`,
+          ear_tag: animal.ear_tag,
+          weight_kg: weight,
+          proportion: proportion,
+          feed_amount: feedAmount
+        };
+      });
+
+      console.log('Distribution calculated:', distributions);
+
+      return new Response(
+        JSON.stringify({
+          ...extractedData,
+          is_bulk_feeding: true,
+          total_animals: animals.length,
+          total_weight_kg: totalWeight,
+          distributions: distributions
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     return new Response(

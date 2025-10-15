@@ -16,6 +16,17 @@ interface ActivityConfirmationProps {
     feed_type?: string;
     medicine_name?: string;
     dosage?: string;
+    is_bulk_feeding?: boolean;
+    total_animals?: number;
+    total_weight_kg?: number;
+    distributions?: Array<{
+      animal_id: string;
+      animal_name: string;
+      ear_tag: string;
+      weight_kg: number;
+      proportion: number;
+      feed_amount: number;
+    }>;
   };
   onCancel: () => void;
   onSuccess: () => void;
@@ -70,15 +81,36 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'feeding':
-          if (!data.animal_id) throw new Error('Animal not identified');
-          await supabase.from('feeding_records').insert({
-            animal_id: data.animal_id,
-            record_datetime: new Date().toISOString(),
-            kilograms: data.quantity,
-            feed_type: data.feed_type,
-            notes: data.notes,
-            created_by: user.id
-          });
+          if (data.is_bulk_feeding && data.distributions) {
+            // Bulk feeding - create multiple records
+            console.log('Creating bulk feeding records for', data.distributions.length, 'animals');
+            
+            const feedingRecords = data.distributions.map(dist => ({
+              animal_id: dist.animal_id,
+              record_datetime: new Date().toISOString(),
+              kilograms: dist.feed_amount,
+              feed_type: data.feed_type,
+              notes: `${data.notes || ''} [Bulk feed: ${data.quantity}kg distributed proportionally based on weight]`.trim(),
+              created_by: user.id
+            }));
+            
+            const { error: bulkError } = await supabase
+              .from('feeding_records')
+              .insert(feedingRecords);
+            
+            if (bulkError) throw bulkError;
+          } else {
+            // Single animal feeding
+            if (!data.animal_id) throw new Error('Animal not identified');
+            await supabase.from('feeding_records').insert({
+              animal_id: data.animal_id,
+              record_datetime: new Date().toISOString(),
+              kilograms: data.quantity,
+              feed_type: data.feed_type,
+              notes: data.notes,
+              created_by: user.id
+            });
+          }
           break;
 
         case 'health_observation':
@@ -122,10 +154,17 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           throw new Error('Unknown activity type');
       }
 
-      toast({
-        title: "Success",
-        description: "Activity recorded successfully",
-      });
+      if (data.is_bulk_feeding) {
+        toast({
+          title: "Bulk Feeding Recorded",
+          description: `${data.quantity}kg distributed across ${data.total_animals} animals`,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Activity recorded successfully",
+        });
+      }
       onSuccess();
     } catch (error) {
       console.error('Error saving record:', error);
@@ -157,19 +196,57 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           </Badge>
         </div>
 
-        {/* Animal */}
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">Animal</p>
-          <p className="text-lg font-semibold">
-            {data.animal_identifier || 'Not identified'}
-          </p>
-          {!data.animal_id && (
-            <p className="text-sm text-destructive mt-1">⚠️ Animal not found in database</p>
-          )}
-        </div>
+        {/* Animal or Bulk Distribution */}
+        {data.is_bulk_feeding && data.distributions ? (
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">
+              Distribution Method
+            </p>
+            <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 mb-3">
+              Proportional (Weight-Based)
+            </Badge>
+            <p className="text-sm text-muted-foreground mb-2">
+              Total: <strong>{data.quantity} kg</strong> across <strong>{data.total_animals} animals</strong>
+              {data.total_weight_kg && data.total_weight_kg > 0 && (
+                <span> (Total herd weight: {data.total_weight_kg.toFixed(0)} kg)</span>
+              )}
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3 bg-muted/30">
+              {data.distributions.map(dist => (
+                <div key={dist.animal_id} className="flex justify-between items-center p-2 bg-background rounded border">
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">{dist.animal_name}</span>
+                    {dist.ear_tag && (
+                      <span className="text-xs text-muted-foreground ml-2">#{dist.ear_tag}</span>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      Weight: {dist.weight_kg > 0 ? `${dist.weight_kg.toFixed(0)} kg` : 'Unknown'}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{dist.feed_amount.toFixed(2)} kg</div>
+                    <div className="text-xs text-muted-foreground">
+                      ({(dist.proportion * 100).toFixed(1)}%)
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Animal</p>
+            <p className="text-lg font-semibold">
+              {data.animal_identifier || 'Not identified'}
+            </p>
+            {!data.animal_id && !data.is_bulk_feeding && (
+              <p className="text-sm text-destructive mt-1">⚠️ Animal not found in database</p>
+            )}
+          </div>
+        )}
 
-        {/* Quantity */}
-        {data.quantity && (
+        {/* Quantity - Only show for non-bulk feeding */}
+        {data.quantity && !data.is_bulk_feeding && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-2">
               {data.activity_type === 'milking' ? 'Liters' : 
@@ -210,10 +287,10 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           <Button 
             onClick={handleConfirm} 
             className="flex-1"
-            disabled={isSaving || !data.animal_id}
+            disabled={isSaving || (!data.animal_id && !data.is_bulk_feeding)}
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Confirm & Save'}
+            {isSaving ? 'Saving...' : data.is_bulk_feeding ? 'Confirm & Distribute' : 'Confirm & Save'}
           </Button>
           <Button 
             onClick={onCancel} 
