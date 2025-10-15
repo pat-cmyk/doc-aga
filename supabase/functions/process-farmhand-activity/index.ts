@@ -6,6 +6,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Default weights for units when inventory lookup fails
+const DEFAULT_WEIGHTS = {
+  bales: 42,  // kg per bale (hay, silage)
+  bags: 50,   // kg per bag (concentrates)
+  barrels: 200, // kg per barrel/drum
+};
+
+// FIFO: Get latest weight per unit from inventory (oldest stock first)
+async function getLatestWeightPerUnit(
+  supabase: any,
+  farmId: string,
+  feedType: string,
+  unit: string
+): Promise<number | null> {
+  console.log(`Looking up weight per unit for: ${feedType}, unit: ${unit}`);
+  
+  const { data, error } = await supabase
+    .from('feed_inventory')
+    .select('weight_per_unit, quantity_kg, created_at, feed_type')
+    .eq('farm_id', farmId)
+    .ilike('feed_type', `%${feedType}%`)
+    .eq('unit', unit)
+    .gt('quantity_kg', 0)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching weight per unit:', error);
+    return null;
+  }
+
+  if (!data || !data.weight_per_unit) {
+    console.log('No matching inventory found');
+    return null;
+  }
+
+  console.log(`Found weight per unit: ${data.weight_per_unit} kg from inventory item: ${data.feed_type}`);
+  return Number(data.weight_per_unit);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -61,15 +102,15 @@ IMPORTANT:
 - Focus on extracting: activity type, quantity, and any additional notes
 - If no animal is mentioned, assume they're talking about the current animal being viewed
 
-**IMPORTANT - Unit Conversions**:
-- When farmhand mentions "bales" of feed (hay, silage, etc.), convert to kilograms
-- Use: 1 bale = 42 kg (average weight per bale)
-- Store the total weight in kilograms in the quantity field
-- Include original bale count in the notes field
+**IMPORTANT - Unit Recognition (DO NOT convert manually)**:
+- When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
+- DO NOT multiply by weight - the system will look up the correct weight from inventory
+- Extract: quantity (count), unit (type), and feed_type (name)
 
 Examples:
-- "I fed 10 bales of corn silage" → quantity: 420, notes: "10 bales of corn silage"
-- "Opened 5 bales of hay" → quantity: 210, notes: "5 bales of hay"
+- "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage", notes: ""
+- "Opened 5 bags of concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates", notes: ""
+- "Used 2 barrels of molasses" → quantity: 2, unit: "barrels", feed_type: "molasses", notes: ""
 
 Activity types you can identify:
 - milking: Recording milk production
@@ -95,15 +136,15 @@ Always identify which animal the activity is about ONLY if explicitly mentioned:
 
 If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
 
-**IMPORTANT - Unit Conversions**:
-- When farmhand mentions "bales" of feed (hay, silage, corn silage, etc.), convert to kilograms
-- Use: 1 bale = 42 kg (average weight per bale)
-- Store the total weight in kilograms in the quantity field
-- Include original bale count in the notes field
+**IMPORTANT - Unit Recognition (DO NOT convert manually)**:
+- When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
+- DO NOT multiply by weight - the system will look up the correct weight from inventory
+- Extract: quantity (count), unit (type), and feed_type (name)
 
 Examples:
-- "I fed 10 bales of corn silage" → quantity: 420, notes: "10 bales of corn silage"
-- "Opened 5 bales of hay" → quantity: 210, notes: "5 bales of hay"
+- "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage"
+- "Opened 5 bags of concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates"
+- "Used 2 barrels of molasses" → quantity: 2, unit: "barrels", feed_type: "molasses"
 - "Fed the cattle" → no animal_identifier (bulk feeding)
 
 Activity types you can identify:
@@ -143,7 +184,12 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                   },
                   quantity: {
                     type: 'number',
-                    description: 'Quantity in kilograms. If bales are mentioned, convert to kg (1 bale = 42 kg) and note original bale count in notes field. For milk use liters.'
+                    description: 'Quantity COUNT (number of units). For example: 10 bales, 5 bags, 2 barrels. Do NOT convert to kg.'
+                  },
+                  unit: {
+                    type: 'string',
+                    enum: ['bales', 'bags', 'barrels', 'kg', 'liters'],
+                    description: 'Unit of measurement mentioned (bales, bags, barrels, kg, or liters)'
                   },
                   feed_type: {
                     type: 'string',
@@ -220,7 +266,32 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
     if (extractedData.activity_type === 'feeding' && !finalAnimalId && extractedData.quantity) {
       console.log('Bulk feeding detected - calculating proportional distribution');
       
-      // Fetch all active animals for the farm
+      // Step 1: Convert units to kg using FIFO inventory lookup
+      let totalKg = extractedData.quantity;
+      let weightPerUnit = null;
+      
+      if (extractedData.unit && ['bales', 'bags', 'barrels'].includes(extractedData.unit)) {
+        // Try to get weight per unit from inventory (FIFO)
+        weightPerUnit = await getLatestWeightPerUnit(
+          supabase,
+          farmId,
+          extractedData.feed_type || '',
+          extractedData.unit
+        );
+        
+        if (weightPerUnit) {
+          totalKg = extractedData.quantity * weightPerUnit;
+          console.log(`Converted ${extractedData.quantity} ${extractedData.unit} to ${totalKg} kg using inventory weight (${weightPerUnit} kg/unit)`);
+        } else {
+          // Fallback to default weights with type safety
+          const unit = extractedData.unit as 'bales' | 'bags' | 'barrels';
+          const defaultWeight = DEFAULT_WEIGHTS[unit] || 1;
+          totalKg = extractedData.quantity * defaultWeight;
+          console.log(`Using default weight: ${extractedData.quantity} ${extractedData.unit} = ${totalKg} kg (${defaultWeight} kg/unit)`);
+        }
+      }
+      
+      // Step 2: Fetch all active animals for the farm
       const { data: animals, error: animalsError } = await supabase
         .from('animals')
         .select('id, name, ear_tag, current_weight_kg, life_stage')
@@ -246,7 +317,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       const distributions = animals.map(animal => {
         const weight = animal.current_weight_kg || 0;
         const proportion = totalWeight > 0 ? weight / totalWeight : 1 / animals.length;
-        const feedAmount = extractedData.quantity * proportion;
+        const feedAmount = totalKg * proportion;
         
         return {
           animal_id: animal.id,
@@ -263,6 +334,10 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       return new Response(
         JSON.stringify({
           ...extractedData,
+          total_kg: totalKg,
+          original_quantity: extractedData.quantity,
+          original_unit: extractedData.unit || 'kg',
+          weight_per_unit: weightPerUnit,
           is_bulk_feeding: true,
           total_animals: animals.length,
           total_weight_kg: totalWeight,

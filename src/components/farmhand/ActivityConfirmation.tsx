@@ -19,6 +19,10 @@ interface ActivityConfirmationProps {
     is_bulk_feeding?: boolean;
     total_animals?: number;
     total_weight_kg?: number;
+    total_kg?: number;
+    original_quantity?: number;
+    original_unit?: string;
+    weight_per_unit?: number | null;
     distributions?: Array<{
       animal_id: string;
       animal_name: string;
@@ -35,6 +39,77 @@ interface ActivityConfirmationProps {
 const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmationProps) => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+
+  // Helper function to deduct from inventory using FIFO
+  const deductFromInventory = async (feedType: string, totalKg: number, originalQuantity: number, originalUnit: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get current farm ID
+      const { data: membership } = await supabase
+        .from('farm_memberships')
+        .select('farm_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!membership) return;
+
+      // Find matching inventory items (FIFO order)
+      const { data: inventoryItems } = await supabase
+        .from('feed_inventory')
+        .select('*')
+        .eq('farm_id', membership.farm_id)
+        .ilike('feed_type', `%${feedType}%`)
+        .gt('quantity_kg', 0)
+        .order('created_at', { ascending: true });
+
+      if (!inventoryItems || inventoryItems.length === 0) {
+        console.log('No inventory found for deduction');
+        return;
+      }
+
+      let remainingToDeduct = totalKg;
+
+      for (const item of inventoryItems) {
+        if (remainingToDeduct <= 0) break;
+
+        const deductAmount = Math.min(Number(item.quantity_kg), remainingToDeduct);
+        const newBalance = Number(item.quantity_kg) - deductAmount;
+
+        // Update inventory
+        await supabase
+          .from('feed_inventory')
+          .update({ 
+            quantity_kg: newBalance,
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', item.id);
+
+        // Create consumption transaction
+        await supabase
+          .from('feed_stock_transactions')
+          .insert({
+            feed_inventory_id: item.id,
+            transaction_type: 'consumption',
+            quantity_change_kg: -deductAmount,
+            balance_after: newBalance,
+            notes: `Bulk feeding: ${originalQuantity} ${originalUnit} distributed proportionally`,
+            created_by: user.id
+          });
+
+        remainingToDeduct -= deductAmount;
+        console.log(`Deducted ${deductAmount} kg from ${item.feed_type}, remaining: ${remainingToDeduct} kg`);
+      }
+
+      if (remainingToDeduct > 0) {
+        console.warn(`Could not deduct full amount. Remaining: ${remainingToDeduct} kg`);
+      }
+    } catch (error) {
+      console.error('Error deducting from inventory:', error);
+      // Don't throw - we don't want to fail the feeding record if inventory deduction fails
+    }
+  };
 
   const getActivityLabel = (type: string) => {
     switch (type) {
@@ -90,7 +165,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               record_datetime: new Date().toISOString(),
               kilograms: dist.feed_amount,
               feed_type: data.feed_type,
-              notes: `${data.notes || ''} [Bulk feed: ${data.quantity}kg distributed proportionally based on weight]`.trim(),
+              notes: `${data.notes || ''} [Bulk: ${data.original_quantity} ${data.original_unit} = ${data.total_kg?.toFixed(2)}kg distributed]`.trim(),
               created_by: user.id
             }));
             
@@ -99,6 +174,11 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               .insert(feedingRecords);
             
             if (bulkError) throw bulkError;
+
+            // Deduct from inventory using FIFO
+            if (data.feed_type && data.total_kg && data.original_quantity && data.original_unit) {
+              await deductFromInventory(data.feed_type, data.total_kg, data.original_quantity, data.original_unit);
+            }
           } else {
             // Single animal feeding
             if (!data.animal_id) throw new Error('Animal not identified');
@@ -157,7 +237,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
       if (data.is_bulk_feeding) {
         toast({
           title: "Bulk Feeding Recorded",
-          description: `${data.quantity}kg distributed across ${data.total_animals} animals`,
+          description: `${data.original_quantity} ${data.original_unit} (${data.total_kg?.toFixed(2)}kg) distributed across ${data.total_animals} animals`,
         });
       } else {
         toast({
@@ -205,12 +285,26 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 mb-3">
               Proportional (Weight-Based)
             </Badge>
-            <p className="text-sm text-muted-foreground mb-2">
-              Total: <strong>{data.quantity} kg</strong> across <strong>{data.total_animals} animals</strong>
-              {data.total_weight_kg && data.total_weight_kg > 0 && (
-                <span> (Total herd weight: {data.total_weight_kg.toFixed(0)} kg)</span>
+            
+            <div className="bg-muted/50 p-3 rounded-lg space-y-1 mb-3">
+              <p className="text-sm font-medium">
+                Total Feed: {data.original_quantity} {data.original_unit} = {data.total_kg?.toFixed(2)} kg
+              </p>
+              {data.weight_per_unit && (
+                <p className="text-xs text-muted-foreground">
+                  ✓ Using {data.weight_per_unit} kg per {data.original_unit} from inventory (FIFO)
+                </p>
               )}
-            </p>
+              {!data.weight_per_unit && data.original_unit && data.original_unit !== 'kg' && (
+                <p className="text-xs text-amber-600">
+                  ⚠ Using default weight conversion (no inventory match found)
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Distributed across {data.total_animals} animals based on weight
+              </p>
+            </div>
+            
             <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3 bg-muted/30">
               {data.distributions.map(dist => (
                 <div key={dist.animal_id} className="flex justify-between items-center p-2 bg-background rounded border">
