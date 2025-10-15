@@ -286,6 +286,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
                     <TableHead>Feed Type</TableHead>
                     <TableHead className="text-right">Amount (kg)</TableHead>
                     <TableHead>Notes</TableHead>
@@ -296,6 +297,9 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
                     <TableRow key={record.id}>
                       <TableCell>
                         {format(new Date(record.record_datetime), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {format(new Date(record.record_datetime), "h:mm a")}
                       </TableCell>
                       <TableCell className="font-medium">
                         {record.feed_type || "-"}
