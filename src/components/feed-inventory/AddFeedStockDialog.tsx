@@ -243,6 +243,7 @@ export function AddFeedStockDialog({
                         <SelectItem value="tons">Tons</SelectItem>
                         <SelectItem value="bags">Bags</SelectItem>
                         <SelectItem value="bales">Bales</SelectItem>
+                        <SelectItem value="barrels">Barrel / Drum</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
