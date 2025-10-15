@@ -136,24 +136,39 @@ Always identify which animal the activity is about ONLY if explicitly mentioned:
 
 If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
 
-**CRITICAL - Feed Type Extraction for Feeding Activities**:
-- For ANY feeding activity, you MUST extract the feed_type field
-- Feed type is the NAME of the feed material mentioned (e.g., "corn silage", "hay", "concentrates", "molasses")
-- This is REQUIRED for inventory tracking - without it, the system cannot deduct from inventory
-- Look for feed names in the transcription, even if partially mentioned
+**CRITICAL - Feed Type vs Unit Distinction**:
+For feeding activities, you MUST correctly distinguish between feed_type and unit:
+
+FEED_TYPE = WHAT the feed is (the actual material/product name):
+- Examples: "corn silage", "hay", "concentrates", "alfalfa", "barley", "grain"
+- Common variations: "baled corn silage", "chopped hay", "dairy concentrates"
+- If user just says "bales" without specifying content, default to "hay" (most common in bales)
+- If user says "bags" without specifying, default to "concentrates" (most common in bags)
+
+UNIT = HOW it's packaged/measured:
+- Examples: "bales", "bags", "barrels", "buckets", "kg", "drums"
+- This describes the container or measurement, NOT the feed itself
+
+EXTRACTION RULES:
+1. "5 bales" alone → feed_type: "hay", unit: "bales", quantity: 5
+2. "5 bales of corn silage" → feed_type: "corn silage", unit: "bales", quantity: 5
+3. "2 bags of concentrates" → feed_type: "concentrates", unit: "bags", quantity: 2
+4. "8 bales of baled corn silage" → feed_type: "baled corn silage", unit: "bales", quantity: 8
+5. "3 bags" alone → feed_type: "concentrates", unit: "bags", quantity: 3
+
+**NEVER use the unit name as the feed_type!**
 
 **IMPORTANT - Unit Recognition (DO NOT convert manually)**:
 - When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
 - DO NOT multiply by weight - the system will look up the correct weight from inventory
-- Extract: quantity (count), unit (type), and feed_type (name)
+- Extract: quantity (count), unit (type), and feed_type (name of the actual feed)
 
 Examples:
 - "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage"
 - "Opened 5 bags of concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates"
 - "Used 2 barrels of molasses" → quantity: 2, unit: "barrels", feed_type: "molasses"
-- "Fed 8 bales of baled corn silage" → quantity: 8, unit: "bales", feed_type: "baled corn silage"
-- "Gave hay to the herd" → feed_type: "hay", no specific quantity or unit
-- "Fed the cattle" → feed_type: "feed" (generic if no specific type mentioned)
+- "Fed 8 bales" → quantity: 8, unit: "bales", feed_type: "hay"
+- "Gave 3 bags" → quantity: 3, unit: "bags", feed_type: "concentrates"
 
 Activity types you can identify:
 - feeding: Recording feed given to animals (can be bulk or specific) - ALWAYS requires feed_type

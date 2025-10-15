@@ -72,17 +72,71 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
       if (!membership) return;
 
-      // Find matching inventory items (FIFO order)
-      const { data: inventoryItems } = await supabase
+      // Strategy 1: Try exact match (case-insensitive)
+      let { data: inventoryItems } = await supabase
         .from('feed_inventory')
         .select('*')
         .eq('farm_id', membership.farm_id)
-        .ilike('feed_type', `%${feedType}%`)
+        .ilike('feed_type', feedType)
         .gt('quantity_kg', 0)
         .order('created_at', { ascending: true });
 
+      // Strategy 2: If no exact match, try fuzzy contains
       if (!inventoryItems || inventoryItems.length === 0) {
-        console.log('No inventory found for deduction');
+        console.log(`No exact match for "${feedType}", trying fuzzy match...`);
+        ({ data: inventoryItems } = await supabase
+          .from('feed_inventory')
+          .select('*')
+          .eq('farm_id', membership.farm_id)
+          .ilike('feed_type', `%${feedType}%`)
+          .gt('quantity_kg', 0)
+          .order('created_at', { ascending: true }));
+      }
+
+      // Strategy 3: Special case for "hay" - also search for variations with "bale"
+      if ((!inventoryItems || inventoryItems.length === 0) && feedType.toLowerCase().includes('hay')) {
+        console.log(`No match for "hay", trying "bale" variations...`);
+        ({ data: inventoryItems } = await supabase
+          .from('feed_inventory')
+          .select('*')
+          .eq('farm_id', membership.farm_id)
+          .or('feed_type.ilike.%bale%,feed_type.ilike.%hay%')
+          .gt('quantity_kg', 0)
+          .order('created_at', { ascending: true }));
+      }
+
+      // Strategy 4: For "concentrates" - search for items containing that word
+      if ((!inventoryItems || inventoryItems.length === 0) && feedType.toLowerCase().includes('concentrate')) {
+        console.log(`Searching for concentrate products...`);
+        ({ data: inventoryItems } = await supabase
+          .from('feed_inventory')
+          .select('*')
+          .eq('farm_id', membership.farm_id)
+          .ilike('feed_type', '%concentrate%')
+          .gt('quantity_kg', 0)
+          .order('created_at', { ascending: true }));
+      }
+
+      // Strategy 5: Extract first significant word (e.g., "corn" from "corn silage")
+      if (!inventoryItems || inventoryItems.length === 0) {
+        const significantWord = feedType.split(' ')[0];
+        if (significantWord.length > 3) {
+          console.log(`No matches found, trying first word: "${significantWord}"...`);
+          ({ data: inventoryItems } = await supabase
+            .from('feed_inventory')
+            .select('*')
+            .eq('farm_id', membership.farm_id)
+            .ilike('feed_type', `%${significantWord}%`)
+            .gt('quantity_kg', 0)
+            .order('created_at', { ascending: true }));
+        }
+      }
+
+      console.log(`Feed type: "${feedType}" → Found ${inventoryItems?.length || 0} inventory items`);
+
+      if (!inventoryItems || inventoryItems.length === 0) {
+        console.warn(`⚠ No inventory found for feed type: "${feedType}"`);
+        console.log('Available inventory items should be checked manually');
         return;
       }
 
