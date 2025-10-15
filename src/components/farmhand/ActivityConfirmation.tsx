@@ -159,6 +159,18 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           if (data.is_bulk_feeding && data.distributions) {
             // Bulk feeding - create multiple records
             console.log('Creating bulk feeding records for', data.distributions.length, 'animals');
+            console.log('Feed type received:', data.feed_type);
+            console.log('Total kg:', data.total_kg);
+            
+            // CRITICAL VALIDATION: Check if feed_type is present
+            if (!data.feed_type) {
+              console.error('ERROR: feed_type is missing in bulk feeding data');
+              toast({
+                title: "Warning",
+                description: "Feed type is missing. Inventory won't be updated. Please mention the feed type explicitly.",
+                variant: "destructive",
+              });
+            }
             
             const feedingRecords = data.distributions.map(dist => ({
               animal_id: dist.animal_id,
@@ -169,6 +181,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               created_by: user.id
             }));
             
+            console.log('Sample feeding record:', feedingRecords[0]);
+            
             const { error: bulkError } = await supabase
               .from('feeding_records')
               .insert(feedingRecords);
@@ -177,11 +191,25 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
             // Deduct from inventory using FIFO
             if (data.feed_type && data.total_kg && data.original_quantity && data.original_unit) {
+              console.log('✓ Calling deductFromInventory with:', {
+                feed_type: data.feed_type,
+                total_kg: data.total_kg,
+                original_quantity: data.original_quantity,
+                original_unit: data.original_unit
+              });
               await deductFromInventory(data.feed_type, data.total_kg, data.original_quantity, data.original_unit);
+            } else {
+              console.warn('⚠ Skipping inventory deduction - missing data:', {
+                feed_type: data.feed_type,
+                total_kg: data.total_kg,
+                original_quantity: data.original_quantity,
+                original_unit: data.original_unit
+              });
             }
           } else {
             // Single animal feeding
             if (!data.animal_id) throw new Error('Animal not identified');
+            console.log('Creating single animal feeding record with feed_type:', data.feed_type);
             await supabase.from('feeding_records').insert({
               animal_id: data.animal_id,
               record_datetime: new Date().toISOString(),
@@ -287,6 +315,16 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             </Badge>
             
             <div className="bg-muted/50 p-3 rounded-lg space-y-1 mb-3">
+              {data.feed_type && (
+                <p className="text-sm font-medium text-green-700 mb-1">
+                  Feed Type: {data.feed_type}
+                </p>
+              )}
+              {!data.feed_type && (
+                <p className="text-sm font-medium text-red-600 mb-1">
+                  ⚠ Feed type not detected - inventory won't be updated
+                </p>
+              )}
               <p className="text-sm font-medium">
                 Total Feed: {data.original_quantity} {data.original_unit} = {data.total_kg?.toFixed(2)} kg
               </p>

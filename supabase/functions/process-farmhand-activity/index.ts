@@ -136,6 +136,12 @@ Always identify which animal the activity is about ONLY if explicitly mentioned:
 
 If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
 
+**CRITICAL - Feed Type Extraction for Feeding Activities**:
+- For ANY feeding activity, you MUST extract the feed_type field
+- Feed type is the NAME of the feed material mentioned (e.g., "corn silage", "hay", "concentrates", "molasses")
+- This is REQUIRED for inventory tracking - without it, the system cannot deduct from inventory
+- Look for feed names in the transcription, even if partially mentioned
+
 **IMPORTANT - Unit Recognition (DO NOT convert manually)**:
 - When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
 - DO NOT multiply by weight - the system will look up the correct weight from inventory
@@ -145,10 +151,12 @@ Examples:
 - "I fed 10 bales of corn silage" → quantity: 10, unit: "bales", feed_type: "corn silage"
 - "Opened 5 bags of concentrates" → quantity: 5, unit: "bags", feed_type: "concentrates"
 - "Used 2 barrels of molasses" → quantity: 2, unit: "barrels", feed_type: "molasses"
-- "Fed the cattle" → no animal_identifier (bulk feeding)
+- "Fed 8 bales of baled corn silage" → quantity: 8, unit: "bales", feed_type: "baled corn silage"
+- "Gave hay to the herd" → feed_type: "hay", no specific quantity or unit
+- "Fed the cattle" → feed_type: "feed" (generic if no specific type mentioned)
 
 Activity types you can identify:
-- feeding: Recording feed given to animals (can be bulk or specific)
+- feeding: Recording feed given to animals (can be bulk or specific) - ALWAYS requires feed_type
 - milking: Recording milk production (requires specific animal)
 - health_observation: General health checks
 - weight_measurement: Recording animal weight (requires specific animal)
@@ -193,7 +201,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                   },
                   feed_type: {
                     type: 'string',
-                    description: 'Type of feed given (if feeding activity)'
+                    description: 'REQUIRED for feeding activities. Type of feed given (e.g., "corn silage", "hay", "concentrates", "molasses"). This is critical for inventory tracking.'
                   },
                   medicine_name: {
                     type: 'string',
@@ -233,6 +241,14 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
 
     const extractedData = JSON.parse(toolCall.function.arguments);
     console.log('Extracted data:', extractedData);
+    
+    // CRITICAL VALIDATION: Ensure feed_type is present for feeding activities
+    if (extractedData.activity_type === 'feeding' && !extractedData.feed_type) {
+      console.error('VALIDATION ERROR: feed_type is missing for feeding activity');
+      throw new Error('Feed type must be specified for feeding activities. Please mention what type of feed was given (e.g., corn silage, hay, concentrates).');
+    }
+    
+    console.log('✓ Validation passed - feed_type:', extractedData.feed_type);
 
     // Use provided animalId if available, otherwise look up from identifier
     let finalAnimalId = animalId;
@@ -330,6 +346,8 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       });
 
       console.log('Distribution calculated:', distributions);
+      
+      console.log('✓ Returning bulk feeding data with feed_type:', extractedData.feed_type);
 
       return new Response(
         JSON.stringify({
