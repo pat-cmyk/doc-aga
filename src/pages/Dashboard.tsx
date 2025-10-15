@@ -12,6 +12,8 @@ import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import FarmSetup from "@/components/FarmSetup";
 import FarmProfile from "@/components/FarmProfile";
+import { FeedInventoryTab } from "@/components/FeedInventoryTab";
+import { generateFeedForecast } from "@/lib/feedForecast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -22,6 +24,8 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [showFarmSetup, setShowFarmSetup] = useState(false);
+  const [canManageFarm, setCanManageFarm] = useState(false);
+  const [forecastData, setForecastData] = useState<any[]>([]);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -68,7 +72,7 @@ const Dashboard = () => {
 
       const { data: memberFarms } = await supabase
         .from("farm_memberships")
-        .select("farm_id")
+        .select("farm_id, role_in_farm")
         .eq("user_id", session.user.id)
         .eq("invitation_status", "accepted")
         .limit(1);
@@ -86,9 +90,11 @@ const Dashboard = () => {
       if (ownedFarms && ownedFarms.length > 0) {
         // User owns a farm
         setFarmId(ownedFarms[0].id);
+        setCanManageFarm(true);
       } else if (memberFarms && memberFarms.length > 0) {
         // User is a member of a farm
         setFarmId(memberFarms[0].farm_id);
+        setCanManageFarm(userRoles.includes("farmer_owner"));
       } else {
         // Show farm setup for new users without any farm access
         setShowFarmSetup(true);
@@ -109,6 +115,31 @@ const Dashboard = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
+
+  useEffect(() => {
+    if (farmId) {
+      loadForecastData();
+    }
+  }, [farmId]);
+
+  const loadForecastData = async () => {
+    if (!farmId) return;
+    
+    try {
+      const { data: animals } = await supabase
+        .from("animals")
+        .select("id, birth_date, gender, life_stage, milking_stage, current_weight_kg")
+        .eq("farm_id", farmId)
+        .eq("is_deleted", false);
+
+      if (animals) {
+        const forecast = generateFeedForecast(animals);
+        setForecastData(forecast);
+      }
+    } catch (error) {
+      console.error("Error loading forecast data:", error);
+    }
+  };
 
 
   const handleNavigateToAnimalDetails = (animalId: string) => {
@@ -158,9 +189,10 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
+              <TabsTrigger value="feed" disabled={!farmId}>Feed Inventory</TabsTrigger>
               <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/marketplace")}>
@@ -193,6 +225,16 @@ const Dashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="feed" className="space-y-4">
+            {farmId && (
+              <FeedInventoryTab
+                farmId={farmId}
+                forecasts={forecastData}
+                canManage={canManageFarm}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="farm" className="space-y-6">

@@ -642,6 +642,100 @@ export type Database = {
           },
         ]
       }
+      feed_inventory: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          created_by: string | null
+          farm_id: string
+          feed_type: string
+          id: string
+          last_updated: string
+          notes: string | null
+          quantity_kg: number
+          reorder_threshold: number | null
+          supplier: string | null
+          unit: string
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          created_by?: string | null
+          farm_id: string
+          feed_type: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          quantity_kg?: number
+          reorder_threshold?: number | null
+          supplier?: string | null
+          unit?: string
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          created_by?: string | null
+          farm_id?: string
+          feed_type?: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          quantity_kg?: number
+          reorder_threshold?: number | null
+          supplier?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_inventory_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feed_stock_transactions: {
+        Row: {
+          balance_after: number
+          created_at: string
+          created_by: string | null
+          feed_inventory_id: string
+          id: string
+          notes: string | null
+          quantity_change_kg: number
+          transaction_type: string
+        }
+        Insert: {
+          balance_after: number
+          created_at?: string
+          created_by?: string | null
+          feed_inventory_id: string
+          id?: string
+          notes?: string | null
+          quantity_change_kg: number
+          transaction_type: string
+        }
+        Update: {
+          balance_after?: number
+          created_at?: string
+          created_by?: string | null
+          feed_inventory_id?: string
+          id?: string
+          notes?: string | null
+          quantity_change_kg?: number
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_stock_transactions_feed_inventory_id_fkey"
+            columns: ["feed_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "feed_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feeding_records: {
         Row: {
           animal_id: string
