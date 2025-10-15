@@ -9,6 +9,9 @@ import VoiceRecordButton from "@/components/farmhand/VoiceRecordButton";
 import DocAgaConsultation from "@/components/farmhand/DocAgaConsultation";
 import AnimalList from "@/components/AnimalList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FeedInventoryTab } from "@/components/FeedInventoryTab";
+import { generateFeedForecast } from "@/lib/feedForecast";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -18,6 +21,7 @@ const FarmhandDashboard = () => {
   const [farmId, setFarmId] = useState<string | null>(null);
   const [showDocAga, setShowDocAga] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [forecastData, setForecastData] = useState<any[]>([]);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -81,6 +85,30 @@ const FarmhandDashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
+  // Generate feed forecast when farmId is available
+  useEffect(() => {
+    const loadForecastData = async () => {
+      if (!farmId) return;
+      
+      try {
+        const { data: animals } = await supabase
+          .from("animals")
+          .select("id, birth_date, gender, life_stage, milking_stage, current_weight_kg")
+          .eq("farm_id", farmId)
+          .eq("is_deleted", false);
+
+        if (animals) {
+          const forecast = generateFeedForecast(animals);
+          setForecastData(forecast);
+        }
+      } catch (error) {
+        console.error("Error loading forecast data:", error);
+      }
+    };
+
+    loadForecastData();
+  }, [farmId]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -142,19 +170,35 @@ const FarmhandDashboard = () => {
             {/* Voice Recording Section */}
             <VoiceRecordButton farmId={farmId} animalId={selectedAnimalId} />
 
-            {/* Animals List - Read Only */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Animals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AnimalList 
-                  farmId={farmId} 
-                  readOnly 
-                  onAnimalSelect={setSelectedAnimalId}
+            <Tabs defaultValue="animals" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="animals">Animals</TabsTrigger>
+                <TabsTrigger value="feed">Feed Inventory</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="animals" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Animals</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AnimalList 
+                      farmId={farmId} 
+                      readOnly 
+                      onAnimalSelect={setSelectedAnimalId}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="feed" className="space-y-4">
+                <FeedInventoryTab
+                  farmId={farmId}
+                  forecasts={forecastData}
+                  canManage={false}
                 />
-              </CardContent>
-            </Card>
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </main>
