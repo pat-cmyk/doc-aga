@@ -106,15 +106,23 @@ export function AddFeedStockDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Calculate actual quantity in kg
+      const needsConversion = data.unit === 'bags' || data.unit === 'bales' || data.unit === 'barrels';
+      let actualQuantityKg = data.quantity_kg;
+      
+      if (needsConversion && data.weight_per_unit) {
+        actualQuantityKg = data.quantity_kg * data.weight_per_unit;
+      }
+
       if (editItem) {
         // Update existing item
-        const quantityChange = Number(data.quantity_kg) - Number(editItem.quantity_kg);
+        const quantityChange = Number(actualQuantityKg) - Number(editItem.quantity_kg);
 
         const { error: updateError } = await supabase
           .from('feed_inventory')
           .update({
             feed_type: data.feed_type,
-            quantity_kg: data.quantity_kg,
+            quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
             cost_per_unit: data.cost_per_unit,
@@ -135,8 +143,8 @@ export function AddFeedStockDialog({
               feed_inventory_id: editItem.id,
               transaction_type: 'adjustment',
               quantity_change_kg: quantityChange,
-              balance_after: data.quantity_kg,
-              notes: `Stock adjusted from ${editItem.quantity_kg} to ${data.quantity_kg}`,
+              balance_after: actualQuantityKg,
+              notes: `Stock adjusted from ${editItem.quantity_kg} to ${actualQuantityKg} kg`,
               created_by: user.id,
             });
 
@@ -153,7 +161,7 @@ export function AddFeedStockDialog({
           .from('feed_inventory')
           .insert([{
             feed_type: data.feed_type,
-            quantity_kg: data.quantity_kg,
+            quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
             cost_per_unit: data.cost_per_unit,
@@ -174,8 +182,8 @@ export function AddFeedStockDialog({
           .insert({
             feed_inventory_id: newItem.id,
             transaction_type: 'addition',
-            quantity_change_kg: data.quantity_kg,
-            balance_after: data.quantity_kg,
+            quantity_change_kg: actualQuantityKg,
+            balance_after: actualQuantityKg,
             notes: 'Initial stock',
             created_by: user.id,
           });
@@ -226,19 +234,26 @@ export function AddFeedStockDialog({
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="quantity_kg"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantity *</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="quantity_kg"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Quantity * 
+                    {selectedUnit === 'bags' && ' (number of bags)'}
+                    {selectedUnit === 'bales' && ' (number of bales)'}
+                    {selectedUnit === 'barrels' && ' (number of barrels)'}
+                    {selectedUnit === 'kg' && ' (kilograms)'}
+                    {selectedUnit === 'tons' && ' (tons)'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" placeholder="0" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
               <FormField
                 control={form.control}
