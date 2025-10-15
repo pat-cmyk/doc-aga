@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, XCircle, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface ActivityConfirmationProps {
   data: {
@@ -56,6 +58,75 @@ interface ActivityConfirmationProps {
 const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmationProps) => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [editableFeeds, setEditableFeeds] = useState(data.feeds || []);
+  const [availableInventory, setAvailableInventory] = useState<Array<{id: string, feed_type: string, unit: string, weight_per_unit: number | null}>>([]);
+
+  // Fetch available inventory items
+  useEffect(() => {
+    const fetchInventory = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: membership } = await supabase
+        .from('farm_memberships')
+        .select('farm_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!membership) return;
+
+      const { data: inventory } = await supabase
+        .from('feed_inventory')
+        .select('id, feed_type, unit, weight_per_unit')
+        .eq('farm_id', membership.farm_id)
+        .gt('quantity_kg', 0)
+        .order('feed_type');
+
+      if (inventory) {
+        setAvailableInventory(inventory);
+      }
+    };
+
+    fetchInventory();
+  }, []);
+
+  // Initialize editable feeds from data
+  useEffect(() => {
+    if (data.feeds) {
+      setEditableFeeds(data.feeds);
+    }
+  }, [data.feeds]);
+
+  // Recompute distribution when feed type or quantity changes
+  const handleFeedChange = (index: number, field: 'feed_type' | 'quantity' | 'unit', value: string | number) => {
+    const newFeeds = [...editableFeeds];
+    const feed = newFeeds[index];
+
+    if (field === 'feed_type') {
+      // Find inventory item to get weight_per_unit
+      const inventoryItem = availableInventory.find(item => item.feed_type === value);
+      feed.feed_type = value as string;
+      if (inventoryItem?.weight_per_unit) {
+        feed.weight_per_unit = inventoryItem.weight_per_unit;
+        feed.total_kg = feed.quantity * inventoryItem.weight_per_unit;
+      }
+    } else if (field === 'quantity') {
+      feed.quantity = value as number;
+      feed.total_kg = feed.quantity * (feed.weight_per_unit || 1);
+    } else if (field === 'unit') {
+      feed.unit = value as string;
+    }
+
+    // Recompute distributions based on new total_kg
+    const totalWeight = data.total_weight_kg || feed.distributions.reduce((sum, d) => sum + d.weight_kg, 0);
+    feed.distributions = feed.distributions.map(dist => ({
+      ...dist,
+      proportion: dist.weight_kg / totalWeight,
+      feed_amount: (dist.weight_kg / totalWeight) * feed.total_kg
+    }));
+
+    setEditableFeeds(newFeeds);
+  };
 
   // Helper function to deduct from inventory using FIFO
   const deductFromInventory = async (feedType: string, totalKg: number, originalQuantity: number, originalUnit: string) => {
@@ -227,11 +298,12 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'feeding':
-          // Handle multiple feed types
-          if (data.multiple_feeds && data.feeds) {
-            console.log(`Processing ${data.feeds.length} feed types`);
+          // Handle multiple feed types - use editable feeds if available
+          const feedsToProcess = editableFeeds.length > 0 ? editableFeeds : data.feeds;
+          if (data.multiple_feeds && feedsToProcess) {
+            console.log(`Processing ${feedsToProcess.length} feed types`);
             
-            for (const feed of data.feeds) {
+            for (const feed of feedsToProcess) {
               const feedingRecords = feed.distributions.map(dist => ({
                 animal_id: dist.animal_id,
                 record_datetime: new Date().toISOString(),
@@ -409,15 +481,53 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             <p className="text-sm font-medium text-muted-foreground">Multiple Feed Types</p>
             <Badge variant="secondary">{data.feeds.length} feed types • {data.total_animals} animals</Badge>
             
-            {data.feeds.map((feed, idx) => (
+            {editableFeeds.map((feed, idx) => (
               <div key={idx} className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-50 text-green-700">
-                    {feed.feed_type}
-                  </Badge>
-                  <span className="text-sm">
-                    {feed.quantity} {feed.unit} = {feed.total_kg.toFixed(2)} kg
-                  </span>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium min-w-20">Feed Type:</label>
+                    <Select 
+                      value={feed.feed_type} 
+                      onValueChange={(value) => handleFeedChange(idx, 'feed_type', value)}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableInventory.map(item => (
+                          <SelectItem key={item.id} value={item.feed_type}>
+                            {item.feed_type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium min-w-20">Quantity:</label>
+                    <Input 
+                      type="number" 
+                      value={feed.quantity}
+                      onChange={(e) => handleFeedChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                      className="w-24"
+                    />
+                    <Select 
+                      value={feed.unit} 
+                      onValueChange={(value) => handleFeedChange(idx, 'unit', value)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bags">bags</SelectItem>
+                        <SelectItem value="bales">bales</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="buckets">buckets</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm text-muted-foreground">
+                      = {feed.total_kg.toFixed(2)} kg
+                    </span>
+                  </div>
                 </div>
                 <div className="max-h-40 overflow-y-auto text-xs space-y-1">
                   {feed.distributions.slice(0, 3).map(d => (
