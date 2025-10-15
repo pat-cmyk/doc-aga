@@ -61,6 +61,16 @@ IMPORTANT:
 - Focus on extracting: activity type, quantity, and any additional notes
 - If no animal is mentioned, assume they're talking about the current animal being viewed
 
+**IMPORTANT - Unit Conversions**:
+- When farmhand mentions "bales" of feed (hay, silage, etc.), convert to kilograms
+- Use: 1 bale = 42 kg (average weight per bale)
+- Store the total weight in kilograms in the quantity field
+- Include original bale count in the notes field
+
+Examples:
+- "I fed 10 bales of corn silage" → quantity: 420, notes: "10 bales of corn silage"
+- "Opened 5 bales of hay" → quantity: 210, notes: "5 bales of hay"
+
 Activity types you can identify:
 - milking: Recording milk production
 - feeding: Recording feed given to animals
@@ -73,16 +83,28 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
               : `You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
 
 **IMPORTANT - Feeding Activity Logic**:
-- If the farmhand mentions SPECIFIC animals (by ear tag, name), extract the animal_identifier
-- If the farmhand says things like "I fed all animals", "fed the herd", "gave feed to everyone", or just mentions a quantity without specifying animals, DO NOT try to extract animal_identifier - this will be distributed proportionally across all animals
+- If the farmhand mentions SPECIFIC animals (by ear tag, name, or says "cattle", "cow", etc. with a number), extract the animal_identifier
+- If the farmhand says things like "I fed all animals", "fed the herd", "gave feed to everyone", or just mentions a quantity without specifying animals, DO NOT extract animal_identifier - this will be distributed proportionally across all animals
 - Proportional distribution will divide the total feed based on animal weights
+- DO NOT extract "cat" or similar words that are not actual animal identifiers - these are likely mishearing "cattle" or general terms
 
 Always identify which animal the activity is about ONLY if explicitly mentioned:
 - Ear tag numbers (e.g., "247", "number 247", "tag 247")
-- Animal names
-- Specific animal references
+- Animal names (specific names given to animals)
+- Specific animal references with identifiers
 
 If NO specific animal is mentioned for feeding activities, leave animal_identifier empty - the system will handle proportional distribution.
+
+**IMPORTANT - Unit Conversions**:
+- When farmhand mentions "bales" of feed (hay, silage, corn silage, etc.), convert to kilograms
+- Use: 1 bale = 42 kg (average weight per bale)
+- Store the total weight in kilograms in the quantity field
+- Include original bale count in the notes field
+
+Examples:
+- "I fed 10 bales of corn silage" → quantity: 420, notes: "10 bales of corn silage"
+- "Opened 5 bales of hay" → quantity: 210, notes: "5 bales of hay"
+- "Fed the cattle" → no animal_identifier (bulk feeding)
 
 Activity types you can identify:
 - feeding: Recording feed given to animals (can be bulk or specific)
@@ -121,7 +143,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                   },
                   quantity: {
                     type: 'number',
-                    description: 'Quantity in liters (for milk) or kilograms (for feed/weight)'
+                    description: 'Quantity in kilograms. If bales are mentioned, convert to kg (1 bale = 42 kg) and note original bale count in notes field. For milk use liters.'
                   },
                   feed_type: {
                     type: 'string',
@@ -194,8 +216,8 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       }
     }
 
-    // Check if this is a bulk feeding scenario (feeding without specific animal)
-    if (extractedData.activity_type === 'feeding' && !extractedData.animal_identifier && !animalId && extractedData.quantity) {
+    // Check if this is a bulk feeding scenario (feeding without specific animal found)
+    if (extractedData.activity_type === 'feeding' && !finalAnimalId && extractedData.quantity) {
       console.log('Bulk feeding detected - calculating proportional distribution');
       
       // Fetch all active animals for the farm
