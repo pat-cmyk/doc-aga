@@ -17,12 +17,29 @@ interface ActivityConfirmationProps {
     medicine_name?: string;
     dosage?: string;
     is_bulk_feeding?: boolean;
+    multiple_feeds?: boolean;
     total_animals?: number;
     total_weight_kg?: number;
     total_kg?: number;
     original_quantity?: number;
     original_unit?: string;
     weight_per_unit?: number | null;
+    feeds?: Array<{
+      feed_type: string;
+      quantity: number;
+      unit: string;
+      total_kg: number;
+      weight_per_unit: number;
+      notes?: string;
+      distributions: Array<{
+        animal_id: string;
+        animal_name: string;
+        ear_tag: string;
+        weight_kg: number;
+        proportion: number;
+        feed_amount: number;
+      }>;
+    }>;
     distributions?: Array<{
       animal_id: string;
       animal_name: string;
@@ -156,7 +173,35 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'feeding':
-          if (data.is_bulk_feeding && data.distributions) {
+          // Handle multiple feed types
+          if (data.multiple_feeds && data.feeds) {
+            console.log(`Processing ${data.feeds.length} feed types`);
+            
+            for (const feed of data.feeds) {
+              const feedingRecords = feed.distributions.map(dist => ({
+                animal_id: dist.animal_id,
+                record_datetime: new Date().toISOString(),
+                kilograms: dist.feed_amount,
+                feed_type: feed.feed_type,
+                notes: `${feed.notes || ''} [Bulk: ${feed.quantity} ${feed.unit} = ${feed.total_kg.toFixed(2)}kg]`.trim(),
+                created_by: user.id
+              }));
+              
+              const { error: bulkError } = await supabase
+                .from('feeding_records')
+                .insert(feedingRecords);
+              
+              if (bulkError) throw bulkError;
+              
+              // Deduct from inventory
+              await deductFromInventory(feed.feed_type, feed.total_kg, feed.quantity, feed.unit);
+            }
+            
+            toast({
+              title: "Success",
+              description: `${data.feeds.length} feed types recorded for ${data.total_animals} animals`,
+            });
+          } else if (data.is_bulk_feeding && data.distributions) {
             // Bulk feeding - create multiple records
             console.log('Creating bulk feeding records for', data.distributions.length, 'animals');
             console.log('Feed type received:', data.feed_type);
@@ -305,7 +350,36 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
         </div>
 
         {/* Animal or Bulk Distribution */}
-        {data.is_bulk_feeding && data.distributions ? (
+        {data.multiple_feeds && data.feeds ? (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-muted-foreground">Multiple Feed Types</p>
+            <Badge variant="secondary">{data.feeds.length} feed types • {data.total_animals} animals</Badge>
+            
+            {data.feeds.map((feed, idx) => (
+              <div key={idx} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-50 text-green-700">
+                    {feed.feed_type}
+                  </Badge>
+                  <span className="text-sm">
+                    {feed.quantity} {feed.unit} = {feed.total_kg.toFixed(2)} kg
+                  </span>
+                </div>
+                <div className="max-h-40 overflow-y-auto text-xs space-y-1">
+                  {feed.distributions.slice(0, 3).map(d => (
+                    <div key={d.animal_id} className="flex justify-between p-1">
+                      <span>{d.animal_name}</span>
+                      <span>{d.feed_amount.toFixed(2)} kg</span>
+                    </div>
+                  ))}
+                  {feed.distributions.length > 3 && (
+                    <div className="text-muted-foreground">+{feed.distributions.length - 3} more animals</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : data.is_bulk_feeding && data.distributions ? (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-2">
               Distribution Method

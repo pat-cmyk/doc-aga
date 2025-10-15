@@ -234,21 +234,37 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
     const aiData = await aiResponse.json();
     console.log('AI response:', JSON.stringify(aiData));
 
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
+    const toolCalls = aiData.choices?.[0]?.message?.tool_calls;
+    if (!toolCalls || toolCalls.length === 0) {
       throw new Error('No activity data extracted from transcription');
     }
 
-    const extractedData = JSON.parse(toolCall.function.arguments);
-    console.log('Extracted data:', extractedData);
+    console.log(`Extracted ${toolCalls.length} tool call(s)`);
     
-    // CRITICAL VALIDATION: Ensure feed_type is present for feeding activities
-    if (extractedData.activity_type === 'feeding' && !extractedData.feed_type) {
-      console.error('VALIDATION ERROR: feed_type is missing for feeding activity');
-      throw new Error('Feed type must be specified for feeding activities. Please mention what type of feed was given (e.g., corn silage, hay, concentrates).');
-    }
+    // Parse all tool calls
+    const extractedActivities = toolCalls.map((toolCall: any, index: number) => {
+      const data = JSON.parse(toolCall.function.arguments);
+      console.log(`Activity ${index + 1}:`, data);
+      
+      // CRITICAL VALIDATION: Ensure feed_type is present for feeding activities
+      if (data.activity_type === 'feeding' && !data.feed_type) {
+        console.error(`VALIDATION ERROR: feed_type is missing for feeding activity ${index + 1}`);
+        throw new Error('Feed type must be specified for feeding activities. Please mention what type of feed was given (e.g., corn silage, hay, concentrates).');
+      }
+      
+      if (data.activity_type === 'feeding') {
+        console.log(`✓ Validation passed - feed_type: ${data.feed_type}`);
+      }
+      
+      return data;
+    });
     
-    console.log('✓ Validation passed - feed_type:', extractedData.feed_type);
+    // Check if we have multiple feeding activities
+    const feedingActivities = extractedActivities.filter((a: any) => a.activity_type === 'feeding');
+    const hasMultipleFeeds = feedingActivities.length > 1;
+    
+    // Use the first activity for non-feeding logic or single feed
+    const extractedData = extractedActivities[0];
 
     // Use provided animalId if available, otherwise look up from identifier
     let finalAnimalId = animalId;
@@ -276,6 +292,99 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
       } else {
         console.log('Animal not found for identifier:', identifier);
       }
+    }
+
+    // Handle multiple feeding activities (bulk feeding with multiple feed types)
+    if (hasMultipleFeeds && feedingActivities.every((a: any) => !a.animal_identifier)) {
+      console.log(`Processing ${feedingActivities.length} different feed types for bulk feeding`);
+      
+      // Get all active animals for this farm (shared across all feeds)
+      const { data: animals, error: animalsError } = await supabase
+        .from('animals')
+        .select('id, name, ear_tag, current_weight_kg')
+        .eq('farm_id', farmId)
+        .eq('is_deleted', false)
+        .not('current_weight_kg', 'is', null);
+      
+      if (animalsError) {
+        console.error('Error fetching animals:', animalsError);
+        throw new Error('Failed to fetch farm animals');
+      }
+      
+      console.log(`Found ${animals.length} animals for distribution`);
+      
+      // Calculate total weight of all animals (same for all feeds)
+      const totalWeightKg = animals.reduce((sum, animal) => sum + (Number(animal.current_weight_kg) || 0), 0);
+      console.log(`Total weight: ${totalWeightKg}`);
+      
+      // Process each feed type
+      const feeds = [];
+      for (const feedActivity of feedingActivities) {
+        if (!feedActivity.quantity || !feedActivity.unit) {
+          console.log(`Skipping feed without quantity/unit:`, feedActivity);
+          continue;
+        }
+        
+        console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
+        
+        // Convert units to kg using FIFO inventory lookup
+        const weightPerUnit = await getLatestWeightPerUnit(
+          supabase,
+          farmId,
+          feedActivity.feed_type,
+          feedActivity.unit
+        );
+        
+        let totalKg: number;
+        if (weightPerUnit) {
+          totalKg = feedActivity.quantity * weightPerUnit;
+          console.log(`Converted ${feedActivity.quantity} ${feedActivity.unit} to ${totalKg} kg using inventory weight (${weightPerUnit} kg/unit)`);
+        } else {
+          // Fallback to default weights
+          const defaultWeight = DEFAULT_WEIGHTS[feedActivity.unit as keyof typeof DEFAULT_WEIGHTS] || 1;
+          totalKg = feedActivity.quantity * defaultWeight;
+          console.log(`Using default weight: ${defaultWeight} kg per ${feedActivity.unit}. Total: ${totalKg} kg`);
+        }
+        
+        // Calculate proportional distribution for this feed
+        const distributions = animals.map(animal => {
+          const animalWeight = Number(animal.current_weight_kg) || 0;
+          const proportion = animalWeight / totalWeightKg;
+          const feedAmount = totalKg * proportion;
+          
+          return {
+            animal_id: animal.id,
+            animal_name: animal.name,
+            ear_tag: animal.ear_tag,
+            weight_kg: animalWeight,
+            proportion,
+            feed_amount: feedAmount
+          };
+        });
+        
+        feeds.push({
+          feed_type: feedActivity.feed_type,
+          quantity: feedActivity.quantity,
+          unit: feedActivity.unit,
+          total_kg: totalKg,
+          weight_per_unit: weightPerUnit || DEFAULT_WEIGHTS[feedActivity.unit as keyof typeof DEFAULT_WEIGHTS],
+          distributions,
+          notes: feedActivity.notes
+        });
+      }
+      
+      console.log(`✓ Returning bulk feeding data with ${feeds.length} feed types`);
+      
+      return new Response(
+        JSON.stringify({
+          activity_type: 'feeding',
+          multiple_feeds: true,
+          total_animals: animals.length,
+          total_weight_kg: totalWeightKg,
+          feeds
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if this is a bulk feeding scenario (feeding without specific animal found)
