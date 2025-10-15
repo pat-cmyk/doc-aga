@@ -493,7 +493,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           <Button 
             onClick={handleConfirm} 
             className="flex-1"
-            disabled={isSaving || (!data.animal_id && !data.is_bulk_feeding)}
+            disabled={isSaving || (!data.animal_id && !data.is_bulk_feeding && !data.multiple_feeds)}
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
             {isSaving ? 'Saving...' : data.is_bulk_feeding ? 'Confirm & Distribute' : 'Confirm & Save'}
