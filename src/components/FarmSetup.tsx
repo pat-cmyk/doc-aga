@@ -121,7 +121,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       }
 
       toast({
-        title: "Welcome to AgriPal!",
+        title: "Welcome to Doc Aga!",
         description: "Your farm has been created successfully."
       });
 
@@ -150,7 +150,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
           <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
             <Sprout className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-3xl">Welcome to AgriPal! 🌱</CardTitle>
+          <CardTitle className="text-3xl">Welcome to Doc Aga! 🌱</CardTitle>
           <CardDescription className="text-base">
             Let's set up your first farm to get started
           </CardDescription>

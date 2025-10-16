@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
       manifest: {
-        name: "AgriPal - Farm Management System",
-        short_name: "AgriPal",
+        name: "Doc Aga - Farm Management System",
+        short_name: "Doc Aga",
         description: "Comprehensive farm management system with AI-powered veterinary assistance, livestock tracking, and marketplace",
         theme_color: "#10b981",
         background_color: "#ffffff",
