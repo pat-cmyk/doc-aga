@@ -318,7 +318,11 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
             </Button>
             <div className="relative">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
+                <AvatarImage 
+                  src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
+                  alt={animal.name || "Animal"} 
+                  key={animal.avatar_url}
+                />
                 <AvatarFallback>{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
               </Avatar>
               <Button
