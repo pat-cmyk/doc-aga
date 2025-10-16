@@ -151,8 +151,22 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
           }
         });
 
-        if (aiError || aiData.error) {
-          throw new Error(aiData?.error || 'AI processing failed');
+        if (aiError) {
+          throw new Error('AI processing failed');
+        }
+
+        // Handle clarification requests
+        if (aiData?.error === 'NEEDS_CLARIFICATION') {
+          const options = aiData.availableOptions || [];
+          const optionsList = options.length > 0 
+            ? `Available options: ${options.join(', ')}` 
+            : 'No feed types found in inventory for this unit.';
+          
+          throw new Error(`${aiData.message}. ${optionsList}`);
+        }
+
+        if (aiData?.error) {
+          throw new Error(aiData.error);
         }
 
         console.log('Extracted data:', aiData);

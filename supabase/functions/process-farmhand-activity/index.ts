@@ -116,6 +116,59 @@ async function getLatestWeightPerUnit(
   return Number(data.weight_per_unit);
 }
 
+// Resolve feed type from inventory based on unit
+async function resolveFeedTypeFromInventory(
+  supabase: any,
+  farmId: string,
+  unit: string,
+  specifiedFeedType?: string
+): Promise<{ 
+  feed_type: string | null, 
+  needsClarification: boolean,
+  availableOptions?: string[]
+}> {
+  
+  // If feed type explicitly specified and not "unknown", use it
+  if (specifiedFeedType && specifiedFeedType !== 'unknown') {
+    return { feed_type: specifiedFeedType, needsClarification: false };
+  }
+  
+  // Query inventory for feeds matching this unit
+  const { data: inventory } = await supabase
+    .from('feed_inventory')
+    .select('feed_type')
+    .eq('farm_id', farmId)
+    .eq('unit', unit)
+    .gt('quantity_kg', 0);
+  
+  if (!inventory || inventory.length === 0) {
+    return { 
+      feed_type: null, 
+      needsClarification: true,
+      availableOptions: []
+    };
+  }
+  
+  const uniqueFeedTypes = [...new Set(inventory.map((i: any) => i.feed_type))];
+  
+  if (uniqueFeedTypes.length === 1) {
+    // Only one option - use it
+    console.log(`Auto-resolved unit "${unit}" to feed type: ${uniqueFeedTypes[0]}`);
+    return { 
+      feed_type: uniqueFeedTypes[0], 
+      needsClarification: false 
+    };
+  }
+  
+  // Multiple options - needs clarification
+  console.log(`Multiple feed types found for unit "${unit}":`, uniqueFeedTypes);
+  return { 
+    feed_type: null, 
+    needsClarification: true,
+    availableOptions: uniqueFeedTypes
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -259,21 +312,23 @@ For feeding activities, you MUST correctly distinguish between feed_type and uni
 FEED_TYPE = WHAT the feed is (the actual material/product name):
 - Examples: "corn silage", "hay", "concentrates", "alfalfa", "barley", "grain"
 - Common variations: "baled corn silage", "chopped hay", "dairy concentrates"
-- If user just says "bales" without specifying content, default to "hay" (most common in bales)
-- If user says "bags" without specifying, default to "concentrates" (most common in bags)
+- If user explicitly mentions feed type, extract it exactly
+- If user only mentions unit WITHOUT specifying content, set feed_type to "unknown"
 
 UNIT = HOW it's packaged/measured:
 - Examples: "bales", "bags", "barrels", "buckets", "kg", "drums"
 - This describes the container or measurement, NOT the feed itself
 
 EXTRACTION RULES:
-1. "5 bales" alone → feed_type: "hay", unit: "bales", quantity: 5
+1. "5 bales" alone → feed_type: "unknown", unit: "bales", quantity: 5
 2. "5 bales of corn silage" → feed_type: "corn silage", unit: "bales", quantity: 5
 3. "2 bags of concentrates" → feed_type: "concentrates", unit: "bags", quantity: 2
 4. "8 bales of baled corn silage" → feed_type: "baled corn silage", unit: "bales", quantity: 8
-5. "3 bags" alone → feed_type: "concentrates", unit: "bags", quantity: 3
+5. "3 bags" alone → feed_type: "unknown", unit: "bags", quantity: 3
 
+**CRITICAL**: System will check inventory to resolve "unknown" feed types automatically.
 **NEVER use the unit name as the feed_type!**
+**NEVER assume or default feed types - extract only what user explicitly says!**
 
 **IMPORTANT - Unit Recognition (DO NOT convert manually)**:
 - When farmhand mentions units like "bales", "bags", "barrels/drums", extract the COUNT and UNIT separately
@@ -415,6 +470,42 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
     // Check if we have multiple feeding activities
     const feedingActivities = extractedActivities.filter((a: any) => a.activity_type === 'feeding');
     const hasMultipleFeeds = feedingActivities.length > 1;
+    
+    // Resolve feed types from inventory for all feeding activities
+    if (feedingActivities.length > 0) {
+      for (const activity of feedingActivities) {
+        if (activity.unit && (!activity.feed_type || activity.feed_type === 'unknown')) {
+          console.log(`Resolving feed type for unit: ${activity.unit}`);
+          const resolution = await resolveFeedTypeFromInventory(
+            supabase,
+            farmId,
+            activity.unit,
+            activity.feed_type
+          );
+          
+          if (resolution.needsClarification) {
+            return new Response(
+              JSON.stringify({
+                error: 'NEEDS_CLARIFICATION',
+                message: `Please specify the type of feed for ${activity.quantity} ${activity.unit}`,
+                unit: activity.unit,
+                quantity: activity.quantity,
+                availableOptions: resolution.availableOptions
+              }),
+              { 
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+          
+          if (resolution.feed_type) {
+            activity.feed_type = resolution.feed_type;
+            console.log(`✓ Resolved to: ${resolution.feed_type}`);
+          }
+        }
+      }
+    }
     
     // Use the first activity for non-feeding logic or single feed
     const extractedData = extractedActivities[0];
