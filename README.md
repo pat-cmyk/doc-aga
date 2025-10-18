@@ -60,6 +60,32 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Testing
+
+This project uses Vitest for automated testing:
+
+```sh
+# Run all tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+
+# Watch mode (for development)
+npm run test:watch
+```
+
+### Test Structure
+
+- **Unit tests**: Test individual functions and utilities (`*.test.ts`)
+- **Integration tests**: Test component behavior (coming in Phase 2)
+- **E2E tests**: Test complete user journeys (coming in Phase 3)
+
+See `src/test-utils.tsx` for testing helpers.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/fa0cc69c-441c-4305-b8c2-e99c9ca1b5ea) and click on Share -> Publish.
