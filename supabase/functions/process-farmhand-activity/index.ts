@@ -177,10 +177,27 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription, farmId, animalId } = await req.json();
+    // Parse request body robustly - handle nested body structure
+    const raw = await req.json();
+    const input = raw?.body && typeof raw.body === 'object' ? raw.body : raw;
+
+    console.log('Incoming payload keys:', Object.keys(input || {}));
+
+    // Accept alternate field names for flexibility
+    const transcription = input?.transcription ?? input?.transcript ?? input?.text;
+    const farmId = input?.farmId ?? input?.farm_id ?? input?.farm ?? input?.farmID;
+    const animalId = input?.animalId ?? input?.animal_id;
+
+    console.log('Has transcription?', !!transcription, 'Has farmId?', !!farmId);
 
     if (!transcription || !farmId) {
-      throw new Error('Transcription and farmId are required');
+      return new Response(
+        JSON.stringify({ error: 'Transcription and farmId are required' }), 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Processing transcription:', transcription);

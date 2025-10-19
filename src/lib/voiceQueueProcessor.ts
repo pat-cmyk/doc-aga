@@ -37,6 +37,13 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
   // Step 2: Process farmhand activity
   const animalContext = animalId ? await getAnimalContext(animalId) : null;
   
+  console.log('Invoking process-farmhand-activity with:', {
+    hasTranscription: !!transcribedText,
+    farmId,
+    animalId: animalId || null,
+    hasAnimalContext: !!animalContext
+  });
+  
   const { data: activityData, error: activityError } = await supabase.functions
     .invoke('process-farmhand-activity', {
       body: {
