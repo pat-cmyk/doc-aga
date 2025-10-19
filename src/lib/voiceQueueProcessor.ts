@@ -4,12 +4,16 @@ import type { QueueItem } from './offlineQueue';
 export async function processVoiceQueue(item: QueueItem): Promise<void> {
   const { audioBlob, farmId, animalId, timestamp } = item.payload;
   
-  if (!audioBlob || !farmId) {
-    throw new Error('Missing audio data or farm ID');
+  if (!audioBlob) {
+    throw new Error('AUDIO_MISSING');
+  }
+  if (!farmId) {
+    throw new Error('FARM_ID_MISSING');
   }
 
   // Convert blob to base64
   const base64Audio = await blobToBase64(audioBlob);
+  console.log('VoiceQueue: base64 audio length:', base64Audio?.length || 0);
   
   // Step 1: Transcribe audio
   const { data: transcriptionData, error: transcriptionError } = await supabase.functions
@@ -17,11 +21,15 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
       body: { audio: base64Audio },
     });
 
-  if (transcriptionError) throw transcriptionError;
+  if (transcriptionError) {
+    console.error('VoiceQueue: transcriptionError', transcriptionError);
+    throw new Error(transcriptionError.message || 'TRANSCRIPTION_FAILED');
+  }
   
   const transcribedText = transcriptionData?.text;
+  console.log('VoiceQueue: transcribedText:', transcribedText);
   if (!transcribedText) {
-    throw new Error('No transcription result');
+    throw new Error('TRANSCRIPTION_EMPTY');
   }
 
   // Check if it's a Doc Aga query (should not be in farmhand activities)

@@ -31,12 +31,28 @@ export function translateError(error: any): string {
     return "May problema sa offline recording. Paki-try ulit mag-record o i-sync ulit.";
   }
 
+  if (message.includes('AUDIO_MISSING')) {
+    return "Walang audio na na-save sa offline item. Paki-record ulit.";
+  }
+
+  if (message.includes('FARM_ID_MISSING')) {
+    return "Walang farm na naka-select. Paki piliin ang farm at subukan muli.";
+  }
+
+  if (message.includes('TRANSCRIPTION_EMPTY') || message.includes('TRANSCRIPTION_FAILED')) {
+    return "Hindi matranscribe ang boses. Paki-try ulit mag-record nang mas malinaw.";
+  }
+
   if (message.includes('NEEDS_CLARIFICATION')) {
     return "Kailangan ng linaw sa feed type. Paki-specify ang type ng feed para sa unit na ginamit.";
   }
 
   if (message.includes('NO_INVENTORY')) {
     return "Walang feed inventory para sa unit na ito. Mag-add muna ng feed o gamitin ang tamang unit.";
+  }
+
+  if (message.includes('Not authenticated')) {
+    return "Kailangan mong mag-login ulit bago mag-sync.";
   }
 
   // Default fallback
