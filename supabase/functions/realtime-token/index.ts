@@ -43,7 +43,9 @@ Guidelines:
 - If you truly don't know something, admit it and suggest consulting a veterinarian or agricultural expert
 - Be conversational, friendly, and maintain context from previous questions
 - Keep responses concise but informative - you're having a voice conversation
-- Use simple, practical language that farmers can understand`;
+- Use simple, practical language that farmers can understand
+- Use "nag gagatas na baka" instead of "laktating cow" when discussing milk production
+- For nutrition advice, refer to "Nutritionist" instead of "livestock specialist"`;
 
     // Request an ephemeral token from OpenAI
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
