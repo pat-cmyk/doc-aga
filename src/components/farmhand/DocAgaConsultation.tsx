@@ -36,6 +36,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
   const [loading, setLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
+  const [isVoiceInput, setIsVoiceInput] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const hasAutoSent = useRef(false);
@@ -199,28 +200,32 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           );
           const audioUrl = URL.createObjectURL(audioBlob);
           
+          // Update the message with audio - show text first for typed input, audio first for voice input
           setMessages(prev => {
             const newMessages = [...prev];
             newMessages[newMessages.length - 1] = {
               role: "assistant",
               content: assistantResponse,
               audioUrl,
-              showText: false
+              showText: !isVoiceInput
             };
             return newMessages;
           });
 
-          // Stop any currently playing audio
-          if (playingAudio) {
-            playingAudio.pause();
-            playingAudio.currentTime = 0;
-          }
+          // Only auto-play if input was voice
+          if (isVoiceInput) {
+            // Stop any currently playing audio
+            if (playingAudio) {
+              playingAudio.pause();
+              playingAudio.currentTime = 0;
+            }
 
-          const audio = new Audio(audioUrl);
-          audio.addEventListener('ended', () => setPlayingAudio(null));
-          audio.addEventListener('pause', () => setPlayingAudio(null));
-          setPlayingAudio(audio);
-          audio.play().catch(err => console.error('Audio playback error:', err));
+            const audio = new Audio(audioUrl);
+            audio.addEventListener('ended', () => setPlayingAudio(null));
+            audio.addEventListener('pause', () => setPlayingAudio(null));
+            setPlayingAudio(audio);
+            audio.play().catch(err => console.error('Audio playback error:', err));
+          }
         }
       } catch (audioError) {
         console.error('Audio generation error:', audioError);
@@ -339,12 +344,16 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           </Button>
         )}
         <VoiceInterface
-                onTranscription={(text) => handleSendMessage(text)} 
+                onTranscription={(text) => {
+                  setIsVoiceInput(true);
+                  handleSendMessage(text);
+                }} 
                 disabled={isUploadingImage || loading}
               />
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            setIsVoiceInput(false);
             handleSendMessage();
           }}
           className="flex gap-1.5 sm:gap-2"
