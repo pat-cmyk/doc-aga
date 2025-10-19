@@ -112,7 +112,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     });
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom);
 
-    render(
+    const { getByText } = render(
       <ActivityConfirmation
         data={mockMultiFeedActivityData}
         onCancel={mockOnCancel}
@@ -121,17 +121,22 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Wait for inventory to load
-    await waitFor(() => {
-      expect(screen.getByText(/15 animals/i)).toBeInTheDocument();
+    await waitForCondition(() => {
+      try {
+        getByText(/15 animals/i);
+        return true;
+      } catch {
+        return false;
+      }
     });
 
     // Verify both feed types are shown
-    expect(screen.getByText(/hay/i)).toBeInTheDocument();
-    expect(screen.getByText(/concentrates/i)).toBeInTheDocument();
+    expect(getByText(/hay/i)).toBeInTheDocument();
+    expect(getByText(/concentrates/i)).toBeInTheDocument();
     
     // Verify quantities
-    expect(screen.getByText(/10/)).toBeInTheDocument(); // hay quantity
-    expect(screen.getByText(/5/)).toBeInTheDocument(); // concentrates quantity
+    expect(getByText(/10/)).toBeInTheDocument(); // hay quantity
+    expect(getByText(/5/)).toBeInTheDocument(); // concentrates quantity
   });
 
   it('should allow editing feed types and recalculate distribution', async () => {
@@ -167,7 +172,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     });
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom);
 
-    render(
+    const { getAllByRole, queryByText, getByText } = render(
       <ActivityConfirmation
         data={mockMultiFeedActivityData}
         onCancel={mockOnCancel}
@@ -176,29 +181,32 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Wait for inventory to load
-    await waitFor(() => {
-      expect(mockFrom).toHaveBeenCalledWith('feed_inventory');
-    });
+    await waitForCondition(() => mockFrom.mock.calls.some(call => call[0] === 'feed_inventory'));
 
     // Find and click the first feed type selector
-    const selectors = screen.getAllByRole('combobox');
+    const selectors = getAllByRole('combobox');
     if (selectors.length > 0) {
       await user.click(selectors[0]);
       
       // Wait for options to appear and select corn silage
-      await waitFor(() => {
-        const option = screen.queryByText('corn silage');
+      await waitForCondition(() => {
+        const option = queryByText('corn silage');
         if (option) {
           user.click(option);
+          return true;
         }
+        return false;
       });
     }
 
     // Verify the change is reflected (weight_per_unit should update total_kg)
-    await waitFor(() => {
-      // After changing from hay (25kg/bale) to corn silage (30kg/bale),
-      // 10 bales should now be 300kg instead of 250kg
-      expect(screen.getByText(/300/i)).toBeInTheDocument();
+    await waitForCondition(() => {
+      try {
+        getByText(/300/i);
+        return true;
+      } catch {
+        return false;
+      }
     });
   });
 
@@ -270,7 +278,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any);
 
-    render(
+    const { getByRole } = render(
       <ActivityConfirmation
         data={mockActivityData}
         onCancel={mockOnCancel}
@@ -279,13 +287,11 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Click confirm button
-    const confirmButton = screen.getByRole('button', { name: /confirm/i });
+    const confirmButton = getByRole('button', { name: /confirm/i });
     await user.click(confirmButton);
 
     // Wait for operations to complete
-    await waitFor(() => {
-      expect(mockOnSuccess).toHaveBeenCalled();
-    });
+    await waitForCondition(() => mockOnSuccess.mock.calls.length > 0);
 
     // Verify FIFO deduction: oldest batch should be updated first
     expect(updateMock).toHaveBeenCalled();
@@ -326,7 +332,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any);
 
-    render(
+    const { getByText, getByRole } = render(
       <ActivityConfirmation
         data={mockMilkingActivity}
         onCancel={mockOnCancel}
@@ -335,24 +341,18 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Verify milking badge
-    expect(screen.getByText('Milking')).toBeInTheDocument();
-    expect(screen.getByText(/12.*liters/i)).toBeInTheDocument();
+    expect(getByText('Milking')).toBeInTheDocument();
+    expect(getByText(/12.*liters/i)).toBeInTheDocument();
 
     // Click confirm
-    const confirmButton = screen.getByRole('button', { name: /confirm/i });
+    const confirmButton = getByRole('button', { name: /confirm/i });
     await user.click(confirmButton);
 
-    await waitFor(() => {
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          animal_id: mockAnimal.id,
-          liters: 12
-        })
-      );
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Success'
-        })
+    await waitForCondition(() => {
+      return insertMock.mock.calls.some(call => 
+        call[0]?.animal_id === mockAnimal.id && call[0]?.liters === 12
+      ) && mockToast.mock.calls.some(call =>
+        call[0]?.title === 'Success'
       );
     });
   });
@@ -387,7 +387,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any);
 
-    render(
+    const { getByText, getByRole } = render(
       <ActivityConfirmation
         data={mockWeightActivity}
         onCancel={mockOnCancel}
@@ -396,20 +396,18 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Verify weight badge
-    expect(screen.getByText('Weight Measurement')).toBeInTheDocument();
-    expect(screen.getByText(/580.*kg/i)).toBeInTheDocument();
+    expect(getByText('Weight Measurement')).toBeInTheDocument();
+    expect(getByText(/580.*kg/i)).toBeInTheDocument();
 
     // Click confirm
-    const confirmButton = screen.getByRole('button', { name: /confirm/i });
+    const confirmButton = getByRole('button', { name: /confirm/i });
     await user.click(confirmButton);
 
-    await waitFor(() => {
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          animal_id: mockAnimal.id,
-          weight_kg: 580,
-          measurement_method: 'visual_estimate'
-        })
+    await waitForCondition(() => {
+      return insertMock.mock.calls.some(call => 
+        call[0]?.animal_id === mockAnimal.id && 
+        call[0]?.weight_kg === 580 &&
+        call[0]?.measurement_method === 'visual_estimate'
       );
     });
   });
@@ -444,7 +442,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any);
 
-    render(
+    const { getByText, getByRole } = render(
       <ActivityConfirmation
         data={mockHealthActivity}
         onCancel={mockOnCancel}
@@ -453,20 +451,18 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Verify health check badge
-    expect(screen.getByText('Health Check')).toBeInTheDocument();
-    expect(screen.getByText(/limping/i)).toBeInTheDocument();
+    expect(getByText('Health Check')).toBeInTheDocument();
+    expect(getByText(/limping/i)).toBeInTheDocument();
 
     // Click confirm
-    const confirmButton = screen.getByRole('button', { name: /confirm/i });
+    const confirmButton = getByRole('button', { name: /confirm/i });
     await user.click(confirmButton);
 
-    await waitFor(() => {
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          animal_id: mockAnimal.id,
-          diagnosis: 'Routine observation',
-          notes: 'Animal appears to be limping on left front leg'
-        })
+    await waitForCondition(() => {
+      return insertMock.mock.calls.some(call => 
+        call[0]?.animal_id === mockAnimal.id && 
+        call[0]?.diagnosis === 'Routine observation' &&
+        call[0]?.notes === 'Animal appears to be limping on left front leg'
       );
     });
   });
@@ -501,7 +497,7 @@ describe('ActivityConfirmation Integration Tests', () => {
     
     vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any);
 
-    render(
+    const { getByText, getByRole } = render(
       <ActivityConfirmation
         data={mockInjectionActivity}
         onCancel={mockOnCancel}
@@ -510,21 +506,19 @@ describe('ActivityConfirmation Integration Tests', () => {
     );
 
     // Verify injection badge
-    expect(screen.getByText('Injection/Medicine')).toBeInTheDocument();
-    expect(screen.getByText(/Ivermectin/i)).toBeInTheDocument();
-    expect(screen.getByText(/10ml/i)).toBeInTheDocument();
+    expect(getByText('Injection/Medicine')).toBeInTheDocument();
+    expect(getByText(/Ivermectin/i)).toBeInTheDocument();
+    expect(getByText(/10ml/i)).toBeInTheDocument();
 
     // Click confirm
-    const confirmButton = screen.getByRole('button', { name: /confirm/i });
+    const confirmButton = getByRole('button', { name: /confirm/i });
     await user.click(confirmButton);
 
-    await waitFor(() => {
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          animal_id: mockAnimal.id,
-          medicine_name: 'Ivermectin',
-          dosage: '10ml'
-        })
+    await waitForCondition(() => {
+      return insertMock.mock.calls.some(call => 
+        call[0]?.animal_id === mockAnimal.id && 
+        call[0]?.medicine_name === 'Ivermectin' &&
+        call[0]?.dosage === '10ml'
       );
     });
   });
