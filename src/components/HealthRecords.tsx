@@ -204,7 +204,7 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
                 Add Record
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-full sm:max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add Health Record</DialogTitle>
                 <DialogDescription>Record veterinary visits and treatments</DialogDescription>
@@ -287,10 +287,10 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="flex-1">
+                  <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="flex-1 min-h-[48px]">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={saving} className="flex-1">
+                  <Button type="submit" disabled={saving} className="flex-1 min-h-[48px]">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Record"}
                   </Button>
                 </div>

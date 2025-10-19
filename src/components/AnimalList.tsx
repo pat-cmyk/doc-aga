@@ -217,8 +217,8 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   return (
     <div className="space-y-4">
       {!readOnly && (
-        <Button onClick={() => setShowForm(true)} className="w-full min-h-[48px]">
-          <Plus className="h-4 w-4 mr-2" />
+        <Button onClick={() => setShowForm(true)} className="w-full min-h-[56px] text-base">
+          <Plus className="h-5 w-5 mr-2" />
           Add New Animal
         </Button>
       )}
@@ -329,7 +329,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredAnimals.map((animal) => (
             <Card
               key={animal.id}
@@ -356,7 +356,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   )}
                 </div>
                 {(animal.lifeStage || animal.milkingStage) && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {animal.lifeStage && (
                       <StageBadge 
                         stage={animal.lifeStage}

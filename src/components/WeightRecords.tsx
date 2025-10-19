@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Scale, TrendingUp, Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WeightRecord {
   id: string;
@@ -31,6 +32,7 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
   
   // Form state
   const [weight, setWeight] = useState("");
@@ -168,16 +170,16 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
           </CardTitle>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button size="sm" className="min-h-[48px]">
+                <Plus className="h-5 w-5 mr-2" />
                 Record Weight
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-full sm:max-w-lg h-[100dvh] sm:h-auto overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record New Weight</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                 <div>
                   <Label htmlFor="weight">Weight (kg)</Label>
                   <Input
@@ -221,7 +223,7 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
                     placeholder="Any additional observations..."
                   />
                 </div>
-                <Button type="submit" disabled={submitting} className="w-full">
+                <Button type="submit" disabled={submitting} className="w-full min-h-[48px]">
                   {submitting ? "Saving..." : "Save Weight Record"}
                 </Button>
               </form>
@@ -284,31 +286,60 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
             <p className="text-muted-foreground text-center py-8">
               No weight records yet. Click "Record Weight" to add the first measurement.
             </p>
+          ) : isMobile ? (
+            <div className="space-y-3">
+              {records.map((record) => (
+                <Card key={record.id} className="border">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-bold text-xl text-primary">
+                          {record.weight_kg} kg
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(record.measurement_date), "MMM dd, yyyy")}
+                        </p>
+                      </div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {record.measurement_method?.replace("_", " ") || "—"}
+                      </div>
+                    </div>
+                    {record.notes && (
+                      <p className="text-sm text-muted-foreground mt-2 pt-2 border-t">
+                        {record.notes}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Weight</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{format(new Date(record.measurement_date), "MMM dd, yyyy")}</TableCell>
-                    <TableCell className="font-medium">{record.weight_kg} kg</TableCell>
-                    <TableCell className="capitalize">
-                      {record.measurement_method?.replace("_", " ") || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {record.notes || "—"}
-                    </TableCell>
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Weight</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Notes</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {records.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell>{format(new Date(record.measurement_date), "MMM dd, yyyy")}</TableCell>
+                      <TableCell className="font-medium">{record.weight_kg} kg</TableCell>
+                      <TableCell className="capitalize">
+                        {record.measurement_method?.replace("_", " ") || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {record.notes || "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

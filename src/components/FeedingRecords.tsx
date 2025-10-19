@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Form state
   const [feedType, setFeedType] = useState("");
@@ -188,16 +190,16 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       {/* Record Feed Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
-          <Button className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button className="w-full min-h-[48px] text-base">
+            <Plus className="h-5 w-5 mr-2" />
             Record Feed
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-full sm:max-w-lg h-[100dvh] sm:h-auto overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Record Feeding</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div className="space-y-2">
               <Label htmlFor="recordDate">Date</Label>
               <Input
@@ -250,12 +252,12 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
                 type="button"
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
-                className="flex-1"
+                className="flex-1 min-h-[48px]"
                 disabled={submitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" disabled={submitting}>
+              <Button type="submit" className="flex-1 min-h-[48px]" disabled={submitting}>
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -280,8 +282,38 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
             <p className="text-center text-muted-foreground py-8">
               No feeding records yet
             </p>
+          ) : isMobile ? (
+            <div className="space-y-3">
+              {records.map((record) => (
+                <Card key={record.id} className="border">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-semibold text-base">
+                          {record.feed_type || "Unknown"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(record.record_datetime), "MMM d, yyyy")} at{" "}
+                          {format(new Date(record.record_datetime), "h:mm a")}
+                        </p>
+                      </div>
+                      <div className="bg-primary/10 text-primary px-3 py-1 rounded-full">
+                        <span className="font-bold text-base">
+                          {record.kilograms?.toFixed(2) || "0.00"} kg
+                        </span>
+                      </div>
+                    </div>
+                    {record.notes && (
+                      <p className="text-sm text-muted-foreground mt-2 pt-2 border-t">
+                        {record.notes}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

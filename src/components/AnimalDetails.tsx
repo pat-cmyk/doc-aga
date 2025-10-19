@@ -441,28 +441,28 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
       </Card>
 
       <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
-        <TabsList className="w-full justify-between gap-2">
+        <TabsList className="w-full overflow-x-auto flex-nowrap justify-start sm:justify-between gap-1 sm:gap-2 p-1">
           {animal?.gender?.toLowerCase() === 'female' && (
-            <TabsTrigger value="milking" className="flex-1">
-              <Milk className="h-4 w-4 mr-2" />
-              Milking
+            <TabsTrigger value="milking" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
+              <Milk className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Milking</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="weight" className="flex-1">
-            <Scale className="h-4 w-4 mr-2" />
-            Weight
+          <TabsTrigger value="weight" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
+            <Scale className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Weight</span>
           </TabsTrigger>
-          <TabsTrigger value="feeding" className="flex-1">
-            <Wheat className="h-4 w-4 mr-2" />
-            Feeding
+          <TabsTrigger value="feeding" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
+            <Wheat className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Feeding</span>
           </TabsTrigger>
-          <TabsTrigger value="health" className="flex-1">
-            <Stethoscope className="h-4 w-4 mr-2" />
-            Health
+          <TabsTrigger value="health" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
+            <Stethoscope className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Health</span>
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex-1">
-            <Calendar className="h-4 w-4 mr-2" />
-            AI/Breeding
+          <TabsTrigger value="ai" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
+            <Calendar className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">AI/Breeding</span>
           </TabsTrigger>
         </TabsList>
 

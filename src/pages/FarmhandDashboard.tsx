@@ -141,7 +141,7 @@ const FarmhandDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Sprout className="h-6 w-6 text-primary" />
@@ -158,7 +158,7 @@ const FarmhandDashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-7xl space-y-4 sm:space-y-6">
         {showDocAga ? (
           <DocAgaConsultation 
             initialQuery=""
