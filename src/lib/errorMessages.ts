@@ -26,6 +26,19 @@ export function translateError(error: any): string {
     return "May mali sa data. I-check ang lahat ng fields.";
   }
 
+  // Voice activity specific errors
+  if (message.includes('Transcription and farmId are required')) {
+    return "May problema sa offline recording. Paki-try ulit mag-record o i-sync ulit.";
+  }
+
+  if (message.includes('NEEDS_CLARIFICATION')) {
+    return "Kailangan ng linaw sa feed type. Paki-specify ang type ng feed para sa unit na ginamit.";
+  }
+
+  if (message.includes('NO_INVENTORY')) {
+    return "Walang feed inventory para sa unit na ito. Mag-add muna ng feed o gamitin ang tamang unit.";
+  }
+
   // Default fallback
   return "May error. Subukan ulit.";
 }

@@ -40,7 +40,7 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
   const { data: activityData, error: activityError } = await supabase.functions
     .invoke('process-farmhand-activity', {
       body: {
-        transcript: transcribedText,
+        transcription: transcribedText,
         farmId,
         animalId: animalId || null,
         animalContext,
@@ -49,12 +49,12 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
 
   if (activityError) throw activityError;
 
-  if (!activityData?.success) {
-    throw new Error(activityData?.error || 'Activity processing failed');
+  if (activityData?.error) {
+    throw new Error(activityData.message || activityData.error);
   }
 
-  // Successfully processed - extracted data is in activityData.data
-  console.log('Voice activity processed:', activityData.data);
+  // Successfully processed - extracted data is in activityData
+  console.log('Voice activity processed:', activityData);
 }
 
 async function getAnimalContext(animalId: string): Promise<any> {
