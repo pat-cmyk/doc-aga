@@ -2,34 +2,42 @@ import { supabase } from '@/integrations/supabase/client';
 import type { QueueItem } from './offlineQueue';
 
 export async function processVoiceQueue(item: QueueItem): Promise<void> {
-  const { audioBlob, farmId, animalId, timestamp } = item.payload;
+  const { audioBlob, farmId, animalId, transcription, transcriptionConfirmed } = item.payload;
   
-  if (!audioBlob) {
-    throw new Error('AUDIO_MISSING');
-  }
   if (!farmId) {
     throw new Error('FARM_ID_MISSING');
   }
 
-  // Convert blob to base64
-  const base64Audio = await blobToBase64(audioBlob);
-  console.log('VoiceQueue: base64 audio length:', base64Audio?.length || 0);
-  
-  // Step 1: Transcribe audio
-  const { data: transcriptionData, error: transcriptionError } = await supabase.functions
-    .invoke('voice-to-text', {
-      body: { audio: base64Audio },
-    });
+  let transcribedText: string;
 
-  if (transcriptionError) {
-    console.error('VoiceQueue: transcriptionError', transcriptionError);
-    throw new Error(transcriptionError.message || 'TRANSCRIPTION_FAILED');
-  }
-  
-  const transcribedText = transcriptionData?.text;
-  console.log('VoiceQueue: transcribedText:', transcribedText);
-  if (!transcribedText) {
-    throw new Error('TRANSCRIPTION_EMPTY');
+  // Use confirmed transcription if available
+  if (transcription && transcriptionConfirmed) {
+    transcribedText = transcription;
+    console.log('VoiceQueue: Using confirmed transcription');
+  } else {
+    // Fallback: transcribe audio (shouldn't happen if sync flow is correct)
+    if (!audioBlob) {
+      throw new Error('AUDIO_MISSING');
+    }
+    
+    const base64Audio = await blobToBase64(audioBlob);
+    console.log('VoiceQueue: base64 audio length:', base64Audio?.length || 0);
+    
+    const { data: transcriptionData, error: transcriptionError } = await supabase.functions
+      .invoke('voice-to-text', {
+        body: { audio: base64Audio },
+      });
+
+    if (transcriptionError) {
+      console.error('VoiceQueue: transcriptionError', transcriptionError);
+      throw new Error(transcriptionError.message || 'TRANSCRIPTION_FAILED');
+    }
+    
+    transcribedText = transcriptionData?.text;
+    console.log('VoiceQueue: transcribedText:', transcribedText);
+    if (!transcribedText) {
+      throw new Error('TRANSCRIPTION_EMPTY');
+    }
   }
 
   // Check if it's a Doc Aga query (should not be in farmhand activities)

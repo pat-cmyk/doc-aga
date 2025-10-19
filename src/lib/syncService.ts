@@ -3,6 +3,7 @@ import {
   getAllPending, 
   updateStatus, 
   incrementRetries,
+  setAwaitingConfirmation,
   type QueueItem 
 } from './offlineQueue';
 import { processVoiceQueue } from './voiceQueueProcessor';
@@ -11,6 +12,48 @@ import { translateError } from './errorMessages';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
+
+async function transcribeItem(item: QueueItem): Promise<void> {
+  const { audioBlob } = item.payload;
+  
+  if (!audioBlob) {
+    throw new Error('AUDIO_MISSING');
+  }
+
+  // Convert blob to base64
+  const base64Audio = await blobToBase64(audioBlob);
+  
+  // Call voice-to-text
+  const { data: transcriptionData, error: transcriptionError } = await supabase.functions
+    .invoke('voice-to-text', {
+      body: { audio: base64Audio },
+    });
+
+  if (transcriptionError) {
+    throw new Error(transcriptionError.message || 'TRANSCRIPTION_FAILED');
+  }
+  
+  const transcribedText = transcriptionData?.text;
+  if (!transcribedText) {
+    throw new Error('TRANSCRIPTION_EMPTY');
+  }
+
+  // Save transcription and set to awaiting confirmation
+  await setAwaitingConfirmation(item.id, transcribedText);
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      const base64Data = base64.split(',')[1] || base64;
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 export async function syncQueue(): Promise<void> {
   // Check if user is authenticated
@@ -31,6 +74,22 @@ export async function syncQueue(): Promise<void> {
 
   for (const item of pending) {
     try {
+      // Skip if awaiting confirmation or already has unconfirmed transcription
+      if (item.type === 'voice_activity') {
+        if (item.status === 'awaiting_confirmation' || 
+            (item.payload.transcription && !item.payload.transcriptionConfirmed)) {
+          console.log(`Item ${item.id} awaiting user confirmation, skipping...`);
+          continue;
+        }
+        
+        // If no transcription yet, transcribe first
+        if (!item.payload.transcription) {
+          console.log(`Transcribing item ${item.id}...`);
+          await transcribeItem(item);
+          continue; // Don't process yet, wait for confirmation
+        }
+      }
+      
       await updateStatus(item.id, 'processing');
       
       if (item.type === 'animal_form') {

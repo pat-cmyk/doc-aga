@@ -17,9 +17,11 @@ interface QueueItem {
       ai_bull_breed?: string;
       birth_date?: string;
     } | null;
+    transcription?: string;
+    transcriptionConfirmed?: boolean;
   };
   createdAt: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
   retries: number;
   error?: string;
   processedAt?: number;
@@ -146,6 +148,51 @@ export async function resetForRetry(id: string): Promise<void> {
     item.status = 'pending';
     item.retries = 0;
     item.error = undefined;
+    await db.put('queue', item);
+  }
+}
+
+export async function updateItem(id: string, changes: Partial<QueueItem>): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('queue', id);
+  
+  if (item) {
+    Object.assign(item, changes);
+    await db.put('queue', item);
+  }
+}
+
+export async function updatePayload(id: string, payloadChanges: Partial<QueueItem['payload']>): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('queue', id);
+  
+  if (item) {
+    Object.assign(item.payload, payloadChanges);
+    await db.put('queue', item);
+  }
+}
+
+export async function setAwaitingConfirmation(id: string, transcription: string): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('queue', id);
+  
+  if (item) {
+    item.status = 'awaiting_confirmation';
+    item.payload.transcription = transcription;
+    item.retries = 0;
+    item.error = undefined;
+    await db.put('queue', item);
+  }
+}
+
+export async function confirmTranscription(id: string, transcription: string): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('queue', id);
+  
+  if (item) {
+    item.payload.transcription = transcription;
+    item.payload.transcriptionConfirmed = true;
+    item.status = 'pending';
     await db.put('queue', item);
   }
 }
