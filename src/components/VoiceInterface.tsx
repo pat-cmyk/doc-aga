@@ -6,21 +6,38 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceInterfaceProps {
   onTranscription: (text: string) => void;
+  disabled?: boolean;
 }
 
-const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription }) => {
+const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription, disabled = false }) => {
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && isRecording) {
+        const stream = mediaRecorderRef.current.stream;
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+      }
+    };
+  }, [isRecording]);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
+      // Detect Samsung/Android devices for optimized MIME type
+      const isSamsungDevice = /samsung/i.test(navigator.userAgent);
+      const mimeType = isSamsungDevice ? 'audio/webm;codecs=opus' : 'audio/webm';
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
+        mimeType: mimeType
       });
       
       mediaRecorderRef.current = mediaRecorder;
@@ -40,6 +57,17 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription }) => {
         
         // Automatically send the recording
         await processAndSendAudio(audioBlob);
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setIsRecording(false);
+        stream.getTracks().forEach(track => track.stop());
+        toast({
+          title: "Recording Error",
+          description: "Please try again",
+          variant: "destructive",
+        });
       };
 
       mediaRecorder.start();
@@ -135,7 +163,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription }) => {
           onClick={startRecording}
           className="gap-2"
           variant="secondary"
-          disabled={isProcessing}
+          disabled={isProcessing || disabled}
         >
           <Mic className="h-4 w-4" />
           Record Voice Question

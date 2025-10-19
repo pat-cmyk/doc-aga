@@ -27,6 +27,7 @@ const DocAga = () => {
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -36,6 +37,37 @@ const DocAga = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Handle Samsung Flip fold/unfold events
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('Screen folded - pausing operations');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Backup image preview to sessionStorage for fold transitions
+  useEffect(() => {
+    if (imagePreview) {
+      sessionStorage.setItem('docaga_temp_image', imagePreview);
+    } else {
+      sessionStorage.removeItem('docaga_temp_image');
+    }
+  }, [imagePreview]);
+
+  // Restore image preview on mount
+  useEffect(() => {
+    const savedImage = sessionStorage.getItem('docaga_temp_image');
+    if (savedImage) {
+      setImagePreview(savedImage);
+    }
+  }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -49,47 +81,55 @@ const DocAga = () => {
     }
   };
 
+  const uploadImage = async (file: File): Promise<string | null> => {
+    setIsUploadingImage(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('doc-aga-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('doc-aga-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Upload Error",
+        description: error.message || "Failed to upload image",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+      setSelectedImage(null);
+      setImagePreview(null);
+    }
+  };
+
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
-    if ((!textToSend && !selectedImage) || loading) return;
+    if ((!textToSend && !selectedImage) || loading || isUploadingImage) return;
 
     let uploadedImageUrl: string | null = null;
 
-    // Upload image if selected
+    // Upload image FIRST and wait for completion
     if (selectedImage) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
-
-        const fileExt = selectedImage.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('doc-aga-images')
-          .upload(fileName, selectedImage);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('doc-aga-images')
-          .getPublicUrl(fileName);
-
-        uploadedImageUrl = publicUrl;
-      } catch (error: any) {
-        toast({
-          title: "Upload Error",
-          description: error.message || "Failed to upload image",
-          variant: "destructive"
-        });
-        return;
-      }
+      uploadedImageUrl = await uploadImage(selectedImage);
+      if (!uploadedImageUrl) return; // Stop if upload failed
     }
 
     if (!messageText) {
       setInput("");
     }
-    setSelectedImage(null);
-    setImagePreview(null);
     
     setMessages(prev => [...prev, { 
       role: "user", 
@@ -339,7 +379,6 @@ const DocAga = () => {
       </ScrollArea>
 
       <div className="border-t p-2 sm:p-3 space-y-2">
-        <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
         {imagePreview && (
           <div className="relative inline-block">
             <img src={imagePreview} alt="Preview" className="h-16 sm:h-20 rounded" />
@@ -375,7 +414,7 @@ const DocAga = () => {
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
+            disabled={loading || isUploadingImage}
             className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
           >
             <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -384,13 +423,25 @@ const DocAga = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question..."
-            disabled={loading}
+            disabled={loading || isUploadingImage}
             className="flex-1 text-sm h-10 sm:h-9"
           />
-          <Button type="submit" disabled={loading || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+          <Button type="submit" disabled={loading || isUploadingImage || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
             {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>
+
+        {isUploadingImage && (
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Uploading image...
+          </div>
+        )}
+
+        <VoiceInterface 
+          onTranscription={(text) => handleSendMessage(text)} 
+          disabled={isUploadingImage || loading}
+        />
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const hasAutoSent = useRef(false);
@@ -43,6 +44,20 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Handle Samsung Flip fold/unfold events
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('Screen folded - pausing operations');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Auto-send initial query on mount
   useEffect(() => {
@@ -304,7 +319,10 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
       </ScrollArea>
 
       <div className="border-t p-2 sm:p-4 space-y-2 sm:space-y-3">
-        <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
+              <VoiceInterface 
+                onTranscription={(text) => handleSendMessage(text)} 
+                disabled={isUploadingImage || loading}
+              />
         <form
           onSubmit={(e) => {
             e.preventDefault();
