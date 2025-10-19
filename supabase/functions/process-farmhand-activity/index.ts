@@ -149,23 +149,25 @@ async function resolveFeedTypeFromInventory(
     };
   }
   
-  const uniqueFeedTypes = [...new Set(inventory.map((i: any) => i.feed_type))] as string[];
+  const uniqueFeedTypes: string[] = [...new Set(inventory.map((i: any) => i.feed_type))].filter((ft): ft is string => typeof ft === 'string');
   
   if (uniqueFeedTypes.length === 1) {
     // Only one option - use it
-    console.log(`Auto-resolved unit "${unit}" to feed type: ${uniqueFeedTypes[0]}`);
+    const feedType: string = uniqueFeedTypes[0];
+    console.log(`Auto-resolved unit "${unit}" to feed type: ${feedType}`);
     return { 
-      feed_type: uniqueFeedTypes[0] as string, 
+      feed_type: feedType, 
       needsClarification: false 
     };
   }
   
   // Multiple options - needs clarification
   console.log(`Multiple feed types found for unit "${unit}":`, uniqueFeedTypes);
+  const options: string[] = uniqueFeedTypes;
   return { 
     feed_type: null, 
     needsClarification: true,
-    availableOptions: uniqueFeedTypes as string[]
+    availableOptions: options
   };
 }
 
