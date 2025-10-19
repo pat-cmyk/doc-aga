@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,14 +20,14 @@ interface CoverageReport {
   file_path: string;
   lines_covered: number;
   lines_total: number;
-  branches_covered: number;
-  branches_total: number;
-  functions_covered: number;
-  functions_total: number;
+  branches_covered?: number;
+  branches_total?: number;
+  functions_covered?: number;
+  functions_total?: number;
   coverage_percentage: number;
 }
 
-interface TestRunPayload {
+interface TestReportPayload {
   branch: string;
   commit_hash?: string;
   total_tests: number;
@@ -40,8 +41,8 @@ interface TestRunPayload {
   coverage?: CoverageReport[];
 }
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const payload: TestRunPayload = await req.json();
+    const payload: TestReportPayload = await req.json();
 
     console.log('Received test report:', {
       branch: payload.branch,
@@ -61,8 +62,11 @@ Deno.serve(async (req) => {
       failed: payload.failed_tests,
     });
 
-    // Determine status based on test results
-    const status = payload.failed_tests > 0 ? 'failed' : 'passed';
+    // Determine status
+    let status: 'passed' | 'failed' | 'error' = 'passed';
+    if (payload.failed_tests > 0) {
+      status = 'failed';
+    }
 
     // Insert test run
     const { data: testRun, error: runError } = await supabase
@@ -91,7 +95,7 @@ Deno.serve(async (req) => {
 
     // Insert test results
     if (payload.test_results && payload.test_results.length > 0) {
-      const testResults = payload.test_results.map((result) => ({
+      const testResultsData = payload.test_results.map(result => ({
         test_run_id: testRun.id,
         suite_name: result.suite_name,
         test_name: result.test_name,
@@ -104,59 +108,59 @@ Deno.serve(async (req) => {
 
       const { error: resultsError } = await supabase
         .from('test_results')
-        .insert(testResults);
+        .insert(testResultsData);
 
       if (resultsError) {
         console.error('Error inserting test results:', resultsError);
         throw resultsError;
       }
 
-      console.log(`Inserted ${testResults.length} test results`);
+      console.log(`Inserted ${testResultsData.length} test results`);
     }
 
     // Insert coverage reports
     if (payload.coverage && payload.coverage.length > 0) {
-      const coverageReports = payload.coverage.map((cov) => ({
+      const coverageData = payload.coverage.map(report => ({
         test_run_id: testRun.id,
-        file_path: cov.file_path,
-        lines_covered: cov.lines_covered,
-        lines_total: cov.lines_total,
-        branches_covered: cov.branches_covered,
-        branches_total: cov.branches_total,
-        functions_covered: cov.functions_covered,
-        functions_total: cov.functions_total,
-        coverage_percentage: cov.coverage_percentage,
+        file_path: report.file_path,
+        lines_covered: report.lines_covered,
+        lines_total: report.lines_total,
+        branches_covered: report.branches_covered || 0,
+        branches_total: report.branches_total || 0,
+        functions_covered: report.functions_covered || 0,
+        functions_total: report.functions_total || 0,
+        coverage_percentage: report.coverage_percentage,
       }));
 
       const { error: coverageError } = await supabase
         .from('coverage_reports')
-        .insert(coverageReports);
+        .insert(coverageData);
 
       if (coverageError) {
-        console.error('Error inserting coverage reports:', coverageError);
+        console.error('Error inserting coverage:', coverageError);
         throw coverageError;
       }
 
-      console.log(`Inserted ${coverageReports.length} coverage reports`);
+      console.log(`Inserted ${coverageData.length} coverage reports`);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         test_run_id: testRun.id,
-        message: `Test run recorded: ${payload.passed_tests}/${payload.total_tests} tests passed`,
+        message: 'Test results recorded successfully',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
+
   } catch (error) {
-    console.error('Error in report-test-results function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error processing test report:', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: errorMessage,
+        error: error instanceof Error ? error.message : 'Unknown error',
       }),
       {
         status: 500,

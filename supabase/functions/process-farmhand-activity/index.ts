@@ -149,13 +149,13 @@ async function resolveFeedTypeFromInventory(
     };
   }
   
-  const uniqueFeedTypes = [...new Set(inventory.map((i: any) => i.feed_type))];
+  const uniqueFeedTypes = [...new Set(inventory.map((i: any) => i.feed_type))] as string[];
   
   if (uniqueFeedTypes.length === 1) {
     // Only one option - use it
     console.log(`Auto-resolved unit "${unit}" to feed type: ${uniqueFeedTypes[0]}`);
     return { 
-      feed_type: uniqueFeedTypes[0], 
+      feed_type: uniqueFeedTypes[0] as string, 
       needsClarification: false 
     };
   }
@@ -165,7 +165,7 @@ async function resolveFeedTypeFromInventory(
   return { 
     feed_type: null, 
     needsClarification: true,
-    availableOptions: uniqueFeedTypes
+    availableOptions: uniqueFeedTypes as string[]
   };
 }
 
