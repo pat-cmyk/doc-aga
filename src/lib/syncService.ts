@@ -84,9 +84,10 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
   }
 
   // Insert animal
+  const { created_by: _createdBy, ...animalInsert } = formData;
   const { data, error } = await supabase
     .from('animals')
-    .insert(formData)
+    .insert(animalInsert)
     .select()
     .single();
 
@@ -100,7 +101,6 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
       technician: `${item.payload.aiInfo.ai_bull_brand || ''} ${item.payload.aiInfo.ai_bull_reference || ''}`.trim() || 'Unknown',
       pregnancy_confirmed: true,
       confirmed_at: new Date().toISOString(),
-      created_by: formData.created_by,
       notes: `Bull Brand: ${item.payload.aiInfo.ai_bull_brand || 'N/A'}, Reference: ${item.payload.aiInfo.ai_bull_reference || 'N/A'}, Breed: ${item.payload.aiInfo.ai_bull_breed || 'N/A'}`,
     };
 

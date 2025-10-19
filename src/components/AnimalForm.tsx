@@ -185,7 +185,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       birth_date: formData.birth_date || null,
       mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
       father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
-      created_by: user?.id || null,
     };
 
     // If offline, queue the data
