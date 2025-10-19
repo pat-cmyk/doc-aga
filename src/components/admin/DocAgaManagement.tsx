@@ -18,6 +18,7 @@ import { format } from "date-fns";
 
 export const DocAgaManagement = () => {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("analytics");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFaq, setEditingFaq] = useState<any>(null);
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
@@ -150,6 +151,9 @@ export const DocAgaManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-faqs-with-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-query-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-recent-queries"] });
       setIsDialogOpen(false);
       setEditingFaq(null);
       setFormData({ question: "", answer: "", category: "", is_active: true });
@@ -196,6 +200,15 @@ export const DocAgaManagement = () => {
   };
 
   const handleSubmit = () => {
+    if (!formData.question.trim() || !formData.answer.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Question and answer are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (editingFaq) {
       createOrUpdateMutation.mutate({ ...formData, id: editingFaq.id });
     } else {
@@ -333,7 +346,7 @@ export const DocAgaManagement = () => {
       </div>
 
       {/* Tabs for Different Sections */}
-      <Tabs defaultValue="analytics" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="queries">Recent Queries</TabsTrigger>
@@ -385,6 +398,7 @@ export const DocAgaManagement = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => {
+                        setEditingFaq(null);
                         setFormData({
                           question: query.question,
                           answer: query.answer || "",
@@ -392,6 +406,7 @@ export const DocAgaManagement = () => {
                           is_active: true,
                         });
                         setIsDialogOpen(true);
+                        setActiveTab("faqs");
                       }}
                     >
                       <Plus className="h-4 w-4 mr-1" />
@@ -505,72 +520,17 @@ export const DocAgaManagement = () => {
                     <Download className="h-4 w-4 mr-2" />
                     Export CSV
                   </Button>
-                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          setEditingFaq(null);
-                          setFormData({ question: "", answer: "", category: "", is_active: true });
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add FAQ
-                      </Button>
-                    </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>{editingFaq ? "Edit FAQ" : "Create New FAQ"}</DialogTitle>
-                      <DialogDescription>
-                        Add or update FAQ entries for Doc Aga's knowledge base
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="question">Question</Label>
-                        <Input
-                          id="question"
-                          value={formData.question}
-                          onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                          placeholder="What is the question?"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="answer">Answer</Label>
-                        <Textarea
-                          id="answer"
-                          value={formData.answer}
-                          onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-                          placeholder="Provide the answer..."
-                          rows={5}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="category">Category</Label>
-                        <Input
-                          id="category"
-                          value={formData.category}
-                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          placeholder="e.g., health, breeding, feeding"
-                        />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="is_active"
-                          checked={formData.is_active}
-                          onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                        />
-                        <Label htmlFor="is_active">Active</Label>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleSubmit}>{editingFaq ? "Update" : "Create"}</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+                  <Button
+                    onClick={() => {
+                      setEditingFaq(null);
+                      setFormData({ question: "", answer: "", category: "", is_active: true });
+                      setIsDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add FAQ
+                  </Button>
+                </div>
             </div>
             </CardHeader>
             <CardContent>
@@ -621,6 +581,62 @@ export const DocAgaManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* FAQ Dialog - Always mounted */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingFaq ? "Edit FAQ" : "Create New FAQ"}</DialogTitle>
+            <DialogDescription>
+              Add or update FAQ entries for Doc Aga's knowledge base
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="question">Question</Label>
+              <Input
+                id="question"
+                value={formData.question}
+                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
+                placeholder="What is the question?"
+              />
+            </div>
+            <div>
+              <Label htmlFor="answer">Answer</Label>
+              <Textarea
+                id="answer"
+                value={formData.answer}
+                onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+                placeholder="Provide the answer..."
+                rows={5}
+              />
+            </div>
+            <div>
+              <Label htmlFor="category">Category</Label>
+              <Input
+                id="category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="e.g., health, breeding, feeding"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+              <Label htmlFor="is_active">Active</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit}>{editingFaq ? "Update" : "Create"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Query Detail Dialog */}
       <Dialog open={!!selectedQuery} onOpenChange={() => setSelectedQuery(null)}>
