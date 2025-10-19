@@ -14,38 +14,42 @@ export function FloatingDocAga() {
       <Button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg",
+          "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50",
+          "h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-lg",
           "transition-all duration-300 hover:scale-110",
           "bg-primary hover:bg-primary/90",
           isOpen && "scale-0 opacity-0"
         )}
         size="icon"
       >
-        <Stethoscope className="h-6 w-6" />
+        <Stethoscope className="h-6 w-6 sm:h-7 sm:w-7" />
       </Button>
 
       {/* Floating Chat Interface */}
       <Card
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex flex-col",
-          "w-[400px] h-[600px] shadow-2xl transition-all duration-300",
-          "md:w-[450px] md:h-[650px]",
+          "fixed z-50 flex flex-col shadow-2xl transition-all duration-300",
+          // Mobile: Full screen
+          "inset-0 rounded-none",
+          // Desktop: Floating bottom-right
+          "sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[450px] sm:h-[650px] sm:rounded-lg",
+          "lg:w-[500px] lg:h-[700px]",
           isOpen ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b p-4 bg-primary text-primary-foreground rounded-t-lg">
+        <div className="flex items-center justify-between border-b p-3 sm:p-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
           <div className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5" />
-            <h2 className="font-semibold">Doc Aga</h2>
+            <h2 className="font-semibold text-base sm:text-lg">Doc Aga</h2>
           </div>
           <Button
             onClick={() => setIsOpen(false)}
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            className="h-10 w-10 sm:h-8 sm:w-8 text-primary-foreground hover:bg-primary-foreground/20"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5 sm:h-4 sm:w-4" />
           </Button>
         </div>
 
@@ -55,10 +59,10 @@ export function FloatingDocAga() {
         </div>
       </Card>
 
-      {/* Mobile Overlay */}
+      {/* Desktop backdrop only */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+          className="hidden sm:block fixed inset-0 bg-background/20 backdrop-blur-[2px] z-40"
           onClick={() => setIsOpen(false)}
         />
       )}

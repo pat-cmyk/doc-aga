@@ -232,43 +232,43 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
   };
 
   return (
-    <Card className="border-2 border-primary/20 flex flex-col h-[600px]">
-      <div className="border-b p-4 flex items-center gap-3">
+    <Card className="border-2 border-primary/20 flex flex-col h-[600px] sm:h-[650px]">
+      <div className="border-b p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
         <Button
           variant="ghost"
           size="sm"
           onClick={onClose}
-          className="gap-2"
+          className="gap-2 min-h-[40px] sm:min-h-[36px]"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Recording
+          <span className="text-sm">Back</span>
         </Button>
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Dok Aga Consultation</h2>
+          <h2 className="text-base sm:text-lg font-semibold">Dok Aga Consultation</h2>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-2 sm:p-4" ref={scrollRef}>
+        <div className="space-y-3 sm:space-y-4">
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex gap-2 sm:gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {message.role === "assistant" && (
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary" />
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
                 </div>
               )}
-              <Card className={`p-3 max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
+              <Card className={`p-2.5 sm:p-3 max-w-[80%] sm:max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
                 {message.role === "assistant" && message.audioUrl && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <audio src={message.audioUrl} controls className="max-w-full" />
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
+                    <audio src={message.audioUrl} controls className="max-w-full h-8 sm:h-10" />
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 w-8 p-0"
+                      className="h-8 w-8 sm:h-9 sm:w-9 p-0 flex-shrink-0"
                       onClick={() => {
                         setMessages(prev => prev.map((m, i) => 
                           i === index ? { ...m, showText: !m.showText } : m
@@ -280,22 +280,22 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
                   </div>
                 )}
                 {(message.role === "user" || !message.audioUrl || message.showText === true) && (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 )}
               </Card>
               {message.role === "user" && (
-                <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-secondary" />
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-secondary" />
                 </div>
               )}
             </div>
           ))}
           {loading && (
-            <div className="flex gap-3 justify-start">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-primary" />
+            <div className="flex gap-2 sm:gap-3 justify-start">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
               </div>
-              <Card className="p-3">
+              <Card className="p-2.5 sm:p-3">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
               </Card>
             </div>
@@ -303,24 +303,24 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
         </div>
       </ScrollArea>
 
-      <div className="border-t p-4 space-y-3">
+      <div className="border-t p-2 sm:p-4 space-y-2 sm:space-y-3">
         <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="flex gap-2"
+          className="flex gap-1.5 sm:gap-2"
         >
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your question..."
             disabled={loading}
-            className="flex-1"
+            className="flex-1 h-10 sm:h-10 text-sm"
           />
-          <Button type="submit" disabled={loading || !input.trim()}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button type="submit" disabled={loading || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
+            {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>
       </div>

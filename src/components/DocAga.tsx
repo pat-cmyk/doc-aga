@@ -277,76 +277,76 @@ const DocAga = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 p-3" ref={scrollRef}>
-        <div className="space-y-3">
+      <ScrollArea className="flex-1 p-2 sm:p-3" ref={scrollRef}>
+        <div className="space-y-2 sm:space-y-3">
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex gap-1.5 sm:gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {message.role === "assistant" && (
-                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-3.5 w-3.5 text-primary" />
+                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
                 </div>
               )}
-              <Card className={`p-2.5 max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
+              <Card className={`p-2.5 sm:p-3 max-w-[80%] sm:max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
                 {message.imageUrl && (
                   <img 
                     src={message.imageUrl} 
                     alt="Attached" 
-                    className="max-w-full h-auto rounded mb-2 max-h-64 object-contain"
+                    className="max-w-full h-auto rounded mb-2 max-h-48 sm:max-h-64 object-contain"
                   />
                 )}
                 {message.role === "assistant" && message.audioUrl && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <audio src={message.audioUrl} controls className="max-w-full" />
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
+                    <audio src={message.audioUrl} controls className="max-w-full h-8 sm:h-10" />
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 p-0"
+                      className="h-8 w-8 sm:h-7 sm:w-7 p-0 flex-shrink-0"
                       onClick={() => {
                         setMessages(prev => prev.map((m, i) => 
                           i === index ? { ...m, showText: !m.showText } : m
                         ));
                       }}
                     >
-                      {message.showText ? <Volume2 className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                      {message.showText ? <Volume2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> : <FileText className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                     </Button>
                   </div>
                 )}
                 {(message.role === "user" || !message.audioUrl || message.showText === true) && (
-                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 )}
               </Card>
               {message.role === "user" && (
-                <div className="h-7 w-7 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-3.5 w-3.5 text-secondary" />
+                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-secondary" />
                 </div>
               )}
             </div>
           ))}
           {loading && (
-            <div className="flex gap-2 justify-start">
-              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="h-3.5 w-3.5 text-primary" />
+            <div className="flex gap-1.5 sm:gap-2 justify-start">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
               </div>
-              <Card className="p-2.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              <Card className="p-2.5 sm:p-3">
+                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-spin text-primary" />
               </Card>
             </div>
           )}
         </div>
       </ScrollArea>
 
-      <div className="border-t p-3 space-y-2">
+      <div className="border-t p-2 sm:p-3 space-y-2">
         <VoiceInterface onTranscription={(text) => handleSendMessage(text)} />
         {imagePreview && (
           <div className="relative inline-block">
-            <img src={imagePreview} alt="Preview" className="h-20 rounded" />
+            <img src={imagePreview} alt="Preview" className="h-16 sm:h-20 rounded" />
             <Button
               size="sm"
               variant="destructive"
-              className="absolute -top-2 -right-2 h-5 w-5 p-0 rounded-full"
+              className="absolute -top-1 -right-1 h-6 w-6 sm:h-5 sm:w-5 p-0 rounded-full text-xs"
               onClick={() => {
                 setSelectedImage(null);
                 setImagePreview(null);
@@ -361,7 +361,7 @@ const DocAga = () => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="flex gap-2"
+          className="flex gap-1.5 sm:gap-2"
         >
           <input
             ref={fileInputRef}
@@ -376,18 +376,19 @@ const DocAga = () => {
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
+            className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
           </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question..."
             disabled={loading}
-            className="flex-1 text-sm h-9"
+            className="flex-1 text-sm h-10 sm:h-9"
           />
-          <Button type="submit" disabled={loading || (!input.trim() && !selectedImage)} size="sm">
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          <Button type="submit" disabled={loading || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+            {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>
       </div>
