@@ -1,8 +1,9 @@
+import { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MerchantAuth from "./pages/MerchantAuth";
@@ -22,8 +23,55 @@ import FarmhandDashboard from "./pages/FarmhandDashboard";
 import NotFound from "./pages/NotFound";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { CartProvider } from "./hooks/useCart";
+import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { syncQueue } from "./lib/syncService";
+import { initNotifications } from "./lib/notificationService";
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const queryClient = new QueryClient();
+
+// Component to handle sync and notifications
+const SyncHandler = () => {
+  const isOnline = useOnlineStatus();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Initialize notifications on mount
+    initNotifications();
+
+    // Setup notification click handler
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+        const data = notification.notification.extra;
+        
+        if (data?.failed) {
+          // Navigate to queue status (we'll need to add this route)
+          navigate('/farmhand');
+        } else if (data?.type === 'animal_form') {
+          navigate('/');
+        } else if (data?.type === 'voice_activity') {
+          navigate('/farmhand');
+        }
+      });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    // Trigger sync when coming back online
+    if (isOnline) {
+      console.log('Online detected, starting sync...');
+      // Debounce to avoid rapid sync attempts
+      const timer = setTimeout(() => {
+        syncQueue();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnline]);
+
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -32,6 +80,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <NetworkStatusBanner />
+          <SyncHandler />
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/auth" element={<Auth />} />

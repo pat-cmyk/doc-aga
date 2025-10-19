@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
+import { QueueStatus } from "@/components/QueueStatus";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -202,6 +203,9 @@ const FarmhandDashboard = () => {
           </>
         )}
       </main>
+      
+      {/* Queue Status FAB */}
+      <QueueStatus />
     </div>
   );
 };

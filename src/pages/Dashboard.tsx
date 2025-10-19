@@ -14,6 +14,7 @@ import FarmSetup from "@/components/FarmSetup";
 import FarmProfile from "@/components/FarmProfile";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
+import { QueueStatus } from "@/components/QueueStatus";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -242,6 +243,9 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* Queue Status FAB */}
+      <QueueStatus />
     </div>
   );
 };

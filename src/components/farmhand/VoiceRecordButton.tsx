@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { Mic, Square, Loader2, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ActivityConfirmation from './ActivityConfirmation';
 import DocAgaConsultation from './DocAgaConsultation';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { addToQueue } from '@/lib/offlineQueue';
+import { compressAudio } from '@/lib/audioCompression';
+import { getOfflineMessage } from '@/lib/errorMessages';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -13,6 +17,7 @@ interface VoiceRecordButtonProps {
 
 const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
@@ -95,6 +100,33 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     setIsProcessing(true);
 
     try {
+      // If offline, compress and queue the audio
+      if (!isOnline) {
+        const compressedBlob = await compressAudio(blob);
+        
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'voice_activity',
+          payload: {
+            audioBlob: compressedBlob,
+            farmId,
+            animalId: animalId || null,
+            timestamp: Date.now(),
+          },
+          createdAt: Date.now(),
+        });
+
+        toast({
+          title: "Voice Activity Saved ✅",
+          description: getOfflineMessage('voice_activity'),
+          duration: 5000,
+        });
+
+        setIsProcessing(false);
+        return;
+      }
+
+      // Online: Normal processing
       // Convert blob to base64
       const reader = new FileReader();
       reader.readAsDataURL(blob);

@@ -5,8 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
+import { updateAnimalCache, getCachedAnimals } from "@/lib/animalCache";
+import { getOfflineMessage, translateError } from "@/lib/errorMessages";
 
 interface ParentAnimal {
   id: string;
@@ -45,6 +49,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const [formData, setFormData] = useState({
     animal_type: "new_entrant", // "offspring" or "new_entrant"
     name: "",
@@ -64,7 +69,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
 
   useEffect(() => {
     loadParentAnimals();
-  }, [farmId]);
+  }, [farmId, isOnline]);
 
   // Load parent breed information
   const getParentBreed = async (parentId: string) => {
@@ -77,34 +82,20 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   };
 
   const loadParentAnimals = async () => {
-    // Calculate date 18 months ago
-    const eighteenMonthsAgo = new Date();
-    eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 18);
-    const minBirthDate = eighteenMonthsAgo.toISOString().split('T')[0];
+    // Try to use cached data first (especially when offline)
+    const cached = await getCachedAnimals(farmId);
+    
+    if (cached) {
+      setMothers(cached.mothers as any);
+      setFathers(cached.fathers as any);
+    }
 
-    // Load female animals for mother selection (18+ months old)
-    const { data: femaleData } = await supabase
-      .from("animals")
-      .select("id, name, ear_tag, birth_date, breed")
-      .eq("farm_id", farmId)
-      .ilike("gender", "female")
-      .eq("is_deleted", false)
-      .lte("birth_date", minBirthDate)
-      .order("name");
-
-    if (femaleData) setMothers(femaleData as any);
-
-    // Load male animals for father selection (18+ months old)
-    const { data: maleData } = await supabase
-      .from("animals")
-      .select("id, name, ear_tag, birth_date, breed")
-      .eq("farm_id", farmId)
-      .ilike("gender", "male")
-      .eq("is_deleted", false)
-      .lte("birth_date", minBirthDate)
-      .order("name");
-
-    if (maleData) setFathers(maleData as any);
+    // Update cache if online
+    const updated = await updateAnimalCache(farmId, isOnline);
+    if (updated && updated !== cached) {
+      setMothers(updated.mothers as any);
+      setFathers(updated.fathers as any);
+    }
   };
 
   // Calculate recommended first AI date (15 months after birth for heifers)
@@ -181,8 +172,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         finalBreed = `${formData.breed1} x ${formData.breed2}`;
       }
     }
+
+    // Get user ID for created_by field
+    const { data: { user } } = await supabase.auth.getUser();
     
-    const { data, error } = await supabase.from("animals").insert({
+    const animalData = {
       farm_id: farmId,
       name: formData.name || null,
       ear_tag: formData.ear_tag,
@@ -190,8 +184,43 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       gender: formData.gender || null,
       birth_date: formData.birth_date || null,
       mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
-      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null)
-    }).select();
+      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
+      created_by: user?.id || null,
+      is_father_ai: formData.is_father_ai,
+      ai_bull: formData.is_father_ai ? formData.ai_bull_breed : null,
+    };
+
+    // If offline, queue the data
+    if (!isOnline) {
+      try {
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'animal_form',
+          payload: { formData: animalData },
+          createdAt: Date.now(),
+        });
+
+        toast({
+          title: "Saved Offline ✅",
+          description: getOfflineMessage('animal'),
+          duration: 5000,
+        });
+
+        onSuccess();
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: translateError(error),
+          variant: "destructive",
+        });
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
+
+    // Online: Normal submission
+    const { data, error } = await supabase.from("animals").insert(animalData).select();
 
     // If AI was used and animal was created successfully, create AI record
     if (!error && formData.is_father_ai && data && data[0]) {
@@ -199,7 +228,8 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         animal_id: data[0].id,
         scheduled_date: formData.birth_date || null,
         performed_date: formData.birth_date || null,
-        notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`
+        notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
+        created_by: user?.id || null,
       });
     }
 
@@ -207,7 +237,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     if (error) {
       toast({
         title: "Error creating animal",
-        description: error.message,
+        description: translateError(error),
         variant: "destructive"
       });
     } else {
@@ -221,6 +251,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+          {!isOnline && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-md flex items-center gap-2 text-sm">
+              <WifiOff className="h-4 w-4" />
+              <span>Offline mode - Data will sync when online</span>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="animal_type">Animal Type *</Label>
             <Select
