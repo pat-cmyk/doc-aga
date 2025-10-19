@@ -359,6 +359,56 @@ export type Database = {
           },
         ]
       }
+      coverage_reports: {
+        Row: {
+          branches_covered: number
+          branches_total: number
+          coverage_percentage: number
+          created_at: string
+          file_path: string
+          functions_covered: number
+          functions_total: number
+          id: string
+          lines_covered: number
+          lines_total: number
+          test_run_id: string
+        }
+        Insert: {
+          branches_covered: number
+          branches_total: number
+          coverage_percentage: number
+          created_at?: string
+          file_path: string
+          functions_covered: number
+          functions_total: number
+          id?: string
+          lines_covered: number
+          lines_total: number
+          test_run_id: string
+        }
+        Update: {
+          branches_covered?: number
+          branches_total?: number
+          coverage_percentage?: number
+          created_at?: string
+          file_path?: string
+          functions_covered?: number
+          functions_total?: number
+          id?: string
+          lines_covered?: number
+          lines_total?: number
+          test_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_reports_test_run_id_fkey"
+            columns: ["test_run_id"]
+            isOneToOne: false
+            referencedRelation: "test_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_farm_stats: {
         Row: {
           created_at: string
@@ -1340,6 +1390,101 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      test_results: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          file_path: string | null
+          id: string
+          stack_trace: string | null
+          status: string
+          suite_name: string
+          test_name: string
+          test_run_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error_message?: string | null
+          file_path?: string | null
+          id?: string
+          stack_trace?: string | null
+          status: string
+          suite_name: string
+          test_name: string
+          test_run_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          file_path?: string | null
+          id?: string
+          stack_trace?: string | null
+          status?: string
+          suite_name?: string
+          test_name?: string
+          test_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_results_test_run_id_fkey"
+            columns: ["test_run_id"]
+            isOneToOne: false
+            referencedRelation: "test_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_runs: {
+        Row: {
+          branch: string
+          commit_hash: string | null
+          coverage_percentage: number | null
+          created_at: string
+          duration_ms: number
+          failed_tests: number
+          id: string
+          passed_tests: number
+          run_date: string
+          skipped_tests: number
+          status: string
+          total_tests: number
+          triggered_by: string | null
+        }
+        Insert: {
+          branch: string
+          commit_hash?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          duration_ms: number
+          failed_tests: number
+          id?: string
+          passed_tests: number
+          run_date?: string
+          skipped_tests: number
+          status: string
+          total_tests: number
+          triggered_by?: string | null
+        }
+        Update: {
+          branch?: string
+          commit_hash?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          duration_ms?: number
+          failed_tests?: number
+          id?: string
+          passed_tests?: number
+          run_date?: string
+          skipped_tests?: number
+          status?: string
+          total_tests?: number
+          triggered_by?: string | null
         }
         Relationships: []
       }

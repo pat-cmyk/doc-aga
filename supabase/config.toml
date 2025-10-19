@@ -8,6 +8,9 @@ required_characters = ["upper", "lower", "number", "symbol"]
 [functions.realtime-token]
 verify_jwt = true
 
+[functions.report-test-results]
+verify_jwt = false
+
 [functions.backfill-stats]
 verify_jwt = false
 
