@@ -51,7 +51,13 @@ export function translateError(error: any): string {
     return "Walang feed inventory para sa unit na ito. Mag-add muna ng feed o gamitin ang tamang unit.";
   }
 
-  if (message.includes('Not authenticated')) {
+  // Authentication errors
+  if (message.includes('Not authenticated') || 
+      message.includes('Unauthorized') || 
+      message.includes('JWT') || 
+      message.includes('token') || 
+      message.includes('expired') || 
+      message.includes('Auth session missing')) {
     return "Kailangan mong mag-login ulit bago mag-sync.";
   }
 

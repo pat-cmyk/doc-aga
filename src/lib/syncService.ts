@@ -13,6 +13,13 @@ const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
 
 export async function syncQueue(): Promise<void> {
+  // Check if user is authenticated
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    console.log('Not authenticated - skipping sync');
+    return;
+  }
+
   const pending = await getAllPending();
   
   if (pending.length === 0) {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getAll, clearCompleted, removeItem, type QueueItem } from '@/lib/offlineQueue';
+import { getAll, clearCompleted, removeItem, resetForRetry, type QueueItem } from '@/lib/offlineQueue';
 import { syncQueue } from '@/lib/syncService';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { formatDistanceToNow } from 'date-fns';
@@ -41,6 +41,19 @@ export const QueueStatus = () => {
   const handleRemove = async (id: string) => {
     await removeItem(id);
     await loadItems();
+  };
+
+  const handleRetry = async (id: string) => {
+    await resetForRetry(id);
+    await handleManualSync();
+  };
+
+  const handleRetryAllFailed = async () => {
+    const failedItems = items.filter(i => i.status === 'failed');
+    for (const item of failedItems) {
+      await resetForRetry(item.id);
+    }
+    await handleManualSync();
   };
 
   const pendingCount = items.filter(i => i.status === 'pending').length;
@@ -84,6 +97,15 @@ export const QueueStatus = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
               Sync Now
             </Button>
+            {failedCount > 0 && (
+              <Button 
+                onClick={handleRetryAllFailed}
+                disabled={!isOnline || isSyncing}
+                variant="outline"
+              >
+                Retry All Failed
+              </Button>
+            )}
             <Button 
               onClick={handleClearCompleted}
               variant="outline"
@@ -169,8 +191,8 @@ export const QueueStatus = () => {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={handleManualSync}
-                          disabled={!isOnline}
+                          onClick={() => handleRetry(item.id)}
+                          disabled={!isOnline || isSyncing}
                           className="flex-1"
                         >
                           Retry

@@ -138,4 +138,16 @@ export async function getPendingCount(): Promise<number> {
   return db.countFromIndex('queue', 'by-status', 'pending');
 }
 
+export async function resetForRetry(id: string): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('queue', id);
+  
+  if (item) {
+    item.status = 'pending';
+    item.retries = 0;
+    item.error = undefined;
+    await db.put('queue', item);
+  }
+}
+
 export type { QueueItem };
