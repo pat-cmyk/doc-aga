@@ -7,6 +7,94 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' 
 };
 
+// Helper: Find matching FAQ based on user question
+function findMatchingFaq(question: string, faqs: any[]): string | null {
+  if (!question || !faqs || faqs.length === 0) return null;
+  
+  const normalizedQuestion = question.toLowerCase().trim();
+  
+  // Strategy 1: Exact match (case-insensitive)
+  const exactMatch = faqs.find(faq => 
+    faq.question.toLowerCase().trim() === normalizedQuestion
+  );
+  if (exactMatch) return exactMatch.id;
+  
+  // Strategy 2: Keyword matching with scoring
+  let bestMatch: { faq: any, score: number } | null = null;
+  
+  for (const faq of faqs) {
+    let score = 0;
+    const faqQuestion = faq.question.toLowerCase();
+    const faqTags = faq.tags || [];
+    
+    // Split question into words (remove common Filipino/English stop words)
+    const questionWords = normalizedQuestion
+      .split(/\s+/)
+      .filter(word => word.length > 3)
+      .filter(word => !['what', 'when', 'where', 'why', 'how', 'ang', 'mga', 'ano', 'paano', 'bakit'].includes(word));
+    
+    // Score based on word matches in FAQ question
+    questionWords.forEach(word => {
+      if (faqQuestion.includes(word)) {
+        score += 2;
+      }
+    });
+    
+    // Score based on tag matches
+    questionWords.forEach(word => {
+      if (faqTags.some((tag: string) => tag.toLowerCase().includes(word))) {
+        score += 3;
+      }
+    });
+    
+    // Bonus for category match
+    if (faq.category) {
+      const category = faq.category.toLowerCase();
+      if (normalizedQuestion.includes(category)) {
+        score += 1;
+      }
+    }
+    
+    if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+      bestMatch = { faq, score };
+    }
+  }
+  
+  return (bestMatch && bestMatch.score >= 4) ? bestMatch.faq.id : null;
+}
+
+// Helper: Log query to database
+async function logQuery(
+  supabase: any,
+  userId: string,
+  farmId: string | null,
+  question: string,
+  answer: string,
+  imageUrl: string | null,
+  matchedFaqId: string | null
+) {
+  try {
+    const { error } = await supabase
+      .from('doc_aga_queries')
+      .insert({
+        user_id: userId,
+        farm_id: farmId,
+        question,
+        answer,
+        image_url: imageUrl,
+        matched_faq_id: matchedFaqId,
+      });
+    
+    if (error) {
+      console.error('Failed to log query:', error);
+    } else {
+      console.log('✅ Query logged successfully');
+    }
+  } catch (error) {
+    console.error('Error in logQuery:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -26,6 +114,11 @@ serve(async (req) => {
       }
       return msg;
     });
+    
+    // Extract user question and image URL for logging
+    const lastUserMessage = messages[messages.length - 1];
+    const userQuestion = lastUserMessage?.content || '';
+    const userImageUrl = lastUserMessage?.imageUrl || null;
     
     // Get auth token from request
     const authHeader = req.headers.get('Authorization');
@@ -58,6 +151,12 @@ serve(async (req) => {
     // Fetch FAQ knowledge base
     const { data: faqs } = await supabase.from('doc_aga_faqs').select('*').eq('is_active', true);
     const faqContext = faqs?.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
+    
+    // Find matching FAQ for analytics
+    const matchedFaqId = findMatchingFaq(userQuestion, faqs || []);
+    if (matchedFaqId) {
+      console.log(`📚 Matched FAQ: ${matchedFaqId}`);
+    }
     
     const systemPrompt = `You are Doc Aga, a trusted and experienced local veterinarian (parang kilalang beterinaryo sa barangay) specializing in Philippine dairy farming. You help farmers manage their cattle operations by:
 
@@ -405,17 +504,69 @@ Guidelines:
         });
       }
       
-      return new Response(followUpResponse.body, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      // Create a passthrough stream that logs after completion
+      let accumulatedResponse = '';
+      const loggingStream = new TransformStream({
+        transform(chunk, controller) {
+          controller.enqueue(chunk);
+          
+          const text = new TextDecoder().decode(chunk);
+          const lines = text.split('\n').filter(line => line.startsWith('data: '));
+          
+          lines.forEach(line => {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) accumulatedResponse += content;
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          });
+        },
+        flush() {
+          if (accumulatedResponse) {
+            logQuery(
+              supabase,
+              user.id,
+              farms?.[0]?.id || null,
+              userQuestion,
+              accumulatedResponse,
+              userImageUrl,
+              matchedFaqId
+            ).catch(err => console.error('Query logging failed:', err));
+          }
+        }
       });
+      
+      return new Response(
+        followUpResponse.body?.pipeThrough(loggingStream),
+        {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        }
+      );
     }
 
     // No tool calls, convert to streaming response
+    const aiResponseText = data.choices?.[0]?.message?.content || '';
+    
+    // Log query asynchronously (don't block response)
+    logQuery(
+      supabase,
+      user.id,
+      farms?.[0]?.id || null,
+      userQuestion,
+      aiResponseText,
+      userImageUrl,
+      matchedFaqId
+    ).catch(err => console.error('Query logging failed:', err));
+    
     const stream = new ReadableStream({
       start(controller) {
-        const text = data.choices?.[0]?.message?.content || '';
         const chunk = `data: ${JSON.stringify({
-          choices: [{ delta: { content: text } }]
+          choices: [{ delta: { content: aiResponseText } }]
         })}\n\n`;
         controller.enqueue(new TextEncoder().encode(chunk));
         controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
