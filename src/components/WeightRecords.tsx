@@ -160,11 +160,11 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
   const weightChange = latestWeight && previousWeight ? latestWeight - previousWeight : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Current Weight Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 sm:justify-between pb-3 sm:pb-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Scale className="h-5 w-5" />
             Current Weight
           </CardTitle>
@@ -230,20 +230,20 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pb-3 sm:pb-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {latestWeight ? `${latestWeight} kg` : "No data"}
               </div>
               {records[0]?.measurement_date && (
-                <p className="text-sm text-muted-foreground">
-                  Last measured: {format(new Date(records[0].measurement_date), "MMM dd, yyyy")}
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                  Last: {format(new Date(records[0].measurement_date), "MMM dd, yyyy")}
                 </p>
               )}
             </div>
             {weightChange !== null && (
-              <div className={`flex items-center gap-1 ${weightChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className={`flex items-center gap-1 text-sm sm:text-base ${weightChange >= 0 ? "text-green-600" : "text-red-600"}`}>
                 <TrendingUp className="h-4 w-4" />
                 <span className="font-medium">
                   {weightChange >= 0 ? "+" : ""}{weightChange.toFixed(1)} kg
@@ -257,17 +257,17 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
       {/* Weight Chart */}
       {chartData.length > 1 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Weight Trend</CardTitle>
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-base sm:text-lg">Weight Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={200}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={<CustomXAxisTick />} height={60} />
-                <YAxis />
+                <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} />
+                <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

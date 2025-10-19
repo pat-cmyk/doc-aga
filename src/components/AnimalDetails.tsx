@@ -309,30 +309,30 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="relative">
-              <Avatar className="h-20 w-20">
+              <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
                 <AvatarImage 
                   src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
                   alt={animal.name || "Animal"} 
                   key={animal.avatar_url}
                 />
-                <AvatarFallback>{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+                <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
               </Avatar>
               <Button
                 size="icon"
                 variant="secondary"
-                className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+                className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
               </Button>
               <input
                 ref={fileInputRef}
@@ -342,9 +342,9 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                 onChange={handleAvatarUpload}
               />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-2xl">{animal.name}</CardTitle>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
                 {computedLifeStage && (
                   <StageBadge 
                     stage={computedLifeStage}
@@ -360,20 +360,21 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                   />
                 )}
                 {expectedDeliveryDate && (
-                  <Badge className="bg-green-500 hover:bg-green-600">
+                  <Badge className="bg-green-500 hover:bg-green-600 text-xs">
                     <Baby className="h-3 w-3 mr-1" />
-                    Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                    <span className="hidden sm:inline">Due: </span>
+                    {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
                   </Badge>
                 )}
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm truncate">
                 {animal.breed} • Tag: {animal.ear_tag}
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        <CardContent className="pt-3 sm:pt-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Birth Date</p>
               <p className="font-medium">
@@ -390,12 +391,12 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
 
           {/* Parents Section */}
           {(mother || father) && (
-            <div className="mt-6 pt-6 border-t">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
+              <h3 className="text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Parents
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {mother && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Mother</p>
@@ -418,8 +419,8 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
 
           {/* Offspring Section */}
           {offspring.length > 0 && (
-            <div className="mt-6 pt-6 border-t">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
+              <h3 className="text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Offspring ({offspring.length})
               </h3>

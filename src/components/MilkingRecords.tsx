@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -138,47 +138,59 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
       <CardHeader>
         <CardTitle>Milking Production</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+      <CardContent className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {!showForm ? (
-            <Button onClick={() => setShowForm(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />Add Record
+            <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto min-h-[48px]">
+              <Plus className="h-5 w-5 mr-2" />Add Record
             </Button>
           ) : (
-            <Button onClick={() => setShowForm(false)} size="sm" variant="outline">
+            <Button onClick={() => setShowForm(false)} variant="outline" className="w-full sm:w-auto min-h-[48px]">
               Cancel
             </Button>
           )}
           
-          <Tabs value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as "all" | "cycle" | "month")} className="ml-auto">
-            <TabsList>
-              <TabsTrigger value="all" className="text-xs">All-Time</TabsTrigger>
-              <TabsTrigger value="cycle" className="text-xs" disabled={!latestCalvingDate}>This Cycle</TabsTrigger>
-              <TabsTrigger value="month" className="text-xs">Month-to-Date</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as "all" | "cycle" | "month")}>
+            <SelectTrigger className="w-full sm:w-[180px] min-h-[48px] sm:ml-auto">
+              <SelectValue placeholder="Filter by period" />
+            </SelectTrigger>
+            <SelectContent className="bg-card z-50">
+              <SelectItem value="all">All-Time</SelectItem>
+              <SelectItem value="cycle" disabled={!latestCalvingDate}>This Cycle</SelectItem>
+              <SelectItem value="month">Month-to-Date</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         
         {showForm && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} required /></div>
-            <div><Label>Liters</Label><Input type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required /></div>
-            <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1">Cancel</Button><Button type="submit" className="flex-1">Save</Button></div>
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} required className="min-h-[48px]" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="liters">Liters</Label>
+              <Input id="liters" type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required className="min-h-[48px]" />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 min-h-[48px]">Cancel</Button>
+              <Button type="submit" className="flex-1 min-h-[48px]">Save</Button>
+            </div>
           </form>
         )}
         
         {records.length > 0 ? (
           <>
-            <div className="text-xs text-muted-foreground mb-2">
+            <div className="text-sm text-muted-foreground px-1">
               Showing {filteredRecords.length} records {filterPeriod === "all" ? "(all-time)" : filterPeriod === "cycle" ? "(current cycle)" : "(this month)"}
             </div>
-            <ChartContainer key={filterPeriod} config={chartConfig} className="h-[300px] w-full">
+            <ChartContainer key={filterPeriod} config={chartConfig} className="h-[250px] sm:h-[300px] w-full">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" className="text-xs" />
-                <YAxis className="text-xs" label={{ value: 'Liters', angle: -90, position: 'insideLeft' }} />
+                <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
+                <YAxis className="text-xs" tick={{ fontSize: 11 }} label={{ value: 'Liters', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+                <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
               </LineChart>
             </ChartContainer>
           </>

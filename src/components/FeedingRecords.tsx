@@ -172,15 +172,15 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Today's Summary Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-lg">Today's Feed</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-2 sm:pb-3">
+          <CardTitle className="text-base sm:text-lg">Today's Feed</CardTitle>
           <Wheat className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{todayTotal.toFixed(2)} kg</div>
+        <CardContent className="pb-3 sm:pb-6">
+          <div className="text-2xl sm:text-3xl font-bold">{todayTotal.toFixed(2)} kg</div>
           <p className="text-xs text-muted-foreground mt-1">
             Total feed given today
           </p>
