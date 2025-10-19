@@ -15,6 +15,8 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
   const [showDialog, setShowDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
@@ -24,6 +26,35 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
     treatment: "",
     notes: ""
   });
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    const savedDialogOpen = sessionStorage.getItem('hr_dialog_open');
+    const savedFormData = sessionStorage.getItem('hr_form_data');
+    const savedPhotos = sessionStorage.getItem('hr_uploaded_photos');
+    const savedSelectingPhoto = sessionStorage.getItem('hr_selecting_photo');
+    
+    if (savedDialogOpen === '1') {
+      setShowDialog(true);
+    }
+    if (savedFormData) {
+      try {
+        setFormData(JSON.parse(savedFormData));
+      } catch (e) {
+        console.error('Failed to restore form data:', e);
+      }
+    }
+    if (savedPhotos) {
+      try {
+        setUploadedPhotos(JSON.parse(savedPhotos));
+      } catch (e) {
+        console.error('Failed to restore photos:', e);
+      }
+    }
+    if (savedSelectingPhoto === '1') {
+      setIsSelectingPhoto(true);
+    }
+  }, []);
 
   useEffect(() => {
     loadRecords();
@@ -50,6 +81,46 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
     };
   }, [animalId]);
 
+  // Persist state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('hr_dialog_open', showDialog ? '1' : '0');
+  }, [showDialog]);
+
+  useEffect(() => {
+    sessionStorage.setItem('hr_form_data', JSON.stringify(formData));
+  }, [formData]);
+
+  useEffect(() => {
+    sessionStorage.setItem('hr_uploaded_photos', JSON.stringify(uploadedPhotos));
+  }, [uploadedPhotos]);
+
+  // Visibility change handling for Samsung Flip fold/unfold
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      console.log('[HealthRecords] visibility:', document.visibilityState, {
+        isSelectingPhoto,
+        isUploadingImage,
+        showDialog
+      });
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isSelectingPhoto, isUploadingImage, showDialog]);
+
+  // Prevent navigation during upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isUploadingImage) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isUploadingImage]);
+
   const loadRecords = async () => {
     const { data, error } = await supabase
       .from("health_records")
@@ -70,11 +141,48 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
     setLoading(false);
   };
 
+  const compressImage = async (file: File, maxDim = 1600, quality = 0.8): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          const scale = Math.min(1, maxDim / Math.max(width, height));
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to compress image'));
+            }
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) {
+      setIsSelectingPhoto(false);
+      sessionStorage.removeItem('hr_selecting_photo');
+      return;
+    }
 
-    setSaving(true);
+    setIsUploadingImage(true);
     const uploadedUrls: string[] = [];
 
     try {
@@ -82,13 +190,18 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
         const file = files[i];
         if (!file.type.startsWith('image/')) continue;
 
-        const fileExt = file.name.split('.').pop();
+        // Compress image to reduce memory pressure
+        const compressedBlob = await compressImage(file);
+        
+        const fileExt = 'jpg'; // Always use jpg after compression
         const fileName = `${animalId}-health-${Date.now()}-${i}.${fileExt}`;
         const filePath = `health/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('animal-photos')
-          .upload(filePath, file);
+          .upload(filePath, compressedBlob, {
+            contentType: 'image/jpeg'
+          });
 
         if (uploadError) throw uploadError;
 
@@ -105,13 +218,20 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
         description: `${uploadedUrls.length} photo(s) added`
       });
     } catch (error: any) {
+      console.error('Photo upload error:', error);
       toast({
         title: "Upload failed",
         description: error.message,
         variant: "destructive"
       });
     } finally {
-      setSaving(false);
+      setIsUploadingImage(false);
+      setIsSelectingPhoto(false);
+      sessionStorage.removeItem('hr_selecting_photo');
+      // Reset file input
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
@@ -165,6 +285,12 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
         description: "Health record added"
       });
 
+      // Clear sessionStorage
+      sessionStorage.removeItem('hr_dialog_open');
+      sessionStorage.removeItem('hr_form_data');
+      sessionStorage.removeItem('hr_uploaded_photos');
+      sessionStorage.removeItem('hr_selecting_photo');
+      
       setShowDialog(false);
       setFormData({ visit_date: "", diagnosis: "", treatment: "", notes: "" });
       setUploadedPhotos([]);
@@ -184,6 +310,34 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
     setUploadedPhotos(uploadedPhotos.filter((_, i) => i !== index));
   };
 
+  const handleOpenChange = (open: boolean) => {
+    // Prevent closing dialog during upload
+    if (!open && isUploadingImage) {
+      toast({
+        title: "Upload in progress",
+        description: "Please wait for photos to finish uploading",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setShowDialog(open);
+    
+    // Clear sessionStorage when closing
+    if (!open) {
+      sessionStorage.removeItem('hr_dialog_open');
+      sessionStorage.removeItem('hr_form_data');
+      sessionStorage.removeItem('hr_uploaded_photos');
+      sessionStorage.removeItem('hr_selecting_photo');
+    }
+  };
+
+  const handleAddPhotosClick = () => {
+    setIsSelectingPhoto(true);
+    sessionStorage.setItem('hr_selecting_photo', '1');
+    fileInputRef.current?.click();
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -197,7 +351,7 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Health Records</CardTitle>
-          <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <Dialog open={showDialog} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-2" />
@@ -249,20 +403,27 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
                 </div>
                 <div className="space-y-2">
                   <Label>Photos</Label>
+                  {isUploadingImage && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Uploading photos...
+                    </div>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={saving}
+                    onClick={handleAddPhotosClick}
+                    disabled={saving || isUploadingImage}
                   >
                     <Camera className="h-4 w-4 mr-2" />
-                    {saving ? "Uploading..." : "Add Photos"}
+                    {isUploadingImage ? "Uploading..." : "Add Photos"}
                   </Button>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     multiple
                     className="hidden"
                     onChange={handlePhotoUpload}
@@ -287,10 +448,20 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="flex-1 min-h-[48px]">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleOpenChange(false)} 
+                    disabled={isUploadingImage}
+                    className="flex-1 min-h-[48px]"
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={saving} className="flex-1 min-h-[48px]">
+                  <Button 
+                    type="submit" 
+                    disabled={saving || isUploadingImage} 
+                    className="flex-1 min-h-[48px]"
+                  >
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Record"}
                   </Button>
                 </div>
