@@ -54,7 +54,7 @@ export const QueueStatus = () => {
       <SheetTrigger asChild>
         <Button
           size="lg"
-          className="fixed bottom-6 right-6 rounded-full shadow-lg z-40 h-14 w-14 p-0"
+          className="fixed bottom-24 sm:bottom-28 right-6 rounded-full shadow-lg z-40 h-14 w-14 p-0"
           variant={failedCount > 0 ? "destructive" : "default"}
         >
           <RefreshCw className={`h-6 w-6 ${isSyncing ? 'animate-spin' : ''}`} />
