@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Bot, User, Volume2, FileText } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInterface from "./VoiceInterface";
 
@@ -28,6 +28,7 @@ const DocAga = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -276,22 +277,22 @@ const DocAga = () => {
             return newMessages;
           });
 
+          // Stop any currently playing audio
+          if (playingAudio) {
+            playingAudio.pause();
+            playingAudio.currentTime = 0;
+          }
+
           // Auto-play the audio
           const audio = new Audio(audioUrl);
+          audio.addEventListener('ended', () => setPlayingAudio(null));
+          audio.addEventListener('pause', () => setPlayingAudio(null));
+          setPlayingAudio(audio);
           audio.play().catch(err => console.error('Audio playback error:', err));
         }
       } catch (audioError) {
         console.error('Audio generation error:', audioError);
       }
-
-      // Log the query
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("doc_aga_queries").insert({
-        user_id: user?.id,
-        question: textToSend,
-        answer: assistantResponse,
-        image_url: uploadedImageUrl
-      });
 
     } catch (error: any) {
       console.error("Doc Aga error:", error);
@@ -379,6 +380,23 @@ const DocAga = () => {
       </ScrollArea>
 
       <div className="border-t p-2 sm:p-3 space-y-2">
+        {playingAudio && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              if (playingAudio) {
+                playingAudio.pause();
+                playingAudio.currentTime = 0;
+                setPlayingAudio(null);
+              }
+            }}
+            className="w-full gap-2"
+          >
+            <Square className="h-4 w-4" />
+            Stop Audio
+          </Button>
+        )}
         {imagePreview && (
           <div className="relative inline-block">
             <img src={imagePreview} alt="Preview" className="h-16 sm:h-20 rounded" />
