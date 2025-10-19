@@ -11,6 +11,12 @@ interface QueueItem {
     animalId?: string | null;
     timestamp?: number;
     formData?: any;
+    aiInfo?: {
+      ai_bull_brand?: string;
+      ai_bull_reference?: string;
+      ai_bull_breed?: string;
+      birth_date?: string;
+    } | null;
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';

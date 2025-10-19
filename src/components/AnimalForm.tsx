@@ -186,8 +186,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
       father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
       created_by: user?.id || null,
-      is_father_ai: formData.is_father_ai,
-      ai_bull: formData.is_father_ai ? formData.ai_bull_breed : null,
     };
 
     // If offline, queue the data
@@ -196,7 +194,15 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         await addToQueue({
           id: crypto.randomUUID(),
           type: 'animal_form',
-          payload: { formData: animalData },
+          payload: { 
+            formData: animalData,
+            aiInfo: formData.is_father_ai ? {
+              ai_bull_brand: formData.ai_bull_brand,
+              ai_bull_reference: formData.ai_bull_reference,
+              ai_bull_breed: formData.ai_bull_breed,
+              birth_date: formData.birth_date
+            } : null
+          },
           createdAt: Date.now(),
         });
 

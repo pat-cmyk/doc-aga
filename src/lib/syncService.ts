@@ -93,14 +93,15 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
   if (error) throw error;
 
   // If AI was used, create AI record
-  if (formData.is_father_ai && data) {
+  if (item.payload.aiInfo && data) {
     const aiRecord = {
       animal_id: data.id,
-      performed_date: formData.birth_date,
-      technician: formData.ai_bull || 'Unknown',
+      performed_date: item.payload.aiInfo.birth_date,
+      technician: `${item.payload.aiInfo.ai_bull_brand || ''} ${item.payload.aiInfo.ai_bull_reference || ''}`.trim() || 'Unknown',
       pregnancy_confirmed: true,
       confirmed_at: new Date().toISOString(),
       created_by: formData.created_by,
+      notes: `Bull Brand: ${item.payload.aiInfo.ai_bull_brand || 'N/A'}, Reference: ${item.payload.aiInfo.ai_bull_reference || 'N/A'}, Breed: ${item.payload.aiInfo.ai_bull_breed || 'N/A'}`,
     };
 
     const { error: aiError } = await supabase
