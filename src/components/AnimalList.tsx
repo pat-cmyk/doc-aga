@@ -83,6 +83,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
+  const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
@@ -190,6 +191,34 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const uniqueBreeds = Array.from(new Set(animals.map(a => a.breed).filter(Boolean)));
   const uniqueLifeStages = Array.from(new Set(animals.map(a => a.lifeStage).filter(Boolean)));
   const uniqueMilkingStages = Array.from(new Set(animals.map(a => a.milkingStage).filter(Boolean)));
+
+  // Helper function to get cache status icon
+  const getCacheIcon = (animalId: string) => {
+    const isCached = cachedAnimalIds.has(animalId);
+    const isDownloading = downloadingAnimalIds.has(animalId);
+    
+    if (isDownloading) {
+      return (
+        <span title="Downloading for offline use...">
+          <Database className="h-3.5 w-3.5 text-yellow-500 animate-pulse inline-block ml-1" />
+        </span>
+      );
+    }
+    
+    if (isCached) {
+      return (
+        <span title="Available offline">
+          <Database className="h-3.5 w-3.5 text-green-500 inline-block ml-1" />
+        </span>
+      );
+    }
+    
+    return (
+      <span title="Not cached offline">
+        <Database className="h-3.5 w-3.5 text-gray-400 inline-block ml-1" />
+      </span>
+    );
+  };
 
   // Apply filters
   const filteredAnimals = animals.filter(animal => {
@@ -329,29 +358,44 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                 setSelectedAnimalId(animal.id);
                 onAnimalSelect?.(animal.id);
                 
-                // Pre-cache this animal's records in background
-                if (isOnline) {
-                  updateRecordsCache(animal.id).catch(err => 
-                    console.error('Error pre-caching records:', err)
-                  );
+                // Track download progress and pre-cache this animal's records in background
+                if (isOnline && !cachedAnimalIds.has(animal.id)) {
+                  setDownloadingAnimalIds(prev => new Set(prev).add(animal.id));
+                  
+                  updateRecordsCache(animal.id)
+                    .then(() => {
+                      // Re-check cache status
+                      Promise.all([
+                        getCachedAnimalDetails(animal.id),
+                        getCachedRecords(animal.id)
+                      ]).then(([details, records]) => {
+                        if (details && records) {
+                          setCachedAnimalIds(prev => new Set(prev).add(animal.id));
+                        }
+                        setDownloadingAnimalIds(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(animal.id);
+                          return newSet;
+                        });
+                      });
+                    })
+                    .catch(err => {
+                      console.error('Error pre-caching records:', err);
+                      setDownloadingAnimalIds(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(animal.id);
+                        return newSet;
+                      });
+                    });
                 }
               }}
             >
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
-                    <CardDescription>
-                      {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
-                    </CardDescription>
-                  </div>
-                  {cachedAnimalIds.has(animal.id) && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      <Database className="h-3 w-3 mr-1" />
-                      Cached
-                    </Badge>
-                  )}
-                </div>
+                <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
+                <CardDescription className="flex items-center">
+                  <span>{animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}</span>
+                  {getCacheIcon(animal.id)}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
