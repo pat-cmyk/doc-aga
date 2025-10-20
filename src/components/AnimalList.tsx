@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp, Scale, Database } from "lucide-react";
+import { Plus, Loader2, Search, Filter, Scale, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
@@ -81,7 +82,6 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
   const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -220,6 +220,23 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
     );
   };
 
+  // Check if filters are active
+  const hasActiveFilters = 
+    searchQuery !== "" || 
+    breedFilter !== "all" || 
+    genderFilter !== "all" || 
+    lifeStageFilter !== "all" || 
+    milkingStageFilter !== "all";
+
+  // Reset all filters
+  const resetAllFilters = () => {
+    setSearchQuery("");
+    setBreedFilter("all");
+    setGenderFilter("all");
+    setLifeStageFilter("all");
+    setMilkingStageFilter("all");
+  };
+
   // Apply filters
   const filteredAnimals = animals.filter(animal => {
     const matchesSearch = searchQuery === "" || 
@@ -243,104 +260,127 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         </Button>
       )}
 
-      {/* Filters */}
-      <Card>
-        <CardHeader 
-          className="cursor-pointer hover:bg-accent/50 transition-colors"
-          onClick={() => setFiltersExpanded(!filtersExpanded)}
-        >
-          <CardTitle className="text-base flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
+      {/* Filter Button and Sheet */}
+      <div className="flex items-center justify-between gap-2">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="relative">
+              <Filter className="h-4 w-4 mr-2" />
               Filters
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                setFiltersExpanded(!filtersExpanded);
-              }}
-            >
-              {filtersExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
+              {hasActiveFilters && (
+                <span className="ml-2 h-2 w-2 bg-primary rounded-full" />
               )}
             </Button>
-          </CardTitle>
-        </CardHeader>
-        {filtersExpanded && (
-          <CardContent className="space-y-4 animate-accordion-down">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or ear tag..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+            <SheetHeader className="border-b pb-4">
+              <div className="flex items-center justify-between">
+                <SheetTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filter Animals
+                </SheetTitle>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetAllFilters}
+                    className="text-xs"
+                  >
+                    Reset All
+                  </Button>
+                )}
+              </div>
+            </SheetHeader>
+            
+            <div className="space-y-4 mt-6">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or ear tag..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filter dropdowns with labels */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Breed</label>
+                  <Select value={breedFilter} onValueChange={setBreedFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Breeds" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All Breeds</SelectItem>
+                      {uniqueBreeds.map(breed => (
+                        <SelectItem key={breed} value={breed!}>{breed}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Gender</label>
+                  <Select value={genderFilter} onValueChange={setGenderFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Genders" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All Genders</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Life Stage</label>
+                  <Select value={lifeStageFilter} onValueChange={setLifeStageFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Life Stages" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All Life Stages</SelectItem>
+                      {uniqueLifeStages.map(stage => (
+                        <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Milking Stage</label>
+                  <Select value={milkingStageFilter} onValueChange={setMilkingStageFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Milking Stages" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All Milking Stages</SelectItem>
+                      {uniqueMilkingStages.map(stage => (
+                        <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Results count */}
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground text-center">
+                  Showing <span className="font-semibold text-foreground">{filteredAnimals.length}</span> of <span className="font-semibold text-foreground">{animals.length}</span> animals
+                </p>
+              </div>
             </div>
-
-            {/* Filter dropdowns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Select value={breedFilter} onValueChange={setBreedFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Breed" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">All Breeds</SelectItem>
-                  {uniqueBreeds.map(breed => (
-                    <SelectItem key={breed} value={breed!}>{breed}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={genderFilter} onValueChange={setGenderFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Gender" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">All Genders</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="male">Male</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={lifeStageFilter} onValueChange={setLifeStageFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Life Stage" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">All Life Stages</SelectItem>
-                  {uniqueLifeStages.map(stage => (
-                    <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={milkingStageFilter} onValueChange={setMilkingStageFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Milking Stage" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">All Milking Stages</SelectItem>
-                  {uniqueMilkingStages.map(stage => (
-                    <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Results count */}
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredAnimals.length} of {animals.length} animals
-            </p>
-          </CardContent>
-        )}
-      </Card>
+          </SheetContent>
+        </Sheet>
+        
+        {/* Results count shown inline on larger screens */}
+        <p className="text-sm text-muted-foreground hidden sm:block">
+          {filteredAnimals.length} of {animals.length} animals
+        </p>
+      </div>
 
       {filteredAnimals.length === 0 ? (
         <Card>
