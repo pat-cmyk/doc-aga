@@ -47,6 +47,43 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
         runtimeCaching: [
           {
+            // Cache animal data with cache-first strategy
+            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/animals\?.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "animals-cache",
+              expiration: {
+                maxAgeSeconds: 60 * 60, // 1 hour
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            // Cache records with network-first strategy
+            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/(milking_records|weight_records|health_records|ai_records)\?.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "records-cache",
+              expiration: {
+                maxAgeSeconds: 30 * 60, // 30 minutes
+              },
+            },
+          },
+          {
+            // Cache feed inventory
+            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/feed_inventory\?.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "feed-cache",
+              expiration: {
+                maxAgeSeconds: 2 * 60 * 60, // 2 hours
+              },
+            },
+          },
+          {
+            // General API cache fallback
             urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/.*/i,
             handler: "NetworkFirst",
             options: {

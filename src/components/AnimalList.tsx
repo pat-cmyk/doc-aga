@@ -10,6 +10,8 @@ import { StageBadge } from "@/components/ui/stage-badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
+import { getCachedAnimals, updateAnimalCache } from "@/lib/dataCache";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -80,6 +82,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (initialSelectedAnimalId) {
@@ -92,79 +95,41 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   }, [farmId]);
 
   const loadAnimals = async () => {
-    const { data, error } = await supabase
-      .from("animals")
-      .select("*")
-      .eq("farm_id", farmId)
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: false });
+    try {
+      // 1. Try to load from cache first
+      const cachedData = await getCachedAnimals(farmId);
+      if (cachedData) {
+        console.log('[AnimalList] Using cached data');
+        setAnimals(cachedData.data);
+        setLoading(false);
+      }
 
-    if (error) {
+      // 2. Fetch fresh data in background (if online)
+      if (isOnline) {
+        console.log('[AnimalList] Fetching fresh data...');
+        const freshData = await updateAnimalCache(farmId);
+        
+        // 3. Update UI with fresh data
+        setAnimals(freshData);
+        setLoading(false);
+      } else if (!cachedData) {
+        // Offline and no cache available
+        toast({
+          title: "Offline",
+          description: "No cached data available. Connect to load animals.",
+          variant: "destructive"
+        });
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('[AnimalList] Error loading animals:', error);
       toast({
         title: "Error loading animals",
         description: error.message,
         variant: "destructive"
       });
       setLoading(false);
-      return;
     }
-
-    // Calculate stages for each animal
-    const animalsWithStages = await Promise.all(
-      (data || []).map(async (animal) => {
-        if (animal.gender?.toLowerCase() !== "female") {
-          return { ...animal, lifeStage: null, milkingStage: null };
-        }
-
-        // Get offspring count
-        const { count: offspringCount } = await supabase
-          .from("animals")
-          .select("*", { count: "exact", head: true })
-          .eq("mother_id", animal.id);
-
-        // Get last calving date (most recent offspring birth date)
-        const { data: offspring } = await supabase
-          .from("animals")
-          .select("birth_date")
-          .eq("mother_id", animal.id)
-          .order("birth_date", { ascending: false })
-          .limit(1);
-
-        // Check for recent milking records (within last 60 days)
-        const { data: recentMilking } = await supabase
-          .from("milking_records")
-          .select("id")
-          .eq("animal_id", animal.id)
-          .gte("record_date", new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-          .limit(1);
-
-        // Check for active AI records
-        const { data: aiRecords } = await supabase
-          .from("ai_records")
-          .select("performed_date")
-          .eq("animal_id", animal.id)
-          .order("scheduled_date", { ascending: false })
-          .limit(1);
-
-        const stageData = {
-          birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
-          gender: animal.gender,
-          milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
-          offspringCount: offspringCount || 0,
-          lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
-          hasRecentMilking: (recentMilking?.length || 0) > 0,
-          hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
-        };
-
-        const lifeStage = calculateLifeStage(stageData);
-        const milkingStage = calculateMilkingStage(stageData);
-
-        return { ...animal, lifeStage, milkingStage };
-      })
-    );
-
-    setAnimals(animalsWithStages);
-    setLoading(false);
   };
 
   if (selectedAnimalId) {

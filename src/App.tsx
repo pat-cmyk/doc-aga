@@ -47,7 +47,6 @@ const SyncHandler = () => {
         const data = notification.notification.extra;
         
         if (data?.failed) {
-          // Navigate to queue status (we'll need to add this route)
           navigate('/farmhand');
         } else if (data?.type === 'animal_form') {
           navigate('/');
@@ -71,15 +70,15 @@ const SyncHandler = () => {
   }, [isOnline]);
 
   useEffect(() => {
-    // Periodic background sync every 2 minutes while online
+    // Periodic background sync every 5 minutes while online
     if (!isOnline) return;
 
-    console.log('[BackgroundSync] Setting up periodic sync (every 2 minutes)');
+    console.log('[BackgroundSync] Setting up periodic sync (every 5 minutes)');
     
     const interval = setInterval(() => {
       console.log('[BackgroundSync] Running periodic sync...');
       syncQueue();
-    }, 2 * 60 * 1000); // 2 minutes
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
       console.log('[BackgroundSync] Clearing periodic sync interval');

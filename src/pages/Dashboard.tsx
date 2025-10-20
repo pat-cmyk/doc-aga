@@ -15,10 +15,13 @@ import FarmProfile from "@/components/FarmProfile";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
+import { preloadAllData } from "@/lib/dataCache";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
@@ -120,8 +123,10 @@ const Dashboard = () => {
   useEffect(() => {
     if (farmId) {
       loadForecastData();
+      // Preload critical data when farm is selected
+      preloadAllData(farmId, isOnline);
     }
-  }, [farmId]);
+  }, [farmId, isOnline]);
 
   const loadForecastData = async () => {
     if (!farmId) return;
