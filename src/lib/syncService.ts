@@ -13,6 +13,9 @@ import { translateError } from './errorMessages';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
 
+// Flag to prevent multiple simultaneous syncs
+let isSyncing = false;
+
 async function transcribeItem(item: QueueItem): Promise<void> {
   const { audioBlob } = item.payload;
   
@@ -56,76 +59,91 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 export async function syncQueue(): Promise<void> {
+  // Prevent multiple simultaneous syncs
+  if (isSyncing) {
+    console.log('[SyncQueue] Sync already in progress, skipping...');
+    return;
+  }
+
   // Check if user is authenticated
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    console.log('Not authenticated - skipping sync');
+    console.log('[SyncQueue] Not authenticated - skipping sync');
     return;
   }
 
-  const pending = await getAllPending();
-  console.log(`[SyncQueue] Found ${pending.length} pending items to process`);
+  isSyncing = true;
+  const startTime = new Date().toISOString();
+  console.log(`[SyncQueue] Starting sync at ${startTime}`);
+
+  try {
+    const pending = await getAllPending();
+    console.log(`[SyncQueue] Found ${pending.length} pending items to process`);
   
-  if (pending.length === 0) {
-    console.log('No pending items to sync');
-    return;
-  }
+    if (pending.length === 0) {
+      console.log('[SyncQueue] No pending items to sync');
+      return;
+    }
 
-  console.log(`Syncing ${pending.length} pending items...`);
+    console.log(`[SyncQueue] Syncing ${pending.length} pending items...`);
 
-  for (const item of pending) {
-    try {
-      // Skip if awaiting confirmation or already has unconfirmed transcription
-      if (item.type === 'voice_activity') {
-        if (item.status === 'awaiting_confirmation' || 
-            (item.payload.transcription && !item.payload.transcriptionConfirmed)) {
-          console.log(`Item ${item.id} awaiting user confirmation, skipping...`);
-          continue;
+    for (const item of pending) {
+      try {
+        // Skip if awaiting confirmation or already has unconfirmed transcription
+        if (item.type === 'voice_activity') {
+          if (item.status === 'awaiting_confirmation' || 
+              (item.payload.transcription && !item.payload.transcriptionConfirmed)) {
+            console.log(`[SyncQueue] Item ${item.id} awaiting user confirmation, skipping...`);
+            continue;
+          }
+          
+          // If no transcription yet, transcribe first
+          if (!item.payload.transcription) {
+            console.log(`[SyncQueue] Transcribing item ${item.id}...`);
+            await transcribeItem(item);
+            continue; // Don't process yet, wait for confirmation
+          }
         }
         
-        // If no transcription yet, transcribe first
-        if (!item.payload.transcription) {
-          console.log(`Transcribing item ${item.id}...`);
-          await transcribeItem(item);
-          continue; // Don't process yet, wait for confirmation
+        await updateStatus(item.id, 'processing');
+        
+        if (item.type === 'animal_form') {
+          await syncAnimalForm(item);
+        } else if (item.type === 'voice_activity') {
+          await processVoiceQueue(item);
+        }
+        
+        await updateStatus(item.id, 'completed');
+        
+        // Send success notification
+        const details = item.type === 'animal_form'
+          ? `${item.payload.formData?.name || 'Animal'} (${item.payload.formData?.ear_tag})`
+          : 'Activity logged';
+        
+        await sendSyncSuccessNotification(item.type, details);
+        
+      } catch (error: any) {
+        console.error(`[SyncQueue] Failed to sync item ${item.id}:`, error);
+        
+        const retries = await incrementRetries(item.id);
+        
+        if (retries >= MAX_RETRIES) {
+          await updateStatus(item.id, 'failed', translateError(error));
+          await sendSyncFailureNotification(1, item.id);
+        } else {
+          // Retry with exponential backoff
+          const delay = RETRY_DELAYS[retries - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+          await new Promise(resolve => setTimeout(resolve, delay));
+          await updateStatus(item.id, 'pending');
         }
       }
-      
-      await updateStatus(item.id, 'processing');
-      
-      if (item.type === 'animal_form') {
-        await syncAnimalForm(item);
-      } else if (item.type === 'voice_activity') {
-        await processVoiceQueue(item);
-      }
-      
-      await updateStatus(item.id, 'completed');
-      
-      // Send success notification
-      const details = item.type === 'animal_form'
-        ? `${item.payload.formData?.name || 'Animal'} (${item.payload.formData?.ear_tag})`
-        : 'Activity logged';
-      
-      await sendSyncSuccessNotification(item.type, details);
-      
-    } catch (error: any) {
-      console.error(`Failed to sync item ${item.id}:`, error);
-      
-      const retries = await incrementRetries(item.id);
-      
-      if (retries >= MAX_RETRIES) {
-        await updateStatus(item.id, 'failed', translateError(error));
-        await sendSyncFailureNotification(1, item.id);
-      } else {
-        // Retry with exponential backoff
-        const delay = RETRY_DELAYS[retries - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-        await new Promise(resolve => setTimeout(resolve, delay));
-        await updateStatus(item.id, 'pending');
-      }
     }
+    
+    const endTime = new Date().toISOString();
+    console.log(`[SyncQueue] Sync completed at ${endTime}`);
+  } finally {
+    isSyncing = false;
   }
-  
-  console.log('Sync completed');
 }
 
 async function syncAnimalForm(item: QueueItem): Promise<void> {

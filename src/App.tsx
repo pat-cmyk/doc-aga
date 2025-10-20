@@ -70,6 +70,23 @@ const SyncHandler = () => {
     }
   }, [isOnline]);
 
+  useEffect(() => {
+    // Periodic background sync every 2 minutes while online
+    if (!isOnline) return;
+
+    console.log('[BackgroundSync] Setting up periodic sync (every 2 minutes)');
+    
+    const interval = setInterval(() => {
+      console.log('[BackgroundSync] Running periodic sync...');
+      syncQueue();
+    }, 2 * 60 * 1000); // 2 minutes
+
+    return () => {
+      console.log('[BackgroundSync] Clearing periodic sync interval');
+      clearInterval(interval);
+    };
+  }, [isOnline]);
+
   return null;
 };
 

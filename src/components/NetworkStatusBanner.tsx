@@ -8,18 +8,25 @@ export const NetworkStatusBanner = () => {
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   useEffect(() => {
     const updateCount = async () => {
       const count = await getPendingCount();
+      const prevCount = pendingCount;
       setPendingCount(count);
+      
+      // Update last sync time if count decreased (items were processed)
+      if (isOnline && prevCount > 0 && count < prevCount) {
+        setLastSyncTime(new Date());
+      }
     };
 
     updateCount();
     const interval = setInterval(updateCount, 2000); // Update every 2s
 
     return () => clearInterval(interval);
-  }, [isOnline]);
+  }, [isOnline, pendingCount]);
 
   useEffect(() => {
     if (isOnline && pendingCount === 0) {
@@ -36,6 +43,11 @@ export const NetworkStatusBanner = () => {
         <div className="flex items-center justify-center gap-2 text-white">
           <Wifi className="h-5 w-5" />
           <span className="font-medium">✅ Back online and synced!</span>
+          {lastSyncTime && (
+            <span className="text-xs opacity-90">
+              {lastSyncTime.toLocaleTimeString()}
+            </span>
+          )}
         </div>
       </div>
     );
