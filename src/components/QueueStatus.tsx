@@ -287,6 +287,18 @@ export const QueueStatus = () => {
 
                       {item.status === 'awaiting_confirmation' && item.payload.transcription && (
                         <div className="space-y-2 bg-yellow-50 p-3 rounded-md border border-yellow-200">
+                          {/* Display animal info if available */}
+                          {(item.payload.animalContext?.name || item.payload.animalId) && (
+                            <p className="text-xs text-muted-foreground mb-2">
+                              <strong>Animal:</strong> {
+                                item.payload.animalContext?.name 
+                                  ? `${item.payload.animalContext.name} (${item.payload.animalContext.ear_tag || 'N/A'})`
+                                  : animals.find(a => a.id === item.payload.animalId)?.name || 
+                                    animals.find(a => a.id === item.payload.animalId)?.ear_tag || 
+                                    'Unknown'
+                              }
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground font-medium">Please confirm or edit the transcription:</p>
                           <Textarea 
                             value={editingTranscription[item.id] || item.payload.transcription}
@@ -320,6 +332,18 @@ export const QueueStatus = () => {
 
                       {item.error?.includes('NEEDS_ANIMAL_SELECTION') && item.status === 'failed' && (
                         <div className="space-y-2 bg-blue-50 p-3 rounded-md border border-blue-200">
+                          {/* Display current animal info if available */}
+                          {(item.payload.animalContext?.name || item.payload.animalId) && (
+                            <p className="text-xs text-muted-foreground mb-1">
+                              <strong>Current:</strong> {
+                                item.payload.animalContext?.name 
+                                  ? `${item.payload.animalContext.name} (${item.payload.animalContext.ear_tag || 'N/A'})`
+                                  : animals.find(a => a.id === item.payload.animalId)?.name || 
+                                    animals.find(a => a.id === item.payload.animalId)?.ear_tag || 
+                                    'Unknown'
+                              }
+                            </p>
+                          )}
                           <p className="text-xs font-medium text-blue-900">This activity needs an animal:</p>
                           <Select 
                             value={selectedAnimal[item.id] || ''} 

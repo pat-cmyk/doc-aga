@@ -10,6 +10,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { addToQueue } from '@/lib/offlineQueue';
 import { compressAudio } from '@/lib/audioCompression';
 import { getOfflineMessage } from '@/lib/errorMessages';
+import { getCachedAnimalDetails } from '@/lib/dataCache';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -24,32 +25,92 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [mode, setMode] = useState<'idle' | 'activity' | 'doc-aga' | 'select-animal'>('idle');
   const [docAgaQuery, setDocAgaQuery] = useState<string | null>(null);
-  const [animalContext, setAnimalContext] = useState<{ name: string; ear_tag: string } | null>(null);
+  const [animalContext, setAnimalContext] = useState<{ 
+    name: string; 
+    ear_tag: string;
+    gender?: string;
+    breed?: string;
+    birth_date?: string;
+    life_stage?: string;
+  } | null>(null);
   const [needsAnimalSelection, setNeedsAnimalSelection] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Load animal context when animalId changes
+  // Resilient animalId fallback from URL if prop not provided
+  const effectiveAnimalId = animalId || (() => {
+    const pathname = window.location.pathname;
+    const match = pathname.match(/\/animals\/([a-f0-9-]+)/);
+    return match ? match[1] : undefined;
+  })();
+
+  // Load animal context - offline-safe
   useEffect(() => {
     const loadAnimalContext = async () => {
-      if (!animalId) {
+      if (!effectiveAnimalId || !farmId) {
         setAnimalContext(null);
         return;
       }
-      
-      const { data } = await supabase
-        .from('animals')
-        .select('name, ear_tag')
-        .eq('id', animalId)
-        .single();
-      
-      if (data) {
-        setAnimalContext(data);
+
+      try {
+        if (!isOnline) {
+          // Offline: use cache
+          console.info('[VoiceRecord] Loading animal context from cache (offline)');
+          const cached = await getCachedAnimalDetails(effectiveAnimalId, farmId);
+          if (cached?.animal) {
+            setAnimalContext({
+              name: cached.animal.name || '',
+              ear_tag: cached.animal.ear_tag || '',
+              gender: cached.animal.gender || undefined,
+              breed: cached.animal.breed || undefined,
+              birth_date: cached.animal.birth_date || undefined,
+              life_stage: cached.animal.life_stage || undefined,
+            });
+          }
+        } else {
+          // Online: fetch from backend with cache fallback
+          const { data, error } = await supabase
+            .from('animals')
+            .select('name, ear_tag, gender, breed, birth_date, life_stage')
+            .eq('id', effectiveAnimalId)
+            .single();
+
+          if (error) throw error;
+          
+          if (data) {
+            setAnimalContext({
+              name: data.name || '',
+              ear_tag: data.ear_tag || '',
+              gender: data.gender || undefined,
+              breed: data.breed || undefined,
+              birth_date: data.birth_date || undefined,
+              life_stage: data.life_stage || undefined,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[VoiceRecord] Error loading animal context:', error);
+        // Fallback to cache on error
+        try {
+          const cached = await getCachedAnimalDetails(effectiveAnimalId, farmId);
+          if (cached?.animal) {
+            setAnimalContext({
+              name: cached.animal.name || '',
+              ear_tag: cached.animal.ear_tag || '',
+              gender: cached.animal.gender || undefined,
+              breed: cached.animal.breed || undefined,
+              birth_date: cached.animal.birth_date || undefined,
+              life_stage: cached.animal.life_stage || undefined,
+            });
+          }
+        } catch (cacheError) {
+          console.error('[VoiceRecord] Cache fallback also failed:', cacheError);
+        }
       }
     };
 
     loadAnimalContext();
-  }, [animalId]);
+  }, [effectiveAnimalId, farmId, isOnline]);
 
   const startRecording = async () => {
     try {
@@ -106,13 +167,18 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
       if (!isOnline) {
         const compressedBlob = await compressAudio(blob);
         
+        console.info('[VoiceRecord] Enqueuing offline:', { 
+          hasAnimalContext: !!animalContext, 
+          animalId: effectiveAnimalId 
+        });
+        
         await addToQueue({
           id: crypto.randomUUID(),
           type: 'voice_activity',
           payload: {
             audioBlob: compressedBlob,
             farmId,
-            animalId: animalId || null,
+            animalId: effectiveAnimalId || null,
             animalContext: animalContext || null,
             timestamp: Date.now(),
           },
@@ -178,11 +244,17 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
         });
 
         // Step 2: Process transcription with AI
+        console.info('[VoiceRecord] Processing online:', { 
+          hasAnimalContext: !!animalContext, 
+          animalId: effectiveAnimalId 
+        });
+        
         const { data: aiData, error: aiError } = await supabase.functions.invoke('process-farmhand-activity', {
           body: { 
             transcription: transcriptionText,
             farmId,
-            animalId: animalId || undefined
+            animalId: effectiveAnimalId || undefined,
+            animalContext: animalContext || undefined
           }
         });
 
