@@ -509,7 +509,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
             supabase,
             farmId,
             activity.unit,
-            null  // Force fresh lookup
+            undefined  // Force fresh lookup
           );
           
           // MUST succeed or provide clear options
@@ -597,13 +597,15 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
               let amountKg = extractedData.quantity;
               if (extractedData.unit && ['bales', 'bags', 'barrels'].includes(extractedData.unit)) {
                 const weightPerUnit = await getLatestWeightPerUnit(supabase, farmId, extractedData.feed_type, extractedData.unit);
-                if (weightPerUnit) {
-                  amountKg = extractedData.quantity * weightPerUnit;
-                } else {
-                  const defaultWeight = DEFAULT_WEIGHTS[extractedData.unit as keyof typeof DEFAULT_WEIGHTS] || 1;
-                  amountKg = extractedData.quantity * defaultWeight;
-                  console.log(`⚠️ Using default weight: ${defaultWeight} kg per ${extractedData.unit}`);
+                if (!weightPerUnit) {
+                  // ❌ NO INVENTORY MATCH - MUST ADD INVENTORY FIRST
+                  throw new Error(
+                    `❌ Walang inventory entry para sa "${extractedData.feed_type}" na naka-${extractedData.unit}. Magdagdag muna ng inventory entry bago mag-record ng feeding. / ` +
+                    `❌ No inventory entry found for "${extractedData.feed_type}" in ${extractedData.unit}. Please add an inventory entry before recording feeding activities.`
+                  );
                 }
+                amountKg = extractedData.quantity * weightPerUnit;
+                console.log(`✅ Used inventory weight: ${weightPerUnit} kg per ${extractedData.unit} → ${amountKg} kg total`);
               }
               
               // TIER 4: FINAL SAFETY CHECK #2 - Reject zero or negative weight
@@ -732,16 +734,16 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
           feedActivity.unit
         );
         
-        let totalKg: number;
-        if (weightPerUnit) {
-          totalKg = feedActivity.quantity * weightPerUnit;
-          console.log(`Converted ${feedActivity.quantity} ${feedActivity.unit} to ${totalKg} kg using inventory weight (${weightPerUnit} kg/unit)`);
-        } else {
-          // Fallback to default weights
-          const defaultWeight = DEFAULT_WEIGHTS[feedActivity.unit as keyof typeof DEFAULT_WEIGHTS] || 1;
-          totalKg = feedActivity.quantity * defaultWeight;
-          console.log(`Using default weight: ${defaultWeight} kg per ${feedActivity.unit}. Total: ${totalKg} kg`);
+        // Require inventory match for bulk feeding
+        if (!weightPerUnit) {
+          // ❌ NO INVENTORY MATCH FOR BULK FEEDING - MUST ADD INVENTORY FIRST
+          throw new Error(
+            `❌ Walang inventory entry para sa "${feedActivity.feed_type}" na naka-${feedActivity.unit}. Magdagdag muna ng inventory entry bago mag-record ng bulk feeding. / ` +
+            `❌ No inventory entry found for "${feedActivity.feed_type}" in ${feedActivity.unit}. Please add an inventory entry before recording bulk feeding activities.`
+          );
         }
+        const totalKg = feedActivity.quantity * weightPerUnit;
+        console.log(`✅ Used inventory weight for bulk feeding: ${feedActivity.quantity} ${feedActivity.unit} = ${totalKg} kg (${weightPerUnit} kg/unit)`);
         
         // Calculate proportional distribution for this feed
         const distributions = animals.map(animal => {
