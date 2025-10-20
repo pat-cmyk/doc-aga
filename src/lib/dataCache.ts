@@ -1,6 +1,101 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLifeStage, calculateMilkingStage } from './animalStages';
+import { toast } from '@/hooks/use-toast';
+
+// ============= CACHE PROGRESS SYSTEM =============
+
+export interface CacheProgress {
+  phase: 'animals' | 'records' | 'feed' | 'farm' | 'complete';
+  current: number;
+  total: number;
+  message: string;
+}
+
+type CacheProgressListener = (progress: CacheProgress) => void;
+
+const cacheProgressListeners: Set<CacheProgressListener> = new Set();
+
+export function onCacheProgress(listener: CacheProgressListener) {
+  cacheProgressListeners.add(listener);
+  return () => {
+    cacheProgressListeners.delete(listener);
+  };
+}
+
+function emitProgress(progress: CacheProgress) {
+  cacheProgressListeners.forEach(listener => listener(progress));
+}
+
+// ============= CACHE STATS =============
+
+export interface CacheStats {
+  animals: {
+    count: number;
+    lastUpdated: Date | null;
+    isFresh: boolean; // < 30 min old
+  };
+  records: {
+    count: number;
+    lastUpdated: Date | null;
+  };
+  feedInventory: {
+    itemCount: number;
+    lastUpdated: Date | null;
+  };
+  isReady: boolean; // All critical data cached
+}
+
+export async function getCacheStats(farmId: string): Promise<CacheStats> {
+  try {
+    const db = await getDB();
+    const [animalsCache, feedCache] = await Promise.all([
+      db.get('animals', farmId),
+      db.get('feedInventory', farmId),
+    ]);
+
+    const animalLastUpdated = animalsCache?.lastUpdated 
+      ? new Date(animalsCache.lastUpdated) 
+      : null;
+    const animalsFresh = animalsCache?.lastUpdated 
+      ? Date.now() - animalsCache.lastUpdated < 30 * 60 * 1000 
+      : false;
+
+    // Count total records cached
+    const allRecords = await db.getAll('records');
+    const totalRecords = allRecords.reduce((sum, r) => 
+      sum + r.milking.length + r.weight.length + r.health.length + r.ai.length + r.feeding.length, 
+      0
+    );
+
+    return {
+      animals: {
+        count: animalsCache?.data?.length || 0,
+        lastUpdated: animalLastUpdated,
+        isFresh: animalsFresh,
+      },
+      records: {
+        count: totalRecords,
+        lastUpdated: allRecords.length > 0 && allRecords[0]?.lastUpdated 
+          ? new Date(allRecords[0].lastUpdated) 
+          : null,
+      },
+      feedInventory: {
+        itemCount: feedCache?.items?.length || 0,
+        lastUpdated: feedCache?.lastUpdated ? new Date(feedCache.lastUpdated) : null,
+      },
+      isReady: (animalsCache?.data?.length || 0) > 0,
+    };
+  } catch (error) {
+    console.error('Error getting cache stats:', error);
+    return {
+      animals: { count: 0, lastUpdated: null, isFresh: false },
+      records: { count: 0, lastUpdated: null },
+      feedInventory: { itemCount: 0, lastUpdated: null },
+      isReady: false,
+    };
+  }
+}
 
 interface Animal {
   id: string;
@@ -119,7 +214,7 @@ export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache 
   }
 }
 
-export async function updateAnimalCache(farmId: string): Promise<Animal[]> {
+export async function updateAnimalCache(farmId: string, emitProgressUpdates = false): Promise<Animal[]> {
   try {
     const { data: animals, error } = await supabase
       .from('animals')
@@ -130,16 +225,46 @@ export async function updateAnimalCache(farmId: string): Promise<Animal[]> {
 
     if (error) throw error;
     
+    const totalAnimals = animals?.length || 0;
+    
     // Pre-cache records for each animal (in background)
-    if (animals && animals.length > 0) {
-      // Don't await - let this run in background
+    if (animals && animals.length > 0 && emitProgressUpdates) {
+      emitProgress({
+        phase: 'records',
+        current: 0,
+        total: totalAnimals,
+        message: 'Caching animal records...',
+      });
+      
+      // Cache records with progress tracking
+      for (let i = 0; i < animals.length; i++) {
+        await updateRecordsCache(animals[i].id);
+        if (emitProgressUpdates) {
+          emitProgress({
+            phase: 'records',
+            current: i + 1,
+            total: totalAnimals,
+            message: `Caching records (${i + 1}/${totalAnimals})...`,
+          });
+        }
+      }
+    } else if (animals && animals.length > 0) {
+      // Don't await - let this run in background (non-progress mode)
       Promise.all(animals.map(animal => updateRecordsCache(animal.id)))
         .catch(err => console.error('[DataCache] Error pre-caching records:', err));
     }
 
     // Calculate stages for each animal
     const animalsWithStages = await Promise.all(
-      (animals || []).map(async (animal) => {
+      (animals || []).map(async (animal, index) => {
+        if (emitProgressUpdates) {
+          emitProgress({
+            phase: 'animals',
+            current: index + 1,
+            total: totalAnimals,
+            message: `Processing animals (${index + 1}/${totalAnimals})...`,
+          });
+        }
         if (animal.gender?.toLowerCase() !== 'female') {
           return { ...animal, lifeStage: null, milkingStage: null };
         }
@@ -408,16 +533,69 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
 
   console.log('[DataCache] Preloading critical data for farm:', farmId);
 
+  // Show start toast
+  toast({
+    title: "📦 Preparing offline data...",
+    description: "This will only take a moment",
+  });
+
   try {
-    await Promise.all([
-      updateAnimalCache(farmId),
-      updateFeedInventoryCache(farmId),
-      updateFarmDataCache(farmId),
-    ]);
+    // Phase 1: Animals
+    emitProgress({
+      phase: 'animals',
+      current: 0,
+      total: 100,
+      message: 'Loading animals...',
+    });
+    
+    const animals = await updateAnimalCache(farmId, true);
+    
+    // Phase 2: Feed Inventory
+    emitProgress({
+      phase: 'feed',
+      current: 0,
+      total: 1,
+      message: 'Caching feed inventory...',
+    });
+    
+    await updateFeedInventoryCache(farmId);
+    
+    // Phase 3: Farm Data
+    emitProgress({
+      phase: 'farm',
+      current: 0,
+      total: 1,
+      message: 'Caching farm data...',
+    });
+    
+    await updateFarmDataCache(farmId);
+    
+    // Complete
+    emitProgress({
+      phase: 'complete',
+      current: 1,
+      total: 1,
+      message: 'Cache complete!',
+    });
 
     console.log('[DataCache] Preload complete');
+    
+    // Get final stats for success message
+    const stats = await getCacheStats(farmId);
+    
+    toast({
+      title: "✅ Offline cache ready!",
+      description: `${stats.animals.count} animals and ${stats.records.count} records available offline`,
+      duration: 5000,
+    });
   } catch (error) {
     console.error('[DataCache] Preload failed:', error);
+    
+    toast({
+      title: "⚠️ Cache incomplete",
+      description: "Some data may not be available offline",
+      variant: "destructive",
+    });
   }
 }
 
