@@ -583,7 +583,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
             message: `Ang "${activity.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna bago mag-record. / "${activity.feed_type}" is not in your feed inventory. Please add it first before recording.`
           }),
           { 
-            status: 400, 
+            status: 200, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
