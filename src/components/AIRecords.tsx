@@ -33,8 +33,10 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
       if (data) {
         setRecords(data);
       }
-      setLoading(false);
     }
+    
+    // Always set loading to false, even if offline with no cache
+    setLoading(false);
   };
 
   useEffect(() => {

@@ -150,8 +150,10 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
       } else {
         setRecords(data || []);
       }
-      setLoading(false);
     }
+    
+    // Always set loading to false, even if offline with no cache
+    setLoading(false);
   };
 
   const compressImage = async (file: File, maxDim = 1600, quality = 0.8): Promise<Blob> => {

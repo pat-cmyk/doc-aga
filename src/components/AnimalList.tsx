@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
-import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords } from "@/lib/dataCache";
+import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 // Helper function to get stage definitions
@@ -105,11 +105,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         setAnimals(cachedData.data);
         setLoading(false);
         
-        // Check which animals have cached records
+        // Check which animals have COMPLETE cached data (both details and records)
         const cached = new Set<string>();
         for (const animal of cachedData.data) {
+          const animalDetails = await getCachedAnimalDetails(animal.id);
           const records = await getCachedRecords(animal.id);
-          if (records) {
+          // Only mark as cached if BOTH animal data and records exist
+          if (animalDetails && records) {
             cached.add(animal.id);
           }
         }
@@ -125,11 +127,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         setAnimals(freshData);
         setLoading(false);
         
-        // Update cached IDs
+        // Update cached IDs - check for COMPLETE cached data
         const cached = new Set<string>();
         for (const animal of freshData) {
+          const animalDetails = await getCachedAnimalDetails(animal.id);
           const records = await getCachedRecords(animal.id);
-          if (records) {
+          // Only mark as cached if BOTH animal data and records exist
+          if (animalDetails && records) {
             cached.add(animal.id);
           }
         }

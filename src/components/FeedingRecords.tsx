@@ -101,7 +101,6 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
         if (error) throw error;
         setRecords(data || []);
-        setLoading(false);
       }
     } catch (error) {
       console.error("Error loading feeding records:", error);
@@ -110,6 +109,8 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
         description: "Failed to load feeding records",
         variant: "destructive",
       });
+    } finally {
+      // Always set loading to false, even if offline with no cache
       setLoading(false);
     }
   };

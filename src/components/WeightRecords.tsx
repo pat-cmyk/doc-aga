@@ -94,8 +94,10 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
       } else {
         setRecords(data || []);
       }
-      setLoading(false);
     }
+    
+    // Always set loading to false, even if offline with no cache
+    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

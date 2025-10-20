@@ -165,7 +165,9 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
 
       // If offline and we have cached data, stop here
       if (!isOnline) {
+        setLoading(false); // Always stop loading when offline
         if (!cached) {
+          setAnimal(null); // Set to null so UI can show proper message
           toast({
             title: "Offline",
             description: "No cached data available for this animal",
@@ -349,6 +351,25 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
       <div className="text-center py-8">
         <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
       </div>
+    );
+  }
+
+  // Show helpful message when offline with no data
+  if (!animal && !isOnline) {
+    return (
+      <Card className="m-4">
+        <CardContent className="pt-6 text-center">
+          <WifiOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-lg font-medium mb-2">No Offline Data Available</p>
+          <p className="text-muted-foreground mb-4">
+            This animal's data hasn't been cached yet. Connect to the internet to view and download it.
+          </p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

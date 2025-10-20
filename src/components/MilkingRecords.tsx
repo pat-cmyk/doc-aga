@@ -84,8 +84,10 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
     if (isOnline) {
       const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: true });
       setRecords(data || []);
-      setLoading(false);
     }
+    
+    // Always set loading to false, even if offline with no cache
+    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
