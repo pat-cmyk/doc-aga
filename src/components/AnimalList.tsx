@@ -109,7 +109,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         // Check which animals have COMPLETE cached data (both details and records)
         const cached = new Set<string>();
         for (const animal of cachedData.data) {
-          const animalDetails = await getCachedAnimalDetails(animal.id);
+          const animalDetails = await getCachedAnimalDetails(animal.id, farmId);
           const records = await getCachedRecords(animal.id);
           // Only mark as cached if BOTH animal data and records exist
           if (animalDetails && records) {
@@ -131,7 +131,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         // Update cached IDs - check for COMPLETE cached data
         const cached = new Set<string>();
         for (const animal of freshData) {
-          const animalDetails = await getCachedAnimalDetails(animal.id);
+          const animalDetails = await getCachedAnimalDetails(animal.id, farmId);
           const records = await getCachedRecords(animal.id);
           // Only mark as cached if BOTH animal data and records exist
           if (animalDetails && records) {
@@ -160,7 +160,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   };
 
   if (selectedAnimalId) {
-    return <AnimalDetails animalId={selectedAnimalId} onBack={() => {
+    return <AnimalDetails animalId={selectedAnimalId} farmId={farmId} onBack={() => {
       setSelectedAnimalId(null);
       onAnimalSelect?.(null);
     }} />;
@@ -406,7 +406,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                     .then(() => {
                       // Re-check cache status
                       Promise.all([
-                        getCachedAnimalDetails(animal.id),
+                        getCachedAnimalDetails(animal.id, farmId),
                         getCachedRecords(animal.id)
                       ]).then(([details, records]) => {
                         if (details && records) {

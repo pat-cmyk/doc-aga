@@ -92,10 +92,11 @@ interface OffspringAnimal {
 
 interface AnimalDetailsProps {
   animalId: string;
+  farmId: string;
   onBack: () => void;
 }
 
-const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
+const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [mother, setMother] = useState<ParentAnimal | null>(null);
   const [father, setFather] = useState<ParentAnimal | null>(null);
@@ -179,7 +180,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
       setLoading(true);
 
       // Try cache first
-      const cached = await getCachedAnimalDetails(animalId);
+      const cached = await getCachedAnimalDetails(animalId, farmId);
       if (cached) {
         setAnimal(cached.animal as Animal);
         setMother(cached.mother as ParentAnimal | null);

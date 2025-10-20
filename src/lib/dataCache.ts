@@ -476,7 +476,7 @@ export async function updateFarmDataCache(farmId: string): Promise<FarmDataCache
 // ============= SINGLE ANIMAL CACHE =============
 
 // Get single animal with all related data from cache
-export async function getCachedAnimalDetails(animalId: string): Promise<{
+export async function getCachedAnimalDetails(animalId: string, farmId: string): Promise<{
   animal: Animal | null;
   mother: Animal | null;
   father: Animal | null;
@@ -487,7 +487,7 @@ export async function getCachedAnimalDetails(animalId: string): Promise<{
     const db = await getDB();
     
     // Get all animals from cache (to find parents/offspring)
-    const allAnimalsCache = await db.get('animals', 'animals');
+    const allAnimalsCache = await db.get('animals', farmId);
     if (!allAnimalsCache || !allAnimalsCache.data) return null;
     
     // Find the specific animal
@@ -520,6 +520,18 @@ export async function getCachedAnimalDetails(animalId: string): Promise<{
   } catch (error) {
     console.error('[DataCache] Error getting cached animal details:', error);
     return null;
+  }
+}
+
+// Check if animal is fully cached (both details and records)
+export async function isAnimalFullyCached(animalId: string, farmId: string): Promise<boolean> {
+  try {
+    const details = await getCachedAnimalDetails(animalId, farmId);
+    const records = await getCachedRecords(animalId);
+    return !!(details && records);
+  } catch (error) {
+    console.error('[DataCache] Error checking if animal is fully cached:', error);
+    return false;
   }
 }
 

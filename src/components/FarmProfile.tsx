@@ -98,6 +98,7 @@ const FarmProfile = ({ farmId, onBack }: FarmProfileProps) => {
     return (
       <AnimalDetails
         animalId={selectedAnimalId}
+        farmId={farmId}
         onBack={() => setSelectedAnimalId(null)}
       />
     );
