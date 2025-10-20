@@ -557,6 +557,102 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
     }
 
+    // Insert record for single animal activities
+    if (finalAnimalId && extractedData.activity_type && !hasMultipleFeeds) {
+      const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];
+      const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
+      
+      try {
+        switch (extractedData.activity_type) {
+          case 'feeding':
+            if (extractedData.quantity && extractedData.feed_type) {
+              // Convert to kg if needed
+              let amountKg = extractedData.quantity;
+              if (extractedData.unit && ['bales', 'bags', 'barrels'].includes(extractedData.unit)) {
+                const weightPerUnit = await getLatestWeightPerUnit(supabase, farmId, extractedData.feed_type, extractedData.unit);
+                if (weightPerUnit) {
+                  amountKg = extractedData.quantity * weightPerUnit;
+                } else {
+                  const defaultWeight = DEFAULT_WEIGHTS[extractedData.unit as keyof typeof DEFAULT_WEIGHTS] || 1;
+                  amountKg = extractedData.quantity * defaultWeight;
+                }
+              }
+              
+              const { error: feedError } = await supabase.from('feeding_records').insert({
+                animal_id: finalAnimalId,
+                record_datetime: recordDatetime,
+                feed_type: extractedData.feed_type,
+                kilograms: amountKg,
+                notes: extractedData.notes,
+                created_by: user.id
+              });
+              
+              if (feedError) throw feedError;
+              console.log(`✓ Inserted feeding record: ${amountKg} kg of ${extractedData.feed_type}`);
+            }
+            break;
+            
+          case 'weight_measurement':
+            if (extractedData.quantity) {
+              const { error: weightError } = await supabase.from('weight_records').insert({
+                animal_id: finalAnimalId,
+                weight_kg: extractedData.quantity,
+                measurement_date: recordDate,
+                recorded_by: user.id,
+                notes: extractedData.notes
+              });
+              
+              if (weightError) throw weightError;
+              console.log(`✓ Inserted weight record: ${extractedData.quantity} kg`);
+            }
+            break;
+            
+          case 'milking':
+            if (extractedData.quantity) {
+              const { error: milkError } = await supabase.from('milking_records').insert({
+                animal_id: finalAnimalId,
+                record_date: recordDate,
+                liters: extractedData.quantity,
+                created_by: user.id
+              });
+              
+              if (milkError) throw milkError;
+              console.log(`✓ Inserted milking record: ${extractedData.quantity} liters`);
+            }
+            break;
+            
+          case 'injection':
+            const { error: injectionError } = await supabase.from('injection_records').insert({
+              animal_id: finalAnimalId,
+              record_datetime: recordDatetime,
+              medicine_name: extractedData.medicine_name,
+              dosage: extractedData.dosage,
+              instructions: extractedData.notes,
+              created_by: user.id
+            });
+            
+            if (injectionError) throw injectionError;
+            console.log(`✓ Inserted injection record: ${extractedData.medicine_name}`);
+            break;
+            
+          case 'health_observation':
+            const { error: healthError } = await supabase.from('health_records').insert({
+              animal_id: finalAnimalId,
+              visit_date: recordDate,
+              notes: extractedData.notes,
+              created_by: user.id
+            });
+            
+            if (healthError) throw healthError;
+            console.log(`✓ Inserted health record`);
+            break;
+        }
+      } catch (dbError) {
+        console.error('Database insertion error:', dbError);
+        throw new Error(`Failed to save ${extractedData.activity_type} record: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+      }
+    }
+
     // Handle multiple feeding activities (bulk feeding with multiple feed types)
     if (hasMultipleFeeds && feedingActivities.every((a: any) => !a.animal_identifier)) {
       console.log(`Processing ${feedingActivities.length} different feed types for bulk feeding`);
@@ -625,6 +721,22 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
           };
         });
         
+        // Insert feeding records for each animal for this feed type
+        const recordDatetime = feedActivity.validated_datetime || new Date().toISOString();
+        const insertPromises = distributions.map(dist => 
+          supabase.from('feeding_records').insert({
+            animal_id: dist.animal_id,
+            record_datetime: recordDatetime,
+            feed_type: feedActivity.feed_type,
+            kilograms: dist.feed_amount,
+            notes: `Bulk feeding - ${feedActivity.quantity} ${feedActivity.unit} distributed proportionally${feedActivity.notes ? ': ' + feedActivity.notes : ''}`,
+            created_by: user.id
+          })
+        );
+
+        await Promise.all(insertPromises);
+        console.log(`✓ Inserted ${distributions.length} feeding records for ${feedActivity.feed_type}`);
+        
         feeds.push({
           feed_type: feedActivity.feed_type,
           quantity: feedActivity.quantity,
@@ -636,7 +748,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         });
       }
       
-      console.log(`✓ Returning bulk feeding data with ${feeds.length} feed types`);
+      console.log(`✓ Returning bulk feeding data with ${feeds.length} feed types and inserted records`);
       
       return new Response(
         JSON.stringify({
@@ -719,6 +831,22 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
       console.log('Distribution calculated:', distributions);
       
+      // Insert feeding records for each animal
+      const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
+      const insertPromises = distributions.map(dist => 
+        supabase.from('feeding_records').insert({
+          animal_id: dist.animal_id,
+          record_datetime: recordDatetime,
+          feed_type: extractedData.feed_type,
+          kilograms: dist.feed_amount,
+          notes: `Bulk feeding - ${extractedData.quantity} ${extractedData.unit} distributed proportionally${extractedData.notes ? ': ' + extractedData.notes : ''}`,
+          created_by: user.id
+        })
+      );
+
+      await Promise.all(insertPromises);
+      console.log(`✓ Inserted ${distributions.length} bulk feeding records`);
+      
       console.log('✓ Returning bulk feeding data with feed_type:', extractedData.feed_type);
 
       return new Response(
@@ -741,8 +869,10 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
     return new Response(
       JSON.stringify({
-        ...extractedData,
-        animal_id: finalAnimalId
+        success: true,
+        activity_type: extractedData.activity_type,
+        animal_id: finalAnimalId,
+        message: 'Activity recorded successfully'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
