@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Calendar, CheckCircle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import ScheduleAIDialog from "./ScheduleAIDialog";
+import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
 import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedRecords } from "@/lib/dataCache";
 
 const AIRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -13,13 +15,26 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
   const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
-    const { data } = await supabase
-      .from("ai_records")
-      .select("*")
-      .eq("animal_id", animalId)
-      .order("scheduled_date", { ascending: false });
-    setRecords(data || []);
-    setLoading(false);
+    // Try cache first
+    const cached = await getCachedRecords(animalId);
+    if (cached?.ai) {
+      setRecords(cached.ai);
+      setLoading(false);
+    }
+    
+    // Fetch fresh if online
+    if (isOnline) {
+      const { data } = await supabase
+        .from("ai_records")
+        .select("*")
+        .eq("animal_id", animalId)
+        .order("scheduled_date", { ascending: false });
+      
+      if (data) {
+        setRecords(data);
+      }
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -33,7 +48,11 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>AI/Breeding Records</CardTitle>
-          <ScheduleAIDialog animalId={animalId} onSuccess={loadRecords} />
+          <ScheduleAIDialog 
+            animalId={animalId} 
+            onSuccess={loadRecords} 
+            disabled={!isOnline}
+          />
         </div>
       </CardHeader>
       <CardContent>

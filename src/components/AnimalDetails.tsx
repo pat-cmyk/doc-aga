@@ -119,10 +119,10 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
       // Try cache first
       const cached = await getCachedAnimalDetails(animalId);
       if (cached) {
-        setAnimal(cached.animal);
-        setMother(cached.mother);
-        setFather(cached.father);
-        setOffspring(cached.offspring);
+        setAnimal(cached.animal as Animal);
+        setMother(cached.mother as ParentAnimal | null);
+        setFather(cached.father as ParentAnimal | null);
+        setOffspring(cached.offspring as OffspringAnimal[]);
         setLoading(false); // Show cached data immediately
       }
 
