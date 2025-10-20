@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 
+console.log('[process-farmhand-activity] v2025-10-20-INV-ALL');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -116,17 +118,24 @@ async function getLatestWeightPerUnit(
   return Number(data.weight_per_unit);
 }
 
+// Normalize feed type for consistent matching
+function normalizeFeedType(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 // Check if a feed type exists in farm inventory (with stock > 0)
 async function feedTypeExistsInInventory(
   supabase: any,
   farmId: string,
   feedType: string
 ): Promise<boolean> {
+  const normalized = normalizeFeedType(feedType);
+  
   const { data, error } = await supabase
     .from('feed_inventory')
-    .select('id')
+    .select('id, feed_type')
     .eq('farm_id', farmId)
-    .ilike('feed_type', feedType)
+    .ilike('feed_type', normalized)
     .gt('quantity_kg', 0)
     .limit(1)
     .maybeSingle();
@@ -134,6 +143,10 @@ async function feedTypeExistsInInventory(
   if (error) {
     console.error('Error checking feed inventory:', error);
     return false;
+  }
+  
+  if (!data) {
+    console.log(`❌ Feed type "${feedType}" (normalized: "${normalized}") not found in inventory`);
   }
   
   return data !== null;
@@ -553,6 +566,31 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
     }
     
+    // PREFLIGHT: Verify all feeding activities have feed_type in inventory
+    console.log('🔍 Preflight: Checking all feed types exist in inventory...');
+    for (const activity of feedingActivities) {
+      const feedExists = await feedTypeExistsInInventory(supabase, farmId, activity.feed_type);
+      if (!feedExists) {
+        console.log(`❌ Preflight failed: feed not in inventory`, { 
+          feed_type: activity.feed_type, 
+          unit: activity.unit 
+        });
+        
+        return new Response(
+          JSON.stringify({
+            error: 'FEED_TYPE_NOT_IN_INVENTORY',
+            feed_type: activity.feed_type,
+            message: `Ang "${activity.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna bago mag-record. / "${activity.feed_type}" is not in your feed inventory. Please add it first before recording.`
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    }
+    console.log('✅ Preflight inventory check passed for all feed activities');
+    
     // Use the first activity for non-feeding logic or single feed
     const extractedData = extractedActivities[0];
 
@@ -608,23 +646,13 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         switch (extractedData.activity_type) {
           case 'feeding':
             if (extractedData.quantity && extractedData.feed_type) {
-              // TIER 4: FINAL SAFETY CHECK #1 - Reject invalid feed_type
+              // TIER 4: FINAL SAFETY CHECK - Reject invalid feed_type
               if (extractedData.feed_type === 'unknown' || !extractedData.feed_type.trim()) {
                 throw new Error(
                   '❌ Hindi pa rin ma-identify ang feed type. Subukan ulit at sabihin explicitly kung ano. / ' +
                   '❌ Feed type still unknown. Please try again and explicitly state the feed type.'
                 );
               }
-              
-              // TIER 4.5: ALWAYS validate feed_type exists in inventory (for ALL units)
-              const feedExists = await feedTypeExistsInInventory(supabase, farmId, extractedData.feed_type);
-              if (!feedExists) {
-                throw new Error(
-                  `❌ Ang "${extractedData.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna ng inventory entry para sa feed na ito. / ` +
-                  `❌ "${extractedData.feed_type}" is not in your feed inventory. Please add an inventory entry for this feed type first.`
-                );
-              }
-              console.log(`✅ Feed type "${extractedData.feed_type}" verified in inventory`);
               
               // Convert to kg if needed
               let amountKg = extractedData.quantity;
@@ -759,15 +787,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         
         console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
         
-        // ALWAYS validate feed_type exists in inventory (for ALL units)
-        const feedExists = await feedTypeExistsInInventory(supabase, farmId, feedActivity.feed_type);
-        if (!feedExists) {
-          throw new Error(
-            `❌ Ang "${feedActivity.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna ng inventory entry para sa feed na ito. / ` +
-            `❌ "${feedActivity.feed_type}" is not in your feed inventory. Please add an inventory entry for this feed type first.`
-          );
-        }
-        console.log(`✅ Bulk feed type "${feedActivity.feed_type}" verified in inventory`);
+        console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
         
         // Convert units to kg using FIFO inventory lookup
         const weightPerUnit = await getLatestWeightPerUnit(

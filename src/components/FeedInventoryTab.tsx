@@ -9,9 +9,11 @@ interface FeedInventoryTabProps {
   farmId: string;
   forecasts: MonthlyFeedForecast[];
   canManage: boolean;
+  prefillFeedType?: string;
+  onPrefillUsed?: () => void;
 }
 
-export function FeedInventoryTab({ farmId, forecasts, canManage }: FeedInventoryTabProps) {
+export function FeedInventoryTab({ farmId, forecasts, canManage, prefillFeedType, onPrefillUsed }: FeedInventoryTabProps) {
   const [activeTab, setActiveTab] = useState("stock");
 
   return (
@@ -24,7 +26,12 @@ export function FeedInventoryTab({ farmId, forecasts, canManage }: FeedInventory
         </TabsList>
 
         <TabsContent value="stock" className="space-y-4">
-          <FeedStockList farmId={farmId} canManage={canManage} />
+          <FeedStockList 
+            farmId={farmId} 
+            canManage={canManage} 
+            prefillFeedType={prefillFeedType}
+            onPrefillUsed={onPrefillUsed}
+          />
         </TabsContent>
 
         <TabsContent value="forecast" className="space-y-4">

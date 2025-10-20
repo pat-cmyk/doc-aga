@@ -14,9 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 interface FeedStockListProps {
   farmId: string;
   canManage: boolean;
+  prefillFeedType?: string;
+  onPrefillUsed?: () => void;
 }
 
-export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
+export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUsed }: FeedStockListProps) {
   const [inventory, setInventory] = useState<FeedInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -49,6 +51,13 @@ export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
     };
   }, [farmId]);
 
+  // Auto-open dialog if prefillFeedType is provided
+  useEffect(() => {
+    if (prefillFeedType && canManage) {
+      setIsAddDialogOpen(true);
+    }
+  }, [prefillFeedType, canManage]);
+
   const fetchInventory = async () => {
     try {
       const { data, error } = await supabase
@@ -79,6 +88,9 @@ export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
   const handleDialogClose = () => {
     setIsAddDialogOpen(false);
     setEditingItem(null);
+    if (onPrefillUsed) {
+      onPrefillUsed();
+    }
   };
 
   if (loading) {
@@ -104,6 +116,7 @@ export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
           onOpenChange={handleDialogClose}
           farmId={farmId}
           editItem={editingItem}
+          prefillFeedType={prefillFeedType}
         />
       </div>
     );
@@ -215,6 +228,7 @@ export function FeedStockList({ farmId, canManage }: FeedStockListProps) {
         onOpenChange={handleDialogClose}
         farmId={farmId}
         editItem={editingItem}
+        prefillFeedType={prefillFeedType}
       />
 
       {viewingHistory && (

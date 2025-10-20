@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const [user, setUser] = useState<User | null>(null);
@@ -32,6 +33,7 @@ const Dashboard = () => {
   const [showFarmSetup, setShowFarmSetup] = useState(false);
   const [canManageFarm, setCanManageFarm] = useState(false);
   const [forecastData, setForecastData] = useState<any[]>([]);
+  const [prefillFeedType, setPrefillFeedType] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -129,6 +131,21 @@ const Dashboard = () => {
       preloadAllData(farmId, isOnline);
     }
   }, [farmId, isOnline]);
+
+  // Handle URL query params for deep linking
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    const feedType = params.get('prefillFeedType');
+    
+    if (tab === 'feed') {
+      setActiveTab('feed');
+    }
+    
+    if (feedType) {
+      setPrefillFeedType(feedType);
+    }
+  }, [location.search]);
 
   const loadForecastData = async () => {
     if (!farmId) return;
@@ -245,6 +262,8 @@ const Dashboard = () => {
                 farmId={farmId}
                 forecasts={forecastData}
                 canManage={canManageFarm}
+                prefillFeedType={prefillFeedType}
+                onPrefillUsed={() => setPrefillFeedType(undefined)}
               />
             )}
           </TabsContent>

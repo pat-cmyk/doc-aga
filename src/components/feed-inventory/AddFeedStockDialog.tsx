@@ -50,6 +50,7 @@ interface AddFeedStockDialogProps {
   onOpenChange: (open: boolean) => void;
   farmId: string;
   editItem?: FeedInventoryItem | null;
+  prefillFeedType?: string;
 }
 
 export function AddFeedStockDialog({
@@ -57,6 +58,7 @@ export function AddFeedStockDialog({
   onOpenChange,
   farmId,
   editItem,
+  prefillFeedType,
 }: AddFeedStockDialogProps) {
   const { toast } = useToast();
   const form = useForm<FormData>({
@@ -87,6 +89,17 @@ export function AddFeedStockDialog({
         supplier: editItem.supplier || "",
         notes: editItem.notes || "",
       });
+    } else if (prefillFeedType) {
+      form.reset({
+        feed_type: prefillFeedType,
+        quantity_kg: 0,
+        unit: "kg",
+        weight_per_unit: undefined,
+        cost_per_unit: undefined,
+        reorder_threshold: undefined,
+        supplier: "",
+        notes: "",
+      });
     } else {
       form.reset({
         feed_type: "",
@@ -99,7 +112,7 @@ export function AddFeedStockDialog({
         notes: "",
       });
     }
-  }, [editItem, form]);
+  }, [editItem, prefillFeedType, form]);
 
   const onSubmit = async (data: FormData) => {
     try {

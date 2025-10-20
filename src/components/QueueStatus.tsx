@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Trash2, Clock, CheckCircle, XCircle, Mic, Beef, Check, AlertCircle, Loader2, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { RefreshCw, Trash2, Clock, CheckCircle, XCircle, Mic, Beef, Check, AlertCircle, Loader2, Search, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -13,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
 export const QueueStatus = () => {
+  const navigate = useNavigate();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -366,7 +368,40 @@ export const QueueStatus = () => {
                         </div>
                       )}
 
-                      {item.error && !item.error.includes('NEEDS_ANIMAL_SELECTION') && (
+                      {item.error?.startsWith('INVENTORY_REQUIRED:') && item.status === 'failed' && (() => {
+                        const feedType = item.error.split(':')[1];
+                        return (
+                          <div className="space-y-2 bg-blue-50 p-3 rounded-md border border-blue-200">
+                            <div className="flex items-start gap-2">
+                              <Package className="h-5 w-5 text-blue-600 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-blue-900 mb-1">
+                                  This feed type is not in your inventory:
+                                </p>
+                                <p className="text-sm font-semibold text-blue-700 mb-2">
+                                  {feedType}
+                                </p>
+                                <p className="text-xs text-blue-800">
+                                  Add it to your feed inventory first to record this activity.
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              onClick={() => {
+                                setIsOpen(false);
+                                navigate(`/dashboard?tab=feed&prefillFeedType=${encodeURIComponent(feedType)}`);
+                              }}
+                              className="w-full"
+                            >
+                              <Package className="h-4 w-4 mr-2" />
+                              Add to Inventory
+                            </Button>
+                          </div>
+                        );
+                      })()}
+
+                      {item.error && !item.error.includes('NEEDS_ANIMAL_SELECTION') && !item.error.startsWith('INVENTORY_REQUIRED:') && (
                         <p className="text-xs text-destructive bg-destructive/10 p-2 rounded">
                           Error: {item.error}
                         </p>
