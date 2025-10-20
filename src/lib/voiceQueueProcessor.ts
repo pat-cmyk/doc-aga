@@ -51,13 +51,20 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
   }
 
   // Step 2: Process farmhand activity
-  const animalContext = animalId ? await getAnimalContext(animalId) : null;
+  // Try to use stored context first, fallback to lookup
+  let animalContext = item.payload.animalContext; // Use stored context
+  if (!animalContext && animalId) {
+    console.log('No stored context, attempting lookup...');
+    animalContext = await getAnimalContext(animalId);
+  }
   
   console.log('Invoking process-farmhand-activity with:', {
     hasTranscription: !!transcribedText,
     farmId,
     animalId: animalId || null,
-    hasAnimalContext: !!animalContext
+    hasAnimalContext: !!animalContext,
+    animalName: animalContext?.name || 'unknown',
+    animalEarTag: animalContext?.ear_tag || 'unknown'
   });
   
   const { data: activityData, error: activityError } = await supabase.functions
@@ -93,18 +100,28 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
 }
 
 async function getAnimalContext(animalId: string): Promise<any> {
-  const { data, error } = await supabase
-    .from('animals')
-    .select('name, ear_tag, gender, breed, birth_date, life_stage')
-    .eq('id', animalId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('animals')
+      .select('name, ear_tag, gender, breed, birth_date, life_stage')
+      .eq('id', animalId)
+      .single();
 
-  if (error) {
-    console.error('Failed to get animal context:', error);
+    if (error) {
+      console.error('Failed to get animal context:', error);
+      throw new Error(`Animal lookup failed: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`Animal not found: ${animalId}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getAnimalContext:', error);
+    // Don't throw - return null and let edge function handle lookup
     return null;
   }
-
-  return data;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {

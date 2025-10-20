@@ -9,6 +9,14 @@ interface QueueItem {
     audioBlob?: Blob;
     farmId?: string;
     animalId?: string | null;
+    animalContext?: {
+      name: string;
+      ear_tag: string;
+      gender?: string;
+      breed?: string;
+      birth_date?: string;
+      life_stage?: string;
+    } | null;
     timestamp?: number;
     formData?: any;
     aiInfo?: {

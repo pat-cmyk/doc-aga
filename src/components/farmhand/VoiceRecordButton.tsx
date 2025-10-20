@@ -113,6 +113,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
             audioBlob: compressedBlob,
             farmId,
             animalId: animalId || null,
+            animalContext: animalContext || null,
             timestamp: Date.now(),
           },
           createdAt: Date.now(),

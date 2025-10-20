@@ -254,6 +254,33 @@ serve(async (req) => {
       throw new Error('Not authenticated');
     }
 
+    // Resolve animal info - use provided context or look up from database
+    const animalContext = input?.animalContext;
+    let animalInfo = null;
+
+    if (animalId) {
+      if (animalContext) {
+        // Use provided context
+        animalInfo = animalContext;
+        console.log('Using provided animal context:', animalInfo);
+      } else {
+        // Fallback: look up from database
+        console.log('No animal context provided, looking up from database...');
+        const { data: animalData, error: animalError } = await supabase
+          .from('animals')
+          .select('name, ear_tag, gender, breed, birth_date, life_stage')
+          .eq('id', animalId)
+          .single();
+        
+        if (animalData && !animalError) {
+          animalInfo = animalData;
+          console.log('Retrieved animal info from database:', animalInfo);
+        } else {
+          console.error('Failed to retrieve animal info:', animalError);
+        }
+      }
+    }
+
     // Use Lovable AI to extract structured data
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -271,7 +298,15 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: animalId 
+            content: animalId && animalInfo
+              ? `You are an assistant helping farmhands log their daily activities. The farmhand is recording an activity for animal: ${animalInfo.name} (Ear Tag: ${animalInfo.ear_tag}, ID: ${animalId}).
+
+IMPORTANT: 
+- The animal is already identified (${animalInfo.name} - ${animalInfo.ear_tag})
+- You DO NOT need to extract animal_identifier from the transcription unless the farmhand explicitly mentions a DIFFERENT animal
+- Focus on extracting: activity type, quantity, and any additional notes
+- If no animal is mentioned, assume they're talking about the current animal being viewed`
+              : animalId
               ? `You are an assistant helping farmhands log their daily activities. The farmhand is recording an activity for a SPECIFIC ANIMAL (ID: ${animalId}).
 
 IMPORTANT: 
