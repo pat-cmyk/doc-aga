@@ -116,6 +116,29 @@ async function getLatestWeightPerUnit(
   return Number(data.weight_per_unit);
 }
 
+// Check if a feed type exists in farm inventory (with stock > 0)
+async function feedTypeExistsInInventory(
+  supabase: any,
+  farmId: string,
+  feedType: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('feed_inventory')
+    .select('id')
+    .eq('farm_id', farmId)
+    .ilike('feed_type', feedType)
+    .gt('quantity_kg', 0)
+    .limit(1)
+    .maybeSingle();
+  
+  if (error) {
+    console.error('Error checking feed inventory:', error);
+    return false;
+  }
+  
+  return data !== null;
+}
+
 // Resolve feed type from inventory based on unit
 async function resolveFeedTypeFromInventory(
   supabase: any,
@@ -593,6 +616,16 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
                 );
               }
               
+              // TIER 4.5: ALWAYS validate feed_type exists in inventory (for ALL units)
+              const feedExists = await feedTypeExistsInInventory(supabase, farmId, extractedData.feed_type);
+              if (!feedExists) {
+                throw new Error(
+                  `❌ Ang "${extractedData.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna ng inventory entry para sa feed na ito. / ` +
+                  `❌ "${extractedData.feed_type}" is not in your feed inventory. Please add an inventory entry for this feed type first.`
+                );
+              }
+              console.log(`✅ Feed type "${extractedData.feed_type}" verified in inventory`);
+              
               // Convert to kg if needed
               let amountKg = extractedData.quantity;
               if (extractedData.unit && ['bales', 'bags', 'barrels'].includes(extractedData.unit)) {
@@ -725,6 +758,16 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         }
         
         console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
+        
+        // ALWAYS validate feed_type exists in inventory (for ALL units)
+        const feedExists = await feedTypeExistsInInventory(supabase, farmId, feedActivity.feed_type);
+        if (!feedExists) {
+          throw new Error(
+            `❌ Ang "${feedActivity.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna ng inventory entry para sa feed na ito. / ` +
+            `❌ "${feedActivity.feed_type}" is not in your feed inventory. Please add an inventory entry for this feed type first.`
+          );
+        }
+        console.log(`✅ Bulk feed type "${feedActivity.feed_type}" verified in inventory`);
         
         // Convert units to kg using FIFO inventory lookup
         const weightPerUnit = await getLatestWeightPerUnit(
