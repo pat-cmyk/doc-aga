@@ -5,8 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Doc Aga',
   webDir: 'dist',
   server: {
-    url: 'https://fa0cc69c-441c-4305-b8c2-e99c9ca1b5ea.lovableproject.com?forceHideBadge=true',
-    cleartext: true
+    androidScheme: 'https'
   },
   plugins: {
     CapacitorHttp: {

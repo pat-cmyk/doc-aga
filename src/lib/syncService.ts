@@ -64,6 +64,7 @@ export async function syncQueue(): Promise<void> {
   }
 
   const pending = await getAllPending();
+  console.log(`[SyncQueue] Found ${pending.length} pending items to process`);
   
   if (pending.length === 0) {
     console.log('No pending items to sync');

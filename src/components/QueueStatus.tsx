@@ -310,8 +310,7 @@ export const QueueStatus = () => {
 
                       {item.type === 'voice_activity' && 
                        item.status !== 'failed' && 
-                       item.status !== 'awaiting_confirmation' && 
-                       item.status !== 'processing' && (
+                       item.status !== 'awaiting_confirmation' && (
                         <Button 
                           size="sm" 
                           variant="ghost"
