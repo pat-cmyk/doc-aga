@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -147,6 +147,31 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
     } finally {
       setCaching(false);
     }
+  };
+
+  // Helper function to get cache status icon
+  const getCacheIcon = () => {
+    if (caching) {
+      return (
+        <span title="Downloading for offline use...">
+          <Database className="h-3.5 w-3.5 text-yellow-500 animate-pulse inline-block ml-2" />
+        </span>
+      );
+    }
+    
+    if (isCached) {
+      return (
+        <span title="Available offline">
+          <Database className="h-3.5 w-3.5 text-green-500 inline-block ml-2" />
+        </span>
+      );
+    }
+    
+    return (
+      <span title="Not cached offline">
+        <Database className="h-3.5 w-3.5 text-gray-400 inline-block ml-2" />
+      </span>
+    );
   };
 
   const loadAnimal = async () => {
@@ -431,7 +456,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                   onChange={handleAvatarUpload}
                 />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 overflow-hidden">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
                   {computedLifeStage && (
@@ -456,38 +481,13 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="text-xs sm:text-sm truncate">
-                {animal.breed} • Tag: {animal.ear_tag}
-              </CardDescription>
+                <CardDescription className="text-xs sm:text-sm flex items-center">
+                  <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
+                  {getCacheIcon()}
+                </CardDescription>
+              </div>
             </div>
           </div>
-          
-          {/* Download for Offline Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadForOffline}
-            disabled={caching || isCached || !isOnline}
-            className="mt-2"
-          >
-            {caching ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Caching...
-              </>
-            ) : isCached ? (
-              <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Available Offline
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Save for Offline
-              </>
-            )}
-          </Button>
-        </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
           {/* Offline Indicator */}
