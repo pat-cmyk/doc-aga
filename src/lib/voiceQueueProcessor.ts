@@ -76,6 +76,14 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
     throw new Error(activityData.message || activityData.error);
   }
 
+  // Check if activity needs animal selection
+  const requiresAnimal = ['weight_measurement', 'milking', 'health_observation', 'injection'].includes(activityData.activity_type);
+  if (requiresAnimal && !activityData.animal_id && activityData.needs_animal_selection) {
+    // This will be handled by QueueStatus component - user needs to select animal
+    console.log('Voice activity needs animal selection - will be shown in queue for user selection');
+    throw new Error('NEEDS_ANIMAL_SELECTION');
+  }
+
   // Successfully processed - extracted data is in activityData
   console.log('Voice activity processed:', activityData);
 }

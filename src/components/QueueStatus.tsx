@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Trash2, Clock, CheckCircle, XCircle, Mic, Beef, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { RefreshCw, Trash2, Clock, CheckCircle, XCircle, Mic, Beef, Check, AlertCircle, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { getAll, clearCompleted, removeItem, resetForRetry, confirmTranscription, type QueueItem } from '@/lib/offlineQueue';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getAll, clearCompleted, removeItem, resetForRetry, confirmTranscription, updatePayload, type QueueItem } from '@/lib/offlineQueue';
 import { syncQueue } from '@/lib/syncService';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
 export const QueueStatus = () => {
@@ -15,7 +17,35 @@ export const QueueStatus = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingTranscription, setEditingTranscription] = useState<Record<string, string>>({});
+  const [animals, setAnimals] = useState<any[]>([]);
+  const [selectedAnimal, setSelectedAnimal] = useState<Record<string, string>>({});
   const isOnline = useOnlineStatus();
+
+  useEffect(() => {
+    const fetchAnimals = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: memberships } = await supabase
+        .from('farm_memberships')
+        .select('farm_id')
+        .eq('user_id', user.id);
+
+      if (!memberships || memberships.length === 0) return;
+
+      const farmIds = memberships.map(m => m.farm_id);
+      const { data } = await supabase
+        .from('animals')
+        .select('id, ear_tag, name, current_weight_kg, farm_id')
+        .in('farm_id', farmIds)
+        .eq('is_deleted', false)
+        .order('ear_tag');
+
+      setAnimals(data || []);
+    };
+
+    fetchAnimals();
+  }, []);
 
   const loadItems = async () => {
     const allItems = await getAll();
@@ -69,6 +99,18 @@ export const QueueStatus = () => {
       return next;
     });
     await handleManualSync();
+  };
+
+  const handleAnimalSelection = async (itemId: string, animalId: string) => {
+    // Update queue item with selected animal
+    await updatePayload(itemId, { animalId });
+    setSelectedAnimal(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    // Retry processing
+    await handleRetry(itemId);
   };
 
   const initializeEditingText = (item: QueueItem) => {
@@ -274,7 +316,57 @@ export const QueueStatus = () => {
                         </div>
                       )}
 
-                      {item.error && (
+                      {item.error?.includes('NEEDS_ANIMAL_SELECTION') && item.status === 'failed' && (
+                        <div className="space-y-2 bg-blue-50 p-3 rounded-md border border-blue-200">
+                          <p className="text-xs font-medium text-blue-900">This activity needs an animal:</p>
+                          <Select 
+                            value={selectedAnimal[item.id] || ''} 
+                            onValueChange={(value) => setSelectedAnimal(prev => ({ ...prev, [item.id]: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an animal...">
+                                {selectedAnimal[item.id] && (
+                                  <span>
+                                    {animals.find(a => a.id === selectedAnimal[item.id])?.ear_tag}
+                                    {animals.find(a => a.id === selectedAnimal[item.id])?.name && 
+                                      ` - ${animals.find(a => a.id === selectedAnimal[item.id])?.name}`}
+                                  </span>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {animals
+                                .filter(a => a.farm_id === item.payload.farmId)
+                                .map((animal) => (
+                                  <SelectItem key={animal.id} value={animal.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{animal.ear_tag}</span>
+                                      {animal.name && (
+                                        <span className="text-muted-foreground">- {animal.name}</span>
+                                      )}
+                                      {animal.current_weight_kg && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ({animal.current_weight_kg} kg)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleAnimalSelection(item.id, selectedAnimal[item.id])}
+                            disabled={!selectedAnimal[item.id] || !isOnline || isSyncing}
+                            className="w-full"
+                          >
+                            <Check className="h-4 w-4 mr-2" />
+                            Confirm Animal & Retry
+                          </Button>
+                        </div>
+                      )}
+
+                      {item.error && !item.error.includes('NEEDS_ANIMAL_SELECTION') && (
                         <p className="text-xs text-destructive bg-destructive/10 p-2 rounded">
                           Error: {item.error}
                         </p>

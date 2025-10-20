@@ -557,6 +557,21 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
     }
 
+    // Check if activity requires animal but none was identified
+    const requiresAnimal = ['weight_measurement', 'milking', 'health_observation', 'injection'].includes(extractedData.activity_type);
+    
+    if (requiresAnimal && !finalAnimalId && !hasMultipleFeeds) {
+      console.log('Activity requires animal selection');
+      return new Response(
+        JSON.stringify({
+          ...extractedData,
+          needs_animal_selection: true,
+          message: 'Please select which animal this activity is for'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Insert record for single animal activities
     if (finalAnimalId && extractedData.activity_type && !hasMultipleFeeds) {
       const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];

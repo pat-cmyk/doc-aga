@@ -5,6 +5,7 @@ import { Mic, Square, Loader2, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ActivityConfirmation from './ActivityConfirmation';
 import DocAgaConsultation from './DocAgaConsultation';
+import AnimalSelectionStep from './AnimalSelectionStep';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { addToQueue } from '@/lib/offlineQueue';
 import { compressAudio } from '@/lib/audioCompression';
@@ -21,9 +22,10 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
-  const [mode, setMode] = useState<'idle' | 'activity' | 'doc-aga'>('idle');
+  const [mode, setMode] = useState<'idle' | 'activity' | 'doc-aga' | 'select-animal'>('idle');
   const [docAgaQuery, setDocAgaQuery] = useState<string | null>(null);
   const [animalContext, setAnimalContext] = useState<{ name: string; ear_tag: string } | null>(null);
+  const [needsAnimalSelection, setNeedsAnimalSelection] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -202,6 +204,16 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
         }
 
         console.log('Extracted data:', aiData);
+
+        // Check if activity requires animal but none was identified
+        const requiresAnimal = ['weight_measurement', 'milking', 'health_observation', 'injection'].includes(aiData.activity_type);
+        if (requiresAnimal && !aiData.animal_id && aiData.needs_animal_selection) {
+          setMode('select-animal');
+          setNeedsAnimalSelection(true);
+          setExtractedData(aiData);
+          return;
+        }
+
         setMode('activity');
         setExtractedData(aiData);
       }
@@ -237,9 +249,36 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     setMode('idle');
   };
 
+  const handleAnimalSelected = async (animalId: string) => {
+    if (!extractedData) return;
+    
+    // Update extracted data with selected animal
+    const updatedData = {
+      ...extractedData,
+      animal_id: animalId
+    };
+    
+    setExtractedData(updatedData);
+    setMode('activity');
+    setNeedsAnimalSelection(false);
+  };
+
   // Show Dok Aga consultation
   if (mode === 'doc-aga' && docAgaQuery) {
     return <DocAgaConsultation initialQuery={docAgaQuery} onClose={handleDocAgaClose} farmId={farmId} />;
+  }
+
+  // Show animal selection step
+  if (mode === 'select-animal' && extractedData && needsAnimalSelection) {
+    return (
+      <AnimalSelectionStep
+        activityType={extractedData.activity_type}
+        extractedData={extractedData}
+        farmId={farmId}
+        onAnimalSelected={handleAnimalSelected}
+        onCancel={handleCancel}
+      />
+    );
   }
 
   // Show activity confirmation

@@ -288,7 +288,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
       // Create record based on activity type
       switch (data.activity_type) {
         case 'milking':
-          if (!data.animal_id) throw new Error('Animal not identified');
+          if (!data.animal_id) throw new Error('Please select an animal for this activity');
           await supabase.from('milking_records').insert({
             animal_id: data.animal_id,
             record_date: today,
@@ -379,7 +379,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             }
           } else {
             // Single animal feeding
-            if (!data.animal_id) throw new Error('Animal not identified');
+            if (!data.animal_id) throw new Error('Please select an animal for this activity');
             console.log('Creating single animal feeding record with feed_type:', data.feed_type);
             await supabase.from('feeding_records').insert({
               animal_id: data.animal_id,
@@ -393,7 +393,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'health_observation':
-          if (!data.animal_id) throw new Error('Animal not identified');
+          if (!data.animal_id) throw new Error('Please select an animal for this activity');
           await supabase.from('health_records').insert({
             animal_id: data.animal_id,
             visit_date: today,
@@ -404,7 +404,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'weight_measurement':
-          if (!data.animal_id) throw new Error('Animal not identified');
+          if (!data.animal_id) throw new Error('Please select an animal for this activity');
           const weight = Number(data.quantity);
           if (!weight || weight <= 0) throw new Error('Weight must be a positive number');
           await supabase.from('weight_records').insert({
@@ -418,7 +418,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           break;
 
         case 'injection':
-          if (!data.animal_id) throw new Error('Animal not identified');
+          if (!data.animal_id) throw new Error('Please select an animal for this activity');
           await supabase.from('injection_records').insert({
             animal_id: data.animal_id,
             record_datetime: new Date().toISOString(),
