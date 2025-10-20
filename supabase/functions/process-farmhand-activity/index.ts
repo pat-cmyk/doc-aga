@@ -407,7 +407,7 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                   },
                   feed_type: {
                     type: 'string',
-                    description: 'REQUIRED for feeding activities. Type of feed given (e.g., "corn silage", "hay", "concentrates", "molasses"). This is critical for inventory tracking.'
+                    description: 'CRITICAL - REQUIRED for feeding activities. The ACTUAL FEED MATERIAL being given (e.g., "corn silage", "hay", "concentrates", "molasses"). If the user does NOT explicitly mention what the feed is, you MUST set this to null (not "unknown"). Only extract what the user actually says. Valid values: specific feed names OR null.'
                   },
                   medicine_name: {
                     type: 'string',
@@ -462,14 +462,16 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       const data = JSON.parse(toolCall.function.arguments);
       console.log(`Activity ${index + 1}:`, data);
       
-      // CRITICAL VALIDATION: Ensure feed_type is present for feeding activities
-      if (data.activity_type === 'feeding' && !data.feed_type) {
-        console.error(`VALIDATION ERROR: feed_type is missing for feeding activity ${index + 1}`);
-        throw new Error('Feed type must be specified for feeding activities. Please mention what type of feed was given (e.g., corn silage, hay, concentrates).');
-      }
-      
+      // TIER 2: CRITICAL VALIDATION - Feeding MUST have valid feed_type
       if (data.activity_type === 'feeding') {
-        console.log(`✓ Validation passed - feed_type: ${data.feed_type}`);
+        if (!data.feed_type || data.feed_type === 'unknown' || data.feed_type.trim() === '') {
+          console.error(`❌ VALIDATION ERROR: feed_type missing or invalid for feeding activity ${index + 1}`);
+          throw new Error(
+            'Kulang ang information! Sabihin kung anong feed ang binigay (halimbawa: "corn silage", "hay", "concentrates"). / ' +
+            'Feed type must be specified! Please mention what type of feed was given (e.g., corn silage, hay, concentrates).'
+          );
+        }
+        console.log(`✅ Validation passed - feed_type: ${data.feed_type}`);
       }
       
       // Validate and parse date reference if provided
@@ -490,38 +492,40 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
     const feedingActivities = extractedActivities.filter((a: any) => a.activity_type === 'feeding');
     const hasMultipleFeeds = feedingActivities.length > 1;
     
-    // Resolve feed types from inventory for all feeding activities
+    // TIER 3: MANDATORY inventory resolution - Must succeed or fail with clear error
     if (feedingActivities.length > 0) {
       for (const activity of feedingActivities) {
-        if (activity.unit && (!activity.feed_type || activity.feed_type === 'unknown')) {
-          console.log(`Resolving feed type for unit: ${activity.unit}`);
+        // If feed_type is missing or unknown, MUST resolve from inventory
+        if (!activity.feed_type || activity.feed_type === 'unknown') {
+          if (!activity.unit) {
+            throw new Error(
+              'Hindi ma-identify ang feed. Sabihin ang feed type o unit (e.g., "3 bags ng concentrates"). / ' +
+              'Cannot identify feed. Please specify feed type or unit (e.g., "3 bags of concentrates").'
+            );
+          }
+          
+          console.log(`🔍 MANDATORY resolution for unit: ${activity.unit}`);
           const resolution = await resolveFeedTypeFromInventory(
             supabase,
             farmId,
             activity.unit,
-            activity.feed_type
+            null  // Force fresh lookup
           );
           
-          if (resolution.needsClarification) {
-            return new Response(
-              JSON.stringify({
-                error: 'NEEDS_CLARIFICATION',
-                message: `Please specify the type of feed for ${activity.quantity} ${activity.unit}`,
-                unit: activity.unit,
-                quantity: activity.quantity,
-                availableOptions: resolution.availableOptions
-              }),
-              { 
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
+          // MUST succeed or provide clear options
+          if (resolution.needsClarification || !resolution.feed_type) {
+            const options = resolution.availableOptions && resolution.availableOptions.length > 0
+              ? `Available: ${resolution.availableOptions.join(', ')}`
+              : 'Walang feed sa inventory para sa unit na ito. Magdagdag muna sa inventory. / No feed in inventory for this unit. Please add to inventory first.';
+            
+            throw new Error(
+              `Pakispecify kung anong feed para sa ${activity.quantity} ${activity.unit}. ${options} / ` +
+              `Please specify the feed type for ${activity.quantity} ${activity.unit}. ${options}`
             );
           }
           
-          if (resolution.feed_type) {
-            activity.feed_type = resolution.feed_type;
-            console.log(`✓ Resolved to: ${resolution.feed_type}`);
-          }
+          activity.feed_type = resolution.feed_type;
+          console.log(`✅ MANDATORY resolution successful: ${resolution.feed_type}`);
         }
       }
     }
@@ -581,6 +585,14 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         switch (extractedData.activity_type) {
           case 'feeding':
             if (extractedData.quantity && extractedData.feed_type) {
+              // TIER 4: FINAL SAFETY CHECK #1 - Reject invalid feed_type
+              if (extractedData.feed_type === 'unknown' || !extractedData.feed_type.trim()) {
+                throw new Error(
+                  '❌ Hindi pa rin ma-identify ang feed type. Subukan ulit at sabihin explicitly kung ano. / ' +
+                  '❌ Feed type still unknown. Please try again and explicitly state the feed type.'
+                );
+              }
+              
               // Convert to kg if needed
               let amountKg = extractedData.quantity;
               if (extractedData.unit && ['bales', 'bags', 'barrels'].includes(extractedData.unit)) {
@@ -590,8 +602,19 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
                 } else {
                   const defaultWeight = DEFAULT_WEIGHTS[extractedData.unit as keyof typeof DEFAULT_WEIGHTS] || 1;
                   amountKg = extractedData.quantity * defaultWeight;
+                  console.log(`⚠️ Using default weight: ${defaultWeight} kg per ${extractedData.unit}`);
                 }
               }
+              
+              // TIER 4: FINAL SAFETY CHECK #2 - Reject zero or negative weight
+              if (amountKg <= 0) {
+                throw new Error(
+                  '❌ Hindi ma-calculate ang weight (0 kg). Siguraduhin na may inventory entry para sa feed type. / ' +
+                  '❌ Cannot calculate weight (0 kg). Ensure inventory entry exists for this feed type.'
+                );
+              }
+              
+              console.log(`✅ Final validation passed: ${amountKg} kg of ${extractedData.feed_type}`);
               
               const { error: feedError } = await supabase.from('feeding_records').insert({
                 animal_id: finalAnimalId,
