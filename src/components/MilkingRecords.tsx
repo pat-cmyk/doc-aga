@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { getCachedRecords } from "@/lib/dataCache";
 
 const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -19,6 +21,7 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [latestCalvingDate, setLatestCalvingDate] = useState<Date | null>(null);
   const [animalGender, setAnimalGender] = useState<string | null>(null);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     loadAnimalGender();
@@ -70,9 +73,19 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   };
 
   const loadRecords = async () => {
-    const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: true });
-    setRecords(data || []);
-    setLoading(false);
+    // Try cache first
+    const cached = await getCachedRecords(animalId);
+    if (cached?.milking) {
+      setRecords(cached.milking);
+      setLoading(false);
+    }
+    
+    // Fetch fresh if online
+    if (isOnline) {
+      const { data } = await supabase.from("milking_records").select("*").eq("animal_id", animalId).order("record_date", { ascending: true });
+      setRecords(data || []);
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,7 +154,12 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
       <CardContent className="space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {!showForm ? (
-            <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto min-h-[48px]">
+            <Button 
+              onClick={() => setShowForm(true)} 
+              className="w-full sm:w-auto min-h-[48px]"
+              disabled={!isOnline}
+              title={!isOnline ? "Available when online" : ""}
+            >
               <Plus className="h-5 w-5 mr-2" />Add Record
             </Button>
           ) : (

@@ -11,6 +11,11 @@ interface Animal {
   gender: string | null;
   milking_start_date: string | null;
   current_weight_kg: number | null;
+  mother_id?: string | null;
+  father_id?: string | null;
+  avatar_url?: string | null;
+  life_stage?: string | null;
+  milking_stage?: string | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
 }
@@ -28,6 +33,7 @@ interface RecordCache {
   weight: any[];
   health: any[];
   ai: any[];
+  feeding: any[];
   lastUpdated: number;
 }
 
@@ -123,6 +129,13 @@ export async function updateAnimalCache(farmId: string): Promise<Animal[]> {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    
+    // Pre-cache records for each animal (in background)
+    if (animals && animals.length > 0) {
+      // Don't await - let this run in background
+      Promise.all(animals.map(animal => updateRecordsCache(animal.id)))
+        .catch(err => console.error('[DataCache] Error pre-caching records:', err));
+    }
 
     // Calculate stages for each animal
     const animalsWithStages = await Promise.all(
@@ -214,11 +227,12 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
 
 export async function updateRecordsCache(animalId: string): Promise<RecordCache> {
   try {
-    const [milkingRes, weightRes, healthRes, aiRes] = await Promise.all([
+    const [milkingRes, weightRes, healthRes, aiRes, feedingRes] = await Promise.all([
       supabase.from('milking_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false }),
       supabase.from('weight_records').select('*').eq('animal_id', animalId).order('measurement_date', { ascending: false }),
       supabase.from('health_records').select('*').eq('animal_id', animalId).order('visit_date', { ascending: false }),
       supabase.from('ai_records').select('*').eq('animal_id', animalId).order('scheduled_date', { ascending: false }),
+      supabase.from('feeding_records').select('*').eq('animal_id', animalId).order('record_datetime', { ascending: false }),
     ]);
 
     const cache: RecordCache = {
@@ -227,6 +241,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       weight: weightRes.data || [],
       health: healthRes.data || [],
       ai: aiRes.data || [],
+      feeding: feedingRes.data || [],
       lastUpdated: Date.now(),
     };
 
@@ -242,6 +257,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       weight: [],
       health: [],
       ai: [],
+      feeding: [],
       lastUpdated: Date.now(),
     };
   }
@@ -328,6 +344,56 @@ export async function updateFarmDataCache(farmId: string): Promise<FarmDataCache
     return cache;
   } catch (error) {
     console.error('Failed to update farm data cache:', error);
+    return null;
+  }
+}
+
+// ============= SINGLE ANIMAL CACHE =============
+
+// Get single animal with all related data from cache
+export async function getCachedAnimalDetails(animalId: string): Promise<{
+  animal: Animal | null;
+  mother: Animal | null;
+  father: Animal | null;
+  offspring: Animal[];
+  records: RecordCache | null;
+} | null> {
+  try {
+    const db = await getDB();
+    
+    // Get all animals from cache (to find parents/offspring)
+    const allAnimalsCache = await db.get('animals', 'animals');
+    if (!allAnimalsCache || !allAnimalsCache.data) return null;
+    
+    // Find the specific animal
+    const animal = allAnimalsCache.data.find((a: Animal) => a.id === animalId);
+    if (!animal) return null;
+    
+    // Find parents from the same cache
+    const mother = animal.mother_id 
+      ? allAnimalsCache.data.find((a: Animal) => a.id === animal.mother_id) || null
+      : null;
+    const father = animal.father_id
+      ? allAnimalsCache.data.find((a: Animal) => a.id === animal.father_id) || null
+      : null;
+    
+    // Find offspring from the same cache
+    const offspring = allAnimalsCache.data.filter((a: Animal) => 
+      a.mother_id === animalId || a.father_id === animalId
+    );
+    
+    // Get records from cache
+    const records = await getCachedRecords(animalId);
+    
+    return {
+      animal,
+      mother,
+      father,
+      offspring,
+      records
+    };
+  } catch (error) {
+    console.error('[DataCache] Error getting cached animal details:', error);
     return null;
   }
 }

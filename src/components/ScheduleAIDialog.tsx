@@ -11,9 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 interface ScheduleAIDialogProps {
   animalId: string;
   onSuccess: () => void;
+  disabled?: boolean;
 }
 
-const ScheduleAIDialog = ({ animalId, onSuccess }: ScheduleAIDialogProps) => {
+export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
@@ -72,9 +73,13 @@ const ScheduleAIDialog = ({ animalId, onSuccess }: ScheduleAIDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button 
+          size="sm"
+          disabled={disabled}
+          title={disabled ? "Available when online" : ""}
+        >
           <Calendar className="h-4 w-4 mr-2" />
-          Schedule AI Breeding
+          Schedule AI
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -122,6 +127,4 @@ const ScheduleAIDialog = ({ animalId, onSuccess }: ScheduleAIDialogProps) => {
       </DialogContent>
     </Dialog>
   );
-};
-
-export default ScheduleAIDialog;
+}

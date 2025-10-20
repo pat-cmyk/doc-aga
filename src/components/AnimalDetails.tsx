@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
@@ -21,6 +23,7 @@ import {
   getMilkingStageBadgeColor,
   type AnimalStageData 
 } from "@/lib/animalStages";
+import { getCachedAnimalDetails } from "@/lib/dataCache";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -103,6 +106,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     loadAnimal();
@@ -110,6 +114,31 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
 
   const loadAnimal = async () => {
     try {
+      setLoading(true);
+
+      // Try cache first
+      const cached = await getCachedAnimalDetails(animalId);
+      if (cached) {
+        setAnimal(cached.animal);
+        setMother(cached.mother);
+        setFather(cached.father);
+        setOffspring(cached.offspring);
+        setLoading(false); // Show cached data immediately
+      }
+
+      // If offline and we have cached data, stop here
+      if (!isOnline) {
+        if (!cached) {
+          toast({
+            title: "Offline",
+            description: "No cached data available for this animal",
+            variant: "default"
+          });
+        }
+        return;
+      }
+
+      // Fetch fresh data from database if online
       const { data, error } = await supabase
         .from("animals")
         .select("*")
@@ -117,7 +146,7 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
         .single();
 
       if (error) throw error;
-      setAnimal(data);
+      setAnimal(data as Animal);
 
       // Load parent information
       if (data.mother_id) {
@@ -330,7 +359,8 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
                 variant="secondary"
                 className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || !isOnline}
+                title={!isOnline ? "Available when online" : ""}
               >
                 {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
               </Button>
@@ -374,6 +404,16 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
           </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
+          {/* Offline Indicator */}
+          {!isOnline && (
+            <Alert className="border-muted mb-4">
+              <WifiOff className="h-4 w-4" />
+              <AlertDescription>
+                Viewing cached data. Some features are disabled while offline.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="grid grid-cols-2 gap-3 sm:gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Birth Date</p>

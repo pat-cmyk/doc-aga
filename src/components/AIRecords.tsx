@@ -10,6 +10,7 @@ import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
 const AIRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
     const { data } = await supabase

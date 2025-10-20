@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Loader2, Plus, Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedRecords } from "@/lib/dataCache";
 
 const HealthRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -19,6 +21,7 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   
   const [formData, setFormData] = useState({
     visit_date: "",
@@ -122,23 +125,33 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
   }, [isUploadingImage]);
 
   const loadRecords = async () => {
-    const { data, error } = await supabase
-      .from("health_records")
-      .select("*")
-      .eq("animal_id", animalId)
-      .order("visit_date", { ascending: false });
-    
-    if (error) {
-      console.error('Error loading health records:', error);
-      toast({
-        title: "Error loading records",
-        description: error.message,
-        variant: "destructive"
-      });
+    // Try cache first
+    const cached = await getCachedRecords(animalId);
+    if (cached?.health) {
+      setRecords(cached.health);
+      setLoading(false);
     }
     
-    setRecords(data || []);
-    setLoading(false);
+    // Fetch fresh if online
+    if (isOnline) {
+      const { data, error } = await supabase
+        .from("health_records")
+        .select("*")
+        .eq("animal_id", animalId)
+        .order("visit_date", { ascending: false });
+      
+      if (error) {
+        console.error('Error loading health records:', error);
+        toast({
+          title: "Error loading records",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        setRecords(data || []);
+      }
+      setLoading(false);
+    }
   };
 
   const compressImage = async (file: File, maxDim = 1600, quality = 0.8): Promise<Blob> => {
@@ -353,7 +366,11 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
           <CardTitle>Health Records</CardTitle>
           <Dialog open={showDialog} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button 
+                size="sm"
+                disabled={!isOnline}
+                title={!isOnline ? "Available when online" : ""}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Record
               </Button>

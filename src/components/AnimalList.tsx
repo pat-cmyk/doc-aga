@@ -10,7 +10,7 @@ import { StageBadge } from "@/components/ui/stage-badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
-import { getCachedAnimals, updateAnimalCache } from "@/lib/dataCache";
+import { getCachedAnimals, updateAnimalCache, updateRecordsCache } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 // Helper function to get stage definitions
@@ -302,6 +302,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               onClick={() => {
                 setSelectedAnimalId(animal.id);
                 onAnimalSelect?.(animal.id);
+                
+                // Pre-cache this animal's records in background
+                if (isOnline) {
+                  updateRecordsCache(animal.id).catch(err => 
+                    console.error('Error pre-caching records:', err)
+                  );
+                }
               }}
             >
               <CardHeader>

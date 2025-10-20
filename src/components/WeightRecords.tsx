@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { Scale, TrendingUp, Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedRecords } from "@/lib/dataCache";
 
 interface WeightRecord {
   id: string;
@@ -33,6 +35,7 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+  const isOnline = useOnlineStatus();
   
   // Form state
   const [weight, setWeight] = useState("");
@@ -69,19 +72,30 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
 
   const loadWeightRecords = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("weight_records")
-      .select("*")
-      .eq("animal_id", animalId)
-      .order("measurement_date", { ascending: false });
-
-    if (error) {
-      console.error("Error loading weight records:", error);
-      toast.error("Failed to load weight records");
-    } else {
-      setRecords(data || []);
+    
+    // Try cache first
+    const cached = await getCachedRecords(animalId);
+    if (cached?.weight) {
+      setRecords(cached.weight);
+      setLoading(false);
     }
-    setLoading(false);
+    
+    // Fetch fresh if online
+    if (isOnline) {
+      const { data, error } = await supabase
+        .from("weight_records")
+        .select("*")
+        .eq("animal_id", animalId)
+        .order("measurement_date", { ascending: false });
+
+      if (error) {
+        console.error("Error loading weight records:", error);
+        toast.error("Failed to load weight records");
+      } else {
+        setRecords(data || []);
+      }
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -170,7 +184,12 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
           </CardTitle>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="min-h-[48px]">
+              <Button 
+                size="sm" 
+                className="min-h-[48px]"
+                disabled={!isOnline}
+                title={!isOnline ? "Available when online" : ""}
+              >
                 <Plus className="h-5 w-5 mr-2" />
                 Record Weight
               </Button>

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedRecords } from "@/lib/dataCache";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +49,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const isOnline = useOnlineStatus();
 
   // Form state
   const [feedType, setFeedType] = useState("");
@@ -81,14 +84,25 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
   const loadFeedingRecords = async () => {
     try {
-      const { data, error } = await supabase
-        .from("feeding_records")
-        .select("*")
-        .eq("animal_id", animalId)
-        .order("record_datetime", { ascending: false });
+      // Try cache first
+      const cached = await getCachedRecords(animalId);
+      if (cached?.feeding) {
+        setRecords(cached.feeding);
+        setLoading(false);
+      }
+      
+      // Fetch fresh if online
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from("feeding_records")
+          .select("*")
+          .eq("animal_id", animalId)
+          .order("record_datetime", { ascending: false });
 
-      if (error) throw error;
-      setRecords(data || []);
+        if (error) throw error;
+        setRecords(data || []);
+        setLoading(false);
+      }
     } catch (error) {
       console.error("Error loading feeding records:", error);
       toast({
@@ -96,7 +110,6 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
         description: "Failed to load feeding records",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -190,7 +203,11 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       {/* Record Feed Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
-          <Button className="w-full min-h-[48px] text-base">
+          <Button 
+            className="w-full min-h-[48px] text-base"
+            disabled={!isOnline}
+            title={!isOnline ? "Available when online" : ""}
+          >
             <Plus className="h-5 w-5 mr-2" />
             Record Feed
           </Button>
