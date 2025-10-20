@@ -15,6 +15,8 @@ import FarmProfile from "@/components/FarmProfile";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
+import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
+import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
@@ -204,7 +206,11 @@ const Dashboard = () => {
             <Button variant="outline" onClick={() => navigate("/marketplace")}>
               Marketplace
             </Button>
+            {farmId && <CacheSettingsDialog />}
           </div>
+
+          {/* Offline Onboarding Dialog */}
+          {farmId && <OfflineOnboarding farmId={farmId} />}
 
           <TabsContent value="dashboard" className="space-y-6">
             {farmId && (

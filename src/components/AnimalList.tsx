@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp, Scale } from "lucide-react";
+import { Plus, Loader2, Search, Filter, ChevronDown, ChevronUp, Scale, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StageBadge } from "@/components/ui/stage-badge";
+import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
-import { getCachedAnimals, updateAnimalCache, updateRecordsCache } from "@/lib/dataCache";
+import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 // Helper function to get stage definitions
@@ -81,6 +82,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
@@ -102,6 +104,16 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         console.log('[AnimalList] Using cached data');
         setAnimals(cachedData.data);
         setLoading(false);
+        
+        // Check which animals have cached records
+        const cached = new Set<string>();
+        for (const animal of cachedData.data) {
+          const records = await getCachedRecords(animal.id);
+          if (records) {
+            cached.add(animal.id);
+          }
+        }
+        setCachedAnimalIds(cached);
       }
 
       // 2. Fetch fresh data in background (if online)
@@ -112,6 +124,16 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         // 3. Update UI with fresh data
         setAnimals(freshData);
         setLoading(false);
+        
+        // Update cached IDs
+        const cached = new Set<string>();
+        for (const animal of freshData) {
+          const records = await getCachedRecords(animal.id);
+          if (records) {
+            cached.add(animal.id);
+          }
+        }
+        setCachedAnimalIds(cached);
       } else if (!cachedData) {
         // Offline and no cache available
         toast({
@@ -312,10 +334,20 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               }}
             >
               <CardHeader>
-                <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
-                <CardDescription>
-                  {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
+                    <CardDescription>
+                      {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                    </CardDescription>
+                  </div>
+                  {cachedAnimalIds.has(animal.id) && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      <Database className="h-3 w-3 mr-1" />
+                      Cached
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm text-muted-foreground">

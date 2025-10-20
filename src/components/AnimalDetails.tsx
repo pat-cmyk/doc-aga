@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -23,7 +23,7 @@ import {
   getMilkingStageBadgeColor,
   type AnimalStageData 
 } from "@/lib/animalStages";
-import { getCachedAnimalDetails } from "@/lib/dataCache";
+import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -104,13 +104,50 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
   const [uploading, setUploading] = useState(false);
   const [stageData, setStageData] = useState<AnimalStageData | null>(null);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
+  const [caching, setCaching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
     loadAnimal();
+    checkCacheStatus();
   }, [animalId]);
+
+  const checkCacheStatus = async () => {
+    const records = await getCachedRecords(animalId);
+    setIsCached(!!records);
+  };
+
+  const handleDownloadForOffline = async () => {
+    if (!isOnline) {
+      toast({
+        title: "Offline",
+        description: "Connect to the internet to download data",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCaching(true);
+    try {
+      await updateRecordsCache(animalId);
+      setIsCached(true);
+      toast({
+        title: "✅ Cached for offline use",
+        description: "This animal's data is now available offline",
+      });
+    } catch (error) {
+      toast({
+        title: "❌ Cache failed",
+        description: "Could not cache animal data",
+        variant: "destructive",
+      });
+    } finally {
+      setCaching(false);
+    }
+  };
 
   const loadAnimal = async () => {
     try {
@@ -341,67 +378,95 @@ const AnimalDetails = ({ animalId, onBack }: AnimalDetailsProps) => {
     <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="relative">
-              <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                <AvatarImage 
-                  src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-                  alt={animal.name || "Animal"} 
-                  key={animal.avatar_url}
-                />
-                <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-              </Avatar>
-              <Button
-                size="icon"
-                variant="secondary"
-                className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || !isOnline}
-                title={!isOnline ? "Available when online" : ""}
-              >
-                {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="h-4 w-4" />
               </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
-                {computedLifeStage && (
-                  <StageBadge 
-                    stage={computedLifeStage}
-                    definition={getLifeStageDefinition(computedLifeStage)}
-                    colorClass={getLifeStageBadgeColor(computedLifeStage)}
+              <div className="relative">
+                <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+                  <AvatarImage 
+                    src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
+                    alt={animal.name || "Animal"} 
+                    key={animal.avatar_url}
                   />
-                )}
-                {computedMilkingStage && (
-                  <StageBadge 
-                    stage={computedMilkingStage}
-                    definition={getMilkingStageDefinition(computedMilkingStage)}
-                    colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
-                  />
-                )}
-                {expectedDeliveryDate && (
-                  <Badge className="bg-green-500 hover:bg-green-600 text-xs">
-                    <Baby className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">Due: </span>
-                    {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
-                  </Badge>
-                )}
+                  <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+                </Avatar>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || !isOnline}
+                  title={!isOnline ? "Available when online" : ""}
+                >
+                  {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
               </div>
-              <CardDescription className="text-xs sm:text-sm truncate">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
+                  {computedLifeStage && (
+                    <StageBadge 
+                      stage={computedLifeStage}
+                      definition={getLifeStageDefinition(computedLifeStage)}
+                      colorClass={getLifeStageBadgeColor(computedLifeStage)}
+                    />
+                  )}
+                  {computedMilkingStage && (
+                    <StageBadge 
+                      stage={computedMilkingStage}
+                      definition={getMilkingStageDefinition(computedMilkingStage)}
+                      colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
+                    />
+                  )}
+                  {expectedDeliveryDate && (
+                    <Badge className="bg-green-500 hover:bg-green-600 text-xs">
+                      <Baby className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">Due: </span>
+                      {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-xs sm:text-sm truncate">
                 {animal.breed} • Tag: {animal.ear_tag}
               </CardDescription>
             </div>
           </div>
+          
+          {/* Download for Offline Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadForOffline}
+            disabled={caching || isCached || !isOnline}
+            className="mt-2"
+          >
+            {caching ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Caching...
+              </>
+            ) : isCached ? (
+              <>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Available Offline
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Save for Offline
+              </>
+            )}
+          </Button>
+        </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
           {/* Offline Indicator */}
