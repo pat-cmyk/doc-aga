@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, User, Volume2, FileText, ArrowLeft, Square } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInterface from "@/components/VoiceInterface";
-import docAgaLogo from "@/assets/doc-aga-logo.png";
 
 interface Message {
   role: "user" | "assistant";
@@ -267,7 +266,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           <span className="text-sm">Back</span>
         </Button>
         <div className="flex items-center gap-2">
-          <img src={docAgaLogo} alt="Dok Aga" className="h-6 w-6 object-contain" />
+          <Bot className="h-5 w-5 text-primary" />
           <h2 className="text-base sm:text-lg font-semibold">Dok Aga Consultation</h2>
         </div>
       </div>
@@ -281,7 +280,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
             >
               {message.role === "assistant" && (
                 <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <img src={docAgaLogo} alt="Dok Aga" className="h-5 w-5 sm:h-6 sm:w-6 object-contain" />
+                  <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
                 </div>
               )}
               <Card className={`p-2.5 sm:p-3 max-w-[80%] sm:max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
@@ -316,7 +315,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           {loading && (
             <div className="flex gap-2 sm:gap-3 justify-start">
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <img src={docAgaLogo} alt="Dok Aga" className="h-5 w-5 sm:h-6 sm:w-6 object-contain" />
+                <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
               </div>
               <Card className="p-2.5 sm:p-3">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />

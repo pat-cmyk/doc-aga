@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, User, Volume2, FileText, Square } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInterface from "./VoiceInterface";
-import docAgaLogo from "@/assets/doc-aga-logo.png";
 
 interface Message {
   role: "user" | "assistant";
@@ -332,7 +331,7 @@ const DocAga = () => {
             >
               {message.role === "assistant" && (
                 <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <img src={docAgaLogo} alt="Doc Aga" className="h-5 w-5 sm:h-5.5 sm:w-5.5 object-contain" />
+                  <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
                 </div>
               )}
               <Card className={`p-2.5 sm:p-3 max-w-[80%] sm:max-w-[85%] ${message.role === "user" ? "bg-primary text-primary-foreground" : ""}`}>
@@ -374,7 +373,7 @@ const DocAga = () => {
           {loading && (
             <div className="flex gap-1.5 sm:gap-2 justify-start">
               <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <img src={docAgaLogo} alt="Doc Aga" className="h-5 w-5 sm:h-5.5 sm:w-5.5 object-contain" />
+                <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-primary" />
               </div>
               <Card className="p-2.5 sm:p-3">
                 <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-spin text-primary" />
