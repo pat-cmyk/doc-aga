@@ -5,7 +5,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sprout } from "lucide-react";
+import { Sprout, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
@@ -34,6 +34,8 @@ const Dashboard = () => {
   const [canManageFarm, setCanManageFarm] = useState(false);
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [prefillFeedType, setPrefillFeedType] = useState<string | undefined>(undefined);
+  const [farmName, setFarmName] = useState<string>('My Farm');
+  const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -45,6 +47,17 @@ const Dashboard = () => {
       }
       
       setUser(session.user);
+      
+      // Check voice training status
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('voice_training_completed')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profile) {
+        setVoiceTrainingCompleted(profile.voice_training_completed || false);
+      }
       
       // Check user roles first - redirect merchants to their dashboard
       const { data: roles } = await supabase
@@ -99,10 +112,32 @@ const Dashboard = () => {
         // User owns a farm
         setFarmId(ownedFarms[0].id);
         setCanManageFarm(true);
+        
+        // Fetch farm name
+        const { data: farmData } = await supabase
+          .from('farms')
+          .select('name')
+          .eq('id', ownedFarms[0].id)
+          .single();
+        
+        if (farmData) {
+          setFarmName(farmData.name || 'My Farm');
+        }
       } else if (memberFarms && memberFarms.length > 0) {
         // User is a member of a farm
         setFarmId(memberFarms[0].farm_id);
         setCanManageFarm(userRoles.includes("farmer_owner"));
+        
+        // Fetch farm name
+        const { data: farmData } = await supabase
+          .from('farms')
+          .select('name')
+          .eq('id', memberFarms[0].farm_id)
+          .single();
+        
+        if (farmData) {
+          setFarmName(farmData.name || 'My Farm');
+        }
       } else {
         // Show farm setup for new users without any farm access
         setShowFarmSetup(true);
@@ -200,7 +235,7 @@ const Dashboard = () => {
               <Sprout className="h-6 w-6 text-primary" />
             </div>
           <div>
-            <h1 className="text-xl font-bold">Doc Aga</h1>
+            <h1 className="text-xl font-bold">{farmName}</h1>
             <p className="text-xs text-muted-foreground">Welcome back!</p>
           </div>
         </div>
@@ -209,6 +244,35 @@ const Dashboard = () => {
         </div>
         </div>
       </header>
+
+      {/* Voice Training Completion Banner */}
+      {voiceTrainingCompleted && (
+        <div className="container mx-auto px-4 pt-4 max-w-7xl">
+          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
+            <CardContent className="flex items-center gap-3 py-4">
+              <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
+                <Check className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-green-900 dark:text-green-100">
+                  🎉 Voice Training Complete!
+                </h3>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Your AI assistant is now optimized for your voice. Try asking questions!
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVoiceTrainingCompleted(false)}
+                className="text-green-700 hover:text-green-900 dark:text-green-300"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl">
