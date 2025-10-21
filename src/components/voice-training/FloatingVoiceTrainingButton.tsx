@@ -15,7 +15,22 @@ export function FloatingVoiceTrainingButton() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check initial status
     checkTrainingStatus();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        checkTrainingStatus();
+      } else {
+        setShowButton(false);
+      }
+    });
+    
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkTrainingStatus = async () => {
