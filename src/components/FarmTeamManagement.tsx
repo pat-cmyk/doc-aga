@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Mail, Calendar, Send } from "lucide-react";
+import { UserPlus, Trash2, Mail, Calendar, Send, Check, MicOff } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -27,6 +27,7 @@ interface TeamMember {
   profiles: {
     full_name: string;
     email: string;
+    voice_training_completed: boolean;
   } | null;
 }
 
@@ -52,7 +53,8 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
           invited_at,
           profiles:user_id (
             full_name,
-            email
+            email,
+            voice_training_completed
           )
         `)
         .eq("farm_id", farmId)
@@ -266,6 +268,22 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
+  const getVoiceTrainingBadge = (completed: boolean | undefined) => {
+    if (completed === undefined || completed === null) return null;
+    
+    return completed ? (
+      <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+        <Check className="h-3 w-3 mr-1" />
+        Voice Training
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="text-muted-foreground">
+        <MicOff className="h-3 w-3 mr-1" />
+        Training Pending
+      </Badge>
+    );
+  };
+
   if (isLoading) {
     return <div>Loading team members...</div>;
   }
@@ -351,6 +369,9 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                     </span>
                     {getRoleBadge(member.role_in_farm)}
                     {getStatusBadge(member.invitation_status)}
+                    {member.invitation_status === "accepted" && 
+                     member.profiles?.voice_training_completed !== undefined && 
+                     getVoiceTrainingBadge(member.profiles.voice_training_completed)}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     {member.profiles?.email && (
