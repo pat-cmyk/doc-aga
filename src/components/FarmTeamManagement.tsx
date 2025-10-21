@@ -370,7 +370,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                     {getRoleBadge(member.role_in_farm)}
                     {getStatusBadge(member.invitation_status)}
                     {member.invitation_status === "accepted" && 
-                     member.profiles?.voice_training_completed !== undefined && 
+                     member.profiles && 
                      getVoiceTrainingBadge(member.profiles.voice_training_completed)}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
