@@ -260,7 +260,18 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         </Button>
       )}
 
-      {/* Filter Button and Sheet */}
+      {/* Search Bar - Always Visible */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or ear tag..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Filter Button and Results Count */}
       <div className="flex items-center justify-between gap-2">
         <Sheet>
           <SheetTrigger asChild>
@@ -293,17 +304,6 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
             </SheetHeader>
             
             <div className="space-y-4 mt-6">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name or ear tag..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
               {/* Filter dropdowns with labels */}
               <div className="space-y-3">
                 <div>
