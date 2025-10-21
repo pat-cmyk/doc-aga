@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,6 +23,9 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
+  const [voiceTrainingSkipped, setVoiceTrainingSkipped] = useState(false);
+  const [samplesCount, setSamplesCount] = useState(0);
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -36,8 +39,24 @@ const Profile = () => {
     if (profile) {
       setFullName(profile.full_name || "");
       setPhone(profile.phone || "");
+      setVoiceTrainingCompleted(profile.voice_training_completed || false);
+      setVoiceTrainingSkipped(profile.voice_training_skipped || false);
     }
   }, [profile]);
+
+  useEffect(() => {
+    const loadVoiceTrainingSamples = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { count } = await supabase
+          .from('voice_training_samples')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        setSamplesCount(count || 0);
+      }
+    };
+    loadVoiceTrainingSamples();
+  }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +211,84 @@ const Profile = () => {
                   Update Profile
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Voice Training Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mic className="h-5 w-5" />
+                Voice Training
+              </CardTitle>
+              <CardDescription>
+                Train the AI to better understand your voice and pronunciation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                {voiceTrainingCompleted ? (
+                  <>
+                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Training Completed</p>
+                      <p className="text-xs text-muted-foreground">
+                        You've recorded {samplesCount} voice samples
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Not Completed</p>
+                      <p className="text-xs text-muted-foreground">
+                        {voiceTrainingSkipped 
+                          ? "You skipped voice training" 
+                          : "Complete voice training for better accuracy"}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate('/voice-training')}
+                  variant={voiceTrainingCompleted ? "outline" : "default"}
+                  className="flex-1"
+                >
+                  {voiceTrainingCompleted ? "Redo Training" : "Complete Training"}
+                </Button>
+                {voiceTrainingCompleted && (
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (user) {
+                        await supabase
+                          .from('voice_training_samples')
+                          .delete()
+                          .eq('user_id', user.id);
+                        
+                        await supabase
+                          .from('profiles')
+                          .update({ 
+                            voice_training_completed: false,
+                            voice_training_skipped: false 
+                          })
+                          .eq('id', user.id);
+                        
+                        setSamplesCount(0);
+                        setVoiceTrainingCompleted(false);
+                        setVoiceTrainingSkipped(false);
+                      }
+                    }}
+                  >
+                    Clear Data
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 

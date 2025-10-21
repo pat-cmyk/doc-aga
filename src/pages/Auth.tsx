@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, Loader2 } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
+import { VoiceTrainingOnboarding } from "@/components/voice-training/VoiceTrainingOnboarding";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showVoiceTrainingOnboarding, setShowVoiceTrainingOnboarding] = useState(false);
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -88,7 +90,8 @@ const Auth = () => {
         description: "Account created successfully"
       });
       setLoading(false);
-      navigate("/");
+      // Show voice training onboarding modal
+      setShowVoiceTrainingOnboarding(true);
     } else {
       // Email confirmation required
       setLoading(false);
@@ -149,8 +152,32 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-accent flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <>
+      <VoiceTrainingOnboarding
+        open={showVoiceTrainingOnboarding}
+        onOpenChange={setShowVoiceTrainingOnboarding}
+        onStartTraining={() => {
+          setShowVoiceTrainingOnboarding(false);
+          navigate("/voice-training");
+        }}
+        onSkip={async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase
+                .from('profiles')
+                .update({ voice_training_skipped: true })
+                .eq('id', user.id);
+            }
+          } catch (error) {
+            console.error('Error skipping voice training:', error);
+          }
+          setShowVoiceTrainingOnboarding(false);
+          navigate("/");
+        }}
+      />
+      <div className="min-h-screen bg-gradient-to-br from-background to-accent flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -265,6 +292,7 @@ const Auth = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 

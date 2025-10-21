@@ -1372,6 +1372,8 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
+          voice_training_completed: boolean | null
+          voice_training_skipped: boolean | null
         }
         Insert: {
           created_at?: string
@@ -1381,6 +1383,8 @@ export type Database = {
           phone?: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          voice_training_completed?: boolean | null
+          voice_training_skipped?: boolean | null
         }
         Update: {
           created_at?: string
@@ -1390,6 +1394,8 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          voice_training_completed?: boolean | null
+          voice_training_skipped?: boolean | null
         }
         Relationships: []
       }
@@ -1505,6 +1511,36 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      voice_training_samples: {
+        Row: {
+          audio_url: string
+          created_at: string | null
+          id: string
+          language: string
+          sample_text: string
+          transcription: string | null
+          user_id: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string | null
+          id?: string
+          language: string
+          sample_text: string
+          transcription?: string | null
+          user_id: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string | null
+          id?: string
+          language?: string
+          sample_text?: string
+          transcription?: string | null
           user_id?: string
         }
         Relationships: []
