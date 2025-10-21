@@ -141,7 +141,7 @@ export function VoiceTrainingSession() {
           description: "Your voice profile has been created successfully"
         });
         
-        navigate('/dashboard');
+        navigate('/');
       }
     } catch (error) {
       console.error('Error uploading sample:', error);
@@ -164,10 +164,10 @@ export function VoiceTrainingSession() {
           .update({ voice_training_skipped: true })
           .eq('id', user.id);
       }
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
       console.error('Error skipping training:', error);
-      navigate('/dashboard');
+      navigate('/');
     }
   };
 
