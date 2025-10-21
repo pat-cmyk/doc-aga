@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Stethoscope, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import DocAga from "./DocAga";
 import { cn } from "@/lib/utils";
+import docAgaLogo from "@/assets/doc-aga-logo.png";
 
 export function FloatingDocAga() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,7 +23,7 @@ export function FloatingDocAga() {
         )}
         size="icon"
       >
-        <Stethoscope className="h-6 w-6 sm:h-7 sm:w-7" />
+        <img src={docAgaLogo} alt="Doc Aga" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
       </Button>
 
       {/* Floating Chat Interface */}
@@ -40,7 +41,7 @@ export function FloatingDocAga() {
         {/* Header */}
         <div className="flex items-center justify-between border-b p-3 sm:p-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
           <div className="flex items-center gap-2">
-            <Stethoscope className="h-5 w-5" />
+            <img src={docAgaLogo} alt="Doc Aga" className="h-6 w-6 object-contain" />
             <h2 className="font-semibold text-base sm:text-lg">Doc Aga</h2>
           </div>
           <Button
