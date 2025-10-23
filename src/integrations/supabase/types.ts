@@ -1559,6 +1559,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles_audit: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          is_super_admin: boolean | null
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          is_super_admin?: boolean | null
+          role: Database["public"]["Enums"]["user_role"]
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          is_super_admin?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       voice_training_samples: {
         Row: {
           audio_url: string
