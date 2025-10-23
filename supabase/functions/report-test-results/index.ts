@@ -6,6 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_WINDOW = 60000;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(id: string, max: number, window: number): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(id);
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - window;
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (val.resetAt < cutoff) rateLimitMap.delete(key);
+    }
+  }
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(id, { count: 1, resetAt: now + window });
+    return { allowed: true };
+  }
+  if (record.count >= max) {
+    return { allowed: false, retryAfter: Math.ceil((record.resetAt - now) / 1000) };
+  }
+  record.count++;
+  return { allowed: true };
+}
+
 interface TestResult {
   suite_name: string;
   test_name: string;
@@ -48,6 +72,16 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting (high limit for CI/CD)
+    const identifier = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'ci-cd';
+    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
+      });
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

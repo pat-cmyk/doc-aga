@@ -7,12 +7,46 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const RATE_LIMIT_MAX = 50;
+const RATE_LIMIT_WINDOW = 60000;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(id: string, max: number, window: number): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(id);
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - window;
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (val.resetAt < cutoff) rateLimitMap.delete(key);
+    }
+  }
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(id, { count: 1, resetAt: now + window });
+    return { allowed: true };
+  }
+  if (record.count >= max) {
+    return { allowed: false, retryAfter: Math.ceil((record.resetAt - now) / 1000) };
+  }
+  record.count++;
+  return { allowed: true };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Rate limiting
+    const identifier = req.headers.get('cf-connecting-ip') || 'unknown';
+    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
+      });
+    }
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not set');
