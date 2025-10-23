@@ -62,11 +62,36 @@ serve(async (req) => {
     // Create blob from binary audio data
     const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
     
+    // Philippine agricultural terminology glossary for context
+    const farmTermsPrompt = `
+Agricultural terms (English/Tagalog):
+- Feeding: pagpapakain, pagkain ng hayop
+- Milking: paggatas, pagkagatas
+- Weight: timbang, bigat
+- Health check: tsek sa kalusugan
+- Injection: iniksyon, bakuna
+- Medicine: gamot, medisina
+- Calf: guya, batang baka
+- Heifer: dumalagang baka
+- Cow: baka
+- Bull: toro, lalaking baka
+- Pregnant: buntis, nagdadalang-tao
+- Artificial insemination: artipisyal na pagpapalihi, AI
+- Birth: panganganak, pagsilang
+- Feed types: concentrate, roughage, hay, grass, palay
+- Liters: litro
+- Kilograms: kilo
+- Sick: may sakit
+- Healthy: malusog
+- Temperature: temperatura, lagnat
+    `.trim();
+
     // Prepare form data for OpenAI Whisper API
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
+    formData.append('language', 'en'); // Primary language
+    formData.append('prompt', farmTermsPrompt); // Context for better recognition
 
     // Send to OpenAI Whisper API
     console.log('Sending to OpenAI Whisper API...');

@@ -1494,6 +1494,47 @@ export type Database = {
         }
         Relationships: []
       }
+      transcription_corrections: {
+        Row: {
+          audio_duration_seconds: number | null
+          context: string | null
+          corrected_text: string
+          created_at: string
+          farm_id: string | null
+          id: string
+          original_text: string
+          user_id: string
+        }
+        Insert: {
+          audio_duration_seconds?: number | null
+          context?: string | null
+          corrected_text: string
+          created_at?: string
+          farm_id?: string | null
+          id?: string
+          original_text: string
+          user_id: string
+        }
+        Update: {
+          audio_duration_seconds?: number | null
+          context?: string | null
+          corrected_text?: string
+          created_at?: string
+          farm_id?: string | null
+          id?: string
+          original_text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcription_corrections_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1591,10 +1632,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_access_farm: {
-        Args: { fid: string }
-        Returns: boolean
-      }
+      can_access_farm: { Args: { fid: string }; Returns: boolean }
       create_default_farm: {
         Args: {
           _name?: string
@@ -1603,14 +1641,8 @@ export type Database = {
         }
         Returns: string
       }
-      generate_invoice_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_order_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_invoice_number: { Args: never; Returns: string }
+      generate_order_number: { Args: never; Returns: string }
       handle_merchant_signup: {
         Args: {
           _business_address: string
@@ -1634,10 +1666,7 @@ export type Database = {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
       }
-      is_farm_member: {
-        Args: { farm_id: string }
-        Returns: boolean
-      }
+      is_farm_member: { Args: { farm_id: string }; Returns: boolean }
       is_farm_owner: {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
@@ -1650,14 +1679,8 @@ export type Database = {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
       }
-      is_merchant: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_super_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_merchant: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       animal_event_type:

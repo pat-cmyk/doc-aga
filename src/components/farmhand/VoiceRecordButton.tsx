@@ -11,6 +11,7 @@ import { addToQueue } from '@/lib/offlineQueue';
 import { compressAudio } from '@/lib/audioCompression';
 import { getOfflineMessage } from '@/lib/errorMessages';
 import { getCachedAnimalDetails } from '@/lib/dataCache';
+import { TranscriptionCorrectionDialog } from '@/components/TranscriptionCorrectionDialog';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -34,6 +35,8 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     life_stage?: string;
   } | null>(null);
   const [needsAnimalSelection, setNeedsAnimalSelection] = useState(false);
+  const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
+  const [lastTranscription, setLastTranscription] = useState<string>('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -224,6 +227,9 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
 
       const transcriptionText = transcriptData.text;
       console.log('Transcription:', transcriptionText);
+      
+      // Store transcription for potential correction
+      setLastTranscription(transcriptionText);
 
       // Check if user is calling Dok Aga
       const isDocAgaQuery = /dok\s*aga|doc\s*aga|doktor\s*aga/i.test(transcriptionText);
@@ -315,6 +321,13 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
       title: "Record Created",
       description: "Activity successfully logged",
     });
+    
+    // Offer correction option after successful activity logging
+    if (lastTranscription) {
+      setTimeout(() => {
+        setShowCorrectionDialog(true);
+      }, 500);
+    }
   };
 
   const handleDocAgaClose = () => {
@@ -360,7 +373,22 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   }
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4">
+    <>
+      <TranscriptionCorrectionDialog
+        open={showCorrectionDialog}
+        onOpenChange={setShowCorrectionDialog}
+        originalText={lastTranscription}
+        farmId={farmId}
+        context="voice_recording"
+        onCorrectionSubmitted={() => {
+          toast({
+            title: "Thank you!",
+            description: "Your feedback helps improve voice recognition",
+          });
+        }}
+      />
+      
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4">
       {animalContext && (
         <div className="bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-full px-4 py-2 animate-in fade-in slide-in-from-top-2">
           <p className="text-sm font-medium text-primary">
@@ -405,6 +433,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

@@ -22,3 +22,6 @@ verify_jwt = false
 
 [functions.process-farmhand-activity]
 verify_jwt = true
+
+[functions.submit-correction]
+verify_jwt = true
