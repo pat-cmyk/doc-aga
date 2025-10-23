@@ -150,6 +150,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Rate limiting
+    const identifier = user.id;
+    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
+      });
+    }
+
     console.log('Starting daily stats calculation...');
 
     // Check if table is empty and backfill if needed
