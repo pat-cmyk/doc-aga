@@ -15,6 +15,7 @@ import FarmProfile from "@/components/FarmProfile";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
+import { FinanceTab } from "@/components/FinanceTab";
 import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
@@ -278,11 +279,12 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
               <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
               <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
+              <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/marketplace")}>
               Marketplace
@@ -334,6 +336,12 @@ const Dashboard = () => {
 
           <TabsContent value="farm" className="space-y-6">
             {farmId && <FarmProfile farmId={farmId} />}
+          </TabsContent>
+
+          <TabsContent value="finance" className="space-y-6">
+            {farmId && (
+              <FinanceTab farmId={farmId} canManage={canManageFarm} />
+            )}
           </TabsContent>
         </Tabs>
       </main>
