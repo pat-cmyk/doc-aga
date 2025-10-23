@@ -1,5 +1,6 @@
 export const LIVESTOCK_BREEDS = {
   cattle: [
+    "Not Sure",
     "Holstein",
     "Jersey",
     "Guernsey",
@@ -19,6 +20,7 @@ export const LIVESTOCK_BREEDS = {
     "Mix Breed"
   ],
   goat: [
+    "Not Sure",
     "Boer",
     "Saanen",
     "Alpine",
@@ -33,6 +35,7 @@ export const LIVESTOCK_BREEDS = {
     "Mix Breed"
   ],
   sheep: [
+    "Not Sure",
     "Merino",
     "Suffolk",
     "Dorper",
@@ -45,6 +48,7 @@ export const LIVESTOCK_BREEDS = {
     "Mix Breed"
   ],
   carabao: [
+    "Not Sure",
     "Swamp Buffalo (Philippine Carabao)",
     "River Buffalo (Murrah)",
     "River Buffalo (Nili-Ravi)",
