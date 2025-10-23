@@ -1,11 +1,62 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { executeToolCall } from "./tools.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = { 
   'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' 
 };
+
+// Rate limiting configuration
+const RATE_LIMIT_MAX = 15;
+const RATE_LIMIT_WINDOW = 60000; // 60 seconds
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  identifier: string, 
+  maxRequests: number, 
+  windowMs: number
+): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(identifier);
+  
+  // Clean up old entries periodically (prevent memory leak)
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - windowMs;
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (val.resetAt < cutoff) rateLimitMap.delete(key);
+    }
+  }
+  
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(identifier, { count: 1, resetAt: now + windowMs });
+    return { allowed: true };
+  }
+  
+  if (record.count >= maxRequests) {
+    const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
+// Input validation schema
+const docAgaRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string()
+      .min(1, 'Question cannot be empty')
+      .max(2000, 'Question must be under 2000 characters')
+      .trim(),
+    imageUrl: z.string().url().optional()
+  })).min(1, 'At least one message required'),
+  farmId: z.string().uuid().optional()
+});
 
 // Helper: Find matching FAQ based on user question
 function findMatchingFaq(question: string, faqs: any[]): string | null {
@@ -99,7 +150,36 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    // Parse and validate request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate input
+    let validatedData;
+    try {
+      validatedData = docAgaRequestSchema.parse(requestBody);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const issues = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+        return new Response(
+          JSON.stringify({ error: 'Validation error', details: issues }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ error: 'Invalid request data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { messages } = validatedData;
     
     // Transform messages to support vision (images)
     const transformedMessages = messages.map((msg: any) => {
@@ -137,6 +217,85 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Apply rate limiting
+    const identifier = user.id;
+    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+
+    if (!rateCheck.allowed) {
+      console.warn(`Rate limit exceeded for ${identifier}`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          retryAfter: rateCheck.retryAfter 
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateCheck.retryAfter || 60)
+          } 
+        }
+      );
+    }
+
+    // Validate image URLs if present
+    for (const msg of messages) {
+      if (msg.imageUrl) {
+        try {
+          // Verify it's a valid URL
+          new URL(msg.imageUrl);
+          
+          // Check image size and type via HEAD request
+          const imgCheck = await fetch(msg.imageUrl, { 
+            method: 'HEAD',
+            signal: AbortSignal.timeout(3000) // 3 second timeout
+          });
+          
+          const contentType = imgCheck.headers.get('content-type');
+          const contentLength = parseInt(imgCheck.headers.get('content-length') || '0');
+          
+          if (!contentType?.startsWith('image/')) {
+            return new Response(
+              JSON.stringify({ error: 'Invalid image URL - not an image file' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          if (contentLength > 10 * 1024 * 1024) { // 10MB limit
+            return new Response(
+              JSON.stringify({ error: 'Image too large - maximum 10MB allowed' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          console.log(`✅ Image validated: ${contentType}, ${Math.round(contentLength / 1024)}KB`);
+        } catch (error) {
+          console.error('Image validation error:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to validate image URL' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+    
+    // If farmId provided, verify user has access
+    if (validatedData.farmId) {
+      const { data: farmAccess, error: accessError } = await supabase
+        .rpc('can_access_farm', { fid: validatedData.farmId });
+      
+      if (accessError || !farmAccess) {
+        console.error('Farm access denied:', { userId: user.id, farmId: validatedData.farmId });
+        return new Response(
+          JSON.stringify({ error: 'You do not have access to this farm' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log('✅ Farm access verified');
     }
     
     // Fetch user's farms

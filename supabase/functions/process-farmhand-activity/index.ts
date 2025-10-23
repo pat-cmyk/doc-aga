@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 console.log('[process-farmhand-activity] v2025-10-20-INV-ALL');
 
@@ -14,6 +15,127 @@ const DEFAULT_WEIGHTS = {
   bags: 50,   // kg per bag (concentrates)
   barrels: 200, // kg per barrel/drum
 };
+
+// Rate limiting configuration
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW = 60000; // 60 seconds
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  identifier: string, 
+  maxRequests: number, 
+  windowMs: number
+): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(identifier);
+  
+  // Clean up old entries periodically (prevent memory leak)
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - windowMs;
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (val.resetAt < cutoff) rateLimitMap.delete(key);
+    }
+  }
+  
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(identifier, { count: 1, resetAt: now + windowMs });
+    return { allowed: true };
+  }
+  
+  if (record.count >= maxRequests) {
+    const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
+// Validation schemas for data integrity
+const milkingRecordSchema = z.object({
+  quantity: z.number()
+    .min(0.1, 'Milk quantity must be at least 0.1 liters')
+    .max(100, 'Milk quantity cannot exceed 100 liters per session')
+    .finite(),
+  animal_identifier: z.string().optional(),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional()
+});
+
+const feedingRecordSchema = z.object({
+  feed_type: z.string()
+    .min(2, 'Feed type must be at least 2 characters')
+    .max(100, 'Feed type must be under 100 characters')
+    .refine(val => val !== 'unknown', 'Feed type must be specified'),
+  quantity: z.number()
+    .min(0.1, 'Quantity must be at least 0.1')
+    .max(10000, 'Quantity cannot exceed 10,000')
+    .finite(),
+  unit: z.enum(['bales', 'bags', 'barrels', 'kg', 'liters'])
+    .optional(),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional()
+});
+
+const healthRecordSchema = z.object({
+  notes: z.string()
+    .min(5, 'Health observation must be at least 5 characters')
+    .max(500, 'Notes must be under 500 characters'),
+  animal_identifier: z.string().optional()
+});
+
+const weightRecordSchema = z.object({
+  quantity: z.number()
+    .min(10, 'Weight must be at least 10 kg')
+    .max(2000, 'Weight cannot exceed 2000 kg')
+    .finite(),
+  animal_identifier: z.string().optional(),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional()
+});
+
+const injectionRecordSchema = z.object({
+  medicine_name: z.string()
+    .min(2, 'Medicine name must be at least 2 characters')
+    .max(100, 'Medicine name must be under 100 characters'),
+  dosage: z.string()
+    .max(50, 'Dosage must be under 50 characters')
+    .optional(),
+  animal_identifier: z.string().optional(),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional()
+});
+
+// Validate extracted activity data
+function validateActivityData(activity: any): { valid: boolean; error?: string } {
+  try {
+    switch (activity.activity_type) {
+      case 'milking':
+        milkingRecordSchema.parse(activity);
+        break;
+      case 'feeding':
+        feedingRecordSchema.parse(activity);
+        break;
+      case 'health_observation':
+        healthRecordSchema.parse(activity);
+        break;
+      case 'weight_measurement':
+        weightRecordSchema.parse(activity);
+        break;
+      case 'injection':
+        injectionRecordSchema.parse(activity);
+        break;
+    }
+    return { valid: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const issues = error.errors.map(e => e.message).join('; ');
+      return { 
+        valid: false, 
+        error: `Invalid data: ${issues} / Hindi valid ang data: ${issues}` 
+      };
+    }
+    return { valid: false, error: 'Validation failed / Nabigo ang validation' };
+  }
+}
 
 // Parse and validate date with Filipino language support
 function parseAndValidateDate(dateReference: string | undefined): { 
@@ -562,6 +684,19 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
     // Check if we have multiple feeding activities
     const feedingActivities = extractedActivities.filter((a: any) => a.activity_type === 'feeding');
     const hasMultipleFeeds = feedingActivities.length > 1;
+
+    // Validate all extracted activities
+    for (let i = 0; i < extractedActivities.length; i++) {
+      const activity = extractedActivities[i];
+      const validation = validateActivityData(activity);
+      
+      if (!validation.valid) {
+        console.error(`❌ Validation failed for activity ${i + 1}:`, validation.error);
+        throw new Error(validation.error);
+      }
+      
+      console.log(`✅ Validation passed for activity ${i + 1}: ${activity.activity_type}`);
+    }
     
     // TIER 3: MANDATORY inventory resolution - Must succeed or fail with clear error
     if (feedingActivities.length > 0) {
@@ -674,6 +809,24 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
     // Insert record for single animal activities
     if (finalAnimalId && extractedData.activity_type && !hasMultipleFeeds) {
+      // Verify animal belongs to user's farm (security check)
+      const { data: animalCheck, error: animalError } = await supabase
+        .from('animals')
+        .select('farm_id, id')
+        .eq('id', finalAnimalId)
+        .eq('farm_id', farmId)
+        .eq('is_deleted', false)
+        .single();
+      
+      if (animalError || !animalCheck) {
+        console.error('❌ Animal access denied:', { finalAnimalId, farmId });
+        throw new Error(
+          'Hindi kayo may access sa animal na ito. / You do not have access to this animal.'
+        );
+      }
+      
+      console.log('✅ Animal ownership verified');
+
       const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];
       const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
       
