@@ -48,7 +48,7 @@ export function translateError(error: any): string {
   }
 
   if (message.includes('NO_INVENTORY')) {
-    return "Walang feed inventory para sa unit na ito. Mag-add muna ng feed o gamitin ang tamang unit.";
+    return "Walang feeds para sa unit na ito. Mag-add muna ng feed o gamitin ang tamang unit.";
   }
 
   // Authentication errors

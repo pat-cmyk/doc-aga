@@ -174,7 +174,7 @@ const FarmhandDashboard = () => {
             <Tabs defaultValue="animals" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="animals">Animals</TabsTrigger>
-                <TabsTrigger value="feed">Feed Inventory</TabsTrigger>
+                <TabsTrigger value="feed">Feeds</TabsTrigger>
               </TabsList>
 
               <TabsContent value="animals" className="space-y-4">

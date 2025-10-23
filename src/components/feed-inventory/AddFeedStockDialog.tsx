@@ -226,7 +226,7 @@ export function AddFeedStockDialog({
         <DialogHeader>
           <DialogTitle>{editItem ? 'Edit' : 'Add'} Feed Stock</DialogTitle>
           <DialogDescription>
-            {editItem ? 'Update' : 'Add'} feed inventory details for your farm
+            {editItem ? 'Update' : 'Add'} feed details for your farm
           </DialogDescription>
         </DialogHeader>
 

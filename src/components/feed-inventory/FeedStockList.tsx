@@ -72,7 +72,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
       console.error('Error fetching inventory:', error);
       toast({
         title: "Error",
-        description: "Failed to load feed inventory",
+        description: "Failed to load feeds",
         variant: "destructive"
       });
     } finally {
@@ -126,7 +126,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Feed Inventory</h3>
+          <h3 className="text-lg font-semibold">Feeds</h3>
           <p className="text-sm text-muted-foreground">
             {inventory.length} feed type{inventory.length !== 1 ? 's' : ''} in stock
           </p>

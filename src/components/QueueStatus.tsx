@@ -406,7 +406,7 @@ export const QueueStatus = () => {
                                   {feedType}
                                 </p>
                                 <p className="text-xs text-blue-800">
-                                  Add it to your feed inventory first to record this activity.
+                                  Add it to your feeds first to record this activity.
                                 </p>
                               </div>
                             </div>

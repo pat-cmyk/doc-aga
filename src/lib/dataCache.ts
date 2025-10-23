@@ -568,7 +568,7 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
       phase: 'feed',
       current: 0,
       total: 1,
-      message: 'Caching feed inventory...',
+      message: 'Caching feeds...',
     });
     
     await updateFeedInventoryCache(farmId);

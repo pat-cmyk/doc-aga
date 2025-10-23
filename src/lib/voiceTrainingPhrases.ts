@@ -33,7 +33,7 @@ export const TRAINING_PHRASES: TrainingPhrase[] = [
   },
   {
     id: 'en-5',
-    text: 'Feed inventory is running low',
+    text: 'Feeds are running low',
     language: 'english',
     category: 'feed'
   },

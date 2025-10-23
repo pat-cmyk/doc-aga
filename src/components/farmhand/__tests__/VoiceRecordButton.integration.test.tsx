@@ -351,7 +351,7 @@ describe('VoiceRecordButton Integration Tests', () => {
             data: null,
             error: {
               code: 'NO_INVENTORY',
-              message: 'No feed inventory found for this farm',
+              message: 'No feeds found for this farm',
             },
           });
         }
@@ -369,7 +369,7 @@ describe('VoiceRecordButton Integration Tests', () => {
       await user.click(stopButton);
 
       // Wait for error message
-      await waitForCondition(() => !!queryByText(/no feed inventory/i));
+      await waitForCondition(() => !!queryByText(/no feeds/i));
     });
   });
 

@@ -79,7 +79,7 @@ export function OfflineOnboarding({ farmId }: OfflineOnboardingProps) {
                 <span className="text-green-600">✓</span> All records
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span> Feed inventory
+                <span className="text-green-600">✓</span> Feeds
               </li>
             </ul>
           </div>

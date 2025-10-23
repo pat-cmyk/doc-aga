@@ -281,7 +281,7 @@ const Dashboard = () => {
             <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
-              <TabsTrigger value="feed" disabled={!farmId}>Feed Inventory</TabsTrigger>
+              <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
               <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/marketplace")}>
