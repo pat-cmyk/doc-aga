@@ -11,6 +11,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { updateAnimalCache, getCachedAnimals } from "@/lib/animalCache";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
+import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
 
 interface ParentAnimal {
   id: string;
@@ -25,29 +26,12 @@ interface AnimalFormProps {
   onCancel: () => void;
 }
 
-const CATTLE_BREEDS = [
-  "Holstein",
-  "Jersey",
-  "Guernsey",
-  "Ayrshire",
-  "Brown Swiss",
-  "Milking Shorthorn",
-  "Angus",
-  "Hereford",
-  "Brahman",
-  "Simmental",
-  "Charolais",
-  "Limousin",
-  "Gelbvieh",
-  "Red Poll",
-  "Devon",
-  "Mix Breed"
-];
-
 const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const [creating, setCreating] = useState(false);
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
+  const [livestockType, setLivestockType] = useState<LivestockType>('cattle');
+  const [availableBreeds, setAvailableBreeds] = useState<readonly string[]>([]);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const [formData, setFormData] = useState({
@@ -70,6 +54,24 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   useEffect(() => {
     loadParentAnimals();
   }, [farmId, isOnline]);
+
+  useEffect(() => {
+    const fetchLivestockType = async () => {
+      const { data } = await supabase
+        .from('farms')
+        .select('livestock_type')
+        .eq('id', farmId)
+        .single();
+      
+      if (data?.livestock_type) {
+        const type = data.livestock_type as LivestockType;
+        setLivestockType(type);
+        setAvailableBreeds(getBreedsByLivestockType(type));
+      }
+    };
+    
+    fetchLivestockType();
+  }, [farmId]);
 
   // Load parent breed information
   const getParentBreed = async (parentId: string) => {
@@ -329,7 +331,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                     <SelectValue placeholder="Select breed" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATTLE_BREEDS.map((breed) => (
+                    {availableBreeds.map((breed) => (
                       <SelectItem key={breed} value={breed}>
                         {breed}
                       </SelectItem>
@@ -349,7 +351,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                         <SelectValue placeholder="Select first breed" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                        {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
                           <SelectItem key={breed} value={breed}>
                             {breed}
                           </SelectItem>
@@ -367,7 +369,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                         <SelectValue placeholder="Select second breed" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                        {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
                           <SelectItem key={breed} value={breed}>
                             {breed}
                           </SelectItem>
@@ -486,7 +488,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                         <SelectValue placeholder="Select bull breed" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CATTLE_BREEDS.filter(b => b !== "Mix Breed").map((breed) => (
+                        {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
                           <SelectItem key={breed} value={breed}>
                             {breed}
                           </SelectItem>

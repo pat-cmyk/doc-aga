@@ -39,7 +39,8 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     name: "",
     region: "",
     province: "",
-    role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet"
+    role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet",
+    livestock_type: "cattle"
   });
 
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -104,7 +105,8 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       const { data: farmId, error } = await supabase.rpc('create_default_farm', {
         _name: formData.name,
         _region: regionInfo,
-        _role: formData.role_in_farm
+        _role: formData.role_in_farm,
+        _livestock_type: formData.livestock_type
       });
 
       if (error) throw error;
@@ -143,6 +145,13 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     vet: "I provide veterinary services"
   };
 
+  const livestockDescriptions = {
+    cattle: "Dairy and beef cattle farming",
+    goat: "Goat farming for meat and milk production",
+    sheep: "Sheep farming for meat and wool",
+    carabao: "Water buffalo farming"
+  } as const;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
@@ -166,6 +175,47 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="livestock">Livestock Type *</Label>
+              <Select 
+                value={formData.livestock_type} 
+                onValueChange={(value) => setFormData({ ...formData, livestock_type: value })}
+              >
+                <SelectTrigger id="livestock">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cattle">
+                    <div>
+                      <div className="font-medium">🐄 Cattle</div>
+                      <div className="text-sm text-muted-foreground">Dairy and beef cattle</div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="goat">
+                    <div>
+                      <div className="font-medium">🐐 Goat</div>
+                      <div className="text-sm text-muted-foreground">Meat and milk production</div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="sheep">
+                    <div>
+                      <div className="font-medium">🐑 Sheep</div>
+                      <div className="text-sm text-muted-foreground">Meat and wool production</div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="carabao">
+                    <div>
+                      <div className="font-medium">🐃 Carabao (Water Buffalo)</div>
+                      <div className="text-sm text-muted-foreground">Draft and dairy purposes</div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                {livestockDescriptions[formData.livestock_type as keyof typeof livestockDescriptions]}
+              </p>
             </div>
 
             <div className="space-y-2">

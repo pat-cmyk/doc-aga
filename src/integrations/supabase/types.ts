@@ -653,6 +653,7 @@ export type Database = {
           gps_lng: number
           id: string
           is_deleted: boolean
+          livestock_type: string
           name: string
           owner_id: string
           region: string | null
@@ -665,6 +666,7 @@ export type Database = {
           gps_lng: number
           id?: string
           is_deleted?: boolean
+          livestock_type?: string
           name: string
           owner_id: string
           region?: string | null
@@ -677,6 +679,7 @@ export type Database = {
           gps_lng?: number
           id?: string
           is_deleted?: boolean
+          livestock_type?: string
           name?: string
           owner_id?: string
           region?: string | null
@@ -1677,14 +1680,24 @@ export type Database = {
         Returns: undefined
       }
       can_access_farm: { Args: { fid: string }; Returns: boolean }
-      create_default_farm: {
-        Args: {
-          _name?: string
-          _region?: string
-          _role?: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
-      }
+      create_default_farm:
+        | {
+            Args: {
+              _livestock_type?: string
+              _name?: string
+              _region?: string
+              _role?: Database["public"]["Enums"]["user_role"]
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _name?: string
+              _region?: string
+              _role?: Database["public"]["Enums"]["user_role"]
+            }
+            Returns: string
+          }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       handle_merchant_signup: {
