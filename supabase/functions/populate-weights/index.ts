@@ -64,10 +64,40 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { farmId } = await req.json();
 
     if (!farmId) {
       throw new Error("farmId is required");
+    }
+
+    // Verify user is farm owner or manager
+    const { data: hasAccess, error: accessError } = await supabaseClient
+      .rpc('is_farm_owner_or_manager', { _user_id: user.id, _farm_id: farmId });
+
+    if (accessError || !hasAccess) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Farm owner or manager access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get all animals without weight records

@@ -20,14 +20,14 @@ const AdminAuth = () => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Check if user has admin role
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin");
+        // Check if user has admin role using RPC
+        const { data: isAdmin } = await supabase
+          .rpc("has_role", { 
+            _user_id: user.id, 
+            _role: "admin" 
+          });
         
-        if (roles && roles.length > 0) {
+        if (isAdmin) {
           navigate("/admin");
         }
       }
@@ -55,15 +55,22 @@ const AdminAuth = () => {
       });
 
       if (error) throw error;
+      if (!data.user) throw new Error("No user data returned");
 
-      // Check if user has admin role
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin");
+      // Verify user is admin using RPC (server-side validation)
+      const { data: isAdmin, error: roleError } = await supabase
+        .rpc("has_role", { 
+          _user_id: data.user.id, 
+          _role: "admin" 
+        });
 
-      if (!roles || roles.length === 0) {
+      if (roleError) {
+        console.error("Role check error:", roleError);
+        await supabase.auth.signOut();
+        throw new Error("Failed to verify admin privileges");
+      }
+
+      if (!isAdmin) {
         await supabase.auth.signOut();
         throw new Error("This account does not have admin privileges. Please use the appropriate login page.");
       }

@@ -1370,7 +1370,6 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           voice_training_completed: boolean | null
           voice_training_skipped: boolean | null
@@ -1381,7 +1380,6 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           voice_training_completed?: boolean | null
           voice_training_skipped?: boolean | null
@@ -1392,7 +1390,6 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           voice_training_completed?: boolean | null
           voice_training_skipped?: boolean | null
@@ -1665,6 +1662,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_assign_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_remove_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       can_access_farm: { Args: { fid: string }; Returns: boolean }
       create_default_farm: {
         Args: {

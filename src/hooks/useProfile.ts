@@ -6,7 +6,6 @@ export interface Profile {
   id: string;
   full_name: string | null;
   phone: string | null;
-  role: string;
   voice_training_completed: boolean;
   voice_training_skipped: boolean;
 }

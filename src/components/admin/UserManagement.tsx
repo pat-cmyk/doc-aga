@@ -24,34 +24,31 @@ export const UserManagement = () => {
   const { data: users, isLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["admin-users"],
     queryFn: async (): Promise<UserWithDetails[]> => {
-      // Get profiles with email
-      const { data, error: profileError } = await supabase
+      // Get profiles without role column
+      const { data: profilesData, error: profileError } = await supabase
         .from("profiles")
         .select(`
           id,
           full_name,
           phone,
           email,
-          role,
           created_at
         `)
         .order("created_at", { ascending: false });
 
       if (profileError) throw profileError;
-      if (!data) return [];
+      if (!profilesData) return [];
       
-      const profiles = data as Array<{
-        id: string;
-        full_name: string | null;
-        phone: string | null;
-        email: string | null;
-        role: string;
-        created_at: string;
-      }>;
-      
-      // Get farm memberships and ownership counts
+      // Get roles from user_roles table
       const usersWithDetails: UserWithDetails[] = await Promise.all(
-        profiles.map(async (profile): Promise<UserWithDetails> => {
+        profilesData.map(async (profile) => {
+          // Fetch role from user_roles table
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", profile.id)
+            .maybeSingle();
+          
           // Count farms owned
           const { count: farmsOwned } = await supabase
             .from("farms")
@@ -68,7 +65,7 @@ export const UserManagement = () => {
             id: profile.id,
             full_name: profile.full_name,
             phone: profile.phone,
-            role: profile.role as UserRole,
+            role: (roleData?.role as UserRole) || "farmer_owner",
             created_at: profile.created_at,
             email: profile.email || "N/A",
             farm_count: (farmsOwned || 0) + (farmMemberships || 0)
@@ -82,10 +79,12 @@ export const UserManagement = () => {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
+      // Use admin_assign_role RPC function for secure role management
       const { error } = await supabase
-        .from("profiles")
-        .update({ role: newRole })
-        .eq("id", userId);
+        .rpc("admin_assign_role", {
+          _user_id: userId,
+          _role: newRole
+        });
 
       if (error) throw error;
     },
