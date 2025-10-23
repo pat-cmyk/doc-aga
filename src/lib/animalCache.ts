@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface AnimalCache {
   farmId: string;
-  mothers: Array<{ id: string; name: string; ear_tag: string; breed?: string }>;
-  fathers: Array<{ id: string; name: string; ear_tag: string; breed?: string }>;
+  mothers: Array<{ id: string; name: string; ear_tag: string; breed?: string; livestock_type: string }>;
+  fathers: Array<{ id: string; name: string; ear_tag: string; breed?: string; livestock_type: string }>;
   lastUpdated: number;
 }
 
@@ -52,7 +52,7 @@ export async function updateAnimalCache(farmId: string, isOnline: boolean): Prom
   try {
     const { data: animals, error } = await supabase
       .from('animals')
-      .select('id, name, ear_tag, breed, gender, birth_date')
+      .select('id, name, ear_tag, breed, livestock_type, gender, birth_date')
       .eq('farm_id', farmId)
       .eq('is_deleted', false);
 
@@ -67,7 +67,7 @@ export async function updateAnimalCache(farmId: string, isOnline: boolean): Prom
         a.birth_date &&
         new Date(a.birth_date) <= sixteenMonthsAgo
       )
-      .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed }));
+      .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed, livestock_type: a.livestock_type }));
 
     const fathers = (animals || [])
       .filter(a => 
@@ -75,7 +75,7 @@ export async function updateAnimalCache(farmId: string, isOnline: boolean): Prom
         a.birth_date &&
         new Date(a.birth_date) <= sixteenMonthsAgo
       )
-      .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed }));
+      .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed, livestock_type: a.livestock_type }));
 
     const cache: AnimalCache = {
       farmId,

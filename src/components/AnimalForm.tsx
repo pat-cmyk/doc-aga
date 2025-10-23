@@ -36,6 +36,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const isOnline = useOnlineStatus();
   const [formData, setFormData] = useState({
     animal_type: "new_entrant", // "offspring" or "new_entrant"
+    livestock_type: "cattle", // NEW: livestock type per animal
     name: "",
     ear_tag: "",
     breed: "",
@@ -55,23 +56,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     loadParentAnimals();
   }, [farmId, isOnline]);
 
+  // Update breeds when livestock_type changes
   useEffect(() => {
-    const fetchLivestockType = async () => {
-      const { data } = await supabase
-        .from('farms')
-        .select('livestock_type')
-        .eq('id', farmId)
-        .single();
-      
-      if (data?.livestock_type) {
-        const type = data.livestock_type as LivestockType;
-        setLivestockType(type);
-        setAvailableBreeds(getBreedsByLivestockType(type));
-      }
-    };
-    
-    fetchLivestockType();
-  }, [farmId]);
+    setAvailableBreeds(getBreedsByLivestockType(formData.livestock_type as LivestockType));
+  }, [formData.livestock_type]);
 
   // Load parent breed information
   const getParentBreed = async (parentId: string) => {
@@ -180,6 +168,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     
     const animalData = {
       farm_id: farmId,
+      livestock_type: formData.livestock_type, // NEW: Include livestock type
       name: formData.name || null,
       ear_tag: formData.ear_tag,
       breed: finalBreed || null,
@@ -284,6 +273,36 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 <SelectItem value="offspring">Offspring</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          
+          {/* NEW: Livestock Type Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="livestock_type">Livestock Type *</Label>
+            <Select 
+              value={formData.livestock_type} 
+              onValueChange={(value) => {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  livestock_type: value,
+                  breed: "", // Reset breed when livestock type changes
+                  breed1: "",
+                  breed2: ""
+                }));
+              }}
+            >
+              <SelectTrigger id="livestock_type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cattle">🐄 Cattle</SelectItem>
+                <SelectItem value="goat">🐐 Goat</SelectItem>
+                <SelectItem value="sheep">🐑 Sheep</SelectItem>
+                <SelectItem value="carabao">🐃 Carabao</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              You can manage multiple types of livestock on the same farm
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>

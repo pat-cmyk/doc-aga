@@ -99,6 +99,7 @@ export async function getCacheStats(farmId: string): Promise<CacheStats> {
 
 interface Animal {
   id: string;
+  livestock_type: string; // NEW
   name: string | null;
   ear_tag: string | null;
   breed: string | null;

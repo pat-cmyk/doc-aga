@@ -35,10 +35,11 @@ interface WeightEstimateData {
   gender: string;
   breed?: string;
   lifeStage?: string | null;
+  livestockType?: string; // NEW
 }
 
-// Weight estimation logic (matching frontend)
-const FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+// Weight estimation logic - Cattle
+const CATTLE_FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
   "Calf": { min: 40, max: 120 },
   "Heifer Calf": { min: 120, max: 200 },
   "Breeding Heifer": { min: 200, max: 380 },
@@ -47,10 +48,49 @@ const FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
   "Mature Cow": { min: 450, max: 650 },
 };
 
-const MALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+const CATTLE_MALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
   "Bull Calf": { min: 40, max: 180 },
   "Young Bull": { min: 180, max: 400 },
   "Mature Bull": { min: 400, max: 800 },
+};
+
+// Goat weight ranges
+const GOAT_FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Kid": { min: 5, max: 15 },
+  "Young Doe": { min: 15, max: 30 },
+  "Mature Doe": { min: 30, max: 60 },
+};
+
+const GOAT_MALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Kid": { min: 5, max: 15 },
+  "Young Buck": { min: 15, max: 40 },
+  "Mature Buck": { min: 40, max: 80 },
+};
+
+// Sheep weight ranges
+const SHEEP_FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Lamb": { min: 8, max: 20 },
+  "Young Ewe": { min: 20, max: 40 },
+  "Mature Ewe": { min: 40, max: 80 },
+};
+
+const SHEEP_MALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Lamb": { min: 8, max: 20 },
+  "Young Ram": { min: 20, max: 50 },
+  "Mature Ram": { min: 50, max: 120 },
+};
+
+// Carabao (Water Buffalo) weight ranges
+const CARABAO_FEMALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Calf": { min: 20, max: 60 },
+  "Young Female": { min: 60, max: 200 },
+  "Mature Female": { min: 200, max: 500 },
+};
+
+const CARABAO_MALE_WEIGHT_RANGES: Record<string, { min: number; max: number }> = {
+  "Calf": { min: 20, max: 60 },
+  "Young Bull": { min: 60, max: 250 },
+  "Mature Bull": { min: 250, max: 700 },
 };
 
 function estimateWeightByAge(data: WeightEstimateData): number {
@@ -58,21 +98,63 @@ function estimateWeightByAge(data: WeightEstimateData): number {
     (new Date().getTime() - data.birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
   );
   const isMale = data.gender?.toLowerCase() === "male";
+  const livestockType = data.livestockType || 'cattle';
   
   let weightRange;
   
-  if (isMale) {
-    if (ageInMonths < 12) weightRange = MALE_WEIGHT_RANGES["Bull Calf"];
-    else if (ageInMonths < 24) weightRange = MALE_WEIGHT_RANGES["Young Bull"];
-    else weightRange = MALE_WEIGHT_RANGES["Mature Bull"];
-  } else {
-    if (ageInMonths < 8) weightRange = FEMALE_WEIGHT_RANGES["Calf"];
-    else if (ageInMonths < 12) weightRange = FEMALE_WEIGHT_RANGES["Heifer Calf"];
-    else if (ageInMonths < 24) weightRange = FEMALE_WEIGHT_RANGES["Breeding Heifer"];
-    else weightRange = FEMALE_WEIGHT_RANGES["Mature Cow"];
+  // Select appropriate weight ranges based on livestock type
+  let femaleRanges: Record<string, { min: number; max: number }>;
+  let maleRanges: Record<string, { min: number; max: number }>;
+  
+  switch (livestockType) {
+    case 'goat':
+      femaleRanges = GOAT_FEMALE_WEIGHT_RANGES;
+      maleRanges = GOAT_MALE_WEIGHT_RANGES;
+      break;
+    case 'sheep':
+      femaleRanges = SHEEP_FEMALE_WEIGHT_RANGES;
+      maleRanges = SHEEP_MALE_WEIGHT_RANGES;
+      break;
+    case 'carabao':
+      femaleRanges = CARABAO_FEMALE_WEIGHT_RANGES;
+      maleRanges = CARABAO_MALE_WEIGHT_RANGES;
+      break;
+    case 'cattle':
+    default:
+      femaleRanges = CATTLE_FEMALE_WEIGHT_RANGES;
+      maleRanges = CATTLE_MALE_WEIGHT_RANGES;
+      break;
   }
   
-  if (!weightRange) return 300; // Default fallback
+  // Age-based stage determination varies by livestock type
+  if (isMale) {
+    if (livestockType === 'goat' || livestockType === 'sheep') {
+      if (ageInMonths < 6) weightRange = maleRanges[Object.keys(maleRanges)[0]]; // Kid/Lamb
+      else if (ageInMonths < 12) weightRange = maleRanges[Object.keys(maleRanges)[1]]; // Young
+      else weightRange = maleRanges[Object.keys(maleRanges)[2]]; // Mature
+    } else { // cattle or carabao
+      if (ageInMonths < 12) weightRange = maleRanges[Object.keys(maleRanges)[0]]; // Calf/Bull Calf
+      else if (ageInMonths < 24) weightRange = maleRanges[Object.keys(maleRanges)[1]]; // Young Bull
+      else weightRange = maleRanges[Object.keys(maleRanges)[2]]; // Mature Bull
+    }
+  } else {
+    if (livestockType === 'goat' || livestockType === 'sheep') {
+      if (ageInMonths < 6) weightRange = femaleRanges[Object.keys(femaleRanges)[0]]; // Kid/Lamb
+      else if (ageInMonths < 12) weightRange = femaleRanges[Object.keys(femaleRanges)[1]]; // Young
+      else weightRange = femaleRanges[Object.keys(femaleRanges)[2]]; // Mature
+    } else if (livestockType === 'cattle') {
+      if (ageInMonths < 8) weightRange = femaleRanges["Calf"];
+      else if (ageInMonths < 12) weightRange = femaleRanges["Heifer Calf"];
+      else if (ageInMonths < 24) weightRange = femaleRanges["Breeding Heifer"];
+      else weightRange = femaleRanges["Mature Cow"];
+    } else { // carabao
+      if (ageInMonths < 12) weightRange = femaleRanges["Calf"];
+      else if (ageInMonths < 24) weightRange = femaleRanges["Young Female"];
+      else weightRange = femaleRanges["Mature Female"];
+    }
+  }
+  
+  if (!weightRange) return livestockType === 'goat' ? 30 : livestockType === 'sheep' ? 40 : livestockType === 'carabao' ? 250 : 300;
   
   return Math.round((weightRange.min + weightRange.max) / 2);
 }
@@ -137,7 +219,7 @@ serve(async (req) => {
     // Get all animals without weight records
     const { data: animals, error: animalsError } = await supabaseClient
       .from("animals")
-      .select("id, birth_date, gender, breed, current_weight_kg")
+      .select("id, birth_date, gender, breed, livestock_type, current_weight_kg")
       .eq("farm_id", farmId)
       .eq("is_deleted", false);
 
@@ -158,6 +240,7 @@ serve(async (req) => {
         birthDate: new Date(animal.birth_date),
         gender: animal.gender || "female",
         breed: animal.breed,
+        livestockType: animal.livestock_type || "cattle",
       });
 
       // Insert weight record

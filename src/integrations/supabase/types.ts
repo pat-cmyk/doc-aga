@@ -289,6 +289,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           life_stage: string | null
+          livestock_type: string
           milking_stage: string | null
           milking_start_date: string | null
           mother_id: string | null
@@ -309,6 +310,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           life_stage?: string | null
+          livestock_type?: string
           milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           life_stage?: string | null
+          livestock_type?: string
           milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null

@@ -54,6 +54,7 @@ const getMilkingStageDefinition = (stage: string | null): string => {
 
 interface Animal {
   id: string;
+  livestock_type: string; // NEW
   name: string | null;
   ear_tag: string | null;
   breed: string | null;
@@ -78,6 +79,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [showForm, setShowForm] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(initialSelectedAnimalId || null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [livestockTypeFilter, setLivestockTypeFilter] = useState<string>("all"); // NEW
   const [breedFilter, setBreedFilter] = useState<string>("all");
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
@@ -188,9 +190,21 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   }
 
   // Get unique values for filters
+  const uniqueLivestockTypes = Array.from(new Set(animals.map(a => a.livestock_type).filter(Boolean))); // NEW
   const uniqueBreeds = Array.from(new Set(animals.map(a => a.breed).filter(Boolean)));
   const uniqueLifeStages = Array.from(new Set(animals.map(a => a.lifeStage).filter(Boolean)));
   const uniqueMilkingStages = Array.from(new Set(animals.map(a => a.milkingStage).filter(Boolean)));
+  
+  // Helper to get livestock icon
+  const getLivestockIcon = (type: string) => {
+    switch (type) {
+      case 'cattle': return '🐄';
+      case 'goat': return '🐐';
+      case 'sheep': return '🐑';
+      case 'carabao': return '🐃';
+      default: return '🐄';
+    }
+  };
 
   // Helper function to get cache status icon
   const getCacheIcon = (animalId: string) => {
@@ -223,6 +237,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   // Check if filters are active
   const hasActiveFilters = 
     searchQuery !== "" || 
+    livestockTypeFilter !== "all" || // NEW
     breedFilter !== "all" || 
     genderFilter !== "all" || 
     lifeStageFilter !== "all" || 
@@ -231,6 +246,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   // Reset all filters
   const resetAllFilters = () => {
     setSearchQuery("");
+    setLivestockTypeFilter("all"); // NEW
     setBreedFilter("all");
     setGenderFilter("all");
     setLifeStageFilter("all");
@@ -243,12 +259,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       animal.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       animal.ear_tag?.toLowerCase().includes(searchQuery.toLowerCase());
     
+    const matchesLivestockType = livestockTypeFilter === "all" || animal.livestock_type === livestockTypeFilter; // NEW
     const matchesBreed = breedFilter === "all" || animal.breed === breedFilter;
     const matchesGender = genderFilter === "all" || animal.gender?.toLowerCase() === genderFilter.toLowerCase();
     const matchesLifeStage = lifeStageFilter === "all" || animal.lifeStage === lifeStageFilter;
     const matchesMilkingStage = milkingStageFilter === "all" || animal.milkingStage === milkingStageFilter;
 
-    return matchesSearch && matchesBreed && matchesGender && matchesLifeStage && matchesMilkingStage;
+    return matchesSearch && matchesLivestockType && matchesBreed && matchesGender && matchesLifeStage && matchesMilkingStage;
   });
 
   return (
@@ -306,6 +323,23 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
             <div className="space-y-4 mt-6">
               {/* Filter dropdowns with labels */}
               <div className="space-y-3">
+                {/* NEW: Livestock Type Filter */}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Livestock Type</label>
+                  <Select value={livestockTypeFilter} onValueChange={setLivestockTypeFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="cattle">🐄 Cattle</SelectItem>
+                      <SelectItem value="goat">🐐 Goat</SelectItem>
+                      <SelectItem value="sheep">🐑 Sheep</SelectItem>
+                      <SelectItem value="carabao">🐃 Carabao</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Breed</label>
                   <Select value={breedFilter} onValueChange={setBreedFilter}>
@@ -433,7 +467,9 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               <CardHeader>
                 <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
                 <CardDescription className="flex items-center">
-                  <span>{animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}</span>
+                  <span>
+                    {getLivestockIcon(animal.livestock_type)} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                  </span>
                   {getCacheIcon(animal.id)}
                 </CardDescription>
               </CardHeader>
