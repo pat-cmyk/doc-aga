@@ -12,6 +12,7 @@ import { useRole } from "@/hooks/useRole";
 import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
+import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -289,6 +290,17 @@ const Profile = () => {
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Cache Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Cache Settings</CardTitle>
+              <CardDescription>Manage your offline data and cache preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CacheSettingsDialog />
             </CardContent>
           </Card>
 

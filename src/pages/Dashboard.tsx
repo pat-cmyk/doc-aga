@@ -16,7 +16,6 @@ import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
 import { FinanceTab } from "@/components/FinanceTab";
-import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -286,10 +285,10 @@ const Dashboard = () => {
               <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
             </TabsList>
-            <Button variant="outline" onClick={() => navigate("/marketplace")}>
+            {/* Marketplace button - hidden for this development stage */}
+            {/* <Button variant="outline" onClick={() => navigate("/marketplace")}>
               Marketplace
-            </Button>
-            {farmId && <CacheSettingsDialog />}
+            </Button> */}
           </div>
 
           {/* Offline Onboarding Dialog */}
