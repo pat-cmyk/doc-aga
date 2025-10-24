@@ -678,7 +678,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card 
           className="cursor-pointer transition-all hover:shadow-lg hover:scale-105"
           onClick={onNavigateToAnimals}
@@ -708,23 +708,24 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pregnant Cows</CardTitle>
+          <CardTitle className="text-sm font-medium">Pregnancy Status</CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.pregnantCount}</div>
-          <p className="text-xs text-muted-foreground">Confirmed pregnancies</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Confirmation</CardTitle>
-          <Activity className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.pendingConfirmation}</div>
-          <p className="text-xs text-muted-foreground">AI performed, awaiting</p>
+          <div className="space-y-3">
+            <div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {stats.pregnantCount}
+              </div>
+              <p className="text-xs text-muted-foreground">Confirmed pregnancies</p>
+            </div>
+            <div className="border-t pt-3">
+              <div className="text-xl font-semibold text-amber-600 dark:text-amber-400">
+                {stats.pendingConfirmation}
+              </div>
+              <p className="text-xs text-muted-foreground">Pending confirmation</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
