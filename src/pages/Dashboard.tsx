@@ -255,9 +255,6 @@ const Dashboard = () => {
         <div className="flex items-center gap-2">
           <UserEmailDropdown />
         </div>
-        <div className="flex items-center gap-2">
-          <UserEmailDropdown />
-        </div>
         </div>
       </header>
 
