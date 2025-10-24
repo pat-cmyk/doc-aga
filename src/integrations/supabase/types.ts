@@ -710,6 +710,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           livestock_type: string
+          logo_url: string | null
           name: string
           owner_id: string
           region: string | null
@@ -723,6 +724,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           livestock_type?: string
+          logo_url?: string | null
           name: string
           owner_id: string
           region?: string | null
@@ -736,6 +738,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           livestock_type?: string
+          logo_url?: string | null
           name?: string
           owner_id?: string
           region?: string | null

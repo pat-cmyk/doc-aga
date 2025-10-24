@@ -9,10 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2 } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
 import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
+import { FarmLogoUpload } from "@/components/FarmLogoUpload";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -27,6 +29,9 @@ const Profile = () => {
   const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
   const [voiceTrainingSkipped, setVoiceTrainingSkipped] = useState(false);
   const [samplesCount, setSamplesCount] = useState(0);
+  const [farmId, setFarmId] = useState<string | null>(null);
+  const [farmData, setFarmData] = useState<any>(null);
+  const { canManageFarm } = usePermissions(farmId || undefined);
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -57,6 +62,49 @@ const Profile = () => {
       }
     };
     loadVoiceTrainingSamples();
+  }, []);
+
+  useEffect(() => {
+    const loadFarmData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if user owns a farm
+      const { data: ownedFarms } = await supabase
+        .from("farms")
+        .select("*")
+        .eq("owner_id", user.id)
+        .eq("is_deleted", false)
+        .limit(1);
+
+      if (ownedFarms && ownedFarms.length > 0) {
+        setFarmId(ownedFarms[0].id);
+        setFarmData(ownedFarms[0]);
+        return;
+      }
+
+      // Check if user is a manager of a farm
+      const { data: memberFarms } = await supabase
+        .from("farm_memberships")
+        .select("farm_id, role_in_farm")
+        .eq("user_id", user.id)
+        .eq("invitation_status", "accepted")
+        .limit(1);
+
+      if (memberFarms && memberFarms.length > 0) {
+        const { data: farm } = await supabase
+          .from("farms")
+          .select("*")
+          .eq("id", memberFarms[0].farm_id)
+          .single();
+
+        if (farm) {
+          setFarmId(farm.id);
+          setFarmData(farm);
+        }
+      }
+    };
+    loadFarmData();
   }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -292,6 +340,45 @@ const Profile = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Farm Settings */}
+          {farmId && canManageFarm && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Farm Settings
+                </CardTitle>
+                <CardDescription>Manage your farm branding and information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FarmLogoUpload
+                  farmId={farmId}
+                  currentLogoUrl={farmData?.logo_url || null}
+                  onUploadSuccess={(newLogoUrl) => {
+                    setFarmData({ ...farmData, logo_url: newLogoUrl });
+                  }}
+                />
+                <Separator />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Farm Name</p>
+                      <p className="font-medium">{farmData?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Region</p>
+                      <p className="font-medium">{farmData?.region || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Livestock Type</p>
+                      <p className="font-medium capitalize">{farmData?.livestock_type || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Cache Settings */}
           <Card>

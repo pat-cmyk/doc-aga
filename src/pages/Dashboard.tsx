@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sprout, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
@@ -35,6 +36,7 @@ const Dashboard = () => {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [prefillFeedType, setPrefillFeedType] = useState<string | undefined>(undefined);
   const [farmName, setFarmName] = useState<string>('My Farm');
+  const [farmLogoUrl, setFarmLogoUrl] = useState<string | null>(null);
   const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
 
   useEffect(() => {
@@ -113,30 +115,32 @@ const Dashboard = () => {
         setFarmId(ownedFarms[0].id);
         setCanManageFarm(true);
         
-        // Fetch farm name
+        // Fetch farm name and logo
         const { data: farmData } = await supabase
           .from('farms')
-          .select('name')
+          .select('name, logo_url')
           .eq('id', ownedFarms[0].id)
           .single();
         
         if (farmData) {
           setFarmName(farmData.name || 'My Farm');
+          setFarmLogoUrl(farmData.logo_url || null);
         }
       } else if (memberFarms && memberFarms.length > 0) {
         // User is a member of a farm
         setFarmId(memberFarms[0].farm_id);
         setCanManageFarm(userRoles.includes("farmer_owner"));
         
-        // Fetch farm name
+        // Fetch farm name and logo
         const { data: farmData } = await supabase
           .from('farms')
-          .select('name')
+          .select('name, logo_url')
           .eq('id', memberFarms[0].farm_id)
           .single();
         
         if (farmData) {
           setFarmName(farmData.name || 'My Farm');
+          setFarmLogoUrl(farmData.logo_url || null);
         }
       } else {
         // Show farm setup for new users without any farm access
@@ -231,13 +235,25 @@ const Dashboard = () => {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sprout className="h-6 w-6 text-primary" />
+            {farmLogoUrl ? (
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={farmLogoUrl} alt={farmName} />
+                <AvatarFallback className="bg-primary/10">
+                  <Sprout className="h-6 w-6 text-primary" />
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Sprout className="h-6 w-6 text-primary" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-xl font-bold">{farmName}</h1>
+              <p className="text-xs text-muted-foreground">Welcome back!</p>
             </div>
-          <div>
-            <h1 className="text-xl font-bold">{farmName}</h1>
-            <p className="text-xs text-muted-foreground">Welcome back!</p>
           </div>
+        <div className="flex items-center gap-2">
+          <UserEmailDropdown />
         </div>
         <div className="flex items-center gap-2">
           <UserEmailDropdown />
