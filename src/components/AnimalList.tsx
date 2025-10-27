@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2, Search, Filter, Scale, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -54,7 +55,7 @@ const getMilkingStageDefinition = (stage: string | null): string => {
 
 interface Animal {
   id: string;
-  livestock_type: string; // NEW
+  livestock_type: string;
   name: string | null;
   ear_tag: string | null;
   breed: string | null;
@@ -62,6 +63,7 @@ interface Animal {
   gender: string | null;
   milking_start_date: string | null;
   current_weight_kg: number | null;
+  avatar_url?: string | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
 }
@@ -465,13 +467,26 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               }}
             >
               <CardHeader>
-                <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
-                <CardDescription className="flex items-center">
-                  <span>
-                    {getLivestockIcon(animal.livestock_type)} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
-                  </span>
-                  {getCacheIcon(animal.id)}
-                </CardDescription>
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-12 w-12 flex-shrink-0">
+                    <AvatarImage 
+                      src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
+                      alt={animal.name || animal.ear_tag || "Animal"}
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
+                    <CardDescription className="flex items-center">
+                      <span>
+                        {getLivestockIcon(animal.livestock_type)} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                      </span>
+                      {getCacheIcon(animal.id)}
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
