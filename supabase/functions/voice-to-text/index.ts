@@ -1,13 +1,18 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Security limits
 const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW = 60000;
+const MAX_AUDIO_SIZE_MB = 10;
+const MAX_AUDIO_SIZE_BYTES = MAX_AUDIO_SIZE_MB * 1024 * 1024;
+
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(id: string, max: number, window: number): { allowed: boolean; retryAfter?: number } {
@@ -66,22 +71,91 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json();
-    
-    if (!audio) {
-      throw new Error('No audio data provided');
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log('Received audio data, processing...');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      console.error('[voice-to-text] Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[voice-to-text] Request from user: ${user.id}`)
+
+    // Rate limiting by user ID
+    const rateCheck = checkRateLimit(user.id, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW)
+    if (!rateCheck.allowed) {
+      console.warn(`[voice-to-text] Rate limit exceeded for user: ${user.id}`)
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        {
+          status: 429,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateCheck.retryAfter || 60)
+          }
+        }
+      )
+    }
+
+    // Parse and validate audio data
+    const { audio } = await req.json()
+    
+    if (!audio || typeof audio !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid audio data format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate base64 format
+    if (!/^[A-Za-z0-9+/=]+$/.test(audio)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid audio encoding' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate audio size
+    const audioSizeBytes = (audio.length * 3) / 4 // Approximate decoded size
+    if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+      console.warn(`[voice-to-text] Audio too large: ${(audioSizeBytes / 1024 / 1024).toFixed(2)}MB`)
+      return new Response(
+        JSON.stringify({ error: `Audio file too large. Maximum size is ${MAX_AUDIO_SIZE_MB}MB` }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[voice-to-text] Processing audio (${(audioSizeBytes / 1024).toFixed(2)}KB)`)
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      console.error('[voice-to-text] OPENAI_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'Transcription service not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Process audio in chunks
     const binaryAudio = processBase64Chunks(audio);
-    console.log(`Audio size: ${binaryAudio.length} bytes`);
 
     // Create blob from binary audio data
     const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
@@ -118,7 +192,7 @@ Agricultural terms (English/Tagalog):
     formData.append('prompt', farmTermsPrompt); // Context for better recognition
 
     // Send to OpenAI Whisper API
-    console.log('Sending to OpenAI Whisper API...');
+    console.log('[voice-to-text] Sending to OpenAI Whisper API...');
     const response = await fetch(
       'https://api.openai.com/v1/audio/transcriptions',
       {
@@ -131,35 +205,68 @@ Agricultural terms (English/Tagalog):
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI Whisper API error:', errorText);
-      throw new Error(`OpenAI Whisper API error: ${errorText}`);
+      const errorText = await response.text()
+      console.error('[voice-to-text] OpenAI API error:', response.status, errorText)
+      
+      // Sanitize error for client
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Transcription service error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const result = await response.json();
     
-    if (!result.text) {
-      throw new Error('No transcription text returned');
+    // Validate result
+    if (!result.text || typeof result.text !== 'string') {
+      console.error('[voice-to-text] Invalid response from OpenAI:', result)
+      return new Response(
+        JSON.stringify({ error: 'Transcription failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const transcript = result.text;
-
-    console.log('Transcription successful:', transcript);
+    console.log(`[voice-to-text] Success for user ${user.id}: ${result.text.substring(0, 50)}...`)
 
     return new Response(
-      JSON.stringify({ text: transcript }),
+      JSON.stringify({ text: result.text }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Voice-to-text error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('[voice-to-text] Error:', error)
+    
+    // Sanitize errors - never expose internal details
+    let errorMessage = 'An error occurred processing your request'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      // Only expose specific safe error messages
+      if (error.message.includes('Invalid audio')) {
+        errorMessage = error.message
+        statusCode = 400
+      } else if (error.message.includes('Authentication')) {
+        errorMessage = error.message
+        statusCode = 401
+      } else if (error.message.includes('Too many requests')) {
+        errorMessage = error.message
+        statusCode = 429
+      }
+    }
+    
     return new Response(
       JSON.stringify({ error: errorMessage }),
       {
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
-    );
+    )
   }
 });

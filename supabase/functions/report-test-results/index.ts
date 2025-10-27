@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-signature',
 };
 
 const RATE_LIMIT_MAX = 100;
@@ -65,36 +65,78 @@ interface TestReportPayload {
   coverage?: CoverageReport[];
 }
 
+// Webhook signature verification
+async function verifyWebhookSignature(body: string, signature: string | null): Promise<boolean> {
+  if (!signature) {
+    return false;
+  }
+
+  const secret = Deno.env.get('WEBHOOK_SECRET');
+  if (!secret) {
+    console.warn('[report-test-results] WEBHOOK_SECRET not configured');
+    return false;
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+    const expectedSignature = Array.from(new Uint8Array(sig))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    return signature === expectedSignature;
+  } catch (error) {
+    console.error('[report-test-results] Signature verification error:', error);
+    return false;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Rate limiting (high limit for CI/CD)
-    const identifier = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'ci-cd';
-    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
-      });
-    }
+  // Check rate limit
+  const identifier = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'ci-cd';
+  const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+  if (!rateCheck.allowed) {
+    console.warn(`[report-test-results] Rate limit exceeded for: ${identifier}`);
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      status: 429,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
+    });
+  }
 
+  // Verify webhook signature
+  const signature = req.headers.get('x-webhook-signature');
+  const rawBody = await req.text();
+  
+  const isValid = await verifyWebhookSignature(rawBody, signature);
+  if (!isValid) {
+    console.error('[report-test-results] Invalid webhook signature');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse request body
-    const payload: TestReportPayload = await req.json();
-
-    console.log('Received test report:', {
-      branch: payload.branch,
-      total_tests: payload.total_tests,
-      passed: payload.passed_tests,
-      failed: payload.failed_tests,
-    });
+    const payload: TestReportPayload = JSON.parse(rawBody);
+    
+    console.log(`[report-test-results] Processing test results: ${payload.passed_tests}/${payload.total_tests} passed`)
 
     // Determine status
     let status: 'passed' | 'failed' | 'error' = 'passed';
@@ -121,11 +163,11 @@ serve(async (req) => {
       .single();
 
     if (runError) {
-      console.error('Error inserting test run:', runError);
+      console.error('[report-test-results] Error inserting test run:', runError);
       throw runError;
     }
 
-    console.log('Created test run:', testRun.id);
+    console.log('[report-test-results] Created test run:', testRun.id);
 
     // Insert test results
     if (payload.test_results && payload.test_results.length > 0) {
@@ -145,11 +187,11 @@ serve(async (req) => {
         .insert(testResultsData);
 
       if (resultsError) {
-        console.error('Error inserting test results:', resultsError);
+        console.error('[report-test-results] Error inserting test results:', resultsError);
         throw resultsError;
       }
 
-      console.log(`Inserted ${testResultsData.length} test results`);
+      console.log(`[report-test-results] Inserted ${testResultsData.length} test results`);
     }
 
     // Insert coverage reports
@@ -171,11 +213,11 @@ serve(async (req) => {
         .insert(coverageData);
 
       if (coverageError) {
-        console.error('Error inserting coverage:', coverageError);
+        console.error('[report-test-results] Error inserting coverage:', coverageError);
         throw coverageError;
       }
 
-      console.log(`Inserted ${coverageData.length} coverage reports`);
+      console.log(`[report-test-results] Inserted ${coverageData.length} coverage reports`);
     }
 
     return new Response(
@@ -190,16 +232,20 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error processing test report:', error);
+    console.error('[report-test-results] Error:', error);
+    
+    // Sanitize error - don't expose internal details
+    let errorMessage = 'Failed to process test results';
+    let statusCode = 500;
+    
+    if (error instanceof SyntaxError) {
+      errorMessage = 'Invalid request format';
+      statusCode = 400;
+    }
+    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ error: errorMessage }),
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import 'https://deno.land/x/xhr@0.1.0/mod.ts'
 
 const corsHeaders = {
@@ -6,8 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Security limits
 const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW = 60000;
+const MAX_TEXT_LENGTH = 5000; // 5000 characters max
+
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(id: string, max: number, window: number): { allowed: boolean; retryAfter?: number } {
@@ -36,23 +40,77 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      console.error('[text-to-speech] Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[text-to-speech] Request from user: ${user.id}`)
+
+    // Rate limiting by user ID
+    const rateCheck = checkRateLimit(user.id, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW)
+    if (!rateCheck.allowed) {
+      console.warn(`[text-to-speech] Rate limit exceeded for user: ${user.id}`)
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        {
+          status: 429,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateCheck.retryAfter || 60)
+          }
+        }
+      )
+    }
+
+    // Parse and validate input
     const { text, voice = 'Aria' } = await req.json()
 
-    if (!text) {
-      throw new Error('Text is required')
+    if (!text || typeof text !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid text input' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Rate limiting
-    const identifier = req.headers.get('cf-connecting-ip') || 'unknown';
-    const rateCheck = checkRateLimit(identifier, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter || 60) }
-      });
+    // Validate text length
+    if (text.length > MAX_TEXT_LENGTH) {
+      console.warn(`[text-to-speech] Text too long: ${text.length} chars`)
+      return new Response(
+        JSON.stringify({ error: `Text too long. Maximum ${MAX_TEXT_LENGTH} characters allowed.` }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log('Generating speech for text:', text.substring(0, 100) + '...')
+    if (text.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Text cannot be empty' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[text-to-speech] Generating speech (${text.length} chars):`, text.substring(0, 100) + '...')
 
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY')
     if (!ELEVENLABS_API_KEY) {
@@ -88,11 +146,33 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('ElevenLabs API error:', errorText)
-      throw new Error(`ElevenLabs API error: ${response.status}`)
+      console.error('[text-to-speech] ElevenLabs API error:', response.status, errorText)
+      
+      // Sanitize error for client
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Speech generation service error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const arrayBuffer = await response.arrayBuffer()
+    
+    // Validate response size
+    if (arrayBuffer.byteLength === 0) {
+      console.error('[text-to-speech] Empty audio response')
+      return new Response(
+        JSON.stringify({ error: 'Speech generation failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     // Convert to base64 in chunks to avoid call stack overflow for large files
     const bytes = new Uint8Array(arrayBuffer)
     const chunkSize = 0x8000 // 32KB
@@ -103,6 +183,8 @@ serve(async (req) => {
     }
     const base64Audio = btoa(binary)
 
+    console.log(`[text-to-speech] Success for user ${user.id}: ${(arrayBuffer.byteLength / 1024).toFixed(2)}KB audio`)
+
     return new Response(
       JSON.stringify({ audioContent: base64Audio }),
       {
@@ -110,11 +192,30 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('Text-to-speech error:', error)
+    console.error('[text-to-speech] Error:', error)
+    
+    // Sanitize errors - never expose internal details
+    let errorMessage = 'An error occurred processing your request'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      // Only expose specific safe error messages
+      if (error.message.includes('Invalid text') || error.message.includes('Text')) {
+        errorMessage = error.message
+        statusCode = 400
+      } else if (error.message.includes('Authentication')) {
+        errorMessage = error.message
+        statusCode = 401
+      } else if (error.message.includes('Too many requests')) {
+        errorMessage = error.message
+        statusCode = 429
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: errorMessage }),
       {
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )

@@ -27,10 +27,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.voice-to-text]
-verify_jwt = false
+verify_jwt = true
 
 [functions.text-to-speech]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-farmhand-activity]
 verify_jwt = true

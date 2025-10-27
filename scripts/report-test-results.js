@@ -7,13 +7,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Configuration
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const BRANCH = process.env.GITHUB_REF?.replace('refs/heads/', '') || 'local';
 const COMMIT_HASH = process.env.GITHUB_SHA || 'local';
 const TRIGGERED_BY = process.env.GITHUB_ACTOR || 'manual';
+
+function generateSignature(payload, secret) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(JSON.stringify(payload));
+  return hmac.digest('hex');
+}
 
 async function parseTestResults() {
   const resultsPath = path.join(__dirname, '../coverage/test-results.json');
@@ -104,6 +112,9 @@ async function parseCoverage() {
 async function sendToQADashboard(payload) {
   const url = `${SUPABASE_URL}/functions/v1/report-test-results`;
   
+  // Generate webhook signature for authentication
+  const signature = generateSignature(payload, WEBHOOK_SECRET);
+  
   console.log('Sending test results to QA Dashboard...');
   console.log(`Branch: ${payload.branch}`);
   console.log(`Total Tests: ${payload.total_tests}`);
@@ -117,6 +128,7 @@ async function sendToQADashboard(payload) {
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_ANON_KEY,
+        'x-webhook-signature': signature
       },
       body: JSON.stringify(payload),
     });
@@ -138,8 +150,8 @@ async function sendToQADashboard(payload) {
 
 async function main() {
   // Validate environment
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error('Missing required environment variables: SUPABASE_URL, SUPABASE_ANON_KEY');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !WEBHOOK_SECRET) {
+    console.error('Missing required environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, WEBHOOK_SECRET');
     process.exit(1);
   }
 
