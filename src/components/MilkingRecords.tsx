@@ -94,7 +94,10 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("milking_records").insert({ animal_id: animalId, record_date: formData.date, liters: parseFloat(formData.liters), created_by: user?.id });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (error) {
+      console.error('Insert milking record error:', error);
+      toast({ title: "Error", description: "Unable to add milking record. Please try again.", variant: "destructive" });
+    }
     else { toast({ title: "Success", description: "Record added" }); setShowForm(false); setFormData({ date: new Date().toISOString().split("T")[0], liters: "" }); loadRecords(); }
   };
 

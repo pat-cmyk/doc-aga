@@ -35,7 +35,8 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
     setLoading(false);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('Update AI record error:', error);
+      toast({ title: "Error", description: "Unable to update AI record. Please try again.", variant: "destructive" });
     } else {
       toast({ title: "Success", description: "AI breeding marked as performed" });
       setOpen(false);
