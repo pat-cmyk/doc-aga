@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, X } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getPendingCount } from '@/lib/offlineQueue';
 import { Badge } from '@/components/ui/badge';
@@ -67,7 +67,7 @@ export const NetworkStatusBanner = () => {
     if (isOnline && pendingCount === 0 && !hasShownSuccess) {
       setShowSuccess(true);
       setHasShownSuccess(true);
-      const timer = setTimeout(() => setShowSuccess(false), 5000);
+      const timer = setTimeout(() => setShowSuccess(false), 2000);
       return () => clearTimeout(timer);
     }
   }, [isOnline, pendingCount, hasShownSuccess]);
@@ -102,14 +102,23 @@ export const NetworkStatusBanner = () => {
   if (showSuccess) {
     return (
       <div className="fixed top-0 left-0 right-0 z-50 bg-green-500 border-b-2 border-green-600 px-4 py-3 shadow-lg">
-        <div className="flex items-center justify-center gap-2 text-white">
-          <Wifi className="h-5 w-5" />
-          <span className="font-medium">✅ Back online and synced!</span>
-          {lastSyncTime && (
-            <span className="text-xs opacity-90">
-              {lastSyncTime.toLocaleTimeString()}
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-2 text-white">
+          <div className="flex items-center gap-2 flex-1">
+            <Wifi className="h-5 w-5" />
+            <span className="font-medium">✅ Back online and synced!</span>
+            {lastSyncTime && (
+              <span className="text-xs opacity-90">
+                {lastSyncTime.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setShowSuccess(false)}
+            className="hover:bg-green-600 rounded-full p-1 transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
     );
