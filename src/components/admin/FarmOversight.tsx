@@ -46,7 +46,7 @@ export const FarmOversight = () => {
           created_at,
           owner_id,
           is_deleted,
-          profiles:owner_id (full_name, phone),
+          profiles:owner_id (full_name, phone, email),
           animals:animals(count),
           farm_memberships:farm_memberships(count)
         `)
@@ -63,17 +63,12 @@ export const FarmOversight = () => {
         created_at: string;
         owner_id: string;
         is_deleted: boolean;
-        profiles: { full_name: string | null; phone: string | null } | null;
+        profiles: { full_name: string | null; phone: string | null; email: string | null } | null;
         animals: Array<{ count: number }>;
         farm_memberships: Array<{ count: number }>;
       }>;
 
-      // Get emails from auth.users
-      const authUsersResponse = await supabase.auth.admin.listUsers();
-      const authUsers = authUsersResponse.data?.users || [];
-
       return farmsData.map((farm) => {
-        const authUser = authUsers.find((u) => u.id === farm.owner_id);
         return {
           id: farm.id,
           name: farm.name,
@@ -81,7 +76,7 @@ export const FarmOversight = () => {
           created_at: farm.created_at,
           owner_id: farm.owner_id,
           owner_name: farm.profiles?.full_name || "Unknown",
-          owner_email: authUser?.email || "N/A",
+          owner_email: farm.profiles?.email || "N/A",
           owner_phone: farm.profiles?.phone || "N/A",
           animal_count: farm.animals?.[0]?.count || 0,
           team_members_count: farm.farm_memberships?.[0]?.count || 0,
@@ -224,8 +219,21 @@ export const FarmOversight = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      title="Reset password"
-                      onClick={() => resetPasswordMutation.mutate(farm.owner_email)}
+                      title={farm.owner_email === "N/A" || !farm.owner_email 
+                        ? "Email not available" 
+                        : "Reset password"}
+                      onClick={() => {
+                        if (farm.owner_email && farm.owner_email !== "N/A") {
+                          resetPasswordMutation.mutate(farm.owner_email);
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: "Cannot reset password: email not available",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={farm.owner_email === "N/A" || !farm.owner_email}
                     >
                       <Key className="h-4 w-4" />
                     </Button>
