@@ -1782,6 +1782,10 @@ export type Database = {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
       }
+      is_farm_manager_only: {
+        Args: { _farm_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_farm_member: { Args: { farm_id: string }; Returns: boolean }
       is_farm_owner: {
         Args: { _farm_id: string; _user_id: string }
