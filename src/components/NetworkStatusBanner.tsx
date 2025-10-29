@@ -13,6 +13,7 @@ export const NetworkStatusBanner = () => {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [cacheProgress, setCacheProgress] = useState<CacheProgress | null>(null);
+  const [hasShownSuccess, setHasShownSuccess] = useState(false);
 
   // Track cache progress
   useEffect(() => {
@@ -54,13 +55,22 @@ export const NetworkStatusBanner = () => {
     return () => clearInterval(interval);
   }, [isOnline, pendingCount]);
 
+  // Reset success flag when going offline
   useEffect(() => {
-    if (isOnline && pendingCount === 0) {
+    if (!isOnline) {
+      setHasShownSuccess(false);
+    }
+  }, [isOnline]);
+
+  // Show success banner only once per online session
+  useEffect(() => {
+    if (isOnline && pendingCount === 0 && !hasShownSuccess) {
       setShowSuccess(true);
-      const timer = setTimeout(() => setShowSuccess(false), 3000);
+      setHasShownSuccess(true);
+      const timer = setTimeout(() => setShowSuccess(false), 5000);
       return () => clearTimeout(timer);
     }
-  }, [isOnline, pendingCount]);
+  }, [isOnline, pendingCount, hasShownSuccess]);
 
   // Show caching progress (when online)
   if (isOnline && cacheProgress && cacheProgress.phase !== 'complete') {
