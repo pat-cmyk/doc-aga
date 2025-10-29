@@ -9,18 +9,31 @@ import { Loader2 } from "lucide-react";
 
 const AdminCreateUser = () => {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [invitationToken, setInvitationToken] = useState("");
   const { toast } = useToast();
   
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password || !invitationToken) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: {
-          email: 'pat.ebuna@gmail.com',
-          password: 'Ff8c_6PVbZanN9m!R',
-          invitationToken: '161b74e9-d713-40bd-b076-b41002334ae5'
+          email,
+          password,
+          invitationToken
         }
       });
 
@@ -30,6 +43,11 @@ const AdminCreateUser = () => {
         title: "Success!",
         description: "User account created and invitation accepted"
       });
+      
+      // Clear form
+      setEmail("");
+      setPassword("");
+      setInvitationToken("");
 
     } catch (error) {
       toast({
@@ -46,20 +64,45 @@ const AdminCreateUser = () => {
     <div className="container max-w-md mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Create Farm Hand Account</CardTitle>
+          <CardTitle>Create User Account</CardTitle>
           <CardDescription>
-            Create account for pat.ebuna@gmail.com and accept invitation
+            Create a new user account and accept a farm invitation
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateUser} className="space-y-4">
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value="pat.ebuna@gmail.com" disabled />
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email"
+                type="email"
+                placeholder="user@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
-              <Label>Password</Label>
-              <Input type="password" value="Ff8c_6PVbZanN9m!R" disabled />
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password"
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invitationToken">Invitation Token</Label>
+              <Input 
+                id="invitationToken"
+                type="text"
+                placeholder="Enter invitation token (UUID)"
+                value={invitationToken}
+                onChange={(e) => setInvitationToken(e.target.value)}
+                required
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
