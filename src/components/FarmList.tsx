@@ -9,7 +9,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, MapPin, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import FarmProfile from "./FarmProfile";
 import { RoleBadge } from "./RoleBadge";
 
 const REGIONS_WITH_PROVINCES = {
@@ -57,7 +56,6 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
-  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -376,15 +374,6 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     );
   }
 
-  if (selectedFarmId) {
-    return (
-      <FarmProfile
-        farmId={selectedFarmId}
-        onBack={() => setSelectedFarmId(null)}
-      />
-    );
-  }
-
   return (
     <div className="space-y-4">
       <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
@@ -660,8 +649,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
           {farms.map((farm) => (
             <Card
               key={farm.id}
-              className="cursor-pointer hover:shadow-md transition-shadow relative"
-              onClick={() => setSelectedFarmId(farm.id)}
+              className="relative"
             >
               <div className="absolute top-2 right-2 flex gap-1">
                 <Button

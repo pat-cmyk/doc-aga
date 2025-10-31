@@ -12,7 +12,6 @@ import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import FarmSetup from "@/components/FarmSetup";
-import FarmProfile from "@/components/FarmProfile";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
@@ -322,11 +321,10 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
               <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
-              <TabsTrigger value="farm" disabled={!farmId}>Farm</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
             </TabsList>
             {/* Marketplace button - hidden for this development stage */}
@@ -375,10 +373,6 @@ const Dashboard = () => {
                 onPrefillUsed={() => setPrefillFeedType(undefined)}
               />
             )}
-          </TabsContent>
-
-          <TabsContent value="farm" className="space-y-6">
-            {farmId && <FarmProfile farmId={farmId} />}
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-6">

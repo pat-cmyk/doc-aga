@@ -10,11 +10,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
 import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { FarmLogoUpload } from "@/components/FarmLogoUpload";
+import { FarmTeamManagement } from "@/components/FarmTeamManagement";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -376,6 +377,22 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Team Management - Only for farm owners/managers */}
+          {farmId && canManageFarm && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Team Management
+                </CardTitle>
+                <CardDescription>Invite and manage your farm team members</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FarmTeamManagement farmId={farmId} isOwner={canManageFarm} />
               </CardContent>
             </Card>
           )}
