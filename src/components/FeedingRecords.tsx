@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { getCachedRecords } from "@/lib/dataCache";
 import {
   Dialog,
@@ -47,6 +49,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [feedInventory, setFeedInventory] = useState<FeedInventoryItem[]>([]);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isOnline = useOnlineStatus();
@@ -59,6 +62,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
   useEffect(() => {
     loadFeedingRecords();
+    loadFeedInventory();
 
     // Set up realtime subscription
     const channel = supabase
@@ -81,6 +85,31 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       supabase.removeChannel(channel);
     };
   }, [animalId]);
+
+  const loadFeedInventory = async () => {
+    try {
+      // Get animal's farm_id
+      const { data: animal } = await supabase
+        .from("animals")
+        .select("farm_id")
+        .eq("id", animalId)
+        .maybeSingle();
+
+      if (!animal) return;
+
+      // Fetch feed inventory for the farm
+      const { data: inventory, error } = await supabase
+        .from("feed_inventory")
+        .select("*")
+        .eq("farm_id", animal.farm_id)
+        .order("feed_type");
+
+      if (error) throw error;
+      setFeedInventory(inventory || []);
+    } catch (error) {
+      console.error("Error loading feed inventory:", error);
+    }
+  };
 
   const loadFeedingRecords = async () => {
     try {
@@ -231,13 +260,19 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
             <div className="space-y-2">
               <Label htmlFor="feedType">Feed Type</Label>
-              <Input
-                id="feedType"
-                placeholder="e.g., Hay, Silage, Concentrate"
-                value={feedType}
-                onChange={(e) => setFeedType(e.target.value)}
-                required
-              />
+              <Select value={feedType} onValueChange={setFeedType} required>
+                <SelectTrigger id="feedType">
+                  <SelectValue placeholder="Select feed type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Fresh Cut & Carry">Fresh Cut & Carry</SelectItem>
+                  {feedInventory.map((item) => (
+                    <SelectItem key={item.id} value={item.feed_type}>
+                      {item.feed_type} ({item.quantity_kg.toFixed(2)} kg available)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
