@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,8 @@ interface FarmSetupProps {
 
 export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [checkingOwnership, setCheckingOwnership] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     region: "",
@@ -44,6 +45,61 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
   });
 
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Check if user already owns or is a member of a farm
+  useEffect(() => {
+    const checkExistingFarm = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setCheckingOwnership(false);
+          return;
+        }
+
+        // Check if user owns a farm
+        const { data: ownedFarms } = await supabase
+          .from("farms")
+          .select("id")
+          .eq("owner_id", user.id)
+          .eq("is_deleted", false)
+          .limit(1);
+
+        // Check if user is a member of a farm
+        const { data: memberFarms } = await supabase
+          .from("farm_memberships")
+          .select("farm_id")
+          .eq("user_id", user.id)
+          .eq("invitation_status", "accepted")
+          .limit(1);
+
+        if (ownedFarms && ownedFarms.length > 0) {
+          // User already owns a farm - redirect to dashboard
+          toast({
+            title: "Farm already exists",
+            description: "Redirecting to your dashboard..."
+          });
+          onFarmCreated(ownedFarms[0].id);
+          return;
+        } else if (memberFarms && memberFarms.length > 0) {
+          // User is already a member - redirect to dashboard
+          toast({
+            title: "You're already part of a farm",
+            description: "Redirecting to dashboard..."
+          });
+          onFarmCreated(memberFarms[0].farm_id);
+          return;
+        }
+
+        setCheckingOwnership(false);
+      } catch (error) {
+        console.error("Error checking farm ownership:", error);
+        setCheckingOwnership(false);
+      }
+    };
+
+    checkExistingFarm();
+  }, [onFarmCreated, toast]);
 
   const availableProvinces = formData.region ? REGIONS_WITH_PROVINCES[formData.region as keyof typeof REGIONS_WITH_PROVINCES] || [] : [];
 
@@ -61,7 +117,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       return;
     }
 
-    setLoading(true);
+    const tempLoading = true;
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -70,7 +126,6 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
           title: "Location captured",
           description: `Coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
         });
-        setLoading(false);
       },
       (error) => {
         toast({
@@ -78,13 +133,15 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
           description: error.message,
           variant: "destructive"
         });
-        setLoading(false);
       }
     );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isSubmitting) return;
     
     if (!formData.name.trim()) {
       toast({
@@ -95,7 +152,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
       const regionInfo = formData.province 
@@ -135,7 +192,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -151,6 +208,18 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     sheep: "Sheep farming for meat and wool",
     carabao: "Water buffalo farming"
   } as const;
+
+  // Show loading state while checking ownership
+  if (checkingOwnership) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <Sprout className="h-12 w-12 text-primary animate-pulse mx-auto" />
+          <p className="text-muted-foreground">Checking your farm status...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
@@ -295,7 +364,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
                   type="button"
                   variant="outline"
                   onClick={fetchCurrentLocation}
-                  disabled={loading}
+                  disabled={isSubmitting}
                   className="flex-1"
                 >
                   <MapPin className="h-4 w-4 mr-2" />
@@ -318,8 +387,8 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
               )}
             </div>
 
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Creating Farm..." : "Create Farm"}
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || checkingOwnership}>
+              {isSubmitting ? "Creating Farm..." : "Create Farm"}
             </Button>
           </form>
         </CardContent>

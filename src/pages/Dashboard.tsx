@@ -163,6 +163,37 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
+  // Re-check farm ownership when page becomes visible (prevents duplicate farm creation)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && showFarmSetup) {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) return;
+
+        // Check if user now owns a farm
+        const { data: ownedFarms } = await supabase
+          .from("farms")
+          .select("id, name, logo_url")
+          .eq("owner_id", session.user.id)
+          .eq("is_deleted", false)
+          .limit(1);
+
+        if (ownedFarms && ownedFarms.length > 0) {
+          // Farm was created - hide setup and show dashboard
+          setFarmId(ownedFarms[0].id);
+          setCanManageFarm(true);
+          setShowFarmSetup(false);
+          setFarmName(ownedFarms[0].name || 'My Farm');
+          setFarmLogoUrl(ownedFarms[0].logo_url || null);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [showFarmSetup]);
+
   useEffect(() => {
     if (farmId) {
       loadForecastData();
