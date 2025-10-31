@@ -61,12 +61,19 @@ export async function getCacheStats(farmId: string): Promise<CacheStats> {
       ? Date.now() - animalsCache.lastUpdated < 30 * 60 * 1000 
       : false;
 
-    // Count total records cached
-    const allRecords = await db.getAll('records');
-    const totalRecords = allRecords.reduce((sum, r) => 
-      sum + r.milking.length + r.weight.length + r.health.length + r.ai.length + r.feeding.length, 
-      0
+    // Get animal IDs for this farm
+    const farmAnimalIds = new Set(
+      (animalsCache?.data || []).map(animal => animal.id)
     );
+
+    // Count total records cached FOR THIS FARM ONLY
+    const allRecords = await db.getAll('records');
+    const totalRecords = allRecords
+      .filter(r => farmAnimalIds.has(r.animalId)) // Only count records for this farm's animals
+      .reduce((sum, r) => 
+        sum + r.milking.length + r.weight.length + r.health.length + r.ai.length + r.feeding.length, 
+        0
+      );
 
     return {
       animals: {
