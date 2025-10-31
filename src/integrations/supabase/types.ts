@@ -294,6 +294,7 @@ export type Database = {
           milking_start_date: string | null
           mother_id: string | null
           name: string | null
+          unique_code: string
           updated_at: string
         }
         Insert: {
@@ -315,6 +316,7 @@ export type Database = {
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null
+          unique_code: string
           updated_at?: string
         }
         Update: {
@@ -336,6 +338,7 @@ export type Database = {
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null
+          unique_code?: string
           updated_at?: string
         }
         Relationships: [
@@ -1757,6 +1760,7 @@ export type Database = {
             }
             Returns: string
           }
+      generate_animal_code: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       handle_merchant_signup: {
