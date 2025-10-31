@@ -163,7 +163,8 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase.from("feeding_records").insert({
+      // Step 1: Insert feeding record
+      const { error: feedingError } = await supabase.from("feeding_records").insert({
         animal_id: animalId,
         feed_type: feedType.trim(),
         kilograms: parseFloat(kilograms),
@@ -172,11 +173,58 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
         created_by: user.id,
       });
 
-      if (error) throw error;
+      if (feedingError) throw feedingError;
+
+      // Step 2: Handle inventory deduction (only if NOT "Fresh Cut & Carry")
+      if (feedType !== "Fresh Cut & Carry") {
+        // Find matching inventory item
+        const inventoryItem = feedInventory.find(
+          item => item.feed_type === feedType
+        );
+
+        if (inventoryItem) {
+          const quantityUsed = parseFloat(kilograms);
+          const newBalance = inventoryItem.quantity_kg - quantityUsed;
+
+          // Check if sufficient stock
+          if (newBalance < 0) {
+            throw new Error(`Insufficient stock. Available: ${inventoryItem.quantity_kg} kg, Requested: ${quantityUsed} kg`);
+          }
+
+          // Update feed inventory
+          const { error: inventoryError } = await supabase
+            .from("feed_inventory")
+            .update({ 
+              quantity_kg: newBalance,
+              last_updated: new Date().toISOString()
+            })
+            .eq("id", inventoryItem.id);
+
+          if (inventoryError) throw inventoryError;
+
+          // Create transaction record for audit trail
+          const { error: transactionError } = await supabase
+            .from("feed_stock_transactions")
+            .insert({
+              feed_inventory_id: inventoryItem.id,
+              transaction_type: 'consumption',
+              quantity_change_kg: -quantityUsed,
+              balance_after: newBalance,
+              notes: `Fed to animal (${animalId})`,
+              created_by: user.id,
+            });
+
+          if (transactionError) throw transactionError;
+
+          // Refresh inventory display
+          await loadFeedInventory();
+        }
+      }
 
       toast({
         title: "Success",
-        description: "Feeding record added successfully",
+        description: "Feeding record added successfully" + 
+          (feedType !== "Fresh Cut & Carry" ? " and inventory updated" : ""),
       });
 
       // Reset form
@@ -189,7 +237,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       console.error("Error adding feeding record:", error);
       toast({
         title: "Error",
-        description: "Failed to add feeding record",
+        description: error instanceof Error ? error.message : "Failed to add feeding record",
         variant: "destructive",
       });
     } finally {
