@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -75,6 +75,7 @@ interface Animal {
   gender: string | null;
   life_stage: string | null;
   milking_stage: string | null;
+  unique_code: string | null;
 }
 
 interface ParentAnimal {
@@ -482,9 +483,32 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="text-xs sm:text-sm flex items-center">
-                  <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
-                  {getCacheIcon()}
+                <CardDescription className="space-y-1 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
+                    {getCacheIcon()}
+                  </div>
+                  {animal.unique_code && (
+                    <div className="flex items-center gap-1.5">
+                      <Globe className="h-3 w-3 flex-shrink-0" />
+                      <code className="text-[10px] sm:text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(animal.unique_code!);
+                          toast({
+                            title: "Copied!",
+                            description: "Universal ID copied to clipboard",
+                          });
+                        }}
+                        title="Copy Universal ID"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </CardDescription>
               </div>
             </div>

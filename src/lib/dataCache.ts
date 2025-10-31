@@ -121,6 +121,7 @@ interface Animal {
   milking_stage?: string | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
+  unique_code?: string | null;
 }
 
 interface AnimalDataCache {
