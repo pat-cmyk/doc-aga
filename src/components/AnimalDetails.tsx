@@ -569,28 +569,47 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
       </Card>
 
       <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
-        <TabsList className="w-full overflow-x-auto flex-nowrap justify-start sm:justify-between gap-1 sm:gap-2 p-1">
+        <TabsList className={`w-full p-1.5 sm:p-1 gap-2 sm:gap-1 ${
+          animal?.gender?.toLowerCase() === 'female' 
+            ? 'grid grid-cols-2 sm:flex' 
+            : 'grid grid-cols-2 sm:flex'
+        }`}>
           {animal?.gender?.toLowerCase() === 'female' && (
-            <TabsTrigger value="milking" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
-              <Milk className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Milking</span>
+            <TabsTrigger 
+              value="milking" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-[44px] min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Milk className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span>Milking</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="weight" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
-            <Scale className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Weight</span>
+          <TabsTrigger 
+            value="weight" 
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-[44px] min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+          >
+            <Scale className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>Weight</span>
           </TabsTrigger>
-          <TabsTrigger value="feeding" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
-            <Wheat className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Feeding</span>
+          <TabsTrigger 
+            value="feeding" 
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-[44px] min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+          >
+            <Wheat className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>Feeding</span>
           </TabsTrigger>
-          <TabsTrigger value="health" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
-            <Stethoscope className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Health</span>
+          <TabsTrigger 
+            value="health" 
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-[44px] min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+          >
+            <Stethoscope className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>Health</span>
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex-shrink-0 min-h-[48px] px-3 sm:flex-1">
-            <Calendar className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">AI/Breeding</span>
+          <TabsTrigger 
+            value="ai" 
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-[44px] min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+          >
+            <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>AI/Breeding</span>
           </TabsTrigger>
         </TabsList>
 
