@@ -1760,7 +1760,7 @@ export type Database = {
             }
             Returns: string
           }
-      generate_animal_code: { Args: never; Returns: string }
+      generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       handle_merchant_signup: {
