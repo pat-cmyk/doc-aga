@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Database, Sprout } from "lucide-react";
@@ -92,13 +92,13 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const { combinedData, stageKeys, loading: milkLoading } = useMilkData(farmId, startDate, endDate, dateArray);
   const { monthlyHeadcount, loading: headcountLoading } = useHeadcountData(farmId, monthlyStartDate, monthlyEndDate, stageKeys);
 
-  const loading = statsLoading || milkLoading || headcountLoading;
+  const lastReloadRef = useRef(0);
 
   useEffect(() => {
     loadFeedForecast();
   }, [farmId]);
 
-  // Real-time subscription for milking records
+  // Real-time subscription for milking records with throttling
   useEffect(() => {
     const channel = supabase
       .channel('milking-records-changes')
@@ -107,15 +107,19 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         schema: 'public',
         table: 'milking_records'
       }, () => {
-        console.log('New milking record added, refreshing dashboard...');
-        reloadStats();
+        const now = Date.now();
+        if (now - lastReloadRef.current > 2000) {
+          lastReloadRef.current = now;
+          console.log('New milking record added, refreshing dashboard...');
+          reloadStats();
+        }
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [farmId]);
+  }, [farmId, reloadStats]);
 
   const loadFeedForecast = useCallback(async () => {
     try {
@@ -234,9 +238,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
+  return (
+    <div className="space-y-6">
+      {statsLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -251,48 +255,48 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
             </Card>
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-[300px] w-full" />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-[300px] w-full" />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+      ) : (
+        <DashboardStats stats={stats} />
+      )}
 
-  return (
-    <div className="space-y-6">
-      <DashboardStats stats={stats} />
+      {milkLoading ? (
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[300px] w-full" />
+          </CardContent>
+        </Card>
+      ) : (
+        <MilkProductionChart
+          data={combinedData}
+          timePeriod={timePeriod}
+          selectedYear={selectedYear}
+          onTimePeriodChange={setTimePeriod}
+          onYearChange={setSelectedYear}
+        />
+      )}
 
-      <MilkProductionChart
-        data={combinedData}
-        timePeriod={timePeriod}
-        selectedYear={selectedYear}
-        onTimePeriodChange={setTimePeriod}
-        onYearChange={setSelectedYear}
-      />
-
-      <HeadcountChart
-        data={monthlyHeadcount}
-        stageKeys={stageKeys}
-        monthlyTimePeriod={monthlyTimePeriod}
-        selectedYear={selectedYear}
-        onMonthlyTimePeriodChange={setMonthlyTimePeriod}
-        onYearChange={setSelectedYear}
-      />
+      {headcountLoading ? (
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[300px] w-full" />
+          </CardContent>
+        </Card>
+      ) : (
+        <HeadcountChart
+          data={monthlyHeadcount}
+          stageKeys={stageKeys}
+          monthlyTimePeriod={monthlyTimePeriod}
+          selectedYear={selectedYear}
+          onMonthlyTimePeriodChange={setMonthlyTimePeriod}
+          onYearChange={setSelectedYear}
+        />
+      )}
 
       <div className="flex gap-2 flex-wrap">
         <Button

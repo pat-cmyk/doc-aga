@@ -36,16 +36,31 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
-      // Get average daily milk
-      const { data: milkingData } = await supabase
-        .from("milking_records")
-        .select("liters, animals!inner(farm_id)")
-        .eq("animals.farm_id", farmId)
-        .gte("record_date", startDate.toISOString().split("T")[0]);
+      // Get average daily milk - prefer pre-aggregated stats
+      const { data: dailyStats } = await supabase
+        .from("daily_farm_stats")
+        .select("total_milk_liters, stat_date")
+        .eq("farm_id", farmId)
+        .gte("stat_date", startDate.toISOString().split("T")[0])
+        .lte("stat_date", endDate.toISOString().split("T")[0]);
 
-      const avgMilk = milkingData && milkingData.length > 0
-        ? milkingData.reduce((sum, r) => sum + Number(r.liters), 0) / milkingData.length
-        : 0;
+      let avgMilk = 0;
+      if (dailyStats && dailyStats.length > 0) {
+        const totalMilk = dailyStats.reduce((sum, stat) => sum + Number(stat.total_milk_liters || 0), 0);
+        avgMilk = totalMilk / dailyStats.length;
+      } else {
+        // Fallback to milking_records if no pre-aggregated stats
+        const { data: milkingData } = await supabase
+          .from("milking_records")
+          .select("liters, animals!inner(farm_id)")
+          .eq("animals.farm_id", farmId)
+          .gte("record_date", startDate.toISOString().split("T")[0])
+          .lte("record_date", endDate.toISOString().split("T")[0]);
+
+        avgMilk = milkingData && milkingData.length > 0
+          ? milkingData.reduce((sum, r) => sum + Number(r.liters), 0) / milkingData.length
+          : 0;
+      }
 
       // Get pregnant animals
       const { data: pregnancyData } = await supabase
