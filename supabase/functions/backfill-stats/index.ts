@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify authentication and admin role
+    // Verify authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -106,13 +106,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify user is admin
-    const { data: isAdmin, error: roleError } = await supabaseClient
-      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
-
-    if (roleError || !isAdmin) {
+    // Parse request body once
+    const requestBody = await req.json();
+    const { farm_id } = requestBody;
+    
+    if (!farm_id) {
       return new Response(
-        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        JSON.stringify({ error: 'farm_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user owns or manages the farm
+    const { data: canManage, error: permError } = await supabaseClient
+      .rpc('is_farm_owner_or_manager', { _user_id: user.id, _farm_id: farm_id });
+
+    if (permError || !canManage) {
+      console.error('Permission check failed:', permError);
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - You do not have access to this farm' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -127,19 +139,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { startDate, endDate, farmId } = await req.json();
-    
-    if (!startDate || !endDate || !farmId) {
-      throw new Error('startDate, endDate, and farmId are required');
-    }
+    // Calculate date range (default to last 12 months if not provided)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 12);
 
-    console.log(`Backfilling monthly stats for farm ${farmId} from ${startDate} to ${endDate}`);
+    console.log(`Backfilling monthly stats for farm ${farm_id} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Get all animals for the farm
     const { data: allAnimals, error: animalsError } = await supabaseClient
       .from('animals')
       .select('id, birth_date, gender, milking_start_date, mother_id')
-      .eq('farm_id', farmId)
+      .eq('farm_id', farm_id)
       .eq('is_deleted', false);
 
     if (animalsError) throw animalsError;
@@ -148,7 +159,7 @@ Deno.serve(async (req) => {
     const { data: allOffspring, error: offspringError } = await supabaseClient
       .from('animals')
       .select('id, mother_id, birth_date')
-      .eq('farm_id', farmId)
+      .eq('farm_id', farm_id)
       .not('mother_id', 'is', null)
       .order('birth_date', { ascending: false });
 
@@ -166,8 +177,8 @@ Deno.serve(async (req) => {
 
     // Create array of last days of each month
     const monthDates: string[] = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = startDate;
+    const end = endDate;
     
     let currentMonth = new Date(start.getFullYear(), start.getMonth(), 1);
     
@@ -258,7 +269,7 @@ Deno.serve(async (req) => {
       });
 
       statsToUpsert.push({
-        farm_id: farmId,
+        farm_id: farm_id,
         month_date: date,
         stage_counts: stageCounts,
       });
