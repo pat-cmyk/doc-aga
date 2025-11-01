@@ -14,16 +14,20 @@ interface HeadcountChartProps {
 }
 
 const STAGE_COLORS: Record<string, string> = {
-  "Calf": "hsl(var(--chart-1))",
-  "Heifer Calf": "hsl(var(--chart-2))",
-  "Yearling Heifer": "hsl(var(--chart-3))",
-  "Breeding Heifer": "hsl(var(--chart-4))",
-  "Pregnant Heifer": "hsl(var(--chart-5))",
-  "First-Calf Heifer": "hsl(var(--accent))",
-  "Mature Cow": "hsl(var(--primary))",
-  "Bull Calf": "hsl(210 40% 60%)",
-  "Young Bull": "hsl(210 50% 50%)",
-  "Mature Bull": "hsl(210 60% 40%)",
+  // Female stages - progression from warm to cool
+  "Calf": "hsl(280 65% 60%)",           // Purple - young animals
+  "Heifer Calf": "hsl(320 60% 65%)",    // Pink - young female
+  "Yearling Heifer": "hsl(15 75% 60%)", // Coral - growing
+  "Breeding Heifer": "hsl(45 80% 55%)", // Gold - ready to breed
+  "Pregnant Heifer": "hsl(85 60% 50%)", // Lime - pregnant
+  "First-Calf Heifer": "hsl(160 50% 50%)", // Teal - transition
+  "Mature Cow": "hsl(200 60% 50%)",     // Sky blue - mature
+  "Early Lactation": "hsl(130 55% 55%)", // Green - lactating
+  
+  // Male stages - blue family
+  "Bull Calf": "hsl(210 70% 65%)",      // Light blue - young
+  "Young Bull": "hsl(220 65% 55%)",     // Medium blue - growing
+  "Mature Bull": "hsl(240 60% 45%)",    // Deep blue - mature
 };
 
 /**
