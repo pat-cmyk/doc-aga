@@ -265,30 +265,6 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
-          
-          <div className="mt-6 pt-6 border-t text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Looking for a different portal?
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate("/auth/merchant")}
-                type="button"
-              >
-                Merchant Portal
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate("/auth/admin")}
-                type="button"
-              >
-                Admin Portal
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

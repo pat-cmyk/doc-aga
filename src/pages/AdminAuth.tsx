@@ -132,30 +132,6 @@ const AdminAuth = () => {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
             </Button>
           </form>
-          
-          <div className="mt-6 pt-6 border-t text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Not an admin?
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate("/auth")}
-                type="button"
-              >
-                Farmer Portal
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate("/auth/merchant")}
-                type="button"
-              >
-                Merchant Portal
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
