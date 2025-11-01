@@ -51,6 +51,52 @@ export const useHeadcountData = (
             monthlyMap[monthKey][stage] = count;
           });
         });
+      } else {
+        // Fallback: aggregate from daily_farm_stats
+        if (process.env.NODE_ENV === 'development') {
+          console.log("No monthly stats found, aggregating from daily stats");
+        }
+
+        const { data: dailyStats } = await supabase
+          .from("daily_farm_stats")
+          .select("*")
+          .eq("farm_id", farmId)
+          .gte("stat_date", monthlyStartDate.toISOString().split("T")[0])
+          .lte("stat_date", monthlyEndDate.toISOString().split("T")[0])
+          .order("stat_date", { ascending: true });
+
+        if (dailyStats && dailyStats.length > 0) {
+          // Group daily stats by month
+          const monthlyGroups: Record<string, Array<Record<string, number>>> = {};
+          
+          dailyStats.forEach(stat => {
+            const statDate = new Date(stat.stat_date);
+            const monthKey = statDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            
+            if (!monthlyGroups[monthKey]) {
+              monthlyGroups[monthKey] = [];
+            }
+            
+            const stageCounts = stat.stage_counts as Record<string, number>;
+            monthlyGroups[monthKey].push(stageCounts);
+          });
+          
+          // Use last day's counts as representative of each month
+          Object.keys(monthlyGroups).forEach(monthKey => {
+            if (!monthlyMap[monthKey]) {
+              monthlyMap[monthKey] = { month: monthKey };
+              stageKeysArray.forEach(stage => {
+                monthlyMap[monthKey][stage] = 0;
+              });
+            }
+            
+            // Use the last day's counts for the month
+            const lastDayCounts = monthlyGroups[monthKey][monthlyGroups[monthKey].length - 1];
+            Object.entries(lastDayCounts).forEach(([stage, count]) => {
+              monthlyMap[monthKey][stage] = count;
+            });
+          });
+        }
       }
 
       const sortedMonths = Object.keys(monthlyMap).sort((a, b) => {
