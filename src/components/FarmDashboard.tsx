@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Database, Sprout } from "lucide-react";
@@ -14,6 +14,8 @@ import { HeadcountChart } from "./farm-dashboard/HeadcountChart";
 import { useDashboardStats } from "./farm-dashboard/hooks/useDashboardStats";
 import { useMilkData } from "./farm-dashboard/hooks/useMilkData";
 import { useHeadcountData } from "./farm-dashboard/hooks/useHeadcountData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -32,7 +34,8 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [populatingWeights, setPopulatingWeights] = useState(false);
   const { toast } = useToast();
 
-  const getDateRange = () => {
+  // Memoize date calculations
+  const { startDate, endDate } = useMemo(() => {
     const now = new Date();
     let startDate = new Date();
     let endDate = new Date();
@@ -54,9 +57,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
     
     return { startDate, endDate };
-  };
+  }, [timePeriod, selectedYear]);
 
-  const getMonthlyDateRange = () => {
+  const { monthlyStartDate, monthlyEndDate } = useMemo(() => {
     const now = new Date();
     let monthlyStartDate: Date;
     let monthlyEndDate: Date;
@@ -72,18 +75,18 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
     
     return { monthlyStartDate, monthlyEndDate };
-  };
+  }, [monthlyTimePeriod, selectedYear]);
 
-  const { startDate, endDate } = getDateRange();
-  const { monthlyStartDate, monthlyEndDate } = getMonthlyDateRange();
-
-  // Create date array for charts
-  const dateArray: string[] = [];
-  const currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    dateArray.push(currentDate.toISOString().split("T")[0]);
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
+  // Memoize date array
+  const dateArray = useMemo(() => {
+    const dates: string[] = [];
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      dates.push(currentDate.toISOString().split("T")[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return dates;
+  }, [startDate, endDate]);
 
   const { stats, loading: statsLoading, reload: reloadStats } = useDashboardStats(farmId, startDate, endDate);
   const { combinedData, stageKeys, loading: milkLoading } = useMilkData(farmId, startDate, endDate, dateArray);
@@ -114,7 +117,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     };
   }, [farmId]);
 
-  const loadFeedForecast = async () => {
+  const loadFeedForecast = useCallback(async () => {
     try {
       const { data: animals } = await supabase
         .from("animals")
@@ -179,9 +182,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     } catch (error) {
       console.error("Error loading feed forecast:", error);
     }
-  };
+  }, [farmId]);
 
-  const handleBackfillData = async () => {
+  const handleBackfillData = useCallback(async () => {
     setBackfilling(true);
     try {
       const { error } = await supabase.functions.invoke("backfill-stats", {
@@ -205,7 +208,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     } finally {
       setBackfilling(false);
     }
-  };
+  }, [farmId, toast, reloadStats]);
 
   const handlePopulateWeights = async () => {
     setPopulatingWeights(true);
@@ -233,8 +236,39 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

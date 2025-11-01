@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -26,14 +26,9 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadStats();
-  }, [farmId, startDate, endDate]);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-
       // Get total animals
       const { count: animalCount } = await supabase
         .from("animals")
@@ -86,7 +81,11 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
     } finally {
       setLoading(false);
     }
-  };
+  }, [farmId, startDate, endDate]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   return { stats, loading, reload: loadStats };
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface MonthlyHeadcount {
@@ -19,13 +19,9 @@ export const useHeadcountData = (
   const [monthlyHeadcount, setMonthlyHeadcount] = useState<MonthlyHeadcount[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadHeadcountData();
-  }, [farmId, monthlyStartDate, monthlyEndDate]);
-
-  const loadHeadcountData = async () => {
+  const loadHeadcountData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
 
       // Fetch pre-aggregated monthly stats
       const { data: monthlyStats } = await supabase
@@ -67,7 +63,11 @@ export const useHeadcountData = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [farmId, monthlyStartDate, monthlyEndDate, stageKeysArray]);
+
+  useEffect(() => {
+    loadHeadcountData();
+  }, [loadHeadcountData]);
 
   return { monthlyHeadcount, loading, reload: loadHeadcountData };
 };

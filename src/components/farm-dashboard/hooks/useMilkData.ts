@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface CombinedDailyData {
@@ -21,13 +21,9 @@ export const useMilkData = (
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadMilkData();
-  }, [farmId, startDate, endDate]);
-
-  const loadMilkData = async () => {
+  const loadMilkData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
 
       // Fetch pre-aggregated data from daily_farm_stats
       const { data: dailyStats } = await supabase
@@ -65,7 +61,9 @@ export const useMilkData = (
         });
       } else {
         // Fallback: Calculate from milking_records
-        console.log("No pre-calculated stats found, using fallback calculation");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("No pre-calculated stats found, using fallback calculation");
+        }
         
         const { data: milkRecords } = await supabase
           .from("milking_records")
@@ -90,7 +88,11 @@ export const useMilkData = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [farmId, startDate, endDate, dateArray]);
+
+  useEffect(() => {
+    loadMilkData();
+  }, [loadMilkData]);
 
   return { combinedData, stageKeys, loading, reload: loadMilkData };
 };
