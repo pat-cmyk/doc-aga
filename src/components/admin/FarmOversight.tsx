@@ -50,7 +50,6 @@ export const FarmOversight = () => {
           animals:animals(count),
           farm_memberships:farm_memberships(count)
         `)
-        .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -98,13 +97,14 @@ export const FarmOversight = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-farms"] });
       toast({
         title: "Success",
-        description: "Farm deactivated successfully",
+        description: "Farm has been deactivated (soft-deleted)",
       });
     },
     onError: (error) => {
+      console.error("Error deactivating farm:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to deactivate farm",
         variant: "destructive",
       });
     },
@@ -132,20 +132,26 @@ export const FarmOversight = () => {
 
   const deleteFarmMutation = useMutation({
     mutationFn: async (farmId: string) => {
-      const { error } = await supabase.from("farms").delete().eq("id", farmId);
+      const { data, error } = await supabase.functions.invoke('admin-permanent-delete-farm', {
+        body: { farm_id: farmId },
+      });
+      
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin-farms"] });
       toast({
         title: "Success",
-        description: "Farm deleted successfully",
+        description: data?.message || "Farm has been permanently deleted",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Error deleting farm:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to delete farm",
         variant: "destructive",
       });
     },
@@ -172,6 +178,7 @@ export const FarmOversight = () => {
               <TableHead>Region</TableHead>
               <TableHead>Animals</TableHead>
               <TableHead>Team Members</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
