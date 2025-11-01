@@ -10,12 +10,55 @@ import { processVoiceQueue } from './voiceQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 
+/**
+ * Maximum number of retry attempts for failed sync operations
+ * 
+ * After 3 failures, item is marked as permanently failed and requires manual intervention.
+ */
 const MAX_RETRIES = 3;
+
+/**
+ * Exponential backoff delays (milliseconds) for retry attempts
+ * 
+ * - 1st retry: 1 second delay
+ * - 2nd retry: 2 seconds delay  
+ * - 3rd retry: 4 seconds delay
+ * 
+ * Reduces server load and gives transient errors time to resolve.
+ */
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
 
-// Flag to prevent multiple simultaneous syncs
+/**
+ * Flag to prevent multiple simultaneous sync operations
+ * 
+ * Ensures only one sync process runs at a time to avoid race conditions
+ * and duplicate processing of queue items.
+ */
 let isSyncing = false;
 
+/**
+ * Transcribe audio from a queue item using voice-to-text edge function
+ * 
+ * Converts audio blob to base64 and sends to Supabase function for transcription.
+ * Sets item to 'awaiting_confirmation' status so user can review/correct transcription
+ * before processing.
+ * 
+ * @param item - Queue item containing audio blob to transcribe
+ * @returns Promise that resolves when transcription is saved
+ * @throws Error with specific codes: AUDIO_MISSING, TRANSCRIPTION_FAILED, TRANSCRIPTION_EMPTY
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   await transcribeItem(queueItem);
+ *   // Item now has transcription and awaits user confirmation
+ * } catch (error) {
+ *   if (error.message === 'AUDIO_MISSING') {
+ *     console.error('No audio found in queue item');
+ *   }
+ * }
+ * ```
+ */
 async function transcribeItem(item: QueueItem): Promise<void> {
   const { audioBlob } = item.payload;
   
@@ -45,6 +88,26 @@ async function transcribeItem(item: QueueItem): Promise<void> {
   await setAwaitingConfirmation(item.id, transcribedText);
 }
 
+/**
+ * Convert audio Blob to base64-encoded string
+ * 
+ * Used for sending audio data to edge functions via JSON payload.
+ * Removes data URL prefix to get just the base64 data.
+ * 
+ * @param blob - Audio Blob object (typically audio/webm or audio/wav)
+ * @returns Promise resolving to base64 string (without data URL prefix)
+ * 
+ * @example
+ * ```typescript
+ * const audioBlob = new Blob([audioData], { type: 'audio/webm' });
+ * const base64 = await blobToBase64(audioBlob);
+ * 
+ * // Send to edge function
+ * await supabase.functions.invoke('voice-to-text', {
+ *   body: { audio: base64 }
+ * });
+ * ```
+ */
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -58,6 +121,37 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+/**
+ * Main sync function - processes all pending offline queue items
+ * 
+ * Orchestrates the complete offline-to-online sync workflow:
+ * 1. Checks authentication and prevents concurrent syncs
+ * 2. Retrieves all pending queue items
+ * 3. For voice activities: transcribes if needed, waits for confirmation
+ * 4. Processes each item (form submission or voice activity)
+ * 5. Implements retry logic with exponential backoff
+ * 6. Sends success/failure notifications
+ * 
+ * Called automatically when app goes online or manually via sync button.
+ * Skips items awaiting user confirmation until they're confirmed.
+ * 
+ * @returns Promise that resolves when sync is complete (or skipped if already syncing)
+ * 
+ * @example
+ * ```typescript
+ * // Automatic sync when online
+ * useEffect(() => {
+ *   if (isOnline) {
+ *     syncQueue();
+ *   }
+ * }, [isOnline]);
+ * 
+ * // Manual sync button
+ * <Button onClick={syncQueue}>
+ *   Sync Now
+ * </Button>
+ * ```
+ */
 export async function syncQueue(): Promise<void> {
   // Prevent multiple simultaneous syncs
   if (isSyncing) {
@@ -146,6 +240,43 @@ export async function syncQueue(): Promise<void> {
   }
 }
 
+/**
+ * Sync animal form data from offline queue to Supabase
+ * 
+ * Handles the complete flow for submitting animal forms that were created offline:
+ * 1. Checks for duplicate ear tags
+ * 2. Inserts animal record into database
+ * 3. Creates associated AI record if animal was conceived via artificial insemination
+ * 
+ * @param item - Queue item containing animal form data and optional AI info
+ * @returns Promise that resolves when animal is created
+ * @throws Error if duplicate ear tag found or database insertion fails
+ * 
+ * @example
+ * ```typescript
+ * // Typically called by syncQueue(), but can be used standalone
+ * const queueItem: QueueItem = {
+ *   type: 'animal_form',
+ *   payload: {
+ *     formData: {
+ *       name: 'New Calf',
+ *       ear_tag: '123',
+ *       farm_id: 'farm-abc',
+ *       // ... other animal fields
+ *     },
+ *     aiInfo: {
+ *       ai_bull_brand: 'Alta Genetics',
+ *       ai_bull_reference: 'BG-42',
+ *       ai_bull_breed: 'Holstein',
+ *       birth_date: '2024-10-01'
+ *     }
+ *   },
+ *   // ... other queue fields
+ * };
+ * 
+ * await syncAnimalForm(queueItem);
+ * ```
+ */
 async function syncAnimalForm(item: QueueItem): Promise<void> {
   const { formData } = item.payload;
   

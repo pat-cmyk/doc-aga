@@ -1,24 +1,89 @@
+/**
+ * Standard expense categories for farm financial tracking
+ * 
+ * These categories help farmers organize and analyze their farm expenses.
+ * Each category represents a major cost center in livestock farming operations.
+ * 
+ * @constant
+ * @example
+ * ```typescript
+ * // Use in dropdown selection
+ * <Select>
+ *   {EXPENSE_CATEGORIES.map(category => (
+ *     <SelectItem key={category} value={category}>
+ *       {category}
+ *     </SelectItem>
+ *   ))}
+ * </Select>
+ * ```
+ */
 export const EXPENSE_CATEGORIES = [
-  "Feed & Supplements",
-  "Veterinary Services",
-  "Medicine & Vaccines",
-  "Labor/Wages",
-  "Equipment & Tools",
-  "Facility Maintenance",
-  "Utilities",
-  "Transportation",
-  "Breeding Services",
-  "Marketing & Sales",
-  "Other",
+  "Feed & Supplements",      // Animal feed, minerals, vitamins
+  "Veterinary Services",     // Vet visits, consultations
+  "Medicine & Vaccines",     // Drugs, vaccines, treatments
+  "Labor/Wages",            // Employee salaries, contractor fees
+  "Equipment & Tools",      // Farm machinery, tools, repairs
+  "Facility Maintenance",   // Building repairs, infrastructure
+  "Utilities",             // Water, electricity, gas
+  "Transportation",        // Vehicle fuel, transport fees
+  "Breeding Services",     // AI, bull services
+  "Marketing & Sales",     // Advertising, market fees
+  "Other",                // Miscellaneous expenses
 ] as const;
 
+/**
+ * Payment methods available for recording farm expenses
+ * 
+ * Tracks how expenses were paid to help with cash flow management
+ * and financial reconciliation.
+ * 
+ * @constant
+ * @example
+ * ```typescript
+ * // Use in payment method selection
+ * <RadioGroup>
+ *   {PAYMENT_METHODS.map(method => (
+ *     <RadioGroupItem key={method} value={method}>
+ *       {method}
+ *     </RadioGroupItem>
+ *   ))}
+ * </RadioGroup>
+ * ```
+ */
 export const PAYMENT_METHODS = [
-  "Cash",
-  "Bank Transfer",
-  "Credit/Loan",
-  "Mobile Money",
-  "Other",
+  "Cash",              // Physical cash payment
+  "Bank Transfer",     // Electronic bank transfer
+  "Credit/Loan",      // Borrowed money, credit purchase
+  "Mobile Money",     // GCash, PayMaya, etc.
+  "Other",           // Alternative payment methods
 ] as const;
 
+/**
+ * TypeScript type for expense categories
+ * 
+ * Ensures type safety when working with expense categories throughout the app.
+ * 
+ * @example
+ * ```typescript
+ * const handleExpense = (category: ExpenseCategory, amount: number) => {
+ *   // TypeScript will ensure category is valid
+ * };
+ * ```
+ */
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/**
+ * TypeScript type for payment methods
+ * 
+ * Ensures type safety when working with payment methods throughout the app.
+ * 
+ * @example
+ * ```typescript
+ * const processPayment = (method: PaymentMethod) => {
+ *   if (method === "Mobile Money") {
+ *     // Handle mobile payment
+ *   }
+ * };
+ * ```
+ */
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

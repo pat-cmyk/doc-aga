@@ -5,6 +5,12 @@ import { toast } from '@/hooks/use-toast';
 
 // ============= CACHE PROGRESS SYSTEM =============
 
+/**
+ * Progress information for cache preloading operations
+ * 
+ * Used to show real-time progress during offline cache population.
+ * Each phase represents a different data category being cached.
+ */
 export interface CacheProgress {
   phase: 'animals' | 'records' | 'feed' | 'farm' | 'complete';
   current: number;

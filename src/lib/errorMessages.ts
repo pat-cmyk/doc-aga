@@ -1,3 +1,33 @@
+/**
+ * Translate database and application errors to user-friendly Tagalog messages
+ * 
+ * Converts technical error messages from Supabase, PostgreSQL, and the application
+ * into clear, actionable messages in Tagalog that Filipino farmers can understand.
+ * Handles network errors, database constraints, authentication issues, and
+ * farm-specific errors like duplicate ear tags and voice transcription failures.
+ * 
+ * @param error - Error object or message from any source (Supabase, network, app)
+ * @returns User-friendly error message in Tagalog
+ * 
+ * @example
+ * ```typescript
+ * // Handle duplicate ear tag error
+ * try {
+ *   await supabase.from('animals').insert({ ear_tag: '001', ... });
+ * } catch (error) {
+ *   const message = translateError(error);
+ *   toast({ title: message }); // "May gumamit na ng ear tag na ito..."
+ * }
+ * 
+ * // Handle network errors
+ * try {
+ *   await fetch('/api/data');
+ * } catch (error) {
+ *   const message = translateError(error);
+ *   console.log(message); // "Walang internet connection. Na-save ang data offline."
+ * }
+ * ```
+ */
 export function translateError(error: any): string {
   const message = error?.message || error?.toString() || '';
 
@@ -65,6 +95,27 @@ export function translateError(error: any): string {
   return "May error. Subukan ulit.";
 }
 
+/**
+ * Generate success messages for completed operations
+ * 
+ * Creates positive, action-specific messages to confirm successful operations
+ * like adding animals or recording voice activities.
+ * 
+ * @param type - Type of operation ('animal' or 'voice_activity')
+ * @param details - Optional specific details about the operation (e.g., animal name)
+ * @returns Success message in Tagalog with checkmark emoji
+ * 
+ * @example
+ * ```typescript
+ * // Animal added successfully
+ * const message = getSuccessMessage('animal', 'Bessie (Tag #042)');
+ * toast({ title: message }); // "Na-add na ang Bessie (Tag #042) sa farm mo ✅"
+ * 
+ * // Voice activity recorded
+ * const message = getSuccessMessage('voice_activity', 'Milking - 10L');
+ * toast({ title: message }); // "Na-record: Milking - 10L ✅"
+ * ```
+ */
 export function getSuccessMessage(type: 'animal' | 'voice_activity', details?: string): string {
   switch (type) {
     case 'animal':
@@ -80,6 +131,26 @@ export function getSuccessMessage(type: 'animal' | 'voice_activity', details?: s
   }
 }
 
+/**
+ * Generate offline queue messages
+ * 
+ * Informs users that their data has been saved locally and will sync
+ * automatically when internet connection is restored.
+ * 
+ * @param type - Type of operation ('animal' or 'voice_activity')
+ * @returns Offline save confirmation message in Tagalog
+ * 
+ * @example
+ * ```typescript
+ * // Save animal offline
+ * const message = getOfflineMessage('animal');
+ * toast({ title: message }); // "Na-save offline. Automatic sync kapag may internet."
+ * 
+ * // Save voice recording offline
+ * const message = getOfflineMessage('voice_activity');
+ * toast({ title: message }); // "Na-save ang recording. I-process kapag may internet."
+ * ```
+ */
 export function getOfflineMessage(type: 'animal' | 'voice_activity'): string {
   switch (type) {
     case 'animal':
@@ -91,6 +162,30 @@ export function getOfflineMessage(type: 'animal' | 'voice_activity'): string {
   }
 }
 
+/**
+ * Generate sync status messages based on pending item count
+ * 
+ * Creates context-aware messages about offline queue synchronization status,
+ * with proper Tagalog pluralization.
+ * 
+ * @param itemCount - Number of items waiting to be synchronized
+ * @returns Status message in Tagalog indicating sync progress
+ * 
+ * @example
+ * ```typescript
+ * // All synced
+ * const message = getSyncMessage(0);
+ * console.log(message); // "Lahat ay na-sync na ✅"
+ * 
+ * // One item pending
+ * const message = getSyncMessage(1);
+ * console.log(message); // "May 1 item pa na isasync"
+ * 
+ * // Multiple items pending
+ * const message = getSyncMessage(5);
+ * console.log(message); // "May 5 items pa na isasync"
+ * ```
+ */
 export function getSyncMessage(itemCount: number): string {
   if (itemCount === 0) return "Lahat ay na-sync na ✅";
   if (itemCount === 1) return "May 1 item pa na isasync";

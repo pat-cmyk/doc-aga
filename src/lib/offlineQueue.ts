@@ -1,7 +1,19 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
+/**
+ * Maximum number of items allowed in the offline queue
+ * 
+ * When limit is reached, oldest pending/completed items are removed to make room.
+ * Prevents IndexedDB storage from growing unbounded.
+ */
 const MAX_QUEUE_SIZE = 50;
 
+/**
+ * Queue item representing an offline operation waiting to be synced
+ * 
+ * Stores all data needed to process voice recordings and animal form submissions
+ * when internet connection is restored. Tracks retry attempts and processing status.
+ */
 interface QueueItem {
   id: string;
   type: 'voice_activity' | 'animal_form';
@@ -35,6 +47,9 @@ interface QueueItem {
   processedAt?: number;
 }
 
+/**
+ * IndexedDB schema for offline queue storage
+ */
 interface OfflineDB extends DBSchema {
   queue: {
     key: string;
@@ -45,6 +60,9 @@ interface OfflineDB extends DBSchema {
 
 let dbInstance: IDBPDatabase<OfflineDB> | null = null;
 
+/**
+ * Get or initialize the IndexedDB database instance
+ */
 async function getDB() {
   if (dbInstance) return dbInstance;
 
@@ -59,15 +77,16 @@ async function getDB() {
   return dbInstance;
 }
 
+/**
+ * Add a new item to the offline queue
+ */
 export async function addToQueue(item: Omit<QueueItem, 'retries' | 'status'> & { status?: QueueItem['status'] }): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('queue', 'readwrite');
   
-  // Check queue size
   const count = await tx.store.count();
   
   if (count >= MAX_QUEUE_SIZE) {
-    // Remove oldest pending/completed item
     const oldest = await tx.store.index('by-createdAt').openCursor();
     if (oldest) {
       await oldest.delete();
@@ -83,16 +102,25 @@ export async function addToQueue(item: Omit<QueueItem, 'retries' | 'status'> & {
   await tx.done;
 }
 
+/**
+ * Get all pending queue items ready for processing
+ */
 export async function getAllPending(): Promise<QueueItem[]> {
   const db = await getDB();
   return db.getAllFromIndex('queue', 'by-status', 'pending');
 }
 
+/**
+ * Get all queue items regardless of status
+ */
 export async function getAll(): Promise<QueueItem[]> {
   const db = await getDB();
   return db.getAll('queue');
 }
 
+/**
+ * Update the processing status of a queue item
+ */
 export async function updateStatus(
   id: string,
   status: QueueItem['status'],
@@ -111,6 +139,9 @@ export async function updateStatus(
   }
 }
 
+/**
+ * Increment the retry counter for a failed queue item
+ */
 export async function incrementRetries(id: string): Promise<number> {
   const db = await getDB();
   const item = await db.get('queue', id);
@@ -124,11 +155,17 @@ export async function incrementRetries(id: string): Promise<number> {
   return 0;
 }
 
+/**
+ * Remove a single item from the queue
+ */
 export async function removeItem(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('queue', id);
 }
 
+/**
+ * Remove all completed items from the queue
+ */
 export async function clearCompleted(): Promise<void> {
   const db = await getDB();
   const completed = await db.getAllFromIndex('queue', 'by-status', 'completed');
@@ -138,16 +175,25 @@ export async function clearCompleted(): Promise<void> {
   }
 }
 
+/**
+ * Get total count of all items in queue
+ */
 export async function getQueueCount(): Promise<number> {
   const db = await getDB();
   return db.count('queue');
 }
 
+/**
+ * Get count of pending items waiting to sync
+ */
 export async function getPendingCount(): Promise<number> {
   const db = await getDB();
   return db.countFromIndex('queue', 'by-status', 'pending');
 }
 
+/**
+ * Reset a failed item for retry
+ */
 export async function resetForRetry(id: string): Promise<void> {
   const db = await getDB();
   const item = await db.get('queue', id);
@@ -160,6 +206,9 @@ export async function resetForRetry(id: string): Promise<void> {
   }
 }
 
+/**
+ * Update multiple fields of a queue item
+ */
 export async function updateItem(id: string, changes: Partial<QueueItem>): Promise<void> {
   const db = await getDB();
   const item = await db.get('queue', id);
@@ -170,6 +219,9 @@ export async function updateItem(id: string, changes: Partial<QueueItem>): Promi
   }
 }
 
+/**
+ * Update specific fields in a queue item's payload
+ */
 export async function updatePayload(id: string, payloadChanges: Partial<QueueItem['payload']>): Promise<void> {
   const db = await getDB();
   const item = await db.get('queue', id);
@@ -180,6 +232,9 @@ export async function updatePayload(id: string, payloadChanges: Partial<QueueIte
   }
 }
 
+/**
+ * Set queue item to awaiting user confirmation state
+ */
 export async function setAwaitingConfirmation(id: string, transcription: string): Promise<void> {
   const db = await getDB();
   const item = await db.get('queue', id);
@@ -193,6 +248,9 @@ export async function setAwaitingConfirmation(id: string, transcription: string)
   }
 }
 
+/**
+ * Confirm transcription and mark item ready for processing
+ */
 export async function confirmTranscription(id: string, transcription: string): Promise<void> {
   const db = await getDB();
   const item = await db.get('queue', id);

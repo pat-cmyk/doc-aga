@@ -1,6 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { QueueItem } from './offlineQueue';
 
+/**
+ * Process voice activity queue items by transcribing and logging farm activities
+ * 
+ * Handles the complete voice-to-activity workflow:
+ * 1. Uses confirmed transcription or transcribes audio
+ * 2. Detects and skips Doc Aga queries (handled separately)
+ * 3. Invokes process-farmhand-activity edge function with animal context
+ * 4. Handles structured errors (inventory, animal selection needs)
+ * 
+ * @param item - Queue item containing voice recording and context
+ * @throws Error codes: AUDIO_MISSING, FARM_ID_MISSING, TRANSCRIPTION_FAILED, NEEDS_ANIMAL_SELECTION
+ */
 export async function processVoiceQueue(item: QueueItem): Promise<void> {
   const { audioBlob, farmId, animalId, transcription, transcriptionConfirmed } = item.payload;
   
