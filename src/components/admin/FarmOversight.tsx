@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Ban, Key, Trash2, CheckCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,11 +40,12 @@ interface FarmWithDetails {
 export const FarmOversight = () => {
   const queryClient = useQueryClient();
   const [confirmationInput, setConfirmationInput] = useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactivated">("active");
 
   const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
-    queryKey: ["admin-farms"],
+    queryKey: ["admin-farms", statusFilter],
     queryFn: async (): Promise<FarmWithDetails[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("farms")
         .select(`
           id,
@@ -55,8 +57,17 @@ export const FarmOversight = () => {
           profiles:owner_id (full_name, phone, email),
           animals:animals(count),
           farm_memberships:farm_memberships(count)
-        `)
-        .order("created_at", { ascending: false });
+        `);
+
+      // Apply filter based on status
+      if (statusFilter === "active") {
+        query = query.eq("is_deleted", false);
+      } else if (statusFilter === "deactivated") {
+        query = query.eq("is_deleted", true);
+      }
+      // "all" doesn't add any filter
+
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
       if (!data) return [];
@@ -163,6 +174,30 @@ export const FarmOversight = () => {
     },
   });
 
+  const reactivateFarmMutation = useMutation({
+    mutationFn: async (farmId: string) => {
+      const { error } = await supabase
+        .from("farms")
+        .update({ is_deleted: false })
+        .eq("id", farmId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-farms"] });
+      toast({
+        title: "Success",
+        description: "Farm reactivated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return <div className="text-center py-8">Loading farms...</div>;
   }
@@ -171,8 +206,22 @@ export const FarmOversight = () => {
     <TooltipProvider>
       <Card>
         <CardHeader>
-          <CardTitle>Farm Oversight</CardTitle>
-          <CardDescription>Monitor and manage all farms in the system</CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>Farm Oversight</CardTitle>
+              <CardDescription>Monitor and manage all farms in the system</CardDescription>
+            </div>
+            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Farms</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="deactivated">Deactivated Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -215,7 +264,31 @@ export const FarmOversight = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {!farm.is_deleted && (
+                      {farm.is_deleted ? (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title="Reactivate farm">
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reactivate Farm</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reactivate "{farm.name}"? The farm will be restored to active status and accessible to its owner and members.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => reactivateFarmMutation.mutate(farm.id)}
+                              >
+                                Reactivate
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="sm" title="Deactivate farm">
