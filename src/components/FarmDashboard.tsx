@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Database, Sprout } from "lucide-react";
+import { Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { generateFeedForecast, type MonthlyFeedForecast } from "@/lib/feedForecast";
@@ -30,8 +30,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
-  const [backfilling, setBackfilling] = useState(false);
-  const [populatingWeights, setPopulatingWeights] = useState(false);
   const { toast } = useToast();
 
   // Memoize date calculations
@@ -188,55 +186,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   }, [farmId]);
 
-  const handleBackfillData = useCallback(async () => {
-    setBackfilling(true);
-    try {
-      const { error } = await supabase.functions.invoke("backfill-stats", {
-        body: { farm_id: farmId }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Stats backfill completed successfully"
-      });
-      
-      reloadStats();
-    } catch (error: any) {
-      toast({
-        title: "Backfill failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setBackfilling(false);
-    }
-  }, [farmId, toast, reloadStats]);
-
-  const handlePopulateWeights = async () => {
-    setPopulatingWeights(true);
-    try {
-      const { error } = await supabase.functions.invoke("populate-weights", {
-        body: { farm_id: farmId }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Weights populated successfully"
-      });
-    } catch (error: any) {
-      toast({
-        title: "Weight population failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setPopulatingWeights(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -305,24 +254,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         >
           <Sprout className="h-4 w-4 mr-2" />
           {showFeedForecast ? "Hide" : "Show"} Feed Forecast
-        </Button>
-        
-        <Button
-          variant="outline"
-          onClick={handleBackfillData}
-          disabled={backfilling}
-        >
-          {backfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-          Backfill Stats
-        </Button>
-        
-        <Button
-          variant="outline"
-          onClick={handlePopulateWeights}
-          disabled={populatingWeights}
-        >
-          {populatingWeights ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          Populate Weights
         </Button>
       </div>
 

@@ -106,7 +106,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body once
+    // Verify user is admin (development tool only)
+    const { data: isAdmin, error: roleError } = await supabaseClient
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+    if (roleError || !isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse request body
     const requestBody = await req.json();
     const { farm_id } = requestBody;
     
@@ -114,18 +125,6 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'farm_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify user owns or manages the farm
-    const { data: canManage, error: permError } = await supabaseClient
-      .rpc('is_farm_owner_or_manager', { _user_id: user.id, _farm_id: farm_id });
-
-    if (permError || !canManage) {
-      console.error('Permission check failed:', permError);
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - You do not have access to this farm' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

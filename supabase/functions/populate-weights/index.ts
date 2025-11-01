@@ -189,21 +189,21 @@ serve(async (req) => {
       );
     }
 
+    // Verify user is admin (development tool only)
+    const { data: isAdmin, error: roleError } = await supabaseClient
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+    if (roleError || !isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { farmId } = await req.json();
 
     if (!farmId) {
       throw new Error("farmId is required");
-    }
-
-    // Verify user is farm owner or manager
-    const { data: hasAccess, error: accessError } = await supabaseClient
-      .rpc('is_farm_owner_or_manager', { _user_id: user.id, _farm_id: farmId });
-
-    if (accessError || !hasAccess) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Farm owner or manager access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Rate limiting
