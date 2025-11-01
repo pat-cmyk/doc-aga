@@ -16,6 +16,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 
 interface FarmWithDetails {
   id: string;
@@ -33,6 +38,7 @@ interface FarmWithDetails {
 
 export const FarmOversight = () => {
   const queryClient = useQueryClient();
+  const [confirmationInput, setConfirmationInput] = useState<Record<string, string>>({});
 
   const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
     queryKey: ["admin-farms"],
@@ -162,122 +168,201 @@ export const FarmOversight = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Farm Oversight</CardTitle>
-        <CardDescription>Monitor and manage all farms in the system</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Farm Name</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Region</TableHead>
-              <TableHead>Animals</TableHead>
-              <TableHead>Team Members</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {farms?.map((farm) => (
-              <TableRow key={farm.id}>
-                <TableCell className="font-medium">{farm.name}</TableCell>
-                <TableCell>{farm.owner_name}</TableCell>
-                <TableCell>{farm.owner_email}</TableCell>
-                <TableCell>{farm.owner_phone}</TableCell>
-                <TableCell>{farm.region || "N/A"}</TableCell>
-                <TableCell>{farm.animal_count}</TableCell>
-                <TableCell>{farm.team_members_count}</TableCell>
-                <TableCell>
-                  {new Date(farm.created_at).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" title="Deactivate farm">
-                          <Ban className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Deactivate Farm</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to deactivate "{farm.name}"? This will
-                            soft delete the farm.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deactivateFarmMutation.mutate(farm.id)}
-                          >
-                            Deactivate
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title={farm.owner_email === "N/A" || !farm.owner_email 
-                        ? "Email not available" 
-                        : "Reset password"}
-                      onClick={() => {
-                        if (farm.owner_email && farm.owner_email !== "N/A") {
-                          resetPasswordMutation.mutate(farm.owner_email);
-                        } else {
-                          toast({
-                            title: "Error",
-                            description: "Cannot reset password: email not available",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={farm.owner_email === "N/A" || !farm.owner_email}
-                    >
-                      <Key className="h-4 w-4" />
-                    </Button>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" title="Delete farm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Farm</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to permanently delete "{farm.name}"?
-                            This action cannot be undone and will remove all associated
-                            animals and records.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteFarmMutation.mutate(farm.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </TableCell>
+    <TooltipProvider>
+      <Card>
+        <CardHeader>
+          <CardTitle>Farm Oversight</CardTitle>
+          <CardDescription>Monitor and manage all farms in the system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Farm Name</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead>Animals</TableHead>
+                <TableHead>Team Members</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+            {farms?.map((farm) => {
+              const canPermanentlyDelete = farm.is_deleted && farm.animal_count === 0;
+              const confirmationKey = farm.id;
+              const typedNameMatches = confirmationInput[confirmationKey]?.trim().toLowerCase() === farm.name.trim().toLowerCase();
+              
+              return (
+                <TableRow key={farm.id}>
+                  <TableCell className="font-medium">{farm.name}</TableCell>
+                  <TableCell>{farm.owner_name}</TableCell>
+                  <TableCell>{farm.owner_email}</TableCell>
+                  <TableCell>{farm.owner_phone}</TableCell>
+                  <TableCell>{farm.region || "N/A"}</TableCell>
+                  <TableCell>{farm.animal_count}</TableCell>
+                  <TableCell>{farm.team_members_count}</TableCell>
+                  <TableCell>
+                    <Badge variant={farm.is_deleted ? "destructive" : "default"}>
+                      {farm.is_deleted ? "Deactivated" : "Active"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(farm.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {!farm.is_deleted && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title="Deactivate farm">
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Deactivate Farm</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to deactivate "{farm.name}"? This is the first step before permanent deletion. The farm can be reactivated later if needed.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deactivateFarmMutation.mutate(farm.id)}
+                              >
+                                Deactivate
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={farm.owner_email === "N/A" || !farm.owner_email 
+                          ? "Email not available" 
+                          : "Reset password"}
+                        onClick={() => {
+                          if (farm.owner_email && farm.owner_email !== "N/A") {
+                            resetPasswordMutation.mutate(farm.owner_email);
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: "Cannot reset password: email not available",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        disabled={farm.owner_email === "N/A" || !farm.owner_email}
+                      >
+                        <Key className="h-4 w-4" />
+                      </Button>
+
+                      <AlertDialog onOpenChange={(open) => {
+                        if (!open) {
+                          setConfirmationInput(prev => ({ ...prev, [confirmationKey]: "" }));
+                        }
+                      }}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  disabled={!canPermanentlyDelete}
+                                  title="Permanently delete farm"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                            </span>
+                          </TooltipTrigger>
+                          {!canPermanentlyDelete && (
+                            <TooltipContent>
+                              {!farm.is_deleted && "Farm must be deactivated first"}
+                              {farm.is_deleted && farm.animal_count > 0 && `Remove all ${farm.animal_count} animals first`}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>⚠️ Permanently Delete Farm</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <p><strong>Farm:</strong> {farm.name}</p>
+                                  <p>
+                                    <strong>Status:</strong>{" "}
+                                    <Badge variant={farm.is_deleted ? "destructive" : "default"}>
+                                      {farm.is_deleted ? "Deactivated" : "Active"}
+                                    </Badge>
+                                  </p>
+                                  <p><strong>Animals:</strong> {farm.animal_count}</p>
+                                </div>
+                                
+                                <div className="border-l-4 border-destructive pl-4 space-y-2">
+                                  <p className="font-semibold">Requirements:</p>
+                                  <p className={farm.is_deleted ? "text-green-600" : "text-destructive"}>
+                                    {farm.is_deleted ? "✓" : "✗"} Farm must be deactivated first
+                                  </p>
+                                  <p className={farm.animal_count === 0 ? "text-green-600" : "text-destructive"}>
+                                    {farm.animal_count === 0 ? "✓" : "✗"} All animals must be removed
+                                  </p>
+                                </div>
+
+                                <p className="text-destructive font-semibold">
+                                  This action CANNOT be undone!
+                                </p>
+
+                                {canPermanentlyDelete && (
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`confirm-${confirmationKey}`}>
+                                      Type the farm name to confirm:
+                                    </Label>
+                                    <Input
+                                      id={`confirm-${confirmationKey}`}
+                                      value={confirmationInput[confirmationKey] || ""}
+                                      onChange={(e) => setConfirmationInput(prev => ({ 
+                                        ...prev, 
+                                        [confirmationKey]: e.target.value 
+                                      }))}
+                                      placeholder={farm.name}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                deleteFarmMutation.mutate(farm.id);
+                                setConfirmationInput(prev => ({ ...prev, [confirmationKey]: "" }));
+                              }}
+                              disabled={!canPermanentlyDelete || !typedNameMatches}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Permanently
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 };
