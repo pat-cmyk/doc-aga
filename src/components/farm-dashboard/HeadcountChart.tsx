@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Legend, ResponsiveContainer } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Legend } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { MonthlyHeadcount } from "./hooks/useHeadcountData";
 
@@ -74,7 +74,16 @@ export const HeadcountChart = ({
         </div>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={350}>
+        <ChartContainer
+          config={stageKeys.reduce((acc, stage, index) => ({
+            ...acc,
+            [stage]: {
+              label: stage,
+              color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
+            }
+          }), {})}
+          className="h-[350px]"
+        >
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
@@ -91,7 +100,7 @@ export const HeadcountChart = ({
               />
             ))}
           </BarChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
