@@ -22,6 +22,26 @@ type CacheProgressListener = (progress: CacheProgress) => void;
 
 const cacheProgressListeners: Set<CacheProgressListener> = new Set();
 
+/**
+ * Subscribe to cache preloading progress updates
+ * 
+ * Allows UI components to show real-time progress during offline cache population.
+ * Returns unsubscribe function for cleanup.
+ * 
+ * @param listener - Callback function that receives progress updates
+ * @returns Unsubscribe function to remove listener
+ * 
+ * @example
+ * ```typescript
+ * useEffect(() => {
+ *   const unsubscribe = onCacheProgress((progress) => {
+ *     console.log(`${progress.phase}: ${progress.current}/${progress.total}`);
+ *     setProgress(progress);
+ *   });
+ *   return unsubscribe;
+ * }, []);
+ * ```
+ */
 export function onCacheProgress(listener: CacheProgressListener) {
   cacheProgressListeners.add(listener);
   return () => {
@@ -29,6 +49,9 @@ export function onCacheProgress(listener: CacheProgressListener) {
   };
 }
 
+/**
+ * Internal function to emit progress updates to all subscribers
+ */
 function emitProgress(progress: CacheProgress) {
   cacheProgressListeners.forEach(listener => listener(progress));
 }
@@ -52,6 +75,25 @@ export interface CacheStats {
   isReady: boolean; // All critical data cached
 }
 
+/**
+ * Get comprehensive statistics about cached data for a farm
+ * 
+ * Returns counts and freshness information for all cache categories.
+ * Used to display cache status in UI and determine if data needs refreshing.
+ * 
+ * @param farmId - UUID of the farm to check cache stats for
+ * @returns Promise resolving to cache statistics object
+ * 
+ * @example
+ * ```typescript
+ * const stats = await getCacheStats(farmId);
+ * console.log(`${stats.animals.count} animals cached`);
+ * console.log(`Cache is ${stats.isReady ? 'ready' : 'not ready'}`);
+ * if (!stats.animals.isFresh) {
+ *   await refreshAllCaches(farmId, isOnline);
+ * }
+ * ```
+ */
 export async function getCacheStats(farmId: string): Promise<CacheStats> {
   try {
     const db = await getDB();
@@ -189,6 +231,14 @@ const CACHE_TTL = {
 
 let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 
+/**
+ * Get or initialize the IndexedDB database instance for data caching
+ * 
+ * Creates database and object stores on first access. Subsequent calls
+ * return cached instance for better performance.
+ * 
+ * @returns Promise resolving to IndexedDB database instance
+ */
 async function getDB() {
   if (dbInstance) return dbInstance;
 
@@ -214,6 +264,27 @@ async function getDB() {
 
 // ============= ANIMAL CACHE =============
 
+/**
+ * Retrieve cached animal data for a farm (if valid)
+ * 
+ * Returns cached animals only if cache is fresh (within TTL).
+ * Includes calculated life stages and milking stages for female cattle.
+ * 
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to cached animal data or null if expired/missing
+ * 
+ * @example
+ * ```typescript
+ * const cached = await getCachedAnimals(farmId);
+ * if (cached) {
+ *   setAnimals(cached.data);
+ * } else {
+ *   // Cache miss - fetch from server
+ *   const fresh = await updateAnimalCache(farmId);
+ *   setAnimals(fresh);
+ * }
+ * ```
+ */
 export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache | null> {
   try {
     const db = await getDB();
@@ -229,6 +300,26 @@ export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache 
   }
 }
 
+/**
+ * Fetch and cache all animals for a farm from Supabase
+ * 
+ * Retrieves animals from database, calculates life/milking stages, and pre-caches
+ * all animal records for offline use. Optionally emits progress updates for UI.
+ * 
+ * @param farmId - UUID of the farm
+ * @param emitProgressUpdates - Whether to emit real-time progress (for preload UI)
+ * @returns Promise resolving to array of cached animals with stages
+ * 
+ * @example
+ * ```typescript
+ * // Simple cache update
+ * const animals = await updateAnimalCache(farmId);
+ * 
+ * // Update with progress tracking
+ * const animals = await updateAnimalCache(farmId, true);
+ * // Progress events are emitted via onCacheProgress listeners
+ * ```
+ */
 export async function updateAnimalCache(farmId: string, emitProgressUpdates = false): Promise<Animal[]> {
   try {
     const { data: animals, error } = await supabase
@@ -350,6 +441,15 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
 
 // ============= RECORDS CACHE =============
 
+/**
+ * Retrieve cached records for a specific animal (if valid)
+ * 
+ * Returns all record types (milking, weight, health, AI, feeding) for an animal
+ * only if cache is fresh (within TTL).
+ * 
+ * @param animalId - UUID of the animal
+ * @returns Promise resolving to cached records or null if expired/missing
+ */
 export async function getCachedRecords(animalId: string): Promise<RecordCache | null> {
   try {
     const db = await getDB();
@@ -365,6 +465,15 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
   }
 }
 
+/**
+ * Fetch and cache all records for a specific animal from Supabase
+ * 
+ * Retrieves all record types in parallel and stores them for offline access.
+ * Called automatically during animal cache updates.
+ * 
+ * @param animalId - UUID of the animal
+ * @returns Promise resolving to cached records object
+ */
 export async function updateRecordsCache(animalId: string): Promise<RecordCache> {
   try {
     const [milkingRes, weightRes, healthRes, aiRes, feedingRes] = await Promise.all([
@@ -405,6 +514,12 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
 
 // ============= FEED INVENTORY CACHE =============
 
+/**
+ * Retrieve cached feed inventory for a farm (if valid)
+ * 
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to cached feed inventory or null if expired/missing
+ */
 export async function getCachedFeedInventory(farmId: string): Promise<FeedInventoryCache | null> {
   try {
     const db = await getDB();
@@ -420,6 +535,12 @@ export async function getCachedFeedInventory(farmId: string): Promise<FeedInvent
   }
 }
 
+/**
+ * Fetch and cache feed inventory for a farm from Supabase
+ * 
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to array of cached feed items
+ */
 export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
   try {
     const { data, error } = await supabase
@@ -447,6 +568,12 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
 
 // ============= FARM DATA CACHE =============
 
+/**
+ * Retrieve cached farm data including info and team members (if valid)
+ * 
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to cached farm data or null if expired/missing
+ */
 export async function getCachedFarmData(farmId: string): Promise<FarmDataCache | null> {
   try {
     const db = await getDB();
@@ -462,6 +589,12 @@ export async function getCachedFarmData(farmId: string): Promise<FarmDataCache |
   }
 }
 
+/**
+ * Fetch and cache farm data including info and team members from Supabase
+ * 
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to cached farm data object
+ */
 export async function updateFarmDataCache(farmId: string): Promise<FarmDataCache | null> {
   try {
     const [farmRes, membersRes] = await Promise.all([
@@ -490,7 +623,27 @@ export async function updateFarmDataCache(farmId: string): Promise<FarmDataCache
 
 // ============= SINGLE ANIMAL CACHE =============
 
-// Get single animal with all related data from cache
+/**
+ * Get complete animal details including parents, offspring, and records from cache
+ * 
+ * Retrieves a single animal with all related data for the animal details page.
+ * More efficient than separate queries when all data is needed together.
+ * 
+ * @param animalId - UUID of the animal
+ * @param farmId - UUID of the farm (needed to find all farm animals)
+ * @returns Promise resolving to object with animal, parents, offspring, and records or null
+ * 
+ * @example
+ * ```typescript
+ * const details = await getCachedAnimalDetails(animalId, farmId);
+ * if (details) {
+ *   console.log(`Animal: ${details.animal.name}`);
+ *   console.log(`Mother: ${details.mother?.name || 'Unknown'}`);
+ *   console.log(`Offspring: ${details.offspring.length}`);
+ *   console.log(`Milking records: ${details.records?.milking.length || 0}`);
+ * }
+ * ```
+ */
 export async function getCachedAnimalDetails(animalId: string, farmId: string): Promise<{
   animal: Animal | null;
   mother: Animal | null;
@@ -538,7 +691,25 @@ export async function getCachedAnimalDetails(animalId: string, farmId: string): 
   }
 }
 
-// Check if animal is fully cached (both details and records)
+/**
+ * Check if an animal and its records are fully available in cache
+ * 
+ * Useful for determining whether to show cached data or fetch from server.
+ * 
+ * @param animalId - UUID of the animal
+ * @param farmId - UUID of the farm
+ * @returns Promise resolving to true if both animal and records are cached
+ * 
+ * @example
+ * ```typescript
+ * const isCached = await isAnimalFullyCached(animalId, farmId);
+ * if (isCached) {
+ *   loadFromCache();
+ * } else {
+ *   fetchFromServer();
+ * }
+ * ```
+ */
 export async function isAnimalFullyCached(animalId: string, farmId: string): Promise<boolean> {
   try {
     const details = await getCachedAnimalDetails(animalId, farmId);
@@ -552,6 +723,30 @@ export async function isAnimalFullyCached(animalId: string, farmId: string): Pro
 
 // ============= BULK OPERATIONS =============
 
+/**
+ * Preload all critical farm data into offline cache with progress updates
+ * 
+ * Orchestrates the complete cache population workflow:
+ * 1. Animals and their records
+ * 2. Feed inventory
+ * 3. Farm data and team members
+ * 
+ * Shows toast notifications and emits progress events for UI feedback.
+ * Only runs when online - skips if offline.
+ * 
+ * @param farmId - UUID of the farm
+ * @param isOnline - Whether app currently has internet connection
+ * 
+ * @example
+ * ```typescript
+ * // Typically called on app startup or farm switch
+ * useEffect(() => {
+ *   if (farmId && isOnline) {
+ *     preloadAllData(farmId, isOnline);
+ *   }
+ * }, [farmId, isOnline]);
+ * ```
+ */
 export async function preloadAllData(farmId: string, isOnline: boolean) {
   if (!isOnline) {
     console.log('[DataCache] Offline - skipping preload');
@@ -626,6 +821,25 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
   }
 }
 
+/**
+ * Silently refresh all caches in the background
+ * 
+ * Updates animals and feed inventory without progress notifications.
+ * Used for periodic cache updates during normal app usage.
+ * 
+ * @param farmId - UUID of the farm
+ * @param isOnline - Whether app currently has internet connection
+ * 
+ * @example
+ * ```typescript
+ * // Refresh cache periodically
+ * setInterval(() => {
+ *   if (isOnline) {
+ *     refreshAllCaches(farmId, isOnline);
+ *   }
+ * }, 5 * 60 * 1000); // Every 5 minutes
+ * ```
+ */
 export async function refreshAllCaches(farmId: string, isOnline: boolean) {
   if (!isOnline) return;
 
@@ -643,6 +857,21 @@ export async function refreshAllCaches(farmId: string, isOnline: boolean) {
   }
 }
 
+/**
+ * Clear all cached data from IndexedDB
+ * 
+ * Removes all animals, records, feed inventory, and farm data.
+ * Typically called on logout or when switching farms.
+ * 
+ * @example
+ * ```typescript
+ * // Clear cache on logout
+ * const handleLogout = async () => {
+ *   await clearAllCaches();
+ *   await supabase.auth.signOut();
+ * };
+ * ```
+ */
 export async function clearAllCaches() {
   try {
     const db = await getDB();

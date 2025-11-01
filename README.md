@@ -84,7 +84,17 @@ npm run test:watch
 - **Integration tests**: Test component behavior (coming in Phase 2)
 - **E2E tests**: Test complete user journeys (coming in Phase 3)
 
-See `src/test-utils.tsx` for testing helpers.
+### Documentation
+
+All utility functions have comprehensive **JSDoc documentation** with:
+- Function descriptions and algorithms
+- Parameter and return type documentation  
+- Real-world usage examples
+- Error conditions and edge cases
+
+See `CONTRIBUTING.md` § JSDoc Documentation Standards for more details.
+
+Test helpers are available in `src/test-utils.tsx`.
 
 ## How can I deploy this project?
 

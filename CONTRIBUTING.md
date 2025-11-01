@@ -451,6 +451,86 @@ import type { Animal } from '@/integrations/supabase/types';
 import './styles.css';
 ```
 
+### JSDoc Documentation Standards
+
+All utility functions, constants, and complex business logic **must** have JSDoc comments. This improves code maintainability, enables better IDE IntelliSense, and helps future developers understand the codebase.
+
+**✅ Complete JSDoc Example:**
+
+```typescript
+/**
+ * Calculate the life stage of a female cattle based on age and reproduction history
+ * 
+ * Determines developmental stage using industry-standard age thresholds and
+ * reproductive milestones. Only applies to female cattle - returns null for males.
+ * 
+ * Life stages progression:
+ * - **Calf** (0-8 months): Newborn to weaning
+ * - **Heifer Calf** (8-12 months): Post-weaning growth
+ * - **Breeding Heifer** (15+ months, no offspring): Ready for breeding
+ * - **Mature Cow** (2+ offspring): Experienced mother
+ * 
+ * @param data - Animal stage data including birth date, gender, and reproduction info
+ * @returns Life stage string or null if male/invalid data
+ * 
+ * @example
+ * ```typescript
+ * const stage = calculateLifeStage({
+ *   birthDate: new Date('2023-06-01'),
+ *   gender: 'Female',
+ *   offspringCount: 0,
+ *   hasActiveAI: false,
+ *   // ... other fields
+ * });
+ * console.log(stage); // "Breeding Heifer" (16 months old)
+ * ```
+ * 
+ * @throws {Error} If birthDate is invalid
+ * @see {@link calculateMilkingStage} for lactation stage calculation
+ */
+export function calculateLifeStage(data: AnimalStageData): string | null {
+  // Implementation...
+}
+```
+
+**JSDoc Components:**
+
+1. **Summary** (first line) - One-line description of function purpose
+2. **Detailed Description** - Explain algorithm, edge cases, important notes
+3. **`@param`** - Document each parameter with type and purpose
+4. **`@returns`** - Describe what the function returns
+5. **`@example`** - Show real-world usage with expected output
+6. **`@throws`** (optional) - Document error conditions
+7. **`@see`** (optional) - Link to related functions
+
+**Files with Complete JSDoc:**
+
+All utility files in `src/lib/` have comprehensive JSDoc:
+- ✅ `utils.ts` - Tailwind merge utility
+- ✅ `animalStages.ts` - Life/milking stage calculations
+- ✅ `errorMessages.ts` - Error translation functions
+- ✅ `expenseCategories.ts` - Expense & payment constants
+- ✅ `livestockBreeds.ts` - Breed database
+- ✅ `offlineQueue.ts` - IndexedDB queue operations
+- ✅ `syncService.ts` - Queue synchronization
+- ✅ `voiceQueueProcessor.ts` - Voice activity processing
+- ✅ `dataCache.ts` - Offline cache management
+
+**When to Write JSDoc:**
+
+- ✅ All exported functions in `src/lib/`
+- ✅ Complex algorithms or business logic
+- ✅ Functions with non-obvious behavior
+- ✅ Public APIs and interfaces
+- ✅ Constants that need explanation
+
+**When JSDoc is Optional:**
+
+- Simple getters/setters
+- Self-explanatory one-line functions
+- Private helper functions (though still helpful)
+- React component props (TypeScript types are sufficient)
+
 ---
 
 ## 4. Testing Guidelines
