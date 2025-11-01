@@ -74,33 +74,49 @@ export const HeadcountChart = ({
         </div>
       </CardHeader>
       <CardContent>
-        <ChartContainer
-          config={stageKeys.reduce((acc, stage, index) => ({
-            ...acc,
-            [stage]: {
-              label: stage,
-              color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
-            }
-          }), {})}
-          className="h-[350px]"
-        >
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-            <YAxis />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Legend wrapperStyle={{ fontSize: '12px' }} />
-            {stageKeys.map((stage, index) => (
-              <Bar
-                key={stage}
-                dataKey={stage}
-                stackId="a"
-                fill={STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`}
-                name={stage}
-              />
-            ))}
-          </BarChart>
-        </ChartContainer>
+        {!data?.length ? (
+          <div className="h-[320px] flex items-center justify-center text-muted-foreground">
+            No data for selected period
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[640px]">
+              <ChartContainer
+                config={stageKeys.reduce((acc, stage, index) => ({
+                  ...acc,
+                  [stage]: {
+                    label: stage,
+                    color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
+                  }
+                }), {})}
+                className="aspect-auto w-full h-[320px] sm:h-[360px]"
+              >
+                <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12 }} 
+                    tickMargin={8}
+                    minTickGap={10}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis width={40} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  {stageKeys.map((stage, index) => (
+                    <Bar
+                      key={stage}
+                      dataKey={stage}
+                      stackId="a"
+                      fill={STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`}
+                      name={stage}
+                    />
+                  ))}
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -57,34 +57,45 @@ export const MilkProductionChart = ({
         </div>
       </CardHeader>
       <CardContent>
-        <ChartContainer
-          config={{
-            milk: {
-              label: "Milk (Liters)",
-              color: "hsl(var(--chart-1))",
-            },
-          }}
-          className="h-[300px]"
-        >
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 12 }}
-              tickMargin={8}
-            />
-            <YAxis />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              type="monotone"
-              dataKey="milkTotal"
-              name="Milk (Liters)"
-              stroke="hsl(var(--chart-1))"
-              fill="hsl(var(--chart-1))"
-              fillOpacity={0.2}
-            />
-          </AreaChart>
-        </ChartContainer>
+        {!data?.length ? (
+          <div className="h-[260px] flex items-center justify-center text-muted-foreground">
+            No data for selected period
+          </div>
+        ) : (
+          <ChartContainer
+            config={{
+              milkTotal: {
+                label: "Milk (Liters)",
+                color: "hsl(var(--chart-1))",
+              },
+            }}
+            className="aspect-auto w-full h-[260px] sm:h-[320px] md:h-[360px]"
+          >
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 12 }}
+                tickMargin={8}
+                minTickGap={12}
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                width={40}
+                tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
+              />
+              <ChartTooltip content={<ChartTooltipContent labelKey="date" />} />
+              <Area
+                type="monotone"
+                dataKey="milkTotal"
+                name="Milk (Liters)"
+                stroke="hsl(var(--chart-1))"
+                fill="hsl(var(--chart-1))"
+                fillOpacity={0.2}
+              />
+            </AreaChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );
