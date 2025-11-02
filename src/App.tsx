@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MerchantAuth from "./pages/MerchantAuth";
@@ -90,6 +90,22 @@ const SyncHandler = () => {
   return null;
 };
 
+// Component to conditionally render floating components (hide on auth pages)
+const ConditionalFloatingComponents = () => {
+  const location = useLocation();
+  const authRoutes = ['/auth', '/auth/merchant', '/auth/admin'];
+  const isAuthPage = authRoutes.includes(location.pathname);
+  
+  if (isAuthPage) return null;
+  
+  return (
+    <>
+      <FloatingDocAga />
+      <FloatingVoiceTrainingButton />
+    </>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -118,8 +134,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <FloatingDocAga />
-          <FloatingVoiceTrainingButton />
+          <ConditionalFloatingComponents />
         </BrowserRouter>
       </CartProvider>
     </TooltipProvider>
