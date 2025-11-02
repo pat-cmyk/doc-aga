@@ -505,10 +505,20 @@ Bisaya/Cebuano:
 - Time: "gabie"=yesterday, "karon"=now, "ugma"=tomorrow (FUTURE)
 - Activities: "papakaon"=feeding, "pagatas"=milking
 
+Numbers (Tagalog):
+- "isa"=1, "dalawa"=2, "tatlo"=3, "apat"=4, "lima"=5
+- "anim"=6, "pito"=7, "walo"=8, "siyam"=9, "sampu"=10
+- "labinisa"=11, "labindalawa"=12, "labintatlo"=13, "labing-apat"=14, "labinlima"=15
+- "dalawampu"=20, "tatlumpu"=30, "apatnapu"=40, "limampu"=50
+- Examples: "lima litro"=5 liters, "sampu sako"=10 bags, "tatlo bigkis"=3 bales
+- CRITICAL: Convert Tagalog numbers to digits for database storage!
+
 Mixed Language (Taglish):
 - "Nag-feed ako ng 10 bales" = I fed 10 bales
 - "Pinakain ko ang 5 sako" = I fed 5 bags
 - "Nag-milk ng 20 litro" = Milked 20 liters
+- "Nag-milk ng dalawampu litro" = Milked 20 liters
+- "Lima sako ng darak" = 5 bags of rice bran
 
 CRITICAL: Extract correct English equivalents for database storage!
 

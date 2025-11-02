@@ -355,6 +355,7 @@ Common terms you should recognize:
 - Activities: "paggatas"=milking, "pagpapakain"=feeding, "pagturuk"=injection, "pagbakunat"=vaccination
 - Time: "kahapon"=yesterday, "ngayon"=now/today, "kanina"=earlier, "kamakalawa"=2 days ago
 - Bisaya: "gabie"=yesterday, "karon"=now, "papakaon"=feeding, "pagatas"=milking
+- Numbers: "isa"=1, "dalawa"=2, "tatlo"=3, "apat"=4, "lima"=5, "anim"=6, "pito"=7, "walo"=8, "siyam"=9, "sampu"=10, "dalawampu"=20, "tatlumpu"=30
 
 PREFERRED TERMINOLOGY (use these consistently):
 - Instead of "laktating cow" → always use "nag gagatas na baka"

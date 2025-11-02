@@ -179,6 +179,8 @@ Agricultural terms (English/Tagalog):
 - Feed types: concentrate, roughage, hay, grass, palay
 - Liters: litro
 - Kilograms: kilo
+- Numbers: isa (1), dalawa (2), tatlo (3), apat (4), lima (5), anim (6), pito (7), walo (8), siyam (9), sampu (10)
+- Larger numbers: labinisa (11), labindalawa (12), dalawampu (20), tatlumpu (30), apatnapu (40), limampu (50)
 - Sick: may sakit
 - Healthy: malusog
 - Temperature: temperatura, lagnat
