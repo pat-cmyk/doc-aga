@@ -53,7 +53,7 @@ const docAgaRequestSchema = z.object({
       .min(1, 'Question cannot be empty')
       .max(2000, 'Question must be under 2000 characters')
       .trim(),
-    imageUrl: z.string().url().optional()
+    imageUrl: z.string().url().nullish() // Allow null, undefined, or string
   })).min(1, 'At least one message required'),
   farmId: z.string().uuid().optional()
 });

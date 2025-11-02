@@ -180,11 +180,15 @@ const DocAga = () => {
       setInput("");
     }
     
-    setMessages(prev => [...prev, { 
+    const userMessage: Message = { 
       role: "user", 
-      content: textToSend || "Attached an image",
-      imageUrl: uploadedImageUrl || undefined
-    }]);
+      content: textToSend || "Attached an image"
+    };
+    if (uploadedImageUrl) {
+      userMessage.imageUrl = uploadedImageUrl;
+    }
+    
+    setMessages(prev => [...prev, userMessage]);
     setLoading(true);
 
     try {
@@ -193,22 +197,22 @@ const DocAga = () => {
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession();
       
+      const messagesToSend = [
+        ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Hello! I'm Doc Aga")),
+        { 
+          role: "user", 
+          content: textToSend,
+          ...(uploadedImageUrl && { imageUrl: uploadedImageUrl })
+        }
+      ];
+      
       const resp = await fetch(DOC_AGA_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ 
-          messages: [
-            ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Hello! I'm Doc Aga")),
-            { 
-              role: "user", 
-              content: textToSend,
-              imageUrl: uploadedImageUrl
-            }
-          ]
-        }),
+        body: JSON.stringify({ messages: messagesToSend }),
       });
 
       if (!resp.ok) {
