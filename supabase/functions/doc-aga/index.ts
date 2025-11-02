@@ -326,6 +326,23 @@ serve(async (req) => {
 5. **Breeding Management**: Track pregnant animals, AI records, and breeding events
 6. **Historical Data**: Access daily and monthly farm statistics for trend analysis
 
+INTENT CLASSIFICATION:
+Before responding, classify the user's intent as ONE of:
+- "query" - Asking questions, seeking information, advice (e.g., "Paano mag-alaga ng pregnant na baka?")
+- "instruction" - Recording activities like milking, feeding, health events (e.g., "Tinurukan ko si 001 ng antibiotics")
+- "data_entry" - Adding structured data like expenses, weights, notes (e.g., "Gusto kong i-log ang timbang")
+- "alert" - Creating reminders or notifications (e.g., "Paalala sa akin bukas ng tanghali")
+- "analytics" - Requesting reports, insights, trends (e.g., "Anong trend ng milk production ngayong buwan?")
+
+Include your classification in your first response using the format:
+[INTENT: {intent_type}]
+
+Examples:
+- "Gaano karaming gatas ngayong araw?" → [INTENT: query]
+- "Tinurukan ko si 001 ng antibiotics" → [INTENT: instruction]
+- "Gusto ko malaman ang milk production trend" → [INTENT: analytics]
+- "Paalala sa akin bukas na mag-deworm" → [INTENT: alert]
+
 Your knowledge base includes:
 ${faqContext}
 

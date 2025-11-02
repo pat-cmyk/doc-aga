@@ -7,9 +7,18 @@ import { supabase } from '@/integrations/supabase/client';
 interface VoiceInterfaceProps {
   onTranscription: (text: string) => void;
   disabled?: boolean;
+  compact?: boolean;
+  className?: string;
+  showLabel?: boolean;
 }
 
-const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription, disabled = false }) => {
+const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ 
+  onTranscription, 
+  disabled = false,
+  compact = false,
+  className = "",
+  showLabel = true 
+}) => {
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -157,16 +166,17 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription, disabl
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 p-4 border-t bg-muted/30">
+    <div className={`flex items-center justify-center gap-2 ${compact ? 'p-2' : 'p-4 border-t bg-muted/30'} ${className}`}>
       {!isRecording ? (
         <Button 
           onClick={startRecording}
           className="gap-2"
           variant="secondary"
+          size={compact ? "default" : "default"}
           disabled={isProcessing || disabled}
         >
-          <Mic className="h-4 w-4" />
-          Record Voice Question
+          <Mic className={compact ? "h-4 w-4" : "h-4 w-4"} />
+          {showLabel && (compact ? "Record" : "Record Voice Question")}
         </Button>
       ) : (
         <div className="flex items-center gap-3">
@@ -196,3 +206,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onTranscription, disabl
 };
 
 export default VoiceInterface;
+
+// Export recording state for parent components that need it
+export { VoiceInterface };

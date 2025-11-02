@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Bot, User, Volume2, FileText, Square } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Send, Bot, User, Volume2, FileText, Square, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInterface from "./VoiceInterface";
+import { useRole } from "@/hooks/useRole";
+import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
 
 interface Message {
   role: "user" | "assistant";
@@ -14,7 +18,15 @@ interface Message {
   audioUrl?: string;
   showText?: boolean;
   imageUrl?: string;
+  intent?: string;
 }
+
+type QuickAction = {
+  icon: typeof Activity;
+  label: string;
+  prompt: string;
+  color: string;
+};
 
 const DocAga = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -30,9 +42,36 @@ const DocAga = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
   const [isVoiceInput, setIsVoiceInput] = useState(false);
+  const [currentIntent, setCurrentIntent] = useState<string>("query");
+  const [inputMethod, setInputMethod] = useState<InputMethod>(() => {
+    return getDocAgaPreferences().preferredInputMethod;
+  });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { roles, hasRole } = useRole();
+
+  // Quick actions based on role
+  const getQuickActions = (): QuickAction[] => {
+    if (hasRole('farmhand')) {
+      return [
+        { icon: Activity, label: "Log Activity", prompt: "I want to log an activity", color: "text-blue-600" },
+        { icon: Search, label: "Find Animal", prompt: "Help me find an animal", color: "text-purple-600" },
+        { icon: AlertCircle, label: "Report Issue", prompt: "I need to report a health issue", color: "text-red-600" },
+        { icon: TrendingUp, label: "View Tasks", prompt: "What are my tasks today?", color: "text-green-600" },
+      ];
+    }
+    // farmer_owner and farm managers
+    return [
+      { icon: Activity, label: "Record Activity", prompt: "I want to record an activity", color: "text-blue-600" },
+      { icon: BarChart3, label: "View Farm Stats", prompt: "Show me my farm statistics", color: "text-green-600" },
+      { icon: DollarSign, label: "Log Expense", prompt: "I want to log an expense", color: "text-yellow-600" },
+      { icon: Users, label: "Check Team", prompt: "Show me my team status", color: "text-purple-600" },
+    ];
+  };
+
+  const quickActions = getQuickActions();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -117,6 +156,14 @@ const DocAga = () => {
     }
   };
 
+  const parseIntent = (text: string): string | null => {
+    const intentMatch = text.match(/\[INTENT:\s*(\w+)\]/);
+    if (intentMatch) {
+      return intentMatch[1];
+    }
+    return null;
+  };
+
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if ((!textToSend && !selectedImage) || loading || isUploadingImage) return;
@@ -181,6 +228,7 @@ const DocAga = () => {
       let textBuffer = "";
       let streamDone = false;
       let assistantResponse = "";
+      let detectedIntent: string | null = null;
 
       // Add placeholder for assistant message
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
@@ -210,11 +258,21 @@ const DocAga = () => {
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantResponse += content;
+              
+              // Try to parse intent from first chunk
+              if (!detectedIntent && assistantResponse.length < 200) {
+                detectedIntent = parseIntent(assistantResponse);
+                if (detectedIntent) {
+                  setCurrentIntent(detectedIntent);
+                }
+              }
+              
               setMessages(prev => {
                 const newMessages = [...prev];
                 newMessages[newMessages.length - 1] = {
                   role: "assistant",
-                  content: assistantResponse
+                  content: assistantResponse,
+                  intent: detectedIntent || undefined
                 };
                 return newMessages;
               });
@@ -244,13 +302,22 @@ const DocAga = () => {
                 const newMessages = [...prev];
                 newMessages[newMessages.length - 1] = {
                   role: "assistant",
-                  content: assistantResponse
+                  content: assistantResponse,
+                  intent: detectedIntent || undefined
                 };
                 return newMessages;
               });
             }
           } catch { /* ignore partial leftovers */ }
         }
+      }
+
+      // Handle intent-based behavior
+      if (detectedIntent === "instruction") {
+        toast({
+          title: "Activity Logged",
+          description: "Your activity has been recorded successfully",
+        });
       }
 
       // Generate audio for the response
@@ -273,7 +340,8 @@ const DocAga = () => {
               role: "assistant",
               content: assistantResponse,
               audioUrl,
-              showText: !isVoiceInput
+              showText: !isVoiceInput,
+              intent: detectedIntent || undefined
             };
             return newMessages;
           });
@@ -320,10 +388,82 @@ const DocAga = () => {
     }
   };
 
+  const handleQuickAction = (prompt: string) => {
+    setInput(prompt);
+  };
+
+  const handleInputMethodChange = (method: InputMethod) => {
+    setInputMethod(method);
+    setPreferredInputMethod(method);
+  };
+
+  // Show quick actions only if chat has just the welcome message
+  const showQuickActions = messages.length === 1;
+
+  const getModeLabel = () => {
+    switch (currentIntent) {
+      case "instruction": return "Recording Mode";
+      case "analytics": return "Analysis Mode";
+      case "data_entry": return "Data Entry Mode";
+      default: return "Query Mode";
+    }
+  };
+
+  const getModeColor = () => {
+    switch (currentIntent) {
+      case "instruction": return "bg-blue-500";
+      case "analytics": return "bg-green-500";
+      case "data_entry": return "bg-yellow-500";
+      default: return "bg-gray-500";
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
+      {/* Header with Mode Indicator and Input Tabs */}
+      <div className="border-b px-3 py-2 space-y-2">
+        <div className="flex items-center justify-between">
+          <Badge className={`${getModeColor()} text-white`}>
+            {getModeLabel()}
+          </Badge>
+        </div>
+        <Tabs value={inputMethod} onValueChange={(v) => handleInputMethodChange(v as InputMethod)}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="chat" className="text-xs">
+              <MessageSquare className="h-3.5 w-3.5 mr-1" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger value="voice" className="text-xs">
+              <Mic className="h-3.5 w-3.5 mr-1" />
+              Voice
+            </TabsTrigger>
+            <TabsTrigger value="image" className="text-xs">
+              <ImageIcon className="h-3.5 w-3.5 mr-1" />
+              Image
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       <ScrollArea className="flex-1 p-2 sm:p-3" ref={scrollRef}>
         <div className="space-y-2 sm:space-y-3">
+          {/* Quick Actions */}
+          {showQuickActions && (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {quickActions.map((action, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-accent"
+                  onClick={() => handleQuickAction(action.prompt)}
+                >
+                  <action.icon className={`h-5 w-5 ${action.color}`} />
+                  <span className="text-xs font-medium text-center">{action.label}</span>
+                </Button>
+              ))}
+            </div>
+          )}
+
           {messages.map((message, index) => (
             <div
               key={index}
@@ -417,42 +557,58 @@ const DocAga = () => {
             </Button>
           </div>
         )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setIsVoiceInput(false);
-            handleSendMessage();
-          }}
-          className="flex gap-1.5 sm:gap-2"
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-            className="hidden"
+
+        {/* Conditional input based on selected method */}
+        {inputMethod === "voice" ? (
+          <VoiceInterface 
+            onTranscription={(text) => {
+              setIsVoiceInput(true);
+              handleSendMessage(text);
+            }} 
+            disabled={isUploadingImage || loading}
+            compact={false}
+            className="border-t-0"
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading || isUploadingImage}
-            className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setIsVoiceInput(false);
+              handleSendMessage();
+            }}
+            className="flex gap-1.5 sm:gap-2"
           >
-            <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
-          </Button>
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question..."
-            disabled={loading || isUploadingImage}
-            className="flex-1 text-sm h-10 sm:h-9"
-          />
-          <Button type="submit" disabled={loading || isUploadingImage || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
-            {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
-          </Button>
-        </form>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            {inputMethod === "image" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading || isUploadingImage}
+                className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
+              >
+                <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
+              </Button>
+            )}
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question..."
+              disabled={loading || isUploadingImage}
+              className="flex-1 text-sm h-10 sm:h-9"
+            />
+            <Button type="submit" disabled={loading || isUploadingImage || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+              {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
+            </Button>
+          </form>
+        )}
 
         {isUploadingImage && (
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -460,14 +616,6 @@ const DocAga = () => {
             Uploading image...
           </div>
         )}
-
-        <VoiceInterface 
-          onTranscription={(text) => {
-            setIsVoiceInput(true);
-            handleSendMessage(text);
-          }} 
-          disabled={isUploadingImage || loading}
-        />
       </div>
     </div>
   );
