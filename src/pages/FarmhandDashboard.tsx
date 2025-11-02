@@ -5,6 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import VoiceRecordButton from "@/components/farmhand/VoiceRecordButton";
 import DocAgaConsultation from "@/components/farmhand/DocAgaConsultation";
 import AnimalList from "@/components/AnimalList";
@@ -153,6 +154,7 @@ const FarmhandDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <NetworkStatusIndicator />
             <UserEmailDropdown />
           </div>
         </div>

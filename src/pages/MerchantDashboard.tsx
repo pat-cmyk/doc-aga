@@ -15,6 +15,7 @@ import { OrderManagement } from "@/components/merchant/OrderManagement";
 import { InvoiceList } from "@/components/merchant/InvoiceList";
 import { NotificationBell } from "@/components/merchant/NotificationBell";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
@@ -82,6 +83,7 @@ const MerchantDashboard = () => {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
+              <NetworkStatusIndicator />
               <UserEmailDropdown />
             </div>
           </div>

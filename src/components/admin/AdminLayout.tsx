@@ -3,6 +3,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -32,7 +33,10 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
               <p className="text-sm text-muted-foreground">System Administration</p>
             </div>
           </div>
-          <UserEmailDropdown />
+          <div className="flex items-center gap-2">
+            <NetworkStatusIndicator />
+            <UserEmailDropdown />
+          </div>
         </div>
       </header>
 

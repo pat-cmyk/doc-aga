@@ -11,6 +11,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import FarmSetup from "@/components/FarmSetup";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
@@ -283,6 +284,7 @@ const Dashboard = () => {
             </div>
           </div>
         <div className="flex items-center gap-2">
+          <NetworkStatusIndicator />
           <UserEmailDropdown />
         </div>
         </div>

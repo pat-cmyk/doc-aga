@@ -25,7 +25,6 @@ import VoiceTraining from "./pages/VoiceTraining";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
-import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { syncQueue } from "./lib/syncService";
 import { initNotifications } from "./lib/notificationService";
@@ -98,7 +97,6 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <NetworkStatusBanner />
           <SyncHandler />
           <Routes>
             <Route path="/" element={<Dashboard />} />
