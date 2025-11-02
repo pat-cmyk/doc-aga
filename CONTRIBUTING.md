@@ -542,6 +542,9 @@ All utility files in `src/lib/` have comprehensive JSDoc:
 - ✅ Complex business logic
 - ✅ Custom hooks
 - ✅ Critical user flows
+- ✅ Voice training components with audio recording mocks
+- ✅ Network status indicator state transitions
+- ✅ Conditional rendering patterns (auth route exclusion)
 
 **Should Test:**
 - ⚠️ Feature components with user interactions
@@ -718,6 +721,35 @@ npm run test:ui
 ---
 
 ## 5. Component Guidelines
+
+### Conditional Component Rendering
+
+Use the route-based conditional rendering pattern for global components that shouldn't appear on auth pages:
+
+```tsx
+import { useLocation } from 'react-router-dom';
+
+const ConditionalFloatingComponents = () => {
+  const location = useLocation();
+  const authRoutes = ['/auth', '/auth/merchant', '/auth/admin'];
+  const isAuthPage = authRoutes.includes(location.pathname);
+  
+  if (isAuthPage) return null;
+  
+  return (
+    <>
+      <FloatingDocAga />
+      <FloatingVoiceTrainingButton />
+    </>
+  );
+};
+```
+
+**When to use:**
+- Global components that shouldn't appear on public/auth pages
+- Floating buttons, chat widgets, notification systems
+- Components that require authentication context
+- Prevents cognitive overload during sign-up/login flows
 
 ### Creating New Components
 
@@ -1293,6 +1325,133 @@ const handleSync = async () => {
   await syncQueue();
 };
 ```
+
+### Voice Recording and Upload Pattern
+
+For recording and uploading voice samples:
+
+```typescript
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+const VoiceRecorder = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    
+    const chunks: Blob[] = [];
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      setAudioBlob(blob);
+    };
+    
+    mediaRecorder.start();
+    setIsRecording(true);
+  };
+
+  const uploadSample = async (audio: Blob, text: string, language: string) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(audio);
+    reader.onloadend = async () => {
+      const base64Audio = reader.result?.toString().split(',')[1];
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.functions.invoke('process-voice-training', {
+        body: { 
+          audio: base64Audio, 
+          sampleText: text, 
+          language: language,
+          userId: user?.id 
+        }
+      });
+      
+      if (error) {
+        toast.error('Upload failed');
+      } else {
+        toast.success('Sample recorded successfully');
+      }
+    };
+  };
+  
+  return (
+    // UI implementation
+  );
+};
+```
+
+### Network Status Monitoring Pattern
+
+For displaying connection status with visual feedback:
+
+```typescript
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipTrigger, 
+  TooltipProvider 
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+const NetworkStatusIndicator = () => {
+  const { isOnline, pendingCount } = useOnlineStatus();
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger>
+          <div className={cn(
+            "h-3 w-3 rounded-full transition-colors",
+            isOnline ? "bg-green-500" : "bg-red-500",
+            pendingCount > 0 && "bg-yellow-500 animate-pulse"
+          )} />
+        </TooltipTrigger>
+        <TooltipContent>
+          {isOnline ? "Online" : "Offline"}
+          {pendingCount > 0 && ` - ${pendingCount} pending operations`}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+```
+
+### User Experience Patterns
+
+**Voice-First Defaults:**
+```typescript
+// Set voice as default input method for new users
+useEffect(() => {
+  const currentMethod = localStorage.getItem('docAgaInputMethod');
+  if (!currentMethod) {
+    localStorage.setItem('docAgaInputMethod', 'voice');
+  }
+}, []);
+```
+
+**Benefits:**
+- Aligns with mobile-first, hands-free farming workflow
+- Reduces friction for voice-first users
+- Users can override and preference is saved
+
+**Non-Intrusive Status Indicators:**
+- Use circular icons instead of full-width banners
+- Place in header/navbar for consistent visibility
+- Add tooltips for detailed information on hover
+- Color coding: green (success), red (error), yellow (warning/in-progress)
+- Smooth transitions with Tailwind animations
+
+**Floating Component Strategy:**
+- Conditionally render based on route context
+- Hide on auth pages to reduce cognitive load during sign-up/login
+- Use `useLocation()` from react-router-dom to detect current page
+- Keep components accessible but not distracting
+- Example: `FloatingDocAga`, `FloatingVoiceTrainingButton`
 
 ---
 

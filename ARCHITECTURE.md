@@ -53,7 +53,8 @@
 ### Key Features
 - 🐄 **Animal Management**: Complete livestock registry with unique codes
 - 📊 **Health Tracking**: Milking, feeding, health events, weight records
-- 🎙️ **Voice AI (Doc Aga)**: AI veterinary assistant with voice commands
+- 🎙️ **Voice AI (Doc Aga)**: AI veterinary assistant with voice commands and FAQ matching
+- 🎤 **Voice Training**: Personalized 16-phrase training system for improved accuracy
 - 📴 **Offline-First**: IndexedDB caching with automatic sync
 - 🏪 **Marketplace**: B2B platform for farm supplies
 - 📦 **Feed Inventory**: Stock management and forecasting
@@ -78,6 +79,10 @@ src/
 │   ├── admin/         # Admin-specific features
 │   ├── merchant/      # Merchant-specific features
 │   ├── farmhand/      # Farmhand activity logging
+│   ├── voice-training/  # Voice training system
+│   │   ├── FloatingVoiceTrainingButton.tsx
+│   │   ├── VoiceTrainingOnboarding.tsx
+│   │   └── VoiceTrainingSession.tsx
 │   └── ...            # Feature-specific components
 ├── hooks/             # Custom React hooks
 │   ├── useRole.ts     # User role detection
@@ -99,6 +104,7 @@ src/
 - Built on Radix UI primitives with custom Tailwind styling
 - Variant-based component design (Button, Badge, Card variants)
 - Compound components for complex UI (Form, Dialog, Dropdown)
+- Conditional rendering based on route context (hides floating components on auth pages)
 
 **Data Fetching**
 - TanStack Query for all server state
@@ -134,12 +140,22 @@ profiles              # User profile information
 ├── full_name         # Display name
 ├── email             # Contact email
 ├── phone             # Phone number
-└── avatar_url        # Profile picture
+├── avatar_url        # Profile picture
+├── voice_training_completed  # Voice training status
+└── voice_training_skipped    # User declined training
 
 user_roles           # Multi-role support
 ├── user_id (uuid)    # References auth.users
 ├── role (enum)       # admin, farmer_owner, farmhand, merchant, etc.
 └── is_super_admin    # Super admin flag
+
+voice_training_samples  # Voice model training data
+├── id (uuid)
+├── user_id          # References auth.users
+├── sample_text      # Phrase text
+├── language         # en, tl (Tagalog)
+├── audio_url        # Supabase Storage path
+└── created_at       # Timestamp
 ```
 
 **Farm Management:**
@@ -410,6 +426,20 @@ await cacheFeedInventory(farmId, inventory);
 
 ## 6. Offline-First Architecture
 
+### Network Status Monitoring
+
+**NetworkStatusIndicator Component:**
+- Circular icon beside profile dropdown (less intrusive than banner)
+- Color-coded: green (online), red (offline), yellow (syncing/caching)
+- Tooltip shows detailed status and pending operation count
+- Uses `useOnlineStatus()` hook for state management
+
+**User Experience Improvements:**
+- Non-blocking status indicator
+- Clear visual feedback without disrupting workflow
+- Persistent visibility in navigation header
+- Voice-first defaults: Doc Aga opens to Voice tab by default for new users
+
 ### Caching Strategy
 
 ```mermaid
@@ -490,9 +520,12 @@ doc-aga/                    # AI veterinary assistant
 ├── index.ts               # Main Lovable AI chat
 └── tools.ts               # Function calling tools
 
-voice-to-text/             # Speech recognition (Lovable AI)
+voice-to-text/             # Speech recognition with Tagalog support (Lovable AI)
 text-to-speech/            # Voice synthesis (Lovable AI)
-process-voice-training/    # Voice model training
+process-voice-training/    # Voice sample storage & validation
+├── Rate limited: 10 requests/min
+├── Validates user ownership
+└── Stores audio in Supabase Storage
 ```
 
 **Business Logic Functions:**
