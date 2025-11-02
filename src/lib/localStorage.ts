@@ -18,7 +18,7 @@ const STORAGE_KEYS = {
 const DEFAULT_PREFERENCES: DocAgaPreferences = {
   hasSeenTooltip: false,
   hasCompletedOnboarding: false,
-  preferredInputMethod: 'chat',
+  preferredInputMethod: 'voice',
   tooltipViewCount: 0,
 };
 
