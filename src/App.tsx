@@ -11,6 +11,7 @@ import AdminAuth from "./pages/AdminAuth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
+import GovernmentDashboard from "./pages/GovernmentDashboard";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import Marketplace from "./pages/Marketplace";
 import Checkout from "./pages/Checkout";
@@ -121,6 +122,7 @@ const App = () => (
             <Route path="/auth/admin" element={<AdminAuth />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/government" element={<GovernmentDashboard />} />
             <Route path="/merchant" element={<MerchantDashboard />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/checkout" element={<Checkout />} />

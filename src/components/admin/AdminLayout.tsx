@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube } from "lucide-react";
+import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3 } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
@@ -42,7 +42,7 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="overview">
               <Activity className="h-4 w-4 mr-2" />
               Overview
@@ -54,6 +54,10 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
             <TabsTrigger value="farms">
               <Building2 className="h-4 w-4 mr-2" />
               Farms
+            </TabsTrigger>
+            <TabsTrigger value="government">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Gov
             </TabsTrigger>
             <TabsTrigger value="docaga">
               <MessageSquare className="h-4 w-4 mr-2" />

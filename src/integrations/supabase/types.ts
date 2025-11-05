@@ -380,6 +380,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "animals_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "animals_father_id_fkey"
             columns: ["father_id"]
             isOneToOne: false
@@ -479,6 +486,13 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_farm_stats_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]
@@ -609,6 +623,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "doc_aga_queries_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "doc_aga_queries_matched_faq_id_fkey"
             columns: ["matched_faq_id"]
             isOneToOne: false
@@ -675,6 +696,13 @@ export type Database = {
             referencedRelation: "farms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "farm_expenses_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
         ]
       }
       farm_memberships: {
@@ -726,6 +754,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farm_memberships_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "farm_memberships_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -738,44 +773,68 @@ export type Database = {
         Row: {
           client_generated_id: string | null
           created_at: string
+          ffedis_id: string | null
           gps_lat: number
           gps_lng: number
           id: string
           is_deleted: boolean
+          is_program_participant: boolean | null
+          lgu_code: string | null
           livestock_type: string
           logo_url: string | null
+          municipality: string | null
           name: string
           owner_id: string
+          program_group: string | null
+          province: string | null
           region: string | null
           updated_at: string
+          validated_at: string | null
+          validation_status: string | null
         }
         Insert: {
           client_generated_id?: string | null
           created_at?: string
+          ffedis_id?: string | null
           gps_lat: number
           gps_lng: number
           id?: string
           is_deleted?: boolean
+          is_program_participant?: boolean | null
+          lgu_code?: string | null
           livestock_type?: string
           logo_url?: string | null
+          municipality?: string | null
           name: string
           owner_id: string
+          program_group?: string | null
+          province?: string | null
           region?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validation_status?: string | null
         }
         Update: {
           client_generated_id?: string | null
           created_at?: string
+          ffedis_id?: string | null
           gps_lat?: number
           gps_lng?: number
           id?: string
           is_deleted?: boolean
+          is_program_participant?: boolean | null
+          lgu_code?: string | null
           livestock_type?: string
           logo_url?: string | null
+          municipality?: string | null
           name?: string
           owner_id?: string
+          program_group?: string | null
+          province?: string | null
           region?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validation_status?: string | null
         }
         Relationships: [
           {
@@ -839,6 +898,13 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feed_inventory_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]
@@ -976,6 +1042,41 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_symptom_categories: {
+        Row: {
+          created_at: string | null
+          detected_at: string | null
+          health_record_id: string | null
+          id: string
+          severity: string | null
+          symptom_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          detected_at?: string | null
+          health_record_id?: string | null
+          id?: string
+          severity?: string | null
+          symptom_type: string
+        }
+        Update: {
+          created_at?: string | null
+          detected_at?: string | null
+          health_record_id?: string | null
+          id?: string
+          severity?: string | null
+          symptom_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_symptom_categories_health_record_id_fkey"
+            columns: ["health_record_id"]
+            isOneToOne: false
+            referencedRelation: "health_records"
             referencedColumns: ["id"]
           },
         ]
@@ -1246,6 +1347,13 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_farm_stats_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]
@@ -1625,6 +1733,13 @@ export type Database = {
             referencedRelation: "farms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transcription_corrections_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -1754,7 +1869,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      gov_farm_analytics: {
+        Row: {
+          active_animal_count: number | null
+          animal_count: number | null
+          ffedis_id: string | null
+          gps_lat: number | null
+          gps_lng: number | null
+          health_events_30d: number | null
+          health_events_7d: number | null
+          id: string | null
+          is_program_participant: boolean | null
+          lgu_code: string | null
+          municipality: string | null
+          name: string | null
+          owner_id: string | null
+          program_group: string | null
+          province: string | null
+          region: string | null
+          validated_at: string | null
+          validation_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farms_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_assign_role: {
@@ -1793,6 +1938,21 @@ export type Database = {
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
+      get_government_stats: {
+        Args: { end_date: string; region_filter?: string; start_date: string }
+        Returns: Json
+      }
+      get_health_heatmap_data: {
+        Args: { days_back?: number; region_filter?: string }
+        Returns: {
+          health_event_count: number
+          municipality: string
+          prevalence_rate: number
+          region: string
+          symptom_types: string[]
+          total_animals: number
+        }[]
+      }
       handle_merchant_signup: {
         Args: {
           _business_address: string

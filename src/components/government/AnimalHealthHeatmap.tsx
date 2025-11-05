@@ -1,0 +1,124 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeatmapData } from "@/hooks/useGovernmentStats";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle } from "lucide-react";
+
+interface AnimalHealthHeatmapProps {
+  data?: HeatmapData[];
+  isLoading: boolean;
+}
+
+export const AnimalHealthHeatmap = ({ data, isLoading }: AnimalHealthHeatmapProps) => {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Animal Health Heatmap</CardTitle>
+          <CardDescription>Health event density by municipality (last 7 days)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Animal Health Heatmap</CardTitle>
+          <CardDescription>Health event density by municipality (last 7 days)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-center py-8">
+            No health data available for the selected period
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const getPrevalenceColor = (rate: number) => {
+    if (rate >= 20) return "bg-red-500";
+    if (rate >= 10) return "bg-orange-500";
+    if (rate >= 5) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  const getSeverityLevel = (rate: number) => {
+    if (rate >= 20) return { label: "Critical", variant: "destructive" as const };
+    if (rate >= 10) return { label: "High", variant: "default" as const };
+    if (rate >= 5) return { label: "Moderate", variant: "secondary" as const };
+    return { label: "Low", variant: "outline" as const };
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Animal Health Heatmap</CardTitle>
+        <CardDescription>
+          Health event density by municipality (last 7 days)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {data.slice(0, 10).map((item, index) => {
+            const severity = getSeverityLevel(item.prevalence_rate);
+            return (
+              <div
+                key={index}
+                className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <p className="font-medium">{item.municipality}</p>
+                      <p className="text-sm text-muted-foreground">{item.region}</p>
+                    </div>
+                    <Badge variant={severity.variant}>
+                      {severity.label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                    <span>{item.health_event_count} events</span>
+                    <span>•</span>
+                    <span>{item.total_animals} animals</span>
+                    <span>•</span>
+                    <span className="font-medium">{item.prevalence_rate}% prevalence</span>
+                  </div>
+                  {item.symptom_types && item.symptom_types.length > 0 && (
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      {item.symptom_types.slice(0, 5).map((symptom, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {symptom}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {item.prevalence_rate >= 10 && (
+                    <AlertCircle className="h-5 w-5 text-orange-500" />
+                  )}
+                  <div
+                    className={`h-12 w-12 rounded ${getPrevalenceColor(
+                      item.prevalence_rate
+                    )} flex items-center justify-center text-white font-bold text-sm`}
+                  >
+                    {item.prevalence_rate.toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
