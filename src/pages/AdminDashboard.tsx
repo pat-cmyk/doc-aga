@@ -17,7 +17,7 @@ import { useRegions } from "@/hooks/useRegions";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
-import { subDays, format } from "date-fns";
+import { subDays, format, startOfYear } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,15 +25,37 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+// Date range presets
+const datePresets = {
+  last7Days: () => ({
+    from: subDays(new Date(), 7),
+    to: new Date(),
+  }),
+  last30Days: () => ({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  }),
+  last90Days: () => ({
+    from: subDays(new Date(), 90),
+    to: new Date(),
+  }),
+  thisYear: () => ({
+    from: startOfYear(new Date()),
+    to: new Date(),
+  }),
+};
+
 const AdminDashboard = () => {
   const { isAdmin, isLoading } = useAdminAccess();
   const [activeTab, setActiveTab] = useState("overview");
   
-  // Date range state for government tab
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  });
+  // Date range state for government tab (default to last 30 days)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    datePresets.last30Days()
+  );
+  
+  // Active preset state
+  const [activePreset, setActivePreset] = useState<string | null>("last30Days");
 
   // Region filter state
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
@@ -156,12 +178,61 @@ const AdminDashboard = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-3 border-b space-y-2">
+                  <div className="text-sm font-medium mb-2">Quick Select</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={activePreset === 'last7Days' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(datePresets.last7Days());
+                        setActivePreset('last7Days');
+                      }}
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      variant={activePreset === 'last30Days' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(datePresets.last30Days());
+                        setActivePreset('last30Days');
+                      }}
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      variant={activePreset === 'last90Days' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(datePresets.last90Days());
+                        setActivePreset('last90Days');
+                      }}
+                    >
+                      Last 90 days
+                    </Button>
+                    <Button
+                      variant={activePreset === 'thisYear' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(datePresets.thisYear());
+                        setActivePreset('thisYear');
+                      }}
+                    >
+                      This year
+                    </Button>
+                  </div>
+                </div>
+                
                 <Calendar
                   initialFocus
                   mode="range"
                   defaultMonth={dateRange?.from}
                   selected={dateRange}
-                  onSelect={setDateRange}
+                  onSelect={(range) => {
+                    setDateRange(range);
+                    setActivePreset(null);
+                  }}
                   numberOfMonths={2}
                   disabled={(date) => date > new Date()}
                   className={cn("p-3 pointer-events-auto")}
