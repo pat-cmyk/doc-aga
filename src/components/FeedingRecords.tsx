@@ -10,6 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { getCachedRecords } from "@/lib/dataCache";
+import { useInventoryDeduction } from "./farmhand/activity-confirmation/hooks/useInventoryDeduction";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isOnline = useOnlineStatus();
+  const { deductFromInventory } = useInventoryDeduction();
 
   // Form state
   const [feedType, setFeedType] = useState("");
@@ -177,48 +179,18 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
       // Step 2: Handle inventory deduction (only if NOT "Fresh Cut & Carry")
       if (feedType !== "Fresh Cut & Carry") {
-        // Find matching inventory item
-        const inventoryItem = feedInventory.find(
-          item => item.feed_type === feedType
+        const quantityUsed = parseFloat(kilograms);
+        
+        // Use robust deduction with fuzzy matching
+        await deductFromInventory(
+          feedType.trim(),
+          quantityUsed,
+          quantityUsed,
+          "kg"
         );
 
-        if (inventoryItem) {
-          const quantityUsed = parseFloat(kilograms);
-          const newBalance = inventoryItem.quantity_kg - quantityUsed;
-
-          // Check if sufficient stock
-          if (newBalance < 0) {
-            throw new Error(`Insufficient stock. Available: ${inventoryItem.quantity_kg} kg, Requested: ${quantityUsed} kg`);
-          }
-
-          // Update feed inventory
-          const { error: inventoryError } = await supabase
-            .from("feed_inventory")
-            .update({ 
-              quantity_kg: newBalance,
-              last_updated: new Date().toISOString()
-            })
-            .eq("id", inventoryItem.id);
-
-          if (inventoryError) throw inventoryError;
-
-          // Create transaction record for audit trail
-          const { error: transactionError } = await supabase
-            .from("feed_stock_transactions")
-            .insert({
-              feed_inventory_id: inventoryItem.id,
-              transaction_type: 'consumption',
-              quantity_change_kg: -quantityUsed,
-              balance_after: newBalance,
-              notes: `Fed to animal (${animalId})`,
-              created_by: user.id,
-            });
-
-          if (transactionError) throw transactionError;
-
-          // Refresh inventory display
-          await loadFeedInventory();
-        }
+        // Refresh inventory display
+        await loadFeedInventory();
       }
 
       toast({
