@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, User, LogOut, LayoutDashboard, Store, Shield, Settings } from "lucide-react";
+import { ChevronDown, User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export const UserEmailDropdown = () => {
@@ -57,12 +57,14 @@ export const UserEmailDropdown = () => {
 
   const getRoleBadgeVariant = (role: UserRole) => {
     if (role === 'admin') return 'destructive';
+    if (role === 'government') return 'default';
     if (role === 'merchant') return 'default';
     if (role === 'farmhand') return 'outline';
     return 'secondary';
   };
 
   const getRoleLabel = (role: UserRole) => {
+    if (role === 'government') return 'Government';
     if (role === 'farmhand') return 'Farmhand';
     if (role === 'farmer_owner') return 'Farm Owner';
     return role.charAt(0).toUpperCase() + role.slice(1);
@@ -117,6 +119,13 @@ export const UserEmailDropdown = () => {
             <span>Merchant Portal</span>
           </DropdownMenuItem>
         ) : null}
+        
+        {(roles.includes("government") || roles.includes("admin")) && (
+          <DropdownMenuItem onClick={() => navigate("/government")}>
+            <BarChart3 className="mr-2 h-4 w-4" />
+            <span>Government Dashboard</span>
+          </DropdownMenuItem>
+        )}
         
         {roles.includes("admin") ? (
           <DropdownMenuItem onClick={() => navigate("/admin")}>

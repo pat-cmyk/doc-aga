@@ -92,7 +92,22 @@ serve(async (req) => {
       });
     }
 
-    const { email, password, invitationToken } = await req.json();
+    const { email, password, invitationToken, role } = await req.json();
+    
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ error: 'Email and password are required' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Only super admins can create government users
+    if (role === 'government' && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Only super admins can create government users' }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
 
     // Create user with admin client
     const { data: userData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({

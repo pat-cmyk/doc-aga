@@ -34,6 +34,8 @@ describe('usePermissions', () => {
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: false,
       isLoading: false,
       hasRole: vi.fn(),
     });
@@ -49,6 +51,8 @@ describe('usePermissions', () => {
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: false,
       isLoading: false,
       hasRole: vi.fn(),
     });
@@ -69,6 +73,8 @@ describe('usePermissions', () => {
       isAdmin: false,
       isFarmer: true,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: false,
       isLoading: false,
       hasRole: vi.fn(),
     });
@@ -126,6 +132,8 @@ describe('usePermissions', () => {
       isAdmin: false,
       isFarmer: true,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: false,
       isLoading: false,
       hasRole: vi.fn(),
     });
@@ -184,6 +192,8 @@ describe('usePermissions', () => {
       isAdmin: true,
       isFarmer: false,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: true,
       isLoading: false,
       hasRole: vi.fn(),
     });
@@ -241,6 +251,8 @@ describe('usePermissions', () => {
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
+      isGovernment: false,
+      hasGovernmentAccess: false,
       isLoading: false,
       hasRole: vi.fn(),
     });

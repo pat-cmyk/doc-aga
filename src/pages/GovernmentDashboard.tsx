@@ -4,12 +4,14 @@ import { GovDashboardOverview } from "@/components/government/GovDashboardOvervi
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { useGovernmentStats, useHealthHeatmap } from "@/hooks/useGovernmentStats";
+import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { subDays } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
 
 const GovernmentDashboard = () => {
+  const { hasAccess, isLoading: accessLoading } = useGovernmentAccess();
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30");
   const [region, setRegion] = useState<string | undefined>(undefined);
 
@@ -25,6 +27,18 @@ const GovernmentDashboard = () => {
     parseInt(dateRange),
     region
   );
+
+  if (accessLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <AdminLayout activeTab="government" onTabChange={() => {}}>

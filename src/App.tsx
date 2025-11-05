@@ -26,6 +26,7 @@ import VoiceTraining from "./pages/VoiceTraining";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { syncQueue } from "./lib/syncService";
 import { initNotifications } from "./lib/notificationService";
@@ -121,8 +122,22 @@ const App = () => (
             <Route path="/auth/merchant" element={<MerchantAuth />} />
             <Route path="/auth/admin" element={<AdminAuth />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/government" element={<GovernmentDashboard />} />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute requiredRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/government" 
+              element={
+                <ProtectedRoute requiredRoles={["admin", "government"]}>
+                  <GovernmentDashboard />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/merchant" element={<MerchantDashboard />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/checkout" element={<Checkout />} />

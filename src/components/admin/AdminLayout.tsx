@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3 } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
@@ -13,6 +14,7 @@ interface AdminLayoutProps {
 
 export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutProps) => {
   const { isLoading } = useAdminAccess();
+  const { hasGovernmentAccess, isAdmin } = useRole();
 
   if (isLoading) {
     return (
@@ -42,39 +44,51 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid w-full grid-cols-8 mb-6">
-            <TabsTrigger value="overview">
-              <Activity className="h-4 w-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="users">
-              <Users className="h-4 w-4 mr-2" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="farms">
-              <Building2 className="h-4 w-4 mr-2" />
-              Farms
-            </TabsTrigger>
-            <TabsTrigger value="government">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Gov
-            </TabsTrigger>
-            <TabsTrigger value="docaga">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Doc Aga
-            </TabsTrigger>
-            <TabsTrigger value="merchants">
-              <Store className="h-4 w-4 mr-2" />
-              Merchants
-            </TabsTrigger>
-            <TabsTrigger value="qa">
-              <TestTube className="h-4 w-4 mr-2" />
-              QA
-            </TabsTrigger>
-            <TabsTrigger value="system">
-              <Shield className="h-4 w-4 mr-2" />
-              System
-            </TabsTrigger>
+          <TabsList className="grid w-full auto-cols-auto grid-flow-col">
+            {isAdmin && (
+              <>
+                <TabsTrigger value="overview">
+                  <Activity className="h-4 w-4 mr-2" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="users">
+                  <Users className="h-4 w-4 mr-2" />
+                  Users
+                </TabsTrigger>
+                <TabsTrigger value="farms">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Farms
+                </TabsTrigger>
+              </>
+            )}
+            
+            {hasGovernmentAccess && (
+              <TabsTrigger value="government">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Gov
+              </TabsTrigger>
+            )}
+            
+            {isAdmin && (
+              <>
+                <TabsTrigger value="docaga">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Doc Aga
+                </TabsTrigger>
+                <TabsTrigger value="merchants">
+                  <Store className="h-4 w-4 mr-2" />
+                  Merchants
+                </TabsTrigger>
+                <TabsTrigger value="qa">
+                  <TestTube className="h-4 w-4 mr-2" />
+                  QA
+                </TabsTrigger>
+                <TabsTrigger value="system">
+                  <Shield className="h-4 w-4 mr-2" />
+                  System
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
           {children}
         </Tabs>
