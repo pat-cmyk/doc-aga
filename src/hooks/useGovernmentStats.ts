@@ -159,11 +159,14 @@ export const useGovernmentStatsTimeseries = (
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_government_stats_timeseries", {
-        start_date: format(startDate, "yyyy-MM-dd"),
-        end_date: format(endDate, "yyyy-MM-dd"),
-        region_filter: region || null,
-      });
+      const { data, error } = await supabase.rpc(
+        "get_government_stats_timeseries",
+        {
+          start_date: format(startDate, "yyyy-MM-dd"),
+          end_date: format(endDate, "yyyy-MM-dd"),
+          region_filter: region || null,
+        }
+      );
 
       if (error) throw error;
       return data as TimeseriesDataPoint[];

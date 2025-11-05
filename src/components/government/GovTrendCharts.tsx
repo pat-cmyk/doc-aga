@@ -1,9 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
-import { format } from "date-fns";
-import { TrendingUp, Activity, Users, Heart } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { format, parseISO } from "date-fns";
+import { TrendingUp, Activity, FileText, Droplets } from "lucide-react";
 
 interface GovTrendChartsProps {
   data?: TimeseriesDataPoint[];
@@ -15,14 +15,14 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
   if (isLoading) {
     return (
       <div className="grid gap-6 md:grid-cols-2">
-        {[1, 2].map((i) => (
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardHeader>
-              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-6 w-40" />
               <Skeleton className="h-4 w-64" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-64 w-full" />
             </CardContent>
           </Card>
         ))}
@@ -44,7 +44,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-muted-foreground">No trend data available for the selected period.</p>
+          <p className="text-muted-foreground">No trend data available for the selected date range.</p>
         </CardContent>
       </Card>
     );
@@ -52,29 +52,44 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
 
   // Format data for charts
   const chartData = data.map((point) => ({
-    date: format(new Date(point.date), "MMM dd"),
+    date: format(parseISO(point.date), "MMM dd"),
+    fullDate: format(parseISO(point.date), "PPP"),
     farms: Number(point.farm_count),
     animals: Number(point.active_animal_count),
     healthEvents: Number(point.health_event_count),
     queries: Number(point.doc_aga_query_count),
-    avgMilk: Number(point.avg_milk_liters),
+    avgMilk: Number(point.avg_milk_liters).toFixed(2),
   }));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="rounded-lg border bg-background p-3 shadow-lg">
+          <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {/* Farm & Animal Growth Chart */}
+      {/* Farm Growth Chart */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <CardTitle>Farm & Animal Population</CardTitle>
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <CardTitle>Farm Growth Trend</CardTitle>
           </div>
-          <CardDescription>
-            Active farms and animals over time
-          </CardDescription>
+          <CardDescription>Number of active farms over time</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
@@ -86,13 +101,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line 
                 type="monotone" 
@@ -102,6 +111,35 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 name="Farms"
                 dot={{ fill: 'hsl(var(--primary))' }}
               />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Animal Count Chart */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" />
+            <CardTitle>Animal Population Trend</CardTitle>
+          </div>
+          <CardDescription>Number of active animals over time</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis 
+                dataKey="date" 
+                className="text-xs"
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              />
+              <YAxis 
+                className="text-xs"
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
               <Line 
                 type="monotone" 
                 dataKey="animals" 
@@ -119,15 +157,13 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Heart className="h-5 w-5 text-primary" />
-            <CardTitle>Health Events</CardTitle>
+            <FileText className="h-5 w-5 text-primary" />
+            <CardTitle>Health Events & Queries</CardTitle>
           </div>
-          <CardDescription>
-            Daily health events recorded
-          </CardDescription>
+          <CardDescription>Daily health events and Doc Aga queries</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
@@ -139,66 +175,23 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line 
                 type="monotone" 
                 dataKey="healthEvents" 
-                stroke="hsl(var(--destructive))" 
+                stroke="hsl(var(--chart-3))" 
                 strokeWidth={2}
                 name="Health Events"
-                dot={{ fill: 'hsl(var(--destructive))' }}
+                dot={{ fill: 'hsl(var(--chart-3))' }}
               />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Doc Aga Queries Chart */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>Doc Aga Consultations</CardTitle>
-          </div>
-          <CardDescription>
-            Daily farmer queries to Doc Aga
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="date" 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              />
-              <YAxis 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Legend />
               <Line 
                 type="monotone" 
                 dataKey="queries" 
-                stroke="hsl(var(--chart-3))" 
+                stroke="hsl(var(--chart-4))" 
                 strokeWidth={2}
-                name="Queries"
-                dot={{ fill: 'hsl(var(--chart-3))' }}
+                name="Doc Aga Queries"
+                dot={{ fill: 'hsl(var(--chart-4))' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -209,15 +202,13 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+            <Droplets className="h-5 w-5 text-primary" />
             <CardTitle>Average Milk Production</CardTitle>
           </div>
-          <CardDescription>
-            Average liters per animal per day
-          </CardDescription>
+          <CardDescription>Daily average milk production in liters</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
@@ -229,21 +220,15 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line 
                 type="monotone" 
                 dataKey="avgMilk" 
-                stroke="hsl(var(--chart-4))" 
+                stroke="hsl(var(--chart-5))" 
                 strokeWidth={2}
                 name="Avg Milk (L)"
-                dot={{ fill: 'hsl(var(--chart-4))' }}
+                dot={{ fill: 'hsl(var(--chart-5))' }}
               />
             </LineChart>
           </ResponsiveContainer>
