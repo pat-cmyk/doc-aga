@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Ban, Key, Trash2, CheckCircle } from "lucide-react";
+import { Ban, Key, Trash2, CheckCircle, ClipboardList } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -17,11 +17,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { InventoryAuditReport } from "@/components/feed-inventory/InventoryAuditReport";
 
 interface FarmWithDetails {
   id: string;
@@ -41,6 +49,7 @@ export const FarmOversight = () => {
   const queryClient = useQueryClient();
   const [confirmationInput, setConfirmationInput] = useState<Record<string, string>>({});
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactivated">("active");
+  const [selectedFarmForAudit, setSelectedFarmForAudit] = useState<string | null>(null);
 
   const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
     queryKey: ["admin-farms", statusFilter],
@@ -264,6 +273,15 @@ export const FarmOversight = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="View inventory audit"
+                        onClick={() => setSelectedFarmForAudit(farm.id)}
+                      >
+                        <ClipboardList className="h-4 w-4" />
+                      </Button>
+
                       {farm.is_deleted ? (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -436,6 +454,20 @@ export const FarmOversight = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={selectedFarmForAudit !== null} onOpenChange={(open) => !open && setSelectedFarmForAudit(null)}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Feed Inventory Audit - {farms?.find(f => f.id === selectedFarmForAudit)?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Review feeding records and inventory deduction status
+            </DialogDescription>
+          </DialogHeader>
+          {selectedFarmForAudit && <InventoryAuditReport farmId={selectedFarmForAudit} />}
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 };
