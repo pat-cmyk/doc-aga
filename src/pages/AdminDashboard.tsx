@@ -11,7 +11,8 @@ import { UserActivityLogs } from "@/components/admin/UserActivityLogs";
 import { GovDashboardOverview } from "@/components/government/GovDashboardOverview";
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
-import { useGovernmentStats, useHealthHeatmap } from "@/hooks/useGovernmentStats";
+import { GovTrendCharts } from "@/components/government/GovTrendCharts";
+import { useGovernmentStats, useHealthHeatmap, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
@@ -52,6 +53,12 @@ const AdminDashboard = () => {
   );
   const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
     daysBack,
+    undefined,
+    { enabled: activeTab === 'government' && isAdmin }
+  );
+  const { data: timeseriesData, isLoading: timeseriesLoading, error: timeseriesError } = useGovernmentStatsTimeseries(
+    startDate,
+    endDate,
     undefined,
     { enabled: activeTab === 'government' && isAdmin }
   );
@@ -138,6 +145,9 @@ const AdminDashboard = () => {
           </div>
 
           <GovDashboardOverview stats={govStats as any} isLoading={govStatsLoading} error={govStatsError} />
+          
+          <GovTrendCharts data={timeseriesData as any} isLoading={timeseriesLoading} error={timeseriesError} />
+          
           <div className="grid gap-6 md:grid-cols-2">
             <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
             <FarmerQueriesTopics startDate={startDate} endDate={endDate} enabled={activeTab === 'government'} />

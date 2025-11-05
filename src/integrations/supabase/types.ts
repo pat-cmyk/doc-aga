@@ -1978,6 +1978,17 @@ export type Database = {
         Args: { end_date: string; region_filter?: string; start_date: string }
         Returns: Json
       }
+      get_government_stats_timeseries: {
+        Args: { end_date: string; region_filter?: string; start_date: string }
+        Returns: {
+          active_animal_count: number
+          avg_milk_liters: number
+          date: string
+          doc_aga_query_count: number
+          farm_count: number
+          health_event_count: number
+        }[]
+      }
       get_health_heatmap_data: {
         Args: { days_back?: number; region_filter?: string }
         Returns: {

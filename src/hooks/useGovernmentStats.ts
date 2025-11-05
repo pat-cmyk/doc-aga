@@ -2,6 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, format } from "date-fns";
 
+export interface TimeseriesDataPoint {
+  date: string;
+  farm_count: number;
+  active_animal_count: number;
+  health_event_count: number;
+  doc_aga_query_count: number;
+  avg_milk_liters: number;
+}
+
 export interface GovStats {
   farm_count: number;
   active_animal_count: number;
@@ -132,6 +141,32 @@ export const useFarmerQueries = (startDate: Date, endDate: Date, options?: { ena
 
       if (error) throw error;
       return data;
+    },
+  });
+};
+
+export const useGovernmentStatsTimeseries = (
+  startDate: Date,
+  endDate: Date,
+  region?: string,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery<TimeseriesDataPoint[]>({
+    queryKey: ["government-stats-timeseries", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all"],
+    enabled: options?.enabled ?? true,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_government_stats_timeseries", {
+        start_date: format(startDate, "yyyy-MM-dd"),
+        end_date: format(endDate, "yyyy-MM-dd"),
+        region_filter: region || null,
+      });
+
+      if (error) throw error;
+      return data as TimeseriesDataPoint[];
     },
   });
 };
