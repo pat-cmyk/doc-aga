@@ -24,8 +24,17 @@ const AdminDashboard = () => {
   // Government dashboard data
   const startDate = subDays(new Date(), 30);
   const endDate = new Date();
-  const { data: govStats, isLoading: govStatsLoading } = useGovernmentStats(startDate, endDate);
-  const { data: heatmapData, isLoading: heatmapLoading } = useHealthHeatmap(7);
+  const { data: govStats, isLoading: govStatsLoading, error: govStatsError } = useGovernmentStats(
+    startDate, 
+    endDate,
+    undefined,
+    { enabled: activeTab === 'government' && isAdmin }
+  );
+  const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
+    7,
+    undefined,
+    { enabled: activeTab === 'government' && isAdmin }
+  );
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -61,10 +70,10 @@ const AdminDashboard = () => {
 
       <TabsContent value="government">
         <div className="space-y-6">
-          <GovDashboardOverview stats={govStats} isLoading={govStatsLoading} />
+          <GovDashboardOverview stats={govStats} isLoading={govStatsLoading} error={govStatsError} />
           <div className="grid gap-6 md:grid-cols-2">
-            <AnimalHealthHeatmap data={heatmapData} isLoading={heatmapLoading} />
-            <FarmerQueriesTopics startDate={startDate} endDate={endDate} />
+            <AnimalHealthHeatmap data={heatmapData} isLoading={heatmapLoading} error={heatmapError} />
+            <FarmerQueriesTopics startDate={startDate} endDate={endDate} enabled={activeTab === 'government'} />
           </div>
         </div>
       </TabsContent>

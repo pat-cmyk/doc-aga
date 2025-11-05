@@ -20,10 +20,14 @@ export interface GovStatsWithGrowth extends GovStats {
 export const useGovernmentStats = (
   startDate: Date,
   endDate: Date,
-  region?: string
+  region?: string,
+  options?: { enabled?: boolean }
 ) => {
   return useQuery({
     queryKey: ["government-stats", startDate, endDate, region],
+    enabled: options?.enabled ?? true,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       // Get current period stats
       const { data: currentData, error: currentError } = await supabase.rpc(
@@ -88,9 +92,12 @@ export interface HeatmapData {
   symptom_types: string[];
 }
 
-export const useHealthHeatmap = (daysBack: number = 7, region?: string) => {
+export const useHealthHeatmap = (daysBack: number = 7, region?: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["health-heatmap", daysBack, region],
+    enabled: options?.enabled ?? true,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_health_heatmap_data", {
         days_back: daysBack,
@@ -103,9 +110,12 @@ export const useHealthHeatmap = (daysBack: number = 7, region?: string) => {
   });
 };
 
-export const useFarmerQueries = (startDate: Date, endDate: Date) => {
+export const useFarmerQueries = (startDate: Date, endDate: Date, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["farmer-queries", startDate, endDate],
+    enabled: options?.enabled ?? true,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       const { data, error } = await supabase
         .from("doc_aga_queries")

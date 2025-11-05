@@ -7,9 +7,10 @@ import { AlertCircle } from "lucide-react";
 interface AnimalHealthHeatmapProps {
   data?: HeatmapData[];
   isLoading: boolean;
+  error?: Error | null;
 }
 
-export const AnimalHealthHeatmap = ({ data, isLoading }: AnimalHealthHeatmapProps) => {
+export const AnimalHealthHeatmap = ({ data, isLoading, error }: AnimalHealthHeatmapProps) => {
   if (isLoading) {
     return (
       <Card>
@@ -23,6 +24,20 @@ export const AnimalHealthHeatmap = ({ data, isLoading }: AnimalHealthHeatmapProp
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Animal Health Heatmap</CardTitle>
+          <CardDescription>Health event density by municipality (last 7 days)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-destructive">Failed to load health data. Please refresh the page.</p>
         </CardContent>
       </Card>
     );

@@ -6,9 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface GovDashboardOverviewProps {
   stats?: GovStatsWithGrowth;
   isLoading: boolean;
+  error?: Error | null;
 }
 
-export const GovDashboardOverview = ({ stats, isLoading }: GovDashboardOverviewProps) => {
+export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOverviewProps) => {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -20,11 +21,21 @@ export const GovDashboardOverview = ({ stats, isLoading }: GovDashboardOverviewP
             </CardHeader>
             <CardContent>
               <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-3 w-24" />
             </CardContent>
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-destructive">Failed to load government statistics. Please refresh the page or contact support.</p>
+        </CardContent>
+      </Card>
     );
   }
 

@@ -7,10 +7,11 @@ import { useMemo } from "react";
 interface FarmerQueriesTopicsProps {
   startDate: Date;
   endDate: Date;
+  enabled?: boolean;
 }
 
-export const FarmerQueriesTopics = ({ startDate, endDate }: FarmerQueriesTopicsProps) => {
-  const { data: queries, isLoading } = useFarmerQueries(startDate, endDate);
+export const FarmerQueriesTopics = ({ startDate, endDate, enabled = true }: FarmerQueriesTopicsProps) => {
+  const { data: queries, isLoading, error } = useFarmerQueries(startDate, endDate, { enabled });
 
   const topTopics = useMemo(() => {
     if (!queries) return [];
@@ -76,6 +77,20 @@ export const FarmerQueriesTopics = ({ startDate, endDate }: FarmerQueriesTopicsP
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Farmer Queries</CardTitle>
+          <CardDescription>Most common topics from Doc Aga consultations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-destructive">Failed to load farmer queries. Please refresh the page.</p>
         </CardContent>
       </Card>
     );
