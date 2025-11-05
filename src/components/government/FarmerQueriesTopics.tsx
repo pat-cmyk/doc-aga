@@ -14,7 +14,7 @@ export const FarmerQueriesTopics = ({ startDate, endDate, enabled = true }: Farm
   const { data: queries, isLoading, error } = useFarmerQueries(startDate, endDate, { enabled });
 
   const topTopics = useMemo(() => {
-    if (!queries) return [];
+    if (!queries || !Array.isArray(queries)) return [];
 
     // Simple keyword-based categorization
     const categories: Record<string, { count: number; examples: string[] }> = {};

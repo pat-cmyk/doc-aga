@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { SystemOverview } from "@/components/admin/SystemOverview";
 import { UserManagement } from "@/components/admin/UserManagement";
@@ -21,9 +21,11 @@ const AdminDashboard = () => {
   const { isAdmin, isLoading } = useAdminAccess();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Government dashboard data
-  const startDate = subDays(new Date(), 30);
-  const endDate = new Date();
+  // Stabilize date range to prevent constant re-renders
+  const startDate = useMemo(() => subDays(new Date(), 30), []);
+  const endDate = useMemo(() => new Date(), []);
+
+  // Government dashboard data - only fetch when on government tab
   const { data: govStats, isLoading: govStatsLoading, error: govStatsError } = useGovernmentStats(
     startDate, 
     endDate,
@@ -70,9 +72,9 @@ const AdminDashboard = () => {
 
       <TabsContent value="government">
         <div className="space-y-6">
-          <GovDashboardOverview stats={govStats} isLoading={govStatsLoading} error={govStatsError} />
+          <GovDashboardOverview stats={govStats as any} isLoading={govStatsLoading} error={govStatsError} />
           <div className="grid gap-6 md:grid-cols-2">
-            <AnimalHealthHeatmap data={heatmapData} isLoading={heatmapLoading} error={heatmapError} />
+            <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
             <FarmerQueriesTopics startDate={startDate} endDate={endDate} enabled={activeTab === 'government'} />
           </div>
         </div>

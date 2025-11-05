@@ -39,7 +39,19 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground">No data available</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   const GrowthIndicator = ({ value }: { value: number }) => {
     if (value > 0) {

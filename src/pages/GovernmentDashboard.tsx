@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { GovDashboardOverview } from "@/components/government/GovDashboardOverview";
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
@@ -15,15 +15,16 @@ const GovernmentDashboard = () => {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30");
   const [region, setRegion] = useState<string | undefined>(undefined);
 
-  const endDate = new Date();
-  const startDate = subDays(endDate, parseInt(dateRange));
+  // Stabilize date calculation to prevent constant re-renders
+  const endDate = useMemo(() => new Date(), []);
+  const startDate = useMemo(() => subDays(endDate, parseInt(dateRange)), [dateRange, endDate]);
 
-  const { data: stats, isLoading: statsLoading } = useGovernmentStats(
+  const { data: stats, isLoading: statsLoading, error: statsError } = useGovernmentStats(
     startDate,
     endDate,
     region
   );
-  const { data: heatmapData, isLoading: heatmapLoading } = useHealthHeatmap(
+  const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
     parseInt(dateRange),
     region
   );
@@ -90,10 +91,10 @@ const GovernmentDashboard = () => {
           </div>
         </div>
 
-        <GovDashboardOverview stats={stats} isLoading={statsLoading} />
+        <GovDashboardOverview stats={stats as any} isLoading={statsLoading} error={statsError} />
 
         <div className="grid gap-6 md:grid-cols-2">
-          <AnimalHealthHeatmap data={heatmapData} isLoading={heatmapLoading} />
+          <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
           <FarmerQueriesTopics startDate={startDate} endDate={endDate} />
         </div>
 

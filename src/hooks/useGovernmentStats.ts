@@ -23,11 +23,13 @@ export const useGovernmentStats = (
   region?: string,
   options?: { enabled?: boolean }
 ) => {
-  return useQuery({
-    queryKey: ["government-stats", startDate, endDate, region],
+  return useQuery<GovStatsWithGrowth>({
+    queryKey: ["government-stats", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all"],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       // Get current period stats
       const { data: currentData, error: currentError } = await supabase.rpc(
@@ -93,11 +95,13 @@ export interface HeatmapData {
 }
 
 export const useHealthHeatmap = (daysBack: number = 7, region?: string, options?: { enabled?: boolean }) => {
-  return useQuery({
-    queryKey: ["health-heatmap", daysBack, region],
+  return useQuery<HeatmapData[]>({
+    queryKey: ["health-heatmap", daysBack, region || "all"],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_health_heatmap_data", {
         days_back: daysBack,
@@ -111,11 +115,13 @@ export const useHealthHeatmap = (daysBack: number = 7, region?: string, options?
 };
 
 export const useFarmerQueries = (startDate: Date, endDate: Date, options?: { enabled?: boolean }) => {
-  return useQuery({
-    queryKey: ["farmer-queries", startDate, endDate],
+  return useQuery<{ created_at: string; id: string; question: string }[]>({
+    queryKey: ["farmer-queries", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("doc_aga_queries")
