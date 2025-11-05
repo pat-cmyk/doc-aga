@@ -5,8 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { CreateUserDialog } from "./CreateUserDialog";
+import { useState, useEffect } from "react";
 
-type UserRole = "admin" | "farmer_owner" | "farmhand" | "merchant" | "vet";
+type UserRole = "admin" | "farmer_owner" | "farmhand" | "merchant" | "vet" | "government";
 
 interface UserWithDetails {
   id: string;
@@ -20,6 +22,19 @@ interface UserWithDetails {
 
 export const UserManagement = () => {
   const queryClient = useQueryClient();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    checkSuperAdmin();
+  }, []);
+
+  const checkSuperAdmin = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase.rpc("is_super_admin", { _user_id: user.id });
+    setIsSuperAdmin(!!data);
+  };
 
   const { data: users, isLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["admin-users"],
@@ -108,6 +123,8 @@ export const UserManagement = () => {
     switch (role) {
       case "admin":
         return "destructive";
+      case "government":
+        return "default";
       case "farmer_owner":
         return "default";
       case "vet":
@@ -124,8 +141,16 @@ export const UserManagement = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>User Management</CardTitle>
-        <CardDescription>Manage user accounts and permissions</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>User Management</CardTitle>
+            <CardDescription>Manage user accounts and permissions</CardDescription>
+          </div>
+          <CreateUserDialog 
+            onUserCreated={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+            isSuperAdmin={isSuperAdmin}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -169,11 +194,16 @@ export const UserManagement = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="farmer_owner">Farmer Owner</SelectItem>
                       <SelectItem value="farmhand">Farmhand</SelectItem>
                       <SelectItem value="merchant">Merchant</SelectItem>
                       <SelectItem value="vet">Veterinarian</SelectItem>
+                      {isSuperAdmin && (
+                        <>
+                          <SelectItem value="government">Government</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </TableCell>

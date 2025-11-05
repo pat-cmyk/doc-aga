@@ -92,19 +92,19 @@ serve(async (req) => {
       });
     }
 
-    const { email, password, invitationToken, role } = await req.json();
+    const { email, password, fullName, role, invitationToken } = await req.json();
     
-    if (!email || !password) {
+    if (!email || !password || !fullName) {
       return new Response(
-        JSON.stringify({ error: 'Email and password are required' }),
+        JSON.stringify({ error: 'Email, password, and full name are required' }),
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // Only super admins can create government users
-    if (role === 'government' && !isSuperAdmin) {
+    // Only super admins can create government or admin users
+    if ((role === 'government' || role === 'admin') && !isSuperAdmin) {
       return new Response(
-        JSON.stringify({ error: 'Only super admins can create government users' }),
+        JSON.stringify({ error: 'Only super admins can create government or admin users' }),
         { status: 403, headers: corsHeaders }
       );
     }
@@ -114,28 +114,38 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: email.split('@')[0] }
+      user_metadata: { full_name: fullName }
     });
 
     if (createUserError || !userData.user) throw createUserError || new Error('Failed to create user');
 
-    // Update farm membership
-    const { error: membershipError } = await supabaseAdmin
-      .from('farm_memberships')
-      .update({
-        user_id: userData.user.id,
-        invitation_status: 'accepted'
-      })
-      .eq('invitation_token', invitationToken);
+    // Update profile with full name
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({ full_name: fullName })
+      .eq('id', userData.user.id);
 
-    if (membershipError) throw membershipError;
+    if (profileError) console.error('Profile update error:', profileError);
 
-    // Add farmhand role
+    // Handle farmhand invitation if token provided
+    if (role === 'farmhand' && invitationToken) {
+      const { error: membershipError } = await supabaseAdmin
+        .from('farm_memberships')
+        .update({
+          user_id: userData.user.id,
+          invitation_status: 'accepted'
+        })
+        .eq('invitation_token', invitationToken);
+
+      if (membershipError) throw membershipError;
+    }
+
+    // Add user role
     const { error: insertRoleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
         user_id: userData.user.id,
-        role: 'farmhand'
+        role: role || 'farmer_owner'
       });
 
     if (insertRoleError) throw insertRoleError;
