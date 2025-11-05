@@ -14,16 +14,34 @@ import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics
 import { useGovernmentStats, useHealthHeatmap } from "@/hooks/useGovernmentStats";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { Loader2 } from "lucide-react";
-import { subDays } from "date-fns";
+import { Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { subDays, format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const AdminDashboard = () => {
   const { isAdmin, isLoading } = useAdminAccess();
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Date range state for government tab
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
 
   // Stabilize date range to prevent constant re-renders
-  const startDate = useMemo(() => subDays(new Date(), 30), []);
-  const endDate = useMemo(() => new Date(), []);
+  const startDate = useMemo(() => dateRange?.from || subDays(new Date(), 30), [dateRange?.from]);
+  const endDate = useMemo(() => dateRange?.to || new Date(), [dateRange?.to]);
+
+  // Calculate days for heatmap
+  const daysBack = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 7;
+    const diff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, diff);
+  }, [dateRange]);
 
   // Government dashboard data - only fetch when on government tab
   const { data: govStats, isLoading: govStatsLoading, error: govStatsError } = useGovernmentStats(
@@ -33,7 +51,7 @@ const AdminDashboard = () => {
     { enabled: activeTab === 'government' && isAdmin }
   );
   const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
-    7,
+    daysBack,
     undefined,
     { enabled: activeTab === 'government' && isAdmin }
   );
@@ -72,6 +90,53 @@ const AdminDashboard = () => {
 
       <TabsContent value="government">
         <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Government Dashboard</h2>
+              <p className="text-muted-foreground">
+                Livestock industry insights for policy and program planning
+              </p>
+            </div>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "justify-start text-left font-normal",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  disabled={(date) => date > new Date()}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <GovDashboardOverview stats={govStats as any} isLoading={govStatsLoading} error={govStatsError} />
           <div className="grid gap-6 md:grid-cols-2">
             <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
