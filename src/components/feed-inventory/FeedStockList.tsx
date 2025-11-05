@@ -117,6 +117,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
           farmId={farmId}
           editItem={editingItem}
           prefillFeedType={prefillFeedType}
+          existingFeedTypes={inventory.map(item => item.feed_type)}
         />
       </div>
     );
@@ -229,6 +230,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
         farmId={farmId}
         editItem={editingItem}
         prefillFeedType={prefillFeedType}
+        existingFeedTypes={inventory.map(item => item.feed_type)}
       />
 
       {viewingHistory && (

@@ -11,6 +11,8 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { getCachedRecords } from "@/lib/dataCache";
 import { useInventoryDeduction } from "./farmhand/activity-confirmation/hooks/useInventoryDeduction";
+import { FeedTypeCombobox } from "./feed-inventory/FeedTypeCombobox";
+import { normalizeFeedType } from "@/lib/feedTypeNormalization";
 import {
   Dialog,
   DialogContent,
@@ -165,10 +167,13 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       
       if (!user) throw new Error("User not authenticated");
 
+      // Normalize feed type before saving
+      const normalizedFeedType = normalizeFeedType(feedType);
+
       // Step 1: Insert feeding record
       const { error: feedingError } = await supabase.from("feeding_records").insert({
         animal_id: animalId,
-        feed_type: feedType.trim(),
+        feed_type: normalizedFeedType,
         kilograms: parseFloat(kilograms),
         notes: notes.trim() || null,
         record_datetime: new Date(recordDate).toISOString(),
@@ -178,12 +183,12 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       if (feedingError) throw feedingError;
 
       // Step 2: Handle inventory deduction (only if NOT "Fresh Cut & Carry")
-      if (feedType !== "Fresh Cut & Carry") {
+      if (normalizedFeedType !== "Fresh Cut & Carry") {
         const quantityUsed = parseFloat(kilograms);
         
         // Use robust deduction with fuzzy matching
         await deductFromInventory(
-          feedType.trim(),
+          normalizedFeedType,
           quantityUsed,
           quantityUsed,
           "kg"
@@ -196,7 +201,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       toast({
         title: "Success",
         description: "Feeding record added successfully" + 
-          (feedType !== "Fresh Cut & Carry" ? " and inventory updated" : ""),
+          (normalizedFeedType !== "Fresh Cut & Carry" ? " and inventory updated" : ""),
       });
 
       // Reset form
@@ -280,19 +285,24 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
             <div className="space-y-2">
               <Label htmlFor="feedType">Feed Type</Label>
-              <Select value={feedType} onValueChange={setFeedType} required>
-                <SelectTrigger id="feedType">
-                  <SelectValue placeholder="Select feed type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Fresh Cut & Carry">Fresh Cut & Carry</SelectItem>
-                  {feedInventory.map((item) => (
-                    <SelectItem key={item.id} value={item.feed_type}>
-                      {item.feed_type} ({item.quantity_kg.toFixed(2)} kg available)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FeedTypeCombobox
+                value={feedType}
+                onChange={setFeedType}
+                availableFeedTypes={feedInventory.map(item => item.feed_type)}
+                placeholder="Select or type feed type..."
+              />
+              {feedType && feedType !== "Fresh Cut & Carry" && (
+                <p className="text-xs text-muted-foreground">
+                  {(() => {
+                    const matchingItem = feedInventory.find(
+                      item => normalizeFeedType(item.feed_type) === normalizeFeedType(feedType)
+                    );
+                    return matchingItem
+                      ? `${matchingItem.quantity_kg.toFixed(2)} kg available`
+                      : "New feed type - will be added to inventory";
+                  })()}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

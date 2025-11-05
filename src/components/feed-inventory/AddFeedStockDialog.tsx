@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
+import { FeedTypeCombobox } from "./FeedTypeCombobox";
+import { normalizeFeedType } from "@/lib/feedTypeNormalization";
 
 const formSchema = z.object({
   feed_type: z.string().min(1, "Feed type is required"),
@@ -51,6 +53,7 @@ interface AddFeedStockDialogProps {
   farmId: string;
   editItem?: FeedInventoryItem | null;
   prefillFeedType?: string;
+  existingFeedTypes?: string[];
 }
 
 export function AddFeedStockDialog({
@@ -59,6 +62,7 @@ export function AddFeedStockDialog({
   farmId,
   editItem,
   prefillFeedType,
+  existingFeedTypes = [],
 }: AddFeedStockDialogProps) {
   const { toast } = useToast();
   const form = useForm<FormData>({
@@ -119,6 +123,9 @@ export function AddFeedStockDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Normalize feed type
+      const normalizedFeedType = normalizeFeedType(data.feed_type);
+
       // Calculate actual quantity in kg
       const needsConversion = data.unit === 'bags' || data.unit === 'bales' || data.unit === 'barrels';
       let actualQuantityKg = data.quantity_kg;
@@ -134,7 +141,7 @@ export function AddFeedStockDialog({
         const { error: updateError } = await supabase
           .from('feed_inventory')
           .update({
-            feed_type: data.feed_type,
+            feed_type: normalizedFeedType,
             quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
@@ -173,7 +180,7 @@ export function AddFeedStockDialog({
         const { data: newItem, error: insertError } = await supabase
           .from('feed_inventory')
           .insert([{
-            feed_type: data.feed_type,
+            feed_type: normalizedFeedType,
             quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
@@ -239,7 +246,12 @@ export function AddFeedStockDialog({
                 <FormItem>
                   <FormLabel>Feed Type *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Hay, Silage, Concentrates" {...field} />
+                    <FeedTypeCombobox
+                      value={field.value}
+                      onChange={field.onChange}
+                      availableFeedTypes={existingFeedTypes}
+                      placeholder="Select or type feed type..."
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
