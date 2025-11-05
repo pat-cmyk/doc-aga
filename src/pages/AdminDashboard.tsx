@@ -13,6 +13,7 @@ import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
 import { useGovernmentStats, useHealthHeatmap, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
+import { useRegions } from "@/hooks/useRegions";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
@@ -21,6 +22,7 @@ import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const AdminDashboard = () => {
@@ -32,6 +34,12 @@ const AdminDashboard = () => {
     from: subDays(new Date(), 30),
     to: new Date(),
   });
+
+  // Region filter state
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
+  
+  // Fetch available regions
+  const { data: regions } = useRegions();
 
   // Stabilize date range to prevent constant re-renders
   const startDate = useMemo(() => dateRange?.from || subDays(new Date(), 30), [dateRange?.from]);
@@ -48,18 +56,18 @@ const AdminDashboard = () => {
   const { data: govStats, isLoading: govStatsLoading, error: govStatsError } = useGovernmentStats(
     startDate, 
     endDate,
-    undefined,
+    selectedRegion,
     { enabled: activeTab === 'government' && isAdmin }
   );
   const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
     daysBack,
-    undefined,
+    selectedRegion,
     { enabled: activeTab === 'government' && isAdmin }
   );
   const { data: timeseriesData, isLoading: timeseriesLoading, error: timeseriesError } = useGovernmentStatsTimeseries(
     startDate,
     endDate,
-    undefined,
+    selectedRegion,
     { enabled: activeTab === 'government' && isAdmin }
   );
 
@@ -105,7 +113,25 @@ const AdminDashboard = () => {
               </p>
             </div>
             
-            <Popover>
+            <div className="flex items-center gap-3">
+              <Select 
+                value={selectedRegion || "all"} 
+                onValueChange={(value) => setSelectedRegion(value === "all" ? undefined : value)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Regions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regions</SelectItem>
+                  {regions?.map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -141,7 +167,8 @@ const AdminDashboard = () => {
                   className={cn("p-3 pointer-events-auto")}
                 />
               </PopoverContent>
-            </Popover>
+              </Popover>
+            </div>
           </div>
 
           <GovDashboardOverview stats={govStats as any} isLoading={govStatsLoading} error={govStatsError} />
