@@ -150,6 +150,19 @@ serve(async (req) => {
 
     if (insertRoleError) throw insertRoleError;
 
+    // Log user creation activity
+    if (role) {
+      const { error: logError } = await supabaseAdmin.rpc("log_user_activity", {
+        _user_id: userData.user.id,
+        _activity_type: "user_created",
+        _activity_category: "security",
+        _description: `User account created with ${role} role by admin`,
+        _metadata: { role, created_by: user.id, is_super_admin: isSuperAdmin }
+      });
+
+      if (logError) console.error("Failed to log user creation:", logError);
+    }
+
     return new Response(
       JSON.stringify({ success: true, userId: userData.user.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

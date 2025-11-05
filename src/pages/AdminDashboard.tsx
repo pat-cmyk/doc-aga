@@ -7,6 +7,7 @@ import { DocAgaManagement } from "@/components/admin/DocAgaManagement";
 import { SystemAdmin } from "@/components/admin/SystemAdmin";
 import MerchantOversight from "@/components/admin/MerchantOversight";
 import { QADashboard } from "@/components/admin/QADashboard";
+import { UserActivityLogs } from "@/components/admin/UserActivityLogs";
 import { GovDashboardOverview } from "@/components/government/GovDashboardOverview";
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
@@ -82,6 +83,10 @@ const AdminDashboard = () => {
       
       <TabsContent value="system">
         <SystemAdmin />
+      </TabsContent>
+
+      <TabsContent value="activity">
+        <UserActivityLogs />
       </TabsContent>
     </AdminLayout>
   );

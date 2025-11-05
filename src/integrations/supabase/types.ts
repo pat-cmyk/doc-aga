@@ -1742,6 +1742,42 @@ export type Database = {
           },
         ]
       }
+      user_activity_logs: {
+        Row: {
+          activity_category: string
+          activity_type: string
+          created_at: string
+          description: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_category: string
+          activity_type: string
+          created_at?: string
+          description: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_category?: string
+          activity_type?: string
+          created_at?: string
+          description?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1996,6 +2032,16 @@ export type Database = {
       }
       is_merchant: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_user_activity: {
+        Args: {
+          _activity_category: string
+          _activity_type: string
+          _description: string
+          _metadata?: Json
+          _user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       animal_event_type:

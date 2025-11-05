@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sprout, Loader2 } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { VoiceTrainingOnboarding } from "@/components/voice-training/VoiceTrainingOnboarding";
+import { logAuthEvent } from "@/lib/authLogger";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -83,7 +84,14 @@ const Auth = () => {
     }
 
     // Wait for session to be established before redirecting
-    if (data.session) {
+    if (data.session && data.user) {
+      // Log signup event
+      logAuthEvent({ 
+        userId: data.user.id, 
+        eventType: "signup",
+        metadata: { full_name: fullName }
+      });
+
       // Session is available immediately (auto-confirm is enabled)
       toast({
         title: "Success!",
@@ -123,13 +131,20 @@ const Auth = () => {
 
       if (error) throw error;
 
-      // Check user role to ensure farmer login only
+      // Get user roles first
       const { data: roles } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id);
 
       const userRoles = roles?.map(r => r.role) || [];
+
+      // Log successful login
+      logAuthEvent({
+        userId: data.user.id,
+        eventType: "login",
+        metadata: { roles: userRoles }
+      });
 
       // Redirect based on role
       if (userRoles.includes("admin")) {

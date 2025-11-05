@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3 } from "lucide-react";
+import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3, ScrollText } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
@@ -82,6 +82,10 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
                 <TabsTrigger value="qa">
                   <TestTube className="h-4 w-4 mr-2" />
                   QA
+                </TabsTrigger>
+                <TabsTrigger value="activity">
+                  <ScrollText className="h-4 w-4 mr-2" />
+                  Activity
                 </TabsTrigger>
                 <TabsTrigger value="system">
                   <Shield className="h-4 w-4 mr-2" />
