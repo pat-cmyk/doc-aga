@@ -5,15 +5,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useRegionalStats } from "@/hooks/useRegionalStats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import RegionalDetailPanel from "./RegionalDetailPanel";
+import { subDays } from "date-fns";
 
-const RegionalLivestockMap = () => {
+interface RegionalLivestockMapProps {
+  dateRange?: { start: Date; end: Date };
+}
+
+const RegionalLivestockMap = ({ dateRange }: RegionalLivestockMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const { data: regionalStats, isLoading } = useRegionalStats();
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const [mapToken, setMapToken] = useState<string | null>(null);
+
+  // Default to last 90 days if no date range provided
+  const effectiveDateRange = dateRange || {
+    start: subDays(new Date(), 90),
+    end: new Date(),
+  };
 
   // Resolve Mapbox token from env or backend function
   useEffect(() => {
@@ -70,6 +84,16 @@ const RegionalLivestockMap = () => {
     };
   }, [mapToken]);
 
+  const handleRegionClick = (regionName: string) => {
+    setSelectedRegion(regionName);
+    setIsPanelOpen(true);
+  };
+
+  const handlePanelClose = () => {
+    setIsPanelOpen(false);
+    setSelectedRegion(null);
+  };
+
   // Add markers when data is loaded
   useEffect(() => {
     if (!map.current || !mapLoaded || !regionalStats) return;
@@ -82,24 +106,11 @@ const RegionalLivestockMap = () => {
     regionalStats.forEach((region) => {
       if (!region.avg_gps_lat || !region.avg_gps_lng) return;
 
-      // Create popup content
+      // Create simplified popup content for hover
       const popupContent = `
-        <div class="p-3 min-w-[200px]">
-          <h3 class="font-semibold text-base mb-2">${region.region}</h3>
-          <div class="space-y-1 text-sm">
-            <p class="flex justify-between">
-              <span class="text-muted-foreground">Farms:</span>
-              <span class="font-medium">${region.farm_count}</span>
-            </p>
-            <p class="flex justify-between">
-              <span class="text-muted-foreground">Animals:</span>
-              <span class="font-medium">${region.active_animal_count.toLocaleString()}</span>
-            </p>
-            <p class="flex justify-between">
-              <span class="text-muted-foreground">Health Events (7d):</span>
-              <span class="font-medium">${region.health_events_7d}</span>
-            </p>
-          </div>
+        <div class="p-2 min-w-[180px]">
+          <h3 class="font-semibold text-sm mb-1">${region.region}</h3>
+          <p class="text-xs text-muted-foreground">Click for detailed statistics</p>
         </div>
       `;
 
@@ -126,7 +137,23 @@ const RegionalLivestockMap = () => {
       el.style.fontWeight = "600";
       el.style.fontSize = "11px";
       el.style.color = "white";
+      el.style.transition = "transform 0.2s, box-shadow 0.2s";
       el.textContent = region.farm_count.toString();
+      el.setAttribute("aria-label", `View detailed statistics for ${region.region}`);
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+
+      // Add active state styling
+      const updateActiveState = () => {
+        if (selectedRegion === region.region) {
+          el.style.border = "3px solid hsl(var(--primary))";
+          el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
+        } else {
+          el.style.border = "2px solid white";
+          el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+        }
+      };
+      updateActiveState();
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([region.avg_gps_lng, region.avg_gps_lat])
@@ -135,15 +162,30 @@ const RegionalLivestockMap = () => {
 
       markersRef.current.push(marker);
 
-      // Show popup on hover
+      // Hover effects
       el.addEventListener("mouseenter", () => {
+        el.style.transform = "scale(1.1)";
         marker.togglePopup();
       });
       el.addEventListener("mouseleave", () => {
+        el.style.transform = "scale(1)";
         marker.togglePopup();
       });
+
+      // Click handler
+      el.addEventListener("click", () => {
+        handleRegionClick(region.region);
+      });
+
+      // Keyboard accessibility
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleRegionClick(region.region);
+        }
+      });
     });
-  }, [regionalStats, mapLoaded]);
+  }, [regionalStats, mapLoaded, selectedRegion]);
 
   if (isLoading) {
     return (
@@ -160,27 +202,36 @@ const RegionalLivestockMap = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Regional Livestock Distribution</CardTitle>
-        <CardDescription>
-          Interactive map showing livestock statistics across Philippine regions. Hover over markers for details.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div ref={mapContainer} className="w-full h-[500px] rounded-lg shadow-sm" />
-        {regionalStats && regionalStats.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-primary" />
-              <span className="text-muted-foreground">
-                Marker size represents number of farms in region
-              </span>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Regional Livestock Distribution</CardTitle>
+          <CardDescription>
+            Interactive map showing livestock statistics across Philippine regions. Click markers for detailed analytics.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div ref={mapContainer} className="w-full h-[500px] rounded-lg shadow-sm" />
+          {regionalStats && regionalStats.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-primary" />
+                <span className="text-muted-foreground">
+                  Marker size represents number of farms in region
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      <RegionalDetailPanel
+        region={selectedRegion}
+        isOpen={isPanelOpen}
+        onClose={handlePanelClose}
+        dateRange={effectiveDateRange}
+      />
+    </>
   );
 };
 

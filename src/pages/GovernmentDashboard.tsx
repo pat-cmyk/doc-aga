@@ -653,7 +653,7 @@ const GovernmentDashboard = () => {
             </CardContent>
           </Card>
         }>
-          <RegionalLivestockMap />
+          <RegionalLivestockMap dateRange={primaryDateRange} />
         </Suspense>
 
         {comparisonMode && (
