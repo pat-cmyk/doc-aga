@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import { GovernmentLayout } from "@/components/government/GovernmentLayout";
 import { useRole } from "@/hooks/useRole";
 import { GovDashboardOverview } from "@/components/government/GovDashboardOverview";
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
@@ -284,7 +284,7 @@ const GovernmentDashboard = () => {
   }
 
   return (
-    <AdminLayout activeTab="government" onTabChange={() => {}}>
+    <GovernmentLayout>
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -702,7 +702,7 @@ const GovernmentDashboard = () => {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </GovernmentLayout>
   );
 };
 
