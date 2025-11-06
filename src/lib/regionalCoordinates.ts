@@ -1,7 +1,4 @@
-/**
- * Default GPS coordinates for Philippine regions (approximate regional centers)
- * Used for mapping and location-based features
- */
+// Default GPS coordinates for Philippine regions (approximate center points)
 export const REGIONAL_COORDINATES: Record<string, { lat: number; lng: number }> = {
   "NCR": { lat: 14.6091, lng: 121.0223 },
   "CAR": { lat: 16.4023, lng: 120.5960 },
@@ -22,9 +19,6 @@ export const REGIONAL_COORDINATES: Record<string, { lat: number; lng: number }> 
   "BARMM": { lat: 6.9497, lng: 124.2422 },
 };
 
-/**
- * Get default GPS coordinates for a given region
- */
 export const getRegionalCoordinates = (region: string): { lat: number; lng: number } | null => {
   return REGIONAL_COORDINATES[region] || null;
 };
