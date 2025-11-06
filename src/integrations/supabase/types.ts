@@ -1957,6 +1957,17 @@ export type Database = {
         | {
             Args: {
               _livestock_type?: string
+              _municipality?: string
+              _name?: string
+              _province?: string
+              _region?: string
+              _role?: Database["public"]["Enums"]["user_role"]
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _livestock_type?: string
               _name?: string
               _region?: string
               _role?: Database["public"]["Enums"]["user_role"]

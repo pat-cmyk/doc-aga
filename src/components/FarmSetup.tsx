@@ -7,26 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, MapPin } from "lucide-react";
-
-const REGIONS_WITH_PROVINCES = {
-  "NCR": ["Metro Manila"],
-  "CAR": ["Abra", "Apayao", "Benguet", "Ifugao", "Kalinga", "Mountain Province"],
-  "Region I": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
-  "Region II": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
-  "Region III": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
-  "Region IV-A": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
-  "Region IV-B": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
-  "Region V": ["Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon"],
-  "Region VI": ["Aklan", "Antique", "Capiz", "Guimaras", "Iloilo", "Negros Occidental"],
-  "Region VII": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
-  "Region VIII": ["Biliran", "Eastern Samar", "Leyte", "Northern Samar", "Samar", "Southern Leyte"],
-  "Region IX": ["Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay"],
-  "Region X": ["Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental"],
-  "Region XI": ["Davao de Oro", "Davao del Norte", "Davao del Sur", "Davao Occidental", "Davao Oriental"],
-  "Region XII": ["Cotabato", "Sarangani", "South Cotabato", "Sultan Kudarat"],
-  "Region XIII": ["Agusan del Norte", "Agusan del Sur", "Dinagat Islands", "Surigao del Norte", "Surigao del Sur"],
-  "BARMM": ["Basilan", "Lanao del Sur", "Maguindanao", "Sulu", "Tawi-Tawi"]
-};
+import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
 
 interface FarmSetupProps {
   onFarmCreated: (farmId: string) => void;
@@ -40,6 +21,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     name: "",
     region: "",
     province: "",
+    municipality: "",
     role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet",
     livestock_type: "cattle"
   });
@@ -101,10 +83,17 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     checkExistingFarm();
   }, [onFarmCreated, toast]);
 
-  const availableProvinces = formData.region ? REGIONS_WITH_PROVINCES[formData.region as keyof typeof REGIONS_WITH_PROVINCES] || [] : [];
+  const availableProvinces = formData.region ? getProvinces(formData.region) : [];
+  const availableMunicipalities = formData.region && formData.province 
+    ? getMunicipalities(formData.region, formData.province) 
+    : [];
 
   const handleRegionChange = (value: string) => {
-    setFormData({ ...formData, region: value, province: "" });
+    setFormData({ ...formData, region: value, province: "", municipality: "" });
+  };
+
+  const handleProvinceChange = (value: string) => {
+    setFormData({ ...formData, province: value, municipality: "" });
   };
 
   const fetchCurrentLocation = async () => {
@@ -117,7 +106,6 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       return;
     }
 
-    const tempLoading = true;
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -152,16 +140,41 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       return;
     }
 
+    if (!formData.region) {
+      toast({
+        title: "Missing information",
+        description: "Please select a region",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.province) {
+      toast({
+        title: "Missing information",
+        description: "Please select a province",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.municipality) {
+      toast({
+        title: "Missing information",
+        description: "Please select a municipality/city",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const regionInfo = formData.province 
-        ? `${formData.region}, ${formData.province}`
-        : formData.region || "Not specified";
-
       const { data: farmId, error } = await supabase.rpc('create_default_farm', {
         _name: formData.name,
-        _region: regionInfo,
+        _region: formData.region,
+        _province: formData.province,
+        _municipality: formData.municipality,
         _role: formData.role_in_farm,
         _livestock_type: formData.livestock_type
       });
@@ -319,15 +332,15 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="region">Region</Label>
+                <Label htmlFor="region">Region *</Label>
                 <Select value={formData.region} onValueChange={handleRegionChange}>
                   <SelectTrigger id="region">
                     <SelectValue placeholder="Select region" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(REGIONS_WITH_PROVINCES).map((region) => (
+                    {getRegions().map((region) => (
                       <SelectItem key={region} value={region}>
                         {region}
                       </SelectItem>
@@ -337,10 +350,10 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="province">Province</Label>
+                <Label htmlFor="province">Province *</Label>
                 <Select 
                   value={formData.province} 
-                  onValueChange={(value) => setFormData({ ...formData, province: value })}
+                  onValueChange={handleProvinceChange}
                   disabled={!formData.region}
                 >
                   <SelectTrigger id="province">
@@ -350,6 +363,26 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
                     {availableProvinces.map((province) => (
                       <SelectItem key={province} value={province}>
                         {province}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="municipality">Municipality/City *</Label>
+                <Select 
+                  value={formData.municipality} 
+                  onValueChange={(value) => setFormData({ ...formData, municipality: value })}
+                  disabled={!formData.province}
+                >
+                  <SelectTrigger id="municipality">
+                    <SelectValue placeholder={formData.province ? "Select municipality/city" : "Select province first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMunicipalities.map((municipality) => (
+                      <SelectItem key={municipality} value={municipality}>
+                        {municipality}
                       </SelectItem>
                     ))}
                   </SelectContent>

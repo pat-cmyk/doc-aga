@@ -10,26 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, MapPin, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleBadge } from "./RoleBadge";
-
-const REGIONS_WITH_PROVINCES = {
-  "Region I (Ilocos)": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
-  "Region II (Cagayan Valley)": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
-  "Region III (Central Luzon)": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
-  "Region IV-A (CALABARZON)": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
-  "MIMAROPA Region": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
-  "Region V (Bicol)": ["Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon"],
-  "Region VI (Western Visayas)": ["Aklan", "Antique", "Capiz", "Guimaras", "Iloilo", "Negros Occidental"],
-  "Region VII (Central Visayas)": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
-  "Region VIII (Eastern Visayas)": ["Biliran", "Eastern Samar", "Leyte", "Northern Samar", "Samar", "Southern Leyte"],
-  "Region IX (Zamboanga Peninsula)": ["Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay"],
-  "Region X (Northern Mindanao)": ["Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental"],
-  "Region XI (Davao)": ["Davao de Oro", "Davao del Norte", "Davao del Sur", "Davao Occidental", "Davao Oriental"],
-  "Region XII (SOCCSKSARGEN)": ["Cotabato", "Sarangani", "South Cotabato", "Sultan Kudarat"],
-  "NCR (National Capital Region)": ["Metro Manila"],
-  "CAR (Cordillera)": ["Abra", "Apayao", "Benguet", "Ifugao", "Kalinga", "Mountain Province"],
-  "BARMM": ["Basilan", "Lanao del Sur", "Maguindanao del Norte", "Maguindanao del Sur", "Sulu", "Tawi-Tawi"],
-  "Region XIII (Caraga)": ["Agusan del Norte", "Agusan del Sur", "Dinagat Islands", "Surigao del Norte", "Surigao del Sur"]
-};
+import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
 
 interface Farm {
   id: string;
@@ -62,6 +43,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     name: "",
     region: "",
     province: "",
+    municipality: "",
     gps_lat: "",
     gps_lng: "",
     role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet",
@@ -254,7 +236,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     }
     
     setOpen(false);
-    setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
+    setFormData({ name: "", region: "", province: "", municipality: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
     setSelectedRegion("");
     loadFarms();
   };
@@ -301,7 +283,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
       });
       setEditOpen(false);
       setEditingFarm(null);
-      setFormData({ name: "", region: "", province: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
+      setFormData({ name: "", region: "", province: "", municipality: "", gps_lat: "", gps_lng: "", role_in_farm: "farmer_owner" });
       setSelectedRegion("");
       loadFarms();
     }
@@ -346,6 +328,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
       name: farm.name,
       region,
       province,
+      municipality: "",
       gps_lat: farm.gps_lat.toString(),
       gps_lng: farm.gps_lng.toString(),
       role_in_farm: "farmer_owner"
@@ -359,11 +342,18 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
     setDeleteDialogOpen(true);
   };
 
-  const availableProvinces = selectedRegion ? REGIONS_WITH_PROVINCES[selectedRegion as keyof typeof REGIONS_WITH_PROVINCES] || [] : [];
+  const availableProvinces = selectedRegion ? getProvinces(selectedRegion) : [];
+  const availableMunicipalities = selectedRegion && formData.province 
+    ? getMunicipalities(selectedRegion, formData.province) 
+    : [];
 
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region);
-    setFormData(prev => ({ ...prev, region, province: "" }));
+    setFormData(prev => ({ ...prev, region, province: "", municipality: "" }));
+  };
+
+  const handleProvinceChange = (province: string) => {
+    setFormData(prev => ({ ...prev, province, municipality: "" }));
   };
 
   if (loading) {
@@ -509,7 +499,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                   <SelectValue placeholder="Select a region" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {Object.keys(REGIONS_WITH_PROVINCES).map((region) => (
+                  {getRegions().map((region) => (
                     <SelectItem key={region} value={region}>
                       {region}
                     </SelectItem>
@@ -522,7 +512,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
               <Label htmlFor="province">Province</Label>
               <Select 
                 value={formData.province} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, province: value }))}
+                onValueChange={handleProvinceChange}
                 disabled={!selectedRegion}
               >
                 <SelectTrigger>
@@ -537,6 +527,27 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="municipality">Municipality/City</Label>
+              <Select 
+                value={formData.municipality} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, municipality: value }))}
+                disabled={!formData.province}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formData.province ? "Select municipality/city" : "Select province first"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {availableMunicipalities.map((municipality) => (
+                    <SelectItem key={municipality} value={municipality}>
+                      {municipality}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button type="submit" className="w-full" disabled={creating}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Farm"}
             </Button>
@@ -603,7 +614,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                   <SelectValue placeholder="Select a region" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {Object.keys(REGIONS_WITH_PROVINCES).map((region) => (
+                  {getRegions().map((region) => (
                     <SelectItem key={region} value={region}>
                       {region}
                     </SelectItem>
@@ -616,7 +627,7 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
               <Label htmlFor="edit-province">Province</Label>
               <Select 
                 value={formData.province} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, province: value }))}
+                onValueChange={handleProvinceChange}
                 disabled={!selectedRegion}
               >
                 <SelectTrigger>
@@ -631,6 +642,27 @@ const FarmList = ({ onSelectFarm }: FarmListProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-municipality">Municipality/City</Label>
+              <Select 
+                value={formData.municipality} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, municipality: value }))}
+                disabled={!formData.province}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formData.province ? "Select municipality/city" : "Select province first"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {availableMunicipalities.map((municipality) => (
+                    <SelectItem key={municipality} value={municipality}>
+                      {municipality}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button type="submit" className="w-full" disabled={creating}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Farm"}
             </Button>
