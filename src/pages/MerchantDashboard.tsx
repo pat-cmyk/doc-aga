@@ -19,7 +19,7 @@ import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
 const MerchantDashboard = () => {
   const navigate = useNavigate();
-  const { isMerchant, isLoading } = useRole();
+  const { isMerchant, isLoading, hasGovernmentAccess } = useRole();
   const [activeTab, setActiveTab] = useState("dashboard");
   
   const { products } = useMerchantProducts();
@@ -82,6 +82,15 @@ const MerchantDashboard = () => {
               <h1 className="text-2xl font-bold">Merchant Portal</h1>
             </div>
             <div className="flex items-center gap-2">
+              {hasGovernmentAccess && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/government")}
+                >
+                  Government Dashboard
+                </Button>
+              )}
               <NotificationBell />
               <NetworkStatusIndicator />
               <UserEmailDropdown />

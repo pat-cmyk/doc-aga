@@ -75,6 +75,12 @@ const Dashboard = () => {
         return;
       }
       
+      // Check government role before merchant
+      if (userRoles.includes("government") && !userRoles.includes("admin")) {
+        navigate("/government");
+        return;
+      }
+      
       if (userRoles.includes("merchant")) {
         navigate("/merchant");
         return;
