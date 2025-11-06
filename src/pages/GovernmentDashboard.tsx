@@ -17,7 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 import { useRegions } from "@/hooks/useRegions";
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -424,8 +427,70 @@ const GovernmentDashboard = () => {
                       <SelectItem value="last7Days">Last 7 Days</SelectItem>
                       <SelectItem value="last30Days">Last 30 Days</SelectItem>
                       <SelectItem value="last90Days">Last 90 Days</SelectItem>
+                      <SelectItem value="custom">Custom Range</SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {primaryPreset === "custom" && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Start Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !primaryDateRange.start && "text-muted-foreground"
+                              )}
+                              size="sm"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(primaryDateRange.start, "MMM d, yyyy")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={primaryDateRange.start}
+                              onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-xs">End Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !primaryDateRange.end && "text-muted-foreground"
+                              )}
+                              size="sm"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(primaryDateRange.end, "MMM d, yyyy")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={primaryDateRange.end}
+                              onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                              disabled={(date) => date < primaryDateRange.start}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -472,8 +537,70 @@ const GovernmentDashboard = () => {
                         <SelectItem value="last7Days">Last 7 Days</SelectItem>
                         <SelectItem value="last30Days">Last 30 Days</SelectItem>
                         <SelectItem value="last90Days">Last 90 Days</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
                       </SelectContent>
                     </Select>
+                    
+                    {comparisonPreset === "custom" && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Start Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !comparisonDateRange.start && "text-muted-foreground"
+                                )}
+                                size="sm"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(comparisonDateRange.start, "MMM d, yyyy")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={comparisonDateRange.start}
+                                onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, start: date }))}
+                                initialFocus
+                                className="pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <Label className="text-xs">End Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !comparisonDateRange.end && "text-muted-foreground"
+                                )}
+                                size="sm"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(comparisonDateRange.end, "MMM d, yyyy")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={comparisonDateRange.end}
+                                onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, end: date }))}
+                                initialFocus
+                                className="pointer-events-auto"
+                                disabled={(date) => date < comparisonDateRange.start}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
