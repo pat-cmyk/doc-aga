@@ -120,10 +120,10 @@ export const UserEmailDropdown = () => {
           </DropdownMenuItem>
         ) : null}
         
-        {(roles.includes("government") || roles.includes("admin")) && (
+        {roles.includes("government") && (
           <DropdownMenuItem onClick={() => navigate("/government")}>
             <BarChart3 className="mr-2 h-4 w-4" />
-            <span>Government Dashboard</span>
+            <span>Government Portal</span>
           </DropdownMenuItem>
         )}
         
