@@ -14,11 +14,13 @@ import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
 import { ComparisonSummary } from "@/components/government/ComparisonSummary";
-import { useGovernmentStats, useHealthHeatmap, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
+import { useGovernmentStats, useHealthHeatmap, useGovernmentStatsTimeseries, useFarmerQueries } from "@/hooks/useGovernmentStats";
 import { useRegions } from "@/hooks/useRegions";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, Download } from "lucide-react";
+import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
+import { useToast } from "@/hooks/use-toast";
 import { subDays, format, startOfYear, isValid, parse } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
@@ -274,6 +276,79 @@ const AdminDashboard = () => {
     { enabled: activeTab === 'government' && isAdmin && comparisonMode }
   );
 
+  // Farmer queries data for export
+  const { data: farmerQueries } = useFarmerQueries(
+    startDate,
+    endDate,
+    { enabled: activeTab === 'government' && isAdmin }
+  );
+  const { data: comparisonFarmerQueries } = useFarmerQueries(
+    comparisonStartDate,
+    comparisonEndDate,
+    { enabled: activeTab === 'government' && isAdmin && comparisonMode }
+  );
+
+  // Export handlers
+  const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    try {
+      exportToCSV({
+        stats: govStats || null,
+        comparisonStats: comparisonGovStats || null,
+        timeseriesData: timeseriesData || [],
+        comparisonTimeseriesData: comparisonTimeseriesData || [],
+        heatmapData: heatmapData || [],
+        comparisonHeatmapData: comparisonHeatmapData || [],
+        farmerQueries: farmerQueries || [],
+        comparisonFarmerQueries: comparisonFarmerQueries || [],
+        dateRange: { start: startDate, end: endDate },
+        comparisonDateRange: comparisonMode ? { start: comparisonStartDate, end: comparisonEndDate } : undefined,
+        region: selectedRegion,
+        comparisonRegion: comparisonMode ? comparisonRegion : undefined,
+      });
+      toast({
+        title: "Export Successful",
+        description: "Your CSV report has been downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting your report.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF({
+        stats: govStats || null,
+        comparisonStats: comparisonGovStats || null,
+        timeseriesData: timeseriesData || [],
+        comparisonTimeseriesData: comparisonTimeseriesData || [],
+        heatmapData: heatmapData || [],
+        comparisonHeatmapData: comparisonHeatmapData || [],
+        farmerQueries: farmerQueries || [],
+        comparisonFarmerQueries: comparisonFarmerQueries || [],
+        dateRange: { start: startDate, end: endDate },
+        comparisonDateRange: comparisonMode ? { start: comparisonStartDate, end: comparisonEndDate } : undefined,
+        region: selectedRegion,
+        comparisonRegion: comparisonMode ? comparisonRegion : undefined,
+      });
+      toast({
+        title: "Export Successful",
+        description: "Your PDF report has been downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting your report.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Show loading state while checking auth
   if (isLoading) {
     return (
@@ -316,7 +391,30 @@ const AdminDashboard = () => {
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              {/* Export Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPDF}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+
+              {/* Comparison Mode Toggle */}
               <div className="flex items-center space-x-2 min-h-[44px]">
                 <Switch
                   id="comparison-mode"
