@@ -12,6 +12,7 @@ import { GovDashboardOverview } from "@/components/government/GovDashboardOvervi
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
+import { ComparisonSummary } from "@/components/government/ComparisonSummary";
 import { useGovernmentStats, useHealthHeatmap, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useRegions } from "@/hooks/useRegions";
 import { TabsContent } from "@/components/ui/tabs";
@@ -406,6 +407,20 @@ const AdminDashboard = () => {
                 </PopoverContent>
               </Popover>
             </div>
+          )}
+
+          {/* Comparison Summary */}
+          {comparisonMode && (
+            <ComparisonSummary
+              primaryStats={govStats}
+              comparisonStats={comparisonGovStats}
+              primaryDateRange={dateRange}
+              comparisonDateRange={comparisonDateRange}
+              primaryRegion={selectedRegion}
+              comparisonRegion={comparisonRegion}
+              isLoading={govStatsLoading || comparisonGovStatsLoading}
+              comparisonMode={comparisonMode}
+            />
           )}
 
           <GovDashboardOverview 
