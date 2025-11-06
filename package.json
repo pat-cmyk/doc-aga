@@ -64,6 +64,8 @@
     "idb": "^8.0.3",
     "input-otp": "^1.4.2",
     "jsdom": "^27.0.0",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

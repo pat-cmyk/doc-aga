@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUp, ArrowDown, Minus, ArrowLeftRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus, ArrowLeftRight, TrendingUp, TrendingDown } from "lucide-react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
@@ -40,27 +40,47 @@ const calculateChange = (primary: number, comparison: number): MetricChange => {
 const ChangeIndicator = ({ change }: { change: MetricChange }) => {
   if (change.absolute === 0) {
     return (
-      <span className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm">
-        <Minus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-        <span className="whitespace-nowrap">0%</span>
-      </span>
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm">
+          <Minus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="whitespace-nowrap">0%</span>
+        </span>
+        <span className="text-[10px] sm:text-xs text-muted-foreground">Stable</span>
+      </div>
     );
   }
   
   const isPositive = change.absolute > 0;
   const Icon = isPositive ? ArrowUp : ArrowDown;
-  const colorClass = isPositive ? "text-green-600" : "text-red-600";
+  const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+  const colorClass = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+  
+  const isSignificant = Math.abs(change.percentage) >= 20;
+  const trendLabel = isSignificant 
+    ? (isPositive ? "Strong Growth" : "Sharp Decline")
+    : (isPositive ? "Growing" : "Declining");
   
   return (
-    <span className={`flex items-center gap-1 ${colorClass} text-xs sm:text-sm`}>
-      <span className="whitespace-nowrap">
-        {isPositive ? '+' : ''}{formatNumber(change.absolute)}
+    <div className="flex flex-col items-end gap-0.5">
+      <span className={`flex items-center gap-1 font-medium ${colorClass} text-xs sm:text-sm`}>
+        <span className="whitespace-nowrap">
+          {isPositive ? '+' : ''}{formatNumber(change.absolute)}
+        </span>
+        <span className="hidden sm:inline whitespace-nowrap">
+          ({isPositive ? '+' : ''}{change.percentage.toFixed(1)}%)
+        </span>
+        <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
       </span>
-      <span className="hidden sm:inline whitespace-nowrap">
-        ({isPositive ? '+' : ''}{change.percentage.toFixed(1)}%)
+      <span className={`flex items-center gap-1 text-[10px] sm:text-xs ${colorClass}`}>
+        <TrendIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+        {trendLabel}
+        {isSignificant && (
+          <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-current">
+            Notable
+          </Badge>
+        )}
       </span>
-      <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-    </span>
+    </div>
   );
 };
 
