@@ -115,14 +115,14 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
         <CardContent>
           {comparisonMode && comparisonStats ? (
             <ComparisonDisplay 
-              primary={stats.farm_count}
-              comparison={comparisonStats.farm_count}
+              primary={stats.farm_count || 0}
+              comparison={comparisonStats.farm_count || 0}
               label="Farms"
             />
           ) : (
             <>
-              <div className="text-2xl font-bold">{stats.farm_count.toLocaleString()}</div>
-              <GrowthIndicator value={stats.farmGrowth} />
+              <div className="text-2xl font-bold">{(stats.farm_count || 0).toLocaleString()}</div>
+              <GrowthIndicator value={stats.farmGrowth || 0} />
             </>
           )}
         </CardContent>
@@ -136,14 +136,14 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
         <CardContent>
           {comparisonMode && comparisonStats ? (
             <ComparisonDisplay 
-              primary={stats.active_animal_count}
-              comparison={comparisonStats.active_animal_count}
+              primary={stats.active_animal_count || 0}
+              comparison={comparisonStats.active_animal_count || 0}
               label="Animals"
             />
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {stats.active_animal_count.toLocaleString()}
+                {(stats.active_animal_count || 0).toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
                 Registered in the system
@@ -161,16 +161,16 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
         <CardContent>
           {comparisonMode && comparisonStats ? (
             <ComparisonDisplay 
-              primary={stats.daily_log_count}
-              comparison={comparisonStats.daily_log_count}
+              primary={stats.daily_log_count || 0}
+              comparison={comparisonStats.daily_log_count || 0}
               label="Logs"
             />
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {stats.daily_log_count.toLocaleString()}
+                {(stats.daily_log_count || 0).toLocaleString()}
               </div>
-              <GrowthIndicator value={stats.logGrowth} />
+              <GrowthIndicator value={stats.logGrowth || 0} />
             </>
           )}
         </CardContent>
@@ -184,16 +184,16 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
         <CardContent>
           {comparisonMode && comparisonStats ? (
             <ComparisonDisplay 
-              primary={stats.health_event_count}
-              comparison={comparisonStats.health_event_count}
+              primary={stats.health_event_count || 0}
+              comparison={comparisonStats.health_event_count || 0}
               label="Events"
             />
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {stats.health_event_count.toLocaleString()}
+                {(stats.health_event_count || 0).toLocaleString()}
               </div>
-              <GrowthIndicator value={stats.healthGrowth} />
+              <GrowthIndicator value={stats.healthGrowth || 0} />
             </>
           )}
         </CardContent>
