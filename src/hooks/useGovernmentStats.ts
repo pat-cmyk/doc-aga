@@ -77,25 +77,41 @@ export const useGovernmentStats = (
 
       if (prevError) throw prevError;
 
-      const current = currentData as unknown as GovStats;
-      const previous = prevData as unknown as GovStats;
+      const defaults: GovStats = {
+        farm_count: 0,
+        active_animal_count: 0,
+        daily_log_count: 0,
+        health_event_count: 0,
+        avg_milk_liters: 0,
+        doc_aga_query_count: 0,
+      };
 
-      const calculateGrowth = (current: number, previous: number) => {
-        if (previous === 0) return current > 0 ? 100 : 0;
-        return Math.round(((current - previous) / previous) * 100);
+      const normalize = (data: unknown): GovStats => {
+        const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+        if (!row) return defaults;
+        return {
+          farm_count: Number(row.farm_count ?? 0),
+          active_animal_count: Number(row.active_animal_count ?? 0),
+          daily_log_count: Number(row.daily_log_count ?? 0),
+          health_event_count: Number(row.health_event_count ?? 0),
+          avg_milk_liters: Number(row.avg_milk_liters ?? 0),
+          doc_aga_query_count: Number(row.doc_aga_query_count ?? 0),
+        };
+      };
+
+      const current = normalize(currentData);
+      const previous = normalize(prevData);
+
+      const calculateGrowth = (curr: number, prev: number) => {
+        if (!prev || prev === 0) return curr > 0 ? 100 : 0;
+        return Math.round(((curr - prev) / prev) * 100);
       };
 
       return {
         ...current,
         farmGrowth: calculateGrowth(current.farm_count, previous.farm_count),
-        logGrowth: calculateGrowth(
-          current.daily_log_count,
-          previous.daily_log_count
-        ),
-        healthGrowth: calculateGrowth(
-          current.health_event_count,
-          previous.health_event_count
-        ),
+        logGrowth: calculateGrowth(current.daily_log_count, previous.daily_log_count),
+        healthGrowth: calculateGrowth(current.health_event_count, previous.health_event_count),
       } as GovStatsWithGrowth;
     },
   });
