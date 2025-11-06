@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, MapPin } from "lucide-react";
 import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
+import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
 
 interface FarmSetupProps {
   onFarmCreated: (farmId: string) => void;
@@ -90,6 +91,12 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
 
   const handleRegionChange = (value: string) => {
     setFormData({ ...formData, region: value, province: "", municipality: "" });
+    
+    // Auto-assign default regional coordinates
+    const coords = getRegionalCoordinates(value);
+    if (coords) {
+      setGpsCoords(coords);
+    }
   };
 
   const handleProvinceChange = (value: string) => {
