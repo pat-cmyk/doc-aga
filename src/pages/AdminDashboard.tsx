@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { useRole } from "@/hooks/useRole";
 import { SystemOverview } from "@/components/admin/SystemOverview";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { FarmOversight } from "@/components/admin/FarmOversight";
@@ -53,9 +54,13 @@ const datePresets = {
 };
 
 const AdminDashboard = () => {
-  const { isAdmin, isLoading } = useAdminAccess();
+  const navigate = useNavigate();
+  const { isAdmin, isLoading: adminLoading } = useAdminAccess();
+  const { roles, isLoading: rolesLoading } = useRole();
   const [searchParams, setSearchParams] = useSearchParams();
   const isInitialLoad = useRef(true);
+  
+  const isLoading = adminLoading || rolesLoading;
   
   // Date range state for government tab (default to last 30 days)
   const [activeTab, setActiveTab] = useState("overview");
@@ -349,6 +354,26 @@ const AdminDashboard = () => {
     }
   };
 
+  // Smart routing based on all user roles
+  useEffect(() => {
+    if (isLoading) return;
+    
+    if (!isAdmin) {
+      // User doesn't have admin access - redirect based on available roles
+      if (roles.includes("government")) {
+        navigate("/government");
+      } else if (roles.includes("merchant")) {
+        navigate("/merchant");
+      } else if (roles.includes("farmhand")) {
+        navigate("/farmhand");
+      } else if (roles.includes("farmer_owner")) {
+        navigate("/");
+      } else {
+        navigate("/");
+      }
+    }
+  }, [isAdmin, roles, isLoading, navigate]);
+
   // Show loading state while checking auth
   if (isLoading) {
     return (
@@ -361,8 +386,7 @@ const AdminDashboard = () => {
     );
   }
 
-  // useAdminAccess hook already redirects if not admin
-  // This is just a safety check
+  // If not admin, return null (redirect happens in useEffect)
   if (!isAdmin) {
     return null;
   }

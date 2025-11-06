@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
 
 export const useGovernmentAccess = () => {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     checkGovernmentAccess();
@@ -19,7 +16,6 @@ export const useGovernmentAccess = () => {
       if (!user) {
         setHasAccess(false);
         setIsLoading(false);
-        navigate("/auth");
         return;
       }
 
@@ -32,20 +28,10 @@ export const useGovernmentAccess = () => {
       const hasGovernmentAccess = roles && roles.length > 0;
       setHasAccess(hasGovernmentAccess);
       setIsLoading(false);
-      
-      if (!hasGovernmentAccess) {
-        toast({
-          title: "Access Denied",
-          description: "Government dashboard access requires Admin or Government role.",
-          variant: "destructive",
-        });
-        navigate("/");
-      }
     } catch (error) {
       console.error("Error checking government access:", error);
       setHasAccess(false);
       setIsLoading(false);
-      navigate("/");
     }
   };
 

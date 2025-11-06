@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { useRole } from "@/hooks/useRole";
 import { GovDashboardOverview } from "@/components/government/GovDashboardOverview";
 import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap";
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
@@ -23,10 +25,14 @@ import { useToast } from "@/hooks/use-toast";
 type DatePreset = "last7Days" | "last30Days" | "last90Days" | "custom";
 
 const GovernmentDashboard = () => {
+  const navigate = useNavigate();
   const { hasAccess, isLoading: accessLoading } = useGovernmentAccess();
+  const { roles, isLoading: rolesLoading } = useRole();
   const { data: regions = [] } = useRegions();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  
+  const isLoading = accessLoading || rolesLoading;
 
   // Initialize state from URL or defaults
   const [comparisonMode, setComparisonMode] = useState(() => searchParams.get("compare") === "true");
@@ -243,7 +249,25 @@ const GovernmentDashboard = () => {
     }
   };
 
-  if (accessLoading) {
+  // Smart routing based on all user roles
+  useEffect(() => {
+    if (isLoading) return;
+    
+    if (!hasAccess) {
+      // User doesn't have government access - redirect based on available roles
+      if (roles.includes("merchant")) {
+        navigate("/merchant");
+      } else if (roles.includes("farmhand")) {
+        navigate("/farmhand");
+      } else if (roles.includes("farmer_owner")) {
+        navigate("/");
+      } else {
+        navigate("/");
+      }
+    }
+  }, [hasAccess, roles, isLoading, navigate]);
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -251,6 +275,7 @@ const GovernmentDashboard = () => {
     );
   }
 
+  // If no access, return null (redirect happens in useEffect)
   if (!hasAccess) {
     return null;
   }
