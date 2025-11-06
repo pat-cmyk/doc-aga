@@ -4,6 +4,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRegionalStats } from "@/hooks/useRegionalStats";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
 
 const RegionalLivestockMap = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -12,11 +13,34 @@ const RegionalLivestockMap = () => {
   const { data: regionalStats, isLoading } = useRegionalStats();
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  const [mapToken, setMapToken] = useState<string | null>(null);
+
+  // Resolve Mapbox token from env or backend function
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    const envToken = (import.meta as any).env?.VITE_MAPBOX_PUBLIC_TOKEN as string | undefined;
+    if (envToken) {
+      setMapToken(envToken);
+      return;
+    }
+    let cancelled = false;
+    supabase.functions
+      .invoke("mapbox-token")
+      .then(({ data, error }) => {
+        if (!cancelled) setMapToken(error ? null : (data?.token ?? null));
+      })
+      .catch(() => {
+        if (!cancelled) setMapToken(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapContainer.current || map.current || !mapToken) return;
 
     // Initialize map centered on Philippines
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN || "";
+    mapboxgl.accessToken = mapToken;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -44,7 +68,7 @@ const RegionalLivestockMap = () => {
       map.current?.remove();
       map.current = null;
     };
-  }, []);
+  }, [mapToken]);
 
   // Add markers when data is loaded
   useEffect(() => {

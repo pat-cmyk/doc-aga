@@ -40,3 +40,6 @@ verify_jwt = true
 
 [functions.submit-correction]
 verify_jwt = true
+
+[functions.mapbox-token]
+verify_jwt = false
