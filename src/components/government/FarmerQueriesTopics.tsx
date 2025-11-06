@@ -176,22 +176,22 @@ export const FarmerQueriesTopics = ({
             No queries found for the selected period
           </p>
         ) : comparisonMode && comparisonTopTopics.length > 0 ? (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <Badge className="mb-3">Primary</Badge>
               <div className="space-y-4">
                 {topTopics.slice(0, 5).map((item, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-4 p-4 rounded-lg border bg-card"
+                    className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card"
                   >
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 flex-shrink-0">
-                      <MessageSquare className="h-5 w-5 text-primary" />
+                    <div className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex-shrink-0">
+                      <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold">{item.topic}</h4>
-                        <span className="text-sm font-medium text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 mb-2">
+                        <h4 className="font-semibold text-sm sm:text-base truncate">{item.topic}</h4>
+                        <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">
                           {item.count} queries
                         </span>
                       </div>
@@ -207,15 +207,15 @@ export const FarmerQueriesTopics = ({
                 {comparisonTopTopics.slice(0, 5).map((item, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-4 p-4 rounded-lg border bg-card"
+                    className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card"
                   >
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 flex-shrink-0">
-                      <MessageSquare className="h-5 w-5 text-primary" />
+                    <div className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex-shrink-0">
+                      <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold">{item.topic}</h4>
-                        <span className="text-sm font-medium text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 mb-2">
+                        <h4 className="font-semibold text-sm sm:text-base truncate">{item.topic}</h4>
+                        <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">
                           {item.count} queries
                         </span>
                       </div>

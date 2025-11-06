@@ -308,22 +308,23 @@ const AdminDashboard = () => {
 
       <TabsContent value="government">
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Government Dashboard</h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm sm:text-base">
                 Livestock industry insights for policy and program planning
               </p>
             </div>
             
             <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 min-h-[44px]">
                 <Switch
                   id="comparison-mode"
                   checked={comparisonMode}
                   onCheckedChange={setComparisonMode}
+                  className="data-[state=checked]:bg-primary"
                 />
-                <Label htmlFor="comparison-mode" className="cursor-pointer">
+                <Label htmlFor="comparison-mode" className="cursor-pointer text-sm sm:text-base">
                   Compare Mode
                 </Label>
               </div>
@@ -331,13 +332,13 @@ const AdminDashboard = () => {
           </div>
 
           {/* Primary Filters */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <Badge variant="default" className="px-3 py-1">Primary</Badge>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+            <Badge variant="default" className="px-3 py-1.5 w-fit">Primary</Badge>
               <Select 
                 value={selectedRegion || "all"} 
                 onValueChange={(value) => setSelectedRegion(value === "all" ? undefined : value)}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px] min-h-[44px]">
                   <SelectValue placeholder="All Regions" />
                 </SelectTrigger>
                 <SelectContent>
@@ -355,32 +356,39 @@ const AdminDashboard = () => {
                 <Button
                   variant="outline"
                   className={cn(
-                    "justify-start text-left font-normal",
+                    "w-full sm:w-auto justify-start text-left font-normal min-h-[44px]",
                     !dateRange && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                      </>
+                  <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          <span className="hidden sm:inline">
+                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          </span>
+                          <span className="sm:hidden">
+                            {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}
+                          </span>
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
                     ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
+                      <span>Pick a date range</span>
+                    )}
+                  </span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverContent className="w-auto p-0 max-w-[95vw]" align="end">
                 <div className="p-3 border-b space-y-2">
                   <div className="text-sm font-medium mb-2">Quick Select</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Button
                       variant={activePreset === 'last7Days' ? 'default' : 'outline'}
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => {
                         setDateRange(datePresets.last7Days());
                         setActivePreset('last7Days');
@@ -391,6 +399,7 @@ const AdminDashboard = () => {
                     <Button
                       variant={activePreset === 'last30Days' ? 'default' : 'outline'}
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => {
                         setDateRange(datePresets.last30Days());
                         setActivePreset('last30Days');
@@ -401,6 +410,7 @@ const AdminDashboard = () => {
                     <Button
                       variant={activePreset === 'last90Days' ? 'default' : 'outline'}
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => {
                         setDateRange(datePresets.last90Days());
                         setActivePreset('last90Days');
@@ -411,6 +421,7 @@ const AdminDashboard = () => {
                     <Button
                       variant={activePreset === 'thisYear' ? 'default' : 'outline'}
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => {
                         setDateRange(datePresets.thisYear());
                         setActivePreset('thisYear');
@@ -430,7 +441,7 @@ const AdminDashboard = () => {
                     setDateRange(range);
                     setActivePreset(null);
                   }}
-                  numberOfMonths={2}
+                  numberOfMonths={typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 2}
                   disabled={(date) => date > new Date()}
                   className={cn("p-3 pointer-events-auto")}
                 />
@@ -440,14 +451,14 @@ const AdminDashboard = () => {
 
           {/* Comparison Filters */}
           {comparisonMode && (
-            <div className="flex items-center gap-3 flex-wrap border-t pt-4">
-              <Badge variant="secondary" className="px-3 py-1">Comparison</Badge>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap border-t pt-4">
+              <Badge variant="secondary" className="px-3 py-1.5 w-fit">Comparison</Badge>
               
               <Select 
                 value={comparisonRegion || "all"} 
                 onValueChange={(value) => setComparisonRegion(value === "all" ? undefined : value)}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px] min-h-[44px]">
                   <SelectValue placeholder="All Regions" />
                 </SelectTrigger>
                 <SelectContent>
@@ -465,32 +476,39 @@ const AdminDashboard = () => {
                   <Button
                     variant="outline"
                     className={cn(
-                      "justify-start text-left font-normal",
+                      "w-full sm:w-auto justify-start text-left font-normal min-h-[44px]",
                       !comparisonDateRange && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {comparisonDateRange?.from ? (
-                      comparisonDateRange.to ? (
-                        <>
-                          {format(comparisonDateRange.from, "LLL dd, y")} -{" "}
-                          {format(comparisonDateRange.to, "LLL dd, y")}
-                        </>
+                    <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">
+                      {comparisonDateRange?.from ? (
+                        comparisonDateRange.to ? (
+                          <>
+                            <span className="hidden sm:inline">
+                              {format(comparisonDateRange.from, "LLL dd, y")} - {format(comparisonDateRange.to, "LLL dd, y")}
+                            </span>
+                            <span className="sm:hidden">
+                              {format(comparisonDateRange.from, "MMM dd")} - {format(comparisonDateRange.to, "MMM dd")}
+                            </span>
+                          </>
+                        ) : (
+                          format(comparisonDateRange.from, "LLL dd, y")
+                        )
                       ) : (
-                        format(comparisonDateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Pick a date range</span>
-                    )}
+                        <span>Pick a date range</span>
+                      )}
+                    </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
+                <PopoverContent className="w-auto p-0 max-w-[95vw]" align="end">
                   <div className="p-3 border-b space-y-2">
                     <div className="text-sm font-medium mb-2">Quick Select</div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Button
                         variant={comparisonPreset === 'last7Days' ? 'default' : 'outline'}
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => {
                           setComparisonDateRange(datePresets.last7Days());
                           setComparisonPreset('last7Days');
@@ -501,6 +519,7 @@ const AdminDashboard = () => {
                       <Button
                         variant={comparisonPreset === 'last30Days' ? 'default' : 'outline'}
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => {
                           setComparisonDateRange(datePresets.last30Days());
                           setComparisonPreset('last30Days');
@@ -511,6 +530,7 @@ const AdminDashboard = () => {
                       <Button
                         variant={comparisonPreset === 'last90Days' ? 'default' : 'outline'}
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => {
                           setComparisonDateRange(datePresets.last90Days());
                           setComparisonPreset('last90Days');
@@ -521,6 +541,7 @@ const AdminDashboard = () => {
                       <Button
                         variant={comparisonPreset === 'thisYear' ? 'default' : 'outline'}
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => {
                           setComparisonDateRange(datePresets.thisYear());
                           setComparisonPreset('thisYear');
@@ -540,7 +561,7 @@ const AdminDashboard = () => {
                       setComparisonDateRange(range);
                       setComparisonPreset(null);
                     }}
-                    numberOfMonths={2}
+                    numberOfMonths={typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 2}
                     disabled={(date) => date > new Date()}
                     className={cn("p-3 pointer-events-auto")}
                   />

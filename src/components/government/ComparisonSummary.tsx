@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
@@ -40,9 +40,9 @@ const calculateChange = (primary: number, comparison: number): MetricChange => {
 const ChangeIndicator = ({ change }: { change: MetricChange }) => {
   if (change.absolute === 0) {
     return (
-      <span className="flex items-center gap-1 text-muted-foreground">
-        <Minus className="h-4 w-4" />
-        0%
+      <span className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm">
+        <Minus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+        <span className="whitespace-nowrap">0%</span>
       </span>
     );
   }
@@ -52,9 +52,14 @@ const ChangeIndicator = ({ change }: { change: MetricChange }) => {
   const colorClass = isPositive ? "text-green-600" : "text-red-600";
   
   return (
-    <span className={`flex items-center gap-1 ${colorClass}`}>
-      {isPositive ? '+' : ''}{formatNumber(change.absolute)} ({isPositive ? '+' : ''}{change.percentage.toFixed(1)}%)
-      <Icon className="h-4 w-4" />
+    <span className={`flex items-center gap-1 ${colorClass} text-xs sm:text-sm`}>
+      <span className="whitespace-nowrap">
+        {isPositive ? '+' : ''}{formatNumber(change.absolute)}
+      </span>
+      <span className="hidden sm:inline whitespace-nowrap">
+        ({isPositive ? '+' : ''}{change.percentage.toFixed(1)}%)
+      </span>
+      <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
     </span>
   );
 };
@@ -162,53 +167,61 @@ export const ComparisonSummary = ({
           </div>
         </div>
 
-        {/* Metrics Comparison Table */}
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-semibold">Metric</TableHead>
-                <TableHead className="font-semibold text-right">Primary</TableHead>
-                <TableHead className="font-semibold text-right">Comparison</TableHead>
-                <TableHead className="font-semibold text-right">Change</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">Active Farms</TableCell>
-                <TableCell className="text-right">{formatNumber(primaryStats.farm_count)}</TableCell>
-                <TableCell className="text-right">{formatNumber(comparisonStats.farm_count)}</TableCell>
-                <TableCell className="text-right">
-                  <ChangeIndicator change={farmsChange} />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Active Animals</TableCell>
-                <TableCell className="text-right">{formatNumber(primaryStats.active_animal_count)}</TableCell>
-                <TableCell className="text-right">{formatNumber(comparisonStats.active_animal_count)}</TableCell>
-                <TableCell className="text-right">
-                  <ChangeIndicator change={animalsChange} />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Daily Logs</TableCell>
-                <TableCell className="text-right">{formatNumber(primaryStats.daily_log_count)}</TableCell>
-                <TableCell className="text-right">{formatNumber(comparisonStats.daily_log_count)}</TableCell>
-                <TableCell className="text-right">
-                  <ChangeIndicator change={logsChange} />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Health Events</TableCell>
-                <TableCell className="text-right">{formatNumber(primaryStats.health_event_count)}</TableCell>
-                <TableCell className="text-right">{formatNumber(comparisonStats.health_event_count)}</TableCell>
-                <TableCell className="text-right">
-                  <ChangeIndicator change={healthChange} />
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+          {/* Metrics Comparison Table */}
+          <div className="relative">
+            {/* Scroll indicator for mobile */}
+            <div className="block sm:hidden text-xs text-muted-foreground text-center mb-2 flex items-center justify-center gap-1">
+              <ArrowLeftRight className="h-3 w-3" />
+              Swipe to see all columns
+            </div>
+            
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold min-w-[100px] sticky left-0 bg-background z-10">Metric</TableHead>
+                    <TableHead className="font-semibold text-right min-w-[100px]">Primary</TableHead>
+                    <TableHead className="font-semibold text-right min-w-[120px]">Comparison</TableHead>
+                    <TableHead className="font-semibold text-right min-w-[140px]">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">Active Farms</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(primaryStats.farm_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(comparisonStats.farm_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <ChangeIndicator change={farmsChange} />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">Active Animals</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(primaryStats.active_animal_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(comparisonStats.active_animal_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <ChangeIndicator change={animalsChange} />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">Daily Logs</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(primaryStats.daily_log_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(comparisonStats.daily_log_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <ChangeIndicator change={logsChange} />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">Health Events</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(primaryStats.health_event_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{formatNumber(comparisonStats.health_event_count)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <ChangeIndicator change={healthChange} />
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
       </CardContent>
     </Card>
   );

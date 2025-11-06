@@ -4,6 +4,7 @@ import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, parseISO } from "date-fns";
 import { TrendingUp, Activity, FileText, Droplets } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface GovTrendChartsProps {
   data?: TimeseriesDataPoint[];
@@ -14,6 +15,8 @@ interface GovTrendChartsProps {
 }
 
 export const GovTrendCharts = ({ data, comparisonData, isLoading, error, comparisonMode }: GovTrendChartsProps) => {
+  const isMobile = useIsMobile();
+  
   if (isLoading) {
     return (
       <div className="grid gap-6 md:grid-cols-2">
@@ -110,20 +113,26 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <CardDescription>Number of active farms over time</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
             <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconSize={10}
+              />
               <Line 
                 type="monotone" 
                 dataKey="farms" 
@@ -158,20 +167,26 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <CardDescription>Number of active animals over time</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
             <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconSize={10}
+              />
               <Line 
                 type="monotone" 
                 dataKey="animals" 
@@ -206,20 +221,26 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <CardDescription>Daily health events and Doc Aga queries</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
             <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconSize={10}
+              />
               <Line 
                 type="monotone" 
                 dataKey="healthEvents" 
@@ -273,20 +294,26 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <CardDescription>Daily average milk production in liters</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
             <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconSize={10}
+              />
               <Line 
                 type="monotone" 
                 dataKey="avgMilk" 
