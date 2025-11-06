@@ -38,6 +38,9 @@ export const UserManagement = () => {
 
   const { data: users, isLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["admin-users"],
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<UserWithDetails[]> => {
       // Get profiles without role column
       const { data: profilesData, error: profileError } = await supabase
@@ -101,8 +104,9 @@ export const UserManagement = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"] });
       toast({
         title: "Role Added",
         description: "User role has been successfully added.",
@@ -127,8 +131,9 @@ export const UserManagement = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"] });
       toast({
         title: "Role Removed",
         description: "User role has been successfully removed.",
@@ -225,6 +230,7 @@ export const UserManagement = () => {
                 </TableCell>
                 <TableCell>
                   <Select
+                    disabled={addRoleMutation.isPending || removeRoleMutation.isPending}
                     onValueChange={(newRole) => {
                       if (!user.roles.includes(newRole as UserRole)) {
                         addRoleMutation.mutate({
