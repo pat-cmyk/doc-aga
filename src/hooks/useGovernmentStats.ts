@@ -30,10 +30,12 @@ export const useGovernmentStats = (
   startDate: Date,
   endDate: Date,
   region?: string,
+  province?: string,
+  municipality?: string,
   options?: { enabled?: boolean }
 ) => {
   return useQuery<GovStatsWithGrowth>({
-    queryKey: ["government-stats", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all"],
+    queryKey: ["government-stats", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all", province || "all", municipality || "all"],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -47,6 +49,8 @@ export const useGovernmentStats = (
           start_date: format(startDate, "yyyy-MM-dd"),
           end_date: format(endDate, "yyyy-MM-dd"),
           region_filter: region || null,
+          province_filter: province || null,
+          municipality_filter: municipality || null,
         }
       );
 
@@ -65,6 +69,8 @@ export const useGovernmentStats = (
           start_date: format(prevStartDate, "yyyy-MM-dd"),
           end_date: format(prevEndDate, "yyyy-MM-dd"),
           region_filter: region || null,
+          province_filter: province || null,
+          municipality_filter: municipality || null,
         }
       );
 
@@ -103,9 +109,9 @@ export interface HeatmapData {
   symptom_types: string[];
 }
 
-export const useHealthHeatmap = (daysBack: number = 7, region?: string, options?: { enabled?: boolean }) => {
+export const useHealthHeatmap = (daysBack: number = 7, region?: string, province?: string, municipality?: string, options?: { enabled?: boolean }) => {
   return useQuery<HeatmapData[]>({
-    queryKey: ["health-heatmap", daysBack, region || "all"],
+    queryKey: ["health-heatmap", daysBack, region || "all", province || "all", municipality || "all"],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -115,6 +121,8 @@ export const useHealthHeatmap = (daysBack: number = 7, region?: string, options?
       const { data, error } = await supabase.rpc("get_health_heatmap_data", {
         days_back: daysBack,
         region_filter: region || null,
+        province_filter: province || null,
+        municipality_filter: municipality || null,
       });
 
       if (error) throw error;
@@ -149,10 +157,12 @@ export const useGovernmentStatsTimeseries = (
   startDate: Date,
   endDate: Date,
   region?: string,
+  province?: string,
+  municipality?: string,
   options?: { enabled?: boolean }
 ) => {
   return useQuery<TimeseriesDataPoint[]>({
-    queryKey: ["government-stats-timeseries", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all"],
+    queryKey: ["government-stats-timeseries", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"), region || "all", province || "all", municipality || "all"],
     enabled: options?.enabled ?? true,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -165,6 +175,8 @@ export const useGovernmentStatsTimeseries = (
           start_date: format(startDate, "yyyy-MM-dd"),
           end_date: format(endDate, "yyyy-MM-dd"),
           region_filter: region || null,
+          province_filter: province || null,
+          municipality_filter: municipality || null,
         }
       );
 
