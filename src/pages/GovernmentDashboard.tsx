@@ -365,12 +365,6 @@ const GovernmentDashboard = () => {
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Government Dashboard</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                Livestock industry insights for policy and program planning
-              </p>
-            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
