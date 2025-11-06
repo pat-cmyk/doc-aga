@@ -181,23 +181,26 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
             return (
               <div
                 key={index}
-                className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
               >
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                {item.prevalence_rate >= 15 && (
+                  <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
                     <div>
-                      <p className="font-medium">{item.municipality}</p>
+                      <p className="font-medium truncate">{item.municipality}</p>
                       <p className="text-sm text-muted-foreground">{item.region}</p>
                     </div>
-                    <Badge variant={severity.variant}>
+                    <Badge variant={severity.variant} className="w-fit">
                       {severity.label}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-2">
                     <span>{item.health_event_count} events</span>
-                    <span>•</span>
+                    <span className="hidden sm:inline">•</span>
                     <span>{item.total_animals} animals</span>
-                    <span>•</span>
+                    <span className="hidden sm:inline">•</span>
                     <span className="font-medium">{item.prevalence_rate}% prevalence</span>
                   </div>
                   {item.symptom_types && item.symptom_types.length > 0 && (
@@ -210,7 +213,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {item.prevalence_rate >= 10 && (
                     <AlertCircle className="h-5 w-5 text-orange-500" />
                   )}
