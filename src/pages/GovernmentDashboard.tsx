@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 import { useRegions } from "@/hooks/useRegions";
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -313,6 +313,65 @@ const GovernmentDashboard = () => {
             </div>
           </div>
 
+          {/* Welcome Banner */}
+          <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <div className="flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Welcome to the Government Portal</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Access comprehensive livestock industry insights and analytics for evidence-based policy decisions.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => document.getElementById('overview-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Overview Stats
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => document.getElementById('trends-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                      Trend Charts
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => document.getElementById('health-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      <HeartPulse className="h-4 w-4" />
+                      Health Data
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => document.getElementById('queries-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Farmer Queries
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Comparison Mode Toggle */}
           <Card>
             <CardContent className="pt-6">
@@ -443,13 +502,15 @@ const GovernmentDashboard = () => {
         </div>
 
         {/* Dashboard Content */}
-        <GovDashboardOverview 
+        <div id="overview-section">
+          <GovDashboardOverview
           stats={stats as any} 
           comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
           isLoading={statsLoading} 
           error={statsError}
           comparisonMode={comparisonMode}
-        />
+          />
+        </div>
 
         {comparisonMode && (
           <ComparisonSummary
@@ -464,16 +525,18 @@ const GovernmentDashboard = () => {
           />
         )}
 
-        <GovTrendCharts
-          data={timeseriesData || []}
-          comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
-          isLoading={timeseriesLoading}
-          error={undefined}
-          comparisonMode={comparisonMode}
-        />
+        <div id="trends-section">
+          <GovTrendCharts
+            data={timeseriesData || []}
+            comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
+            isLoading={timeseriesLoading}
+            error={undefined}
+            comparisonMode={comparisonMode}
+          />
+        </div>
 
         <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-          <div className="min-w-0">
+          <div id="health-section" className="min-w-0">
             <AnimalHealthHeatmap 
               data={heatmapData as any}
               comparisonData={comparisonMode ? (comparisonHeatmapData as any) : undefined}
@@ -482,7 +545,7 @@ const GovernmentDashboard = () => {
               comparisonMode={comparisonMode}
             />
           </div>
-          <div className="min-w-0">
+          <div id="queries-section" className="min-w-0">
             <FarmerQueriesTopics 
               startDate={primaryDateRange.start} 
               endDate={primaryDateRange.end}
