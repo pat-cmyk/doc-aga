@@ -7,6 +7,7 @@ import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { ComparisonSummary } from "@/components/government/ComparisonSummary";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
+import RegionalLivestockMap from "@/components/government/RegionalLivestockMap";
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -638,6 +639,8 @@ const GovernmentDashboard = () => {
           comparisonMode={comparisonMode}
           />
         </div>
+
+        <RegionalLivestockMap />
 
         {comparisonMode && (
           <ComparisonSummary
