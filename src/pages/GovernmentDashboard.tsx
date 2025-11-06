@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { GovernmentLayout } from "@/components/government/GovernmentLayout";
 import { useRole } from "@/hooks/useRole";
@@ -7,7 +7,10 @@ import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { ComparisonSummary } from "@/components/government/ComparisonSummary";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
-import RegionalLivestockMap from "@/components/government/RegionalLivestockMap";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Dynamically import the map component to reduce bundle size
+const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -640,7 +643,18 @@ const GovernmentDashboard = () => {
           />
         </div>
 
-        <RegionalLivestockMap />
+        <Suspense fallback={
+          <Card>
+            <CardHeader>
+              <CardTitle>Regional Livestock Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="w-full h-[500px] rounded-lg" />
+            </CardContent>
+          </Card>
+        }>
+          <RegionalLivestockMap />
+        </Suspense>
 
         {comparisonMode && (
           <ComparisonSummary
