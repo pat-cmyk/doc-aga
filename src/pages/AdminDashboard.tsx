@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { SystemOverview } from "@/components/admin/SystemOverview";
 import { UserManagement } from "@/components/admin/UserManagement";
@@ -18,7 +19,7 @@ import { useRegions } from "@/hooks/useRegions";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
-import { subDays, format, startOfYear } from "date-fns";
+import { subDays, format, startOfYear, isValid, parse } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -51,20 +52,16 @@ const datePresets = {
 
 const AdminDashboard = () => {
   const { isAdmin, isLoading } = useAdminAccess();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isInitialLoad = useRef(true);
   
   // Date range state for government tab (default to last 30 days)
+  const [activeTab, setActiveTab] = useState("overview");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     datePresets.last30Days()
   );
-  
-  // Active preset state
   const [activePreset, setActivePreset] = useState<string | null>("last30Days");
-
-  // Region filter state
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
-
-  // Comparison mode state
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonDateRange, setComparisonDateRange] = useState<DateRange | undefined>(
     datePresets.last90Days()
@@ -74,6 +71,149 @@ const AdminDashboard = () => {
   
   // Fetch available regions
   const { data: regions } = useRegions();
+
+  // Helper function to detect preset from date range
+  const detectPreset = (range: DateRange | undefined): string | null => {
+    if (!range?.from || !range?.to) return null;
+    
+    const presetKeys = ['last7Days', 'last30Days', 'last90Days', 'thisYear'] as const;
+    
+    for (const key of presetKeys) {
+      const preset = datePresets[key]();
+      if (
+        format(preset.from, 'yyyy-MM-dd') === format(range.from, 'yyyy-MM-dd') &&
+        format(preset.to, 'yyyy-MM-dd') === format(range.to, 'yyyy-MM-dd')
+      ) {
+        return key;
+      }
+    }
+    
+    return null;
+  };
+
+  // Initialize state from URL parameters on mount
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) setActiveTab(tabParam);
+    
+    const compareParam = searchParams.get('compare');
+    if (compareParam === 'true') setComparisonMode(true);
+    
+    // Parse primary date range
+    const pStart = searchParams.get('p_start');
+    const pEnd = searchParams.get('p_end');
+    if (pStart && pEnd) {
+      const startDate = parse(pStart, 'yyyy-MM-dd', new Date());
+      const endDate = parse(pEnd, 'yyyy-MM-dd', new Date());
+      if (isValid(startDate) && isValid(endDate)) {
+        const range = { from: startDate, to: endDate };
+        setDateRange(range);
+        const preset = detectPreset(range);
+        setActivePreset(preset);
+      }
+    }
+    
+    // Parse primary preset (fallback if no dates)
+    const pPreset = searchParams.get('p_preset');
+    if (pPreset && !pStart && !pEnd) {
+      if (pPreset in datePresets) {
+        setDateRange(datePresets[pPreset as keyof typeof datePresets]());
+        setActivePreset(pPreset);
+      }
+    }
+    
+    // Parse primary region
+    const pRegion = searchParams.get('p_region');
+    if (pRegion) setSelectedRegion(pRegion);
+    
+    // Parse comparison date range
+    const cStart = searchParams.get('c_start');
+    const cEnd = searchParams.get('c_end');
+    if (cStart && cEnd) {
+      const startDate = parse(cStart, 'yyyy-MM-dd', new Date());
+      const endDate = parse(cEnd, 'yyyy-MM-dd', new Date());
+      if (isValid(startDate) && isValid(endDate)) {
+        const range = { from: startDate, to: endDate };
+        setComparisonDateRange(range);
+        const preset = detectPreset(range);
+        setComparisonPreset(preset);
+      }
+    }
+    
+    // Parse comparison preset
+    const cPreset = searchParams.get('c_preset');
+    if (cPreset && !cStart && !cEnd) {
+      if (cPreset in datePresets) {
+        setComparisonDateRange(datePresets[cPreset as keyof typeof datePresets]());
+        setComparisonPreset(cPreset);
+      }
+    }
+    
+    // Parse comparison region
+    const cRegion = searchParams.get('c_region');
+    if (cRegion) setComparisonRegion(cRegion);
+    
+    isInitialLoad.current = false;
+  }, []);
+
+  // Update URL when state changes (after initial load)
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+
+    const params = new URLSearchParams();
+    
+    // Update tab
+    params.set('tab', activeTab);
+    
+    // Update comparison mode
+    if (comparisonMode) {
+      params.set('compare', 'true');
+    }
+    
+    // Update primary date range
+    if (dateRange?.from && dateRange?.to) {
+      params.set('p_start', format(dateRange.from, 'yyyy-MM-dd'));
+      params.set('p_end', format(dateRange.to, 'yyyy-MM-dd'));
+    }
+    
+    // Update primary preset
+    if (activePreset) {
+      params.set('p_preset', activePreset);
+    }
+    
+    // Update primary region
+    if (selectedRegion) {
+      params.set('p_region', selectedRegion);
+    }
+    
+    // Update comparison date range (only if comparison mode is on)
+    if (comparisonMode && comparisonDateRange?.from && comparisonDateRange?.to) {
+      params.set('c_start', format(comparisonDateRange.from, 'yyyy-MM-dd'));
+      params.set('c_end', format(comparisonDateRange.to, 'yyyy-MM-dd'));
+    }
+    
+    // Update comparison preset
+    if (comparisonMode && comparisonPreset) {
+      params.set('c_preset', comparisonPreset);
+    }
+    
+    // Update comparison region
+    if (comparisonMode && comparisonRegion) {
+      params.set('c_region', comparisonRegion);
+    }
+    
+    setSearchParams(params, { replace: true });
+  }, [
+    activeTab, 
+    comparisonMode, 
+    dateRange, 
+    activePreset, 
+    selectedRegion, 
+    comparisonDateRange, 
+    comparisonPreset, 
+    comparisonRegion,
+    setSearchParams
+  ]);
 
   // Stabilize date range to prevent constant re-renders
   const startDate = useMemo(() => dateRange?.from || subDays(new Date(), 30), [dateRange?.from]);
