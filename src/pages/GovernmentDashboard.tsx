@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
+import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +37,7 @@ const GovernmentDashboard = () => {
   const { hasAccess, isLoading: accessLoading } = useGovernmentAccess();
   const { roles, isLoading: rolesLoading } = useRole();
   const { data: regions = [] } = useRegions();
+  const { getProvinces, getMunicipalities } = useLocationFilters();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   
@@ -45,10 +47,10 @@ const GovernmentDashboard = () => {
   const [comparisonMode, setComparisonMode] = useState(() => searchParams.get("compare") === "true");
   
   const [primaryPreset, setPrimaryPreset] = useState<DatePreset>(() => 
-    (searchParams.get("p_preset") as DatePreset) || "last30Days"
+    (searchParams.get("p_preset") as DatePreset) || "last90Days"
   );
   const [comparisonPreset, setComparisonPreset] = useState<DatePreset>(() => 
-    (searchParams.get("c_preset") as DatePreset) || "last30Days"
+    (searchParams.get("c_preset") as DatePreset) || "last90Days"
   );
 
   const getDateRangeFromPreset = (preset: DatePreset) => {
@@ -103,8 +105,21 @@ const GovernmentDashboard = () => {
   const [primaryRegion, setPrimaryRegion] = useState<string | undefined>(() => 
     searchParams.get("p_region") || undefined
   );
+  const [primaryProvince, setPrimaryProvince] = useState<string | undefined>(() => 
+    searchParams.get("p_province") || undefined
+  );
+  const [primaryMunicipality, setPrimaryMunicipality] = useState<string | undefined>(() => 
+    searchParams.get("p_municipality") || undefined
+  );
+  
   const [comparisonRegion, setComparisonRegion] = useState<string | undefined>(() => 
     searchParams.get("c_region") || undefined
+  );
+  const [comparisonProvince, setComparisonProvince] = useState<string | undefined>(() => 
+    searchParams.get("c_province") || undefined
+  );
+  const [comparisonMunicipality, setComparisonMunicipality] = useState<string | undefined>(() => 
+    searchParams.get("c_municipality") || undefined
   );
 
   // Update URL when state changes
@@ -116,22 +131,28 @@ const GovernmentDashboard = () => {
     params.set("p_start", format(primaryDateRange.start, "yyyy-MM-dd"));
     params.set("p_end", format(primaryDateRange.end, "yyyy-MM-dd"));
     if (primaryRegion) params.set("p_region", primaryRegion);
+    if (primaryProvince) params.set("p_province", primaryProvince);
+    if (primaryMunicipality) params.set("p_municipality", primaryMunicipality);
     
     if (comparisonMode) {
       params.set("c_preset", comparisonPreset);
       params.set("c_start", format(comparisonDateRange.start, "yyyy-MM-dd"));
       params.set("c_end", format(comparisonDateRange.end, "yyyy-MM-dd"));
       if (comparisonRegion) params.set("c_region", comparisonRegion);
+      if (comparisonProvince) params.set("c_province", comparisonProvince);
+      if (comparisonMunicipality) params.set("c_municipality", comparisonMunicipality);
     }
     
     setSearchParams(params, { replace: true });
-  }, [comparisonMode, primaryPreset, primaryDateRange, primaryRegion, comparisonPreset, comparisonDateRange, comparisonRegion]);
+  }, [comparisonMode, primaryPreset, primaryDateRange, primaryRegion, primaryProvince, primaryMunicipality, comparisonPreset, comparisonDateRange, comparisonRegion, comparisonProvince, comparisonMunicipality]);
 
   // Data fetching
   const { data: stats, isLoading: statsLoading, error: statsError } = useGovernmentStats(
     primaryDateRange.start,
     primaryDateRange.end,
     primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
     { enabled: hasAccess }
   );
 
@@ -139,6 +160,8 @@ const GovernmentDashboard = () => {
     comparisonDateRange.start,
     comparisonDateRange.end,
     comparisonRegion,
+    comparisonProvince,
+    comparisonMunicipality,
     { enabled: hasAccess && comparisonMode }
   );
 
@@ -149,12 +172,16 @@ const GovernmentDashboard = () => {
   const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useHealthHeatmap(
     daysDiff,
     primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
     { enabled: hasAccess }
   );
 
   const { data: comparisonHeatmapData, isLoading: comparisonHeatmapLoading } = useHealthHeatmap(
     daysDiff,
     comparisonRegion,
+    comparisonProvince,
+    comparisonMunicipality,
     { enabled: hasAccess && comparisonMode }
   );
 
@@ -174,6 +201,8 @@ const GovernmentDashboard = () => {
     primaryDateRange.start,
     primaryDateRange.end,
     primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
     { enabled: hasAccess }
   );
 
@@ -181,6 +210,8 @@ const GovernmentDashboard = () => {
     comparisonDateRange.start,
     comparisonDateRange.end,
     comparisonRegion,
+    comparisonProvince,
+    comparisonMunicipality,
     { enabled: hasAccess && comparisonMode }
   );
 
@@ -255,6 +286,48 @@ const GovernmentDashboard = () => {
       setComparisonDateRange(getDateRangeFromPreset(value));
     }
   };
+
+  // Cascading filter handlers for Primary
+  const handlePrimaryRegionChange = (value: string) => {
+    const newRegion = value === "all" ? undefined : value;
+    setPrimaryRegion(newRegion);
+    setPrimaryProvince(undefined);
+    setPrimaryMunicipality(undefined);
+  };
+
+  const handlePrimaryProvinceChange = (value: string) => {
+    const newProvince = value === "all" ? undefined : value;
+    setPrimaryProvince(newProvince);
+    setPrimaryMunicipality(undefined);
+  };
+
+  const handlePrimaryMunicipalityChange = (value: string) => {
+    setPrimaryMunicipality(value === "all" ? undefined : value);
+  };
+
+  // Cascading filter handlers for Comparison
+  const handleComparisonRegionChange = (value: string) => {
+    const newRegion = value === "all" ? undefined : value;
+    setComparisonRegion(newRegion);
+    setComparisonProvince(undefined);
+    setComparisonMunicipality(undefined);
+  };
+
+  const handleComparisonProvinceChange = (value: string) => {
+    const newProvince = value === "all" ? undefined : value;
+    setComparisonProvince(newProvince);
+    setComparisonMunicipality(undefined);
+  };
+
+  const handleComparisonMunicipalityChange = (value: string) => {
+    setComparisonMunicipality(value === "all" ? undefined : value);
+  };
+
+  // Get available provinces and municipalities
+  const primaryProvinces = getProvinces(primaryRegion);
+  const primaryMunicipalities = getMunicipalities(primaryRegion, primaryProvince);
+  const comparisonProvinces = getProvinces(comparisonRegion);
+  const comparisonMunicipalities = getMunicipalities(comparisonRegion, comparisonProvince);
 
   // Smart routing based on all user roles
   useEffect(() => {
@@ -501,7 +574,7 @@ const GovernmentDashboard = () => {
                   <Label className="text-xs sm:text-sm">Region</Label>
                   <Select 
                     value={primaryRegion || "all"} 
-                    onValueChange={(v) => setPrimaryRegion(v === "all" ? undefined : v)}
+                    onValueChange={handlePrimaryRegionChange}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="All Regions" />
@@ -516,6 +589,50 @@ const GovernmentDashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {primaryRegion && primaryProvinces.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm">Province</Label>
+                    <Select 
+                      value={primaryProvince || "all"} 
+                      onValueChange={handlePrimaryProvinceChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Provinces" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Provinces</SelectItem>
+                        {primaryProvinces.map((province) => (
+                          <SelectItem key={province} value={province}>
+                            {province}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm">Municipality/City</Label>
+                    <Select 
+                      value={primaryMunicipality || "all"} 
+                      onValueChange={handlePrimaryMunicipalityChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Municipalities" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Municipalities</SelectItem>
+                        {primaryMunicipalities.map((municipality) => (
+                          <SelectItem key={municipality} value={municipality}>
+                            {municipality}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -611,7 +728,7 @@ const GovernmentDashboard = () => {
                     <Label className="text-xs sm:text-sm">Region</Label>
                     <Select 
                       value={comparisonRegion || "all"} 
-                      onValueChange={(v) => setComparisonRegion(v === "all" ? undefined : v)}
+                      onValueChange={handleComparisonRegionChange}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="All Regions" />
@@ -626,6 +743,50 @@ const GovernmentDashboard = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {comparisonRegion && comparisonProvinces.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs sm:text-sm">Province</Label>
+                      <Select 
+                        value={comparisonProvince || "all"} 
+                        onValueChange={handleComparisonProvinceChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Provinces" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Provinces</SelectItem>
+                          {comparisonProvinces.map((province) => (
+                            <SelectItem key={province} value={province}>
+                              {province}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs sm:text-sm">Municipality/City</Label>
+                      <Select 
+                        value={comparisonMunicipality || "all"} 
+                        onValueChange={handleComparisonMunicipalityChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Municipalities" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Municipalities</SelectItem>
+                          {comparisonMunicipalities.map((municipality) => (
+                            <SelectItem key={municipality} value={municipality}>
+                              {municipality}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

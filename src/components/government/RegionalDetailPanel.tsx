@@ -49,6 +49,8 @@ const RegionalDetailPanel = ({
     dateRange.start,
     dateRange.end,
     region || undefined,
+    undefined, // province
+    undefined, // municipality
     { enabled: isOpen && !!region }
   );
 
@@ -57,12 +59,16 @@ const RegionalDetailPanel = ({
       dateRange.start,
       dateRange.end,
       region || undefined,
+      undefined, // province
+      undefined, // municipality
       { enabled: isOpen && !!region }
     );
 
   const { data: heatmapData, isLoading: heatmapLoading } = useHealthHeatmap(
     daysDiff,
     region || undefined,
+    undefined, // province
+    undefined, // municipality
     { enabled: isOpen && !!region }
   );
 

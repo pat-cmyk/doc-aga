@@ -1986,11 +1986,30 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       get_government_stats: {
-        Args: { end_date: string; region_filter?: string; start_date: string }
-        Returns: Json
+        Args: {
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          active_animal_count: number
+          avg_milk_liters: number
+          daily_log_count: number
+          doc_aga_query_count: number
+          farm_count: number
+          health_event_count: number
+        }[]
       }
       get_government_stats_timeseries: {
-        Args: { end_date: string; region_filter?: string; start_date: string }
+        Args: {
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
         Returns: {
           active_animal_count: number
           avg_milk_liters: number
@@ -2001,7 +2020,12 @@ export type Database = {
         }[]
       }
       get_health_heatmap_data: {
-        Args: { days_back?: number; region_filter?: string }
+        Args: {
+          days_back?: number
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+        }
         Returns: {
           health_event_count: number
           municipality: string
