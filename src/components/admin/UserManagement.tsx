@@ -14,7 +14,7 @@ interface UserWithDetails {
   id: string;
   full_name: string | null;
   phone: string | null;
-  role: UserRole;
+  roles: UserRole[];
   created_at: string;
   email: string;
   farm_count: number;
@@ -57,12 +57,11 @@ export const UserManagement = () => {
       // Get roles from user_roles table
       const usersWithDetails: UserWithDetails[] = await Promise.all(
         profilesData.map(async (profile) => {
-          // Fetch role from user_roles table
-          const { data: roleData } = await supabase
+          // Fetch ALL roles from user_roles table
+          const { data: rolesData } = await supabase
             .from("user_roles")
             .select("role")
-            .eq("user_id", profile.id)
-            .maybeSingle();
+            .eq("user_id", profile.id);
           
           // Count farms owned
           const { count: farmsOwned } = await supabase
@@ -80,7 +79,7 @@ export const UserManagement = () => {
             id: profile.id,
             full_name: profile.full_name,
             phone: profile.phone,
-            role: (roleData?.role as UserRole) || "farmer_owner",
+            roles: (rolesData || []).map(r => r.role as UserRole),
             created_at: profile.created_at,
             email: profile.email || "N/A",
             farm_count: (farmsOwned || 0) + (farmMemberships || 0)
@@ -92,13 +91,12 @@ export const UserManagement = () => {
     },
   });
 
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
-      // Use admin_assign_role RPC function for secure role management
+  const addRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: UserRole }) => {
       const { error } = await supabase
         .rpc("admin_assign_role", {
           _user_id: userId,
-          _role: newRole
+          _role: role
         });
 
       if (error) throw error;
@@ -106,14 +104,40 @@ export const UserManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({
-        title: "Role Updated",
-        description: "User role has been successfully updated.",
+        title: "Role Added",
+        description: "User role has been successfully added.",
       });
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update user role: " + error.message,
+        description: "Failed to add user role: " + error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: UserRole }) => {
+      const { error } = await supabase
+        .rpc("admin_remove_role", {
+          _user_id: userId,
+          _role: role
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({
+        title: "Role Removed",
+        description: "User role has been successfully removed.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to remove user role: " + error.message,
         variant: "destructive",
       });
     },
@@ -159,7 +183,7 @@ export const UserManagement = () => {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead>Farms</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead>Actions</TableHead>
@@ -172,9 +196,28 @@ export const UserManagement = () => {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.phone || "N/A"}</TableCell>
                 <TableCell>
-                  <Badge variant={getRoleBadgeVariant(user.role)}>
-                    {user.role}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {user.roles.map((role) => (
+                      <Badge 
+                        key={role} 
+                        variant={getRoleBadgeVariant(role)}
+                        className="cursor-pointer hover:opacity-80"
+                        onClick={() => {
+                          if (user.roles.length > 1) {
+                            removeRoleMutation.mutate({ userId: user.id, role });
+                          } else {
+                            toast({
+                              title: "Cannot Remove",
+                              description: "User must have at least one role.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        {role} ×
+                      </Badge>
+                    ))}
+                  </div>
                 </TableCell>
                 <TableCell>{user.farm_count}</TableCell>
                 <TableCell>
@@ -182,16 +225,22 @@ export const UserManagement = () => {
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={user.role}
-                    onValueChange={(newRole) =>
-                      updateRoleMutation.mutate({
-                        userId: user.id,
-                        newRole: newRole as UserRole,
-                      })
-                    }
+                    onValueChange={(newRole) => {
+                      if (!user.roles.includes(newRole as UserRole)) {
+                        addRoleMutation.mutate({
+                          userId: user.id,
+                          role: newRole as UserRole,
+                        });
+                      } else {
+                        toast({
+                          title: "Role Exists",
+                          description: "User already has this role.",
+                        });
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-[140px]">
-                      <SelectValue />
+                      <SelectValue placeholder="Add role..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="farmer_owner">Farmer Owner</SelectItem>
