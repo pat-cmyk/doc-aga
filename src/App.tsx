@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MerchantAuth from "./pages/MerchantAuth";
 import AdminAuth from "./pages/AdminAuth";
+import GovernmentAuth from "./pages/GovernmentAuth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -95,7 +96,7 @@ const SyncHandler = () => {
 // Component to conditionally render floating components (hide on auth pages)
 const ConditionalFloatingComponents = () => {
   const location = useLocation();
-  const authRoutes = ['/auth', '/auth/merchant', '/auth/admin'];
+  const authRoutes = ['/auth', '/auth/merchant', '/auth/admin', '/auth/government'];
   const isAuthPage = authRoutes.includes(location.pathname);
   
   if (isAuthPage) return null;
@@ -121,6 +122,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/merchant" element={<MerchantAuth />} />
             <Route path="/auth/admin" element={<AdminAuth />} />
+            <Route path="/auth/government" element={<GovernmentAuth />} />
             <Route path="/profile" element={<Profile />} />
             <Route 
               path="/admin" 
@@ -133,7 +135,7 @@ const App = () => (
             <Route 
               path="/government" 
               element={
-                <ProtectedRoute requiredRoles={["admin", "government"]}>
+                <ProtectedRoute requiredRoles={["government"]}>
                   <GovernmentDashboard />
                 </ProtectedRoute>
               } 

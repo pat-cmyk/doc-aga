@@ -23,7 +23,7 @@ export const useGovernmentAccess = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
-        .in("role", ["admin", "government"]);
+        .eq("role", "government");
 
       const hasGovernmentAccess = roles && roles.length > 0;
       setHasAccess(hasGovernmentAccess);

@@ -42,7 +42,7 @@ export const useRole = () => {
     isFarmer: roles.includes("farmer_owner") || roles.includes("farmhand"),
     isAdmin: roles.includes("admin"),
     isGovernment: roles.includes("government"),
-    hasGovernmentAccess: roles.includes("admin") || roles.includes("government"),
+    hasGovernmentAccess: roles.includes("government"),
     hasRole: (role: UserRole) => roles.includes(role),
   };
 };

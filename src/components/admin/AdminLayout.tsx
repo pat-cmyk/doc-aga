@@ -14,7 +14,7 @@ interface AdminLayoutProps {
 
 export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutProps) => {
   const { isLoading } = useAdminAccess();
-  const { hasGovernmentAccess, isAdmin } = useRole();
+  const { isAdmin } = useRole();
 
   if (isLoading) {
     return (
@@ -60,13 +60,6 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
                   Farms
                 </TabsTrigger>
               </>
-            )}
-            
-            {hasGovernmentAccess && (
-              <TabsTrigger value="government">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Gov
-              </TabsTrigger>
             )}
             
             {isAdmin && (
