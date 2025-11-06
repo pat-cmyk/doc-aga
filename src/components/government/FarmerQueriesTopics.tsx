@@ -130,7 +130,7 @@ export const FarmerQueriesTopics = ({
       .slice(0, 10);
   }, [comparisonQueries]);
 
-  if (isLoading) {
+  if (isLoading || (comparisonMode && comparisonIsLoading)) {
     return (
       <Card>
         <CardHeader>
@@ -138,11 +138,59 @@ export const FarmerQueriesTopics = ({
           <CardDescription>Most common topics from Doc Aga consultations</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
+          {comparisonMode ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Primary Section */}
+              <div>
+                <Skeleton className="h-6 w-20 mb-3" />
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border">
+                      <Skeleton className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Comparison Section */}
+              <div>
+                <Skeleton className="h-6 w-24 mb-3" />
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border">
+                      <Skeleton className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                <div key={i} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border">
+                  <Skeleton className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     );

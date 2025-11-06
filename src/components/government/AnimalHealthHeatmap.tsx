@@ -21,11 +21,86 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
           <CardDescription>Health event density by municipality (last 7 days)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
+          {comparisonMode ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Primary Section */}
+              <div>
+                <Skeleton className="h-6 w-20 mb-3" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border">
+                      <Skeleton className="h-5 w-5 rounded flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="space-y-1">
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-6 w-16" />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-12 w-12 rounded flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Comparison Section */}
+              <div>
+                <Skeleton className="h-6 w-24 mb-3" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border">
+                      <Skeleton className="h-5 w-5 rounded flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="space-y-1">
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-6 w-16" />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-12 w-12 rounded flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border">
+                  <Skeleton className="h-5 w-5 rounded flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="space-y-1">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                      <Skeleton className="h-6 w-16" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-12 w-12 rounded flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
