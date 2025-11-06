@@ -6,11 +6,13 @@ import { AlertCircle } from "lucide-react";
 
 interface AnimalHealthHeatmapProps {
   data?: HeatmapData[];
+  comparisonData?: HeatmapData[];
   isLoading: boolean;
   error?: Error | null;
+  comparisonMode?: boolean;
 }
 
-export const AnimalHealthHeatmap = ({ data, isLoading, error }: AnimalHealthHeatmapProps) => {
+export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, comparisonMode }: AnimalHealthHeatmapProps) => {
   if (isLoading) {
     return (
       <Card>
@@ -82,7 +84,92 @@ export const AnimalHealthHeatmap = ({ data, isLoading, error }: AnimalHealthHeat
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        {comparisonMode && comparisonData ? (
+          <div className="space-y-6">
+            <div>
+              <Badge className="mb-3">Primary</Badge>
+              <div className="space-y-3">
+                {data.slice(0, 5).map((item, index) => {
+                  const severity = getSeverityLevel(item.prevalence_rate);
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <div>
+                            <p className="font-medium">{item.municipality}</p>
+                            <p className="text-sm text-muted-foreground">{item.region}</p>
+                          </div>
+                          <Badge variant={severity.variant}>
+                            {severity.label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                          <span>{item.health_event_count} events</span>
+                          <span>•</span>
+                          <span>{item.total_animals} animals</span>
+                          <span>•</span>
+                          <span className="font-medium">{item.prevalence_rate}% prevalence</span>
+                        </div>
+                      </div>
+                      <div
+                        className={`h-12 w-12 rounded ${getPrevalenceColor(
+                          item.prevalence_rate
+                        )} flex items-center justify-center text-white font-bold text-sm`}
+                      >
+                        {item.prevalence_rate.toFixed(1)}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div>
+              <Badge variant="secondary" className="mb-3">Comparison</Badge>
+              <div className="space-y-3">
+                {comparisonData.slice(0, 5).map((item, index) => {
+                  const severity = getSeverityLevel(item.prevalence_rate);
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <div>
+                            <p className="font-medium">{item.municipality}</p>
+                            <p className="text-sm text-muted-foreground">{item.region}</p>
+                          </div>
+                          <Badge variant={severity.variant}>
+                            {severity.label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                          <span>{item.health_event_count} events</span>
+                          <span>•</span>
+                          <span>{item.total_animals} animals</span>
+                          <span>•</span>
+                          <span className="font-medium">{item.prevalence_rate}% prevalence</span>
+                        </div>
+                      </div>
+                      <div
+                        className={`h-12 w-12 rounded ${getPrevalenceColor(
+                          item.prevalence_rate
+                        )} flex items-center justify-center text-white font-bold text-sm`}
+                      >
+                        {item.prevalence_rate.toFixed(1)}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
           {data.slice(0, 10).map((item, index) => {
             const severity = getSeverityLevel(item.prevalence_rate);
             return (
@@ -132,7 +219,8 @@ export const AnimalHealthHeatmap = ({ data, isLoading, error }: AnimalHealthHeat
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -5,11 +5,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface GovDashboardOverviewProps {
   stats?: GovStatsWithGrowth;
+  comparisonStats?: GovStatsWithGrowth;
   isLoading: boolean;
   error?: Error | null;
+  comparisonMode?: boolean;
 }
 
-export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOverviewProps) => {
+export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error, comparisonMode }: GovDashboardOverviewProps) => {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -74,6 +76,35 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
     );
   };
 
+  const ComparisonDisplay = ({ primary, comparison, label }: { primary: number; comparison: number; label: string }) => {
+    const diff = primary - comparison;
+    const percentChange = comparison > 0 ? ((diff / comparison) * 100).toFixed(1) : 0;
+    const isPositive = diff > 0;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-bold">{primary.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground">primary</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-semibold text-muted-foreground">{comparison.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground">comparison</span>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          {isPositive ? (
+            <TrendingUp className="h-3 w-3 text-green-500" />
+          ) : diff < 0 ? (
+            <TrendingDown className="h-3 w-3 text-red-500" />
+          ) : null}
+          <span className={isPositive ? "text-green-600" : diff < 0 ? "text-red-600" : "text-muted-foreground"}>
+            {isPositive ? "+" : ""}{diff.toLocaleString()} ({isPositive ? "+" : ""}{percentChange}%)
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -82,8 +113,18 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.farm_count.toLocaleString()}</div>
-          <GrowthIndicator value={stats.farmGrowth} />
+          {comparisonMode && comparisonStats ? (
+            <ComparisonDisplay 
+              primary={stats.farm_count}
+              comparison={comparisonStats.farm_count}
+              label="Farms"
+            />
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.farm_count.toLocaleString()}</div>
+              <GrowthIndicator value={stats.farmGrowth} />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -93,12 +134,22 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
           <Activity className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {stats.active_animal_count.toLocaleString()}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Registered in the system
-          </p>
+          {comparisonMode && comparisonStats ? (
+            <ComparisonDisplay 
+              primary={stats.active_animal_count}
+              comparison={comparisonStats.active_animal_count}
+              label="Animals"
+            />
+          ) : (
+            <>
+              <div className="text-2xl font-bold">
+                {stats.active_animal_count.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Registered in the system
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -108,10 +159,20 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
           <FileText className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {stats.daily_log_count.toLocaleString()}
-          </div>
-          <GrowthIndicator value={stats.logGrowth} />
+          {comparisonMode && comparisonStats ? (
+            <ComparisonDisplay 
+              primary={stats.daily_log_count}
+              comparison={comparisonStats.daily_log_count}
+              label="Logs"
+            />
+          ) : (
+            <>
+              <div className="text-2xl font-bold">
+                {stats.daily_log_count.toLocaleString()}
+              </div>
+              <GrowthIndicator value={stats.logGrowth} />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -121,10 +182,20 @@ export const GovDashboardOverview = ({ stats, isLoading, error }: GovDashboardOv
           <Activity className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {stats.health_event_count.toLocaleString()}
-          </div>
-          <GrowthIndicator value={stats.healthGrowth} />
+          {comparisonMode && comparisonStats ? (
+            <ComparisonDisplay 
+              primary={stats.health_event_count}
+              comparison={comparisonStats.health_event_count}
+              label="Events"
+            />
+          ) : (
+            <>
+              <div className="text-2xl font-bold">
+                {stats.health_event_count.toLocaleString()}
+              </div>
+              <GrowthIndicator value={stats.healthGrowth} />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -7,11 +7,13 @@ import { TrendingUp, Activity, FileText, Droplets } from "lucide-react";
 
 interface GovTrendChartsProps {
   data?: TimeseriesDataPoint[];
+  comparisonData?: TimeseriesDataPoint[];
   isLoading: boolean;
   error?: Error | null;
+  comparisonMode?: boolean;
 }
 
-export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) => {
+export const GovTrendCharts = ({ data, comparisonData, isLoading, error, comparisonMode }: GovTrendChartsProps) => {
   if (isLoading) {
     return (
       <div className="grid gap-6 md:grid-cols-2">
@@ -61,6 +63,25 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
     avgMilk: Number(point.avg_milk_liters).toFixed(2),
   }));
 
+  // Format comparison data if available
+  const comparisonChartData = comparisonMode && comparisonData ? comparisonData.map((point) => ({
+    date: format(parseISO(point.date), "MMM dd"),
+    fullDate: format(parseISO(point.date), "PPP"),
+    comparisonFarms: Number(point.farm_count),
+    comparisonAnimals: Number(point.active_animal_count),
+    comparisonHealthEvents: Number(point.health_event_count),
+    comparisonQueries: Number(point.doc_aga_query_count),
+    comparisonAvgMilk: Number(point.avg_milk_liters).toFixed(2),
+  })) : [];
+
+  // Merge data for display when in comparison mode
+  const mergedChartData = comparisonMode && comparisonChartData.length > 0
+    ? chartData.map((primary, index) => ({
+        ...primary,
+        ...(comparisonChartData[index] || {}),
+      }))
+    : chartData;
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -90,7 +111,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
+            <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
@@ -108,9 +129,20 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 dataKey="farms" 
                 stroke="hsl(var(--primary))" 
                 strokeWidth={2}
-                name="Farms"
+                name="Primary Farms"
                 dot={{ fill: 'hsl(var(--primary))' }}
               />
+              {comparisonMode && (
+                <Line 
+                  type="monotone" 
+                  dataKey="comparisonFarms" 
+                  stroke="hsl(var(--chart-1))" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name="Comparison Farms"
+                  dot={{ fill: 'hsl(var(--chart-1))' }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -127,7 +159,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
+            <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
@@ -145,9 +177,20 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 dataKey="animals" 
                 stroke="hsl(var(--chart-2))" 
                 strokeWidth={2}
-                name="Animals"
+                name="Primary Animals"
                 dot={{ fill: 'hsl(var(--chart-2))' }}
               />
+              {comparisonMode && (
+                <Line 
+                  type="monotone" 
+                  dataKey="comparisonAnimals" 
+                  stroke="hsl(var(--chart-1))" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name="Comparison Animals"
+                  dot={{ fill: 'hsl(var(--chart-1))' }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -164,7 +207,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
+            <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
@@ -182,7 +225,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 dataKey="healthEvents" 
                 stroke="hsl(var(--chart-3))" 
                 strokeWidth={2}
-                name="Health Events"
+                name="Primary Health Events"
                 dot={{ fill: 'hsl(var(--chart-3))' }}
               />
               <Line 
@@ -190,9 +233,31 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 dataKey="queries" 
                 stroke="hsl(var(--chart-4))" 
                 strokeWidth={2}
-                name="Doc Aga Queries"
+                name="Primary Queries"
                 dot={{ fill: 'hsl(var(--chart-4))' }}
               />
+              {comparisonMode && (
+                <>
+                  <Line 
+                    type="monotone" 
+                    dataKey="comparisonHealthEvents" 
+                    stroke="hsl(var(--chart-1))" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    name="Comparison Health Events"
+                    dot={{ fill: 'hsl(var(--chart-1))' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="comparisonQueries" 
+                    stroke="hsl(var(--chart-5))" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    name="Comparison Queries"
+                    dot={{ fill: 'hsl(var(--chart-5))' }}
+                  />
+                </>
+              )}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -209,7 +274,7 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
+            <LineChart data={mergedChartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="date" 
@@ -227,9 +292,20 @@ export const GovTrendCharts = ({ data, isLoading, error }: GovTrendChartsProps) 
                 dataKey="avgMilk" 
                 stroke="hsl(var(--chart-5))" 
                 strokeWidth={2}
-                name="Avg Milk (L)"
+                name="Primary Avg Milk (L)"
                 dot={{ fill: 'hsl(var(--chart-5))' }}
               />
+              {comparisonMode && (
+                <Line 
+                  type="monotone" 
+                  dataKey="comparisonAvgMilk" 
+                  stroke="hsl(var(--chart-1))" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name="Comparison Avg Milk (L)"
+                  dot={{ fill: 'hsl(var(--chart-1))' }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
