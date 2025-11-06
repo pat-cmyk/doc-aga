@@ -36,6 +36,13 @@ All colors MUST be HSL.
     --input: 145 15% 88%;
     --ring: 142 76% 36%;
 
+    /* Chart Colors for Data Visualization */
+    --chart-1: 210 80% 50%;    /* Bright Blue - Cattle */
+    --chart-2: 280 70% 55%;    /* Purple - Goat */
+    --chart-3: 25 85% 55%;     /* Orange - Carabao */
+    --chart-4: 340 75% 60%;    /* Pink/Magenta - Sheep */
+    --chart-5: 160 70% 45%;    /* Teal - Additional types */
+
     --radius: 0.75rem;
     
     /* Agricultural Design Tokens */
@@ -97,6 +104,14 @@ All colors MUST be HSL.
     --border: 145 15% 25%;
     --input: 145 15% 25%;
     --ring: 142 70% 45%;
+
+    /* Chart Colors for Data Visualization (Dark Mode) */
+    --chart-1: 210 85% 60%;    /* Lighter Blue - Cattle */
+    --chart-2: 280 75% 65%;    /* Lighter Purple - Goat */
+    --chart-3: 25 90% 65%;     /* Lighter Orange - Carabao */
+    --chart-4: 340 80% 70%;    /* Lighter Pink/Magenta - Sheep */
+    --chart-5: 160 75% 55%;    /* Lighter Teal - Additional types */
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
