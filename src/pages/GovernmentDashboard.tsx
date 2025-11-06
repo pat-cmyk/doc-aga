@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
-import { useRegions } from "@/hooks/useRegions";
+
 import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,8 +36,8 @@ const GovernmentDashboard = () => {
   const navigate = useNavigate();
   const { hasAccess, isLoading: accessLoading } = useGovernmentAccess();
   const { roles, isLoading: rolesLoading } = useRole();
-  const { data: regions = [] } = useRegions();
-  const { getProvinces, getMunicipalities } = useLocationFilters();
+  const { getRegions, getProvinces, getMunicipalities } = useLocationFilters();
+  const regions = getRegions();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   
