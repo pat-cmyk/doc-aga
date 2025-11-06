@@ -4,6 +4,7 @@ import { subDays, format } from "date-fns";
 
 export interface TimeseriesDataPoint {
   date: string;
+  livestock_type: string;
   farm_count: number;
   active_animal_count: number;
   health_event_count: number;

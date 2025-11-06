@@ -55,27 +55,64 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
     );
   }
 
-  // Format data for charts
-  const chartData = data.map((point) => ({
-    date: format(parseISO(point.date), "MMM dd"),
-    fullDate: format(parseISO(point.date), "PPP"),
-    farms: Number(point.farm_count),
-    animals: Number(point.active_animal_count),
-    healthEvents: Number(point.health_event_count),
-    queries: Number(point.doc_aga_query_count),
-    avgMilk: Number(point.avg_milk_liters).toFixed(2),
-  }));
+  // Get unique livestock types
+  const livestockTypes = [...new Set(data.map(d => d.livestock_type))];
+
+  // Define colors for each livestock type
+  const livestockColors: Record<string, string> = {
+    cattle: "hsl(var(--chart-1))",
+    goat: "hsl(var(--chart-2))",
+    carabao: "hsl(var(--chart-3))",
+    sheep: "hsl(var(--chart-4))",
+  };
+
+  // Transform data to have one object per date with fields for each livestock type
+  const chartDataMap = data.reduce((acc, point) => {
+    const date = format(parseISO(point.date), "MMM dd");
+    const fullDate = format(parseISO(point.date), "PPP");
+    
+    if (!acc[date]) {
+      acc[date] = { date, fullDate, farms: 0, healthEvents: 0, queries: 0 };
+    }
+    
+    // Add livestock-specific data
+    acc[date][`${point.livestock_type}_count`] = Number(point.active_animal_count);
+    acc[date][`${point.livestock_type}_milk`] = Number(point.avg_milk_liters);
+    
+    // Aggregate farm counts (same across livestock types for a date)
+    acc[date].farms = Number(point.farm_count);
+    acc[date].healthEvents += Number(point.health_event_count);
+    acc[date].queries += Number(point.doc_aga_query_count);
+    
+    return acc;
+  }, {} as Record<string, any>);
+
+  const chartData = Object.values(chartDataMap);
 
   // Format comparison data if available
-  const comparisonChartData = comparisonMode && comparisonData ? comparisonData.map((point) => ({
-    date: format(parseISO(point.date), "MMM dd"),
-    fullDate: format(parseISO(point.date), "PPP"),
-    comparisonFarms: Number(point.farm_count),
-    comparisonAnimals: Number(point.active_animal_count),
-    comparisonHealthEvents: Number(point.health_event_count),
-    comparisonQueries: Number(point.doc_aga_query_count),
-    comparisonAvgMilk: Number(point.avg_milk_liters).toFixed(2),
-  })) : [];
+  const comparisonTypes = comparisonMode && comparisonData ? [...new Set(comparisonData.map(d => d.livestock_type))] : [];
+  
+  const comparisonChartDataMap = comparisonMode && comparisonData ? comparisonData.reduce((acc, point) => {
+    const date = format(parseISO(point.date), "MMM dd");
+    const fullDate = format(parseISO(point.date), "PPP");
+    
+    if (!acc[date]) {
+      acc[date] = { date, fullDate, comparisonFarms: 0, comparisonHealthEvents: 0, comparisonQueries: 0 };
+    }
+    
+    // Add livestock-specific comparison data
+    acc[date][`comparison_${point.livestock_type}_count`] = Number(point.active_animal_count);
+    acc[date][`comparison_${point.livestock_type}_milk`] = Number(point.avg_milk_liters);
+    
+    // Aggregate comparison farm counts
+    acc[date].comparisonFarms = Number(point.farm_count);
+    acc[date].comparisonHealthEvents += Number(point.health_event_count);
+    acc[date].comparisonQueries += Number(point.doc_aga_query_count);
+    
+    return acc;
+  }, {} as Record<string, any>) : {};
+
+  const comparisonChartData = Object.values(comparisonChartDataMap);
 
   // Merge data for display when in comparison mode
   const mergedChartData = comparisonMode && comparisonChartData.length > 0
@@ -85,12 +122,52 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
       }))
     : chartData;
 
+  // Filter to only milk-producing livestock
+  const milkProducingTypes = livestockTypes.filter(type => ['cattle', 'goat', 'carabao'].includes(type));
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      // Group by livestock type for cleaner display
+      const livestockData: Record<string, any> = {};
+      let otherData: any[] = [];
+      
+      payload.forEach((entry: any) => {
+        const countMatch = entry.dataKey.match(/^(comparison_)?(.+)_count$/);
+        const milkMatch = entry.dataKey.match(/^(comparison_)?(.+)_milk$/);
+        
+        if (countMatch) {
+          const [, prefix, livestock] = countMatch;
+          const key = prefix ? `${prefix}${livestock}` : livestock;
+          if (!livestockData[key]) {
+            livestockData[key] = { prefix, livestock };
+          }
+          livestockData[key].count = entry.value;
+          livestockData[key].color = entry.color;
+        } else if (milkMatch) {
+          const [, prefix, livestock] = milkMatch;
+          const key = prefix ? `${prefix}${livestock}` : livestock;
+          if (!livestockData[key]) {
+            livestockData[key] = { prefix, livestock };
+          }
+          livestockData[key].milk = entry.value;
+        } else {
+          otherData.push(entry);
+        }
+      });
+      
       return (
         <div className="rounded-lg border bg-background p-3 shadow-lg">
           <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
-          {payload.map((entry: any, index: number) => (
+          {Object.entries(livestockData).map(([key, data]: [string, any]) => (
+            <div key={key} className="text-sm mb-1">
+              <span style={{ color: data.color }} className="font-medium">
+                {data.prefix ? 'Comparison ' : ''}{data.livestock.charAt(0).toUpperCase() + data.livestock.slice(1)}:
+              </span>
+              {data.count !== undefined && <span> {data.count} animals</span>}
+              {data.milk !== undefined && <span>, {Number(data.milk).toFixed(2)}L milk</span>}
+            </div>
+          ))}
+          {otherData.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.value}
             </p>
@@ -162,9 +239,9 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
         <CardHeader>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>Animal Population Trend</CardTitle>
+            <CardTitle>Animal Population by Type</CardTitle>
           </div>
-          <CardDescription>Number of active animals over time</CardDescription>
+          <CardDescription>Number of active animals by livestock type over time</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
@@ -187,25 +264,32 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 iconSize={10}
               />
-              <Line 
-                type="monotone" 
-                dataKey="animals" 
-                stroke="hsl(var(--chart-2))" 
-                strokeWidth={2}
-                name="Primary Animals"
-                dot={{ fill: 'hsl(var(--chart-2))' }}
-              />
-              {comparisonMode && (
-                <Line 
-                  type="monotone" 
-                  dataKey="comparisonAnimals" 
-                  stroke="hsl(var(--chart-1))" 
+              {/* Dynamically render a line for each livestock type */}
+              {livestockTypes.map((type, index) => (
+                <Line
+                  key={type}
+                  type="monotone"
+                  dataKey={`${type}_count`}
+                  stroke={livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))`}
+                  strokeWidth={2}
+                  name={type.charAt(0).toUpperCase() + type.slice(1)}
+                  dot={{ fill: livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))` }}
+                  connectNulls
+                />
+              ))}
+              {comparisonMode && comparisonTypes.map((type, index) => (
+                <Line
+                  key={`comparison_${type}`}
+                  type="monotone"
+                  dataKey={`comparison_${type}_count`}
+                  stroke={livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))`}
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  name="Comparison Animals"
-                  dot={{ fill: 'hsl(var(--chart-1))' }}
+                  name={`Comparison ${type.charAt(0).toUpperCase() + type.slice(1)}`}
+                  dot={{ fill: livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))` }}
+                  connectNulls
                 />
-              )}
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -289,9 +373,9 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
         <CardHeader>
           <div className="flex items-center gap-2">
             <Droplets className="h-5 w-5 text-primary" />
-            <CardTitle>Average Milk Production</CardTitle>
+            <CardTitle>Milk Production by Type</CardTitle>
           </div>
-          <CardDescription>Daily average milk production in liters</CardDescription>
+          <CardDescription>Daily average milk production by livestock type in liters</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
@@ -314,25 +398,32 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 iconSize={10}
               />
-              <Line 
-                type="monotone" 
-                dataKey="avgMilk" 
-                stroke="hsl(var(--chart-5))" 
-                strokeWidth={2}
-                name="Primary Avg Milk (L)"
-                dot={{ fill: 'hsl(var(--chart-5))' }}
-              />
-              {comparisonMode && (
-                <Line 
-                  type="monotone" 
-                  dataKey="comparisonAvgMilk" 
-                  stroke="hsl(var(--chart-1))" 
+              {/* Only show milk-producing livestock */}
+              {milkProducingTypes.map((type, index) => (
+                <Line
+                  key={type}
+                  type="monotone"
+                  dataKey={`${type}_milk`}
+                  stroke={livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))`}
+                  strokeWidth={2}
+                  name={`${type.charAt(0).toUpperCase() + type.slice(1)} Milk (L)`}
+                  dot={{ fill: livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))` }}
+                  connectNulls
+                />
+              ))}
+              {comparisonMode && comparisonTypes.filter(type => ['cattle', 'goat', 'carabao'].includes(type)).map((type, index) => (
+                <Line
+                  key={`comparison_${type}`}
+                  type="monotone"
+                  dataKey={`comparison_${type}_milk`}
+                  stroke={livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))`}
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  name="Comparison Avg Milk (L)"
-                  dot={{ fill: 'hsl(var(--chart-1))' }}
+                  name={`Comparison ${type.charAt(0).toUpperCase() + type.slice(1)} Milk (L)`}
+                  dot={{ fill: livestockColors[type] || `hsl(var(--chart-${(index % 5) + 1}))` }}
+                  connectNulls
                 />
-              )}
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

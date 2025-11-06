@@ -2017,6 +2017,7 @@ export type Database = {
           doc_aga_query_count: number
           farm_count: number
           health_event_count: number
+          livestock_type: string
         }[]
       }
       get_health_heatmap_data: {
