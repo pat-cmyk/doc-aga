@@ -600,22 +600,26 @@ const AdminDashboard = () => {
             comparisonMode={comparisonMode}
           />
           
-          <div className="grid gap-6 md:grid-cols-2">
-            <AnimalHealthHeatmap 
-              data={heatmapData as any} 
-              comparisonData={comparisonHeatmapData as any}
-              isLoading={heatmapLoading || (comparisonMode && comparisonHeatmapLoading)} 
-              error={heatmapError}
-              comparisonMode={comparisonMode}
-            />
-            <FarmerQueriesTopics 
-              startDate={startDate} 
-              endDate={endDate}
-              comparisonStartDate={comparisonStartDate}
-              comparisonEndDate={comparisonEndDate}
-              enabled={activeTab === 'government'}
-              comparisonMode={comparisonMode}
-            />
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+            <div className="min-w-0">
+              <AnimalHealthHeatmap 
+                data={heatmapData as any} 
+                comparisonData={comparisonHeatmapData as any}
+                isLoading={heatmapLoading || (comparisonMode && comparisonHeatmapLoading)} 
+                error={heatmapError}
+                comparisonMode={comparisonMode}
+              />
+            </div>
+            <div className="min-w-0">
+              <FarmerQueriesTopics 
+                startDate={startDate} 
+                endDate={endDate}
+                comparisonStartDate={comparisonStartDate}
+                comparisonEndDate={comparisonEndDate}
+                enabled={activeTab === 'government'}
+                comparisonMode={comparisonMode}
+              />
+            </div>
           </div>
         </div>
       </TabsContent>

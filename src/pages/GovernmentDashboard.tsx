@@ -93,9 +93,13 @@ const GovernmentDashboard = () => {
 
         <GovDashboardOverview stats={stats as any} isLoading={statsLoading} error={statsError} />
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
-          <FarmerQueriesTopics startDate={startDate} endDate={endDate} />
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+          <div className="min-w-0">
+            <AnimalHealthHeatmap data={heatmapData as any} isLoading={heatmapLoading} error={heatmapError} />
+          </div>
+          <div className="min-w-0">
+            <FarmerQueriesTopics startDate={startDate} endDate={endDate} />
+          </div>
         </div>
 
         <Card>
