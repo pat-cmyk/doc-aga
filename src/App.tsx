@@ -28,6 +28,7 @@ import { FloatingDocAga } from "./components/FloatingDocAga";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SuperAdminRoute } from "./components/auth/SuperAdminRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { syncQueue } from "./lib/syncService";
 import { initNotifications } from "./lib/notificationService";
@@ -127,9 +128,9 @@ const App = () => (
             <Route 
               path="/admin" 
               element={
-                <ProtectedRoute requiredRoles={["admin"]}>
+                <SuperAdminRoute>
                   <AdminDashboard />
-                </ProtectedRoute>
+                </SuperAdminRoute>
               } 
             />
             <Route 
