@@ -20,6 +20,7 @@ import { FinanceTab } from "@/components/FinanceTab";
 import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { FarmSwitcher } from "@/components/FarmSwitcher";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -248,6 +249,26 @@ const Dashboard = () => {
     setActiveTab("animals");
   };
 
+  const handleFarmChange = async (newFarmId: string) => {
+    setFarmId(newFarmId);
+    
+    // Fetch new farm details
+    const { data: farmData } = await supabase
+      .from('farms')
+      .select('name, logo_url, owner_id')
+      .eq('id', newFarmId)
+      .single();
+    
+    if (farmData) {
+      setFarmName(farmData.name || 'My Farm');
+      setFarmLogoUrl(farmData.logo_url || null);
+      
+      // Check if user owns this farm
+      const { data: { user } } = await supabase.auth.getUser();
+      setCanManageFarm(farmData.owner_id === user?.id);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -271,7 +292,7 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {farmLogoUrl ? (
               <Avatar className="h-10 w-10">
                 <AvatarImage src={farmLogoUrl} alt={farmName} />
@@ -288,6 +309,7 @@ const Dashboard = () => {
               <h1 className="text-xl font-bold">{farmName}</h1>
               <p className="text-xs text-muted-foreground">Welcome back!</p>
             </div>
+            <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
           </div>
         <div className="flex items-center gap-2">
           <NetworkStatusIndicator />
