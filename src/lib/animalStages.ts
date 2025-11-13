@@ -344,3 +344,33 @@ export function getMilkingStageBadgeColor(stage: string | null): string {
       return "bg-gray-100 text-gray-800";
   }
 }
+
+/**
+ * Maps cattle-specific life stage terms to species-appropriate terms for display
+ * @param stage - The life stage from the database
+ * @param livestockType - The type of livestock (cattle, carabao, goat, sheep)
+ * @returns The species-appropriate stage name for display
+ */
+export function displayStageForSpecies(stage: string | null, livestockType: string | null): string | null {
+  if (!stage || !livestockType) return stage;
+  
+  const normalizedType = livestockType.trim().toLowerCase();
+  
+  // Only map for carabao - cattle terms stored in DB need to show as carabao terms
+  if (normalizedType === 'carabao') {
+    const cattleToCarabaoMap: Record<string, string> = {
+      'Mature Cow': 'Mature Carabao',
+      'First-Calf Heifer': 'First-Time Mother',
+      'Pregnant Heifer': 'Pregnant Carabao',
+      'Breeding Heifer': 'Breeding Carabao',
+      'Heifer Calf': 'Young Carabao',
+      'Yearling Heifer': 'Young Carabao',
+      'Calf': 'Young Carabao',
+    };
+    
+    return cattleToCarabaoMap[stage] || stage;
+  }
+  
+  // For other species, return as-is
+  return stage;
+}

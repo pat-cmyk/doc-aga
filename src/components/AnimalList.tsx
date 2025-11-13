@@ -12,7 +12,7 @@ import { StageBadge } from "@/components/ui/stage-badge";
 import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
-import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor } from "@/lib/animalStages";
+import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor, displayStageForSpecies } from "@/lib/animalStages";
 import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
@@ -562,9 +562,9 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {animal.lifeStage && (
                       <StageBadge 
-                        stage={animal.lifeStage}
-                        definition={getLifeStageDefinition(animal.lifeStage)}
-                        colorClass={getLifeStageBadgeColor(animal.lifeStage)}
+                        stage={displayStageForSpecies(animal.lifeStage, animal.livestock_type)}
+                        definition={getLifeStageDefinition(displayStageForSpecies(animal.lifeStage, animal.livestock_type))}
+                        colorClass={getLifeStageBadgeColor(displayStageForSpecies(animal.lifeStage, animal.livestock_type))}
                       />
                     )}
                     {animal.milkingStage && (
