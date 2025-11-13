@@ -5,6 +5,9 @@ hibp_enabled = true
 min_length = 8
 required_characters = ["upper", "lower", "number", "symbol"]
 
+[functions.recalculate-animal]
+verify_jwt = true
+
 [functions.log-auth-event]
 verify_jwt = false
 
