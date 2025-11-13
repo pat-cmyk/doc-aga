@@ -411,16 +411,9 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
     );
   }
 
-  // Safely calculate stages with error handling
-  let computedLifeStage: string | null = null;
-  let computedMilkingStage: string | null = null;
-  
-  try {
-    computedLifeStage = stageData ? calculateLifeStage(stageData) : null;
-    computedMilkingStage = stageData ? calculateMilkingStage(stageData) : null;
-  } catch (error) {
-    console.error("Error calculating stages:", error);
-  }
+  // Use stored values from database directly
+  const computedLifeStage = animal?.life_stage || null;
+  const computedMilkingStage = animal?.milking_stage || null;
 
   return (
     <div className="space-y-4 sm:space-y-6">
