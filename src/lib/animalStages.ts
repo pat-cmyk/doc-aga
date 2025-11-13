@@ -203,22 +203,52 @@ export function calculateMilkingStage(data: AnimalStageData): string | null {
  * ```
  */
 export function getLifeStageBadgeColor(stage: string | null): string {
-  switch (stage) {
-    case "Calf":
-    case "Heifer Calf":
-      return "bg-blue-100 text-blue-800";
-    case "Yearling Heifer":
-    case "Breeding Heifer":
-      return "bg-purple-100 text-purple-800";
-    case "Pregnant Heifer":
-      return "bg-pink-100 text-pink-800";
-    case "First-Calf Heifer":
-      return "bg-orange-100 text-orange-800";
-    case "Mature Cow":
-      return "bg-green-100 text-green-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
+  if (!stage) return "bg-gray-100 text-gray-800 border-gray-200";
+
+  const stageColors: Record<string, string> = {
+    // Cattle
+    "Calf": "bg-pink-100 text-pink-800 border-pink-200",
+    "Heifer Calf": "bg-blue-100 text-blue-800 border-blue-200",
+    "Yearling Heifer": "bg-indigo-100 text-indigo-800 border-indigo-200",
+    "Breeding Heifer": "bg-purple-100 text-purple-800 border-purple-200",
+    "Pregnant Heifer": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "First-Calf Heifer": "bg-green-100 text-green-800 border-green-200",
+    "Mature Cow": "bg-emerald-100 text-emerald-800 border-emerald-200",
+    "Bull Calf": "bg-blue-100 text-blue-800 border-blue-200",
+    "Young Bull": "bg-cyan-100 text-cyan-800 border-cyan-200",
+    "Mature Bull": "bg-teal-100 text-teal-800 border-teal-200",
+    
+    // Carabao
+    "Young Carabao": "bg-blue-100 text-blue-800 border-blue-200",
+    "Breeding Carabao": "bg-purple-100 text-purple-800 border-purple-200",
+    "Pregnant Carabao": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "First-Time Mother": "bg-green-100 text-green-800 border-green-200",
+    "Mature Carabao": "bg-emerald-100 text-emerald-800 border-emerald-200",
+    
+    // Goats
+    "Kid": "bg-pink-100 text-pink-800 border-pink-200",
+    "Young Doe": "bg-blue-100 text-blue-800 border-blue-200",
+    "Breeding Doe": "bg-purple-100 text-purple-800 border-purple-200",
+    "Pregnant Doe": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "Lactating Doe": "bg-green-100 text-green-800 border-green-200",
+    "Dry Doe": "bg-orange-100 text-orange-800 border-orange-200",
+    "Buck Kid": "bg-blue-100 text-blue-800 border-blue-200",
+    "Young Buck": "bg-cyan-100 text-cyan-800 border-cyan-200",
+    "Mature Buck": "bg-teal-100 text-teal-800 border-teal-200",
+    
+    // Sheep
+    "Lamb": "bg-pink-100 text-pink-800 border-pink-200",
+    "Young Ewe": "bg-blue-100 text-blue-800 border-blue-200",
+    "Breeding Ewe": "bg-purple-100 text-purple-800 border-purple-200",
+    "Pregnant Ewe": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "Lactating Ewe": "bg-green-100 text-green-800 border-green-200",
+    "Dry Ewe": "bg-orange-100 text-orange-800 border-orange-200",
+    "Ram Lamb": "bg-blue-100 text-blue-800 border-blue-200",
+    "Young Ram": "bg-cyan-100 text-cyan-800 border-cyan-200",
+    "Mature Ram": "bg-teal-100 text-teal-800 border-teal-200",
+  };
+
+  return stageColors[stage] || "bg-gray-100 text-gray-800 border-gray-200";
 }
 
 /**

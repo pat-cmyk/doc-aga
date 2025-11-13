@@ -39,7 +39,7 @@ interface AnimalStageData {
   hasActiveAI: boolean;
 }
 
-function calculateLifeStage(data: AnimalStageData): string | null {
+function calculateLifeStage(data: AnimalStageData, livestockType: string = 'cattle'): string | null {
   try {
     const { birthDate, gender, offspringCount, hasActiveAI } = data;
     
@@ -50,17 +50,58 @@ function calculateLifeStage(data: AnimalStageData): string | null {
     
     if (ageInMonths < 0) return null;
     
-    if (ageInMonths < 8) return "Calf";
-    if (ageInMonths < 12) return "Heifer Calf";
-    if (ageInMonths < 15) return "Yearling Heifer";
+    const type = livestockType.toLowerCase();
     
-    if (offspringCount === 0) {
-      if (hasActiveAI) return "Pregnant Heifer";
-      return "Breeding Heifer";
+    // Young animals (0-8 months)
+    if (ageInMonths < 8) {
+      if (type === 'goat') return 'Kid';
+      if (type === 'sheep') return 'Lamb';
+      return 'Calf'; // cattle and carabao
     }
     
-    if (offspringCount === 1) return "First-Calf Heifer";
-    return "Mature Cow";
+    // Adolescent (8-12 months)
+    if (ageInMonths < 12) {
+      if (type === 'goat') return 'Young Doe';
+      if (type === 'sheep') return 'Young Ewe';
+      if (type === 'carabao') return 'Young Carabao';
+      return 'Heifer Calf'; // cattle
+    }
+    
+    // Cattle-specific yearling stage
+    if (ageInMonths < 15 && type === 'cattle') {
+      return 'Yearling Heifer';
+    }
+    
+    // Breeding age animals (15+ months) with no offspring
+    if (offspringCount === 0) {
+      if (hasActiveAI) {
+        // Pregnant, no offspring yet
+        if (type === 'goat') return 'Pregnant Doe';
+        if (type === 'sheep') return 'Pregnant Ewe';
+        if (type === 'carabao') return 'Pregnant Carabao';
+        return 'Pregnant Heifer'; // cattle
+      }
+      // Ready for breeding
+      if (type === 'goat') return 'Breeding Doe';
+      if (type === 'sheep') return 'Breeding Ewe';
+      if (type === 'carabao') return 'Breeding Carabao';
+      return 'Breeding Heifer'; // cattle
+    }
+    
+    // Has offspring
+    if (offspringCount === 1) {
+      if (type === 'goat') return 'Lactating Doe';
+      if (type === 'sheep') return 'Lactating Ewe';
+      if (type === 'carabao') return 'First-Time Mother';
+      return 'First-Calf Heifer'; // cattle
+    }
+    
+    // Multiple offspring
+    if (type === 'goat') return 'Lactating Doe';
+    if (type === 'sheep') return 'Lactating Ewe';
+    if (type === 'carabao') return 'Mature Carabao';
+    return 'Mature Cow'; // cattle
+    
   } catch (error) {
     console.error("Error in calculateLifeStage:", error);
     return null;
@@ -90,7 +131,7 @@ function calculateMilkingStage(data: AnimalStageData): string | null {
   }
 }
 
-function calculateMaleStage(data: AnimalStageData): string | null {
+function calculateMaleStage(data: AnimalStageData, livestockType: string = 'cattle'): string | null {
   try {
     const { birthDate, gender } = data;
     
@@ -101,9 +142,24 @@ function calculateMaleStage(data: AnimalStageData): string | null {
     
     if (ageInMonths < 0) return null;
     
-    if (ageInMonths < 12) return "Bull Calf";
-    if (ageInMonths < 24) return "Young Bull";
-    return "Mature Bull";
+    const type = livestockType.toLowerCase();
+    
+    if (ageInMonths < 12) {
+      if (type === 'goat') return 'Buck Kid';
+      if (type === 'sheep') return 'Ram Lamb';
+      return 'Bull Calf'; // cattle and carabao
+    }
+    
+    if (ageInMonths < 24) {
+      if (type === 'goat') return 'Young Buck';
+      if (type === 'sheep') return 'Young Ram';
+      return 'Young Bull'; // cattle and carabao
+    }
+    
+    if (type === 'goat') return 'Mature Buck';
+    if (type === 'sheep') return 'Mature Ram';
+    return 'Mature Bull'; // cattle and carabao
+    
   } catch (error) {
     console.error("Error in calculateMaleStage:", error);
     return null;
@@ -230,7 +286,7 @@ Deno.serve(async (req) => {
       // Get all animals for the farm
       const { data: animals, error: animalsError } = await supabase
         .from('animals')
-        .select('id, birth_date, gender, milking_start_date, mother_id')
+        .select('id, birth_date, gender, milking_start_date, mother_id, livestock_type')
         .eq('farm_id', farm.id)
         .eq('is_deleted', false);
 
@@ -302,7 +358,7 @@ Deno.serve(async (req) => {
         let stageForCount: string | null = null;
 
         if (animal.gender?.toLowerCase() === 'female') {
-          const lifeStage = calculateLifeStage(stageData);
+          const lifeStage = calculateLifeStage(stageData, animal.livestock_type || 'cattle');
           const milkingStage = calculateMilkingStage(stageData);
           
           // Use milking stage for counting if available, otherwise life stage
@@ -314,7 +370,7 @@ Deno.serve(async (req) => {
             milking_stage: milkingStage,
           });
         } else if (animal.gender?.toLowerCase() === 'male') {
-          const maleStage = calculateMaleStage(stageData);
+          const maleStage = calculateMaleStage(stageData, animal.livestock_type || 'cattle');
           stageForCount = maleStage;
           
           animalUpdates.push({

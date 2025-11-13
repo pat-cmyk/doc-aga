@@ -19,6 +19,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
   switch (stage) {
+    // Cattle
     case "Calf":
       return "Young cattle aged 0-8 months";
     case "Heifer Calf":
@@ -33,6 +34,65 @@ const getLifeStageDefinition = (stage: string | null): string => {
       return "Female cattle with one offspring";
     case "Mature Cow":
       return "Female cattle with two or more offspring";
+    case "Bull Calf":
+      return "Young male cattle aged 0-12 months";
+    case "Young Bull":
+      return "Male cattle aged 12-24 months";
+    case "Mature Bull":
+      return "Male cattle aged 24+ months";
+    
+    // Carabao
+    case "Young Carabao":
+      return "Female carabao aged 8-12 months";
+    case "Breeding Carabao":
+      return "Female carabao 15+ months old, ready for breeding";
+    case "Pregnant Carabao":
+      return "Female carabao with confirmed pregnancy, no previous offspring";
+    case "First-Time Mother":
+      return "Female carabao with one offspring";
+    case "Mature Carabao":
+      return "Female carabao with two or more offspring";
+    
+    // Goats
+    case "Kid":
+      return "Young goat aged 0-8 months";
+    case "Young Doe":
+      return "Female goat aged 8-12 months";
+    case "Breeding Doe":
+      return "Female goat 15+ months old, ready for breeding";
+    case "Pregnant Doe":
+      return "Female goat with confirmed pregnancy";
+    case "Lactating Doe":
+      return "Female goat currently producing milk";
+    case "Dry Doe":
+      return "Female goat in non-lactating rest period";
+    case "Buck Kid":
+      return "Young male goat aged 0-12 months";
+    case "Young Buck":
+      return "Male goat aged 12-24 months";
+    case "Mature Buck":
+      return "Male goat aged 24+ months";
+    
+    // Sheep
+    case "Lamb":
+      return "Young sheep aged 0-8 months";
+    case "Young Ewe":
+      return "Female sheep aged 8-12 months";
+    case "Breeding Ewe":
+      return "Female sheep 15+ months old, ready for breeding";
+    case "Pregnant Ewe":
+      return "Female sheep with confirmed pregnancy";
+    case "Lactating Ewe":
+      return "Female sheep currently producing milk";
+    case "Dry Ewe":
+      return "Female sheep in non-lactating rest period";
+    case "Ram Lamb":
+      return "Young male sheep aged 0-12 months";
+    case "Young Ram":
+      return "Male sheep aged 12-24 months";
+    case "Mature Ram":
+      return "Male sheep aged 24+ months";
+    
     default:
       return "";
   }
