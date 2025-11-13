@@ -24,6 +24,7 @@ import {
   type AnimalStageData 
 } from "@/lib/animalStages";
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
+import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingleAnimalButton";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -565,6 +566,10 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 </CardDescription>
               </div>
             </div>
+            <RecalculateSingleAnimalButton 
+              animalId={animalId} 
+              onSuccess={loadAnimal}
+            />
           </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
