@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Database, FileText, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { RecalculateStatsButton } from "./RecalculateStatsButton";
 
 export const SystemAdmin = () => {
   const handleDatabaseMaintenance = () => {
@@ -20,6 +21,24 @@ export const SystemAdmin = () => {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Animal Life Stages</CardTitle>
+          <CardDescription>Recalculate life stages for all animals using species-specific logic</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="font-medium mb-1">Update Animal Life Stages</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                Recalculates life stages for all animals (cattle, carabao, goats, sheep) using species-specific terminology and milking stages based on recent activity.
+              </p>
+              <RecalculateStatsButton />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Database Management</CardTitle>
