@@ -326,6 +326,17 @@ serve(async (req) => {
 5. **Breeding Management**: Track pregnant animals, AI records, and breeding events
 6. **Historical Data**: Access daily and monthly farm statistics for trend analysis
 
+MULTI-SPECIES FARM SUPPORT:
+This farm may have multiple types of livestock: cattle (baka), goats (kambing), carabao (kalabaw), and sheep (tupa).
+- ALWAYS consider livestock type when answering population or production questions
+- Use search_animals with livestock_type parameter to filter by species
+- When asked about "milking animals", specify which types: "Mayroon kang 15 nag-gagatas na baka at 8 nag-gagatas na kambing"
+- Recognize species-specific terms:
+  * Cattle: "baka" (cow), "toro" (bull), "guya" (dairy cow)
+  * Goats: "kambing", "doe" (female), "buck" (male), "kid" (young)
+  * Carabao: "kalabaw", similar terms to cattle
+  * Sheep: "tupa", "ewe" (female), "ram" (male), "lamb" (young)
+
 INTENT CLASSIFICATION:
 Before responding, classify the user's intent as ONE of:
 - "query" - Asking questions, seeking information, advice (e.g., "Paano mag-alaga ng pregnant na baka?")
@@ -432,10 +443,11 @@ Guidelines:
         type: "function",
         function: {
           name: "search_animals",
-          description: "Search for animals by breed, stage, gender, or other criteria",
+          description: "Search for animals by livestock type, breed, stage, gender, or other criteria",
           parameters: {
             type: "object",
             properties: {
+              livestock_type: { type: "string", description: "Type of livestock (cattle, goat, carabao, sheep)" },
               breed: { type: "string", description: "Animal breed" },
               life_stage: { type: "string", description: "Life stage (calf, heifer, lactating, dry, etc.)" },
               milking_stage: { type: "string", description: "Milking stage" },

@@ -113,10 +113,11 @@ async function searchAnimals(args: any, supabase: SupabaseClient, farmId: string
 
   let query = supabase
     .from('animals')
-    .select('name, ear_tag, breed, gender, life_stage, milking_stage')
+    .select('name, ear_tag, breed, gender, livestock_type, life_stage, milking_stage')
     .eq('farm_id', farmId)
     .eq('is_deleted', false);
 
+  if (args.livestock_type) query = query.eq('livestock_type', args.livestock_type);
   if (args.breed) query = query.ilike('breed', `%${args.breed}%`);
   if (args.life_stage) query = query.eq('life_stage', args.life_stage);
   if (args.milking_stage) query = query.eq('milking_stage', args.milking_stage);
@@ -453,29 +454,44 @@ async function getFarmOverview(supabase: SupabaseClient, farmId: string | undefi
 
   const { data: animals } = await supabase
     .from('animals')
-    .select('life_stage, milking_stage')
+    .select('livestock_type, life_stage, milking_stage')
     .eq('farm_id', farmId)
     .eq('is_deleted', false);
 
   const totalAnimals = animals?.length || 0;
   const stageBreakdown: Record<string, number> = {};
+  const livestockBreakdown: Record<string, number> = {};
   
   animals?.forEach(a => {
+    // Stage breakdown
     const stage = a.life_stage || 'Unknown';
     stageBreakdown[stage] = (stageBreakdown[stage] || 0) + 1;
+    
+    // Livestock type breakdown
+    const type = a.livestock_type || 'Unknown';
+    livestockBreakdown[type] = (livestockBreakdown[type] || 0) + 1;
   });
 
+  // Get milk production with livestock type
   const today = new Date().toISOString().split('T')[0];
-  const { data: todayMilk } = await supabase
+  const { data: milkingData } = await supabase
     .from('milking_records')
-    .select('liters')
+    .select('liters, animals!inner(livestock_type)')
     .gte('record_date', today);
 
-  const todayTotal = todayMilk?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
+  const milkByType: Record<string, number> = {};
+  milkingData?.forEach((record: any) => {
+    const type = record.animals?.livestock_type || 'Unknown';
+    milkByType[type] = (milkByType[type] || 0) + Number(record.liters);
+  });
+
+  const todayTotal = Object.values(milkByType).reduce((a, b) => a + b, 0);
 
   return {
     total_animals: totalAnimals,
+    livestock_breakdown: livestockBreakdown,
     stage_breakdown: stageBreakdown,
+    today_milk_by_type: milkByType,
     today_milk_liters: todayTotal,
   };
 }
