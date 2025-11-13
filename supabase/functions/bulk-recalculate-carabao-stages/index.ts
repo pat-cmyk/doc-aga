@@ -24,7 +24,7 @@ interface ChangeRecord {
   new_milking_stage: string | null;
 }
 
-// Calculate life stage based on animal data
+// Calculate life stage based on animal data - WITH DETAILED LOGIC
 function calculateLifeStage(data: AnimalStageData): string | null {
   const { birth_date, gender, livestock_type, offspring_count, has_active_ai } = data;
   
@@ -40,30 +40,113 @@ function calculateLifeStage(data: AnimalStageData): string | null {
     return calculateMaleStage(data, ageMonths);
   }
 
-  // Female animals - species-specific logic
+  // Female animals - species-specific logic with DETAILED stages
   if (normalizedType === 'cattle') {
-    if (ageMonths < 12) return 'Calf';
-    if (offspring_count === 0 && !has_active_ai) return 'Heifer';
-    if (has_active_ai && offspring_count === 0) return 'Pregnant Heifer';
-    return 'Cow';
+    return calculateCattleLifeStage(ageMonths, offspring_count, has_active_ai);
   } else if (normalizedType === 'carabao') {
-    if (ageMonths < 12) return 'Carabao Calf';
-    if (offspring_count === 0 && !has_active_ai) return 'Young Carabao';
-    if (has_active_ai && offspring_count === 0) return 'Pregnant Carabao';
-    return 'Mature Carabao';
+    return calculateCarabaoLifeStage(ageMonths, offspring_count, has_active_ai);
   } else if (normalizedType === 'goat') {
-    if (ageMonths < 6) return 'Kid';
-    if (offspring_count === 0 && !has_active_ai) return 'Young Doe';
-    if (has_active_ai && offspring_count === 0) return 'Pregnant Doe';
-    return 'Doe';
+    return calculateGoatLifeStage(ageMonths, offspring_count, has_active_ai);
   } else if (normalizedType === 'sheep') {
-    if (ageMonths < 6) return 'Lamb';
-    if (offspring_count === 0 && !has_active_ai) return 'Young Ewe';
-    if (has_active_ai && offspring_count === 0) return 'Pregnant Ewe';
-    return 'Ewe';
+    return calculateSheepLifeStage(ageMonths, offspring_count, has_active_ai);
   }
 
   return null;
+}
+
+// Helper function for detailed cattle life stages
+function calculateCattleLifeStage(ageMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Calf (0-8 months)
+  if (ageMonths < 8) return "Calf";
+  
+  // Heifer Calf (8-12 months)
+  if (ageMonths < 12) return "Heifer Calf";
+  
+  // Yearling Heifer (12-15 months)
+  if (ageMonths < 15) return "Yearling Heifer";
+  
+  // For animals 15+ months
+  if (offspringCount === 0) {
+    // Pregnant Heifer (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Heifer";
+    // Breeding Heifer (ready for breeding)
+    return "Breeding Heifer";
+  }
+  
+  // First-Calf Heifer (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Calf Heifer";
+  
+  // Mature Cow (has 2+ offspring)
+  return "Mature Cow";
+}
+
+// Helper function for detailed carabao life stages
+function calculateCarabaoLifeStage(ageMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Carabao Calf (0-12 months)
+  if (ageMonths < 12) return "Carabao Calf";
+  
+  // Young Carabao (12-18 months, no breeding yet)
+  if (ageMonths < 18 && offspringCount === 0 && !hasActiveAI) return "Young Carabao";
+  
+  // For animals 18+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Carabao (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Carabao";
+    // Breeding Carabao (ready for breeding)
+    return "Breeding Carabao";
+  }
+  
+  // First-Time Mother (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Time Mother";
+  
+  // Mature Carabao (has 2+ offspring)
+  return "Mature Carabao";
+}
+
+// Helper function for detailed goat life stages
+function calculateGoatLifeStage(ageMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Kid (0-6 months)
+  if (ageMonths < 6) return "Kid";
+  
+  // Doeling (6-10 months, female kid)
+  if (ageMonths < 10 && offspringCount === 0 && !hasActiveAI) return "Doeling";
+  
+  // For animals 10+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Doe (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Doe";
+    // Breeding Doe (ready for breeding)
+    return "Breeding Doe";
+  }
+  
+  // First Freshener (has exactly 1 offspring)
+  if (offspringCount === 1) return "First Freshener";
+  
+  // Mature Doe (has 2+ offspring)
+  return "Mature Doe";
+}
+
+// Helper function for detailed sheep life stages
+function calculateSheepLifeStage(ageMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Lamb (0-6 months)
+  if (ageMonths < 6) return "Lamb";
+  
+  // Ewe Lamb (6-12 months, female lamb)
+  if (ageMonths < 12 && offspringCount === 0 && !hasActiveAI) return "Ewe Lamb";
+  
+  // For animals 12+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Ewe (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Ewe";
+    // Breeding Ewe (ready for breeding)
+    return "Breeding Ewe";
+  }
+  
+  // First-Time Mother Ewe (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Time Mother Ewe";
+  
+  // Mature Ewe (has 2+ offspring)
+  return "Mature Ewe";
 }
 
 function calculateMaleStage(data: AnimalStageData, ageMonths: number): string | null {
@@ -87,7 +170,7 @@ function calculateMaleStage(data: AnimalStageData, ageMonths: number): string | 
   } else if (normalizedType === 'sheep') {
     if (ageMonths < 6) return 'Lamb';
     if (ageMonths < 12) return 'Young Ram';
-    return 'Ram';
+    return 'Mature Ram';
   }
 
   return null;
