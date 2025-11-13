@@ -23,6 +23,7 @@ export interface AnimalStageData {
   lastCalvingDate: Date | null;
   hasRecentMilking: boolean;
   hasActiveAI: boolean;
+  livestockType: string | null;
 }
 
 /**
@@ -70,9 +71,9 @@ export interface AnimalStageData {
  */
 export function calculateLifeStage(data: AnimalStageData): string | null {
   try {
-    const { birthDate, gender, offspringCount, hasActiveAI } = data;
+    const { birthDate, gender, offspringCount, hasActiveAI, livestockType } = data;
     
-    if (!birthDate || gender !== "Female") return null;
+    if (!birthDate || gender !== "Female" || !livestockType) return null;
     
     // Ensure birthDate is a valid date
     if (isNaN(birthDate.getTime())) return null;
@@ -81,33 +82,120 @@ export function calculateLifeStage(data: AnimalStageData): string | null {
     
     // Ensure ageInMonths is a valid number
     if (isNaN(ageInMonths) || ageInMonths < 0) return null;
-    
-    // Calf (0-8 months)
-    if (ageInMonths < 8) return "Calf";
-    
-    // Heifer Calf (8-12 months)
-    if (ageInMonths < 12) return "Heifer Calf";
-    
-    // Yearling Heifer (12-15 months)
-    if (ageInMonths < 15) return "Yearling Heifer";
-    
-    // For animals 15+ months
-    if (offspringCount === 0) {
-      // Pregnant Heifer (has AI record but no offspring)
-      if (hasActiveAI) return "Pregnant Heifer";
-      // Breeding Heifer (ready for breeding)
-      return "Breeding Heifer";
+
+    const normalizedType = livestockType.toLowerCase().trim();
+
+    // Species-specific logic
+    if (normalizedType === 'cattle') {
+      return calculateCattleLifeStage(ageInMonths, offspringCount, hasActiveAI);
+    } else if (normalizedType === 'carabao') {
+      return calculateCarabaoLifeStage(ageInMonths, offspringCount, hasActiveAI);
+    } else if (normalizedType === 'goat') {
+      return calculateGoatLifeStage(ageInMonths, offspringCount, hasActiveAI);
+    } else if (normalizedType === 'sheep') {
+      return calculateSheepLifeStage(ageInMonths, offspringCount, hasActiveAI);
     }
-    
-    // First-Calf Heifer (has exactly 1 offspring)
-    if (offspringCount === 1) return "First-Calf Heifer";
-    
-    // Mature Cow (has 2+ offspring)
-    return "Mature Cow";
+
+    return null;
   } catch (error) {
     console.error("Error in calculateLifeStage:", error);
     return null;
   }
+}
+
+// Helper function for cattle life stages (preserves existing detailed logic)
+function calculateCattleLifeStage(ageInMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Calf (0-8 months)
+  if (ageInMonths < 8) return "Calf";
+  
+  // Heifer Calf (8-12 months)
+  if (ageInMonths < 12) return "Heifer Calf";
+  
+  // Yearling Heifer (12-15 months)
+  if (ageInMonths < 15) return "Yearling Heifer";
+  
+  // For animals 15+ months
+  if (offspringCount === 0) {
+    // Pregnant Heifer (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Heifer";
+    // Breeding Heifer (ready for breeding)
+    return "Breeding Heifer";
+  }
+  
+  // First-Calf Heifer (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Calf Heifer";
+  
+  // Mature Cow (has 2+ offspring)
+  return "Mature Cow";
+}
+
+// Helper function for carabao life stages
+function calculateCarabaoLifeStage(ageInMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Carabao Calf (0-12 months)
+  if (ageInMonths < 12) return "Carabao Calf";
+  
+  // Young Carabao (12-18 months, no breeding yet)
+  if (ageInMonths < 18 && offspringCount === 0 && !hasActiveAI) return "Young Carabao";
+  
+  // For animals 18+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Carabao (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Carabao";
+    // Breeding Carabao (ready for breeding)
+    return "Breeding Carabao";
+  }
+  
+  // First-Time Mother (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Time Mother";
+  
+  // Mature Carabao (has 2+ offspring)
+  return "Mature Carabao";
+}
+
+// Helper function for goat life stages
+function calculateGoatLifeStage(ageInMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Kid (0-6 months)
+  if (ageInMonths < 6) return "Kid";
+  
+  // Doeling (6-10 months, female kid)
+  if (ageInMonths < 10 && offspringCount === 0 && !hasActiveAI) return "Doeling";
+  
+  // For animals 10+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Doe (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Doe";
+    // Breeding Doe (ready for breeding)
+    return "Breeding Doe";
+  }
+  
+  // First Freshener (has exactly 1 offspring)
+  if (offspringCount === 1) return "First Freshener";
+  
+  // Mature Doe (has 2+ offspring)
+  return "Mature Doe";
+}
+
+// Helper function for sheep life stages
+function calculateSheepLifeStage(ageInMonths: number, offspringCount: number, hasActiveAI: boolean): string {
+  // Lamb (0-6 months)
+  if (ageInMonths < 6) return "Lamb";
+  
+  // Ewe Lamb (6-12 months, female lamb)
+  if (ageInMonths < 12 && offspringCount === 0 && !hasActiveAI) return "Ewe Lamb";
+  
+  // For animals 12+ months or younger with breeding activity
+  if (offspringCount === 0) {
+    // Pregnant Ewe (has AI record but no offspring)
+    if (hasActiveAI) return "Pregnant Ewe";
+    // Breeding Ewe (ready for breeding)
+    return "Breeding Ewe";
+  }
+  
+  // First-Time Mother Ewe (has exactly 1 offspring)
+  if (offspringCount === 1) return "First-Time Mother Ewe";
+  
+  // Mature Ewe (has 2+ offspring)
+  return "Mature Ewe";
 }
 
 /**
@@ -219,31 +307,36 @@ export function getLifeStageBadgeColor(stage: string | null): string {
     "Mature Bull": "bg-teal-100 text-teal-800 border-teal-200",
     
     // Carabao
+    "Carabao Calf": "bg-pink-100 text-pink-800 border-pink-200",
     "Young Carabao": "bg-blue-100 text-blue-800 border-blue-200",
     "Breeding Carabao": "bg-purple-100 text-purple-800 border-purple-200",
     "Pregnant Carabao": "bg-yellow-100 text-yellow-800 border-yellow-200",
     "First-Time Mother": "bg-green-100 text-green-800 border-green-200",
     "Mature Carabao": "bg-emerald-100 text-emerald-800 border-emerald-200",
+    "Young Bull Carabao": "bg-cyan-100 text-cyan-800 border-cyan-200",
+    "Mature Bull Carabao": "bg-teal-100 text-teal-800 border-teal-200",
     
     // Goats
     "Kid": "bg-pink-100 text-pink-800 border-pink-200",
+    "Buckling": "bg-blue-100 text-blue-800 border-blue-200",
+    "Doeling": "bg-blue-100 text-blue-800 border-blue-200",
     "Young Doe": "bg-blue-100 text-blue-800 border-blue-200",
     "Breeding Doe": "bg-purple-100 text-purple-800 border-purple-200",
     "Pregnant Doe": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "Lactating Doe": "bg-green-100 text-green-800 border-green-200",
-    "Dry Doe": "bg-orange-100 text-orange-800 border-orange-200",
-    "Buck Kid": "bg-blue-100 text-blue-800 border-blue-200",
+    "First Freshener": "bg-green-100 text-green-800 border-green-200",
+    "Mature Doe": "bg-emerald-100 text-emerald-800 border-emerald-200",
     "Young Buck": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Mature Buck": "bg-teal-100 text-teal-800 border-teal-200",
+    "Buck": "bg-teal-100 text-teal-800 border-teal-200",
     
     // Sheep
     "Lamb": "bg-pink-100 text-pink-800 border-pink-200",
+    "Ram Lamb": "bg-blue-100 text-blue-800 border-blue-200",
+    "Ewe Lamb": "bg-blue-100 text-blue-800 border-blue-200",
     "Young Ewe": "bg-blue-100 text-blue-800 border-blue-200",
     "Breeding Ewe": "bg-purple-100 text-purple-800 border-purple-200",
     "Pregnant Ewe": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "Lactating Ewe": "bg-green-100 text-green-800 border-green-200",
-    "Dry Ewe": "bg-orange-100 text-orange-800 border-orange-200",
-    "Ram Lamb": "bg-blue-100 text-blue-800 border-blue-200",
+    "First-Time Mother Ewe": "bg-green-100 text-green-800 border-green-200",
+    "Mature Ewe": "bg-emerald-100 text-emerald-800 border-emerald-200",
     "Young Ram": "bg-cyan-100 text-cyan-800 border-cyan-200",
     "Mature Ram": "bg-teal-100 text-teal-800 border-teal-200",
   };
@@ -286,9 +379,9 @@ export function getLifeStageBadgeColor(stage: string | null): string {
  */
 export function calculateMaleStage(data: AnimalStageData): string | null {
   try {
-    const { birthDate, gender } = data;
+    const { birthDate, gender, livestockType } = data;
     
-    if (!birthDate || gender !== "Male") return null;
+    if (!birthDate || gender !== "Male" || !livestockType) return null;
     
     // Ensure birthDate is a valid date
     if (isNaN(birthDate.getTime())) return null;
@@ -297,15 +390,29 @@ export function calculateMaleStage(data: AnimalStageData): string | null {
     
     // Ensure ageInMonths is a valid number
     if (isNaN(ageInMonths) || ageInMonths < 0) return null;
-    
-    // Bull Calf (0-12 months)
-    if (ageInMonths < 12) return "Bull Calf";
-    
-    // Young Bull (12-24 months)
-    if (ageInMonths < 24) return "Young Bull";
-    
-    // Mature Bull (24+ months)
-    return "Mature Bull";
+
+    const normalizedType = livestockType.toLowerCase().trim();
+
+    // Species-specific male stages
+    if (normalizedType === 'cattle') {
+      if (ageInMonths < 12) return "Bull Calf";
+      if (ageInMonths < 24) return "Young Bull";
+      return "Mature Bull";
+    } else if (normalizedType === 'carabao') {
+      if (ageInMonths < 12) return "Carabao Calf";
+      if (ageInMonths < 24) return "Young Bull Carabao";
+      return "Mature Bull Carabao";
+    } else if (normalizedType === 'goat') {
+      if (ageInMonths < 6) return "Kid";
+      if (ageInMonths < 12) return "Young Buck";
+      return "Buck";
+    } else if (normalizedType === 'sheep') {
+      if (ageInMonths < 6) return "Lamb";
+      if (ageInMonths < 12) return "Young Ram";
+      return "Mature Ram";
+    }
+
+    return null;
   } catch (error) {
     console.error("Error in calculateMaleStage:", error);
     return null;
@@ -347,6 +454,13 @@ export function getMilkingStageBadgeColor(stage: string | null): string {
 
 /**
  * Maps cattle-specific life stage terms to species-appropriate terms for display
+ * 
+ * DEPRECATED: This function is kept for backward compatibility with old carabao records
+ * that still have cattle-specific terms in the database. Once all carabao records are
+ * migrated to use carabao-specific terms, this function can be removed.
+ * 
+ * New calculations should use species-specific logic in calculateLifeStage() directly.
+ * 
  * @param stage - The life stage from the database
  * @param livestockType - The type of livestock (cattle, carabao, goat, sheep)
  * @returns The species-appropriate stage name for display
@@ -356,7 +470,7 @@ export function displayStageForSpecies(stage: string | null, livestockType: stri
   
   const normalizedType = livestockType.trim().toLowerCase();
   
-  // Only map for carabao - cattle terms stored in DB need to show as carabao terms
+  // Only map for carabao with legacy cattle terms - needed during migration period
   if (normalizedType === 'carabao') {
     const cattleToCarabaoMap: Record<string, string> = {
       'Mature Cow': 'Mature Carabao',
@@ -365,7 +479,10 @@ export function displayStageForSpecies(stage: string | null, livestockType: stri
       'Breeding Heifer': 'Breeding Carabao',
       'Heifer Calf': 'Young Carabao',
       'Yearling Heifer': 'Young Carabao',
-      'Calf': 'Young Carabao',
+      'Calf': 'Carabao Calf',
+      'Bull Calf': 'Carabao Calf',
+      'Young Bull': 'Young Bull Carabao',
+      'Mature Bull': 'Mature Bull Carabao',
     };
     
     return cattleToCarabaoMap[stage] || stage;

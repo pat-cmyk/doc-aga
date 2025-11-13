@@ -123,7 +123,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     try {
       const { data: animals } = await supabase
         .from("animals")
-        .select("id, birth_date, gender, milking_start_date")
+        .select("id, birth_date, gender, milking_start_date, livestock_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
@@ -160,6 +160,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           lastCalvingDate,
           hasRecentMilking: false,
           hasActiveAI: false,
+          livestockType: animal.livestock_type,
         };
 
         const lifeStage = calculateLifeStage(stageData);

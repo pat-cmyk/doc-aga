@@ -16,6 +16,7 @@ const createBaseAnimalData = (overrides: Partial<AnimalStageData> = {}): AnimalS
   lastCalvingDate: null,
   hasRecentMilking: false,
   hasActiveAI: false,
+  livestockType: 'cattle',
   ...overrides,
 });
 

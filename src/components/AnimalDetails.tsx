@@ -352,7 +352,8 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
           offspringCount: offspringData ? offspringData.length : 0,
           lastCalvingDate,
           hasRecentMilking: milkingRecords ? milkingRecords.length > 0 : false,
-          hasActiveAI
+          hasActiveAI,
+          livestockType: data.livestock_type
         });
       } catch (stageError) {
         console.error("Error calculating stage data:", stageError);
@@ -364,7 +365,8 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
           offspringCount: offspringData ? offspringData.length : 0,
           lastCalvingDate: null,
           hasRecentMilking: false,
-          hasActiveAI: false
+          hasActiveAI: false,
+          livestockType: data.livestock_type
         });
       }
     } catch (error: any) {
