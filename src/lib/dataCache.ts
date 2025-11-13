@@ -413,6 +413,7 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
           lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
           hasRecentMilking: (recentMilking?.length || 0) > 0,
           hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
+          livestockType: animal.livestock_type,
         };
 
         const lifeStage = calculateLifeStage(stageData);

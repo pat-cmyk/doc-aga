@@ -19,6 +19,7 @@ export interface Animal {
   life_stage: string | null;
   milking_stage: string | null;
   unique_code: string | null;
+  livestock_type: string | null;
 }
 
 export interface ParentAnimal {
@@ -42,6 +43,7 @@ export interface AnimalStageData {
   lastCalvingDate: Date | null;
   hasRecentMilking: boolean;
   hasActiveAI: boolean;
+  livestockType: string | null;
 }
 
 export const useAnimalDetails = (animalId: string, farmId: string) => {
@@ -170,7 +172,8 @@ export const useAnimalDetails = (animalId: string, farmId: string) => {
           offspringCount: offspringData ? offspringData.length : 0,
           lastCalvingDate,
           hasRecentMilking: milkingRecords ? milkingRecords.length > 0 : false,
-          hasActiveAI
+          hasActiveAI,
+          livestockType: data.livestock_type
         });
       } catch (stageError) {
         console.error("Error calculating stage data:", stageError);
@@ -181,7 +184,8 @@ export const useAnimalDetails = (animalId: string, farmId: string) => {
           offspringCount: offspringData ? offspringData.length : 0,
           lastCalvingDate: null,
           hasRecentMilking: false,
-          hasActiveAI: false
+          hasActiveAI: false,
+          livestockType: data.livestock_type
         });
       }
     } catch (error: any) {
