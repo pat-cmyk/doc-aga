@@ -461,6 +461,8 @@ async function getFarmOverview(supabase: SupabaseClient, farmId: string | undefi
   const totalAnimals = animals?.length || 0;
   const stageBreakdown: Record<string, number> = {};
   const livestockBreakdown: Record<string, number> = {};
+  const milkingStageBreakdown: Record<string, number> = {};
+  const lactatingByType: Record<string, number> = {};
   
   animals?.forEach(a => {
     // Stage breakdown
@@ -470,6 +472,22 @@ async function getFarmOverview(supabase: SupabaseClient, farmId: string | undefi
     // Livestock type breakdown
     const type = a.livestock_type || 'Unknown';
     livestockBreakdown[type] = (livestockBreakdown[type] || 0) + 1;
+
+    // Milking stage breakdown
+    if (a.milking_stage) {
+      milkingStageBreakdown[a.milking_stage] = (milkingStageBreakdown[a.milking_stage] || 0) + 1;
+    }
+
+    // Count lactating animals by type
+    // Lactating = has milking_stage AND it's not "Dry Period"
+    // OR life_stage contains "Lactating" (for goats: "Lactating Doe")
+    const isLactating = 
+      (a.milking_stage && a.milking_stage !== 'Dry Period') ||
+      (a.life_stage && a.life_stage.includes('Lactating'));
+    
+    if (isLactating) {
+      lactatingByType[type] = (lactatingByType[type] || 0) + 1;
+    }
   });
 
   // Get milk production with livestock type
@@ -486,11 +504,15 @@ async function getFarmOverview(supabase: SupabaseClient, farmId: string | undefi
   });
 
   const todayTotal = Object.values(milkByType).reduce((a, b) => a + b, 0);
+  const totalLactating = Object.values(lactatingByType).reduce((a, b) => a + b, 0);
 
   return {
     total_animals: totalAnimals,
     livestock_breakdown: livestockBreakdown,
     stage_breakdown: stageBreakdown,
+    milking_stage_breakdown: milkingStageBreakdown,
+    lactating_by_type: lactatingByType,
+    total_lactating: totalLactating,
     today_milk_by_type: milkByType,
     today_milk_liters: todayTotal,
   };
