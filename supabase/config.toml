@@ -46,3 +46,6 @@ verify_jwt = true
 
 [functions.mapbox-token]
 verify_jwt = false
+
+[functions.bulk-recalculate-carabao-stages]
+verify_jwt = true
