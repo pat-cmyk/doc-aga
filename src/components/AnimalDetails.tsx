@@ -21,6 +21,7 @@ import {
   calculateMilkingStage, 
   getLifeStageBadgeColor, 
   getMilkingStageBadgeColor,
+  displayStageForSpecies,
   type AnimalStageData 
 } from "@/lib/animalStages";
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
@@ -137,6 +138,7 @@ interface Animal {
   life_stage: string | null;
   milking_stage: string | null;
   unique_code: string | null;
+  livestock_type: string | null;
 }
 
 interface ParentAnimal {
@@ -475,6 +477,9 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
   // Use stored values from database directly
   const computedLifeStage = animal?.life_stage || null;
   const computedMilkingStage = animal?.milking_stage || null;
+  
+  // Map to species-appropriate display names
+  const displayLifeStage = displayStageForSpecies(computedLifeStage, animal?.livestock_type || null);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -515,11 +520,11 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
-                  {computedLifeStage && (
+                  {displayLifeStage && (
                     <StageBadge 
-                      stage={computedLifeStage}
-                      definition={getLifeStageDefinition(computedLifeStage)}
-                      colorClass={getLifeStageBadgeColor(computedLifeStage)}
+                      stage={displayLifeStage}
+                      definition={getLifeStageDefinition(displayLifeStage)}
+                      colorClass={getLifeStageBadgeColor(displayLifeStage)}
                     />
                   )}
                   {computedMilkingStage && (

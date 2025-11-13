@@ -159,71 +159,102 @@ Deno.serve(async (req) => {
 
     console.log(`Recalculating stages for animal: ${animalId}`);
 
-    // Fetch animal data
+    // Fetch animal with related data
     const { data: animal, error: fetchError } = await supabase
       .from('animals')
       .select(`
         id,
-        unique_code,
         birth_date,
         gender,
         livestock_type,
-        last_calving_date,
         life_stage,
-        milking_stage
+        milking_stage,
+        unique_code
       `)
       .eq('id', animalId)
       .single();
 
     if (fetchError || !animal) {
-      return new Response(JSON.stringify({ error: 'Animal not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error('[recalculate-animal] Animal not found:', animalId, fetchError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Animal not found',
+          details: fetchError?.message 
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    if (!animal.birth_date) {
-      return new Response(JSON.stringify({ 
-        error: 'Cannot calculate: birth_date missing',
-        animal: animal.unique_code 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log('[recalculate-animal] Fetched animal:', {
+      id: animal.id,
+      unique_code: animal.unique_code,
+      livestock_type: animal.livestock_type,
+      gender: animal.gender,
+      birth_date: animal.birth_date,
+      current_life_stage: animal.life_stage,
+      current_milking_stage: animal.milking_stage
+    });
 
-    // Count offspring
+    // Count offspring using correct column names (mother_id/father_id)
     const { count: offspringCount } = await supabase
       .from('animals')
       .select('id', { count: 'exact', head: true })
-      .eq(animal.gender?.toLowerCase() === 'female' ? 'dam_id' : 'sire_id', animal.id)
+      .or(`mother_id.eq.${animalId},father_id.eq.${animalId}`)
       .eq('is_deleted', false);
 
-    // Check recent milking (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const { count: recentMilkingCount } = await supabase
-      .from('milking_records')
-      .select('id', { count: 'exact', head: true })
-      .eq('animal_id', animal.id)
-      .gte('record_date', sevenDaysAgo.toISOString().split('T')[0]);
+    console.log('[recalculate-animal] Offspring count:', offspringCount || 0);
 
-    // Check active AI
-    const { count: activeAICount } = await supabase
+    // Get last calving date from latest offspring birth_date
+    const { data: latestOffspring } = await supabase
+      .from('animals')
+      .select('birth_date')
+      .or(`mother_id.eq.${animalId},father_id.eq.${animalId}`)
+      .eq('is_deleted', false)
+      .order('birth_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lastCalvingDate = latestOffspring?.birth_date || null;
+    console.log('[recalculate-animal] Last calving date:', lastCalvingDate);
+
+    // Check for active AI records
+    const { data: activeAI } = await supabase
       .from('ai_records')
-      .select('id', { count: 'exact', head: true })
-      .eq('animal_id', animal.id)
+      .select('id')
+      .eq('animal_id', animalId)
       .eq('pregnancy_confirmed', false)
-      .is('performed_date', null);
+      .is('performed_date', null)
+      .limit(1)
+      .maybeSingle();
 
+    const hasActiveAI = !!activeAI;
+    console.log('[recalculate-animal] Has active AI:', hasActiveAI);
+
+    // Check for recent milking (within 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: recentMilking } = await supabase
+      .from('milking_records')
+      .select('id')
+      .eq('animal_id', animalId)
+      .gte('record_date', thirtyDaysAgo.toISOString().split('T')[0])
+      .limit(1)
+      .maybeSingle();
+
+    const hasRecentMilking = !!recentMilking;
+    console.log('[recalculate-animal] Has recent milking:', hasRecentMilking);
+
+    // Prepare stage data with normalized livestock type
+    const normalizedType = animal.livestock_type?.trim().toLowerCase() || 'cattle';
     const stageData: AnimalStageData = {
       birth_date: animal.birth_date,
       gender: animal.gender,
       offspring_count: offspringCount || 0,
-      last_calving_date: animal.last_calving_date,
-      has_recent_milking: (recentMilkingCount || 0) > 0,
-      has_active_ai: (activeAICount || 0) > 0,
-      livestock_type: animal.livestock_type || 'cattle',
+      last_calving_date: lastCalvingDate,
+      has_recent_milking: hasRecentMilking,
+      has_active_ai: hasActiveAI,
+      livestock_type: normalizedType
     };
 
     const newLifeStage = calculateLifeStage(stageData);
