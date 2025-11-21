@@ -40,6 +40,7 @@ interface ActivityConfirmationProps {
     is_bulk_milking?: boolean;
     multiple_feeds?: boolean;
     total_animals?: number;
+    total_types?: number;
     total_weight_kg?: number;
     total_kg?: number;
     original_quantity?: number;
@@ -55,6 +56,20 @@ interface ActivityConfirmationProps {
       proportion: number;
       feed_amount?: number;
       milk_liters?: number;
+    }>;
+    distributions_by_type?: Array<{
+      livestock_type: string;
+      animals: number;
+      distributions: Array<{
+        animal_id: string;
+        animal_name: string;
+        ear_tag: string;
+        livestock_type: string;
+        weight_kg: number;
+        milking_stage?: string;
+        proportion: number;
+        milk_liters: number;
+      }>;
     }>;
   };
   onCancel: () => void;
@@ -144,8 +159,34 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
       switch (data.activity_type) {
         case 'milking':
-          if (data.is_bulk_milking && data.distributions) {
-            // Bulk milking for multiple animals
+          if (data.distributions_by_type) {
+            // Bulk milking with type grouping
+            const allRecords = data.distributions_by_type.flatMap(typeGroup =>
+              typeGroup.distributions.map(dist => ({
+                animal_id: dist.animal_id,
+                record_date: today,
+                liters: dist.milk_liters,
+                created_by: user.id
+              }))
+            );
+            
+            const { error: bulkError } = await supabase
+              .from('milking_records')
+              .insert(allRecords);
+            
+            if (bulkError) throw bulkError;
+            
+            // Show type-specific summary
+            const summary = data.distributions_by_type
+              .map(tg => `${tg.animals} ${tg.livestock_type}${tg.animals > 1 ? 's' : ''}`)
+              .join(', ');
+            
+            toast({
+              title: "Bulk Milking Recorded",
+              description: `${data.quantity} liters recorded for ${summary}`,
+            });
+          } else if (data.is_bulk_milking && data.distributions) {
+            // Legacy bulk milking (without type grouping)
             const milkingRecords = data.distributions.map(dist => ({
               animal_id: dist.animal_id,
               record_date: today,
@@ -343,7 +384,59 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           </div>
         )}
 
-        {data.is_bulk_milking && data.distributions && (
+        {/* Type-grouped milk distribution */}
+        {data.distributions_by_type && data.distributions_by_type.map((typeGroup) => (
+          <div key={typeGroup.livestock_type} className="space-y-2">
+            <h3 className="font-medium capitalize">
+              {typeGroup.livestock_type} Distribution ({typeGroup.animals} animals)
+            </h3>
+            <div className="rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Animal</th>
+                    <th className="text-right p-2 font-medium">Weight</th>
+                    <th className="text-right p-2 font-medium">Stage</th>
+                    <th className="text-right p-2 font-medium">Proportion</th>
+                    <th className="text-right p-2 font-medium">Milk (L)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {typeGroup.distributions.map((dist, idx) => (
+                    <tr key={idx} className="border-t">
+                      <td className="p-2">
+                        <div>
+                          <span className="font-medium">{dist.ear_tag}</span>
+                          {dist.animal_name && (
+                            <span className="text-muted-foreground text-xs ml-1">
+                              - {dist.animal_name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-right p-2">{dist.weight_kg.toFixed(1)} kg</td>
+                      <td className="text-right p-2">
+                        {dist.milking_stage && (
+                          <Badge variant="secondary" className="text-xs">
+                            {dist.milking_stage}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="text-right p-2">{(dist.proportion * 100).toFixed(1)}%</td>
+                      <td className="text-right p-2 font-medium">{dist.milk_liters.toFixed(2)} L</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Distribution is proportional based on animal weights
+            </p>
+          </div>
+        ))}
+
+        {/* Legacy bulk milking display */}
+        {data.is_bulk_milking && data.distributions && !data.distributions_by_type && (
           <div className="space-y-2">
             <h3 className="font-medium">Milk Distribution</h3>
             <div className="rounded-md border">
@@ -372,9 +465,11 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
                       </td>
                       <td className="text-right p-2">{dist.weight_kg.toFixed(1)} kg</td>
                       <td className="text-right p-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {dist.milking_stage}
-                        </Badge>
+                        {dist.milking_stage && (
+                          <Badge variant="secondary" className="text-xs">
+                            {dist.milking_stage}
+                          </Badge>
+                        )}
                       </td>
                       <td className="text-right p-2">{(dist.proportion * 100).toFixed(1)}%</td>
                       <td className="text-right p-2 font-medium">{dist.milk_liters?.toFixed(2)} L</td>
