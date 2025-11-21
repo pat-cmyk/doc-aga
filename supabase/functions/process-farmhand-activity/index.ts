@@ -505,6 +505,19 @@ Bisaya/Cebuano:
 - Time: "gabie"=yesterday, "karon"=now, "ugma"=tomorrow (FUTURE)
 - Activities: "papakaon"=feeding, "pagatas"=milking
 
+**LIVESTOCK TYPE DETECTION FOR MILKING**:
+Detect livestock type from milk-related keywords:
+- "goat milk"/"gatas ng kambing" → livestock_type: 'goat'
+- "cow milk"/"gatas ng baka" → livestock_type: 'cattle'
+- "carabao milk"/"gatas ng kalabaw" → livestock_type: 'carabao'
+- "sheep milk"/"gatas ng tupa" → livestock_type: 'sheep'
+- No type mentioned → livestock_type: null (will show all types for selection)
+
+Examples:
+- "Nag-gatas ako ng 20 liters ng goat milk" → livestock_type: 'goat'
+- "I milked 20 liters" → livestock_type: null
+- "Nakakuha ng 15 liters gatas ng baka" → livestock_type: 'cattle'
+
 Numbers (Tagalog):
 - "isa"=1, "dalawa"=2, "tatlo"=3, "apat"=4, "lima"=5
 - "anim"=6, "pito"=7, "walo"=8, "siyam"=9, "sampu"=10
@@ -629,6 +642,11 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
 - Time: "umaga"=morning, "tanghali"=noon, "hapon"=afternoon, "gabi"=night
 
 CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa susunod"`
+                  },
+                  livestock_type: {
+                    type: 'string',
+                    enum: ['cattle', 'goat', 'carabao', 'sheep'],
+                    description: 'Livestock type detected from milk keywords (ONLY for milking activities). Extract ONLY if explicitly mentioned: "goat milk", "cow milk", "carabao milk", "sheep milk". Leave null if not mentioned.'
                   },
                   notes: {
                     type: 'string',
