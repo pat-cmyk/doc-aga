@@ -335,18 +335,82 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     setMode('idle');
   };
 
-  const handleAnimalSelected = async (animalId: string) => {
+  const handleAnimalSelected = async (selection: string | string[]) => {
     if (!extractedData) return;
     
-    // Update extracted data with selected animal
-    const updatedData = {
-      ...extractedData,
-      animal_id: animalId
-    };
-    
-    setExtractedData(updatedData);
-    setMode('activity');
-    setNeedsAnimalSelection(false);
+    // Handle bulk milking with "ALL" or multiple animals
+    if (extractedData.activity_type === 'milking' && (selection === 'ALL' || Array.isArray(selection))) {
+      try {
+        // Fetch all milking animals or selected ones
+        let animalIds: string[] = [];
+        
+        if (selection === 'ALL') {
+          const { data: allMilkingAnimals } = await supabase
+            .from('animals')
+            .select('id, ear_tag, name, current_weight_kg, milking_stage')
+            .eq('farm_id', farmId)
+            .eq('is_deleted', false)
+            .in('milking_stage', ['Early Lactation', 'Mid-Lactation', 'Late Lactation']);
+          
+          animalIds = (allMilkingAnimals || []).map(a => a.id);
+        } else {
+          animalIds = selection;
+        }
+
+        // Fetch full details for selected animals
+        const { data: selectedAnimals } = await supabase
+          .from('animals')
+          .select('id, ear_tag, name, current_weight_kg, milking_stage')
+          .in('id', animalIds);
+
+        if (!selectedAnimals || selectedAnimals.length === 0) {
+          throw new Error('No animals found');
+        }
+
+        // Calculate proportional distribution based on weight
+        const totalWeight = selectedAnimals.reduce((sum, a) => sum + (a.current_weight_kg || 0), 0);
+        const totalLiters = extractedData.quantity || 0;
+
+        const distributions = selectedAnimals.map(animal => ({
+          animal_id: animal.id,
+          animal_name: animal.name || `Tag ${animal.ear_tag}`,
+          ear_tag: animal.ear_tag,
+          weight_kg: animal.current_weight_kg || 0,
+          milking_stage: animal.milking_stage,
+          proportion: (animal.current_weight_kg || 0) / totalWeight,
+          milk_liters: ((animal.current_weight_kg || 0) / totalWeight) * totalLiters
+        }));
+
+        const updatedData = {
+          ...extractedData,
+          is_bulk_milking: true,
+          total_animals: selectedAnimals.length,
+          distributions
+        };
+
+        setExtractedData(updatedData);
+        setMode('activity');
+        setNeedsAnimalSelection(false);
+      } catch (error) {
+        console.error('Error processing bulk milking:', error);
+        toast({
+          title: "Error",
+          description: "Failed to process multiple animals",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Single animal selection (existing logic)
+      const animalId = Array.isArray(selection) ? selection[0] : selection;
+      const updatedData = {
+        ...extractedData,
+        animal_id: animalId
+      };
+      
+      setExtractedData(updatedData);
+      setMode('activity');
+      setNeedsAnimalSelection(false);
+    }
   };
 
   // Show Dok Aga consultation
