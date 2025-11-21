@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, XCircle, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +37,7 @@ interface ActivityConfirmationProps {
     medicine_name?: string;
     dosage?: string;
     is_bulk_feeding?: boolean;
+    is_bulk_milking?: boolean;
     multiple_feeds?: boolean;
     total_animals?: number;
     total_weight_kg?: number;
@@ -49,8 +51,10 @@ interface ActivityConfirmationProps {
       animal_name: string;
       ear_tag: string;
       weight_kg: number;
+      milking_stage?: string;
       proportion: number;
-      feed_amount: number;
+      feed_amount?: number;
+      milk_liters?: number;
     }>;
   };
   onCancel: () => void;
@@ -140,13 +144,35 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
       switch (data.activity_type) {
         case 'milking':
-          if (!data.animal_id) throw new Error('Please select an animal for this activity');
-          await supabase.from('milking_records').insert({
-            animal_id: data.animal_id,
-            record_date: today,
-            liters: data.quantity || 0,
-            created_by: user.id
-          });
+          if (data.is_bulk_milking && data.distributions) {
+            // Bulk milking for multiple animals
+            const milkingRecords = data.distributions.map(dist => ({
+              animal_id: dist.animal_id,
+              record_date: today,
+              liters: dist.milk_liters || 0,
+              created_by: user.id
+            }));
+            
+            const { error: bulkError } = await supabase
+              .from('milking_records')
+              .insert(milkingRecords);
+            
+            if (bulkError) throw bulkError;
+            
+            toast({
+              title: "Bulk Milking Recorded",
+              description: `${data.quantity} liters recorded for ${data.total_animals} animals`,
+            });
+          } else {
+            // Single animal milking
+            if (!data.animal_id) throw new Error('Please select an animal for this activity');
+            await supabase.from('milking_records').insert({
+              animal_id: data.animal_id,
+              record_date: today,
+              liters: data.quantity || 0,
+              created_by: user.id
+            });
+          }
           break;
 
         case 'feeding':
@@ -310,9 +336,55 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
 
         {data.is_bulk_feeding && !data.multiple_feeds && data.distributions && (
           <div className="space-y-2">
-            <h3 className="font-medium">Distribution Details</h3>
+            <h3 className="font-medium">Feed Distribution</h3>
             <p className="text-sm text-muted-foreground">
               Feed will be distributed proportionally based on animal weights
+            </p>
+          </div>
+        )}
+
+        {data.is_bulk_milking && data.distributions && (
+          <div className="space-y-2">
+            <h3 className="font-medium">Milk Distribution</h3>
+            <div className="rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Animal</th>
+                    <th className="text-right p-2 font-medium">Weight</th>
+                    <th className="text-right p-2 font-medium">Stage</th>
+                    <th className="text-right p-2 font-medium">Proportion</th>
+                    <th className="text-right p-2 font-medium">Milk (L)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.distributions.map((dist, idx) => (
+                    <tr key={idx} className="border-t">
+                      <td className="p-2">
+                        <div>
+                          <span className="font-medium">{dist.ear_tag}</span>
+                          {dist.animal_name && (
+                            <span className="text-muted-foreground text-xs ml-1">
+                              - {dist.animal_name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-right p-2">{dist.weight_kg.toFixed(1)} kg</td>
+                      <td className="text-right p-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {dist.milking_stage}
+                        </Badge>
+                      </td>
+                      <td className="text-right p-2">{(dist.proportion * 100).toFixed(1)}%</td>
+                      <td className="text-right p-2 font-medium">{dist.milk_liters?.toFixed(2)} L</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Distribution is proportional based on animal weights
             </p>
           </div>
         )}
