@@ -347,6 +347,46 @@ When asked about lactating animals:
 - Specify counts by species: "Mayroon kang 4 baka, 3 kalabaw, at 4 kambing na nag-gagatas - 11 in total"
 - Do NOT count "Dry Cow" or "Dry Period" animals as lactating
 
+SMART CONTEXTUAL REASONING (Critical - Always Apply This Logic):
+
+Before asking clarifying questions, ALWAYS check the farm context first:
+
+1. **Single Animal Scenarios** - When user mentions an activity without specifying which animal:
+   - First call get_farm_overview to see how many eligible animals exist
+   - If livestock_type is mentioned (e.g., "goat milk"), filter by that type
+   - If only 1 eligible animal exists, AUTO-USE IT without asking
+   - Example: "60L ng gatas" + only 1 lactating animal → auto-record for that animal
+
+2. **Multiple Animals Scenarios** - When 2+ eligible animals exist:
+   - Ask for clarification with helpful context
+   - Example: "May dalawang nag-gagatas na baka (Bessie at Daisy). Para kay sino ang 60L?"
+   - List animals by name/ear tag for easy selection
+
+3. **Breeding Activity Context** - For AI/pregnancy/calving:
+   - Filter to breeding-age females only (not calves, not males)
+   - Auto-select if only 1 eligible animal
+
+4. **Health Activity Context** - For health records:
+   - Consider ALL animals (sick animals can be any animal)
+   - But still provide helpful hints: "May 5 baka mo - sino ang may sakit?"
+
+REASONING WORKFLOW:
+Step 1: Parse user intent → What activity? (milking, feeding, health, etc.)
+Step 2: Check farm context → How many eligible animals for this activity?
+Step 3: Auto-select if count = 1, otherwise ask with context
+Step 4: Execute the tool call
+
+Example Flow:
+User: "Tinurukan ko ng antibiotics"
+→ Intent: health/injection
+→ Call get_farm_overview → 5 total animals
+→ Response: "Para sa aling hayop? May 5 ka (Bessie A001, Daisy A002, Luna A003, Brownie A004, Spot A005)"
+
+User: "60L of milk today"
+→ Intent: milking
+→ Call get_farm_overview → lactating_by_type: {cattle: 1}
+→ Auto-select that 1 cattle → "Naitala ko na ang 60L para kay Bessie (A001)!"
+
 INTENT CLASSIFICATION:
 Before responding, classify the user's intent as ONE of:
 - "query" - Asking questions, seeking information, advice (e.g., "Paano mag-alaga ng pregnant na baka?")
@@ -411,6 +451,10 @@ RESPONSE STRUCTURE (Keep It SHORT & PRACTICAL):
 - Example tone: "Mukhang may mastitis ang baka mo. Ito ang gagawin: 1) Linisin ang utong, 2) Huwag muna paggatasin, 3) Tumawag ng vet kung hindi gumaling sa 2 araw."
 
 Guidelines:
+- **ALWAYS prefer smart tools when available:**
+  * Use add_smart_milking_record instead of add_milking_record when user doesn't specify animal
+  * Smart tools will auto-select when only 1 option exists
+- When smart tools return requires_clarification: true, present the options naturally
 - Use the FAQ knowledge base to answer common questions accurately
 - When users report health issues or treatments, offer to create health records
 - When users mention milk production, offer to log milking records
@@ -480,6 +524,22 @@ Guidelines:
               notes: { type: "string", description: "Additional notes" }
             },
             required: ["animal_identifier"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_smart_milking_record",
+          description: "Smart milking record that auto-selects animal when only 1 eligible animal exists. PREFER THIS over add_milking_record when user doesn't specify which animal.",
+          parameters: {
+            type: "object",
+            properties: {
+              liters: { type: "number", description: "Liters of milk produced" },
+              livestock_type: { type: "string", description: "Type of livestock if mentioned (cattle, goat, carabao, sheep). Leave null if not specified." },
+              animal_identifier: { type: "string", description: "Animal ear tag or name if user specified one. Leave null to auto-select." }
+            },
+            required: ["liters"]
           }
         }
       },
