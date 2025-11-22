@@ -7,7 +7,10 @@ import { AnimalHealthHeatmap } from "@/components/government/AnimalHealthHeatmap
 import { FarmerQueriesTopics } from "@/components/government/FarmerQueriesTopics";
 import { ComparisonSummary } from "@/components/government/ComparisonSummary";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
+import { FarmerVoiceDashboard } from "@/components/government/FarmerVoiceDashboard";
+import { FeedbackPriorityQueue } from "@/components/government/FeedbackPriorityQueue";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Dynamically import the map component to reduce bundle size
 const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
@@ -855,6 +858,31 @@ const GovernmentDashboard = () => {
             />
           </div>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Boses ng Magsasaka - Farmer Voice Dashboard</CardTitle>
+            <CardDescription>
+              Real-time feedback and concerns from farmers nationwide
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="queue">Priority Queue</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview">
+                <FarmerVoiceDashboard />
+              </TabsContent>
+
+              <TabsContent value="queue">
+                <FeedbackPriorityQueue />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

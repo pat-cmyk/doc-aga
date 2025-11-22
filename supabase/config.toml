@@ -49,3 +49,21 @@ verify_jwt = false
 
 [functions.bulk-recalculate-carabao-stages]
 verify_jwt = true
+
+[functions.process-farmer-feedback]
+verify_jwt = true
+
+[functions.doc-aga]
+verify_jwt = true
+
+[functions.send-team-invitation]
+verify_jwt = true
+
+[functions.merchant-signup]
+verify_jwt = false
+
+[functions.admin-permanent-delete-farm]
+verify_jwt = true
+
+[functions.migrate-farm-locations]
+verify_jwt = true
