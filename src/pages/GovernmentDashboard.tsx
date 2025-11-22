@@ -9,6 +9,12 @@ import { ComparisonSummary } from "@/components/government/ComparisonSummary";
 import { GovTrendCharts } from "@/components/government/GovTrendCharts";
 import { FarmerVoiceDashboard } from "@/components/government/FarmerVoiceDashboard";
 import { FeedbackPriorityQueue } from "@/components/government/FeedbackPriorityQueue";
+import { FeedbackGeoHeatmap } from "@/components/government/FeedbackGeoHeatmap";
+import { SentimentTrendChart } from "@/components/government/SentimentTrendChart";
+import { SmartInsightsPanel } from "@/components/government/SmartInsightsPanel";
+import { FeedbackClusterView } from "@/components/government/FeedbackClusterView";
+import { ResponseTemplates } from "@/components/government/ResponseTemplates";
+import { FeedbackExport } from "@/components/government/FeedbackExport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -868,17 +874,41 @@ const GovernmentDashboard = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="overview" className="space-y-6">
-              <TabsList>
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="queue">Priority Queue</TabsTrigger>
+                <TabsTrigger value="queue">Queue</TabsTrigger>
+                <TabsTrigger value="insights">Insights</TabsTrigger>
+                <TabsTrigger value="clusters">Clusters</TabsTrigger>
+                <TabsTrigger value="templates">Templates</TabsTrigger>
+                <TabsTrigger value="export">Export</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview">
+              <TabsContent value="overview" className="space-y-6">
                 <FarmerVoiceDashboard />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <FeedbackGeoHeatmap />
+                  <SentimentTrendChart />
+                </div>
               </TabsContent>
 
               <TabsContent value="queue">
                 <FeedbackPriorityQueue />
+              </TabsContent>
+
+              <TabsContent value="insights">
+                <SmartInsightsPanel />
+              </TabsContent>
+
+              <TabsContent value="clusters">
+                <FeedbackClusterView />
+              </TabsContent>
+
+              <TabsContent value="templates">
+                <ResponseTemplates />
+              </TabsContent>
+
+              <TabsContent value="export">
+                <FeedbackExport />
               </TabsContent>
             </Tabs>
           </CardContent>
