@@ -769,6 +769,108 @@ export type Database = {
           },
         ]
       }
+      farmer_feedback: {
+        Row: {
+          acknowledged_at: string | null
+          action_taken: string | null
+          ai_summary: string | null
+          assigned_department: string | null
+          auto_priority: Database["public"]["Enums"]["feedback_priority"]
+          created_at: string
+          detected_entities: Json | null
+          farm_id: string
+          farm_snapshot: Json | null
+          government_notes: string | null
+          id: string
+          is_anonymous: boolean
+          primary_category: Database["public"]["Enums"]["feedback_category"]
+          priority_score: number
+          resolution_date: string | null
+          reviewed_at: string | null
+          secondary_categories:
+            | Database["public"]["Enums"]["feedback_category"][]
+            | null
+          sentiment: Database["public"]["Enums"]["feedback_sentiment"]
+          status: Database["public"]["Enums"]["feedback_status"]
+          tags: string[] | null
+          transcription: string
+          updated_at: string
+          user_id: string
+          voice_audio_url: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          action_taken?: string | null
+          ai_summary?: string | null
+          assigned_department?: string | null
+          auto_priority?: Database["public"]["Enums"]["feedback_priority"]
+          created_at?: string
+          detected_entities?: Json | null
+          farm_id: string
+          farm_snapshot?: Json | null
+          government_notes?: string | null
+          id?: string
+          is_anonymous?: boolean
+          primary_category: Database["public"]["Enums"]["feedback_category"]
+          priority_score?: number
+          resolution_date?: string | null
+          reviewed_at?: string | null
+          secondary_categories?:
+            | Database["public"]["Enums"]["feedback_category"][]
+            | null
+          sentiment?: Database["public"]["Enums"]["feedback_sentiment"]
+          status?: Database["public"]["Enums"]["feedback_status"]
+          tags?: string[] | null
+          transcription: string
+          updated_at?: string
+          user_id: string
+          voice_audio_url?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          action_taken?: string | null
+          ai_summary?: string | null
+          assigned_department?: string | null
+          auto_priority?: Database["public"]["Enums"]["feedback_priority"]
+          created_at?: string
+          detected_entities?: Json | null
+          farm_id?: string
+          farm_snapshot?: Json | null
+          government_notes?: string | null
+          id?: string
+          is_anonymous?: boolean
+          primary_category?: Database["public"]["Enums"]["feedback_category"]
+          priority_score?: number
+          resolution_date?: string | null
+          reviewed_at?: string | null
+          secondary_categories?:
+            | Database["public"]["Enums"]["feedback_category"][]
+            | null
+          sentiment?: Database["public"]["Enums"]["feedback_sentiment"]
+          status?: Database["public"]["Enums"]["feedback_status"]
+          tags?: string[] | null
+          transcription?: string
+          updated_at?: string
+          user_id?: string
+          voice_audio_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_feedback_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmer_feedback_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farms: {
         Row: {
           client_generated_id: string | null
@@ -2100,6 +2202,25 @@ export type Database = {
         | "health_diagnosis"
         | "treatment"
         | "note"
+      feedback_category:
+        | "policy_concern"
+        | "market_access"
+        | "veterinary_support"
+        | "training_request"
+        | "infrastructure"
+        | "financial_assistance"
+        | "emergency_support"
+        | "disease_outbreak"
+        | "feed_shortage"
+      feedback_priority: "critical" | "high" | "medium" | "low"
+      feedback_sentiment: "urgent" | "negative" | "neutral" | "positive"
+      feedback_status:
+        | "submitted"
+        | "acknowledged"
+        | "under_review"
+        | "action_taken"
+        | "resolved"
+        | "closed"
       message_party: "farmer" | "merchant" | "vet" | "admin"
       notification_type:
         | "order_update"
@@ -2257,6 +2378,27 @@ export const Constants = {
         "health_diagnosis",
         "treatment",
         "note",
+      ],
+      feedback_category: [
+        "policy_concern",
+        "market_access",
+        "veterinary_support",
+        "training_request",
+        "infrastructure",
+        "financial_assistance",
+        "emergency_support",
+        "disease_outbreak",
+        "feed_shortage",
+      ],
+      feedback_priority: ["critical", "high", "medium", "low"],
+      feedback_sentiment: ["urgent", "negative", "neutral", "positive"],
+      feedback_status: [
+        "submitted",
+        "acknowledged",
+        "under_review",
+        "action_taken",
+        "resolved",
+        "closed",
       ],
       message_party: ["farmer", "merchant", "vet", "admin"],
       notification_type: [

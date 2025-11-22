@@ -21,6 +21,8 @@ import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { FarmSwitcher } from "@/components/FarmSwitcher";
+import { GovernmentConnectTab } from "@/components/farmer/GovernmentConnectTab";
+import { FarmerFeedbackList } from "@/components/farmer/FarmerFeedbackList";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -351,11 +353,12 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
               <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
+              <TabsTrigger value="government" disabled={!farmId}>Government</TabsTrigger>
             </TabsList>
             {/* Marketplace button - hidden for this development stage */}
             {/* <Button variant="outline" onClick={() => navigate("/marketplace")}>
@@ -408,6 +411,37 @@ const Dashboard = () => {
           <TabsContent value="finance" className="space-y-6">
             {farmId && (
               <FinanceTab farmId={farmId} canManage={canManageFarm} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="government" className="space-y-6">
+            {farmId && (
+              <>
+                <Tabs defaultValue="submit" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="submit">Submit Feedback</TabsTrigger>
+                    <TabsTrigger value="submissions">My Submissions</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="submit">
+                    <GovernmentConnectTab farmId={farmId} />
+                  </TabsContent>
+
+                  <TabsContent value="submissions">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>My Submissions</CardTitle>
+                        <CardDescription>
+                          Track your feedback to the government
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <FarmerFeedbackList farmId={farmId} />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </>
             )}
           </TabsContent>
         </Tabs>
