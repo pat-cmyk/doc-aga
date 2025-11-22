@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Mic, Send, Loader2, Volume2 } from "lucide-react";
 import { useFarmerFeedback } from "@/hooks/useFarmerFeedback";
+import { useFeedbackNotifications } from "@/hooks/useFeedbackNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,6 +23,9 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
 
   const { submitFeedback, isSubmitting } = useFarmerFeedback(farmId);
+  
+  // Enable real-time notifications
+  useFeedbackNotifications(farmId);
 
   const startRecording = async () => {
     try {
