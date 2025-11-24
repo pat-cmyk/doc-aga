@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,9 @@ const GovernmentDashboard = () => {
   const { toast } = useToast();
   
   const isLoading = accessLoading || rolesLoading;
+
+  // Initialize main tab from URL or default to livestock
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "livestock");
 
   // Initialize state from URL or defaults
   const [comparisonMode, setComparisonMode] = useState(() => searchParams.get("compare") === "true");
@@ -135,6 +138,7 @@ const GovernmentDashboard = () => {
   useMemo(() => {
     const params = new URLSearchParams();
     
+    params.set("tab", activeTab);
     params.set("compare", comparisonMode.toString());
     params.set("p_preset", primaryPreset);
     params.set("p_start", format(primaryDateRange.start, "yyyy-MM-dd"));
@@ -153,7 +157,7 @@ const GovernmentDashboard = () => {
     }
     
     setSearchParams(params, { replace: true });
-  }, [comparisonMode, primaryPreset, primaryDateRange, primaryRegion, primaryProvince, primaryMunicipality, comparisonPreset, comparisonDateRange, comparisonRegion, comparisonProvince, comparisonMunicipality]);
+  }, [activeTab, comparisonMode, primaryPreset, primaryDateRange, primaryRegion, primaryProvince, primaryMunicipality, comparisonPreset, comparisonDateRange, comparisonRegion, comparisonProvince, comparisonMunicipality]);
 
   // Data fetching
   const { data: stats, isLoading: statsLoading, error: statsError } = useGovernmentStats(
@@ -372,565 +376,660 @@ const GovernmentDashboard = () => {
   return (
     <GovernmentLayout>
       <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCSV}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export CSV
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportPDF}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export PDF
-              </Button>
-            </div>
-          </div>
-
-          {/* Welcome Banner */}
-          <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                <div className="flex-shrink-0">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">Welcome to the Government Portal</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Access comprehensive livestock industry insights and analytics for evidence-based policy decisions.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => document.getElementById('overview-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      Overview Stats
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => document.getElementById('trends-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    >
-                      <TrendingUp className="h-4 w-4" />
-                      Trend Charts
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => document.getElementById('health-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    >
-                      <HeartPulse className="h-4 w-4" />
-                      Health Data
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => document.getElementById('queries-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Farmer Queries
-                    </Button>
-                  </div>
+        {/* Welcome Banner */}
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <div className="flex-shrink-0">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-primary" />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Comparison Mode Toggle */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="comparison-mode"
-                    checked={comparisonMode}
-                    onCheckedChange={setComparisonMode}
-                  />
-                  <Label htmlFor="comparison-mode" className="text-sm font-medium cursor-pointer">
-                    Enable Comparison Mode
-                  </Label>
-                  {comparisonMode && (
-                    <Badge variant="secondary" className="ml-2">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      Active
-                    </Badge>
-                  )}
-                </div>
-                {comparisonMode && (
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Compare two different time periods or regions side by side
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Welcome to the Government Portal</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Access comprehensive livestock industry insights and analytics for evidence-based policy decisions.
                   </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Filter Controls */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Primary Filters */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base sm:text-lg">Primary Dataset</CardTitle>
-                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
-                    PRIMARY
-                  </Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Date Range</Label>
-                  <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="last7Days">Last 7 Days</SelectItem>
-                      <SelectItem value="last30Days">Last 30 Days</SelectItem>
-                      <SelectItem value="last90Days">Last 90 Days</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  {primaryPreset === "custom" && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Start Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !primaryDateRange.start && "text-muted-foreground"
-                              )}
-                              size="sm"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {format(primaryDateRange.start, "MMM d, yyyy")}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={primaryDateRange.start}
-                              onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
-                              initialFocus
-                              className="pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setActiveTab("livestock")}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Livestock Analytics
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setActiveTab("farmer-voice")}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Farmer Voice
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setActiveTab("programs")}
+                  >
+                    <Target className="h-4 w-4" />
+                    Programs & Insights
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="livestock" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Livestock Analytics</span>
+              <span className="sm:hidden">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="farmer-voice" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Farmer Voice</span>
+              <span className="sm:hidden">Voice</span>
+            </TabsTrigger>
+            <TabsTrigger value="programs" className="gap-2">
+              <Target className="h-4 w-4" />
+              <span className="hidden sm:inline">Programs & Insights</span>
+              <span className="sm:hidden">Programs</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Livestock Analytics */}
+          <TabsContent value="livestock" className="space-y-6">
+            <div className="flex flex-col gap-4">
+              {/* Export Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPDF}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+
+              {/* Comparison Mode Toggle */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="comparison-mode"
+                        checked={comparisonMode}
+                        onCheckedChange={setComparisonMode}
+                      />
+                      <Label htmlFor="comparison-mode" className="text-sm font-medium cursor-pointer">
+                        Enable Comparison Mode
+                      </Label>
+                      {comparisonMode && (
+                        <Badge variant="secondary" className="ml-2">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                    {comparisonMode && (
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Compare two different time periods or regions side by side
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Filter Controls */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Primary Filters */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base sm:text-lg">Primary Dataset</CardTitle>
+                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
+                        PRIMARY
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs sm:text-sm">Date Range</Label>
+                      <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="last7Days">Last 7 Days</SelectItem>
+                          <SelectItem value="last30Days">Last 30 Days</SelectItem>
+                          <SelectItem value="last90Days">Last 90 Days</SelectItem>
+                          <SelectItem value="custom">Custom Range</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      {primaryPreset === "custom" && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Start Date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !primaryDateRange.start && "text-muted-foreground"
+                                  )}
+                                  size="sm"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {format(primaryDateRange.start, "MMM d, yyyy")}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={primaryDateRange.start}
+                                  onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs">End Date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !primaryDateRange.end && "text-muted-foreground"
+                                  )}
+                                  size="sm"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {format(primaryDateRange.end, "MMM d, yyyy")}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={primaryDateRange.end}
+                                  onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                  disabled={(date) => date < primaryDateRange.start}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs sm:text-sm">Region</Label>
+                      <Select 
+                        value={primaryRegion || "all"} 
+                        onValueChange={handlePrimaryRegionChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Regions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Regions</SelectItem>
+                          {regions.map((region) => (
+                            <SelectItem key={region} value={region}>
+                              {region}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {primaryRegion && primaryProvinces.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs sm:text-sm">Province</Label>
+                        <Select 
+                          value={primaryProvince || "all"} 
+                          onValueChange={handlePrimaryProvinceChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All Provinces" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Provinces</SelectItem>
+                            {primaryProvinces.map((province) => (
+                              <SelectItem key={province} value={province}>
+                                {province}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs sm:text-sm">Municipality/City</Label>
+                        <Select 
+                          value={primaryMunicipality || "all"} 
+                          onValueChange={handlePrimaryMunicipalityChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All Municipalities" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Municipalities</SelectItem>
+                            {primaryMunicipalities.map((municipality) => (
+                              <SelectItem key={municipality} value={municipality}>
+                                {municipality}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Comparison Filters */}
+                {comparisonMode && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base sm:text-lg">Comparison Dataset</CardTitle>
+                        <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+                          COMPARISON
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs sm:text-sm">Date Range</Label>
+                        <Select value={comparisonPreset} onValueChange={handleComparisonPresetChange}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="last7Days">Last 7 Days</SelectItem>
+                            <SelectItem value="last30Days">Last 30 Days</SelectItem>
+                            <SelectItem value="last90Days">Last 90 Days</SelectItem>
+                            <SelectItem value="custom">Custom Range</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        {comparisonPreset === "custom" && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Start Date</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal",
+                                      !comparisonDateRange.start && "text-muted-foreground"
+                                    )}
+                                    size="sm"
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(comparisonDateRange.start, "MMM d, yyyy")}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={comparisonDateRange.start}
+                                    onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, start: date }))}
+                                    initialFocus
+                                    className="pointer-events-auto"
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs">End Date</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal",
+                                      !comparisonDateRange.end && "text-muted-foreground"
+                                    )}
+                                    size="sm"
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(comparisonDateRange.end, "MMM d, yyyy")}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={comparisonDateRange.end}
+                                    onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, end: date }))}
+                                    initialFocus
+                                    className="pointer-events-auto"
+                                    disabled={(date) => date < comparisonDateRange.start}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
-                      <div className="space-y-1">
-                        <Label className="text-xs">End Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !primaryDateRange.end && "text-muted-foreground"
-                              )}
-                              size="sm"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {format(primaryDateRange.end, "MMM d, yyyy")}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={primaryDateRange.end}
-                              onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
-                              initialFocus
-                              className="pointer-events-auto"
-                              disabled={(date) => date < primaryDateRange.start}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                      <div className="space-y-2">
+                        <Label className="text-xs sm:text-sm">Region</Label>
+                        <Select 
+                          value={comparisonRegion || "all"} 
+                          onValueChange={handleComparisonRegionChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All Regions" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Regions</SelectItem>
+                            {regions.map((region) => (
+                              <SelectItem key={region} value={region}>
+                                {region}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Region</Label>
-                  <Select 
-                    value={primaryRegion || "all"} 
-                    onValueChange={handlePrimaryRegionChange}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Regions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Regions</SelectItem>
-                      {regions.map((region) => (
-                        <SelectItem key={region} value={region}>
-                          {region}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {primaryRegion && primaryProvinces.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm">Province</Label>
-                    <Select 
-                      value={primaryProvince || "all"} 
-                      onValueChange={handlePrimaryProvinceChange}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All Provinces" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Provinces</SelectItem>
-                        {primaryProvinces.map((province) => (
-                          <SelectItem key={province} value={province}>
-                            {province}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                      {comparisonRegion && comparisonProvinces.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs sm:text-sm">Province</Label>
+                          <Select 
+                            value={comparisonProvince || "all"} 
+                            onValueChange={handleComparisonProvinceChange}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="All Provinces" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Provinces</SelectItem>
+                              {comparisonProvinces.map((province) => (
+                                <SelectItem key={province} value={province}>
+                                  {province}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
-                {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                    <Select 
-                      value={primaryMunicipality || "all"} 
-                      onValueChange={handlePrimaryMunicipalityChange}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All Municipalities" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Municipalities</SelectItem>
-                        {primaryMunicipalities.map((municipality) => (
-                          <SelectItem key={municipality} value={municipality}>
-                            {municipality}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs sm:text-sm">Municipality/City</Label>
+                          <Select 
+                            value={comparisonMunicipality || "all"} 
+                            onValueChange={handleComparisonMunicipalityChange}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="All Municipalities" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Municipalities</SelectItem>
+                              {comparisonMunicipalities.map((municipality) => (
+                                <SelectItem key={municipality} value={municipality}>
+                                  {municipality}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
+              </div>
+            </div>
+
+            {/* Overview Stats */}
+            <GovDashboardOverview
+              stats={stats as any} 
+              comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
+              isLoading={statsLoading} 
+              error={statsError}
+              comparisonMode={comparisonMode}
+            />
+
+            {/* Regional Map */}
+            <Suspense fallback={
+              <Card>
+                <CardHeader>
+                  <CardTitle>Regional Livestock Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="w-full h-[500px] rounded-lg" />
+                </CardContent>
+              </Card>
+            }>
+              <RegionalLivestockMap dateRange={primaryDateRange} />
+            </Suspense>
+
+            {/* Comparison Summary */}
+            {comparisonMode && (
+              <ComparisonSummary
+                primaryStats={stats as any}
+                comparisonStats={comparisonStats as any}
+                primaryDateRange={{ from: primaryDateRange.start, to: primaryDateRange.end }}
+                comparisonDateRange={{ from: comparisonDateRange.start, to: comparisonDateRange.end }}
+                primaryRegion={primaryRegion}
+                comparisonRegion={comparisonRegion}
+                isLoading={statsLoading || comparisonStatsLoading}
+                comparisonMode={comparisonMode}
+              />
+            )}
+
+            {/* Trend Charts */}
+            <GovTrendCharts
+              data={timeseriesData || []}
+              comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
+              isLoading={timeseriesLoading}
+              error={undefined}
+              comparisonMode={comparisonMode}
+            />
+
+            {/* Health & Queries Grid */}
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+              <div className="min-w-0">
+                <AnimalHealthHeatmap 
+                  data={heatmapData as any}
+                  comparisonData={comparisonMode ? (comparisonHeatmapData as any) : undefined}
+                  isLoading={heatmapLoading} 
+                  error={heatmapError}
+                  comparisonMode={comparisonMode}
+                />
+              </div>
+              <div className="min-w-0">
+                <FarmerQueriesTopics 
+                  startDate={primaryDateRange.start} 
+                  endDate={primaryDateRange.end}
+                  comparisonStartDate={comparisonMode ? comparisonDateRange.start : undefined}
+                  comparisonEndDate={comparisonMode ? comparisonDateRange.end : undefined}
+                  enabled={hasAccess}
+                  comparisonMode={comparisonMode}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Tab 2: Farmer Voice */}
+          <TabsContent value="farmer-voice" className="space-y-6">
+            <div className="space-y-6">
+              {/* Persistent Stats Header */}
+              <FarmerVoiceDashboard />
+
+              {/* Farmer Voice Sub-tabs */}
+              <Tabs defaultValue="queue" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-6">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="queue" className="gap-1">
+                    Queue
+                    <Badge variant="destructive" className="ml-1 h-5 px-1 text-xs">
+                      ⚡
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="insights">Insights</TabsTrigger>
+                  <TabsTrigger value="clusters">Clusters</TabsTrigger>
+                  <TabsTrigger value="templates">Templates</TabsTrigger>
+                  <TabsTrigger value="export">Export</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <FeedbackGeoHeatmap />
+                    <SentimentTrendChart />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="queue">
+                  <FeedbackPriorityQueue />
+                </TabsContent>
+
+                <TabsContent value="insights">
+                  <SmartInsightsPanel />
+                </TabsContent>
+
+                <TabsContent value="clusters">
+                  <FeedbackClusterView />
+                </TabsContent>
+
+                <TabsContent value="templates">
+                  <ResponseTemplates />
+                </TabsContent>
+
+                <TabsContent value="export">
+                  <FeedbackExport />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Programs & Insights */}
+          <TabsContent value="programs" className="space-y-6">
+            {/* Farmer Queries Deep Dive */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Farmer Queries Analysis</CardTitle>
+                <CardDescription>
+                  Detailed breakdown of farmer questions and concerns over time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FarmerQueriesTopics 
+                  startDate={primaryDateRange.start} 
+                  endDate={primaryDateRange.end}
+                  enabled={hasAccess}
+                  comparisonMode={false}
+                />
               </CardContent>
             </Card>
 
-            {/* Comparison Filters */}
-            {comparisonMode && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg">Comparison Dataset</CardTitle>
-                    <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
-                      COMPARISON
-                    </Badge>
+            {/* Coming Soon Sections */}
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+              <Card className="border-dashed">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle>Production Trends</CardTitle>
                   </div>
+                  <CardDescription>Coming Soon</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm">Date Range</Label>
-                    <Select value={comparisonPreset} onValueChange={handleComparisonPresetChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="last7Days">Last 7 Days</SelectItem>
-                        <SelectItem value="last30Days">Last 30 Days</SelectItem>
-                        <SelectItem value="last90Days">Last 90 Days</SelectItem>
-                        <SelectItem value="custom">Custom Range</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    {comparisonPreset === "custom" && (
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Start Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal",
-                                  !comparisonDateRange.start && "text-muted-foreground"
-                                )}
-                                size="sm"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {format(comparisonDateRange.start, "MMM d, yyyy")}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={comparisonDateRange.start}
-                                onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, start: date }))}
-                                initialFocus
-                                className="pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <Label className="text-xs">End Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal",
-                                  !comparisonDateRange.end && "text-muted-foreground"
-                                )}
-                                size="sm"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {format(comparisonDateRange.end, "MMM d, yyyy")}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={comparisonDateRange.end}
-                                onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, end: date }))}
-                                initialFocus
-                                className="pointer-events-auto"
-                                disabled={(date) => date < comparisonDateRange.start}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm">Region</Label>
-                    <Select 
-                      value={comparisonRegion || "all"} 
-                      onValueChange={handleComparisonRegionChange}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All Regions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Regions</SelectItem>
-                        {regions.map((region) => (
-                          <SelectItem key={region} value={region}>
-                            {region}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {comparisonRegion && comparisonProvinces.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs sm:text-sm">Province</Label>
-                      <Select 
-                        value={comparisonProvince || "all"} 
-                        onValueChange={handleComparisonProvinceChange}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Provinces" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Provinces</SelectItem>
-                          {comparisonProvinces.map((province) => (
-                            <SelectItem key={province} value={province}>
-                              {province}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                      <Select 
-                        value={comparisonMunicipality || "all"} 
-                        onValueChange={handleComparisonMunicipalityChange}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Municipalities" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Municipalities</SelectItem>
-                          {comparisonMunicipalities.map((municipality) => (
-                            <SelectItem key={municipality} value={municipality}>
-                              {municipality}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Regional milk yield comparisons</li>
+                    <li>• Seasonal production patterns</li>
+                    <li>• Growth indicators by livestock type</li>
+                    <li>• Feed efficiency metrics</li>
+                  </ul>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        </div>
 
-        {/* Dashboard Content */}
-        <div id="overview-section">
-          <GovDashboardOverview
-          stats={stats as any} 
-          comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
-          isLoading={statsLoading} 
-          error={statsError}
-          comparisonMode={comparisonMode}
-          />
-        </div>
+              <Card className="border-dashed">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle>Program Participation</CardTitle>
+                  </div>
+                  <CardDescription>Coming Soon</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Training program attendance</li>
+                    <li>• Veterinary service utilization</li>
+                    <li>• Infrastructure improvements tracked</li>
+                    <li>• Subsidy program reach</li>
+                  </ul>
+                </CardContent>
+              </Card>
 
-        <Suspense fallback={
-          <Card>
-            <CardHeader>
-              <CardTitle>Regional Livestock Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="w-full h-[500px] rounded-lg" />
-            </CardContent>
-          </Card>
-        }>
-          <RegionalLivestockMap dateRange={primaryDateRange} />
-        </Suspense>
+              <Card className="border-dashed">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle>Impact Analysis</CardTitle>
+                  </div>
+                  <CardDescription>Coming Soon</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Program Impact Analysis - Pilot vs control groups</li>
+                    <li>• ROI metrics for government programs</li>
+                    <li>• Comparative effectiveness studies</li>
+                    <li>• Long-term outcome tracking</li>
+                  </ul>
+                </CardContent>
+              </Card>
 
-        {comparisonMode && (
-          <ComparisonSummary
-            primaryStats={stats as any}
-            comparisonStats={comparisonStats as any}
-            primaryDateRange={{ from: primaryDateRange.start, to: primaryDateRange.end }}
-            comparisonDateRange={{ from: comparisonDateRange.start, to: comparisonDateRange.end }}
-            primaryRegion={primaryRegion}
-            comparisonRegion={comparisonRegion}
-            isLoading={statsLoading || comparisonStatsLoading}
-            comparisonMode={comparisonMode}
-          />
-        )}
-
-        <div id="trends-section">
-          <GovTrendCharts
-            data={timeseriesData || []}
-            comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
-            isLoading={timeseriesLoading}
-            error={undefined}
-            comparisonMode={comparisonMode}
-          />
-        </div>
-
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-          <div id="health-section" className="min-w-0">
-            <AnimalHealthHeatmap 
-              data={heatmapData as any}
-              comparisonData={comparisonMode ? (comparisonHeatmapData as any) : undefined}
-              isLoading={heatmapLoading} 
-              error={heatmapError}
-              comparisonMode={comparisonMode}
-            />
-          </div>
-          <div id="queries-section" className="min-w-0">
-            <FarmerQueriesTopics 
-              startDate={primaryDateRange.start} 
-              endDate={primaryDateRange.end}
-              comparisonStartDate={comparisonMode ? comparisonDateRange.start : undefined}
-              comparisonEndDate={comparisonMode ? comparisonDateRange.end : undefined}
-              enabled={hasAccess}
-              comparisonMode={comparisonMode}
-            />
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Boses ng Magsasaka - Farmer Voice Dashboard</CardTitle>
-            <CardDescription>
-              Real-time feedback and concerns from farmers nationwide
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="overview" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="queue">Queue</TabsTrigger>
-                <TabsTrigger value="insights">Insights</TabsTrigger>
-                <TabsTrigger value="clusters">Clusters</TabsTrigger>
-                <TabsTrigger value="templates">Templates</TabsTrigger>
-                <TabsTrigger value="export">Export</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-6">
-                <FarmerVoiceDashboard />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <FeedbackGeoHeatmap />
-                  <SentimentTrendChart />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="queue">
-                <FeedbackPriorityQueue />
-              </TabsContent>
-
-              <TabsContent value="insights">
-                <SmartInsightsPanel />
-              </TabsContent>
-
-              <TabsContent value="clusters">
-                <FeedbackClusterView />
-              </TabsContent>
-
-              <TabsContent value="templates">
-                <ResponseTemplates />
-              </TabsContent>
-
-              <TabsContent value="export">
-                <FeedbackExport />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Coming Soon</CardTitle>
-            <CardDescription>
-              Additional features in development
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• FFEDIS Sync & Export - Farm registry export with QR codes</li>
-              <li>• Program Impact Analysis - Compare pilot vs control groups</li>
-              <li>• Priority Alerts - Automated outbreak spike detection</li>
-              <li>• Production Trends - Regional milk yield comparisons</li>
-              <li>• Procurement Validation - Cooperative accreditation tracking</li>
-            </ul>
-          </CardContent>
-        </Card>
+              <Card className="border-dashed">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle>Advanced Features</CardTitle>
+                  </div>
+                  <CardDescription>Coming Soon</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• FFEDIS Sync & Export - Farm registry with QR codes</li>
+                    <li>• Priority Alerts - Automated outbreak detection</li>
+                    <li>• Procurement Validation - Cooperative accreditation</li>
+                    <li>• Custom report builder</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </GovernmentLayout>
   );
