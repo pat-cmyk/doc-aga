@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,8 +32,17 @@ export const FeedbackPriorityQueue = () => {
   const [notes, setNotes] = useState("");
   const [actionTaken, setActionTaken] = useState("");
   const [department, setDepartment] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const { feedbackList, isLoading, updateStatus } = useGovernmentFeedback(filters);
+
+  // Filter out resolved/closed feedback unless toggle is on
+  const activeStatuses = ['submitted', 'acknowledged', 'under_review', 'action_taken'];
+  const displayList = showCompleted 
+    ? feedbackList 
+    : feedbackList?.filter(f => activeStatuses.includes(f.status)) || [];
+  
+  const completedCount = feedbackList?.length - displayList?.length || 0;
 
   const handleAction = () => {
     if (!selectedFeedback || !newStatus) return;
@@ -77,7 +88,7 @@ export const FeedbackPriorityQueue = () => {
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <Filter className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-wrap gap-2 flex-1">
             <Select
@@ -117,12 +128,29 @@ export const FeedbackPriorityQueue = () => {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-completed"
+              checked={showCompleted}
+              onCheckedChange={setShowCompleted}
+            />
+            <Label htmlFor="show-completed" className="text-sm cursor-pointer">
+              Show Completed
+            </Label>
+          </div>
         </div>
+        
+        {!showCompleted && completedCount > 0 && (
+          <p className="text-xs text-muted-foreground mt-3">
+            Showing {displayList?.length || 0} active items • {completedCount} resolved hidden
+          </p>
+        )}
       </Card>
 
       <div className="space-y-3">
-        {feedbackList && feedbackList.length > 0 ? (
-          feedbackList.map((feedback: any) => (
+        {displayList && displayList.length > 0 ? (
+          displayList.map((feedback: any) => (
             <Card key={feedback.id} className="p-4 hover:shadow-md transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="flex-1 space-y-2">
@@ -198,7 +226,11 @@ export const FeedbackPriorityQueue = () => {
           ))
         ) : (
           <Card className="p-8 text-center">
-            <p className="text-muted-foreground">No feedback found matching filters</p>
+            <p className="text-muted-foreground">
+              {!showCompleted && completedCount > 0
+                ? "No active feedback found. Toggle 'Show Completed' to view resolved items."
+                : "No feedback found matching filters"}
+            </p>
           </Card>
         )}
       </div>
