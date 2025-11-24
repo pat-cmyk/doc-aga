@@ -141,7 +141,9 @@ export const FeedbackPriorityQueue = () => {
                       </div>
                       <p className="font-medium">{feedback.ai_summary}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {feedback.farms?.municipality}, {feedback.farms?.province} • {" "}
+                        {feedback.farms 
+                          ? `${feedback.farms.municipality || 'Unknown municipality'}, ${feedback.farms.province || 'Unknown province'}`
+                          : 'Unknown location'} • {" "}
                         {formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}
                       </p>
                     </div>
@@ -211,7 +213,9 @@ export const FeedbackPriorityQueue = () => {
               <div>
                 <p className="text-sm font-medium mb-1">Farm Location:</p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedFeedback.farms?.name} - {selectedFeedback.farms?.municipality}, {selectedFeedback.farms?.province}
+                  {selectedFeedback.farms 
+                    ? `${selectedFeedback.farms.name || 'Unknown farm'} - ${selectedFeedback.farms.municipality || 'Unknown municipality'}, ${selectedFeedback.farms.province || 'Unknown province'}`
+                    : 'Unknown location'}
                 </p>
               </div>
 
