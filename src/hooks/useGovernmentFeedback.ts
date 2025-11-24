@@ -25,7 +25,7 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
         .from('farmer_feedback')
         .select(`
           *,
-          farms!inner(name, region, province, municipality, livestock_type)
+          farms(name, region, province, municipality, livestock_type)
         `)
         .order('priority_score', { ascending: false })
         .order('created_at', { ascending: false });
@@ -48,6 +48,8 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
 
       const { data, error } = await query;
       if (error) throw error;
+      
+      console.log('[useGovernmentFeedback] Loaded feedback rows:', data?.length);
 
       // Filter by region if specified
       if (filters?.region) {
