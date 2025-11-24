@@ -33,8 +33,38 @@ export const FeedbackPriorityQueue = () => {
   const [actionTaken, setActionTaken] = useState("");
   const [department, setDepartment] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
+  const [timeRange, setTimeRange] = useState("all");
 
-  const { feedbackList, isLoading, updateStatus } = useGovernmentFeedback(filters);
+  // Calculate dateFrom based on selected time range
+  const getDateFromForRange = (range: string): string | undefined => {
+    if (range === 'all') return undefined;
+    
+    const now = new Date();
+    if (range === 'today') {
+      now.setHours(0, 0, 0, 0);
+      return now.toISOString();
+    }
+    
+    const daysMap: Record<string, number> = {
+      'week': 7,
+      'month': 30,
+      'quarter': 90,
+      'half-year': 180,
+    };
+    
+    const days = daysMap[range];
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+  };
+
+  // Build filters with time range
+  const effectiveFilters = {
+    ...filters,
+    dateFrom: getDateFromForRange(timeRange),
+  };
+
+  const { feedbackList, isLoading, updateStatus } = useGovernmentFeedback(effectiveFilters);
 
   // Filter out resolved/closed feedback unless toggle is on
   const activeStatuses = ['submitted', 'acknowledged', 'under_review', 'action_taken'];
@@ -127,6 +157,23 @@ export const FeedbackPriorityQueue = () => {
                 <SelectItem value="resolved">Resolved</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select
+              value={timeRange}
+              onValueChange={setTimeRange}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Time Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">Past Week</SelectItem>
+                <SelectItem value="month">Past Month</SelectItem>
+                <SelectItem value="quarter">Past 3 Months</SelectItem>
+                <SelectItem value="half-year">Past 6 Months</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
@@ -143,7 +190,9 @@ export const FeedbackPriorityQueue = () => {
         
         {!showCompleted && completedCount > 0 && (
           <p className="text-xs text-muted-foreground mt-3">
-            Showing {displayList?.length || 0} active items • {completedCount} resolved hidden
+            Showing {displayList?.length || 0} active items
+            {timeRange !== 'all' && ` from ${timeRange === 'today' ? 'today' : `past ${timeRange === 'week' ? 'week' : timeRange === 'month' ? 'month' : timeRange === 'quarter' ? '3 months' : '6 months'}`}`}
+            {' • '}{completedCount} resolved hidden
           </p>
         )}
       </Card>
