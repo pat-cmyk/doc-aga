@@ -471,45 +471,29 @@ const GovernmentDashboard = () => {
                 </Button>
               </div>
 
-              {/* Comparison Mode Toggle */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="comparison-mode"
-                        checked={comparisonMode}
-                        onCheckedChange={setComparisonMode}
-                      />
-                      <Label htmlFor="comparison-mode" className="text-sm font-medium cursor-pointer">
-                        Enable Comparison Mode
-                      </Label>
-                      {comparisonMode && (
-                        <Badge variant="secondary" className="ml-2">
-                          <TrendingUp className="h-3 w-3 mr-1" />
-                          Active
-                        </Badge>
-                      )}
-                    </div>
-                    {comparisonMode && (
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Compare two different time periods or regions side by side
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Filter Controls */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Primary Filters */}
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base sm:text-lg">Primary Dataset</CardTitle>
-                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
-                        PRIMARY
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
+                          PRIMARY
+                        </Badge>
+                        <CardTitle className="text-base sm:text-lg">Dataset</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                          Compare
+                        </span>
+                        <Switch
+                          id="comparison-mode"
+                          checked={comparisonMode}
+                          onCheckedChange={setComparisonMode}
+                          className="data-[state=checked]:bg-primary"
+                        />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
