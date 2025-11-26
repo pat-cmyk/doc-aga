@@ -170,7 +170,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
-    { enabled: hasAccess }
+    { enabled: !!hasAccess }
   );
 
   const { data: comparisonStats, isLoading: comparisonStatsLoading } = useGovernmentStats(
@@ -179,7 +179,7 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
-    { enabled: hasAccess && comparisonMode }
+    { enabled: !!hasAccess && comparisonMode }
   );
 
   const daysDiff = Math.ceil(
@@ -191,7 +191,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
-    { enabled: hasAccess }
+    { enabled: !!hasAccess }
   );
 
   const { data: comparisonHeatmapData, isLoading: comparisonHeatmapLoading } = useHealthHeatmap(
@@ -199,19 +199,19 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
-    { enabled: hasAccess && comparisonMode }
+    { enabled: !!hasAccess && comparisonMode }
   );
 
   const { data: farmerQueries, isLoading: queriesLoading } = useFarmerQueries(
     primaryDateRange.start,
     primaryDateRange.end,
-    { enabled: hasAccess }
+    { enabled: !!hasAccess }
   );
 
   const { data: comparisonFarmerQueries, isLoading: comparisonQueriesLoading } = useFarmerQueries(
     comparisonDateRange.start,
     comparisonDateRange.end,
-    { enabled: hasAccess && comparisonMode }
+    { enabled: !!hasAccess && comparisonMode }
   );
 
   const { data: timeseriesData, isLoading: timeseriesLoading } = useGovernmentStatsTimeseries(
@@ -220,7 +220,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
-    { enabled: hasAccess }
+    { enabled: !!hasAccess }
   );
 
   const { data: comparisonTimeseriesData, isLoading: comparisonTimeseriesLoading } = useGovernmentStatsTimeseries(
@@ -229,7 +229,7 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
-    { enabled: hasAccess && comparisonMode }
+    { enabled: !!hasAccess && comparisonMode }
   );
 
   // Breeding stats data fetching
@@ -239,7 +239,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
-    { enabled: hasAccess }
+    { enabled: !!hasAccess }
   );
 
   const handleExportCSV = () => {
