@@ -245,6 +245,66 @@ function normalizeFeedType(s: string): string {
   return s.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+// Check if activity requires approval and queue it if needed
+async function checkAndQueueForApproval(
+  supabase: any,
+  farmId: string,
+  userId: string,
+  activityType: string,
+  activityData: any,
+  animalIds: string[]
+): Promise<{ needsApproval: boolean; autoApproveAt: string | null }> {
+  console.log(`Checking if approval required for ${activityType}...`);
+  
+  // Check if this user/farm/activity combo requires approval
+  const { data: requiresApproval, error: approvalError } = await supabase.rpc('requires_approval', {
+    _farm_id: farmId,
+    _user_id: userId,
+    _activity_type: activityType
+  });
+
+  if (approvalError) {
+    console.error('Error checking approval requirement:', approvalError);
+    return { needsApproval: false, autoApproveAt: null };
+  }
+
+  if (!requiresApproval) {
+    console.log('No approval required - user is owner/manager or approval disabled');
+    return { needsApproval: false, autoApproveAt: null };
+  }
+
+  // Get auto-approval time
+  const { data: autoApproveAt, error: timeError } = await supabase.rpc('calculate_auto_approve_time', {
+    _farm_id: farmId
+  });
+
+  if (timeError) {
+    console.error('Error calculating auto-approve time:', timeError);
+  }
+
+  console.log(`Approval required - queuing activity. Auto-approve at: ${autoApproveAt}`);
+
+  // Queue for approval
+  const { error: queueError } = await supabase
+    .from('pending_activities')
+    .insert({
+      farm_id: farmId,
+      submitted_by: userId,
+      activity_type: activityType,
+      activity_data: activityData,
+      animal_ids: animalIds,
+      status: 'pending',
+      auto_approve_at: autoApproveAt
+    });
+
+  if (queueError) {
+    console.error('Error queuing activity:', queueError);
+    throw new Error('Failed to queue activity for approval');
+  }
+
+  return { needsApproval: true, autoApproveAt };
+}
+
 // Check if a feed type exists in farm inventory (with stock > 0)
 async function feedTypeExistsInInventory(
   supabase: any,
@@ -855,6 +915,30 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       
       console.log('✅ Animal ownership verified');
 
+      // Check if this activity needs approval (farmhand submissions)
+      const approvalCheck = await checkAndQueueForApproval(
+        supabase,
+        farmId,
+        user.id,
+        extractedData.activity_type,
+        extractedData,
+        [finalAnimalId]
+      );
+
+      if (approvalCheck.needsApproval) {
+        console.log('Activity queued for manager approval');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            activity_type: extractedData.activity_type,
+            message: 'Activity queued for manager approval',
+            auto_approve_at: approvalCheck.autoApproveAt
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];
       const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
       
@@ -988,6 +1072,35 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
       
       console.log(`Found ${animals.length} animals for distribution`);
+
+      // Check if this bulk feeding needs approval
+      const animalIds = animals.map(a => a.id);
+      const approvalCheck = await checkAndQueueForApproval(
+        supabase,
+        farmId,
+        user.id,
+        'feeding',
+        {
+          ...extractedData,
+          multiple_feeds: true,
+          feeds: feedingActivities
+        },
+        animalIds
+      );
+
+      if (approvalCheck.needsApproval) {
+        console.log('Bulk feeding activity queued for manager approval');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            activity_type: 'feeding',
+            message: 'Bulk feeding activity queued for manager approval',
+            auto_approve_at: approvalCheck.autoApproveAt
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       // Calculate total weight of all animals (same for all feeds)
       const totalWeightKg = animals.reduce((sum, animal) => sum + (Number(animal.current_weight_kg) || 0), 0);
@@ -1127,6 +1240,36 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
 
       console.log(`Found ${animals.length} animals for distribution`);
+
+      // Check if this bulk feeding needs approval
+      const animalIds = animals.map(a => a.id);
+      const approvalCheck = await checkAndQueueForApproval(
+        supabase,
+        farmId,
+        user.id,
+        'feeding',
+        {
+          ...extractedData,
+          is_bulk_feeding: true,
+          total_kg: totalKg,
+          weight_per_unit: weightPerUnit
+        },
+        animalIds
+      );
+
+      if (approvalCheck.needsApproval) {
+        console.log('Bulk feeding activity queued for manager approval');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            activity_type: 'feeding',
+            message: 'Bulk feeding activity queued for manager approval',
+            auto_approve_at: approvalCheck.autoApproveAt
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Calculate total weight
       const totalWeight = animals.reduce((sum, a) => sum + (a.current_weight_kg || 0), 0);
