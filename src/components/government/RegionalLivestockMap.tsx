@@ -187,20 +187,6 @@ const RegionalLivestockMap = ({ dateRange }: RegionalLivestockMapProps) => {
     });
   }, [regionalStats, mapLoaded, selectedRegion]);
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Regional Livestock Distribution</CardTitle>
-          <CardDescription>Interactive map showing livestock statistics across Philippine regions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="w-full h-[500px] rounded-lg" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <>
       <Card>
@@ -210,9 +196,19 @@ const RegionalLivestockMap = ({ dateRange }: RegionalLivestockMapProps) => {
             Interactive map showing livestock statistics across Philippine regions. Click markers for detailed analytics.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="relative">
+          {/* Map container - always rendered */}
           <div ref={mapContainer} className="w-full h-[500px] rounded-lg shadow-sm" />
-          {regionalStats && regionalStats.length > 0 && (
+          
+          {/* Loading overlay */}
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
+              <Skeleton className="w-full h-full rounded-lg" />
+            </div>
+          )}
+          
+          {/* Map legend */}
+          {!isLoading && regionalStats && regionalStats.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full bg-primary" />
