@@ -2087,6 +2087,28 @@ export type Database = {
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
+      get_government_breeding_stats: {
+        Args: {
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          ai_success_rate: number
+          carabao_success_rate: number
+          cattle_success_rate: number
+          currently_pregnant: number
+          due_this_quarter: number
+          expected_deliveries_by_month: Json
+          goat_success_rate: number
+          sheep_success_rate: number
+          total_ai_performed: number
+          total_ai_scheduled: number
+          total_pregnancies_confirmed: number
+        }[]
+      }
       get_government_stats: {
         Args: {
           end_date: string
