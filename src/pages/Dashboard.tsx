@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sprout, Check, X } from "lucide-react";
@@ -23,6 +24,9 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { FarmSwitcher } from "@/components/FarmSwitcher";
 import { GovernmentConnectTab } from "@/components/farmer/GovernmentConnectTab";
 import { FarmerFeedbackList } from "@/components/farmer/FarmerFeedbackList";
+import { PendingActivitiesQueue } from "@/components/approval/PendingActivitiesQueue";
+import { ApprovalSettings } from "@/components/approval/ApprovalSettings";
+import { usePendingActivities } from "@/hooks/usePendingActivities";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,6 +45,9 @@ const Dashboard = () => {
   const [farmName, setFarmName] = useState<string>('My Farm');
   const [farmLogoUrl, setFarmLogoUrl] = useState<string | null>(null);
   const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
+
+  // Get pending activities count for badge
+  const { pendingCount } = usePendingActivities(farmId || undefined, undefined);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -353,11 +360,19 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
               <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
+              <TabsTrigger value="approvals" disabled={!farmId || !canManageFarm} className="gap-2">
+                Approvals
+                {pendingCount > 0 && canManageFarm && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="government" disabled={!farmId}>Government</TabsTrigger>
             </TabsList>
             {/* Marketplace button - hidden for this development stage */}
@@ -411,6 +426,32 @@ const Dashboard = () => {
           <TabsContent value="finance" className="space-y-6">
             {farmId && (
               <FinanceTab farmId={farmId} canManage={canManageFarm} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="approvals" className="space-y-6">
+            {farmId && canManageFarm && (
+              <Tabs defaultValue="queue" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="queue" className="gap-2">
+                    Approval Queue
+                    {pendingCount > 0 && (
+                      <Badge variant="secondary" className="ml-1">
+                        {pendingCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="queue">
+                  <PendingActivitiesQueue farmId={farmId} />
+                </TabsContent>
+
+                <TabsContent value="settings">
+                  <ApprovalSettings farmId={farmId} />
+                </TabsContent>
+              </Tabs>
             )}
           </TabsContent>
 

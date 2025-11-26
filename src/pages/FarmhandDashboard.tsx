@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
+import { MySubmissions } from "@/components/approval/MySubmissions";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -174,9 +175,10 @@ const FarmhandDashboard = () => {
             <VoiceRecordButton farmId={farmId} animalId={selectedAnimalId} />
 
             <Tabs defaultValue="animals" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="animals">Animals</TabsTrigger>
                 <TabsTrigger value="feed">Feeds</TabsTrigger>
+                <TabsTrigger value="submissions">My Submissions</TabsTrigger>
               </TabsList>
 
               <TabsContent value="animals" className="space-y-4">
@@ -200,6 +202,10 @@ const FarmhandDashboard = () => {
                   forecasts={forecastData}
                   canManage={false}
                 />
+              </TabsContent>
+
+              <TabsContent value="submissions" className="space-y-4">
+                {user && <MySubmissions userId={user.id} />}
               </TabsContent>
             </Tabs>
           </>
