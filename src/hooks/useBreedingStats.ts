@@ -24,7 +24,7 @@ export const useBreedingStats = (
   region?: string,
   province?: string,
   municipality?: string,
-  options = {}
+  options?: { enabled?: boolean }
 ) => {
   return useQuery({
     queryKey: ["breeding-stats", startDate, endDate, region, province, municipality],
@@ -57,6 +57,6 @@ export const useBreedingStats = (
       return stats as BreedingStats;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
-    ...options,
+    ...(options || {}),
   });
 };
