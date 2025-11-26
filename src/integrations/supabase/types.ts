@@ -645,6 +645,48 @@ export type Database = {
           },
         ]
       }
+      farm_approval_settings: {
+        Row: {
+          auto_approve_enabled: boolean
+          auto_approve_hours: number
+          created_at: string
+          farm_id: string
+          require_approval_for_types: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          auto_approve_enabled?: boolean
+          auto_approve_hours?: number
+          created_at?: string
+          farm_id: string
+          require_approval_for_types?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          auto_approve_enabled?: boolean
+          auto_approve_hours?: number
+          created_at?: string
+          farm_id?: string
+          require_approval_for_types?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_approval_settings_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: true
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_approval_settings_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: true
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farm_expenses: {
         Row: {
           amount: number
@@ -1587,6 +1629,69 @@ export type Database = {
           },
         ]
       }
+      pending_activities: {
+        Row: {
+          activity_data: Json
+          activity_type: Database["public"]["Enums"]["pending_activity_type"]
+          animal_ids: string[]
+          auto_approve_at: string | null
+          created_at: string
+          farm_id: string
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["pending_activity_status"]
+          submitted_at: string
+          submitted_by: string
+        }
+        Insert: {
+          activity_data: Json
+          activity_type: Database["public"]["Enums"]["pending_activity_type"]
+          animal_ids: string[]
+          auto_approve_at?: string | null
+          created_at?: string
+          farm_id: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["pending_activity_status"]
+          submitted_at?: string
+          submitted_by: string
+        }
+        Update: {
+          activity_data?: Json
+          activity_type?: Database["public"]["Enums"]["pending_activity_type"]
+          animal_ids?: string[]
+          auto_approve_at?: string | null
+          created_at?: string
+          farm_id?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["pending_activity_status"]
+          submitted_at?: string
+          submitted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_activities_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_activities_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -2054,6 +2159,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      approve_pending_activity: {
+        Args: { _approved_by: string; _is_auto?: boolean; _pending_id: string }
+        Returns: Json
+      }
+      calculate_auto_approve_time: {
+        Args: { _farm_id: string }
+        Returns: string
+      }
       can_access_farm: { Args: { fid: string }; Returns: boolean }
       create_default_farm:
         | {
@@ -2213,6 +2326,10 @@ export type Database = {
         }
         Returns: string
       }
+      requires_approval: {
+        Args: { _activity_type: string; _farm_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       animal_event_type:
@@ -2256,6 +2373,17 @@ export type Database = {
         | "in_transit"
         | "delivered"
         | "cancelled"
+      pending_activity_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "auto_approved"
+      pending_activity_type:
+        | "milking"
+        | "feeding"
+        | "health_observation"
+        | "weight_measurement"
+        | "injection"
       user_role:
         | "farmer_owner"
         | "farmhand"
@@ -2436,6 +2564,19 @@ export const Constants = {
         "in_transit",
         "delivered",
         "cancelled",
+      ],
+      pending_activity_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "auto_approved",
+      ],
+      pending_activity_type: [
+        "milking",
+        "feeding",
+        "health_observation",
+        "weight_measurement",
+        "injection",
       ],
       user_role: [
         "farmer_owner",

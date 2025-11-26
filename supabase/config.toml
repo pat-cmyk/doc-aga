@@ -65,5 +65,51 @@ verify_jwt = false
 [functions.admin-permanent-delete-farm]
 verify_jwt = true
 
-[functions.migrate-farm-locations]
+-- Phase 2: Database Functions
+
+-- 2.1 Function: requires_approval()
+CREATE OR REPLACE FUNCTION public.requires_approval(
+  _farm_id UUID,
+  _user_id UUID,
+  _activity_type TEXT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _is_farmhand BOOLEAN;
+  _settings RECORD;
+BEGIN
+  -- Only farmhands need approval (owners/managers skip)
+  _is_farmhand := is_farmhand(_user_id, _farm_id);
+  
+  IF NOT _is_farmhand THEN
+    RETURN false;
+  END IF;
+  
+  -- Check farm-specific settings
+  SELECT * INTO _settings
+  FROM farm_approval_settings
+  WHERE farm_id = _farm_id;
+  
+  -- No settings = use defaults (require approval)
+  IF NOT FOUND THEN
+    RETURN true;
+  END IF;
+  
+  -- Check if this activity type requires approval
+  IF _settings.require_approval_for_types IS NOT NULL THEN
+    RETURN _activity_type = ANY(_settings.require_approval_for_types);
+  END IF;
+  
+  -- Default: require approval for all types
+  RETURN true;
+END;
+$$;
+
+[functions.process-auto-approvals]
+verify_jwt = false
+
+[functions.review-pending-activity]
 verify_jwt = true
