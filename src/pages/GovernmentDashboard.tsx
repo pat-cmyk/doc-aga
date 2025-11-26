@@ -21,6 +21,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Dynamically import the map component to reduce bundle size
 const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
+import { useBreedingStats } from "@/hooks/useBreedingStats";
+import { BreedingOverviewCards } from "@/components/government/BreedingOverviewCards";
+import { BreedingSuccessChart } from "@/components/government/BreedingSuccessChart";
+import { ExpectedDeliveriesTimeline } from "@/components/government/ExpectedDeliveriesTimeline";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,6 +230,16 @@ const GovernmentDashboard = () => {
     comparisonProvince,
     comparisonMunicipality,
     { enabled: hasAccess && comparisonMode }
+  );
+
+  // Breeding stats data fetching
+  const { data: breedingStats, isLoading: breedingStatsLoading } = useBreedingStats(
+    primaryDateRange.start,
+    primaryDateRange.end,
+    primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
+    { enabled: hasAccess }
   );
 
   const handleExportCSV = () => {
@@ -803,6 +817,8 @@ const GovernmentDashboard = () => {
               isLoading={statsLoading} 
               error={statsError}
               comparisonMode={comparisonMode}
+              breedingStats={breedingStats}
+              breedingStatsLoading={breedingStatsLoading}
             />
 
             {/* Regional Map */}
@@ -841,6 +857,37 @@ const GovernmentDashboard = () => {
               error={undefined}
               comparisonMode={comparisonMode}
             />
+
+            {/* Breeding & Reproduction Analytics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <HeartPulse className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Breeding & Reproduction Analytics</h3>
+              </div>
+              
+              <BreedingOverviewCards
+                totalAIProcedures={breedingStats?.total_ai_scheduled || 0}
+                totalAIPerformed={breedingStats?.total_ai_performed || 0}
+                currentlyPregnant={breedingStats?.currently_pregnant || 0}
+                aiSuccessRate={breedingStats?.ai_success_rate || 0}
+                dueThisQuarter={breedingStats?.due_this_quarter || 0}
+                isLoading={breedingStatsLoading}
+              />
+              
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                <BreedingSuccessChart
+                  cattleSuccessRate={breedingStats?.cattle_success_rate || 0}
+                  goatSuccessRate={breedingStats?.goat_success_rate || 0}
+                  carabaoSuccessRate={breedingStats?.carabao_success_rate || 0}
+                  sheepSuccessRate={breedingStats?.sheep_success_rate || 0}
+                  isLoading={breedingStatsLoading}
+                />
+                <ExpectedDeliveriesTimeline
+                  deliveriesByMonth={breedingStats?.expected_deliveries_by_month || {}}
+                  isLoading={breedingStatsLoading}
+                />
+              </div>
+            </div>
 
             {/* Health & Queries Grid */}
             <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
