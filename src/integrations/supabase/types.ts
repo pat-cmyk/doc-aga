@@ -2381,6 +2381,8 @@ export type Database = {
         | "message"
         | "system"
         | "order_received"
+        | "activity_approved"
+        | "activity_rejected"
       order_status:
         | "received"
         | "in_process"
@@ -2571,6 +2573,8 @@ export const Constants = {
         "message",
         "system",
         "order_received",
+        "activity_approved",
+        "activity_rejected",
       ],
       order_status: [
         "received",
