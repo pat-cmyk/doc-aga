@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BulkFeedingTable } from './activity-confirmation/BulkFeedingTable';
 import { ActivitySummary } from './activity-confirmation/ActivitySummary';
 import { useInventoryDeduction } from './activity-confirmation/hooks/useInventoryDeduction';
+import { hapticNotification } from '@/lib/haptics';
 
 interface Feed {
   feed_type: string;
@@ -326,9 +327,11 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           description: "Activity recorded successfully",
         });
       }
+      await hapticNotification('success');
       onSuccess();
     } catch (error) {
       console.error('Error saving record:', error);
+      await hapticNotification('error');
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : 'Failed to save record',
