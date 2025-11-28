@@ -67,8 +67,7 @@ const feedingRecordSchema = z.object({
   feed_type: z.string()
     .min(2, 'Feed type must be at least 2 characters')
     .max(100, 'Feed type must be under 100 characters')
-    .nullable()
-    .refine(val => val !== 'unknown', 'Feed type cannot be "unknown"'),
+    .nullable(),
   quantity: z.number()
     .min(0.1, 'Quantity must be at least 0.1')
     .max(10000, 'Quantity cannot exceed 10,000')
@@ -745,18 +744,10 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       const data = JSON.parse(toolCall.function.arguments);
       console.log(`Activity ${index + 1}:`, data);
       
-      // TIER 2: CRITICAL VALIDATION - Feeding MUST have some feed context
+      // TIER 2: Soft validation log for feeding
       if (data.activity_type === 'feeding') {
-        // At this stage we only hard-block truly invalid sentinel values
-        // Missing or null feed_type will be handled by the inventory resolution step (Tier 3)
-        if (data.feed_type === 'unknown') {
-          console.error(`❌ VALIDATION ERROR: feed_type cannot be "unknown" for feeding activity ${index + 1}`);
-          throw new Error(
-            'Kulang ang information! Sabihin kung anong feed ang binigay (halimbawa: "corn silage", "hay", "concentrates"). / ' +
-            'Feed type must be specified! Please mention what type of feed was given (e.g., corn silage, hay, concentrates).'
-          );
-        }
-        console.log(`✅ Tier 2 validation passed for feeding activity ${index + 1} (feed_type: ${data.feed_type ?? 'null'})`);
+        // Allow missing/null/"unknown" here; Tier 3 + inventory resolution will handle it.
+        console.log(`Tier 2 feeding check - raw feed_type: ${data.feed_type ?? 'null'}`);
       }
       
       // Validate and parse date reference if provided
