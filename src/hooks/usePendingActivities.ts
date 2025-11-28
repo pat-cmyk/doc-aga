@@ -84,7 +84,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
         .from('pending_activities')
         .select(`
           *,
-          submitter:submitted_by(full_name, email)
+          submitter:profiles!pending_activities_submitted_by_fkey_profiles(full_name, email)
         `)
         .order('submitted_at', { ascending: false });
 
