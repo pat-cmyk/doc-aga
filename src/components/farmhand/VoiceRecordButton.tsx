@@ -268,14 +268,21 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
           throw new Error('AI processing failed');
         }
 
-        // Handle clarification requests
+        // Handle clarification requests - show helpful toast instead of error
         if (aiData?.error === 'NEEDS_CLARIFICATION') {
           const options = aiData.availableOptions || [];
           const optionsList = options.length > 0 
-            ? `Available options: ${options.join(', ')}` 
-            : 'No feed types found in inventory for this unit.';
+            ? ` Available options: ${options.join(', ')}` 
+            : '';
           
-          throw new Error(`${aiData.message}. ${optionsList}`);
+          toast({
+            title: "Please Clarify",
+            description: aiData.message + optionsList,
+            variant: "default",
+            duration: 8000, // Longer duration for clarification
+          });
+          setIsProcessing(false);
+          return; // Gracefully handle without throwing
         }
 
         if (aiData?.error) {
