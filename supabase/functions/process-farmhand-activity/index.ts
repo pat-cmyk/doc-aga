@@ -787,9 +787,13 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         // If feed_type is missing or unknown, MUST resolve from inventory
         if (!activity.feed_type || activity.feed_type === 'unknown') {
           if (!activity.unit) {
-            throw new Error(
-              'Hindi ma-identify ang feed. Sabihin ang feed type o unit (e.g., "3 bags ng concentrates"). / ' +
-              'Cannot identify feed. Please specify feed type or unit (e.g., "3 bags of concentrates").'
+            return new Response(
+              JSON.stringify({
+                error: 'NEEDS_CLARIFICATION',
+                message: 'Hindi ma-identify ang feed. Sabihin ang feed type o unit (e.g., "3 bags ng concentrates"). / Cannot identify feed. Please specify feed type or unit (e.g., "3 bags of concentrates").',
+                availableOptions: []
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
           
@@ -803,13 +807,18 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
           
           // MUST succeed or provide clear options
           if (resolution.needsClarification || !resolution.feed_type) {
-            const options = resolution.availableOptions && resolution.availableOptions.length > 0
-              ? `Available: ${resolution.availableOptions.join(', ')}`
-              : 'Walang feed sa inventory para sa unit na ito. Magdagdag muna sa inventory. / No feed in inventory for this unit. Please add to inventory first.';
+            const options = resolution.availableOptions || [];
+            const message = options.length > 0
+              ? `Pakispecify kung anong feed para sa ${activity.quantity} ${activity.unit}. / Please specify the feed type for ${activity.quantity} ${activity.unit}.`
+              : `Walang feed sa inventory para sa unit na "${activity.unit}". Magdagdag muna sa inventory. / No feed in inventory for unit "${activity.unit}". Please add to inventory first.`;
             
-            throw new Error(
-              `Pakispecify kung anong feed para sa ${activity.quantity} ${activity.unit}. ${options} / ` +
-              `Please specify the feed type for ${activity.quantity} ${activity.unit}. ${options}`
+            return new Response(
+              JSON.stringify({
+                error: 'NEEDS_CLARIFICATION',
+                message,
+                availableOptions: options
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
           
