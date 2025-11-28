@@ -1677,6 +1677,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_pending_activities_reviewed_by_profiles"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_pending_activities_submitted_by_profiles"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pending_activities_farm_id_fkey"
             columns: ["farm_id"]
             isOneToOne: false
