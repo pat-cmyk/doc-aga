@@ -24,7 +24,6 @@ export const useMilkData = (
   const loadMilkData = useCallback(async () => {
     setLoading(true);
     try {
-
       // Fetch pre-aggregated data from daily_farm_stats
       const { data: dailyStats } = await supabase
         .from("daily_farm_stats")
@@ -36,6 +35,7 @@ export const useMilkData = (
 
       const combinedDataMap: Record<string, CombinedDailyData> = {};
       const allStageKeys = new Set<string>();
+      const datesWithStats = new Set<string>();
 
       // Initialize data structure
       dateArray.forEach(date => {
@@ -45,12 +45,13 @@ export const useMilkData = (
         };
       });
 
+      // Apply pre-calculated stats where available
       if (dailyStats && dailyStats.length > 0) {
-        // Use pre-calculated data
         dailyStats.forEach(stat => {
           const date = stat.stat_date;
           if (combinedDataMap[date]) {
             combinedDataMap[date].milkTotal = Number(stat.total_milk_liters);
+            datesWithStats.add(date);
             
             const stageCounts = stat.stage_counts as Record<string, number>;
             Object.entries(stageCounts).forEach(([stage, count]) => {
@@ -59,18 +60,18 @@ export const useMilkData = (
             });
           }
         });
-      } else {
-        // Fallback: Calculate from milking_records
-        if (process.env.NODE_ENV === 'development') {
-          console.log("No pre-calculated stats found, using fallback calculation");
-        }
-        
+      }
+
+      // Find dates missing from daily_farm_stats (typically today/recent days)
+      const missingDates = dateArray.filter(date => !datesWithStats.has(date));
+      
+      if (missingDates.length > 0) {
+        // Fetch real-time data from milking_records for missing dates
         const { data: milkRecords } = await supabase
           .from("milking_records")
           .select("liters, record_date, animals!inner(farm_id)")
           .eq("animals.farm_id", farmId)
-          .gte("record_date", startDate.toISOString().split("T")[0])
-          .lte("record_date", endDate.toISOString().split("T")[0]);
+          .in("record_date", missingDates);
 
         milkRecords?.forEach(record => {
           const date = record.record_date;
@@ -78,6 +79,10 @@ export const useMilkData = (
             combinedDataMap[date].milkTotal += Number(record.liters);
           }
         });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Fetched real-time milk data for ${missingDates.length} missing dates`);
+        }
       }
 
       const finalData = dateArray.map(date => combinedDataMap[date]);
