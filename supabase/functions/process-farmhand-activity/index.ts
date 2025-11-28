@@ -745,17 +745,18 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       const data = JSON.parse(toolCall.function.arguments);
       console.log(`Activity ${index + 1}:`, data);
       
-      // TIER 2: CRITICAL VALIDATION - Feeding MUST have valid feed_type
+      // TIER 2: CRITICAL VALIDATION - Feeding MUST have some feed context
       if (data.activity_type === 'feeding') {
-        // Check if feed_type is null, undefined, empty, or "unknown"
-        if (!data.feed_type || data.feed_type === 'unknown' || data.feed_type.trim() === '') {
-          console.error(`❌ VALIDATION ERROR: feed_type missing or invalid for feeding activity ${index + 1}`);
+        // At this stage we only hard-block truly invalid sentinel values
+        // Missing or null feed_type will be handled by the inventory resolution step (Tier 3)
+        if (data.feed_type === 'unknown') {
+          console.error(`❌ VALIDATION ERROR: feed_type cannot be "unknown" for feeding activity ${index + 1}`);
           throw new Error(
             'Kulang ang information! Sabihin kung anong feed ang binigay (halimbawa: "corn silage", "hay", "concentrates"). / ' +
             'Feed type must be specified! Please mention what type of feed was given (e.g., corn silage, hay, concentrates).'
           );
         }
-        console.log(`✅ Validation passed - feed_type: ${data.feed_type}`);
+        console.log(`✅ Tier 2 validation passed for feeding activity ${index + 1} (feed_type: ${data.feed_type ?? 'null'})`);
       }
       
       // Validate and parse date reference if provided
