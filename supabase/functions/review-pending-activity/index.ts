@@ -6,6 +6,129 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * Deduct feed from inventory using FIFO strategy
+ */
+async function deductFeedInventory(
+  supabase: any,
+  farmId: string,
+  activityData: any
+): Promise<void> {
+  try {
+    const feedType = activityData.feed_type;
+    const totalKg = activityData.total_kg || activityData.quantity;
+    const originalQuantity = activityData.quantity;
+    const originalUnit = activityData.unit || 'kg';
+
+    // Strategy 1: Try exact match (case-insensitive)
+    let { data: inventoryItems } = await supabase
+      .from('feed_inventory')
+      .select('*')
+      .eq('farm_id', farmId)
+      .ilike('feed_type', feedType)
+      .gt('quantity_kg', 0)
+      .order('created_at', { ascending: true });
+
+    // Strategy 2: If no exact match, try fuzzy contains
+    if (!inventoryItems || inventoryItems.length === 0) {
+      console.log(`No exact match for "${feedType}", trying fuzzy match...`);
+      ({ data: inventoryItems } = await supabase
+        .from('feed_inventory')
+        .select('*')
+        .eq('farm_id', farmId)
+        .ilike('feed_type', `%${feedType}%`)
+        .gt('quantity_kg', 0)
+        .order('created_at', { ascending: true }));
+    }
+
+    // Strategy 3: Special case for "hay" - also search for variations with "bale"
+    if ((!inventoryItems || inventoryItems.length === 0) && feedType.toLowerCase().includes('hay')) {
+      console.log(`No match for "hay", trying "bale" variations...`);
+      ({ data: inventoryItems } = await supabase
+        .from('feed_inventory')
+        .select('*')
+        .eq('farm_id', farmId)
+        .or('feed_type.ilike.%bale%,feed_type.ilike.%hay%')
+        .gt('quantity_kg', 0)
+        .order('created_at', { ascending: true }));
+    }
+
+    // Strategy 4: For "concentrates" - search for items containing that word
+    if ((!inventoryItems || inventoryItems.length === 0) && feedType.toLowerCase().includes('concentrate')) {
+      console.log(`Searching for concentrate products...`);
+      ({ data: inventoryItems } = await supabase
+        .from('feed_inventory')
+        .select('*')
+        .eq('farm_id', farmId)
+        .ilike('feed_type', '%concentrate%')
+        .gt('quantity_kg', 0)
+        .order('created_at', { ascending: true }));
+    }
+
+    // Strategy 5: Extract first significant word (e.g., "corn" from "corn silage")
+    if (!inventoryItems || inventoryItems.length === 0) {
+      const significantWord = feedType.split(' ')[0];
+      if (significantWord.length > 3) {
+        console.log(`No matches found, trying first word: "${significantWord}"...`);
+        ({ data: inventoryItems } = await supabase
+          .from('feed_inventory')
+          .select('*')
+          .eq('farm_id', farmId)
+          .ilike('feed_type', `%${significantWord}%`)
+          .gt('quantity_kg', 0)
+          .order('created_at', { ascending: true }));
+      }
+    }
+
+    console.log(`Feed type: "${feedType}" → Found ${inventoryItems?.length || 0} inventory items`);
+
+    if (!inventoryItems || inventoryItems.length === 0) {
+      console.warn(`⚠ No inventory found for feed type: "${feedType}"`);
+      return;
+    }
+
+    let remainingToDeduct = totalKg;
+
+    for (const item of inventoryItems) {
+      if (remainingToDeduct <= 0) break;
+
+      const deductAmount = Math.min(Number(item.quantity_kg), remainingToDeduct);
+      const newBalance = Number(item.quantity_kg) - deductAmount;
+
+      // Update inventory
+      await supabase
+        .from('feed_inventory')
+        .update({
+          quantity_kg: newBalance,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', item.id);
+
+      // Create consumption transaction
+      await supabase
+        .from('feed_stock_transactions')
+        .insert({
+          feed_inventory_id: item.id,
+          transaction_type: 'consumption',
+          quantity_change_kg: -deductAmount,
+          balance_after: newBalance,
+          notes: `Approved feeding: ${originalQuantity} ${originalUnit} distributed`,
+          created_by: null
+        });
+
+      remainingToDeduct -= deductAmount;
+      console.log(`✅ Deducted ${deductAmount} kg from ${item.feed_type}, remaining: ${remainingToDeduct} kg`);
+    }
+
+    if (remainingToDeduct > 0) {
+      console.warn(`⚠ Could not deduct full amount. Remaining: ${remainingToDeduct} kg`);
+    }
+  } catch (error) {
+    console.error('❌ Error deducting from inventory:', error);
+    // Don't throw - we don't want to fail the approval if inventory deduction fails
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -63,7 +186,7 @@ serve(async (req) => {
     // Verify user can review this activity
     const { data: pending, error: pendingError } = await supabaseAdmin
       .from('pending_activities')
-      .select('farm_id, submitted_by, activity_type')
+      .select('farm_id, submitted_by, activity_type, activity_data')
       .eq('id', pendingId)
       .single();
 
@@ -115,6 +238,11 @@ serve(async (req) => {
       }
 
       console.log(`Activity ${pendingId} approved successfully`);
+
+      // Deduct inventory if this is a feeding activity
+      if (pending.activity_type === 'feeding') {
+        await deductFeedInventory(supabaseAdmin, pending.farm_id, pending.activity_data);
+      }
 
       return new Response(
         JSON.stringify({ success: true, message: 'Activity approved', data }),
