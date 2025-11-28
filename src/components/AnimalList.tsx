@@ -490,6 +490,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
             <Card
               key={animal.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
+              style={{ contentVisibility: 'auto' }}
               onClick={() => {
                 setSelectedAnimalId(animal.id);
                 onAnimalSelect?.(animal.id);
@@ -532,6 +533,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                     <AvatarImage 
                       src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
                       alt={animal.name || animal.ear_tag || "Animal"}
+                      loading="lazy"
                     />
                     <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                       {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
