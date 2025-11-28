@@ -67,7 +67,8 @@ const feedingRecordSchema = z.object({
   feed_type: z.string()
     .min(2, 'Feed type must be at least 2 characters')
     .max(100, 'Feed type must be under 100 characters')
-    .refine(val => val !== 'unknown', 'Feed type must be specified'),
+    .nullable()
+    .refine(val => val !== 'unknown', 'Feed type cannot be "unknown"'),
   quantity: z.number()
     .min(0.1, 'Quantity must be at least 0.1')
     .max(10000, 'Quantity cannot exceed 10,000')
@@ -683,7 +684,8 @@ Extract quantities when mentioned (liters for milk, kilograms for feed/weight).`
                   },
                   feed_type: {
                     type: 'string',
-                    description: 'CRITICAL - REQUIRED for feeding activities. The ACTUAL FEED MATERIAL being given (e.g., "corn silage", "hay", "concentrates", "molasses"). If the user does NOT explicitly mention what the feed is, you MUST set this to null (not "unknown"). Only extract what the user actually says. Valid values: specific feed names OR null.'
+                    nullable: true,
+                    description: 'CRITICAL - REQUIRED for feeding activities. The ACTUAL FEED MATERIAL being given (e.g., "corn silage", "hay", "concentrates", "molasses"). If the user does NOT explicitly mention what the feed is, you MUST set this to null. NEVER use "unknown" - use null instead. Only extract what the user actually says. Valid values: specific feed names OR null.'
                   },
                   medicine_name: {
                     type: 'string',
@@ -745,6 +747,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       
       // TIER 2: CRITICAL VALIDATION - Feeding MUST have valid feed_type
       if (data.activity_type === 'feeding') {
+        // Check if feed_type is null, undefined, empty, or "unknown"
         if (!data.feed_type || data.feed_type === 'unknown' || data.feed_type.trim() === '') {
           console.error(`❌ VALIDATION ERROR: feed_type missing or invalid for feeding activity ${index + 1}`);
           throw new Error(
