@@ -15,6 +15,8 @@ import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
 import { MySubmissions } from "@/components/approval/MySubmissions";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { syncQueue } from "@/lib/syncService";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -25,6 +27,40 @@ const FarmhandDashboard = () => {
   const [showDocAga, setShowDocAga] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
+
+  const handleRefresh = async () => {
+    await syncQueue();
+    if (farmId) {
+      await loadForecastData();
+    }
+    toast({
+      title: "Refreshed",
+      description: "Data synced successfully",
+    });
+  };
+
+  const { containerRef, PullToRefreshIndicator, isRefreshing } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
+
+  const loadForecastData = async () => {
+    if (!farmId) return;
+    
+    try {
+      const { data: animals } = await supabase
+        .from("animals")
+        .select("id, birth_date, gender, life_stage, milking_stage, current_weight_kg")
+        .eq("farm_id", farmId)
+        .eq("is_deleted", false);
+
+      if (animals) {
+        const forecast = generateFeedForecast(animals);
+        setForecastData(forecast);
+      }
+    } catch (error) {
+      console.error("Error loading forecast data:", error);
+    }
+  };
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -90,25 +126,6 @@ const FarmhandDashboard = () => {
 
   // Generate feed forecast when farmId is available
   useEffect(() => {
-    const loadForecastData = async () => {
-      if (!farmId) return;
-      
-      try {
-        const { data: animals } = await supabase
-          .from("animals")
-          .select("id, birth_date, gender, life_stage, milking_stage, current_weight_kg")
-          .eq("farm_id", farmId)
-          .eq("is_deleted", false);
-
-        if (animals) {
-          const forecast = generateFeedForecast(animals);
-          setForecastData(forecast);
-        }
-      } catch (error) {
-        console.error("Error loading forecast data:", error);
-      }
-    };
-
     loadForecastData();
   }, [farmId]);
 
@@ -141,7 +158,8 @@ const FarmhandDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto">
+      <PullToRefreshIndicator />
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between">

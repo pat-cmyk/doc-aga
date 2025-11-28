@@ -27,6 +27,8 @@ import { FarmerFeedbackList } from "@/components/farmer/FarmerFeedbackList";
 import { PendingActivitiesQueue } from "@/components/approval/PendingActivitiesQueue";
 import { ApprovalSettings } from "@/components/approval/ApprovalSettings";
 import { usePendingActivities } from "@/hooks/usePendingActivities";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { syncQueue } from "@/lib/syncService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -48,6 +50,22 @@ const Dashboard = () => {
 
   // Get pending activities count for badge
   const { pendingCount } = usePendingActivities(farmId || undefined, undefined);
+
+  const handleRefresh = async () => {
+    await syncQueue();
+    if (farmId) {
+      await loadForecastData();
+      await preloadAllData(farmId, isOnline);
+    }
+    toast({
+      title: "Refreshed",
+      description: "Data synced successfully",
+    });
+  };
+
+  const { containerRef, PullToRefreshIndicator, isRefreshing } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -297,7 +315,8 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto">
+      <PullToRefreshIndicator />
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">

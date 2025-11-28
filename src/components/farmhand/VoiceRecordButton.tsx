@@ -12,6 +12,7 @@ import { compressAudio } from '@/lib/audioCompression';
 import { getOfflineMessage } from '@/lib/errorMessages';
 import { getCachedAnimalDetails } from '@/lib/dataCache';
 import { TranscriptionCorrectionDialog } from '@/components/TranscriptionCorrectionDialog';
+import { hapticImpact, hapticNotification } from '@/lib/haptics';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -117,6 +118,8 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
 
   const startRecording = async () => {
     try {
+      await hapticImpact('medium');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       const mediaRecorder = new MediaRecorder(stream, {
@@ -147,6 +150,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
       });
     } catch (error) {
       console.error('Error starting recording:', error);
+      await hapticNotification('error');
       toast({
         title: "Recording Error",
         description: "Could not access microphone",
@@ -155,8 +159,9 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
+      await hapticImpact('light');
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
@@ -335,7 +340,8 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     setMode('idle');
   };
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
+    await hapticNotification('success');
     setExtractedData(null);
     setMode('idle');
     toast({
