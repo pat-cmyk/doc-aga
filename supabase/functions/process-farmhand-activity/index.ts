@@ -305,33 +305,63 @@ async function checkAndQueueForApproval(
   return { needsApproval: true, autoApproveAt };
 }
 
-// Check if a feed type exists in farm inventory (with stock > 0)
+// Check if a feed type exists in farm inventory with fuzzy matching
 async function feedTypeExistsInInventory(
   supabase: any,
   farmId: string,
   feedType: string
-): Promise<boolean> {
+): Promise<{ exists: boolean; matchedType?: string }> {
   const normalized = normalizeFeedType(feedType);
   
-  const { data, error } = await supabase
+  // Try exact match first (case-insensitive)
+  let { data } = await supabase
     .from('feed_inventory')
-    .select('id, feed_type')
+    .select('feed_type')
     .eq('farm_id', farmId)
     .ilike('feed_type', normalized)
     .gt('quantity_kg', 0)
     .limit(1)
     .maybeSingle();
   
-  if (error) {
-    console.error('Error checking feed inventory:', error);
-    return false;
+  if (data) {
+    return { exists: true, matchedType: data.feed_type };
   }
   
-  if (!data) {
-    console.log(`❌ Feed type "${feedType}" (normalized: "${normalized}") not found in inventory`);
+  // Try without trailing 's' (singular/plural handling)
+  const singular = normalized.replace(/s$/, '');
+  ({ data } = await supabase
+    .from('feed_inventory')
+    .select('feed_type')
+    .eq('farm_id', farmId)
+    .ilike('feed_type', singular)
+    .gt('quantity_kg', 0)
+    .limit(1)
+    .maybeSingle());
+  
+  if (data) {
+    console.log(`✅ Fuzzy matched "${feedType}" to "${data.feed_type}" (plural handling)`);
+    return { exists: true, matchedType: data.feed_type };
   }
   
-  return data !== null;
+  // Try partial match (feed_type contains or is contained by input)
+  const { data: allInventory } = await supabase
+    .from('feed_inventory')
+    .select('feed_type')
+    .eq('farm_id', farmId)
+    .gt('quantity_kg', 0);
+  
+  const match = allInventory?.find((item: any) => {
+    const itemNorm = item.feed_type.toLowerCase();
+    return itemNorm.includes(normalized) || normalized.includes(itemNorm);
+  });
+  
+  if (match) {
+    console.log(`✅ Fuzzy matched "${feedType}" to "${match.feed_type}" (partial match)`);
+    return { exists: true, matchedType: match.feed_type };
+  }
+  
+  console.log(`❌ Feed type "${feedType}" (normalized: "${normalized}") not found in inventory`);
+  return { exists: false };
 }
 
 // Resolve feed type from inventory based on unit
@@ -831,17 +861,28 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
     // PREFLIGHT: Verify all feeding activities have feed_type in inventory
     console.log('🔍 Preflight: Checking all feed types exist in inventory...');
     for (const activity of feedingActivities) {
-      const feedExists = await feedTypeExistsInInventory(supabase, farmId, activity.feed_type);
-      if (!feedExists) {
+      const feedResult = await feedTypeExistsInInventory(supabase, farmId, activity.feed_type);
+      
+      if (!feedResult.exists) {
         console.log(`❌ Preflight failed: feed not in inventory`, { 
           feed_type: activity.feed_type, 
           unit: activity.unit 
         });
         
+        // Get available options for this farm
+        const { data: availableInventory } = await supabase
+          .from('feed_inventory')
+          .select('feed_type')
+          .eq('farm_id', farmId)
+          .gt('quantity_kg', 0);
+        
+        const availableOptions = [...new Set(availableInventory?.map((i: any) => i.feed_type) || [])];
+        
         return new Response(
           JSON.stringify({
             error: 'FEED_TYPE_NOT_IN_INVENTORY',
             feed_type: activity.feed_type,
+            available_options: availableOptions,
             message: `Ang "${activity.feed_type}" ay wala sa inyong feed inventory. Magdagdag muna bago mag-record. / "${activity.feed_type}" is not in your feed inventory. Please add it first before recording.`
           }),
           { 
@@ -849,6 +890,12 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
+      }
+      
+      // If fuzzy matched, use the matched type
+      if (feedResult.matchedType && feedResult.matchedType !== activity.feed_type) {
+        console.log(`✅ Using fuzzy matched feed type: "${feedResult.matchedType}" instead of "${activity.feed_type}"`);
+        activity.feed_type = feedResult.matchedType;
       }
     }
     console.log('✅ Preflight inventory check passed for all feed activities');

@@ -94,7 +94,8 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
   if (activityData?.error) {
     // Handle structured errors
     if (activityData.error === 'FEED_TYPE_NOT_IN_INVENTORY') {
-      throw new Error(`INVENTORY_REQUIRED:${activityData.feed_type}`);
+      const options = activityData.available_options || [];
+      throw new Error(`INVENTORY_REQUIRED:${activityData.feed_type}:${JSON.stringify(options)}`);
     }
     throw new Error(activityData.message || activityData.error);
   }

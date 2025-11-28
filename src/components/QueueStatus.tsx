@@ -21,6 +21,7 @@ export const QueueStatus = () => {
   const [editingTranscription, setEditingTranscription] = useState<Record<string, string>>({});
   const [animals, setAnimals] = useState<any[]>([]);
   const [selectedAnimal, setSelectedAnimal] = useState<Record<string, string>>({});
+  const [selectedFeedType, setSelectedFeedType] = useState<Record<string, string>>({});
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -112,6 +113,32 @@ export const QueueStatus = () => {
       return next;
     });
     // Retry processing
+    await handleRetry(itemId);
+  };
+
+  const handleFeedTypeSelection = async (itemId: string, feedType: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Replace the wrong feed type in transcription with the selected one
+    const originalTranscription = item.payload.transcription || '';
+    const wrongFeedType = item.error?.split(':')[1] || '';
+    const correctedTranscription = originalTranscription.replace(
+      new RegExp(wrongFeedType, 'gi'), 
+      feedType
+    );
+    
+    await updatePayload(itemId, { 
+      transcription: correctedTranscription,
+      transcriptionConfirmed: true 
+    });
+    
+    setSelectedFeedType(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    
     await handleRetry(itemId);
   };
 
@@ -393,25 +420,61 @@ export const QueueStatus = () => {
                       )}
 
                       {item.error?.startsWith('INVENTORY_REQUIRED:') && item.status === 'failed' && (() => {
-                        const feedType = item.error.split(':')[1];
+                        const parts = item.error.split(':');
+                        const feedType = parts[1];
+                        const availableOptions = parts[2] ? JSON.parse(parts[2]) : [];
+                        
                         return (
                           <div className="space-y-2 bg-blue-50 p-3 rounded-md border border-blue-200">
                             <div className="flex items-start gap-2">
                               <Package className="h-5 w-5 text-blue-600 mt-0.5" />
                               <div className="flex-1">
                                 <p className="text-xs font-medium text-blue-900 mb-1">
-                                  This feed type is not in your inventory:
+                                  Feed type "{feedType}" not found
                                 </p>
-                                <p className="text-sm font-semibold text-blue-700 mb-2">
-                                  {feedType}
-                                </p>
-                                <p className="text-xs text-blue-800">
-                                  Add it to your feeds first to record this activity.
-                                </p>
+                                {availableOptions.length > 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Select from existing inventory or add new
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">
+                                    Add this feed to your inventory to continue
+                                  </p>
+                                )}
                               </div>
                             </div>
+                            
+                            {availableOptions.length > 0 && (
+                              <>
+                                <Select 
+                                  value={selectedFeedType[item.id] || ''} 
+                                  onValueChange={(value) => setSelectedFeedType(prev => ({ ...prev, [item.id]: value }))}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select feed type from inventory..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableOptions.map((opt: string) => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => handleFeedTypeSelection(item.id, selectedFeedType[item.id])}
+                                  disabled={!selectedFeedType[item.id] || !isOnline || isSyncing}
+                                  className="w-full"
+                                >
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Select & Retry
+                                </Button>
+                                <p className="text-xs text-center text-muted-foreground">— or —</p>
+                              </>
+                            )}
+                            
                             <Button 
                               size="sm" 
+                              variant="outline"
                               onClick={() => {
                                 setIsOpen(false);
                                 navigate(`/dashboard?tab=feed&prefillFeedType=${encodeURIComponent(feedType)}`);
@@ -419,7 +482,7 @@ export const QueueStatus = () => {
                               className="w-full"
                             >
                               <Package className="h-4 w-4 mr-2" />
-                              Add to Inventory
+                              Add New to Inventory
                             </Button>
                           </div>
                         );
