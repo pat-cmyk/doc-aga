@@ -3,7 +3,19 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, XCircle, Calendar, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Clock, CheckCircle, XCircle, Calendar, AlertCircle, Trash2 } from "lucide-react";
 import { usePendingActivities, PendingActivity } from "@/hooks/usePendingActivities";
 import { formatDistanceToNow } from "date-fns";
 
@@ -12,7 +24,7 @@ interface MySubmissionsProps {
 }
 
 export const MySubmissions = ({ userId }: MySubmissionsProps) => {
-  const { activities, pendingCount, approvedCount, rejectedCount, isLoading } = 
+  const { activities, pendingCount, approvedCount, rejectedCount, isLoading, deleteActivity, isDeleting } = 
     usePendingActivities(undefined, userId);
 
   const getActivityTypeLabel = (type: string) => {
@@ -81,6 +93,38 @@ export const MySubmissions = ({ userId }: MySubmissionsProps) => {
                 {formatActivityDetails(activity)}
               </p>
             </div>
+            {activity.status === 'pending' && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this {getActivityTypeLabel(activity.activity_type).toLowerCase()} submission? 
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => deleteActivity(activity.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
