@@ -1,29 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import MerchantAuth from "./pages/MerchantAuth";
-import AdminAuth from "./pages/AdminAuth";
-import GovernmentAuth from "./pages/GovernmentAuth";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import AdminDashboard from "./pages/AdminDashboard";
-import GovernmentDashboard from "./pages/GovernmentDashboard";
-import MerchantDashboard from "./pages/MerchantDashboard";
-import Marketplace from "./pages/Marketplace";
-import Checkout from "./pages/Checkout";
-import DistributorFinder from "./pages/DistributorFinder";
-import OrderHistory from "./pages/OrderHistory";
-import MessagingPage from "./pages/MessagingPage";
-import InviteAccept from "./pages/InviteAccept";
-import AdminCreateUser from "./pages/AdminCreateUser";
-import FarmhandDashboard from "./pages/FarmhandDashboard";
-import NotFound from "./pages/NotFound";
-import VoiceTraining from "./pages/VoiceTraining";
+import { Loader2 } from "lucide-react";
 import { FloatingDocAga } from "./components/FloatingDocAga";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
@@ -34,6 +15,35 @@ import { syncQueue } from "./lib/syncService";
 import { initNotifications } from "./lib/notificationService";
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
+
+// Lazy load page components for code splitting
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const MerchantAuth = lazy(() => import("./pages/MerchantAuth"));
+const AdminAuth = lazy(() => import("./pages/AdminAuth"));
+const GovernmentAuth = lazy(() => import("./pages/GovernmentAuth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const GovernmentDashboard = lazy(() => import("./pages/GovernmentDashboard"));
+const MerchantDashboard = lazy(() => import("./pages/MerchantDashboard"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const DistributorFinder = lazy(() => import("./pages/DistributorFinder"));
+const OrderHistory = lazy(() => import("./pages/OrderHistory"));
+const MessagingPage = lazy(() => import("./pages/MessagingPage"));
+const InviteAccept = lazy(() => import("./pages/InviteAccept"));
+const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
+const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -118,42 +128,44 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <SyncHandler />
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/merchant" element={<MerchantAuth />} />
-            <Route path="/auth/admin" element={<AdminAuth />} />
-            <Route path="/auth/government" element={<GovernmentAuth />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route 
-              path="/admin" 
-              element={
-                <SuperAdminRoute>
-                  <AdminDashboard />
-                </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/government" 
-              element={
-                <ProtectedRoute requiredRoles={["government"]}>
-                  <GovernmentDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/merchant" element={<MerchantDashboard />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/distributors" element={<DistributorFinder />} />
-            <Route path="/orders" element={<OrderHistory />} />
-            <Route path="/messages" element={<MessagingPage />} />
-            <Route path="/invite/accept/:token" element={<InviteAccept />} />
-            <Route path="/admin/create-user" element={<AdminCreateUser />} />
-            <Route path="/farmhand" element={<FarmhandDashboard />} />
-            <Route path="/voice-training" element={<VoiceTraining />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/merchant" element={<MerchantAuth />} />
+              <Route path="/auth/admin" element={<AdminAuth />} />
+              <Route path="/auth/government" element={<GovernmentAuth />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <SuperAdminRoute>
+                    <AdminDashboard />
+                  </SuperAdminRoute>
+                } 
+              />
+              <Route 
+                path="/government" 
+                element={
+                  <ProtectedRoute requiredRoles={["government"]}>
+                    <GovernmentDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/merchant" element={<MerchantDashboard />} />
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/distributors" element={<DistributorFinder />} />
+              <Route path="/orders" element={<OrderHistory />} />
+              <Route path="/messages" element={<MessagingPage />} />
+              <Route path="/invite/accept/:token" element={<InviteAccept />} />
+              <Route path="/admin/create-user" element={<AdminCreateUser />} />
+              <Route path="/farmhand" element={<FarmhandDashboard />} />
+              <Route path="/voice-training" element={<VoiceTraining />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
           <ConditionalFloatingComponents />
         </BrowserRouter>
       </CartProvider>
