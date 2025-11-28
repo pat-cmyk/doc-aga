@@ -284,6 +284,20 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
 
         console.log('Extracted data:', aiData);
 
+        // Check if activity was queued for approval (farmhand approval workflow)
+        if (aiData?.queued === true) {
+          const autoApproveInfo = aiData.auto_approve_at 
+            ? `Will auto-approve by ${new Date(aiData.auto_approve_at).toLocaleString()}`
+            : 'Your manager will review it soon.';
+          
+          toast({
+            title: "Activity Submitted for Approval ✅",
+            description: `Your ${aiData.activity_type || 'activity'} has been queued. ${autoApproveInfo}`,
+          });
+          setIsProcessing(false);
+          return;
+        }
+
         // Check if activity requires animal but none was identified
         const requiresAnimal = ['weight_measurement', 'milking', 'health_observation', 'injection'].includes(aiData.activity_type);
         if (requiresAnimal && !aiData.animal_id && aiData.needs_animal_selection) {
