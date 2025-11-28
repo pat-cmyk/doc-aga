@@ -2,20 +2,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Clock, CheckCircle, XCircle, User, Calendar } from "lucide-react";
+import { Clock, CheckCircle, XCircle, User, Calendar, Eye } from "lucide-react";
 import { usePendingActivities, PendingActivity } from "@/hooks/usePendingActivities";
+import { ActivityDetailsDialog } from "./ActivityDetailsDialog";
 import { formatDistanceToNow } from "date-fns";
 
 interface PendingActivitiesQueueProps {
@@ -27,27 +17,22 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
     usePendingActivities(farmId);
   
   const [selectedActivity, setSelectedActivity] = useState<PendingActivity | null>(null);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const pendingActivities = activities.filter(a => a.status === 'pending');
 
-  const handleApprove = (activity: PendingActivity) => {
+  const handleViewDetails = (activity: PendingActivity) => {
     setSelectedActivity(activity);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleApprove = (activity: PendingActivity) => {
     approveActivity(activity.id);
   };
 
-  const handleReject = (activity: PendingActivity) => {
-    setSelectedActivity(activity);
-    setRejectDialogOpen(true);
-  };
-
-  const confirmReject = () => {
+  const handleReject = (reason: string) => {
     if (selectedActivity) {
-      rejectActivity(selectedActivity.id, rejectionReason);
-      setRejectDialogOpen(false);
-      setRejectionReason("");
-      setSelectedActivity(null);
+      rejectActivity(selectedActivity.id, reason);
     }
   };
 
@@ -137,12 +122,16 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
           <ScrollArea className="h-[600px] pr-4">
             <div className="space-y-4">
               {pendingActivities.map((activity) => (
-                <Card key={activity.id} className="border-2">
+                <Card 
+                  key={activity.id} 
+                  className="border-2 hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => handleViewDetails(activity)}
+                >
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       {/* Header */}
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-semibold">
                               {getActivityTypeLabel(activity.activity_type)}
@@ -153,6 +142,16 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                             {formatActivityDetails(activity)}
                           </p>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDetails(activity);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </div>
 
                       {/* Submitter & Time Info */}
@@ -179,26 +178,31 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                         </div>
                       )}
 
-                      {/* Action Buttons */}
+                      {/* Quick Action Buttons */}
                       <div className="flex gap-2 pt-2">
                         <Button
                           size="sm"
-                          onClick={() => handleApprove(activity)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApprove(activity);
+                          }}
                           disabled={isReviewing}
                           className="flex-1"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
+                          Quick Approve
                         </Button>
                         <Button
                           size="sm"
-                          variant="destructive"
-                          onClick={() => handleReject(activity)}
-                          disabled={isReviewing}
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDetails(activity);
+                          }}
                           className="flex-1"
                         >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
                         </Button>
                       </div>
                     </div>
@@ -210,33 +214,15 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
         </CardContent>
       </Card>
 
-      {/* Reject Dialog */}
-      <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Activity</AlertDialogTitle>
-            <AlertDialogDescription>
-              Please provide a reason for rejecting this activity. The farmhand will be notified.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Textarea
-            placeholder="Reason for rejection..."
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            rows={4}
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmReject}
-              disabled={!rejectionReason.trim()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Reject Activity
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Activity Details Dialog */}
+      <ActivityDetailsDialog
+        activity={selectedActivity}
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        onApprove={() => selectedActivity && handleApprove(selectedActivity)}
+        onReject={handleReject}
+        isReviewing={isReviewing}
+      />
     </>
   );
 };
