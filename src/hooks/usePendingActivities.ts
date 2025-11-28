@@ -141,6 +141,26 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (pendingId: string) => {
+      const { error } = await supabase
+        .from('pending_activities')
+        .delete()
+        .eq('id', pendingId)
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      toast.success('Submission deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete submission');
+    },
+  });
+
   const pendingCount = activities?.filter(a => a.status === 'pending').length || 0;
   const approvedCount = activities?.filter(a => ['approved', 'auto_approved'].includes(a.status)).length || 0;
   const rejectedCount = activities?.filter(a => a.status === 'rejected').length || 0;
@@ -155,5 +175,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
     rejectActivity: (pendingId: string, rejectionReason: string) => 
       reviewMutation.mutate({ pendingId, action: 'reject', rejectionReason }),
     isReviewing: reviewMutation.isPending,
+    deleteActivity: (pendingId: string) => deleteMutation.mutate(pendingId),
+    isDeleting: deleteMutation.isPending,
   };
 };
