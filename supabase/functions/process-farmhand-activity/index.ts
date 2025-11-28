@@ -1077,50 +1077,19 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       
       console.log(`Found ${animals.length} animals for distribution`);
 
-      // Check if this bulk feeding needs approval
-      const animalIds = animals.map(a => a.id);
-      const approvalCheck = await checkAndQueueForApproval(
-        supabase,
-        farmId,
-        user.id,
-        'feeding',
-        {
-          ...extractedData,
-          multiple_feeds: true,
-          feeds: feedingActivities
-        },
-        animalIds
-      );
-
-      if (approvalCheck.needsApproval) {
-        console.log('Bulk feeding activity queued for manager approval');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            queued: true,
-            activity_type: 'feeding',
-            message: 'Bulk feeding activity queued for manager approval',
-            auto_approve_at: approvalCheck.autoApproveAt
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Calculate total weight of all animals (same for all feeds)
+      // Calculate total weight of all animals FIRST (needed for all feeds)
       const totalWeightKg = animals.reduce((sum, animal) => sum + (Number(animal.current_weight_kg) || 0), 0);
       console.log(`Total weight: ${totalWeightKg}`);
-      
-      // Process each feed type
-      const feeds = [];
+
+      // Pre-calculate distributions for each feed type BEFORE approval check
+      const preCalculatedFeeds = [];
       for (const feedActivity of feedingActivities) {
         if (!feedActivity.quantity || !feedActivity.unit) {
           console.log(`Skipping feed without quantity/unit:`, feedActivity);
           continue;
         }
         
-        console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
-        
-        console.log(`Processing feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
+        console.log(`Pre-calculating feed: ${feedActivity.feed_type}, ${feedActivity.quantity} ${feedActivity.unit}`);
         
         // Convert units to kg using FIFO inventory lookup
         const weightPerUnit = await getLatestWeightPerUnit(
@@ -1132,14 +1101,13 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         
         // Require inventory match for bulk feeding
         if (!weightPerUnit) {
-          // ❌ NO INVENTORY MATCH FOR BULK FEEDING - MUST ADD INVENTORY FIRST
           throw new Error(
             `❌ Walang inventory entry para sa "${feedActivity.feed_type}" na naka-${feedActivity.unit}. Magdagdag muna ng inventory entry bago mag-record ng bulk feeding. / ` +
             `❌ No inventory entry found for "${feedActivity.feed_type}" in ${feedActivity.unit}. Please add an inventory entry before recording bulk feeding activities.`
           );
         }
         const totalKg = feedActivity.quantity * weightPerUnit;
-        console.log(`✅ Used inventory weight for bulk feeding: ${feedActivity.quantity} ${feedActivity.unit} = ${totalKg} kg (${weightPerUnit} kg/unit)`);
+        console.log(`✅ Used inventory weight: ${feedActivity.quantity} ${feedActivity.unit} = ${totalKg} kg (${weightPerUnit} kg/unit)`);
         
         // Calculate proportional distribution for this feed
         const distributions = animals.map(animal => {
@@ -1157,34 +1125,70 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
           };
         });
         
-        // Insert feeding records for each animal for this feed type
-        const recordDatetime = feedActivity.validated_datetime || new Date().toISOString();
-        const insertPromises = distributions.map(dist => 
+        preCalculatedFeeds.push({
+          feed_type: feedActivity.feed_type,
+          quantity: feedActivity.quantity,
+          unit: feedActivity.unit,
+          total_kg: totalKg,
+          weight_per_unit: weightPerUnit,
+          distributions,
+          notes: feedActivity.notes
+        });
+      }
+
+      // Check if this bulk feeding needs approval (with pre-calculated distributions)
+      const animalIds = animals.map(a => a.id);
+      const approvalCheck = await checkAndQueueForApproval(
+        supabase,
+        farmId,
+        user.id,
+        'feeding',
+        {
+          ...extractedData,
+          multiple_feeds: true,
+          feeds: preCalculatedFeeds  // ✅ Now includes distributions!
+        },
+        animalIds
+      );
+
+      if (approvalCheck.needsApproval) {
+        console.log('Bulk feeding activity queued for manager approval with distributions');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            activity_type: 'feeding',
+            message: 'Bulk feeding activity queued for manager approval',
+            auto_approve_at: approvalCheck.autoApproveAt
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Insert records using pre-calculated distributions
+      for (const feed of preCalculatedFeeds) {
+        console.log(`Inserting feeding records for ${feed.feed_type}`);
+        
+        const recordDatetime = feed.notes?.includes('validated_datetime') 
+          ? extractedData.validated_datetime 
+          : new Date().toISOString();
+        
+        const insertPromises = feed.distributions.map(dist => 
           supabase.from('feeding_records').insert({
             animal_id: dist.animal_id,
             record_datetime: recordDatetime,
-            feed_type: feedActivity.feed_type,
+            feed_type: feed.feed_type,
             kilograms: dist.feed_amount,
-            notes: `Bulk feeding - ${feedActivity.quantity} ${feedActivity.unit} distributed proportionally${feedActivity.notes ? ': ' + feedActivity.notes : ''}`,
+            notes: `Bulk feeding - ${feed.quantity} ${feed.unit} distributed proportionally${feed.notes ? ': ' + feed.notes : ''}`,
             created_by: user.id
           })
         );
 
         await Promise.all(insertPromises);
-        console.log(`✓ Inserted ${distributions.length} feeding records for ${feedActivity.feed_type}`);
-        
-        feeds.push({
-          feed_type: feedActivity.feed_type,
-          quantity: feedActivity.quantity,
-          unit: feedActivity.unit,
-          total_kg: totalKg,
-          weight_per_unit: weightPerUnit || DEFAULT_WEIGHTS[feedActivity.unit as keyof typeof DEFAULT_WEIGHTS],
-          distributions,
-          notes: feedActivity.notes
-        });
+        console.log(`✓ Inserted ${feed.distributions.length} feeding records for ${feed.feed_type}`);
       }
       
-      console.log(`✓ Returning bulk feeding data with ${feeds.length} feed types and inserted records`);
+      console.log(`✓ Returning bulk feeding data with ${preCalculatedFeeds.length} feed types and inserted records`);
       
       return new Response(
         JSON.stringify({
@@ -1192,7 +1196,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
           multiple_feeds: true,
           total_animals: animals.length,
           total_weight_kg: totalWeightKg,
-          feeds
+          feeds: preCalculatedFeeds
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -1245,41 +1249,11 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
       console.log(`Found ${animals.length} animals for distribution`);
 
-      // Check if this bulk feeding needs approval
-      const animalIds = animals.map(a => a.id);
-      const approvalCheck = await checkAndQueueForApproval(
-        supabase,
-        farmId,
-        user.id,
-        'feeding',
-        {
-          ...extractedData,
-          is_bulk_feeding: true,
-          total_kg: totalKg,
-          weight_per_unit: weightPerUnit
-        },
-        animalIds
-      );
-
-      if (approvalCheck.needsApproval) {
-        console.log('Bulk feeding activity queued for manager approval');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            queued: true,
-            activity_type: 'feeding',
-            message: 'Bulk feeding activity queued for manager approval',
-            auto_approve_at: approvalCheck.autoApproveAt
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Calculate total weight
+      // Calculate total weight FIRST (needed for distributions)
       const totalWeight = animals.reduce((sum, a) => sum + (a.current_weight_kg || 0), 0);
       console.log('Total weight:', totalWeight);
 
-      // Calculate proportional distribution
+      // Calculate proportional distribution BEFORE approval check
       const distributions = animals.map(animal => {
         const weight = animal.current_weight_kg || 0;
         const proportion = totalWeight > 0 ? weight / totalWeight : 1 / animals.length;
@@ -1296,6 +1270,37 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       });
 
       console.log('Distribution calculated:', distributions);
+
+      // Check if this bulk feeding needs approval (with distributions included)
+      const animalIds = animals.map(a => a.id);
+      const approvalCheck = await checkAndQueueForApproval(
+        supabase,
+        farmId,
+        user.id,
+        'feeding',
+        {
+          ...extractedData,
+          is_bulk_feeding: true,
+          total_kg: totalKg,
+          weight_per_unit: weightPerUnit,
+          distributions  // ✅ Now included!
+        },
+        animalIds
+      );
+
+      if (approvalCheck.needsApproval) {
+        console.log('Bulk feeding activity queued for manager approval with distributions');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            activity_type: 'feeding',
+            message: 'Bulk feeding activity queued for manager approval',
+            auto_approve_at: approvalCheck.autoApproveAt
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       // Insert feeding records for each animal
       const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
