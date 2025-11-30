@@ -214,22 +214,32 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
             ))}
           </div>
           
-          {/* Chart Skeletons with Exact Heights */}
+          {/* Chart Skeletons with Responsive Heights */}
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <CardHeader>
+              <CardHeader className="space-y-2 pb-4">
                 <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64" />
+                <div className="flex gap-2 pt-2">
+                  <Skeleton className="h-9 w-32" />
+                  <Skeleton className="h-9 w-32" />
+                </div>
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-[360px] w-full" />
+                <Skeleton className="h-[260px] sm:h-[320px] md:h-[360px] w-full" />
               </CardContent>
             </Card>
             <Card>
-              <CardHeader>
+              <CardHeader className="space-y-2 pb-4">
                 <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64" />
+                <div className="flex gap-2 pt-2">
+                  <Skeleton className="h-9 w-32" />
+                  <Skeleton className="h-9 w-32" />
+                </div>
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-[360px] w-full" />
+                <Skeleton className="h-[320px] sm:h-[360px] w-full" />
               </CardContent>
             </Card>
           </div>
