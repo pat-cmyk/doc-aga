@@ -16,14 +16,35 @@ const HeadcountChart = lazy(() =>
   }))
 );
 
-// Chart skeleton for loading state with exact height
-const ChartSkeleton = () => (
+// Chart skeleton for loading state with responsive heights
+const MilkChartSkeleton = () => (
   <Card>
-    <CardHeader>
+    <CardHeader className="space-y-2 pb-4">
       <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-4 w-64" />
+      <div className="flex gap-2 pt-2">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="h-9 w-32" />
+      </div>
     </CardHeader>
     <CardContent>
-      <Skeleton className="h-[360px] w-full" />
+      <Skeleton className="h-[260px] sm:h-[320px] md:h-[360px] w-full" />
+    </CardContent>
+  </Card>
+);
+
+const HeadcountChartSkeleton = () => (
+  <Card>
+    <CardHeader className="space-y-2 pb-4">
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-4 w-64" />
+      <div className="flex gap-2 pt-2">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="h-9 w-32" />
+      </div>
+    </CardHeader>
+    <CardContent>
+      <Skeleton className="h-[320px] sm:h-[360px] w-full" />
     </CardContent>
   </Card>
 );
@@ -37,8 +58,11 @@ interface LazyMilkProductionChartProps {
 }
 
 export const LazyMilkProductionChart = (props: LazyMilkProductionChartProps) => (
-  <LazyRenderOnVisible fallback={<ChartSkeleton />}>
-    <Suspense fallback={<ChartSkeleton />}>
+  <LazyRenderOnVisible 
+    fallback={<MilkChartSkeleton />}
+    minHeight="440px"
+  >
+    <Suspense fallback={<MilkChartSkeleton />}>
       <MilkProductionChart {...props} />
     </Suspense>
   </LazyRenderOnVisible>
@@ -54,8 +78,11 @@ interface LazyHeadcountChartProps {
 }
 
 export const LazyHeadcountChart = (props: LazyHeadcountChartProps) => (
-  <LazyRenderOnVisible fallback={<ChartSkeleton />}>
-    <Suspense fallback={<ChartSkeleton />}>
+  <LazyRenderOnVisible 
+    fallback={<HeadcountChartSkeleton />}
+    minHeight="480px"
+  >
+    <Suspense fallback={<HeadcountChartSkeleton />}>
       <HeadcountChart {...props} />
     </Suspense>
   </LazyRenderOnVisible>
