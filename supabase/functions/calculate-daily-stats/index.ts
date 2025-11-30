@@ -283,25 +283,27 @@ Deno.serve(async (req) => {
       const totalMilk = milkingData?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
       console.log(`Total milk for farm ${farm.id}: ${totalMilk}L`);
 
-      // Get all animals for the farm
+      // Get all animals for the farm (only those registered by target date)
       const { data: animals, error: animalsError } = await supabase
         .from('animals')
         .select('id, birth_date, gender, milking_start_date, mother_id, livestock_type')
         .eq('farm_id', farm.id)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .lte('created_at', targetDate + 'T23:59:59Z');
 
       if (animalsError) {
         console.error(`Error fetching animals for farm ${farm.id}:`, animalsError);
         continue;
       }
 
-      // Fetch all offspring data for the farm
+      // Fetch all offspring data for the farm (only those registered by target date)
       const { data: allOffspring } = await supabase
         .from('animals')
         .select('id, mother_id, birth_date')
         .eq('farm_id', farm.id)
         .not('mother_id', 'is', null)
         .lte('birth_date', targetDate)
+        .lte('created_at', targetDate + 'T23:59:59Z')
         .order('birth_date', { ascending: false });
 
       // Create offspring lookup map
