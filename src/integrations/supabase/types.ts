@@ -2214,6 +2214,16 @@ export type Database = {
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
+      get_combined_dashboard_data: {
+        Args: {
+          p_end_date: string
+          p_farm_id: string
+          p_monthly_end_date: string
+          p_monthly_start_date: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_government_breeding_stats: {
         Args: {
           end_date: string
