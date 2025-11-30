@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Stethoscope, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,9 +8,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import DocAga from "./DocAga";
 import { cn } from "@/lib/utils";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
+
+// Lazy load DocAga only when chat is opened to reduce initial bundle
+const DocAga = lazy(() => import("./DocAga"));
 
 export function FloatingDocAga() {
   const [isOpen, setIsOpen] = useState(false);
@@ -170,9 +172,17 @@ export function FloatingDocAga() {
           </Button>
         </div>
 
-        {/* Chat Content */}
+        {/* Chat Content - lazy loaded */}
         <div className="flex-1 overflow-hidden">
-          <DocAga />
+          {isOpen && (
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Loading Doc Aga...</div>
+              </div>
+            }>
+              <DocAga />
+            </Suspense>
+          )}
         </div>
       </Card>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, Loader2 } from "lucide-react";
-import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
-import { VoiceTrainingOnboarding } from "@/components/voice-training/VoiceTrainingOnboarding";
 import { logAuthEvent } from "@/lib/authLogger";
+
+// Lazy load components to reduce auth page bundle size
+const PasswordStrengthIndicator = lazy(() => import("@/components/PasswordStrengthIndicator"));
+const VoiceTrainingOnboarding = lazy(() => import("@/components/voice-training/VoiceTrainingOnboarding").then(module => ({
+  default: module.VoiceTrainingOnboarding
+})));
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -206,29 +210,31 @@ const Auth = () => {
 
   return (
     <>
-      <VoiceTrainingOnboarding
-        open={showVoiceTrainingOnboarding}
-        onOpenChange={setShowVoiceTrainingOnboarding}
-        onStartTraining={() => {
-          setShowVoiceTrainingOnboarding(false);
-          navigate("/voice-training");
-        }}
-        onSkip={async () => {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              await supabase
-                .from('profiles')
-                .update({ voice_training_skipped: true })
-                .eq('id', user.id);
+      <Suspense fallback={null}>
+        <VoiceTrainingOnboarding
+          open={showVoiceTrainingOnboarding}
+          onOpenChange={setShowVoiceTrainingOnboarding}
+          onStartTraining={() => {
+            setShowVoiceTrainingOnboarding(false);
+            navigate("/voice-training");
+          }}
+          onSkip={async () => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                await supabase
+                  .from('profiles')
+                  .update({ voice_training_skipped: true })
+                  .eq('id', user.id);
+              }
+            } catch (error) {
+              console.error('Error skipping voice training:', error);
             }
-          } catch (error) {
-            console.error('Error skipping voice training:', error);
-          }
-          setShowVoiceTrainingOnboarding(false);
-          navigate("/");
-        }}
-      />
+            setShowVoiceTrainingOnboarding(false);
+            navigate("/");
+          }}
+        />
+      </Suspense>
       <div className="min-h-screen bg-gradient-to-br from-background to-accent flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
@@ -320,7 +326,9 @@ const Auth = () => {
                     minLength={8}
                     required
                   />
-                  <PasswordStrengthIndicator password={password} />
+                  <Suspense fallback={<div className="h-4" />}>
+                    <PasswordStrengthIndicator password={password} />
+                  </Suspense>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
