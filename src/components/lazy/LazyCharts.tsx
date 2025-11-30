@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { LazyRenderOnVisible } from "./LazyRenderOnVisible";
 
 // Lazy load chart components to reduce initial bundle size
 const MilkProductionChart = lazy(() => 
@@ -15,14 +16,14 @@ const HeadcountChart = lazy(() =>
   }))
 );
 
-// Chart skeleton for loading state
+// Chart skeleton for loading state with exact height
 const ChartSkeleton = () => (
   <Card>
     <CardHeader>
       <Skeleton className="h-6 w-48" />
     </CardHeader>
     <CardContent>
-      <Skeleton className="h-[300px] w-full" />
+      <Skeleton className="h-[360px] w-full" />
     </CardContent>
   </Card>
 );
@@ -36,9 +37,11 @@ interface LazyMilkProductionChartProps {
 }
 
 export const LazyMilkProductionChart = (props: LazyMilkProductionChartProps) => (
-  <Suspense fallback={<ChartSkeleton />}>
-    <MilkProductionChart {...props} />
-  </Suspense>
+  <LazyRenderOnVisible fallback={<ChartSkeleton />}>
+    <Suspense fallback={<ChartSkeleton />}>
+      <MilkProductionChart {...props} />
+    </Suspense>
+  </LazyRenderOnVisible>
 );
 
 interface LazyHeadcountChartProps {
@@ -51,7 +54,9 @@ interface LazyHeadcountChartProps {
 }
 
 export const LazyHeadcountChart = (props: LazyHeadcountChartProps) => (
-  <Suspense fallback={<ChartSkeleton />}>
-    <HeadcountChart {...props} />
-  </Suspense>
+  <LazyRenderOnVisible fallback={<ChartSkeleton />}>
+    <Suspense fallback={<ChartSkeleton />}>
+      <HeadcountChart {...props} />
+    </Suspense>
+  </LazyRenderOnVisible>
 );

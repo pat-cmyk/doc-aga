@@ -29,6 +29,7 @@ import { ApprovalSettings } from "@/components/approval/ApprovalSettings";
 import { usePendingActivities } from "@/hooks/usePendingActivities";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { syncQueue } from "@/lib/syncService";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -286,14 +287,7 @@ const Dashboard = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Sprout className="h-12 w-12 text-primary animate-pulse mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (showFarmSetup) {
