@@ -15,9 +15,38 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     
-    <!-- Preconnect to Supabase for faster API requests -->
+    <!-- Performance Optimizations -->
     <link rel="preconnect" href="https://sxorybjlxyquxteptdyk.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://sxorybjlxyquxteptdyk.supabase.co" />
+    
+    <style>
+      /* Critical CSS for above-the-fold content */
+      @font-face {
+        font-family: system-ui;
+        font-display: swap;
+      }
+      
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Loading skeleton styles */
+      .skeleton-loading {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        background-color: #e5e7eb;
+        border-radius: 0.375rem;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    </style>
 
     <meta property="og:title" content="Doc Aga" />
     <meta property="og:description" content="Lovable Generated Project" />

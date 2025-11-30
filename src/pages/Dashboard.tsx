@@ -78,32 +78,44 @@ const Dashboard = () => {
       
       setUser(session.user);
       
-      // Check voice training status
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('voice_training_completed')
-        .eq('id', session.user.id)
-        .single();
+      // Parallelize queries to reduce waterfall - fetch profile, roles, and farms concurrently
+      const [profileResult, rolesResult, ownedFarmsResult, memberFarmsResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('voice_training_completed')
+          .eq('id', session.user.id)
+          .single(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id),
+        supabase
+          .from("farms")
+          .select("id, name, logo_url")
+          .eq("owner_id", session.user.id)
+          .eq("is_deleted", false)
+          .limit(1),
+        supabase
+          .from("farm_memberships")
+          .select("farm_id, role_in_farm")
+          .eq("user_id", session.user.id)
+          .eq("invitation_status", "accepted")
+          .limit(1)
+      ]);
       
-      if (profile) {
-        setVoiceTrainingCompleted(profile.voice_training_completed || false);
+      // Process profile data
+      if (profileResult.data) {
+        setVoiceTrainingCompleted(profileResult.data.voice_training_completed || false);
       }
       
-      // Check user roles first - redirect merchants to their dashboard
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id);
+      // Process roles and redirect based on role
+      const userRoles = rolesResult.data?.map(r => r.role) || [];
       
-      const userRoles = roles?.map(r => r.role) || [];
-      
-      // Redirect users based on their role
       if (userRoles.includes("admin")) {
         navigate("/admin");
         return;
       }
       
-      // Check government role before merchant
       if (userRoles.includes("government") && !userRoles.includes("admin")) {
         navigate("/government");
         return;
@@ -119,25 +131,13 @@ const Dashboard = () => {
         return;
       }
       
-      // Check if user owns a farm OR is a member of a farm
-      const { data: ownedFarms, error: farmError } = await supabase
-        .from("farms")
-        .select("id")
-        .eq("owner_id", session.user.id)
-        .eq("is_deleted", false)
-        .limit(1);
-
-      const { data: memberFarms } = await supabase
-        .from("farm_memberships")
-        .select("farm_id, role_in_farm")
-        .eq("user_id", session.user.id)
-        .eq("invitation_status", "accepted")
-        .limit(1);
+      const ownedFarms = ownedFarmsResult.data;
+      const memberFarms = memberFarmsResult.data;
       
-      if (farmError) {
+      if (ownedFarmsResult.error) {
         toast({
           title: "Error loading farm",
-          description: farmError.message,
+          description: ownedFarmsResult.error.message,
           variant: "destructive"
         });
         setLoading(false);
@@ -145,27 +145,16 @@ const Dashboard = () => {
       }
       
       if (ownedFarms && ownedFarms.length > 0) {
-        // User owns a farm
+        // User owns a farm - farm details already fetched in parallel
         setFarmId(ownedFarms[0].id);
         setCanManageFarm(true);
-        
-        // Fetch farm name and logo
-        const { data: farmData } = await supabase
-          .from('farms')
-          .select('name, logo_url')
-          .eq('id', ownedFarms[0].id)
-          .single();
-        
-        if (farmData) {
-          setFarmName(farmData.name || 'My Farm');
-          setFarmLogoUrl(farmData.logo_url || null);
-        }
+        setFarmName(ownedFarms[0].name || 'My Farm');
+        setFarmLogoUrl(ownedFarms[0].logo_url || null);
       } else if (memberFarms && memberFarms.length > 0) {
-        // User is a member of a farm
+        // User is a member of a farm - fetch farm details
         setFarmId(memberFarms[0].farm_id);
         setCanManageFarm(userRoles.includes("farmer_owner"));
         
-        // Fetch farm name and logo
         const { data: farmData } = await supabase
           .from('farms')
           .select('name, logo_url')

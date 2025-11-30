@@ -9,11 +9,8 @@ import { FeedForecast } from "./FeedForecast";
 import { estimateWeightByAge } from "@/lib/weightEstimates";
 import { calculateLifeStage, calculateMilkingStage, type AnimalStageData } from "@/lib/animalStages";
 import { DashboardStats } from "./farm-dashboard/DashboardStats";
-import { MilkProductionChart } from "./farm-dashboard/MilkProductionChart";
-import { HeadcountChart } from "./farm-dashboard/HeadcountChart";
-import { useDashboardStats } from "./farm-dashboard/hooks/useDashboardStats";
-import { useMilkData } from "./farm-dashboard/hooks/useMilkData";
-import { useHeadcountData } from "./farm-dashboard/hooks/useHeadcountData";
+import { LazyMilkProductionChart, LazyHeadcountChart } from "./lazy/LazyCharts";
+import { useCombinedDashboardData } from "./farm-dashboard/hooks/useCombinedDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
@@ -86,38 +83,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     return dates;
   }, [startDate, endDate]);
 
-  const { stats, loading: statsLoading, reload: reloadStats } = useDashboardStats(farmId, startDate, endDate);
-  const { combinedData, stageKeys, loading: milkLoading } = useMilkData(farmId, startDate, endDate, dateArray);
-  const { monthlyHeadcount, loading: headcountLoading } = useHeadcountData(farmId, monthlyStartDate, monthlyEndDate, stageKeys);
+  // Use combined hook to fetch all data in one RPC call (reduces 10+ queries to 1)
+  const { stats, combinedData, monthlyHeadcount, stageKeys, loading, reload: reloadStats } = 
+    useCombinedDashboardData(farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray);
 
   const lastReloadRef = useRef(0);
-
-  useEffect(() => {
-    loadFeedForecast();
-  }, [farmId]);
-
-  // Real-time subscription for milking records with throttling
-  useEffect(() => {
-    const channel = supabase
-      .channel('milking-records-changes')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'milking_records'
-      }, () => {
-        const now = Date.now();
-        if (now - lastReloadRef.current > 2000) {
-          lastReloadRef.current = now;
-          console.log('New milking record added, refreshing dashboard...');
-          reloadStats();
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [farmId, reloadStats]);
 
   const loadFeedForecast = useCallback(async () => {
     try {
@@ -187,10 +157,47 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   }, [farmId]);
 
+  // Defer feed forecast loading using requestIdleCallback for better performance
+  useEffect(() => {
+    if ('requestIdleCallback' in window) {
+      const handle = requestIdleCallback(() => {
+        loadFeedForecast();
+      });
+      return () => cancelIdleCallback(handle);
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      const timeout = setTimeout(loadFeedForecast, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [farmId, loadFeedForecast]);
+
+  // Real-time subscription for milking records with throttling
+  useEffect(() => {
+    const channel = supabase
+      .channel('milking-records-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'milking_records'
+      }, () => {
+        const now = Date.now();
+        if (now - lastReloadRef.current > 2000) {
+          lastReloadRef.current = now;
+          console.log('New milking record added, refreshing dashboard...');
+          reloadStats();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [farmId, reloadStats]);
+
 
   return (
     <div className="space-y-6">
-      {statsLoading ? (
+      {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -209,44 +216,23 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <DashboardStats stats={stats} />
       )}
 
-      {milkLoading ? (
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[300px] w-full" />
-          </CardContent>
-        </Card>
-      ) : (
-        <MilkProductionChart
-          data={combinedData}
-          timePeriod={timePeriod}
-          selectedYear={selectedYear}
-          onTimePeriodChange={setTimePeriod}
-          onYearChange={setSelectedYear}
-        />
-      )}
+      {/* Lazy load charts to reduce initial bundle size */}
+      <LazyMilkProductionChart
+        data={combinedData}
+        timePeriod={timePeriod}
+        selectedYear={selectedYear}
+        onTimePeriodChange={setTimePeriod}
+        onYearChange={setSelectedYear}
+      />
 
-      {headcountLoading ? (
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[300px] w-full" />
-          </CardContent>
-        </Card>
-      ) : (
-        <HeadcountChart
-          data={monthlyHeadcount}
-          stageKeys={stageKeys}
-          monthlyTimePeriod={monthlyTimePeriod}
-          selectedYear={selectedYear}
-          onMonthlyTimePeriodChange={setMonthlyTimePeriod}
-          onYearChange={setSelectedYear}
-        />
-      )}
+      <LazyHeadcountChart
+        data={monthlyHeadcount}
+        stageKeys={stageKeys}
+        monthlyTimePeriod={monthlyTimePeriod}
+        selectedYear={selectedYear}
+        onMonthlyTimePeriodChange={setMonthlyTimePeriod}
+        onYearChange={setSelectedYear}
+      />
 
       <div className="flex gap-2 flex-wrap">
         <Button
