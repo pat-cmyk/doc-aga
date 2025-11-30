@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Database, FileText, AlertCircle, RefreshCw, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { RecalculateStatsButton } from "./RecalculateStatsButton";
+import { RecalculateHistoricalStatsButton } from "./RecalculateHistoricalStatsButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +88,16 @@ export const SystemAdmin = () => {
                 Recalculates life stages for all animals (cattle, carabao, goats, sheep) using species-specific terminology and milking stages based on recent activity.
               </p>
               <RecalculateStatsButton />
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 pt-4 border-t">
+            <div className="flex-1">
+              <p className="font-medium mb-1">Recalculate Historical Stats</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                Recalculate daily farm statistics for a custom date range. Updates existing records with corrected data based on animal registration dates.
+              </p>
+              <RecalculateHistoricalStatsButton />
             </div>
           </div>
 
