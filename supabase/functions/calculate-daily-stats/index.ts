@@ -218,31 +218,58 @@ Deno.serve(async (req) => {
 
     console.log('Starting daily stats calculation...');
 
-    // Check if table is empty and backfill if needed
-    const { data: existingStats, error: checkError } = await supabase
-      .from('daily_farm_stats')
-      .select('id')
-      .limit(1);
-
-    if (checkError) {
-      console.error('Error checking existing stats:', checkError);
+    // Parse optional date range from request body
+    const requestBody = await req.text();
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+    
+    if (requestBody) {
+      try {
+        const body = JSON.parse(requestBody);
+        startDate = body.start_date || null;
+        endDate = body.end_date || null;
+      } catch (e) {
+        // If JSON parsing fails, continue with default behavior
+        console.log('No date range provided, using default behavior');
+      }
     }
 
     let datesToProcess: string[] = [];
 
-    if (!existingStats || existingStats.length === 0) {
-      console.log('Table is empty, backfilling last 30 days...');
-      // Backfill last 30 days
-      for (let i = 1; i <= 30; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        datesToProcess.push(date.toISOString().split('T')[0]);
+    if (startDate && endDate) {
+      // Custom date range mode
+      console.log(`Processing custom date range: ${startDate} to ${endDate}`);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        datesToProcess.push(d.toISOString().split('T')[0]);
       }
     } else {
-      // Regular mode: just yesterday
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      datesToProcess = [yesterday.toISOString().split('T')[0]];
+      // Default behavior: check if table is empty and backfill if needed
+      const { data: existingStats, error: checkError } = await supabase
+        .from('daily_farm_stats')
+        .select('id')
+        .limit(1);
+
+      if (checkError) {
+        console.error('Error checking existing stats:', checkError);
+      }
+
+      if (!existingStats || existingStats.length === 0) {
+        console.log('Table is empty, backfilling last 30 days...');
+        // Backfill last 30 days
+        for (let i = 1; i <= 30; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          datesToProcess.push(date.toISOString().split('T')[0]);
+        }
+      } else {
+        // Regular mode: just yesterday
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        datesToProcess = [yesterday.toISOString().split('T')[0]];
+      }
     }
 
     console.log(`Processing ${datesToProcess.length} dates: ${datesToProcess.join(', ')}`);
