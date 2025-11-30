@@ -5,13 +5,15 @@ interface LazyRenderOnVisibleProps {
   fallback: ReactNode;
   rootMargin?: string;
   minHeight?: string;
+  threshold?: number;
 }
 
 export const LazyRenderOnVisible = ({ 
   children, 
   fallback, 
-  rootMargin = "200px",
-  minHeight
+  rootMargin = "100px",
+  minHeight,
+  threshold = 0.1
 }: LazyRenderOnVisibleProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -24,7 +26,10 @@ export const LazyRenderOnVisible = ({
           observer.disconnect();
         }
       },
-      { rootMargin }
+      { 
+        rootMargin,
+        threshold
+      }
     );
 
     if (ref.current) {
@@ -32,7 +37,7 @@ export const LazyRenderOnVisible = ({
     }
 
     return () => observer.disconnect();
-  }, [rootMargin]);
+  }, [rootMargin, threshold]);
 
   return (
     <div ref={ref} style={{ minHeight: minHeight || 'auto' }}>

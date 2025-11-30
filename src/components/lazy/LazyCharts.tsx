@@ -61,6 +61,8 @@ export const LazyMilkProductionChart = (props: LazyMilkProductionChartProps) => 
   <LazyRenderOnVisible 
     fallback={<MilkChartSkeleton />}
     minHeight="440px"
+    threshold={0.1}
+    rootMargin="100px"
   >
     <Suspense fallback={<MilkChartSkeleton />}>
       <MilkProductionChart {...props} />
@@ -81,6 +83,8 @@ export const LazyHeadcountChart = (props: LazyHeadcountChartProps) => (
   <LazyRenderOnVisible 
     fallback={<HeadcountChartSkeleton />}
     minHeight="480px"
+    threshold={0.1}
+    rootMargin="100px"
   >
     <Suspense fallback={<HeadcountChartSkeleton />}>
       <HeadcountChart {...props} />

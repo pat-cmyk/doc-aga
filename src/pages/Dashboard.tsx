@@ -305,14 +305,14 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {farmLogoUrl ? (
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={farmLogoUrl} alt={farmName} />
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
                 <AvatarFallback className="bg-primary/10">
                   <Sprout className="h-6 w-6 text-primary" />
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
                 <Sprout className="h-6 w-6 text-primary" />
               </div>
             )}
