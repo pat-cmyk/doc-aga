@@ -1453,6 +1453,117 @@ useEffect(() => {
 - Keep components accessible but not distracting
 - Example: `FloatingDocAga`, `FloatingVoiceTrainingButton`
 
+### Farmhand Approval Queue Pattern
+
+Activities submitted by farmhands go through an approval queue before affecting production records:
+
+```typescript
+// Submit activity to pending queue (not directly to records)
+const submitForApproval = async (activityData: ActivityData) => {
+  const { error } = await supabase.from('pending_activities').insert({
+    farm_id: farmId,
+    submitted_by: userId,
+    activity_type: 'feeding', // or 'milking', 'health', etc.
+    activity_data: activityData, // Includes pre-calculated distributions
+    animal_ids: selectedAnimalIds,
+    status: 'pending',
+    auto_approve_at: calculateAutoApproveTime(farmId) // From farm_approval_settings
+  });
+};
+
+// Managers review via review-pending-activity edge function
+// Auto-approval runs via process-auto-approvals cron job
+```
+
+### Weight-Proportional Feed Distribution Pattern
+
+Bulk feeding must calculate proportional distributions BEFORE queuing:
+
+```typescript
+// Calculate weight-proportional feed distribution
+const calculateFeedDistribution = (
+  animals: Animal[], 
+  totalFeedKg: number
+): FeedDistribution[] => {
+  const totalWeight = animals.reduce((sum, a) => sum + (a.current_weight_kg || 0), 0);
+  
+  return animals.map(animal => ({
+    animal_id: animal.id,
+    kilograms: totalWeight > 0 
+      ? (animal.current_weight_kg || 0) / totalWeight * totalFeedKg
+      : totalFeedKg / animals.length // Fallback to equal distribution
+  }));
+};
+
+// Include distribution in activity_data for approval
+const activityData = {
+  feed_type: 'Napier Grass',
+  total_kg: 50,
+  distribution: calculateFeedDistribution(selectedAnimals, 50)
+};
+```
+
+### Inventory Deduction on Approval Pattern
+
+Feed inventory is deducted when activities are approved (not when submitted):
+
+```typescript
+// In review-pending-activity or process-auto-approvals
+const deductFeedInventory = async (farmId: string, activityData: any) => {
+  // FIFO strategy: deduct from oldest inventory first
+  const { data: inventory } = await supabase
+    .from('feed_inventory')
+    .select('*')
+    .eq('farm_id', farmId)
+    .eq('feed_type', activityData.feed_type)
+    .order('created_at', { ascending: true }); // FIFO
+  
+  let remainingToDeduct = activityData.total_kg;
+  
+  for (const item of inventory) {
+    if (remainingToDeduct <= 0) break;
+    
+    const deduction = Math.min(item.quantity_kg, remainingToDeduct);
+    await supabase.from('feed_inventory')
+      .update({ quantity_kg: item.quantity_kg - deduction })
+      .eq('id', item.id);
+    
+    // Create transaction record for audit trail
+    await supabase.from('feed_stock_transactions').insert({
+      feed_inventory_id: item.id,
+      quantity_change_kg: -deduction,
+      transaction_type: 'consumption',
+      notes: 'Approved feeding activity'
+    });
+    
+    remainingToDeduct -= deduction;
+  }
+};
+```
+
+### Clarification Flow Pattern
+
+When voice input is ambiguous, return structured clarification instead of errors:
+
+```typescript
+// In edge function response
+if (!feedType && feedInventory.length > 1) {
+  return {
+    error: 'NEEDS_CLARIFICATION',
+    message: 'Which type of feed did you use?',
+    availableOptions: feedInventory.map(f => f.feed_type),
+    context: 'feed_type_selection'
+  };
+}
+
+// Frontend handles clarification response
+if (response.error === 'NEEDS_CLARIFICATION') {
+  // Show selection UI with availableOptions
+  setShowClarificationDialog(true);
+  setClarificationOptions(response.availableOptions);
+}
+```
+
 ---
 
 ## 9. Debugging Tips

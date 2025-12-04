@@ -231,6 +231,48 @@ doc_aga_queries      # User query history
 voice_training_samples # Voice training data
 ```
 
+**Farmhand Approval Queue:**
+```sql
+pending_activities         # Queued activities for review
+├── id (uuid)
+├── farm_id               # References farms
+├── submitted_by          # Farmhand user ID
+├── activity_type         # feeding, milking, health, weight, injection
+├── activity_data (jsonb) # Activity details + weight distributions
+├── animal_ids (array)    # Affected animals
+├── status                # pending, approved, rejected
+├── auto_approve_at       # Auto-approval timestamp
+├── reviewed_by           # Manager/owner who reviewed
+└── rejection_reason      # If rejected
+
+farm_approval_settings    # Per-farm approval config
+├── farm_id
+├── auto_approve_enabled  # Enable auto-approval
+├── auto_approve_hours    # Hours before auto-approval (default: 48)
+└── require_approval_for_types # Activity types requiring approval
+```
+
+**Farmer Feedback System (Government Connect):**
+```sql
+farmer_feedback           # "Boses ng Magsasaka" submissions
+├── id (uuid)
+├── farm_id               # Submitting farm
+├── user_id               # Submitting user
+├── transcription         # Voice/text content
+├── voice_audio_url       # Optional audio recording
+├── primary_category      # AI-detected category (9 types)
+├── secondary_categories  # Additional categories
+├── sentiment             # positive, neutral, negative, mixed
+├── priority_score        # 0-100 scoring
+├── auto_priority         # low, medium, high, critical
+├── detected_entities     # AI-extracted entities (jsonb)
+├── status                # submitted, acknowledged, under_review, action_taken, resolved
+├── ai_summary            # AI-generated summary
+├── farm_snapshot         # Farm context at submission time
+├── government_notes      # Government official notes
+└── action_taken          # Resolution description
+```
+
 ### Security Model
 
 **Row-Level Security (RLS):**
@@ -258,9 +300,10 @@ can_access_farm(farm_id)             # Unified farm access check
 The app uses **three separate authentication portals**:
 
 ```
-/auth          → Farmer Portal (default)
-/auth/merchant → Merchant Portal
-/auth/admin    → Admin Portal
+/auth            → Farmer Portal (default)
+/auth/merchant   → Merchant Portal
+/auth/admin      → Admin Portal
+/government/auth → Government Portal
 ```
 
 Each portal has its own login/signup flow with role-specific post-auth routing.
@@ -269,6 +312,8 @@ Each portal has its own login/signup flow with role-specific post-auth routing.
 
 ```
 admin (Super Admin)
+  ├── government (Government Official)
+  │   └── [can view all farms, feedback, analytics]
   ├── farmer_owner (Farm Owner)
   │   ├── farmhand (Farm Worker)
   │   └── [can manage farm]
@@ -311,6 +356,14 @@ const {
 // For admin-only pages
 const { isAdmin, isLoading } = useAdminAccess();
 // Automatically redirects non-admins
+```
+
+**`useGovernmentAccess()` Hook:**
+```typescript
+// For government-only pages
+const { hasAccess, isLoading } = useGovernmentAccess();
+// Checks has_government_access() RPC function
+// Used for /government routes
 ```
 
 ### Authentication Flow
@@ -543,10 +596,25 @@ admin-create-user/        # Admin user creation
 merchant-signup/          # Merchant onboarding
 ```
 
+**Approval & Feedback Processing:**
+```typescript
+process-farmhand-activity/  # Parse voice activities → pending queue
+review-pending-activity/    # Manager approve/reject activities
+process-auto-approvals/     # Cron: auto-approve after timeout
+process-farmer-feedback/    # AI categorization for government feedback
+├── Categories: policy, market_access, veterinary, training,
+│              infrastructure, financial_assistance, emergency_support,
+│              disease_outbreak, feed_shortage
+├── Priority scoring (0-100)
+├── Sentiment detection
+└── Entity extraction
+```
+
 **Webhooks:**
 ```typescript
-report-test-results/      # CI/CD test reporting
-admin-permanent-delete-farm/ # Hard delete farms (admin only)
+report-test-results/          # CI/CD test reporting
+admin-permanent-delete-farm/  # Hard delete farms (admin only)
+migrate-farm-locations/       # Batch location migration
 ```
 
 ### Security Features
@@ -737,6 +805,8 @@ npm run test:ui         # Interactive Vitest UI
 /orders                  # Order history
 /voice-training          # Voice training for farmhands
 /invite/accept/:token    # Accept team invitation
+/government              # Government dashboard (analytics, feedback)
+/government/auth         # Government official authentication
 /messaging               # Future: Messaging system
 /distributor-finder      # Future: Find distributors
 ```

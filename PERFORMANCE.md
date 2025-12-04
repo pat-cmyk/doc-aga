@@ -100,6 +100,59 @@ npm run build
 - Radix UI components (modular imports)
 - Date-fns (tree-shakeable by default)
 
+## Phase 5: Dashboard Data Optimization ✅
+
+### Parallelized Database Queries
+Initial dashboard load uses `Promise.all()` for concurrent queries:
+
+```typescript
+// Before: Sequential waterfall (slow)
+const farm = await getFarm();
+const membership = await getMembership(farm.id);
+const role = await getRole();
+
+// After: Parallel execution (fast)
+const [farm, membership, role] = await Promise.all([
+  getFarm(),
+  getMembership(farmId),
+  getRole()
+]);
+```
+
+### Combined Dashboard RPC
+New `get_combined_dashboard_data` RPC function fetches all dashboard statistics in a single call:
+
+```typescript
+const { data } = await supabase.rpc('get_combined_dashboard_data', {
+  _farm_id: farmId
+});
+// Returns: stats, stage_counts, recent_activities in one query
+```
+
+### Lazy Chart Components
+Charts only load when visible using `LazyRenderOnVisible`:
+
+```typescript
+<LazyRenderOnVisible>
+  <MilkProductionChart farmId={farmId} />
+</LazyRenderOnVisible>
+```
+
+**Benefits:**
+- Recharts bundle (~120KB) only loads when charts are in viewport
+- Reduces initial JavaScript execution
+- Improves Time to Interactive (TTI)
+
+### Deferred Non-Critical Data
+Uses `requestIdleCallback` for non-essential data:
+
+```typescript
+// Load feed forecast after main content is interactive
+requestIdleCallback(() => {
+  prefetchFeedForecast(farmId);
+});
+```
+
 ## Performance Metrics
 
 ### Before Optimizations
@@ -108,11 +161,18 @@ npm run build
 - TTI: ~5.2s (3G)
 - List rendering (100 animals): ~1200ms
 
-### After Optimizations
+### After Optimizations (Phase 1-4)
 - Initial Bundle: ~380KB (**-55%**)
 - FCP: ~1.9s (**-32%**)
 - TTI: ~3.1s (**-40%**)
 - List rendering (100 animals): ~450ms (**-63%**)
+
+### Target Metrics (Phase 5)
+- Performance Score: 75+
+- First Contentful Paint: <2.0s
+- Largest Contentful Paint: <4.0s
+- Total Blocking Time: <300ms
+- Cumulative Layout Shift: <0.05
 
 ## Best Practices
 
