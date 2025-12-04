@@ -76,6 +76,48 @@ All edge functions now:
 - ✅ Updated report-test-results script to sign payloads
 - ✅ Implemented HMAC-SHA256 verification in edge function
 
+### 6. Farmhand Approval Queue Security (FIXED)
+**Status:** ✅ Completed
+
+**pending_activities table RLS policies:**
+- ✅ `farmhands_insert_pending`: Farmhands can only submit to their assigned farm
+- ✅ `farmhands_view_own_pending`: Farmhands can only view their own submissions
+- ✅ `farmhands_delete_own_pending`: Farmhands can delete own pending submissions only
+- ✅ `managers_view_farm_pending`: Farm owners/managers can view all farm activities
+- ✅ `managers_update_pending`: Only owners/managers can approve/reject
+
+**review-pending-activity edge function:**
+- ✅ JWT authentication required
+- ✅ Role validation (owner/manager only)
+- ✅ Farm membership verification
+- ✅ Inventory deduction on feeding approval (FIFO strategy)
+
+**process-auto-approvals edge function:**
+- ✅ Service role authentication (cron job)
+- ✅ Respects farm-specific approval settings
+- ✅ Automatic inventory deduction for feeding activities
+
+### 7. Farmer Feedback System Security (FIXED)
+**Status:** ✅ Completed
+
+**farmer_feedback table RLS policies:**
+- ✅ `Farmers can submit feedback`: Requires auth.uid() = user_id AND can_access_farm()
+- ✅ `Farmers can view own feedback`: Users see own submissions and farm-related feedback
+- ✅ `Farmers can update own pending feedback`: Only status = 'submitted' can be edited
+- ✅ `Government can view all feedback`: Uses has_government_access() function
+- ✅ `Government can update feedback`: Government officials can update any feedback
+
+**process-farmer-feedback edge function:**
+- ✅ JWT authentication required
+- ✅ Farm context enrichment from database
+- ✅ AI categorization via Lovable AI (gemini-2.5-flash)
+- ✅ Sanitized error responses
+
+**Government Access Control:**
+- ✅ `has_government_access()` SQL function validates government role
+- ✅ `useGovernmentAccess()` hook for frontend route protection
+- ✅ Separate authentication portal (/government/auth)
+
 ## ⚠️ Manual Action Required
 
 ### Leaked Password Protection
