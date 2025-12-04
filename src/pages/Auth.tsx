@@ -235,7 +235,7 @@ const Auth = () => {
           }}
         />
       </Suspense>
-      <div className="min-h-screen bg-gradient-to-br from-background to-accent flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-background to-accent flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
@@ -375,7 +375,7 @@ const Auth = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
     </>
   );
 };
