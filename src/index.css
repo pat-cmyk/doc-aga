@@ -17,14 +17,14 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 145 30% 15%;
 
-    --primary: 142 76% 36%;
+    --primary: 142 76% 28%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 33 100% 50%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 45 15% 95%;
-    --muted-foreground: 145 15% 45%;
+    --muted-foreground: 145 20% 35%;
 
     --accent: 142 45% 92%;
     --accent-foreground: 145 30% 15%;
@@ -34,7 +34,7 @@ All colors MUST be HSL.
 
     --border: 145 15% 88%;
     --input: 145 15% 88%;
-    --ring: 142 76% 36%;
+    --ring: 142 76% 28%;
 
     /* Chart Colors for Data Visualization */
     --chart-1: 210 80% 50%;    /* Bright Blue - Cattle */
@@ -46,7 +46,7 @@ All colors MUST be HSL.
     --radius: 0.75rem;
     
     /* Agricultural Design Tokens */
-    --farm-green: 142 76% 36%;
+    --farm-green: 142 76% 28%;
     --farm-green-light: 142 45% 92%;
     --earth-brown: 33 30% 45%;
     --harvest-gold: 43 100% 50%;
