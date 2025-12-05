@@ -45,7 +45,22 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+// Configure QueryClient with retry logic for network errors
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Only retry network errors, max 3 times
+        const message = error instanceof Error ? error.message.toLowerCase() : '';
+        const isNetworkErr = message.includes('failed to fetch') || 
+                            message.includes('network') || 
+                            message.includes('timeout');
+        return isNetworkErr && failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 // Component to handle sync and notifications
 const SyncHandler = () => {
