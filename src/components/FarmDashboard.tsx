@@ -13,6 +13,8 @@ import { LazyMilkProductionChart, LazyHeadcountChart } from "./lazy/LazyCharts";
 import { useCombinedDashboardData } from "./farm-dashboard/hooks/useCombinedDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { NetworkError } from "@/components/ui/network-error";
+import { isNetworkError } from "@/lib/errorHandling";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -84,8 +86,15 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   }, [startDate, endDate]);
 
   // Use combined hook to fetch all data in one RPC call (reduces 10+ queries to 1)
-  const { stats, combinedData, monthlyHeadcount, stageKeys, loading, reload: reloadStats } = 
+  const { stats, combinedData, monthlyHeadcount, stageKeys, loading, error, reload: reloadStats } = 
     useCombinedDashboardData(farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    await reloadStats();
+    setIsRetrying(false);
+  }, [reloadStats]);
 
   const lastReloadRef = useRef(0);
 
@@ -194,6 +203,19 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     };
   }, [farmId, reloadStats]);
 
+
+  // Show error state with retry button
+  if (error && !loading) {
+    return (
+      <div className="space-y-6">
+        <NetworkError
+          variant={isNetworkError(error) ? "network" : "generic"}
+          onRetry={handleRetry}
+          isRetrying={isRetrying}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

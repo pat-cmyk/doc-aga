@@ -41,11 +41,13 @@ export const useCombinedDashboardData = (
   const [monthlyHeadcount, setMonthlyHeadcount] = useState<MonthlyHeadcount[]>([]);
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase.rpc('get_combined_dashboard_data', {
+      const { data, error: rpcError } = await supabase.rpc('get_combined_dashboard_data', {
         p_farm_id: farmId,
         p_start_date: startDate.toISOString().split('T')[0],
         p_end_date: endDate.toISOString().split('T')[0],
@@ -53,7 +55,7 @@ export const useCombinedDashboardData = (
         p_monthly_end_date: monthlyEndDate.toISOString().split('T')[0]
       });
 
-      if (error) throw error;
+      if (rpcError) throw rpcError;
 
       if (data) {
         // Cast the RPC result to the expected type (via unknown to satisfy TypeScript)
@@ -113,8 +115,9 @@ export const useCombinedDashboardData = (
         setMonthlyHeadcount(sortedMonths.map(month => monthlyMap[month]));
         setStageKeys(result.stageKeys || []);
       }
-    } catch (error) {
-      console.error("Error loading combined dashboard data:", error);
+    } catch (err) {
+      console.error("Error loading combined dashboard data:", err);
+      setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
     } finally {
       setLoading(false);
     }
@@ -124,5 +127,5 @@ export const useCombinedDashboardData = (
     loadData();
   }, [loadData]);
 
-  return { stats, combinedData, monthlyHeadcount, stageKeys, loading, reload: loadData };
+  return { stats, combinedData, monthlyHeadcount, stageKeys, loading, error, reload: loadData };
 };

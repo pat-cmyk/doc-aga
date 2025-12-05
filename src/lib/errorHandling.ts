@@ -15,6 +15,11 @@ export const ERROR_MESSAGES = {
     DELETE_FAILED: 'Unable to delete item. Please try again.',
     NETWORK_ERROR: 'Network error. Please check your connection.',
   },
+  NETWORK: {
+    CONNECTION_FAILED: 'Hindi ma-connect sa server. Subukan ulit. (Cannot connect to server. Please try again.)',
+    TIMEOUT: 'Nag-timeout ang request. Subukan ulit. (Request timed out. Please try again.)',
+    OFFLINE: 'Walang internet connection. Suriin ang iyong connection. (No internet connection. Check your connection.)',
+  },
   VALIDATION: {
     INVALID_INPUT: 'Please check your input and try again.',
     REQUIRED_FIELD: 'This field is required.',
@@ -24,6 +29,61 @@ export const ERROR_MESSAGES = {
     TRY_AGAIN: 'Something went wrong. Please try again later.',
   },
 };
+
+/**
+ * Check if an error is a network-related error
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (!error) return false;
+  
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  
+  const networkPatterns = [
+    'failed to fetch',
+    'network',
+    'timeout',
+    'aborted',
+    'net::err',
+    'econnrefused',
+    'enotfound',
+    'socket',
+    'connection refused',
+    'no internet',
+    'offline',
+  ];
+  
+  return networkPatterns.some(pattern => message.includes(pattern));
+}
+
+/**
+ * Check if an error is retryable (not permanent like auth or validation errors)
+ */
+export function getRetryableError(error: unknown): boolean {
+  if (!error) return false;
+  
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  
+  // Non-retryable patterns
+  const nonRetryablePatterns = [
+    'unauthorized',
+    'forbidden',
+    'invalid',
+    'validation',
+    'permission denied',
+    'not found',
+    '401',
+    '403',
+    '404',
+  ];
+  
+  // If it matches a non-retryable pattern, return false
+  if (nonRetryablePatterns.some(pattern => message.includes(pattern))) {
+    return false;
+  }
+  
+  // Network errors are retryable
+  return isNetworkError(error);
+}
 
 /**
  * Sanitizes error messages for client display
