@@ -397,6 +397,7 @@ async function addAIRecord(args: any, supabase: SupabaseClient, farmId: string |
       animal_id: animal.id,
       scheduled_date: phDate,
       technician: args.technician || null,
+      semen_code: args.semen_code || null,
       notes: args.notes || null,
       created_by: user?.id,
     })

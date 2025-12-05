@@ -19,6 +19,7 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
   const [loading, setLoading] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [technician, setTechnician] = useState("");
+  const [semenCode, setSemenCode] = useState("");
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
 
@@ -43,6 +44,7 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
         animal_id: animalId,
         scheduled_date: scheduledDate,
         technician: technician || null,
+        semen_code: semenCode || null,
         notes: notes || null,
         created_by: user?.id
       });
@@ -57,6 +59,7 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
       setOpen(false);
       setScheduledDate("");
       setTechnician("");
+      setSemenCode("");
       setNotes("");
       onSuccess();
     } catch (error: any) {
@@ -104,6 +107,15 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
               value={technician}
               onChange={(e) => setTechnician(e.target.value)}
               placeholder="Enter technician name"
+            />
+          </div>
+          <div>
+            <Label htmlFor="semen_code">Semen Code</Label>
+            <Input
+              id="semen_code"
+              value={semenCode}
+              onChange={(e) => setSemenCode(e.target.value)}
+              placeholder="Enter semen code/batch number"
             />
           </div>
           <div>
