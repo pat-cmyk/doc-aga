@@ -20,5 +20,19 @@ export const REGIONAL_COORDINATES: Record<string, { lat: number; lng: number }> 
 };
 
 export const getRegionalCoordinates = (region: string): { lat: number; lng: number } | null => {
-  return REGIONAL_COORDINATES[region] || null;
+  // Try exact match first
+  if (REGIONAL_COORDINATES[region]) {
+    return REGIONAL_COORDINATES[region];
+  }
+  
+  // Try partial match - check if any key is contained in the region string
+  const normalizedRegion = region.toLowerCase();
+  for (const [key, coords] of Object.entries(REGIONAL_COORDINATES)) {
+    const keyLower = key.toLowerCase();
+    if (normalizedRegion.includes(keyLower) || normalizedRegion.startsWith(keyLower.split(' ')[0])) {
+      return coords;
+    }
+  }
+  
+  return null;
 };
