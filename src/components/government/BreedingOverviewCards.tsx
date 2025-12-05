@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Activity, Baby, TrendingUp, Calendar } from "lucide-react";
+import { Activity, Baby, TrendingUp, Calendar, Dna } from "lucide-react";
 
 interface BreedingOverviewCardsProps {
   totalAIProcedures: number;
@@ -7,6 +7,7 @@ interface BreedingOverviewCardsProps {
   currentlyPregnant: number;
   aiSuccessRate: number;
   dueThisQuarter: number;
+  uniqueSemenCodes?: number;
   isLoading?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const BreedingOverviewCards = ({
   currentlyPregnant,
   aiSuccessRate,
   dueThisQuarter,
+  uniqueSemenCodes,
   isLoading,
 }: BreedingOverviewCardsProps) => {
   const cards = [
@@ -51,12 +53,20 @@ export const BreedingOverviewCards = ({
       colorClass: "text-orange-500",
       bgClass: "bg-orange-500/10",
     },
+    {
+      title: "Semen Sources",
+      value: uniqueSemenCodes ?? 0,
+      subtitle: "Unique genetic lines",
+      icon: Dna,
+      colorClass: "text-pink-500",
+      bgClass: "bg-pink-500/10",
+    },
   ];
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
           <Card key={i}>
             <CardContent className="pt-6">
               <div className="animate-pulse space-y-3">
@@ -72,7 +82,7 @@ export const BreedingOverviewCards = ({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {cards.map((card) => {
         const Icon = card.icon;
         return (

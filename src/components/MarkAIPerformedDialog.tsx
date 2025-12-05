@@ -17,6 +17,7 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [performedDate, setPerformedDate] = useState("");
+  const [semenCode, setSemenCode] = useState("");
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,9 +28,15 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
     }
 
     setLoading(true);
+    const updateData: { performed_date: string; semen_code?: string } = { 
+      performed_date: performedDate 
+    };
+    if (semenCode) {
+      updateData.semen_code = semenCode;
+    }
     const { error } = await supabase
       .from("ai_records")
-      .update({ performed_date: performedDate })
+      .update(updateData)
       .eq("id", recordId);
 
     setLoading(false);
@@ -41,6 +48,7 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
       toast({ title: "Success", description: "AI breeding marked as performed" });
       setOpen(false);
       setPerformedDate("");
+      setSemenCode("");
       onSuccess();
     }
   };
@@ -73,6 +81,15 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
                 Scheduled: {new Date(scheduledDate).toLocaleDateString()}
               </p>
             )}
+          </div>
+          <div>
+            <Label htmlFor="semenCode">Semen Code (Optional)</Label>
+            <Input
+              id="semenCode"
+              value={semenCode}
+              onChange={(e) => setSemenCode(e.target.value)}
+              placeholder="Enter semen code if not set at scheduling"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

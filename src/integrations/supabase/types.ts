@@ -169,6 +169,7 @@ export type Database = {
           performed_date: string | null
           pregnancy_confirmed: boolean | null
           scheduled_date: string | null
+          semen_code: string | null
           technician: string | null
         }
         Insert: {
@@ -182,6 +183,7 @@ export type Database = {
           performed_date?: string | null
           pregnancy_confirmed?: boolean | null
           scheduled_date?: string | null
+          semen_code?: string | null
           technician?: string | null
         }
         Update: {
@@ -195,6 +197,7 @@ export type Database = {
           performed_date?: string | null
           pregnancy_confirmed?: boolean | null
           scheduled_date?: string | null
+          semen_code?: string | null
           technician?: string | null
         }
         Relationships: [

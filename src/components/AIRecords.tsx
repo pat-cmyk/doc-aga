@@ -107,6 +107,12 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
                       </p>
                     )}
                     
+                    {r.semen_code && (
+                      <p className="text-sm text-muted-foreground">
+                        Semen Code: <span className="font-mono">{r.semen_code}</span>
+                      </p>
+                    )}
+                    
                     {r.notes && (
                       <p className="text-sm text-muted-foreground">
                         Notes: {r.notes}
