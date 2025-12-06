@@ -22,9 +22,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useBreedingStats } from "@/hooks/useBreedingStats";
+import { useGovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { BreedingOverviewCards } from "@/components/government/BreedingOverviewCards";
 import { BreedingSuccessChart } from "@/components/government/BreedingSuccessChart";
 import { ExpectedDeliveriesTimeline } from "@/components/government/ExpectedDeliveriesTimeline";
+import { VaccinationComplianceCard } from "@/components/government/VaccinationComplianceCard";
+import { BCSDistributionChart } from "@/components/government/BCSDistributionChart";
+import { MortalityAnalyticsCard } from "@/components/government/MortalityAnalyticsCard";
+import { HeatDetectionMetrics } from "@/components/government/HeatDetectionMetrics";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target, Syringe, Scale } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -236,6 +241,16 @@ const GovernmentDashboard = () => {
   const { data: breedingStats, isLoading: breedingStatsLoading } = useBreedingStats(
     primaryDateRange.start,
     primaryDateRange.end,
+    primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
+    { enabled: !!hasAccess }
+  );
+
+  // Health stats data fetching (Phase 1, 2, 3)
+  const { data: healthStats, isLoading: healthStatsLoading } = useGovernmentHealthStats(
+    format(primaryDateRange.start, "yyyy-MM-dd"),
+    format(primaryDateRange.end, "yyyy-MM-dd"),
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
@@ -887,6 +902,48 @@ const GovernmentDashboard = () => {
                   isLoading={breedingStatsLoading}
                 />
               </div>
+            </div>
+
+            {/* Heat Detection Analytics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Activity className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Heat Detection Analytics</h3>
+              </div>
+              <HeatDetectionMetrics
+                stats={healthStats}
+                isLoading={healthStatsLoading}
+              />
+            </div>
+
+            {/* Preventive Health & Nutrition Analytics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Syringe className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Preventive Health & Nutrition</h3>
+              </div>
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                <VaccinationComplianceCard
+                  stats={healthStats}
+                  isLoading={healthStatsLoading}
+                />
+                <BCSDistributionChart
+                  stats={healthStats}
+                  isLoading={healthStatsLoading}
+                />
+              </div>
+            </div>
+
+            {/* Animal Exit & Mortality Analytics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Scale className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Animal Exits & Mortality</h3>
+              </div>
+              <MortalityAnalyticsCard
+                stats={healthStats}
+                isLoading={healthStatsLoading}
+              />
             </div>
 
             {/* Health & Queries Grid */}
