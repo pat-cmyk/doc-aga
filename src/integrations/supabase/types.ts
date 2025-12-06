@@ -1709,6 +1709,128 @@ export type Database = {
           },
         ]
       }
+      preventive_health_protocols: {
+        Row: {
+          created_at: string | null
+          first_dose_age_months: number | null
+          id: string
+          is_mandatory: boolean | null
+          livestock_type: string
+          notes: string | null
+          recurring_interval_months: number | null
+          source: string | null
+          treatment_name: string
+          treatment_name_tagalog: string | null
+          treatment_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          first_dose_age_months?: number | null
+          id?: string
+          is_mandatory?: boolean | null
+          livestock_type: string
+          notes?: string | null
+          recurring_interval_months?: number | null
+          source?: string | null
+          treatment_name: string
+          treatment_name_tagalog?: string | null
+          treatment_type: string
+        }
+        Update: {
+          created_at?: string | null
+          first_dose_age_months?: number | null
+          id?: string
+          is_mandatory?: boolean | null
+          livestock_type?: string
+          notes?: string | null
+          recurring_interval_months?: number | null
+          source?: string | null
+          treatment_name?: string
+          treatment_name_tagalog?: string | null
+          treatment_type?: string
+        }
+        Relationships: []
+      }
+      preventive_health_schedules: {
+        Row: {
+          animal_id: string
+          completed_by: string | null
+          completed_date: string | null
+          created_at: string | null
+          farm_id: string
+          id: string
+          next_due_date: string | null
+          notes: string | null
+          recurring_interval_months: number | null
+          schedule_type: string
+          scheduled_date: string
+          status: string | null
+          treatment_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          animal_id: string
+          completed_by?: string | null
+          completed_date?: string | null
+          created_at?: string | null
+          farm_id: string
+          id?: string
+          next_due_date?: string | null
+          notes?: string | null
+          recurring_interval_months?: number | null
+          schedule_type: string
+          scheduled_date: string
+          status?: string | null
+          treatment_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          animal_id?: string
+          completed_by?: string | null
+          completed_date?: string | null
+          created_at?: string | null
+          farm_id?: string
+          id?: string
+          next_due_date?: string | null
+          notes?: string | null
+          recurring_interval_months?: number | null
+          schedule_type?: string
+          scheduled_date?: string
+          status?: string | null
+          treatment_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_health_schedules_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_health_schedules_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_health_schedules_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_health_schedules_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -2299,6 +2421,20 @@ export type Database = {
           region: string
           symptom_types: string[]
           total_animals: number
+        }[]
+      }
+      get_upcoming_alerts: {
+        Args: { p_days_ahead?: number; p_farm_id: string }
+        Returns: {
+          alert_title: string
+          alert_type: string
+          animal_ear_tag: string
+          animal_id: string
+          animal_name: string
+          days_until_due: number
+          due_date: string
+          schedule_id: string
+          urgency: string
         }[]
       }
       handle_merchant_signup: {

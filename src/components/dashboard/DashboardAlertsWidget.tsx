@@ -1,0 +1,211 @@
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { 
+  AlertTriangle, 
+  Syringe, 
+  Bug, 
+  Baby, 
+  ChevronDown, 
+  ChevronUp,
+  Bell,
+  Check
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
+import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
+import { useNavigate } from 'react-router-dom';
+
+interface DashboardAlertsWidgetProps {
+  farmId: string;
+}
+
+export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
+  const [isOpen, setIsOpen] = useState(true);
+  const { data: alerts = [], isLoading } = useUpcomingAlerts(farmId);
+  const markComplete = useMarkScheduleComplete();
+  const navigate = useNavigate();
+
+  const groupedAlerts = groupAlertsByType(alerts);
+  const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
+  const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
+
+  const handleQuickComplete = async (alert: UpcomingAlert) => {
+    if (alert.alert_type === 'vaccination' || alert.alert_type === 'deworming') {
+      await markComplete.mutateAsync({
+        scheduleId: alert.schedule_id,
+        completedDate: format(new Date(), 'yyyy-MM-dd'),
+        createNextSchedule: true,
+      });
+    }
+  };
+
+  const handleViewAnimal = (animalId: string) => {
+    navigate(`/dashboard?animalId=${animalId}`);
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <Skeleton className="h-6 w-32" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (alerts.length === 0) {
+    return null; // Don't show widget if no alerts
+  }
+
+  return (
+    <Card className={`mb-4 ${overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="pb-2">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Upcoming Tasks
+                <Badge variant="secondary" className="ml-1">
+                  {alerts.length}
+                </Badge>
+                {overdueCount > 0 && (
+                  <Badge variant="destructive" className="ml-1">
+                    {overdueCount} overdue
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+          </CollapsibleTrigger>
+        </CardHeader>
+
+        <CollapsibleContent>
+          <CardContent className="pt-0 space-y-4">
+            {/* Vaccinations */}
+            {groupedAlerts.vaccination.length > 0 && (
+              <AlertSection
+                title="Vaccinations"
+                icon={<Syringe className="h-4 w-4" />}
+                alerts={groupedAlerts.vaccination}
+                onComplete={handleQuickComplete}
+                onViewAnimal={handleViewAnimal}
+                iconColor="text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+              />
+            )}
+
+            {/* Deworming */}
+            {groupedAlerts.deworming.length > 0 && (
+              <AlertSection
+                title="Deworming"
+                icon={<Bug className="h-4 w-4" />}
+                alerts={groupedAlerts.deworming}
+                onComplete={handleQuickComplete}
+                onViewAnimal={handleViewAnimal}
+                iconColor="text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400"
+              />
+            )}
+
+            {/* Deliveries */}
+            {groupedAlerts.delivery.length > 0 && (
+              <AlertSection
+                title="Expected Deliveries"
+                icon={<Baby className="h-4 w-4" />}
+                alerts={groupedAlerts.delivery}
+                onViewAnimal={handleViewAnimal}
+                iconColor="text-pink-600 bg-pink-100 dark:bg-pink-900/30 dark:text-pink-400"
+              />
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+interface AlertSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  alerts: UpcomingAlert[];
+  onComplete?: (alert: UpcomingAlert) => void;
+  onViewAnimal: (animalId: string) => void;
+  iconColor: string;
+}
+
+function AlertSection({ title, icon, alerts, onComplete, onViewAnimal, iconColor }: AlertSectionProps) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`p-1.5 rounded-full ${iconColor}`}>{icon}</div>
+        <span className="text-sm font-medium">{title}</span>
+        <Badge variant="outline" className="text-xs">
+          {alerts.length}
+        </Badge>
+      </div>
+      <div className="space-y-2 ml-8">
+        {alerts.slice(0, 3).map((alert) => (
+          <AlertItem
+            key={alert.schedule_id}
+            alert={alert}
+            onComplete={onComplete ? () => onComplete(alert) : undefined}
+            onViewAnimal={() => onViewAnimal(alert.animal_id)}
+          />
+        ))}
+        {alerts.length > 3 && (
+          <p className="text-xs text-muted-foreground">
+            +{alerts.length - 3} more
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface AlertItemProps {
+  alert: UpcomingAlert;
+  onComplete?: () => void;
+  onViewAnimal: () => void;
+}
+
+function AlertItem({ alert, onComplete, onViewAnimal }: AlertItemProps) {
+  const urgencyColor = getUrgencyColor(alert.urgency);
+  const urgencyLabel = getUrgencyLabel(alert.urgency, alert.days_until_due);
+
+  return (
+    <div className={`flex items-center justify-between p-2 rounded-md border ${urgencyColor}`}>
+      <button
+        onClick={onViewAnimal}
+        className="flex-1 text-left hover:underline"
+      >
+        <p className="text-sm font-medium">
+          {alert.animal_name || alert.animal_ear_tag || 'Unknown'}
+        </p>
+        <p className="text-xs opacity-75">
+          {alert.alert_title} • {urgencyLabel}
+        </p>
+      </button>
+      {onComplete && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onComplete();
+          }}
+        >
+          <Check className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
