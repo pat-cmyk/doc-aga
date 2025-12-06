@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/animalStages";
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
 import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingleAnimalButton";
+import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -656,6 +657,13 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Preventive Health Tab - Show as separate card */}
+      <PreventiveHealthTab 
+        animalId={animalId} 
+        farmId={farmId} 
+        livestockType={animal?.livestock_type || 'cattle'} 
+      />
 
       <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
         <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto ${

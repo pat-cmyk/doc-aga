@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { NetworkError } from "@/components/ui/network-error";
 import { isNetworkError } from "@/lib/errorHandling";
+import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -219,6 +220,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
   return (
     <div className="space-y-6">
+      {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
+      <DashboardAlertsWidget farmId={farmId} />
+
       {loading ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
