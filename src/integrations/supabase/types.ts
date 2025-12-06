@@ -2539,6 +2539,39 @@ export type Database = {
           unique_semen_codes: number
         }[]
       }
+      get_government_health_stats: {
+        Args: {
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          animals_in_optimal_window: number
+          animals_optimal: number
+          animals_overweight: number
+          animals_underweight: number
+          avg_bcs_score: number
+          avg_cycle_length_days: number
+          bcs_assessments_count: number
+          completed_deworming: number
+          completed_vaccinations: number
+          exits_culled: number
+          exits_died: number
+          exits_slaughtered: number
+          exits_sold: number
+          exits_transferred: number
+          heat_events_count: number
+          mortality_rate: number
+          overdue_vaccinations: number
+          scheduled_deworming: number
+          scheduled_vaccinations: number
+          total_exits: number
+          total_sales_revenue: number
+          vaccination_compliance_rate: number
+        }[]
+      }
       get_government_stats: {
         Args: {
           end_date: string
