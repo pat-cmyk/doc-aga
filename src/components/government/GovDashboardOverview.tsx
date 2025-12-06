@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, FileText, TrendingUp, TrendingDown, Baby, Target } from "lucide-react";
+import { Activity, Users, FileText, TrendingUp, TrendingDown } from "lucide-react";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -9,18 +9,13 @@ interface GovDashboardOverviewProps {
   isLoading: boolean;
   error?: Error | null;
   comparisonMode?: boolean;
-  breedingStats?: {
-    currently_pregnant: number;
-    ai_success_rate: number;
-  };
-  breedingStatsLoading?: boolean;
 }
 
-export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error, comparisonMode, breedingStats, breedingStatsLoading }: GovDashboardOverviewProps) => {
-  if (isLoading || breedingStatsLoading) {
+export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error, comparisonMode }: GovDashboardOverviewProps) => {
+  if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
@@ -48,8 +43,8 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
 
   if (!stats) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground">No data available</p>
@@ -111,7 +106,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Farms</CardTitle>
@@ -201,37 +196,6 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
               <GrowthIndicator value={stats.healthGrowth || 0} />
             </>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Breeding Quick Stats */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Currently Pregnant</CardTitle>
-          <Baby className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {(breedingStats?.currently_pregnant || 0).toLocaleString()}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Awaiting delivery
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">AI Success Rate</CardTitle>
-          <Target className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {(breedingStats?.ai_success_rate || 0).toFixed(1)}%
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Of performed procedures
-          </p>
         </CardContent>
       </Card>
     </div>

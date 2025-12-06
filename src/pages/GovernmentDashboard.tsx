@@ -825,61 +825,73 @@ const GovernmentDashboard = () => {
               </div>
             </div>
 
-            {/* Overview Stats */}
-            <GovDashboardOverview
-              stats={stats as any} 
-              comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
-              isLoading={statsLoading} 
-              error={statsError}
-              comparisonMode={comparisonMode}
-              breedingStats={breedingStats}
-              breedingStatsLoading={breedingStatsLoading}
-            />
-
-            {/* Regional Map */}
-            <Suspense fallback={
-              <Card>
-                <CardHeader>
-                  <CardTitle>Regional Livestock Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="w-full h-[500px] rounded-lg" />
-                </CardContent>
-              </Card>
-            }>
-              <RegionalLivestockMap dateRange={primaryDateRange} />
-            </Suspense>
-
-            {/* Comparison Summary */}
-            {comparisonMode && (
-              <ComparisonSummary
-                primaryStats={stats as any}
-                comparisonStats={comparisonStats as any}
-                primaryDateRange={{ from: primaryDateRange.start, to: primaryDateRange.end }}
-                comparisonDateRange={{ from: comparisonDateRange.start, to: comparisonDateRange.end }}
-                primaryRegion={primaryRegion}
-                comparisonRegion={comparisonRegion}
-                isLoading={statsLoading || comparisonStatsLoading}
+            {/* =====================================================
+                SECTION 1: POPULATION OVERVIEW
+                Census & geographic distribution
+            ===================================================== */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Users className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Population Overview</h3>
+                <span className="text-sm text-muted-foreground">Census & geographic distribution</span>
+              </div>
+              
+              {/* Overview Stats - 4 cards */}
+              <GovDashboardOverview
+                stats={stats as any} 
+                comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
+                isLoading={statsLoading} 
+                error={statsError}
                 comparisonMode={comparisonMode}
               />
-            )}
 
-            {/* Trend Charts */}
-            <GovTrendCharts
-              data={timeseriesData || []}
-              comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
-              isLoading={timeseriesLoading}
-              error={undefined}
-              comparisonMode={comparisonMode}
-            />
+              {/* Regional Map */}
+              <Suspense fallback={
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Regional Livestock Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="w-full h-[500px] rounded-lg" />
+                  </CardContent>
+                </Card>
+              }>
+                <RegionalLivestockMap dateRange={primaryDateRange} />
+              </Suspense>
 
-            {/* Breeding & Reproduction Analytics */}
+              {/* Comparison Summary */}
+              {comparisonMode && (
+                <ComparisonSummary
+                  primaryStats={stats as any}
+                  comparisonStats={comparisonStats as any}
+                  primaryDateRange={{ from: primaryDateRange.start, to: primaryDateRange.end }}
+                  comparisonDateRange={{ from: comparisonDateRange.start, to: comparisonDateRange.end }}
+                  primaryRegion={primaryRegion}
+                  comparisonRegion={comparisonRegion}
+                  isLoading={statsLoading || comparisonStatsLoading}
+                  comparisonMode={comparisonMode}
+                />
+              )}
+            </div>
+
+            {/* =====================================================
+                SECTION 2: REPRODUCTION & BREEDING
+                Heat detection through delivery
+            ===================================================== */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b">
                 <HeartPulse className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Breeding & Reproduction Analytics</h3>
+                <h3 className="text-lg font-semibold">Reproduction & Breeding</h3>
+                <span className="text-sm text-muted-foreground">Heat detection through delivery</span>
               </div>
               
+              {/* Heat Detection - merged into Breeding section */}
+              <HeatDetectionMetrics
+                stats={healthStats}
+                isLoading={healthStatsLoading}
+              />
+              
+              {/* Breeding Overview Cards */}
               <BreedingOverviewCards
                 totalAIProcedures={breedingStats?.total_ai_scheduled || 0}
                 totalAIPerformed={breedingStats?.total_ai_performed || 0}
@@ -904,24 +916,18 @@ const GovernmentDashboard = () => {
               </div>
             </div>
 
-            {/* Heat Detection Analytics */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <Activity className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Heat Detection Analytics</h3>
-              </div>
-              <HeatDetectionMetrics
-                stats={healthStats}
-                isLoading={healthStatsLoading}
-              />
-            </div>
-
-            {/* Preventive Health & Nutrition Analytics */}
+            {/* =====================================================
+                SECTION 3: ANIMAL HEALTH & WELFARE
+                Preventive care, nutrition, mortality
+            ===================================================== */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b">
                 <Syringe className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Preventive Health & Nutrition</h3>
+                <h3 className="text-lg font-semibold">Animal Health & Welfare</h3>
+                <span className="text-sm text-muted-foreground">Preventive care, nutrition, mortality</span>
               </div>
+              
+              {/* Vaccination & BCS row */}
               <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                 <VaccinationComplianceCard
                   stats={healthStats}
@@ -932,23 +938,13 @@ const GovernmentDashboard = () => {
                   isLoading={healthStatsLoading}
                 />
               </div>
-            </div>
-
-            {/* Animal Exit & Mortality Analytics */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <Scale className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Animal Exits & Mortality</h3>
-              </div>
-              <MortalityAnalyticsCard
-                stats={healthStats}
-                isLoading={healthStatsLoading}
-              />
-            </div>
-
-            {/* Health & Queries Grid */}
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-              <div className="min-w-0">
+              
+              {/* Mortality & Health Heatmap row */}
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                <MortalityAnalyticsCard
+                  stats={healthStats}
+                  isLoading={healthStatsLoading}
+                />
                 <AnimalHealthHeatmap 
                   data={heatmapData as any}
                   comparisonData={comparisonMode ? (comparisonHeatmapData as any) : undefined}
@@ -957,16 +953,37 @@ const GovernmentDashboard = () => {
                   comparisonMode={comparisonMode}
                 />
               </div>
-              <div className="min-w-0">
-                <FarmerQueriesTopics 
-                  startDate={primaryDateRange.start} 
-                  endDate={primaryDateRange.end}
-                  comparisonStartDate={comparisonMode ? comparisonDateRange.start : undefined}
-                  comparisonEndDate={comparisonMode ? comparisonDateRange.end : undefined}
-                  enabled={hasAccess}
-                  comparisonMode={comparisonMode}
-                />
+            </div>
+
+            {/* =====================================================
+                SECTION 4: TRENDS & INSIGHTS
+                Analytics and farmer engagement
+            ===================================================== */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Trends & Insights</h3>
+                <span className="text-sm text-muted-foreground">Analytics and farmer engagement</span>
               </div>
+              
+              {/* Trend Charts */}
+              <GovTrendCharts
+                data={timeseriesData || []}
+                comparisonData={comparisonMode ? (comparisonTimeseriesData || []) : undefined}
+                isLoading={timeseriesLoading}
+                error={undefined}
+                comparisonMode={comparisonMode}
+              />
+              
+              {/* Farmer Queries */}
+              <FarmerQueriesTopics 
+                startDate={primaryDateRange.start} 
+                endDate={primaryDateRange.end}
+                comparisonStartDate={comparisonMode ? comparisonDateRange.start : undefined}
+                comparisonEndDate={comparisonMode ? comparisonDateRange.end : undefined}
+                enabled={hasAccess}
+                comparisonMode={comparisonMode}
+              />
             </div>
           </TabsContent>
 
