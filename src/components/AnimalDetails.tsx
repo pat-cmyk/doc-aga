@@ -26,6 +26,7 @@ import {
 } from "@/lib/animalStages";
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
 import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingleAnimalButton";
+import { RecordAnimalExitDialog } from "./animal-exit/RecordAnimalExitDialog";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 
@@ -579,10 +580,17 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 </CardDescription>
               </div>
             </div>
-            <RecalculateSingleAnimalButton 
-              animalId={animalId} 
-              onSuccess={loadAnimal}
-            />
+            <div className="flex flex-col gap-2 items-end">
+              <RecordAnimalExitDialog 
+                animalId={animalId}
+                animalName={animal.name || animal.ear_tag || 'Animal'}
+                onExitRecorded={onBack}
+              />
+              <RecalculateSingleAnimalButton 
+                animalId={animalId} 
+                onSuccess={loadAnimal}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
