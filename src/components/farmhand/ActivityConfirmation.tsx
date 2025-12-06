@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,11 +82,12 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
   const [isSaving, setIsSaving] = useState(false);
   const [editableFeeds, setEditableFeeds] = useState(data.feeds || []);
   const [availableInventory, setAvailableInventory] = useState<Array<{id: string, feed_type: string, unit: string, weight_per_unit: number | null}>>([]);
+  const [farmId, setFarmId] = useState<string | null>(null);
   const { deductFromInventory } = useInventoryDeduction();
 
-  // Fetch available inventory items
+  // Fetch available inventory items and farm membership
   useEffect(() => {
-    const fetchInventory = async () => {
+    const fetchInventoryAndFarm = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -97,6 +98,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
         .maybeSingle();
 
       if (!membership) return;
+      
+      setFarmId(membership.farm_id);
 
       const { data: inventory } = await supabase
         .from('feed_inventory')
@@ -110,8 +113,120 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
       }
     };
 
-    fetchInventory();
+    fetchInventoryAndFarm();
   }, []);
+
+  // Check if approval is required for this user
+  const checkRequiresApproval = useCallback(async (userId: string, farmIdToCheck: string, activityType: string): Promise<boolean> => {
+    try {
+      const { data: result, error } = await supabase.rpc('requires_approval', {
+        _user_id: userId,
+        _farm_id: farmIdToCheck,
+        _activity_type: activityType
+      });
+      
+      if (error) {
+        console.error('Error checking approval requirement:', error);
+        return false; // Default to no approval required on error
+      }
+      
+      return result === true;
+    } catch (err) {
+      console.error('Failed to check approval requirement:', err);
+      return false;
+    }
+  }, []);
+
+  // Queue activity for approval
+  const queueForApproval = useCallback(async (
+    userId: string, 
+    farmIdToQueue: string, 
+    activityType: string, 
+    activityData: Record<string, unknown>,
+    animalIds: string[]
+  ): Promise<boolean> => {
+    try {
+      // Calculate auto-approve time
+      const { data: autoApproveTime } = await supabase.rpc('calculate_auto_approve_time', {
+        _farm_id: farmIdToQueue
+      });
+
+      const { error } = await supabase
+        .from('pending_activities')
+        .insert([{
+          farm_id: farmIdToQueue,
+          submitted_by: userId,
+          activity_type: activityType as "milking" | "feeding" | "health_observation" | "weight_measurement" | "injection",
+          activity_data: activityData as unknown as import('@/integrations/supabase/types').Json,
+          animal_ids: animalIds,
+          status: 'pending' as const,
+          auto_approve_at: autoApproveTime
+        }]);
+
+      if (error) {
+        console.error('Error queueing activity:', error);
+        throw error;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Failed to queue activity for approval:', err);
+      throw err;
+    }
+  }, []);
+
+  // Extract animal IDs from data
+  const extractAnimalIds = useCallback((): string[] => {
+    if (data.animal_id) {
+      return [data.animal_id];
+    }
+    
+    if (data.distributions_by_type) {
+      return data.distributions_by_type.flatMap(tg => 
+        tg.distributions.map(d => d.animal_id)
+      );
+    }
+    
+    if (data.distributions) {
+      return data.distributions.map(d => d.animal_id);
+    }
+    
+    if (data.feeds && data.feeds.length > 0) {
+      // Get unique animal IDs from all feeds
+      const ids = new Set<string>();
+      data.feeds.forEach(feed => {
+        feed.distributions.forEach(d => ids.add(d.animal_id));
+      });
+      return Array.from(ids);
+    }
+    
+    return [];
+  }, [data]);
+
+  // Build activity data for queuing
+  const buildActivityData = useCallback((): Record<string, unknown> => {
+    const feedsToProcess = editableFeeds.length > 0 ? editableFeeds : data.feeds;
+    
+    return {
+      activity_type: data.activity_type,
+      quantity: data.quantity,
+      notes: data.notes,
+      feed_type: data.feed_type,
+      medicine_name: data.medicine_name,
+      dosage: data.dosage,
+      is_bulk_feeding: data.is_bulk_feeding,
+      is_bulk_milking: data.is_bulk_milking,
+      multiple_feeds: data.multiple_feeds,
+      total_animals: data.total_animals,
+      total_kg: data.total_kg,
+      original_quantity: data.original_quantity,
+      original_unit: data.original_unit,
+      feeds: feedsToProcess,
+      distributions: data.distributions,
+      distributions_by_type: data.distributions_by_type,
+      animal_identifier: data.animal_identifier
+    };
+  }, [data, editableFeeds]);
 
   // Initialize editable feeds from data
   useEffect(() => {
@@ -156,6 +271,32 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      if (!farmId) throw new Error('Farm not found');
+
+      // Check if this user requires approval for this activity type
+      const needsApproval = await checkRequiresApproval(user.id, farmId, data.activity_type);
+
+      if (needsApproval) {
+        // Queue for approval instead of direct insert
+        const activityData = buildActivityData();
+        const animalIds = extractAnimalIds();
+
+        if (animalIds.length === 0) {
+          throw new Error('Please select an animal for this activity');
+        }
+
+        await queueForApproval(user.id, farmId, data.activity_type, activityData, animalIds);
+
+        toast({
+          title: "Queued for Approval",
+          description: "Your activity has been submitted for manager review",
+        });
+        await hapticNotification('success');
+        onSuccess();
+        return;
+      }
+
+      // Direct insert for owners/managers (no approval required)
       const today = new Date().toISOString().split('T')[0];
 
       switch (data.activity_type) {
