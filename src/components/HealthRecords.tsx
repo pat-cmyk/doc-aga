@@ -6,12 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Plus, Camera, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Plus, Camera, X, FileText, Syringe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
+import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
 
-const HealthRecords = ({ animalId }: { animalId: string }) => {
+interface HealthRecordsProps {
+  animalId: string;
+  farmId?: string;
+  livestockType?: string;
+}
+
+const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -361,7 +369,8 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
     );
   }
 
-  return (
+  // Health Records Content
+  const healthRecordsContent = (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -498,7 +507,7 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
               <Card key={r.id}>
                 <CardContent className="p-4">
                   <p className="text-sm font-medium">{new Date(r.visit_date).toLocaleDateString()}</p>
-                  {r.diagnosis && <p className="text-sm text-muted-foreground mt-1">Diagnosis: {r.diagnosis}</p>}
+                  {r.diagnosis && <p className="text-sm text-muted-foreground">Diagnosis: {r.diagnosis}</p>}
                   {r.treatment && <p className="text-sm text-muted-foreground">Treatment: {r.treatment}</p>}
                   {r.notes && <p className="text-sm text-muted-foreground mt-2">{r.notes}</p>}
                 </CardContent>
@@ -508,6 +517,39 @@ const HealthRecords = ({ animalId }: { animalId: string }) => {
         )}
       </CardContent>
     </Card>
+  );
+
+  // If no farmId or livestockType, just show records without sub-tabs
+  if (!farmId || !livestockType) {
+    return healthRecordsContent;
+  }
+
+  // Show with sub-tabs when farmId and livestockType are provided
+  return (
+    <Tabs defaultValue="records" className="space-y-4">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="records" className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Records
+        </TabsTrigger>
+        <TabsTrigger value="preventive" className="flex items-center gap-2">
+          <Syringe className="h-4 w-4" />
+          Preventive
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="records">
+        {healthRecordsContent}
+      </TabsContent>
+
+      <TabsContent value="preventive">
+        <PreventiveHealthTab 
+          animalId={animalId} 
+          farmId={farmId} 
+          livestockType={livestockType} 
+        />
+      </TabsContent>
+    </Tabs>
   );
 };
 
