@@ -40,7 +40,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target, Syringe, Scale } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target, Syringe, Scale, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -477,8 +478,8 @@ const GovernmentDashboard = () => {
 
           {/* Tab 1: Livestock Analytics */}
           <TabsContent value="livestock" className="space-y-6">
-            <div className="flex flex-col gap-4">
-              {/* Export Buttons */}
+            <Collapsible>
+              {/* Actions Row - Export Buttons + Filter Toggle */}
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -498,191 +499,53 @@ const GovernmentDashboard = () => {
                   <Download className="h-4 w-4" />
                   Export PDF
                 </Button>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                      {primaryPreset === "last7Days" ? "7d" : primaryPreset === "last30Days" ? "30d" : primaryPreset === "last90Days" ? "90d" : "Custom"}
+                      {primaryRegion ? ` • ${primaryRegion.slice(0, 10)}...` : ""}
+                    </Badge>
+                  </Button>
+                </CollapsibleTrigger>
+                {comparisonMode && (
+                  <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+                    Comparing
+                  </Badge>
+                )}
               </div>
 
-              {/* Filter Controls */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Primary Filters */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
-                          PRIMARY
-                        </Badge>
-                        <CardTitle className="text-base sm:text-lg">Dataset</CardTitle>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground hidden sm:inline">
-                          Compare
-                        </span>
-                        <Switch
-                          id="comparison-mode"
-                          checked={comparisonMode}
-                          onCheckedChange={setComparisonMode}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-2">
-                      <Label className="text-xs sm:text-sm">Date Range</Label>
-                      <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="last7Days">Last 7 Days</SelectItem>
-                          <SelectItem value="last30Days">Last 30 Days</SelectItem>
-                          <SelectItem value="last90Days">Last 90 Days</SelectItem>
-                          <SelectItem value="custom">Custom Range</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      {primaryPreset === "custom" && (
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Start Date</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !primaryDateRange.start && "text-muted-foreground"
-                                  )}
-                                  size="sm"
-                                >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {format(primaryDateRange.start, "MMM d, yyyy")}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={primaryDateRange.start}
-                                  onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
-                                  initialFocus
-                                  className="pointer-events-auto"
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <Label className="text-xs">End Date</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !primaryDateRange.end && "text-muted-foreground"
-                                  )}
-                                  size="sm"
-                                >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {format(primaryDateRange.end, "MMM d, yyyy")}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={primaryDateRange.end}
-                                  onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
-                                  initialFocus
-                                  className="pointer-events-auto"
-                                  disabled={(date) => date < primaryDateRange.start}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label className="text-xs sm:text-sm">Region</Label>
-                      <Select 
-                        value={primaryRegion || "all"} 
-                        onValueChange={handlePrimaryRegionChange}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Regions" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Regions</SelectItem>
-                          {regions.map((region) => (
-                            <SelectItem key={region} value={region}>
-                              {region}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {primaryRegion && primaryProvinces.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Province</Label>
-                        <Select 
-                          value={primaryProvince || "all"} 
-                          onValueChange={handlePrimaryProvinceChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="All Provinces" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Provinces</SelectItem>
-                            {primaryProvinces.map((province) => (
-                              <SelectItem key={province} value={province}>
-                                {province}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                        <Select 
-                          value={primaryMunicipality || "all"} 
-                          onValueChange={handlePrimaryMunicipalityChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="All Municipalities" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Municipalities</SelectItem>
-                            {primaryMunicipalities.map((municipality) => (
-                              <SelectItem key={municipality} value={municipality}>
-                                {municipality}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Comparison Filters */}
-                {comparisonMode && (
+              {/* Collapsible Filter Controls */}
+              <CollapsibleContent className="mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Primary Filters */}
                   <Card>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base sm:text-lg">Comparison Dataset</CardTitle>
-                        <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
-                          COMPARISON
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
+                            PRIMARY
+                          </Badge>
+                          <CardTitle className="text-base sm:text-lg">Dataset</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            Compare
+                          </span>
+                          <Switch
+                            id="comparison-mode"
+                            checked={comparisonMode}
+                            onCheckedChange={setComparisonMode}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="space-y-2">
                         <Label className="text-xs sm:text-sm">Date Range</Label>
-                        <Select value={comparisonPreset} onValueChange={handleComparisonPresetChange}>
+                        <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
                           <SelectTrigger className="w-full">
                             <SelectValue />
                           </SelectTrigger>
@@ -694,7 +557,7 @@ const GovernmentDashboard = () => {
                           </SelectContent>
                         </Select>
                         
-                        {comparisonPreset === "custom" && (
+                        {primaryPreset === "custom" && (
                           <div className="grid grid-cols-2 gap-2 mt-2">
                             <div className="space-y-1">
                               <Label className="text-xs">Start Date</Label>
@@ -704,19 +567,19 @@ const GovernmentDashboard = () => {
                                     variant="outline"
                                     className={cn(
                                       "w-full justify-start text-left font-normal",
-                                      !comparisonDateRange.start && "text-muted-foreground"
+                                      !primaryDateRange.start && "text-muted-foreground"
                                     )}
                                     size="sm"
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(comparisonDateRange.start, "MMM d, yyyy")}
+                                    {format(primaryDateRange.start, "MMM d, yyyy")}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                   <Calendar
                                     mode="single"
-                                    selected={comparisonDateRange.start}
-                                    onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, start: date }))}
+                                    selected={primaryDateRange.start}
+                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
                                     initialFocus
                                     className="pointer-events-auto"
                                   />
@@ -732,22 +595,22 @@ const GovernmentDashboard = () => {
                                     variant="outline"
                                     className={cn(
                                       "w-full justify-start text-left font-normal",
-                                      !comparisonDateRange.end && "text-muted-foreground"
+                                      !primaryDateRange.end && "text-muted-foreground"
                                     )}
                                     size="sm"
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(comparisonDateRange.end, "MMM d, yyyy")}
+                                    {format(primaryDateRange.end, "MMM d, yyyy")}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                   <Calendar
                                     mode="single"
-                                    selected={comparisonDateRange.end}
-                                    onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, end: date }))}
+                                    selected={primaryDateRange.end}
+                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
                                     initialFocus
                                     className="pointer-events-auto"
-                                    disabled={(date) => date < comparisonDateRange.start}
+                                    disabled={(date) => date < primaryDateRange.start}
                                   />
                                 </PopoverContent>
                               </Popover>
@@ -759,8 +622,8 @@ const GovernmentDashboard = () => {
                       <div className="space-y-2">
                         <Label className="text-xs sm:text-sm">Region</Label>
                         <Select 
-                          value={comparisonRegion || "all"} 
-                          onValueChange={handleComparisonRegionChange}
+                          value={primaryRegion || "all"} 
+                          onValueChange={handlePrimaryRegionChange}
                         >
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="All Regions" />
@@ -776,19 +639,19 @@ const GovernmentDashboard = () => {
                         </Select>
                       </div>
 
-                      {comparisonRegion && comparisonProvinces.length > 0 && (
+                      {primaryRegion && primaryProvinces.length > 0 && (
                         <div className="space-y-2">
                           <Label className="text-xs sm:text-sm">Province</Label>
                           <Select 
-                            value={comparisonProvince || "all"} 
-                            onValueChange={handleComparisonProvinceChange}
+                            value={primaryProvince || "all"} 
+                            onValueChange={handlePrimaryProvinceChange}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="All Provinces" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Provinces</SelectItem>
-                              {comparisonProvinces.map((province) => (
+                              {primaryProvinces.map((province) => (
                                 <SelectItem key={province} value={province}>
                                   {province}
                                 </SelectItem>
@@ -798,19 +661,19 @@ const GovernmentDashboard = () => {
                         </div>
                       )}
 
-                      {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
+                      {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
                         <div className="space-y-2">
                           <Label className="text-xs sm:text-sm">Municipality/City</Label>
                           <Select 
-                            value={comparisonMunicipality || "all"} 
-                            onValueChange={handleComparisonMunicipalityChange}
+                            value={primaryMunicipality || "all"} 
+                            onValueChange={handlePrimaryMunicipalityChange}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="All Municipalities" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Municipalities</SelectItem>
-                              {comparisonMunicipalities.map((municipality) => (
+                              {primaryMunicipalities.map((municipality) => (
                                 <SelectItem key={municipality} value={municipality}>
                                   {municipality}
                                 </SelectItem>
@@ -821,9 +684,164 @@ const GovernmentDashboard = () => {
                       )}
                     </CardContent>
                   </Card>
-                )}
-              </div>
-            </div>
+
+                  {/* Comparison Filters */}
+                  {comparisonMode && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base sm:text-lg">Comparison Dataset</CardTitle>
+                          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+                            COMPARISON
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs sm:text-sm">Date Range</Label>
+                          <Select value={comparisonPreset} onValueChange={handleComparisonPresetChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="last7Days">Last 7 Days</SelectItem>
+                              <SelectItem value="last30Days">Last 30 Days</SelectItem>
+                              <SelectItem value="last90Days">Last 90 Days</SelectItem>
+                              <SelectItem value="custom">Custom Range</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {comparisonPreset === "custom" && (
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Start Date</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !comparisonDateRange.start && "text-muted-foreground"
+                                      )}
+                                      size="sm"
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {format(comparisonDateRange.start, "MMM d, yyyy")}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={comparisonDateRange.start}
+                                      onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, start: date }))}
+                                      initialFocus
+                                      className="pointer-events-auto"
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <Label className="text-xs">End Date</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !comparisonDateRange.end && "text-muted-foreground"
+                                      )}
+                                      size="sm"
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {format(comparisonDateRange.end, "MMM d, yyyy")}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={comparisonDateRange.end}
+                                      onSelect={(date) => date && setComparisonDateRange(prev => ({ ...prev, end: date }))}
+                                      initialFocus
+                                      className="pointer-events-auto"
+                                      disabled={(date) => date < comparisonDateRange.start}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs sm:text-sm">Region</Label>
+                          <Select 
+                            value={comparisonRegion || "all"} 
+                            onValueChange={handleComparisonRegionChange}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="All Regions" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Regions</SelectItem>
+                              {regions.map((region) => (
+                                <SelectItem key={region} value={region}>
+                                  {region}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {comparisonRegion && comparisonProvinces.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs sm:text-sm">Province</Label>
+                            <Select 
+                              value={comparisonProvince || "all"} 
+                              onValueChange={handleComparisonProvinceChange}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="All Provinces" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Provinces</SelectItem>
+                                {comparisonProvinces.map((province) => (
+                                  <SelectItem key={province} value={province}>
+                                    {province}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs sm:text-sm">Municipality/City</Label>
+                            <Select 
+                              value={comparisonMunicipality || "all"} 
+                              onValueChange={handleComparisonMunicipalityChange}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="All Municipalities" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Municipalities</SelectItem>
+                                {comparisonMunicipalities.map((municipality) => (
+                                  <SelectItem key={municipality} value={municipality}>
+                                    {municipality}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* =====================================================
                 SECTION 1: POPULATION OVERVIEW
