@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Syringe, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Shield, Flame, Image } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -26,12 +26,6 @@ import {
 } from "@/lib/animalStages";
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
 import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingleAnimalButton";
-import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
-import { HeatHistoryTab } from "./heat-detection/HeatHistoryTab";
-import { RecordHeatDialog } from "./heat-detection/RecordHeatDialog";
-import { RecordAnimalExitDialog } from "./animal-exit/RecordAnimalExitDialog";
-import { RecordBCSDialog } from "./body-condition/RecordBCSDialog";
-import { BCSIndicator } from "./body-condition/BCSIndicator";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 
@@ -491,6 +485,10 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
   // Map to species-appropriate display names
   const displayLifeStage = displayStageForSpecies(computedLifeStage, animal?.livestock_type || null);
 
+  // Determine tab count based on gender
+  const isFemale = animal?.gender?.toLowerCase() === 'female';
+  const tabCount = isFemale ? 6 : 5; // Milking, Weight, Feeding, Health, AI/Breeding, Photos (6 for female, 5 for male)
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <Card>
@@ -665,13 +663,6 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
         </CardContent>
       </Card>
 
-      {/* Preventive Health Tab - Show as separate card */}
-      <PreventiveHealthTab 
-        animalId={animalId} 
-        farmId={farmId} 
-        livestockType={animal?.livestock_type || 'cattle'} 
-      />
-
       {/* Growth Benchmark Card */}
       <GrowthBenchmarkCard 
         animalId={animalId} 
@@ -684,9 +675,9 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
         } : null}
       />
 
-      <Tabs defaultValue={animal?.gender?.toLowerCase() === 'female' ? 'milking' : 'weight'} className="space-y-4">
-        <TabsList className="w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid grid-cols-3 sm:grid-cols-7 grid-rows-3 sm:grid-rows-1">
-          {animal?.gender?.toLowerCase() === 'female' && (
+      <Tabs defaultValue={isFemale ? 'milking' : 'weight'} className="space-y-4">
+        <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-5 grid-rows-2 sm:grid-rows-1'}`}>
+          {isFemale && (
             <TabsTrigger 
               value="milking" 
               className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
@@ -723,15 +714,6 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
             <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
             <span className="text-center">AI/Breeding</span>
           </TabsTrigger>
-          {animal?.gender?.toLowerCase() === 'female' && (
-            <TabsTrigger 
-              value="heat" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Flame className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Heat</span>
-            </TabsTrigger>
-          )}
           <TabsTrigger 
             value="photos" 
             className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
@@ -741,7 +723,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
           </TabsTrigger>
         </TabsList>
 
-        {animal?.gender?.toLowerCase() === 'female' && (
+        {isFemale && (
           <TabsContent value="milking">
             <MilkingRecords animalId={animalId} />
           </TabsContent>
@@ -756,23 +738,21 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
         </TabsContent>
 
         <TabsContent value="health">
-          <HealthRecords animalId={animalId} />
+          <HealthRecords 
+            animalId={animalId} 
+            farmId={farmId}
+            livestockType={animal?.livestock_type || 'cattle'}
+          />
         </TabsContent>
 
         <TabsContent value="ai">
-          <AIRecords animalId={animalId} />
+          <AIRecords 
+            animalId={animalId} 
+            farmId={farmId}
+            animalName={animal?.name || animal?.ear_tag || undefined}
+            gender={animal?.gender || undefined}
+          />
         </TabsContent>
-
-        {animal?.gender?.toLowerCase() === 'female' && (
-          <TabsContent value="heat">
-            <HeatHistoryTab 
-              animalId={animalId} 
-              farmId={farmId} 
-              animalName={animal?.name || animal?.ear_tag || undefined}
-              gender={animal?.gender || undefined}
-            />
-          </TabsContent>
-        )}
 
         <TabsContent value="photos">
           <PhotoTimelineTab 

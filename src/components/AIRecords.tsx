@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Calendar, CheckCircle, Clock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Calendar, CheckCircle, Clock, Flame, Dna } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
 import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
+import { HeatHistoryTab } from "./heat-detection/HeatHistoryTab";
 
-const AIRecords = ({ animalId }: { animalId: string }) => {
+interface AIRecordsProps {
+  animalId: string;
+  farmId?: string;
+  animalName?: string;
+  gender?: string;
+}
+
+const AIRecords = ({ animalId, farmId, animalName, gender }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const isOnline = useOnlineStatus();
@@ -45,7 +54,8 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
-  return (
+  // AI Records Content
+  const aiRecordsContent = (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -155,6 +165,42 @@ const AIRecords = ({ animalId }: { animalId: string }) => {
       </CardContent>
     </Card>
   );
+
+  // If female and has farmId, show with heat detection sub-tab
+  const isFemale = gender?.toLowerCase() === 'female';
+  
+  if (isFemale && farmId) {
+    return (
+      <Tabs defaultValue="ai-records" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="ai-records" className="flex items-center gap-2">
+            <Dna className="h-4 w-4" />
+            AI Records
+          </TabsTrigger>
+          <TabsTrigger value="heat" className="flex items-center gap-2">
+            <Flame className="h-4 w-4" />
+            Heat Detection
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ai-records">
+          {aiRecordsContent}
+        </TabsContent>
+
+        <TabsContent value="heat">
+          <HeatHistoryTab 
+            animalId={animalId} 
+            farmId={farmId} 
+            animalName={animalName}
+            gender={gender}
+          />
+        </TabsContent>
+      </Tabs>
+    );
+  }
+
+  // For males or when farmId not provided, just show AI records
+  return aiRecordsContent;
 };
 
 export default AIRecords;
