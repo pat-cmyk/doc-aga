@@ -269,6 +269,7 @@ export type Database = {
           created_by: string | null
           id: string
           label: string | null
+          milestone_type: string | null
           photo_path: string
           taken_at: string | null
         }
@@ -278,6 +279,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           label?: string | null
+          milestone_type?: string | null
           photo_path: string
           taken_at?: string | null
         }
@@ -287,6 +289,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           label?: string | null
+          milestone_type?: string | null
           photo_path?: string
           taken_at?: string | null
         }
@@ -312,10 +315,15 @@ export type Database = {
           avatar_url: string | null
           birth_date: string | null
           breed: string | null
+          buyer_info: string | null
           client_generated_id: string | null
           created_at: string
           current_weight_kg: number | null
           ear_tag: string | null
+          exit_date: string | null
+          exit_notes: string | null
+          exit_reason: string | null
+          exit_reason_details: string | null
           farm_id: string
           father_id: string | null
           gender: string | null
@@ -327,6 +335,7 @@ export type Database = {
           milking_start_date: string | null
           mother_id: string | null
           name: string | null
+          sale_price: number | null
           unique_code: string
           updated_at: string
         }
@@ -334,10 +343,15 @@ export type Database = {
           avatar_url?: string | null
           birth_date?: string | null
           breed?: string | null
+          buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
           current_weight_kg?: number | null
           ear_tag?: string | null
+          exit_date?: string | null
+          exit_notes?: string | null
+          exit_reason?: string | null
+          exit_reason_details?: string | null
           farm_id: string
           father_id?: string | null
           gender?: string | null
@@ -349,6 +363,7 @@ export type Database = {
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null
+          sale_price?: number | null
           unique_code: string
           updated_at?: string
         }
@@ -356,10 +371,15 @@ export type Database = {
           avatar_url?: string | null
           birth_date?: string | null
           breed?: string | null
+          buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
           current_weight_kg?: number | null
           ear_tag?: string | null
+          exit_date?: string | null
+          exit_notes?: string | null
+          exit_reason?: string | null
+          exit_reason_details?: string | null
           farm_id?: string
           father_id?: string | null
           gender?: string | null
@@ -371,6 +391,7 @@ export type Database = {
           milking_start_date?: string | null
           mother_id?: string | null
           name?: string | null
+          sale_price?: number | null
           unique_code?: string
           updated_at?: string
         }
@@ -401,6 +422,78 @@ export type Database = {
             columns: ["mother_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      body_condition_scores: {
+        Row: {
+          animal_id: string
+          assessment_date: string
+          assessor_id: string | null
+          created_at: string
+          farm_id: string
+          id: string
+          notes: string | null
+          photo_id: string | null
+          score: number
+        }
+        Insert: {
+          animal_id: string
+          assessment_date?: string
+          assessor_id?: string | null
+          created_at?: string
+          farm_id: string
+          id?: string
+          notes?: string | null
+          photo_id?: string | null
+          score: number
+        }
+        Update: {
+          animal_id?: string
+          assessment_date?: string
+          assessor_id?: string | null
+          created_at?: string
+          farm_id?: string
+          id?: string
+          notes?: string | null
+          photo_id?: string | null
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "body_condition_scores_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "body_condition_scores_assessor_id_fkey"
+            columns: ["assessor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "body_condition_scores_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "body_condition_scores_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "body_condition_scores_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "animal_photos"
             referencedColumns: ["id"]
           },
         ]
@@ -1224,6 +1317,80 @@ export type Database = {
             columns: ["health_record_id"]
             isOneToOne: false
             referencedRelation: "health_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heat_records: {
+        Row: {
+          animal_id: string
+          created_at: string
+          created_by: string | null
+          detected_at: string
+          detection_method: string
+          farm_id: string
+          id: string
+          intensity: string | null
+          notes: string | null
+          optimal_breeding_end: string | null
+          optimal_breeding_start: string | null
+          standing_heat: boolean | null
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          created_by?: string | null
+          detected_at?: string
+          detection_method?: string
+          farm_id: string
+          id?: string
+          intensity?: string | null
+          notes?: string | null
+          optimal_breeding_end?: string | null
+          optimal_breeding_start?: string | null
+          standing_heat?: boolean | null
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          created_by?: string | null
+          detected_at?: string
+          detection_method?: string
+          farm_id?: string
+          id?: string
+          intensity?: string | null
+          notes?: string | null
+          optimal_breeding_end?: string | null
+          optimal_breeding_start?: string | null
+          standing_heat?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heat_records_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_records_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_records_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_records_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]
