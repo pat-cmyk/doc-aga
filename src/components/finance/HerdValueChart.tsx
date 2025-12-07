@@ -1,22 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useHerdValuation, useHerdValuationSummary } from "@/hooks/useHerdValuation";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, Beef, Loader2, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Beef, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LocalPriceInputDialog } from "./LocalPriceInputDialog";
+import { getSourceLabel } from "@/hooks/useMarketPrices";
+import { format } from "date-fns";
 
 interface HerdValueChartProps {
   farmId: string;
+  livestockType?: string;
 }
 
-export function HerdValueChart({ farmId }: HerdValueChartProps) {
+const SOURCE_COLORS: Record<string, string> = {
+  farmer_sale: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  farmer_input: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  regional_aggregate: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  da_bulletin: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  system_default: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
+};
+
+export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueChartProps) {
   const { data: chartData, isLoading: chartLoading } = useHerdValuation(farmId);
-  const { data: summary, isLoading: summaryLoading } = useHerdValuationSummary(farmId);
+  const { data: summary, isLoading: summaryLoading } = useHerdValuationSummary(farmId, livestockType);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -55,16 +68,19 @@ export function HerdValueChart({ farmId }: HerdValueChartProps) {
             <Beef className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Herd Value</CardTitle>
           </div>
-          <TooltipProvider>
-            <UITooltip>
-              <TooltipTrigger>
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>Your herd is a living investment! This shows the estimated market value of your animals based on their current weight × ₱300/kg.</p>
-              </TooltipContent>
-            </UITooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2">
+            <LocalPriceInputDialog farmId={farmId} defaultLivestockType={livestockType} />
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Your herd is a living investment! This shows the estimated market value of your animals based on their current weight × market price per kg.</p>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <CardDescription>
           Biological asset valuation (Last 6 months)
@@ -101,6 +117,23 @@ export function HerdValueChart({ farmId }: HerdValueChartProps) {
             </div>
           )}
         </div>
+
+        {/* Market Price Indicator */}
+        {summary && (
+          <div className="flex items-center gap-2 mb-4 text-sm">
+            <span className="text-muted-foreground">Using:</span>
+            <span className="font-medium">₱{summary.marketPrice.toFixed(0)}/kg</span>
+            <Badge 
+              variant="secondary" 
+              className={`text-xs ${SOURCE_COLORS[summary.priceSource] || ""}`}
+            >
+              {getSourceLabel(summary.priceSource)}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              ({format(new Date(summary.priceDate), "MMM d")})
+            </span>
+          </div>
+        )}
 
         {/* Chart */}
         {hasData ? (
@@ -155,10 +188,10 @@ export function HerdValueChart({ farmId }: HerdValueChartProps) {
         )}
 
         {/* Insight Banner */}
-        {hasData && (
+        {hasData && summary && (
           <div className="mt-4 p-3 bg-muted/50 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              💡 <span className="font-medium">Living Bank Account:</span> Your herd grows in value even without sales. Each kilogram gained adds ₱300 to your assets!
+              💡 <span className="font-medium">Living Bank Account:</span> Your herd grows in value even without sales. Each kilogram gained adds ₱{summary.marketPrice.toFixed(0)} to your assets!
             </p>
           </div>
         )}

@@ -96,18 +96,46 @@ export function useHerdValuation(farmId: string | undefined) {
   });
 }
 
-export function useHerdValuationSummary(farmId: string | undefined) {
+export interface HerdValuationSummaryWithPrice extends HerdValuationSummary {
+  marketPrice: number;
+  priceSource: string;
+  priceDate: string;
+}
+
+export function useHerdValuationSummary(farmId: string | undefined, livestockType?: string) {
   return useQuery({
-    queryKey: ["herd-valuation-summary", farmId],
-    queryFn: async (): Promise<HerdValuationSummary> => {
+    queryKey: ["herd-valuation-summary", farmId, livestockType],
+    queryFn: async (): Promise<HerdValuationSummaryWithPrice> => {
       if (!farmId) {
-        return { currentValue: 0, previousMonthValue: 0, changePercent: 0, animalCount: 0 };
+        return { 
+          currentValue: 0, 
+          previousMonthValue: 0, 
+          changePercent: 0, 
+          animalCount: 0,
+          marketPrice: 300,
+          priceSource: "system_default",
+          priceDate: format(new Date(), "yyyy-MM-dd"),
+        };
       }
+
+      // Get farm's primary livestock type if not provided
+      const effectiveLivestockType = livestockType || "cattle";
+
+      // Get dynamic market price using RPC
+      const { data: priceData } = await supabase
+        .rpc("get_market_price", {
+          p_livestock_type: effectiveLivestockType,
+          p_farm_id: farmId,
+        });
+
+      const marketPrice = priceData?.[0]?.price || 300;
+      const priceSource = priceData?.[0]?.source || "system_default";
+      const priceDate = priceData?.[0]?.effective_date || format(new Date(), "yyyy-MM-dd");
 
       // Get active animals with their latest weights
       const { data: animals, error: animalsError } = await supabase
         .from("animals")
-        .select("id, current_weight_kg")
+        .select("id, current_weight_kg, livestock_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .is("exit_date", null);
@@ -117,10 +145,11 @@ export function useHerdValuationSummary(farmId: string | undefined) {
         throw animalsError;
       }
 
-      const marketPrice = 300; // PHP per kg
       let currentValue = 0;
       let animalCount = 0;
 
+      // For mixed herds, we'd ideally get price per livestock type
+      // For now, use the primary livestock type price
       (animals || []).forEach((animal) => {
         if (animal.current_weight_kg) {
           currentValue += animal.current_weight_kg * marketPrice;
@@ -159,6 +188,9 @@ export function useHerdValuationSummary(farmId: string | undefined) {
         previousMonthValue,
         changePercent,
         animalCount,
+        marketPrice,
+        priceSource,
+        priceDate,
       };
     },
     enabled: !!farmId,

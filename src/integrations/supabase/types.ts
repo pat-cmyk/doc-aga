@@ -1628,6 +1628,79 @@ export type Database = {
           },
         ]
       }
+      market_prices: {
+        Row: {
+          animal_id: string | null
+          created_at: string | null
+          effective_date: string
+          farm_id: string | null
+          id: string
+          is_verified: boolean | null
+          livestock_type: string
+          municipality: string | null
+          notes: string | null
+          price_per_kg: number
+          province: string | null
+          region: string | null
+          reported_by: string | null
+          source: string
+        }
+        Insert: {
+          animal_id?: string | null
+          created_at?: string | null
+          effective_date?: string
+          farm_id?: string | null
+          id?: string
+          is_verified?: boolean | null
+          livestock_type: string
+          municipality?: string | null
+          notes?: string | null
+          price_per_kg: number
+          province?: string | null
+          region?: string | null
+          reported_by?: string | null
+          source: string
+        }
+        Update: {
+          animal_id?: string | null
+          created_at?: string | null
+          effective_date?: string
+          farm_id?: string | null
+          id?: string
+          is_verified?: boolean | null
+          livestock_type?: string
+          municipality?: string | null
+          notes?: string | null
+          price_per_kg?: number
+          province?: string | null
+          region?: string | null
+          reported_by?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_prices_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_prices_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_prices_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchants: {
         Row: {
           business_address: string | null
@@ -2765,6 +2838,19 @@ export type Database = {
           region: string
           symptom_types: string[]
           total_animals: number
+        }[]
+      }
+      get_market_price: {
+        Args: {
+          p_farm_id?: string
+          p_livestock_type: string
+          p_province?: string
+          p_region?: string
+        }
+        Returns: {
+          effective_date: string
+          price: number
+          source: string
         }[]
       }
       get_upcoming_alerts: {
