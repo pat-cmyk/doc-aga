@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { FeedTypeCombobox } from "./FeedTypeCombobox";
 import { normalizeFeedType } from "@/lib/feedTypeNormalization";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   feed_type: z.string().min(1, "Feed type is required"),
@@ -80,6 +82,25 @@ export function AddFeedStockDialog({
   });
 
   const selectedUnit = form.watch("unit");
+  const watchedQuantity = form.watch("quantity_kg");
+  const watchedCostPerUnit = form.watch("cost_per_unit");
+  const watchedWeightPerUnit = form.watch("weight_per_unit");
+
+  // Calculate total cost for expense preview
+  const calculatedTotalCost = useMemo(() => {
+    if (!watchedCostPerUnit || watchedCostPerUnit <= 0 || !watchedQuantity || watchedQuantity <= 0) {
+      return null;
+    }
+    
+    const needsConversion = selectedUnit === 'bags' || selectedUnit === 'bales' || selectedUnit === 'barrels';
+    let actualQuantityKg = watchedQuantity;
+    
+    if (needsConversion && watchedWeightPerUnit) {
+      actualQuantityKg = watchedQuantity * watchedWeightPerUnit;
+    }
+    
+    return actualQuantityKg * watchedCostPerUnit;
+  }, [watchedQuantity, watchedCostPerUnit, watchedWeightPerUnit, selectedUnit]);
 
   useEffect(() => {
     if (editItem) {
@@ -210,9 +231,12 @@ export function AddFeedStockDialog({
 
         if (transactionError) throw transactionError;
 
+        const hasExpense = data.cost_per_unit && data.cost_per_unit > 0;
         toast({
           title: "Success",
-          description: "Feed stock added successfully",
+          description: hasExpense 
+            ? "Feed stock added and expense recorded automatically" 
+            : "Feed stock added successfully",
         });
       }
 
@@ -393,6 +417,23 @@ export function AddFeedStockDialog({
                 </FormItem>
               )}
             />
+
+            {/* Expense Preview Alert - only show for new items with cost */}
+            {!editItem && calculatedTotalCost && calculatedTotalCost > 0 && (
+              <Alert className="bg-primary/5 border-primary/20">
+                <Wallet className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm">
+                  <span className="font-medium">Expense will be recorded automatically:</span>
+                  <br />
+                  <span className="text-lg font-bold text-primary">
+                    ₱{calculatedTotalCost.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-muted-foreground ml-2">
+                    (Feed & Supplements • Operational)
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="flex gap-2 justify-end pt-4">
               <Button
