@@ -426,6 +426,64 @@ export type Database = {
           },
         ]
       }
+      biological_asset_valuations: {
+        Row: {
+          animal_id: string
+          created_at: string | null
+          estimated_value: number | null
+          farm_id: string
+          id: string
+          is_sold: boolean | null
+          market_price_per_kg: number
+          valuation_date: string
+          weight_kg: number
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string | null
+          estimated_value?: number | null
+          farm_id: string
+          id?: string
+          is_sold?: boolean | null
+          market_price_per_kg: number
+          valuation_date?: string
+          weight_kg: number
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string | null
+          estimated_value?: number | null
+          farm_id?: string
+          id?: string
+          is_sold?: boolean | null
+          market_price_per_kg?: number
+          valuation_date?: string
+          weight_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biological_asset_valuations_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "biological_asset_valuations_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "biological_asset_valuations_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       body_condition_scores: {
         Row: {
           animal_id: string
@@ -785,6 +843,7 @@ export type Database = {
       }
       farm_expenses: {
         Row: {
+          allocation_type: string | null
           amount: number
           category: string
           created_at: string | null
@@ -799,6 +858,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          allocation_type?: string | null
           amount: number
           category: string
           created_at?: string | null
@@ -813,6 +873,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          allocation_type?: string | null
           amount?: number
           category?: string
           created_at?: string | null
@@ -903,6 +964,80 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farm_revenues: {
+        Row: {
+          amount: number
+          created_at: string | null
+          farm_id: string
+          id: string
+          is_deleted: boolean | null
+          linked_animal_id: string | null
+          linked_milk_log_id: string | null
+          notes: string | null
+          source: string
+          transaction_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          farm_id: string
+          id?: string
+          is_deleted?: boolean | null
+          linked_animal_id?: string | null
+          linked_milk_log_id?: string | null
+          notes?: string | null
+          source: string
+          transaction_date?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          farm_id?: string
+          id?: string
+          is_deleted?: boolean | null
+          linked_animal_id?: string | null
+          linked_milk_log_id?: string | null
+          notes?: string | null
+          source?: string
+          transaction_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_revenues_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_revenues_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_revenues_linked_animal_id_fkey"
+            columns: ["linked_animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_revenues_linked_milk_log_id_fkey"
+            columns: ["linked_milk_log_id"]
+            isOneToOne: false
+            referencedRelation: "milking_records"
             referencedColumns: ["id"]
           },
         ]
