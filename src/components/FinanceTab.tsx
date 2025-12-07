@@ -4,6 +4,7 @@ import { ExpenseSummary } from "@/components/finance/ExpenseSummary";
 import { RevenueSummary } from "@/components/finance/RevenueSummary";
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { AddExpenseDialog } from "@/components/finance/AddExpenseDialog";
+import { HerdValueChart } from "@/components/finance/HerdValueChart";
 
 interface FinanceTabProps {
   farmId: string;
@@ -16,7 +17,7 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Finance</h2>
-          <p className="text-muted-foreground">Track your farm income and expenses</p>
+          <p className="text-muted-foreground">Track your farm income, expenses, and asset value</p>
         </div>
         {canManage && (
           <AddExpenseDialog 
@@ -30,6 +31,9 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
           />
         )}
       </div>
+
+      {/* Biological Asset Valuation - The Living Bank Account */}
+      <HerdValueChart farmId={farmId} />
 
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Revenue</h3>
