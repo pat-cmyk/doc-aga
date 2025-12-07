@@ -5,6 +5,7 @@ import { RevenueSummary } from "@/components/finance/RevenueSummary";
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { AddExpenseDialog } from "@/components/finance/AddExpenseDialog";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
+import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
 
 interface FinanceTabProps {
   farmId: string;
@@ -31,6 +32,9 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
           />
         )}
       </div>
+
+      {/* Breakeven Dashboard - P&L Overview */}
+      <ProfitabilityThermometer farmId={farmId} />
 
       {/* Biological Asset Valuation - The Living Bank Account */}
       <HerdValueChart farmId={farmId} />
