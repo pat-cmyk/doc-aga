@@ -852,6 +852,7 @@ export type Database = {
           farm_id: string
           id: string
           is_deleted: boolean | null
+          linked_feed_inventory_id: string | null
           payment_method: string | null
           receipt_url: string | null
           updated_at: string | null
@@ -867,6 +868,7 @@ export type Database = {
           farm_id: string
           id?: string
           is_deleted?: boolean | null
+          linked_feed_inventory_id?: string | null
           payment_method?: string | null
           receipt_url?: string | null
           updated_at?: string | null
@@ -882,6 +884,7 @@ export type Database = {
           farm_id?: string
           id?: string
           is_deleted?: boolean | null
+          linked_feed_inventory_id?: string | null
           payment_method?: string | null
           receipt_url?: string | null
           updated_at?: string | null
@@ -900,6 +903,13 @@ export type Database = {
             columns: ["farm_id"]
             isOneToOne: false
             referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_expenses_linked_feed_inventory_id_fkey"
+            columns: ["linked_feed_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "feed_inventory"
             referencedColumns: ["id"]
           },
         ]
