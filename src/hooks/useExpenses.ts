@@ -12,6 +12,7 @@ export interface Expense {
   expense_date: string;
   payment_method: string | null;
   receipt_url: string | null;
+  allocation_type: 'Operational' | 'Capital' | 'Personal' | null;
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
@@ -32,6 +33,7 @@ interface AddExpenseData {
   description?: string;
   expense_date: string;
   payment_method?: string;
+  allocation_type?: 'Operational' | 'Personal';
 }
 
 export function useExpenses(farmId: string) {

@@ -87,3 +87,21 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
  * ```
  */
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/**
+ * Allocation types for expense tracking
+ * 
+ * Distinguishes between farm business expenses and personal expenses.
+ * Personal expenses are tracked in cash flow but excluded from farm profitability calculations.
+ * 
+ * @constant
+ */
+export const ALLOCATION_TYPES = {
+  FARM: 'Operational',
+  PERSONAL: 'Personal',
+} as const;
+
+/**
+ * TypeScript type for allocation types
+ */
+export type AllocationType = (typeof ALLOCATION_TYPES)[keyof typeof ALLOCATION_TYPES];
