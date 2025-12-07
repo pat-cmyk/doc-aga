@@ -1729,24 +1729,33 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_sold: boolean | null
           liters: number
+          price_per_liter: number | null
           record_date: string
+          sale_amount: number | null
         }
         Insert: {
           animal_id: string
           created_at?: string
           created_by?: string | null
           id?: string
+          is_sold?: boolean | null
           liters?: number
+          price_per_liter?: number | null
           record_date: string
+          sale_amount?: number | null
         }
         Update: {
           animal_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          is_sold?: boolean | null
           liters?: number
+          price_per_liter?: number | null
           record_date?: string
+          sale_amount?: number | null
         }
         Relationships: [
           {

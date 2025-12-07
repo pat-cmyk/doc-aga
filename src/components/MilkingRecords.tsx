@@ -5,23 +5,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Loader2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { getCachedRecords } from "@/lib/dataCache";
+import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
 
 const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ date: new Date().toISOString().split("T")[0], liters: "" });
+  const [formData, setFormData] = useState({ 
+    date: new Date().toISOString().split("T")[0], 
+    liters: "",
+    isSold: false,
+    pricePerLiter: ""
+  });
   const [filterPeriod, setFilterPeriod] = useState<"all" | "cycle" | "month">("all");
   const [latestCalvingDate, setLatestCalvingDate] = useState<Date | null>(null);
   const [animalGender, setAnimalGender] = useState<string | null>(null);
+  const [animalFarmId, setAnimalFarmId] = useState<string | null>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  
+  const { data: lastMilkPrice } = useLastMilkPrice(animalFarmId || "");
+  const addRevenue = useAddRevenue();
 
   useEffect(() => {
     loadAnimalGender();
@@ -53,10 +64,11 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const loadAnimalGender = async () => {
     const { data } = await supabase
       .from("animals")
-      .select("gender")
+      .select("gender, farm_id")
       .eq("id", animalId)
       .single();
     setAnimalGender(data?.gender || null);
+    setAnimalFarmId(data?.farm_id || null);
   };
 
   const loadLatestCalvingDate = async () => {
@@ -93,13 +105,75 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("milking_records").insert({ animal_id: animalId, record_date: formData.date, liters: parseFloat(formData.liters), created_by: user?.id });
+    
+    const liters = parseFloat(formData.liters);
+    const pricePerLiter = formData.isSold ? parseFloat(formData.pricePerLiter) : null;
+    const saleAmount = formData.isSold && pricePerLiter ? liters * pricePerLiter : null;
+    
+    const { data: milkRecord, error } = await supabase
+      .from("milking_records")
+      .insert({ 
+        animal_id: animalId, 
+        record_date: formData.date, 
+        liters: liters, 
+        created_by: user?.id,
+        is_sold: formData.isSold,
+        price_per_liter: pricePerLiter,
+        sale_amount: saleAmount
+      })
+      .select()
+      .single();
+      
     if (error) {
       console.error('Insert milking record error:', error);
       toast({ title: "Error", description: "Unable to add milking record. Please try again.", variant: "destructive" });
+      return;
     }
-    else { toast({ title: "Success", description: "Record added" }); setShowForm(false); setFormData({ date: new Date().toISOString().split("T")[0], liters: "" }); loadRecords(); }
+    
+    // If sold, create a revenue record
+    if (formData.isSold && saleAmount && animalFarmId && milkRecord) {
+      try {
+        await addRevenue.mutateAsync({
+          farm_id: animalFarmId,
+          amount: saleAmount,
+          source: "Milk Sale",
+          transaction_date: formData.date,
+          linked_animal_id: animalId,
+          linked_milk_log_id: milkRecord.id,
+          notes: `${liters}L @ ₱${pricePerLiter}/L`
+        });
+      } catch (revenueError) {
+        console.error('Insert revenue error:', revenueError);
+        // Still show success for milking record, but warn about revenue
+        toast({ title: "Partial Success", description: "Milking record added, but revenue tracking failed.", variant: "default" });
+        setShowForm(false);
+        resetForm();
+        loadRecords();
+        return;
+      }
+    }
+    
+    toast({ title: "Success", description: formData.isSold ? "Milking record and revenue added" : "Record added" }); 
+    setShowForm(false); 
+    resetForm();
+    loadRecords();
   };
+  
+  const resetForm = () => {
+    setFormData({ 
+      date: new Date().toISOString().split("T")[0], 
+      liters: "",
+      isSold: false,
+      pricePerLiter: ""
+    });
+  };
+
+  // Set default price when last milk price loads
+  useEffect(() => {
+    if (lastMilkPrice && !formData.pricePerLiter) {
+      setFormData(prev => ({ ...prev, pricePerLiter: String(lastMilkPrice) }));
+    }
+  }, [lastMilkPrice]);
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
@@ -195,6 +269,52 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
               <Label htmlFor="liters">Liters</Label>
               <Input id="liters" type="number" step="0.01" value={formData.liters} onChange={(e) => setFormData(prev => ({ ...prev, liters: e.target.value }))} required className="min-h-[48px]" />
             </div>
+            
+            {/* Sale Toggle */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="is-sold" className="text-base">Did you sell this milk?</Label>
+                <p className="text-xs text-muted-foreground">Track revenue from this production</p>
+              </div>
+              <Switch 
+                id="is-sold" 
+                checked={formData.isSold} 
+                onCheckedChange={(checked) => setFormData(prev => ({ 
+                  ...prev, 
+                  isSold: checked,
+                  pricePerLiter: checked && !prev.pricePerLiter ? String(lastMilkPrice || 65) : prev.pricePerLiter
+                }))} 
+              />
+            </div>
+            
+            {/* Sale Details */}
+            {formData.isSold && (
+              <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <div className="space-y-2">
+                  <Label htmlFor="price-per-liter">Price per Liter (₱)</Label>
+                  <Input 
+                    id="price-per-liter" 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.pricePerLiter} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, pricePerLiter: e.target.value }))} 
+                    required 
+                    className="min-h-[48px]" 
+                    placeholder="e.g. 65.00"
+                  />
+                </div>
+                
+                {formData.liters && formData.pricePerLiter && (
+                  <div className="flex items-center gap-2 text-primary font-medium">
+                    <Info className="h-4 w-4" />
+                    <span>
+                      Total Earnings: ₱{(parseFloat(formData.liters) * parseFloat(formData.pricePerLiter)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 min-h-[48px]">Cancel</Button>
               <Button type="submit" className="flex-1 min-h-[48px]">Save</Button>
