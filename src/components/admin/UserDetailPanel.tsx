@@ -27,10 +27,12 @@ import {
   Ban,
   CheckCircle,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Ticket
 } from "lucide-react";
 import { format } from "date-fns";
 import { EditUserDialog } from "./EditUserDialog";
+import { CreateTicketDialog } from "./CreateTicketDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +59,7 @@ export const UserDetailPanel = ({ userId, open, onOpenChange }: UserDetailPanelP
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [disableDialogOpen, setDisableDialogOpen] = useState(false);
   const [disableReason, setDisableReason] = useState("");
+  const [createTicketOpen, setCreateTicketOpen] = useState(false);
 
   // Fetch user details
   const { data: user, isLoading: userLoading } = useQuery({
@@ -260,6 +263,14 @@ export const UserDetailPanel = ({ userId, open, onOpenChange }: UserDetailPanelP
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCreateTicketOpen(true)}
+                        >
+                          <Ticket className="h-4 w-4 mr-1" />
+                          Ticket
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -426,6 +437,13 @@ export const UserDetailPanel = ({ userId, open, onOpenChange }: UserDetailPanelP
         user={user}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+      />
+
+      {/* Create Ticket Dialog */}
+      <CreateTicketDialog
+        open={createTicketOpen}
+        onOpenChange={setCreateTicketOpen}
+        linkedUserId={userId || undefined}
       />
 
       {/* Disable/Enable Confirmation Dialog */}

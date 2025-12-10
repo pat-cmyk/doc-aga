@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3, ScrollText } from "lucide-react";
+import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3, ScrollText, Ticket } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { AdminGlobalSearch } from "./AdminGlobalSearch";
@@ -92,6 +92,10 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
             
             {isAdmin && (
               <>
+                <TabsTrigger value="tickets">
+                  <Ticket className="h-4 w-4 mr-2" />
+                  Tickets
+                </TabsTrigger>
                 <TabsTrigger value="docaga">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Doc Aga
