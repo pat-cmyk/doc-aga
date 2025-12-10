@@ -3,10 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { UserDetailPanel } from "./UserDetailPanel";
 import { useState, useEffect } from "react";
+import { Eye, Ban } from "lucide-react";
 
 type UserRole = "admin" | "farmer_owner" | "farmhand" | "merchant" | "vet" | "government";
 
@@ -18,11 +21,14 @@ interface UserWithDetails {
   created_at: string;
   email: string;
   farm_count: number;
+  is_disabled?: boolean;
 }
 
 export const UserManagement = () => {
   const queryClient = useQueryClient();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [detailPanelOpen, setDetailPanelOpen] = useState(false);
 
   useEffect(() => {
     checkSuperAdmin();
@@ -42,7 +48,7 @@ export const UserManagement = () => {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<UserWithDetails[]> => {
-      // Get profiles without role column
+      // Get profiles with is_disabled column
       const { data: profilesData, error: profileError } = await supabase
         .from("profiles")
         .select(`
@@ -50,7 +56,8 @@ export const UserManagement = () => {
           full_name,
           phone,
           email,
-          created_at
+          created_at,
+          is_disabled
         `)
         .order("created_at", { ascending: false });
 
@@ -85,7 +92,8 @@ export const UserManagement = () => {
             roles: (rolesData || []).map(r => r.role as UserRole),
             created_at: profile.created_at,
             email: profile.email || "N/A",
-            farm_count: (farmsOwned || 0) + (farmMemberships || 0)
+            farm_count: (farmsOwned || 0) + (farmMemberships || 0),
+            is_disabled: profile.is_disabled || false
           };
         })
       );
@@ -196,8 +204,18 @@ export const UserManagement = () => {
           </TableHeader>
           <TableBody>
             {users?.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.full_name}</TableCell>
+              <TableRow key={user.id} className={user.is_disabled ? "opacity-50" : ""}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {user.full_name || "Unnamed"}
+                    {user.is_disabled && (
+                      <Badge variant="destructive" className="text-xs">
+                        <Ban className="h-3 w-3 mr-1" />
+                        Disabled
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.phone || "N/A"}</TableCell>
                 <TableCell>
@@ -229,44 +247,66 @@ export const UserManagement = () => {
                   {new Date(user.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Select
-                    disabled={addRoleMutation.isPending || removeRoleMutation.isPending}
-                    onValueChange={(newRole) => {
-                      if (!user.roles.includes(newRole as UserRole)) {
-                        addRoleMutation.mutate({
-                          userId: user.id,
-                          role: newRole as UserRole,
-                        });
-                      } else {
-                        toast({
-                          title: "Role Exists",
-                          description: "User already has this role.",
-                        });
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Add role..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="farmer_owner">Farmer Owner</SelectItem>
-                      <SelectItem value="farmhand">Farmhand</SelectItem>
-                      <SelectItem value="merchant">Merchant</SelectItem>
-                      <SelectItem value="vet">Veterinarian</SelectItem>
-                      {isSuperAdmin && (
-                        <>
-                          <SelectItem value="government">Government</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUserId(user.id);
+                        setDetailPanelOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Select
+                      disabled={addRoleMutation.isPending || removeRoleMutation.isPending}
+                      onValueChange={(newRole) => {
+                        if (!user.roles.includes(newRole as UserRole)) {
+                          addRoleMutation.mutate({
+                            userId: user.id,
+                            role: newRole as UserRole,
+                          });
+                        } else {
+                          toast({
+                            title: "Role Exists",
+                            description: "User already has this role.",
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Add role..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="farmer_owner">Farmer Owner</SelectItem>
+                        <SelectItem value="farmhand">Farmhand</SelectItem>
+                        <SelectItem value="merchant">Merchant</SelectItem>
+                        <SelectItem value="vet">Veterinarian</SelectItem>
+                        {isSuperAdmin && (
+                          <>
+                            <SelectItem value="government">Government</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* User Detail Panel */}
+      <UserDetailPanel
+        userId={selectedUserId}
+        open={detailPanelOpen}
+        onOpenChange={(open) => {
+          setDetailPanelOpen(open);
+          if (!open) setSelectedUserId(null);
+        }}
+      />
     </Card>
   );
 };

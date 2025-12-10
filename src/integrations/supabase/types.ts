@@ -266,6 +266,47 @@ export type Database = {
           },
         ]
       }
+      admin_profile_edits: {
+        Row: {
+          admin_id: string
+          changes_made: Json
+          created_at: string
+          id: string
+          previous_values: Json | null
+          profile_id: string
+          reason: string
+          ticket_number: string | null
+        }
+        Insert: {
+          admin_id: string
+          changes_made?: Json
+          created_at?: string
+          id?: string
+          previous_values?: Json | null
+          profile_id: string
+          reason: string
+          ticket_number?: string | null
+        }
+        Update: {
+          admin_id?: string
+          changes_made?: Json
+          created_at?: string
+          id?: string
+          previous_values?: Json | null
+          profile_id?: string
+          reason?: string
+          ticket_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_profile_edits_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_records: {
         Row: {
           animal_id: string
@@ -2421,6 +2462,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          is_disabled: boolean | null
           phone: string | null
           updated_at: string
           voice_training_completed: boolean | null
@@ -2431,6 +2473,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          is_disabled?: boolean | null
           phone?: string | null
           updated_at?: string
           voice_training_completed?: boolean | null
@@ -2441,6 +2484,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_disabled?: boolean | null
           phone?: string | null
           updated_at?: string
           voice_training_completed?: boolean | null
@@ -2803,6 +2847,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_disable_user: {
+        Args: { _profile_id: string; _reason: string }
+        Returns: Json
+      }
       admin_edit_animal: {
         Args: {
           _animal_id: string
@@ -2819,6 +2867,19 @@ export type Database = {
           _reason: string
           _ticket_number?: string
         }
+        Returns: Json
+      }
+      admin_edit_profile: {
+        Args: {
+          _changes: Json
+          _profile_id: string
+          _reason: string
+          _ticket_number?: string
+        }
+        Returns: Json
+      }
+      admin_enable_user: {
+        Args: { _profile_id: string; _reason: string }
         Returns: Json
       }
       admin_remove_role: {
