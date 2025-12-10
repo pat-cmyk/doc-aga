@@ -157,6 +157,115 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_animal_edits: {
+        Row: {
+          action_type: string
+          admin_id: string
+          animal_id: string
+          changes_made: Json
+          created_at: string
+          farm_id: string
+          id: string
+          previous_values: Json | null
+          reason: string
+          ticket_number: string | null
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          animal_id: string
+          changes_made?: Json
+          created_at?: string
+          farm_id: string
+          id?: string
+          previous_values?: Json | null
+          reason: string
+          ticket_number?: string | null
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          animal_id?: string
+          changes_made?: Json
+          created_at?: string
+          farm_id?: string
+          id?: string
+          previous_values?: Json | null
+          reason?: string
+          ticket_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_animal_edits_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_animal_edits_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_animal_edits_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_farm_edits: {
+        Row: {
+          admin_id: string
+          changes_made: Json
+          created_at: string
+          farm_id: string
+          id: string
+          previous_values: Json
+          reason: string
+          ticket_number: string | null
+        }
+        Insert: {
+          admin_id: string
+          changes_made?: Json
+          created_at?: string
+          farm_id: string
+          id?: string
+          previous_values?: Json
+          reason: string
+          ticket_number?: string | null
+        }
+        Update: {
+          admin_id?: string
+          changes_made?: Json
+          created_at?: string
+          farm_id?: string
+          id?: string
+          previous_values?: Json
+          reason?: string
+          ticket_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_farm_edits_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_farm_edits_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_records: {
         Row: {
           animal_id: string
@@ -2678,12 +2787,39 @@ export type Database = {
       }
     }
     Functions: {
+      admin_add_animal: {
+        Args: {
+          _animal_data: Json
+          _farm_id: string
+          _reason: string
+          _ticket_number?: string
+        }
+        Returns: Json
+      }
       admin_assign_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
           _user_id: string
         }
         Returns: undefined
+      }
+      admin_edit_animal: {
+        Args: {
+          _animal_id: string
+          _changes: Json
+          _reason: string
+          _ticket_number?: string
+        }
+        Returns: Json
+      }
+      admin_edit_farm: {
+        Args: {
+          _changes: Json
+          _farm_id: string
+          _reason: string
+          _ticket_number?: string
+        }
+        Returns: Json
       }
       admin_remove_role: {
         Args: {

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Ban, Key, Trash2, CheckCircle, ClipboardList } from "lucide-react";
+import { Ban, Key, Trash2, CheckCircle, ClipboardList, Pencil, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -29,7 +29,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { InventoryAuditReport } from "@/components/feed-inventory/InventoryAuditReport";
+import { EditFarmDialog } from "./EditFarmDialog";
+import { FarmDetailPanel } from "./FarmDetailPanel";
+import { AdminGlobalSearch } from "./AdminGlobalSearch";
 
 interface FarmWithDetails {
   id: string;
@@ -43,13 +47,25 @@ interface FarmWithDetails {
   animal_count: number;
   team_members_count: number;
   is_deleted: boolean;
+  province: string | null;
+  municipality: string | null;
+  gps_lat: number;
+  gps_lng: number;
+  livestock_type: string;
+  ffedis_id: string | null;
+  lgu_code: string | null;
+  validation_status: string | null;
+  is_program_participant: boolean | null;
+  program_group: string | null;
 }
-
 export const FarmOversight = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [confirmationInput, setConfirmationInput] = useState<Record<string, string>>({});
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactivated">("active");
   const [selectedFarmForAudit, setSelectedFarmForAudit] = useState<string | null>(null);
+  const [selectedFarmForEdit, setSelectedFarmForEdit] = useState<FarmWithDetails | null>(null);
+  const [selectedFarmForDetail, setSelectedFarmForDetail] = useState<FarmWithDetails | null>(null);
 
   const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
     queryKey: ["admin-farms", statusFilter],
