@@ -296,5 +296,167 @@ export const TRAINING_PHRASES: TrainingPhrase[] = [
     text: 'Kumpleto na ang vaccination ng mga goats natin',
     language: 'taglish',
     category: 'health'
+  },
+
+  // Taglish - Questions
+  {
+    id: 'tgl-31',
+    text: 'Ano ba ang normal na weight ng guya na 3 months old?',
+    language: 'taglish',
+    category: 'questions'
+  },
+  {
+    id: 'tgl-32',
+    text: 'Okay lang ba na hindi nag-milk today si Brownie?',
+    language: 'taglish',
+    category: 'questions'
+  },
+  {
+    id: 'tgl-33',
+    text: 'Kelan ba ang next schedule ng deworming?',
+    language: 'taglish',
+    category: 'questions'
+  },
+  {
+    id: 'tgl-34',
+    text: 'Magkano na kaya ang price ng baka ngayon?',
+    language: 'taglish',
+    category: 'questions'
+  },
+  {
+    id: 'tgl-35',
+    text: 'Bakit kaya hindi kumakain yung toro?',
+    language: 'taglish',
+    category: 'questions'
+  },
+
+  // Taglish - Urgency/Emergency
+  {
+    id: 'tgl-36',
+    text: 'Emergency po, hindi na makatayo yung cow natin!',
+    language: 'taglish',
+    category: 'emergency'
+  },
+  {
+    id: 'tgl-37',
+    text: 'Ayaw talaga kumain ng baka, worried na ako',
+    language: 'taglish',
+    category: 'emergency'
+  },
+  {
+    id: 'tgl-38',
+    text: 'May dugo yung discharge ng pregnant cow, urgent!',
+    language: 'taglish',
+    category: 'emergency'
+  },
+  {
+    id: 'tgl-39',
+    text: 'Parang hindi na okay yung guya, please help po',
+    language: 'taglish',
+    category: 'emergency'
+  },
+
+  // Taglish - Financial/Business
+  {
+    id: 'tgl-40',
+    text: 'Record mo yung gastos ko, 3,000 pesos sa feeds',
+    language: 'taglish',
+    category: 'financial'
+  },
+  {
+    id: 'tgl-41',
+    text: 'Nag-earn ako ng 15,000 from milk sales this week',
+    language: 'taglish',
+    category: 'financial'
+  },
+  {
+    id: 'tgl-42',
+    text: 'Magkano na ba ang market price ng cattle ngayon?',
+    language: 'taglish',
+    category: 'financial'
+  },
+  {
+    id: 'tgl-43',
+    text: 'I-update mo yung expenses ko for this month',
+    language: 'taglish',
+    category: 'financial'
+  },
+
+  // Taglish - Polite/Respectful Forms (po/opo)
+  {
+    id: 'tgl-44',
+    text: 'Gusto ko po i-record yung milk production today',
+    language: 'taglish',
+    category: 'daily-activities'
+  },
+  {
+    id: 'tgl-45',
+    text: 'Patulong po, may tinik yung paa ng baka',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-46',
+    text: 'Pwede po bang i-schedule ang AI next week?',
+    language: 'taglish',
+    category: 'breeding'
+  },
+  {
+    id: 'tgl-47',
+    text: 'Nagpa-bakuna po ako sa mga animals kahapon',
+    language: 'taglish',
+    category: 'health'
+  },
+
+  // Taglish - Conversational/Natural Speech
+  {
+    id: 'tgl-48',
+    text: 'Ay oo nga pala, may dagdag pa akong record kanina',
+    language: 'taglish',
+    category: 'records'
+  },
+  {
+    id: 'tgl-49',
+    text: 'So ayun, medyo mababa ang production this week',
+    language: 'taglish',
+    category: 'daily-activities'
+  },
+  {
+    id: 'tgl-50',
+    text: 'Sige, i-check ko muna yung condition ng mga hayop',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-51',
+    text: 'Tapos yung isa pa, kailangan na rin ng vaccine',
+    language: 'taglish',
+    category: 'health'
+  },
+
+  // Taglish - Complex Quantity Patterns
+  {
+    id: 'tgl-52',
+    text: 'Mga sampung hanggang labinlimang litro ang output today',
+    language: 'taglish',
+    category: 'measurements'
+  },
+  {
+    id: 'tgl-53',
+    text: 'Around three to four bags pa ang kailangan natin',
+    language: 'taglish',
+    category: 'feed'
+  },
+  {
+    id: 'tgl-54',
+    text: 'Halos 500 kilos na siya, give or take',
+    language: 'taglish',
+    category: 'measurements'
+  },
+  {
+    id: 'tgl-55',
+    text: 'Mga dalawa o tatlong beses a day ang feeding',
+    language: 'taglish',
+    category: 'feed'
   }
 ];

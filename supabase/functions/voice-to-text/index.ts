@@ -197,6 +197,44 @@ TAGLISH (Code-Switching) Examples - Common in Filipino speech:
 - "May lagnat yung cow, need ng check-up" = The cow has fever, needs check-up
 - "Around 20 liters ang na-milk ko" = I milked around 20 liters
 - "Nag-record ng weight, around 450 kilos" = Recorded weight, around 450 kilos
+
+QUESTION PATTERNS:
+- "Ano ba ang..." = What is the...
+- "Okay lang ba..." = Is it okay if...
+- "Kelan ba ang..." = When is the...
+- "Magkano na..." = How much is...
+- "Bakit kaya..." = Why is it that...
+- "Pwede ba..." = Can/Is it possible...
+
+POLITE FORMS (po/opo):
+- "Gusto ko po..." = I want to... (polite)
+- "Patulong po..." = Please help... (polite)
+- "Pwede po bang..." = May I please... (polite)
+- "Nagpa-bakuna po ako" = I had vaccinated (polite)
+
+URGENCY/EMERGENCY:
+- "Emergency po!" = Emergency! (polite)
+- "Urgent!" = Urgent!
+- "Hindi na makatayo" = Can't stand anymore
+- "Worried na ako" = I'm worried now
+- "Please help po" = Please help (polite)
+
+CONVERSATIONAL FILLERS:
+- "Ay oo nga pala" = Oh by the way
+- "So ayun" = So there/So that's it
+- "Sige" = Okay/Alright
+- "Tapos yung isa pa" = Then also the other one
+- "Mga..." = Around/Approximately
+- "Give or take" = More or less
+- "Halos" = Almost/Nearly
+
+FINANCIAL TERMS:
+- "Gastos" = Expenses
+- "Nag-earn" = Earned
+- "Market price" = Market price
+- "Pesos" = Pesos
+- "Nabenta" = Sold
+- "I-update" = Update
     `.trim();
 
     // Prepare form data for OpenAI Whisper API
