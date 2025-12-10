@@ -320,6 +320,22 @@ export const FarmOversight = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        title="View farm details"
+                        onClick={() => setSelectedFarmForDetail(farm)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Edit farm"
+                        onClick={() => setSelectedFarmForEdit(farm)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         title="View inventory audit"
                         onClick={() => setSelectedFarmForAudit(farm.id)}
                       >
@@ -512,6 +528,31 @@ export const FarmOversight = () => {
           {selectedFarmForAudit && <InventoryAuditReport farmId={selectedFarmForAudit} />}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Farm Dialog */}
+      <EditFarmDialog
+        farm={selectedFarmForEdit}
+        open={selectedFarmForEdit !== null}
+        onOpenChange={(open) => !open && setSelectedFarmForEdit(null)}
+      />
+
+      {/* Farm Detail Panel */}
+      <FarmDetailPanel
+        farmId={selectedFarmForDetail?.id || null}
+        farmName={selectedFarmForDetail?.name || ""}
+        open={selectedFarmForDetail !== null}
+        onOpenChange={(open) => !open && setSelectedFarmForDetail(null)}
+        onEditFarm={() => {
+          if (selectedFarmForDetail) {
+            setSelectedFarmForEdit(selectedFarmForDetail);
+          }
+        }}
+        onViewAsFarmer={() => {
+          if (selectedFarmForDetail) {
+            navigate(`/admin/view-farm/${selectedFarmForDetail.id}`);
+          }
+        }}
+      />
     </TooltipProvider>
   );
 };
