@@ -37,6 +37,7 @@ const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
 const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
+const AdminViewFarm = lazy(() => import("./pages/AdminViewFarm"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -156,6 +157,14 @@ const App = () => (
                 element={
                   <SuperAdminRoute>
                     <AdminDashboard />
+                  </SuperAdminRoute>
+                } 
+              />
+              <Route 
+                path="/admin/view-farm/:farmId" 
+                element={
+                  <SuperAdminRoute>
+                    <AdminViewFarm />
                   </SuperAdminRoute>
                 } 
               />
