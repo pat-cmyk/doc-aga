@@ -76,6 +76,16 @@ export const FarmOversight = () => {
           id,
           name,
           region,
+          province,
+          municipality,
+          gps_lat,
+          gps_lng,
+          livestock_type,
+          ffedis_id,
+          lgu_code,
+          validation_status,
+          is_program_participant,
+          program_group,
           created_at,
           owner_id,
           is_deleted,
@@ -101,6 +111,16 @@ export const FarmOversight = () => {
         id: string;
         name: string;
         region: string | null;
+        province: string | null;
+        municipality: string | null;
+        gps_lat: number;
+        gps_lng: number;
+        livestock_type: string;
+        ffedis_id: string | null;
+        lgu_code: string | null;
+        validation_status: string | null;
+        is_program_participant: boolean | null;
+        program_group: string | null;
         created_at: string;
         owner_id: string;
         is_deleted: boolean;
@@ -109,21 +129,29 @@ export const FarmOversight = () => {
         farm_memberships: Array<{ count: number }>;
       }>;
 
-      return farmsData.map((farm) => {
-        return {
-          id: farm.id,
-          name: farm.name,
-          region: farm.region,
-          created_at: farm.created_at,
-          owner_id: farm.owner_id,
-          owner_name: farm.profiles?.full_name || "Unknown",
-          owner_email: farm.profiles?.email || "N/A",
-          owner_phone: farm.profiles?.phone || "N/A",
-          animal_count: farm.animals?.[0]?.count || 0,
-          team_members_count: farm.farm_memberships?.[0]?.count || 0,
-          is_deleted: farm.is_deleted,
-        };
-      });
+      return farmsData.map((farm) => ({
+        id: farm.id,
+        name: farm.name,
+        region: farm.region,
+        province: farm.province,
+        municipality: farm.municipality,
+        gps_lat: farm.gps_lat,
+        gps_lng: farm.gps_lng,
+        livestock_type: farm.livestock_type,
+        ffedis_id: farm.ffedis_id,
+        lgu_code: farm.lgu_code,
+        validation_status: farm.validation_status,
+        is_program_participant: farm.is_program_participant,
+        program_group: farm.program_group,
+        created_at: farm.created_at,
+        owner_id: farm.owner_id,
+        owner_name: farm.profiles?.full_name || "Unknown",
+        owner_email: farm.profiles?.email || "N/A",
+        owner_phone: farm.profiles?.phone || "N/A",
+        animal_count: farm.animals?.[0]?.count || 0,
+        team_members_count: farm.farm_memberships?.[0]?.count || 0,
+        is_deleted: farm.is_deleted,
+      }));
     },
   });
 
