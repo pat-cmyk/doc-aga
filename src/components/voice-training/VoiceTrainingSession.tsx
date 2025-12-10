@@ -1,12 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Mic, Check, RotateCcw, Play, Loader2, X } from "lucide-react";
-import { TRAINING_PHRASES } from "@/lib/voiceTrainingPhrases";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TRAINING_PHRASES, TrainingPhrase } from "@/lib/voiceTrainingPhrases";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+
+type LanguageFilter = 'all' | 'english' | 'tagalog' | 'taglish';
 
 export function VoiceTrainingSession() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -14,6 +17,7 @@ export function VoiceTrainingSession() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [recordedSamples, setRecordedSamples] = useState(0);
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('all');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -22,9 +26,22 @@ export function VoiceTrainingSession() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const currentPhrase = TRAINING_PHRASES[currentIndex];
-  const totalPhrases = TRAINING_PHRASES.length;
-  const progress = (recordedSamples / totalPhrases) * 100;
+  // Filter phrases based on selected language
+  const filteredPhrases = useMemo(() => {
+    if (languageFilter === 'all') return TRAINING_PHRASES;
+    return TRAINING_PHRASES.filter(p => p.language === languageFilter);
+  }, [languageFilter]);
+
+  const currentPhrase = filteredPhrases[currentIndex] || filteredPhrases[0];
+  const totalPhrases = filteredPhrases.length;
+  const progress = totalPhrases > 0 ? (recordedSamples / totalPhrases) * 100 : 0;
+
+  // Reset index when filter changes
+  useEffect(() => {
+    setCurrentIndex(0);
+    setRecordedSamples(0);
+    setAudioBlob(null);
+  }, [languageFilter]);
 
   useEffect(() => {
     return () => {
@@ -123,11 +140,11 @@ export function VoiceTrainingSession() {
       setRecordedSamples(prev => prev + 1);
       setAudioBlob(null);
 
-      if (currentIndex < totalPhrases - 1) {
+      if (currentIndex < filteredPhrases.length - 1) {
         setCurrentIndex(prev => prev + 1);
         toast({
           title: "Sample Saved",
-          description: `${recordedSamples + 1} of ${totalPhrases} completed`
+          description: `${recordedSamples + 1} of ${filteredPhrases.length} completed`
         });
       } else {
         // All phrases completed
@@ -198,21 +215,33 @@ export function VoiceTrainingSession() {
       <div className="flex-1 flex items-center justify-center">
         <Card className="max-w-2xl w-full p-8">
           <div className="space-y-8">
+            {/* Language Filter Tabs */}
+            <Tabs value={languageFilter} onValueChange={(v) => setLanguageFilter(v as LanguageFilter)} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="english">🇬🇧 English</TabsTrigger>
+                <TabsTrigger value="tagalog">🇵🇭 Tagalog</TabsTrigger>
+                <TabsTrigger value="taglish">🔀 Taglish</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {/* Language Badge */}
             <div className="flex items-center justify-center gap-2">
               <span className="text-2xl">
-                {currentPhrase.language === 'english' ? '🇬🇧' : '🇵🇭'}
+                {currentPhrase?.language === 'english' ? '🇬🇧' : currentPhrase?.language === 'taglish' ? '🔀' : '🇵🇭'}
               </span>
               <span className="text-sm font-medium capitalize text-muted-foreground">
-                {currentPhrase.language}
+                {currentPhrase?.language === 'taglish' ? 'Taglish (Mixed)' : currentPhrase?.language}
               </span>
             </div>
 
             {/* Phrase to Read */}
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Please read:</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                {currentPhrase?.language === 'taglish' ? 'Read naturally with mixed language:' : 'Please read:'}
+              </p>
               <p className="text-3xl font-semibold leading-relaxed">
-                {currentPhrase.text}
+                {currentPhrase?.text}
               </p>
             </div>
 
