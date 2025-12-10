@@ -616,14 +616,34 @@ Numbers (Tagalog):
 - Examples: "lima litro"=5 liters, "sampu sako"=10 bags, "tatlo bigkis"=3 bales
 - CRITICAL: Convert Tagalog numbers to digits for database storage!
 
-Mixed Language (Taglish):
+Mixed Language (Taglish) - COMPREHENSIVE CODE-SWITCHING PATTERNS:
+Filipino farmers commonly mix Tagalog and English. Recognize these patterns:
+
+**Taglish Verb Patterns (Tagalog prefix + English verb):**
 - "Nag-feed ako ng 10 bales" = I fed 10 bales
-- "Pinakain ko ang 5 sako" = I fed 5 bags
-- "Nag-milk ng 20 litro" = Milked 20 liters
+- "Nag-milk ako this morning" = I milked this morning
+- "Nag-check ko yung records" = I checked the records
+- "Nag-weigh namin yung toro" = We weighed the bull
+- "Nag-inject ako ng antibiotics" = I injected antibiotics
+
+**Taglish with Mixed Quantities:**
+- "Pinakain ko sila ng 5 bags of concentrates" = I fed them 5 bags of concentrates
+- "Around 20 liters ang na-milk ko" = I milked around 20 liters
+- "Mga 450 kilos yung weight niya" = Its weight is about 450 kilos
 - "Nag-milk ng dalawampu litro" = Milked 20 liters
 - "Lima sako ng darak" = 5 bags of rice bran
 
-CRITICAL: Extract correct English equivalents for database storage!
+**Taglish Marker Words to Recognize:**
+- "yung" / "ang" = the
+- "ng" = of/the (linker)
+- "naman", "po", "daw", "kasi", "eh", "ba", "na", "pa", "lang"
+
+**Taglish Health/Observation:**
+- "Parang may lagnat yung baka" = The cow seems to have fever
+- "May sakit yung guya, need ng check-up" = The calf is sick, needs check-up
+- "Yung baka is showing heat signs na" = The cow is now showing heat signs
+
+CRITICAL: Extract correct English equivalents for database storage while understanding Taglish context!
 
 **IMPORTANT - Feeding Activity Logic**:
 - If farmhand mentions SPECIFIC animals (ear tag, name), extract animal_identifier

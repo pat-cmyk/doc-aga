@@ -160,14 +160,14 @@ serve(async (req) => {
     // Create blob from binary audio data
     const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
     
-    // Philippine agricultural terminology glossary for context
+    // Philippine agricultural terminology glossary for context with Taglish support
     const farmTermsPrompt = `
-Agricultural terms (English/Tagalog):
-- Feeding: pagpapakain, pagkain ng hayop
-- Milking: paggatas, pagkagatas
-- Weight: timbang, bigat
-- Health check: tsek sa kalusugan
-- Injection: iniksyon, bakuna
+Agricultural terms (English/Tagalog/Taglish):
+- Feeding: pagpapakain, pagkain ng hayop, nag-feed
+- Milking: paggatas, pagkagatas, nag-milk, nag-gatas
+- Weight: timbang, bigat, nag-weigh
+- Health check: tsek sa kalusugan, nag-check
+- Injection: iniksyon, bakuna, tinurukan, nag-inject
 - Medicine: gamot, medisina
 - Calf: guya, batang baka
 - Heifer: dumalagang baka
@@ -176,21 +176,35 @@ Agricultural terms (English/Tagalog):
 - Pregnant: buntis, nagdadalang-tao
 - Artificial insemination: artipisyal na pagpapalihi, AI
 - Birth: panganganak, pagsilang
-- Feed types: concentrate, roughage, hay, grass, palay
+- Feed types: concentrate, roughage, hay, grass, palay, dayami, darak, mais
 - Liters: litro
 - Kilograms: kilo
+- Units: bales, bags, sako, supot, bigkis
 - Numbers: isa (1), dalawa (2), tatlo (3), apat (4), lima (5), anim (6), pito (7), walo (8), siyam (9), sampu (10)
 - Larger numbers: labinisa (11), labindalawa (12), dalawampu (20), tatlumpu (30), apatnapu (40), limampu (50)
 - Sick: may sakit
 - Healthy: malusog
 - Temperature: temperatura, lagnat
+
+TAGLISH (Code-Switching) Examples - Common in Filipino speech:
+- "Nag-feed ako ng 10 bales" = I fed 10 bales
+- "Check mo yung milk production" = Check the milk production
+- "Ang baka is doing well today" = The cow is doing well today
+- "Need natin mag-inject ng vaccine" = We need to inject vaccine
+- "Nag-milk ako this morning" = I milked this morning
+- "Yung guya ay medyo underweight" = The calf is a bit underweight
+- "Pinakain ko sila ng 5 bags of concentrates" = I fed them 5 bags of concentrates
+- "May lagnat yung cow, need ng check-up" = The cow has fever, needs check-up
+- "Around 20 liters ang na-milk ko" = I milked around 20 liters
+- "Nag-record ng weight, around 450 kilos" = Recorded weight, around 450 kilos
     `.trim();
 
     // Prepare form data for OpenAI Whisper API
+    // Note: Remove language parameter to enable auto-detection for Taglish support
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-1');
-    formData.append('language', 'en'); // Primary language
+    // Language auto-detect for Taglish/code-switching support
     formData.append('prompt', farmTermsPrompt); // Context for better recognition
 
     // Send to OpenAI Whisper API
