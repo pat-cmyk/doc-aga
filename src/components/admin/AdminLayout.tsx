@@ -1,10 +1,13 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3, ScrollText } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
+import { AdminGlobalSearch } from "./AdminGlobalSearch";
+import { FarmDetailPanel } from "./FarmDetailPanel";
+import { useNavigate } from "react-router-dom";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,6 +18,14 @@ interface AdminLayoutProps {
 export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutProps) => {
   const { isLoading } = useAdminAccess();
   const { isAdmin } = useRole();
+  const navigate = useNavigate();
+  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const [selectedFarmName, setSelectedFarmName] = useState("");
+
+  const handleSelectFarm = (farmId: string, farmName: string) => {
+    setSelectedFarmId(farmId);
+    setSelectedFarmName(farmName);
+  };
 
   if (isLoading) {
     return (
@@ -35,12 +46,29 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
               <p className="text-sm text-muted-foreground">System Administration</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <AdminGlobalSearch onSelectFarm={handleSelectFarm} />
             <NetworkStatusIndicator />
             <UserEmailDropdown />
           </div>
         </div>
       </header>
+
+      <FarmDetailPanel
+        farmId={selectedFarmId}
+        farmName={selectedFarmName}
+        open={selectedFarmId !== null}
+        onOpenChange={(open) => !open && setSelectedFarmId(null)}
+        onEditFarm={() => {
+          onTabChange("farms");
+          setSelectedFarmId(null);
+        }}
+        onViewAsFarmer={() => {
+          if (selectedFarmId) {
+            navigate(`/admin/view-farm/${selectedFarmId}`);
+          }
+        }}
+      />
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={onTabChange}>
