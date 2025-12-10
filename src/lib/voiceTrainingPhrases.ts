@@ -166,5 +166,135 @@ export const TRAINING_PHRASES: TrainingPhrase[] = [
     text: 'I-schedule natin ang deworming next month',
     language: 'taglish',
     category: 'health'
+  },
+
+  // Taglish - Weighing/Measurements
+  {
+    id: 'tgl-11',
+    text: 'Nag-weigh ako sa toro, mga 480 kilos siya ngayon',
+    language: 'taglish',
+    category: 'measurements'
+  },
+  {
+    id: 'tgl-12',
+    text: 'Record mo yung weight ng guya, tumaas na siya ng 15 kilos',
+    language: 'taglish',
+    category: 'measurements'
+  },
+  {
+    id: 'tgl-13',
+    text: 'Parang bumaba ang body condition ng pregnant cow natin',
+    language: 'taglish',
+    category: 'measurements'
+  },
+  {
+    id: 'tgl-14',
+    text: 'I-check natin kung normal ang weight gain ng mga calves',
+    language: 'taglish',
+    category: 'measurements'
+  },
+
+  // Taglish - Health Observations
+  {
+    id: 'tgl-15',
+    text: 'Napansin ko may discharge yung isa nating baka, baka may infection',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-16',
+    text: 'Yung goat natin pilay, parang na-sprain yung leg',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-17',
+    text: 'Medyo malungkot yung eyes ng carabao, baka may sakit',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-18',
+    text: 'May namaga sa udder ng cow, possible mastitis ba ito?',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-19',
+    text: 'Nag-inject ako ng vitamins sa mga bagong panganak',
+    language: 'taglish',
+    category: 'health'
+  },
+
+  // Taglish - Breeding/Scheduling
+  {
+    id: 'tgl-20',
+    text: 'Nag-heat na yung heifer natin, ready for breeding',
+    language: 'taglish',
+    category: 'breeding'
+  },
+  {
+    id: 'tgl-21',
+    text: 'I-schedule natin ang AI sa Thursday, confirmed na yung heat',
+    language: 'taglish',
+    category: 'breeding'
+  },
+  {
+    id: 'tgl-22',
+    text: 'Pregnant na yung baka, mga three months na siguro',
+    language: 'taglish',
+    category: 'breeding'
+  },
+  {
+    id: 'tgl-23',
+    text: 'Expected delivery ng cow natin is next month na',
+    language: 'taglish',
+    category: 'breeding'
+  },
+  {
+    id: 'tgl-24',
+    text: 'Nanganak na yung goat natin, dalawa ang kida',
+    language: 'taglish',
+    category: 'breeding'
+  },
+
+  // Taglish - Sales/Exit
+  {
+    id: 'tgl-25',
+    text: 'Nabenta ko yung isa nating toro, 85,000 pesos',
+    language: 'taglish',
+    category: 'sales'
+  },
+  {
+    id: 'tgl-26',
+    text: 'Record mo yung sale ng calf kahapon',
+    language: 'taglish',
+    category: 'sales'
+  },
+  {
+    id: 'tgl-27',
+    text: 'Namatay yung guya natin, parang dahil sa diarrhea',
+    language: 'taglish',
+    category: 'exit'
+  },
+
+  // Taglish - Vaccination/Preventive
+  {
+    id: 'tgl-28',
+    text: 'Na-vaccine na natin lahat ng cattle for FMD',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-29',
+    text: 'Kailangan na mag-deworm ulit, past due na yung schedule',
+    language: 'taglish',
+    category: 'health'
+  },
+  {
+    id: 'tgl-30',
+    text: 'Kumpleto na ang vaccination ng mga goats natin',
+    language: 'taglish',
+    category: 'health'
   }
 ];
