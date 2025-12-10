@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pencil, Plus, Eye, MapPin, Users, Beef } from "lucide-react";
+import { Pencil, Plus, Eye, MapPin, Users, Beef, Ticket } from "lucide-react";
 import { AdminAnimalDialog } from "./AdminAnimalDialog";
+import { CreateTicketDialog } from "./CreateTicketDialog";
 import { format } from "date-fns";
 
 interface FarmDetailPanelProps {
@@ -49,6 +50,7 @@ export const FarmDetailPanel = ({
 }: FarmDetailPanelProps) => {
   const [animalDialogOpen, setAnimalDialogOpen] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
+  const [createTicketOpen, setCreateTicketOpen] = useState(false);
 
   const { data: farmDetails } = useQuery({
     queryKey: ["admin-farm-detail", farmId],
@@ -147,6 +149,10 @@ export const FarmDetailPanel = ({
             <SheetTitle className="flex items-center justify-between">
               <span>{farmName}</span>
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setCreateTicketOpen(true)}>
+                  <Ticket className="h-4 w-4 mr-1" />
+                  Create Ticket
+                </Button>
                 <Button size="sm" variant="outline" onClick={onViewAsFarmer}>
                   <Eye className="h-4 w-4 mr-1" />
                   View as Farmer
@@ -369,6 +375,12 @@ export const FarmDetailPanel = ({
         animal={selectedAnimal}
         open={animalDialogOpen}
         onOpenChange={setAnimalDialogOpen}
+      />
+
+      <CreateTicketDialog
+        open={createTicketOpen}
+        onOpenChange={setCreateTicketOpen}
+        linkedFarmId={farmId}
       />
     </>
   );

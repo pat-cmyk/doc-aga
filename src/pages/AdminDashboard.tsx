@@ -10,6 +10,7 @@ import { SystemAdmin } from "@/components/admin/SystemAdmin";
 import MerchantOversight from "@/components/admin/MerchantOversight";
 import { QADashboard } from "@/components/admin/QADashboard";
 import { UserActivityLogs } from "@/components/admin/UserActivityLogs";
+import { SupportTicketsTab } from "@/components/admin/SupportTicketsTab";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2 } from "lucide-react";
@@ -99,6 +100,10 @@ const AdminDashboard = () => {
       
       <TabsContent value="farms">
         <FarmOversight />
+      </TabsContent>
+
+      <TabsContent value="tickets">
+        <SupportTicketsTab />
       </TabsContent>
       
       <TabsContent value="docaga">
