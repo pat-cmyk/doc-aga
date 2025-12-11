@@ -3,6 +3,9 @@ project_id = "sxorybjlxyquxteptdyk"
 [functions.generate-morning-brief]
 verify_jwt = true
 
+[functions.generate-predictive-insights]
+verify_jwt = true
+
 [auth.password]
 hibp_enabled = true
 min_length = 8
