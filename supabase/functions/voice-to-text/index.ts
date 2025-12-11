@@ -116,10 +116,39 @@ You are an expert audio transcription assistant specialized in Filipino agricult
 Output ONLY the transcription text, nothing else.
 `.trim();
 
+// Helper function to log STT analytics (non-blocking)
+async function logSTTAnalytics(
+  supabaseUrl: string,
+  serviceKey: string,
+  data: {
+    user_id: string;
+    farm_id?: string;
+    model_provider: string;
+    model_version: string;
+    latency_ms: number;
+    audio_size_bytes: number;
+    status: string;
+    transcription_length?: number;
+    error_message?: string;
+  }
+) {
+  try {
+    const serviceClient = createClient(supabaseUrl, serviceKey);
+    await serviceClient.from('stt_analytics').insert([data]);
+    console.log('[voice-to-text] Analytics logged successfully');
+  } catch (error) {
+    console.error('[voice-to-text] Failed to log analytics:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
+  let userId: string | null = null;
+  let audioSizeBytes = 0;
 
   try {
     // Authenticate user
@@ -133,6 +162,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -147,12 +177,25 @@ serve(async (req) => {
       )
     }
 
+    userId = user.id;
     console.log(`[voice-to-text] Request from user: ${user.id}`)
 
     // Rate limiting by user ID
     const rateCheck = checkRateLimit(user.id, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW)
     if (!rateCheck.allowed) {
       console.warn(`[voice-to-text] Rate limit exceeded for user: ${user.id}`)
+      
+      // Log rate limit event
+      logSTTAnalytics(supabaseUrl, serviceKey, {
+        user_id: user.id,
+        model_provider: 'gemini',
+        model_version: 'gemini-3-pro-preview',
+        latency_ms: Date.now() - startTime,
+        audio_size_bytes: 0,
+        status: 'rate_limited',
+        error_message: 'Rate limit exceeded'
+      });
+      
       return new Response(
         JSON.stringify({ error: 'Too many requests. Please try again later.' }),
         {
@@ -185,7 +228,7 @@ serve(async (req) => {
     }
 
     // Validate audio size
-    const audioSizeBytes = (audio.length * 3) / 4 // Approximate decoded size
+    audioSizeBytes = (audio.length * 3) / 4 // Approximate decoded size
     if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
       console.warn(`[voice-to-text] Audio too large: ${(audioSizeBytes / 1024 / 1024).toFixed(2)}MB`)
       return new Response(
@@ -243,9 +286,22 @@ serve(async (req) => {
       }),
     });
 
+    const latencyMs = Date.now() - startTime;
+
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[voice-to-text] Lovable AI error:', response.status, errorText)
+      
+      // Log error analytics
+      logSTTAnalytics(supabaseUrl, serviceKey, {
+        user_id: user.id,
+        model_provider: 'gemini',
+        model_version: 'gemini-3-pro-preview',
+        latency_ms: latencyMs,
+        audio_size_bytes: audioSizeBytes,
+        status: 'error',
+        error_message: `API error: ${response.status}`
+      });
       
       // Handle rate limits
       if (response.status === 429) {
@@ -276,6 +332,18 @@ serve(async (req) => {
     
     if (!transcription || typeof transcription !== 'string') {
       console.error('[voice-to-text] Invalid response from Gemini:', result)
+      
+      // Log invalid response analytics
+      logSTTAnalytics(supabaseUrl, serviceKey, {
+        user_id: user.id,
+        model_provider: 'gemini',
+        model_version: 'gemini-3-pro-preview',
+        latency_ms: latencyMs,
+        audio_size_bytes: audioSizeBytes,
+        status: 'error',
+        error_message: 'Invalid response from model'
+      });
+      
       return new Response(
         JSON.stringify({ error: 'Transcription failed' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -284,6 +352,17 @@ serve(async (req) => {
 
     console.log(`[voice-to-text] Success for user ${user.id}: ${transcription.substring(0, 50)}...`)
 
+    // Log successful transcription analytics
+    logSTTAnalytics(supabaseUrl, serviceKey, {
+      user_id: user.id,
+      model_provider: 'gemini',
+      model_version: 'gemini-3-pro-preview',
+      latency_ms: latencyMs,
+      audio_size_bytes: audioSizeBytes,
+      status: 'success',
+      transcription_length: transcription.length
+    });
+
     return new Response(
       JSON.stringify({ text: transcription }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -291,6 +370,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[voice-to-text] Error:', error)
+    
+    const latencyMs = Date.now() - startTime;
+    
+    // Log error analytics if we have user context
+    if (userId) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      logSTTAnalytics(supabaseUrl, serviceKey, {
+        user_id: userId,
+        model_provider: 'gemini',
+        model_version: 'gemini-3-pro-preview',
+        latency_ms: latencyMs,
+        audio_size_bytes: audioSizeBytes,
+        status: 'error',
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
     
     // Sanitize errors - never expose internal details
     let errorMessage = 'An error occurred processing your request'
