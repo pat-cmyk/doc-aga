@@ -15,6 +15,7 @@ import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import FarmSetup from "@/components/FarmSetup";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
+import { MilkInventoryTab } from "@/components/milk-inventory/MilkInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
 import { FinanceTab } from "@/components/FinanceTab";
@@ -362,9 +363,10 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
+              <TabsTrigger value="milk" disabled={!farmId}>Milk</TabsTrigger>
               <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
               <TabsTrigger value="approvals" disabled={!farmId || !canManageFarm} className="gap-2">
@@ -411,6 +413,12 @@ const Dashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="milk" className="space-y-6">
+            {farmId && (
+              <MilkInventoryTab farmId={farmId} canManage={canManageFarm} />
+            )}
           </TabsContent>
 
           <TabsContent value="feed" className="space-y-4">
