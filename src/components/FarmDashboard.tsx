@@ -88,7 +88,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   }, [startDate, endDate]);
 
   // Use combined hook to fetch all data in one RPC call (reduces 10+ queries to 1)
-  const { stats, combinedData, monthlyHeadcount, stageKeys, loading, error, reload: reloadStats } = 
+  const { stats, trends, combinedData, monthlyHeadcount, stageKeys, loading, error, reload: reloadStats } = 
     useCombinedDashboardData(farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -275,7 +275,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           </div>
         </>
       ) : (
-        <DashboardStats stats={stats} />
+        <DashboardStats stats={stats} trends={trends} />
       )}
 
       {/* Lazy load charts to reduce initial bundle size */}
