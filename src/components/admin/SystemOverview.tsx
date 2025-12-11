@@ -34,8 +34,10 @@ export const SystemOverview = () => {
     );
   }
 
-  const navigateToTab = (tab: string) => {
-    setSearchParams({ tab });
+  const navigateToTab = (tab: string, subtab?: string) => {
+    const params: Record<string, string> = { tab };
+    if (subtab) params.subtab = subtab;
+    setSearchParams(params);
   };
 
   return (
@@ -86,7 +88,7 @@ export const SystemOverview = () => {
                   variant="outline" 
                   size="sm" 
                   className="border-destructive/50 text-destructive hover:bg-destructive/10"
-                  onClick={() => navigateToTab("support")}
+                  onClick={() => navigateToTab("operations", "tickets")}
                 >
                   <ShieldAlert className="h-4 w-4 mr-2" />
                   {metrics.support.urgent} Urgent Ticket{metrics.support.urgent > 1 ? "s" : ""}
@@ -108,7 +110,7 @@ export const SystemOverview = () => {
                   variant="outline" 
                   size="sm" 
                   className="border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10"
-                  onClick={() => navigateToTab("farms")}
+                  onClick={() => navigateToTab("operations", "farms")}
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   {metrics.approvals.pending} Pending Approvals
@@ -119,7 +121,7 @@ export const SystemOverview = () => {
                   variant="outline" 
                   size="sm" 
                   className="border-destructive/50 text-destructive hover:bg-destructive/10"
-                  onClick={() => navigateToTab("doc-aga")}
+                  onClick={() => navigateToTab("ai-voice")}
                 >
                   <Mic className="h-4 w-4 mr-2" />
                   {metrics.stt.failed_24h} STT Failure{metrics.stt.failed_24h > 1 ? "s" : ""} (24h)
@@ -264,7 +266,7 @@ export const SystemOverview = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               Support Tickets
-              <Button variant="ghost" size="sm" onClick={() => navigateToTab("support")}>
+              <Button variant="ghost" size="sm" onClick={() => navigateToTab("operations", "tickets")}>
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </CardTitle>
@@ -304,7 +306,7 @@ export const SystemOverview = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               Approval Queue
-              <Button variant="ghost" size="sm" onClick={() => navigateToTab("farms")}>
+              <Button variant="ghost" size="sm" onClick={() => navigateToTab("operations", "farms")}>
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </CardTitle>

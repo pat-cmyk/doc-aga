@@ -3,22 +3,16 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useRole } from "@/hooks/useRole";
 import { SystemOverview } from "@/components/admin/SystemOverview";
-import { UserManagement } from "@/components/admin/UserManagement";
-import { FarmOversight } from "@/components/admin/FarmOversight";
-import { DocAgaManagement } from "@/components/admin/DocAgaManagement";
-import { SystemAdmin } from "@/components/admin/SystemAdmin";
-import MerchantOversight from "@/components/admin/MerchantOversight";
-import { QADashboard } from "@/components/admin/QADashboard";
-import { UserActivityLogs } from "@/components/admin/UserActivityLogs";
-import { SupportTicketsTab } from "@/components/admin/SupportTicketsTab";
+import { PeopleTab } from "@/components/admin/tabs/PeopleTab";
+import { OperationsTab } from "@/components/admin/tabs/OperationsTab";
+import { AIVoiceTab } from "@/components/admin/tabs/AIVoiceTab";
+import { SystemTab } from "@/components/admin/tabs/SystemTab";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdminAccess();
   const { roles, isLoading: rolesLoading } = useRole();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,8 +20,7 @@ const AdminDashboard = () => {
   
   const isLoading = adminLoading || rolesLoading;
   
-  const [activeTab, setActiveTab] = useState("overview");
-
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   // Initialize state from URL params on mount
   useEffect(() => {
@@ -45,11 +38,14 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (isInitialLoad.current) return;
     
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams);
     params.set('tab', activeTab);
+    // Clear subtab when switching main tabs
+    if (!params.get('subtab')) {
+      params.delete('subtab');
+    }
     setSearchParams(params, { replace: true });
   }, [activeTab, setSearchParams]);
-
 
   // Smart routing based on all user roles
   useEffect(() => {
@@ -90,40 +86,24 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
-      <TabsContent value="overview">
+      <TabsContent value="dashboard">
         <SystemOverview />
       </TabsContent>
       
-      <TabsContent value="users">
-        <UserManagement />
+      <TabsContent value="people">
+        <PeopleTab />
       </TabsContent>
       
-      <TabsContent value="farms">
-        <FarmOversight />
+      <TabsContent value="operations">
+        <OperationsTab />
       </TabsContent>
 
-      <TabsContent value="tickets">
-        <SupportTicketsTab />
-      </TabsContent>
-      
-      <TabsContent value="docaga">
-        <DocAgaManagement />
-      </TabsContent>
-      
-      <TabsContent value="merchants">
-        <MerchantOversight />
-      </TabsContent>
-      
-      <TabsContent value="qa">
-        <QADashboard />
+      <TabsContent value="ai-voice">
+        <AIVoiceTab />
       </TabsContent>
       
       <TabsContent value="system">
-        <SystemAdmin />
-      </TabsContent>
-
-      <TabsContent value="activity">
-        <UserActivityLogs />
+        <SystemTab />
       </TabsContent>
     </AdminLayout>
   );

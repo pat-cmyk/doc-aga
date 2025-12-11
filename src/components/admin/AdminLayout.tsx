@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, Activity, Store, TestTube, BarChart3, ScrollText, Ticket } from "lucide-react";
+import { Shield, Users, Building2, MessageSquare, LayoutDashboard } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { AdminGlobalSearch } from "./AdminGlobalSearch";
@@ -60,7 +60,7 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
         open={selectedFarmId !== null}
         onOpenChange={(open) => !open && setSelectedFarmId(null)}
         onEditFarm={() => {
-          onTabChange("farms");
+          onTabChange("operations");
           setSelectedFarmId(null);
         }}
         onViewAsFarmer={() => {
@@ -72,45 +72,24 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid w-full auto-cols-auto grid-flow-col">
+          <TabsList className="grid w-full grid-cols-5">
             {isAdmin && (
               <>
-                <TabsTrigger value="overview">
-                  <Activity className="h-4 w-4 mr-2" />
-                  Overview
+                <TabsTrigger value="dashboard">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Dashboard
                 </TabsTrigger>
-                <TabsTrigger value="users">
+                <TabsTrigger value="people">
                   <Users className="h-4 w-4 mr-2" />
-                  Users
+                  People
                 </TabsTrigger>
-                <TabsTrigger value="farms">
+                <TabsTrigger value="operations">
                   <Building2 className="h-4 w-4 mr-2" />
-                  Farms
+                  Operations
                 </TabsTrigger>
-              </>
-            )}
-            
-            {isAdmin && (
-              <>
-                <TabsTrigger value="tickets">
-                  <Ticket className="h-4 w-4 mr-2" />
-                  Tickets
-                </TabsTrigger>
-                <TabsTrigger value="docaga">
+                <TabsTrigger value="ai-voice">
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Doc Aga
-                </TabsTrigger>
-                <TabsTrigger value="merchants">
-                  <Store className="h-4 w-4 mr-2" />
-                  Merchants
-                </TabsTrigger>
-                <TabsTrigger value="qa">
-                  <TestTube className="h-4 w-4 mr-2" />
-                  QA
-                </TabsTrigger>
-                <TabsTrigger value="activity">
-                  <ScrollText className="h-4 w-4 mr-2" />
-                  Activity
+                  AI & Voice
                 </TabsTrigger>
                 <TabsTrigger value="system">
                   <Shield className="h-4 w-4 mr-2" />
