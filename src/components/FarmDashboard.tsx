@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { NetworkError } from "@/components/ui/network-error";
 import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
+import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -220,6 +221,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
   return (
     <div className="space-y-6">
+      {/* Morning Brief - AI-generated daily summary */}
+      <MorningBriefCard farmId={farmId} />
+
       {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
       <DashboardAlertsWidget farmId={farmId} />
 
