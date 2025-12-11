@@ -76,6 +76,7 @@ export const useCombinedDashboardData = (
         dateArray.forEach(date => {
           dailyDataMap[date] = {
             date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            rawDate: date,
             milkTotal: 0
           };
         });

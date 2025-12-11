@@ -55,6 +55,8 @@ interface LazyMilkProductionChartProps {
   selectedYear: number;
   onTimePeriodChange: (period: "last30" | "ytd") => void;
   onYearChange: (year: number) => void;
+  farmId: string;
+  averageMilk?: number;
 }
 
 export const LazyMilkProductionChart = (props: LazyMilkProductionChartProps) => (
