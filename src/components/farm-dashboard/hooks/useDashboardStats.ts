@@ -12,6 +12,13 @@ export interface DashboardStats {
   recentHealthEvents: number;
 }
 
+export interface DashboardStatsTrends {
+  prevTotalAnimals: number;
+  prevAvgDailyMilk: number;
+  prevPregnantCount: number;
+  prevHealthEvents: number;
+}
+
 /**
  * Hook to load and manage farm dashboard statistics
  * Fetches total animals, milk production, pregnancy status, and health events
