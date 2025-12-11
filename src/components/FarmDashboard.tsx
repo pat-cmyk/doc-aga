@@ -285,6 +285,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         selectedYear={selectedYear}
         onTimePeriodChange={setTimePeriod}
         onYearChange={setSelectedYear}
+        farmId={farmId}
       />
 
       <LazyHeadcountChart
