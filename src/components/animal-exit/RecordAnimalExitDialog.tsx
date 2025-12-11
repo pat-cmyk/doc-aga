@@ -14,21 +14,40 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EXIT_REASONS, EXIT_DETAILS } from '@/lib/bcsDefinitions';
+import { useAddRevenue } from '@/hooks/useRevenues';
 
 interface RecordAnimalExitDialogProps {
   animalId: string;
   animalName?: string;
+  farmId: string;
+  livestockType?: string;
+  earTag?: string;
   onExitRecorded?: () => void;
   trigger?: React.ReactNode;
 }
 
+// Helper to get livestock sale source category
+const getSaleSource = (livestockType?: string): string => {
+  switch (livestockType?.toLowerCase()) {
+    case 'cattle': return 'Cattle Sale';
+    case 'carabao': return 'Carabao Sale';
+    case 'goat': return 'Goat Sale';
+    case 'sheep': return 'Sheep Sale';
+    default: return 'Animal Sale';
+  }
+};
+
 export function RecordAnimalExitDialog({
   animalId,
   animalName,
+  farmId,
+  livestockType,
+  earTag,
   onExitRecorded,
   trigger,
 }: RecordAnimalExitDialogProps) {
   const { toast } = useToast();
+  const addRevenue = useAddRevenue();
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,9 +91,24 @@ export function RecordAnimalExitDialog({
 
       if (error) throw error;
 
+      // Auto-create revenue record if animal was sold with a price
+      if (exitReason === 'sold' && salePrice && parseFloat(salePrice) > 0) {
+        const animalIdentifier = animalName || earTag || 'Animal';
+        const detailLabel = exitReasonDetails ? ` - ${exitReasonDetails.replace(/_/g, ' ')}` : '';
+        
+        await addRevenue.mutateAsync({
+          farm_id: farmId,
+          amount: parseFloat(salePrice),
+          source: getSaleSource(livestockType),
+          transaction_date: format(exitDate, 'yyyy-MM-dd'),
+          linked_animal_id: animalId,
+          notes: `Sale of ${animalIdentifier}${earTag && animalName ? ` (${earTag})` : ''}${detailLabel}`,
+        });
+      }
+
       toast({
         title: 'Exit Recorded',
-        description: `${animalName || 'Animal'} has been marked as exited.`,
+        description: `${animalName || 'Animal'} has been marked as exited.${exitReason === 'sold' && salePrice ? ' Revenue record created.' : ''}`,
       });
 
       setOpen(false);
