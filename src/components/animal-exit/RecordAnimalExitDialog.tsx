@@ -26,16 +26,9 @@ interface RecordAnimalExitDialogProps {
   trigger?: React.ReactNode;
 }
 
-// Helper to get livestock sale source category
-const getSaleSource = (livestockType?: string): string => {
-  switch (livestockType?.toLowerCase()) {
-    case 'cattle': return 'Cattle Sale';
-    case 'carabao': return 'Carabao Sale';
-    case 'goat': return 'Goat Sale';
-    case 'sheep': return 'Sheep Sale';
-    default: return 'Animal Sale';
-  }
-};
+// Valid sources per farm_revenues_source_check constraint:
+// 'Milk Sales', 'Livestock Sales', 'Byproduct', 'Other'
+const getSaleSource = (): string => 'Livestock Sales';
 
 export function RecordAnimalExitDialog({
   animalId,
@@ -99,7 +92,7 @@ export function RecordAnimalExitDialog({
         await addRevenue.mutateAsync({
           farm_id: farmId,
           amount: parseFloat(salePrice),
-          source: getSaleSource(livestockType),
+          source: getSaleSource(),
           transaction_date: format(exitDate, 'yyyy-MM-dd'),
           linked_animal_id: animalId,
           notes: `Sale of ${animalIdentifier}${earTag && animalName ? ` (${earTag})` : ''}${detailLabel}`,
