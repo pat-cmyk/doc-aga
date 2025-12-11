@@ -46,11 +46,22 @@ serve(async (req) => {
     const today = new Date();
     const phDate = new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString().split('T')[0];
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const fourteenDaysFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Parallel fetch all data
+    // Step 1: First fetch farm and animals to get animal IDs
+    const [farmResult, animalsResult] = await Promise.all([
+      supabase.from('farms').select('name, livestock_type').eq('id', farmId).single(),
+      supabase.from('animals').select('id, name, ear_tag, life_stage, milking_stage, livestock_type, current_weight_kg')
+        .eq('farm_id', farmId).eq('is_deleted', false)
+    ]);
+
+    const farm = farmResult.data;
+    const animals = animalsResult.data || [];
+    const animalIds = animals.map(a => a.id);
+
+    // Step 2: Fetch all animal-related data filtered by this farm's animal IDs
+    // Only query if we have animals to avoid empty IN clause issues
     const [
-      farmResult,
-      animalsResult,
       milkingResult,
       healthResult,
       pregnantResult,
@@ -59,19 +70,56 @@ serve(async (req) => {
       feedInventoryResult,
       recentEventsResult
     ] = await Promise.all([
-      supabase.from('farms').select('name, livestock_type').eq('id', farmId).single(),
-      supabase.from('animals').select('id, name, ear_tag, life_stage, milking_stage, livestock_type, current_weight_kg').eq('farm_id', farmId).eq('is_deleted', false),
-      supabase.from('milking_records').select('liters, record_date, animal_id').gte('record_date', weekAgo).in('animal_id', (await supabase.from('animals').select('id').eq('farm_id', farmId).eq('is_deleted', false)).data?.map(a => a.id) || []),
-      supabase.from('health_records').select('diagnosis, treatment, visit_date, animal_id').gte('visit_date', weekAgo).order('visit_date', { ascending: false }).limit(10),
-      supabase.from('ai_records').select('animal_id, expected_delivery_date, pregnancy_confirmed').eq('pregnancy_confirmed', true).not('expected_delivery_date', 'is', null),
-      supabase.from('preventive_health_schedules').select('animal_id, treatment_type, treatment_name, scheduled_date').eq('status', 'scheduled').eq('treatment_type', 'vaccination').lte('scheduled_date', new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('scheduled_date'),
-      supabase.from('preventive_health_schedules').select('animal_id, treatment_type, treatment_name, scheduled_date').eq('status', 'scheduled').eq('treatment_type', 'deworming').lte('scheduled_date', new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('scheduled_date'),
+      animalIds.length > 0 
+        ? supabase.from('milking_records')
+            .select('liters, record_date, animal_id')
+            .gte('record_date', weekAgo)
+            .in('animal_id', animalIds)
+        : Promise.resolve({ data: [] }),
+      animalIds.length > 0
+        ? supabase.from('health_records')
+            .select('diagnosis, treatment, visit_date, animal_id')
+            .gte('visit_date', weekAgo)
+            .in('animal_id', animalIds)
+            .order('visit_date', { ascending: false })
+            .limit(10)
+        : Promise.resolve({ data: [] }),
+      animalIds.length > 0
+        ? supabase.from('ai_records')
+            .select('animal_id, expected_delivery_date, pregnancy_confirmed')
+            .eq('pregnancy_confirmed', true)
+            .not('expected_delivery_date', 'is', null)
+            .in('animal_id', animalIds)
+        : Promise.resolve({ data: [] }),
+      animalIds.length > 0
+        ? supabase.from('preventive_health_schedules')
+            .select('animal_id, treatment_type, treatment_name, scheduled_date')
+            .eq('status', 'scheduled')
+            .eq('schedule_type', 'vaccination')
+            .lte('scheduled_date', fourteenDaysFromNow)
+            .in('animal_id', animalIds)
+            .order('scheduled_date')
+        : Promise.resolve({ data: [] }),
+      animalIds.length > 0
+        ? supabase.from('preventive_health_schedules')
+            .select('animal_id, treatment_type, treatment_name, scheduled_date')
+            .eq('status', 'scheduled')
+            .eq('schedule_type', 'deworming')
+            .lte('scheduled_date', fourteenDaysFromNow)
+            .in('animal_id', animalIds)
+            .order('scheduled_date')
+        : Promise.resolve({ data: [] }),
       supabase.from('feed_inventory').select('feed_type, quantity_kg, reorder_threshold').eq('farm_id', farmId),
-      supabase.from('animal_events').select('event_type, event_date, notes, animal_id').gte('event_date', weekAgo).order('event_date', { ascending: false }).limit(5)
+      animalIds.length > 0
+        ? supabase.from('animal_events')
+            .select('event_type, event_date, notes, animal_id')
+            .gte('event_date', weekAgo)
+            .in('animal_id', animalIds)
+            .order('event_date', { ascending: false })
+            .limit(5)
+        : Promise.resolve({ data: [] })
     ]);
 
-    const farm = farmResult.data;
-    const animals = animalsResult.data || [];
     const milkingRecords = milkingResult.data || [];
     const healthRecords = healthResult.data || [];
     const pregnantAnimals = pregnantResult.data || [];
