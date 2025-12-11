@@ -2492,6 +2492,66 @@ export type Database = {
         }
         Relationships: []
       }
+      stt_analytics: {
+        Row: {
+          audio_duration_seconds: number | null
+          audio_size_bytes: number
+          created_at: string | null
+          error_message: string | null
+          farm_id: string | null
+          id: string
+          latency_ms: number
+          model_provider: string
+          model_version: string
+          status: string
+          transcription_length: number | null
+          user_id: string | null
+        }
+        Insert: {
+          audio_duration_seconds?: number | null
+          audio_size_bytes: number
+          created_at?: string | null
+          error_message?: string | null
+          farm_id?: string | null
+          id?: string
+          latency_ms: number
+          model_provider?: string
+          model_version?: string
+          status?: string
+          transcription_length?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          audio_duration_seconds?: number | null
+          audio_size_bytes?: number
+          created_at?: string | null
+          error_message?: string | null
+          farm_id?: string | null
+          id?: string
+          latency_ms?: number
+          model_provider?: string
+          model_version?: string
+          status?: string
+          transcription_length?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stt_analytics_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stt_analytics_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           assigned_to: string | null
@@ -3250,6 +3310,10 @@ export type Database = {
           price: number
           source: string
         }[]
+      }
+      get_stt_analytics: {
+        Args: { end_date?: string; start_date?: string }
+        Returns: Json
       }
       get_upcoming_alerts: {
         Args: { p_days_ahead?: number; p_farm_id: string }

@@ -11,10 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic } from "lucide-react";
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
+import { STTAnalyticsDashboard } from "./STTAnalyticsDashboard";
 
 export const DocAgaManagement = () => {
   const queryClient = useQueryClient();
@@ -351,6 +352,10 @@ export const DocAgaManagement = () => {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="queries">Recent Queries</TabsTrigger>
           <TabsTrigger value="faqs">FAQ Management</TabsTrigger>
+          <TabsTrigger value="voice-stt" className="flex items-center gap-1">
+            <Mic className="h-3 w-3" />
+            Voice STT
+          </TabsTrigger>
         </TabsList>
 
         {/* Analytics Tab */}
@@ -579,6 +584,11 @@ export const DocAgaManagement = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Voice STT Analytics Tab */}
+        <TabsContent value="voice-stt" className="space-y-4">
+          <STTAnalyticsDashboard />
         </TabsContent>
       </Tabs>
 
