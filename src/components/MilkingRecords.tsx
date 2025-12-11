@@ -136,7 +136,7 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
         await addRevenue.mutateAsync({
           farm_id: animalFarmId,
           amount: saleAmount,
-          source: "Milk Sale",
+          source: "Milk Sales",
           transaction_date: formData.date,
           linked_animal_id: animalId,
           linked_milk_log_id: milkRecord.id,
