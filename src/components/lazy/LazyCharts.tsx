@@ -79,6 +79,7 @@ interface LazyHeadcountChartProps {
   selectedYear: number;
   onMonthlyTimePeriodChange: (period: "all" | "ytd") => void;
   onYearChange: (year: number) => void;
+  farmId: string;
 }
 
 export const LazyHeadcountChart = (props: LazyHeadcountChartProps) => (
