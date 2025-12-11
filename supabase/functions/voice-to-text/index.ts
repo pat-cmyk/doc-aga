@@ -161,21 +161,22 @@ serve(async (req) => {
     const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
     
     // Philippine agricultural terminology glossary for context with Taglish support
+    // Enhanced based on real vet assessment transcript analysis
     const farmTermsPrompt = `
-Agricultural terms (English/Tagalog/Taglish):
+=== AGRICULTURAL TERMS (English/Tagalog/Taglish) ===
 - Feeding: pagpapakain, pagkain ng hayop, nag-feed
 - Milking: paggatas, pagkagatas, nag-milk, nag-gatas
 - Weight: timbang, bigat, nag-weigh
 - Health check: tsek sa kalusugan, nag-check
 - Injection: iniksyon, bakuna, tinurukan, nag-inject
 - Medicine: gamot, medisina
-- Calf: guya, batang baka
+- Calf: guya, batang baka, mga guya
 - Heifer: dumalagang baka
-- Cow: baka
+- Cow: baka, mga baka
 - Bull: toro, lalaking baka
 - Pregnant: buntis, nagdadalang-tao
 - Artificial insemination: artipisyal na pagpapalihi, AI
-- Birth: panganganak, pagsilang
+- Birth: panganganak, pagsilang, calving, umaanak
 - Feed types: concentrate, roughage, hay, grass, palay, dayami, darak, mais
 - Liters: litro
 - Kilograms: kilo
@@ -186,40 +187,157 @@ Agricultural terms (English/Tagalog/Taglish):
 - Healthy: malusog
 - Temperature: temperatura, lagnat
 
-TAGLISH (Code-Switching) Examples - Common in Filipino speech:
+=== VETERINARY DISEASES & MEDICAL TERMS ===
+Philippine Diseases:
+- Hemosep, Hemorrhagic Septicemia, HS
+- Pasteurella multocida
+- Clostridial diseases, clostridial
+- FMD, Foot and Mouth Disease
+- Blackleg
+- PPR, Peste des Petits Ruminants
+- Anthrax
+- Mastitis
+
+Metabolic Disorders:
+- Milk fever, hypocalcemia
+- Ketosis
+- Displaced abomasum
+- Retained placenta
+- Metritis
+
+Clinical Signs/Symptoms:
+- Heavy panting, labored breathing
+- Serous nasal discharge
+- Naglalaway (salivating/drooling)
+- Petechiation, petechial hemorrhages
+- Lameness, pilay
+- Swelling, namamaga
+- Fever, lagnat, nagkakalagnat
+
+Antibiotics/Medications:
+- Tulathromycin, Draxxin
+- Oxytetracycline
+- Penicillin
+- Dewormer, pampurga
+
+=== TAGLISH VERB CONJUGATIONS ===
+Filipino-ized English verbs (common in farm speech):
+- nag-gra-grunt (grunting)
+- nababuksan, nabubuksan (opening/opened)
+- naglalaway (salivating)
+- nagkakaroon (having/getting)
+- grinu-group (grouping)
+- nagsasalubong (meeting/clashing)
+- namamaga (swelling)
+- nagkakalagnat (having fever)
+- nag-calve, nanganak (gave birth)
+- nag-dry off (dried off/stopped milking)
+- nag-heat, nag-init (in heat)
+- nag-AI (artificially inseminated)
+- naka-schedule (scheduled)
+- na-check (checked)
+- na-confirm (confirmed)
+
+=== DAIRY INDUSTRY TECHNICAL TERMS ===
+Production Metrics:
+- Days in milk, DIM
+- Milking line
+- Dry period, dry cow
+- Close-up group, close-up cows
+- Far-off group, far-off cows
+- Lactating cows, mga nagpapagatas
+- Current production
+- Peak milk
+
+Feed & Nutrition:
+- Dry matter, DM
+- Dry matter intake, DMI
+- Silage, corn silage
+- Concentrates
+- Spent grain
+- Napier grass, elephant grass
+- Ipil-ipil
+- Forage
+- Chop length
+- TMR, Total Mixed Ration
+
+Milk Quality:
+- Milk fat
+- Milk protein
+- Somatic cell count, SCC
+- Bacterial count
+- CMT, California Mastitis Test
+
+Body Condition:
+- Body condition score, BCS
+- Underweight
+- Overconditioned
+- Thin, payat
+- Fat, mataba
+
+=== TAGLISH CODE-SWITCHING EXAMPLES ===
+Basic Patterns:
 - "Nag-feed ako ng 10 bales" = I fed 10 bales
 - "Check mo yung milk production" = Check the milk production
 - "Ang baka is doing well today" = The cow is doing well today
 - "Need natin mag-inject ng vaccine" = We need to inject vaccine
 - "Nag-milk ako this morning" = I milked this morning
 - "Yung guya ay medyo underweight" = The calf is a bit underweight
-- "Pinakain ko sila ng 5 bags of concentrates" = I fed them 5 bags of concentrates
-- "May lagnat yung cow, need ng check-up" = The cow has fever, needs check-up
-- "Around 20 liters ang na-milk ko" = I milked around 20 liters
-- "Nag-record ng weight, around 450 kilos" = Recorded weight, around 450 kilos
 
-QUESTION PATTERNS:
+From Vet Assessments:
+- "Meron tayong cow record" = We have cow records
+- "Ay merong heavy panting" = Has heavy panting
+- "Hindi pa nila nabubuksan yung animal" = They haven't opened the animal yet
+- "Walang nakalagay" = Nothing is indicated
+- "Grinu-group nila yung mga dry cows" = They are grouping the dry cows
+- "Ayun yung current production" = That's the current production
+- "Milk fever sa mga umaanak" = Milk fever in calving cows
+- "Medyo may namamaga sa kanilang leeg" = There's some swelling in their neck
+- "Ang pinaka-common na makita" = The most common thing seen
+- "Yung mga baka nila" = Their cows
+- "So far walang" = So far there's none
+- "Sa past six months" = In the past six months
+- "Around one thousand or so" = Around one thousand or so
+- "Kung sakali" = In case/If ever
+- "Based sa records nila" = Based on their records
+- "Yung mortality rate nila" = Their mortality rate
+
+=== ANIMAL IDENTIFICATION PATTERNS ===
+- Cow number 69, cow number 33
+- Si cow number X (personalized reference)
+- Yung guya (the calf)
+- Yung mga baka (the cows)
+- Mga lactating cows
+- Mga dry cows
+- Ang mga heifers
+- Yung bull nila
+
+=== QUESTION PATTERNS ===
 - "Ano ba ang..." = What is the...
 - "Okay lang ba..." = Is it okay if...
 - "Kelan ba ang..." = When is the...
 - "Magkano na..." = How much is...
 - "Bakit kaya..." = Why is it that...
 - "Pwede ba..." = Can/Is it possible...
+- "Meron ba kayong..." = Do you have...
+- "Ilan na ang..." = How many are the...
 
-POLITE FORMS (po/opo):
+=== POLITE FORMS (po/opo) ===
 - "Gusto ko po..." = I want to... (polite)
 - "Patulong po..." = Please help... (polite)
 - "Pwede po bang..." = May I please... (polite)
 - "Nagpa-bakuna po ako" = I had vaccinated (polite)
+- "Meron po ba..." = Is there... (polite)
 
-URGENCY/EMERGENCY:
+=== URGENCY/EMERGENCY ===
 - "Emergency po!" = Emergency! (polite)
 - "Urgent!" = Urgent!
 - "Hindi na makatayo" = Can't stand anymore
 - "Worried na ako" = I'm worried now
 - "Please help po" = Please help (polite)
+- "Sobrang init" = Very hot/high fever
 
-CONVERSATIONAL FILLERS:
+=== CONVERSATIONAL FILLERS/CONNECTORS ===
 - "Ay oo nga pala" = Oh by the way
 - "So ayun" = So there/So that's it
 - "Sige" = Okay/Alright
@@ -227,14 +345,22 @@ CONVERSATIONAL FILLERS:
 - "Mga..." = Around/Approximately
 - "Give or take" = More or less
 - "Halos" = Almost/Nearly
+- "Kasi" = Because
+- "Kaya" = So/Therefore
+- "Pero" = But
+- "Tapos" = Then/And then
+- "Actually" = Actually
+- "So basically" = So basically
 
-FINANCIAL TERMS:
+=== FINANCIAL TERMS ===
 - "Gastos" = Expenses
 - "Nag-earn" = Earned
 - "Market price" = Market price
 - "Pesos" = Pesos
 - "Nabenta" = Sold
 - "I-update" = Update
+- "Per head" = Per head
+- "Per liter" = Per liter
     `.trim();
 
     // Prepare form data for OpenAI Whisper API
