@@ -584,6 +584,9 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
               <RecordAnimalExitDialog 
                 animalId={animalId}
                 animalName={animal.name || animal.ear_tag || 'Animal'}
+                farmId={farmId}
+                livestockType={animal.livestock_type || undefined}
+                earTag={animal.ear_tag || undefined}
                 onExitRecorded={onBack}
               />
               <RecalculateSingleAnimalButton 
