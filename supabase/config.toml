@@ -11,8 +11,6 @@ verify_jwt = true
 [functions.log-auth-event]
 verify_jwt = false
 
-[functions.realtime-token]
-verify_jwt = true
 
 [functions.report-test-results]
 verify_jwt = false
