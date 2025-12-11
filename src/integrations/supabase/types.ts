@@ -3315,6 +3315,7 @@ export type Database = {
         Args: { end_date?: string; start_date?: string }
         Returns: Json
       }
+      get_system_health_metrics: { Args: never; Returns: Json }
       get_upcoming_alerts: {
         Args: { p_days_ahead?: number; p_farm_id: string }
         Returns: {
