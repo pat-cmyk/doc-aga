@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to calculate median
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -92,7 +100,7 @@ serve(async (req) => {
     const preventiveSchedules = preventiveResult.data || [];
     const heatRecords = heatRecordsResult.data || [];
 
-    // Calculate milk statistics
+    // Calculate milk statistics with historical bounds
     const dailyMilkTotals: Record<string, number> = {};
     milkRecords.forEach(record => {
       const date = record.record_date;
@@ -100,9 +108,24 @@ serve(async (req) => {
     });
 
     const sortedDates = Object.keys(dailyMilkTotals).sort();
-    const recentMilkAvg = sortedDates.slice(-14).reduce((sum, date) => sum + dailyMilkTotals[date], 0) / 14 || 0;
-    const previousMilkAvg = sortedDates.slice(-28, -14).reduce((sum, date) => sum + dailyMilkTotals[date], 0) / 14 || 0;
+    const dailyValues = sortedDates.map(date => dailyMilkTotals[date]);
+    
+    // Calculate historical bounds for conservative predictions
+    const maxDailyProduction = dailyValues.length > 0 ? Math.max(...dailyValues) : 0;
+    const minDailyProduction = dailyValues.length > 0 ? Math.min(...dailyValues) : 0;
+    const medianDailyProduction = calculateMedian(dailyValues);
+    
+    const recentMilkAvg = sortedDates.slice(-14).reduce((sum, date) => sum + dailyMilkTotals[date], 0) / Math.max(sortedDates.slice(-14).length, 1) || 0;
+    const previousMilkAvg = sortedDates.slice(-28, -14).reduce((sum, date) => sum + dailyMilkTotals[date], 0) / Math.max(sortedDates.slice(-28, -14).length, 1) || 0;
     const milkTrend = previousMilkAvg > 0 ? ((recentMilkAvg - previousMilkAvg) / previousMilkAvg) * 100 : 0;
+
+    // Conservative bounds for 7-day prediction
+    const max7DayPossible = maxDailyProduction * 7;
+    const conservative7DayEstimate = Math.round(recentMilkAvg * 7 * 0.95); // 5% conservative buffer
+    
+    // Data quality factor for confidence scoring (0-1)
+    const daysWithData = sortedDates.length;
+    const dataQualityFactor = Math.min(daysWithData / 30, 1);
 
     // Breeding statistics
     const confirmedPregnancies = aiRecords.filter(r => r.pregnancy_confirmed).length;
@@ -140,7 +163,7 @@ serve(async (req) => {
       new Date(hr.visit_date) >= thirtyDaysAgo
     ).length;
 
-    // Build context for AI
+    // Build context for AI with capacity constraints
     const context = {
       farmStats: {
         totalAnimals: animals.length,
@@ -152,6 +175,12 @@ serve(async (req) => {
         previousDailyAverage: Math.round(previousMilkAvg * 10) / 10,
         trendPercent: Math.round(milkTrend * 10) / 10,
         totalLast30Days: sortedDates.slice(-30).reduce((sum, date) => sum + dailyMilkTotals[date], 0),
+        // Historical bounds for conservative predictions
+        maxDailyRecorded: Math.round(maxDailyProduction * 10) / 10,
+        minDailyRecorded: Math.round(minDailyProduction * 10) / 10,
+        medianDaily: Math.round(medianDailyProduction * 10) / 10,
+        max7DayPossible: Math.round(max7DayPossible * 10) / 10,
+        daysWithData: daysWithData,
       },
       breeding: {
         aiSuccessRate: Math.round(aiSuccessRate),
@@ -178,6 +207,9 @@ serve(async (req) => {
       });
     }
 
+    // Conservative max confidence based on data quality
+    const maxAllowedConfidence = Math.round(60 + (dataQualityFactor * 25)); // 60-85% max
+
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -189,20 +221,39 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a livestock farm analytics AI assistant providing predictive insights for Filipino farmers. 
+            content: `You are a CONSERVATIVE livestock farm analytics AI assistant providing realistic predictive insights for Filipino farmers.
 Analyze the farm data and provide predictions in Taglish (mix of Tagalog and English).
+
+CRITICAL CONSTRAINTS - You MUST follow these rules strictly:
+1. MILK PREDICTIONS:
+   - The farm's MAXIMUM recorded daily production is ${maxDailyProduction}L - NEVER predict above this per day
+   - The farm's recent daily average is ${recentMilkAvg.toFixed(1)}L
+   - Your forecast7Days MUST be between ${Math.round(minDailyProduction * 7)}L and ${Math.round(maxDailyProduction * 7)}L
+   - Use CONSERVATIVE estimates - predict slightly BELOW recent average, never above historical maximum
+   - A realistic 7-day forecast should be around ${conservative7DayEstimate}L (95% of recent average)
+
+2. CONFIDENCE SCORES:
+   - Maximum allowed confidence is ${maxAllowedConfidence}% based on available data (${daysWithData} days)
+   - Use lower confidence (50-65%) if trends are unstable or data is limited
+   - Never give confidence above 85% regardless of data quality
+
+3. BE REALISTIC:
+   - Farmers trust conservative predictions more than optimistic ones
+   - Under-promise, don't over-promise
+   - If unsure, lean toward lower predictions with lower confidence
+
 You must respond with ONLY valid JSON in this exact format:
 {
   "milk": {
-    "forecast7Days": number (predicted total liters for next 7 days),
+    "forecast7Days": number (predicted total liters for next 7 days - MUST be <= ${Math.round(max7DayPossible)}),
     "trend": "up" | "down" | "stable",
-    "confidence": number (0-100),
+    "confidence": number (0-${maxAllowedConfidence}, be conservative),
     "explanation": string (brief Taglish explanation, max 100 chars)
   },
   "breeding": {
     "nextHeatPredictions": [{ "animalId": string, "predictedDate": string, "confidence": number }] (max 3),
     "deliveryAlerts": [{ "animalId": string, "dueDate": string, "daysUntil": number }] (max 3),
-    "successRateForecast": number (0-100),
+    "successRateForecast": number (0-100, based on historical ${aiSuccessRate.toFixed(0)}%),
     "explanation": string (brief Taglish explanation, max 100 chars)
   },
   "health": {
@@ -215,10 +266,10 @@ You must respond with ONLY valid JSON in this exact format:
           },
           {
             role: 'user',
-            content: `Analyze this farm data and provide predictions:\n${JSON.stringify(context, null, 2)}`
+            content: `Analyze this farm data and provide CONSERVATIVE predictions:\n${JSON.stringify(context, null, 2)}`
           }
         ],
-        temperature: 0.3,
+        temperature: 0.2, // Lower temperature for more consistent/conservative outputs
       }),
     });
 
@@ -226,14 +277,14 @@ You must respond with ONLY valid JSON in this exact format:
       const errorText = await aiResponse.text();
       console.error('AI API error:', aiResponse.status, errorText);
       
-      // Return fallback predictions based on raw data
+      // Return conservative fallback predictions based on raw data
       return new Response(JSON.stringify({
         predictions: {
           milk: {
-            forecast7Days: Math.round(recentMilkAvg * 7),
+            forecast7Days: conservative7DayEstimate,
             trend: milkTrend > 5 ? 'up' : milkTrend < -5 ? 'down' : 'stable',
-            confidence: 60,
-            explanation: 'Based on recent production trends'
+            confidence: Math.min(55, Math.round(45 + dataQualityFactor * 15)),
+            explanation: `Based sa ${daysWithData} days ng production history`
           },
           breeding: {
             nextHeatPredictions: [],
@@ -242,14 +293,14 @@ You must respond with ONLY valid JSON in this exact format:
               dueDate: d.expected_delivery_date,
               daysUntil: Math.ceil((new Date(d.expected_delivery_date!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
             })),
-            successRateForecast: Math.round(aiSuccessRate),
+            successRateForecast: Math.round(aiSuccessRate * 0.9), // 10% conservative buffer
             explanation: 'Based on historical AI success rate'
           },
           health: {
             riskLevel: overdueVaccinations > 3 ? 'high' : overdueVaccinations > 0 ? 'medium' : 'low',
             potentialIssues: overdueVaccinations > 0 ? ['Overdue vaccinations detected'] : [],
             overdueCount: overdueVaccinations,
-            recommendation: overdueVaccinations > 0 ? 'Schedule overdue vaccinations soon' : 'Keep up with preventive care'
+            recommendation: overdueVaccinations > 0 ? 'I-schedule na ang overdue vaccinations' : 'Ituloy ang regular preventive care'
           }
         },
         generatedAt: now.toISOString(),
@@ -274,13 +325,13 @@ You must respond with ONLY valid JSON in this exact format:
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, content);
-      // Return fallback
+      // Return conservative fallback
       predictions = {
         milk: {
-          forecast7Days: Math.round(recentMilkAvg * 7),
+          forecast7Days: conservative7DayEstimate,
           trend: milkTrend > 5 ? 'up' : milkTrend < -5 ? 'down' : 'stable',
-          confidence: 60,
-          explanation: 'Based on recent production data'
+          confidence: Math.min(55, Math.round(45 + dataQualityFactor * 15)),
+          explanation: `Based sa ${daysWithData} days ng production data`
         },
         breeding: {
           nextHeatPredictions: [],
@@ -289,24 +340,68 @@ You must respond with ONLY valid JSON in this exact format:
             dueDate: d.expected_delivery_date,
             daysUntil: Math.ceil((new Date(d.expected_delivery_date!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
           })),
-          successRateForecast: Math.round(aiSuccessRate),
+          successRateForecast: Math.round(aiSuccessRate * 0.9),
           explanation: 'Based on historical breeding data'
         },
         health: {
           riskLevel: overdueVaccinations > 3 ? 'high' : overdueVaccinations > 0 ? 'medium' : 'low',
           potentialIssues: [],
           overdueCount: overdueVaccinations,
-          recommendation: 'Continue regular health monitoring'
+          recommendation: 'Ituloy ang regular health monitoring'
         }
       };
     }
 
-    console.log('Generated predictions for farm:', farmId);
+    // POST-VALIDATION: Clamp predictions to realistic bounds
+    if (predictions.milk) {
+      // Clamp milk forecast to never exceed historical maximum
+      const aiPrediction = predictions.milk.forecast7Days;
+      
+      if (aiPrediction > max7DayPossible) {
+        console.log(`Clamping milk prediction from ${aiPrediction}L to ${conservative7DayEstimate}L (max possible: ${max7DayPossible}L)`);
+        predictions.milk.forecast7Days = conservative7DayEstimate;
+        predictions.milk.confidence = Math.min(predictions.milk.confidence, 60);
+        predictions.milk.explanation = `Conservative estimate based sa ${daysWithData} days history`;
+      }
+      
+      // Ensure prediction is not unrealistically high (>110% of max possible)
+      if (predictions.milk.forecast7Days > max7DayPossible * 1.1) {
+        predictions.milk.forecast7Days = conservative7DayEstimate;
+        predictions.milk.confidence = Math.min(predictions.milk.confidence, 55);
+      }
+      
+      // Cap confidence to max allowed based on data quality
+      predictions.milk.confidence = Math.min(predictions.milk.confidence, maxAllowedConfidence);
+      
+      // Ensure minimum bounds
+      predictions.milk.forecast7Days = Math.max(predictions.milk.forecast7Days, 0);
+    }
+
+    // Cap breeding success rate confidence
+    if (predictions.breeding) {
+      predictions.breeding.successRateForecast = Math.min(
+        predictions.breeding.successRateForecast,
+        Math.round(aiSuccessRate * 1.1) // Don't predict more than 10% above historical
+      );
+    }
+
+    console.log('Generated conservative predictions for farm:', farmId, {
+      originalMilkPrediction: content,
+      finalMilkPrediction: predictions.milk?.forecast7Days,
+      maxPossible: max7DayPossible,
+      dataQuality: dataQualityFactor
+    });
 
     return new Response(JSON.stringify({
       predictions,
       generatedAt: now.toISOString(),
-      dataSource: 'ai'
+      dataSource: 'ai',
+      bounds: {
+        maxDailyRecorded: maxDailyProduction,
+        max7DayPossible: max7DayPossible,
+        conservative7DayEstimate: conservative7DayEstimate,
+        dataQualityFactor: dataQualityFactor
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
