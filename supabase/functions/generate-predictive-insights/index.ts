@@ -44,48 +44,60 @@ serve(async (req) => {
     const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Fetch historical data in parallel
+    // PHASE 1: Fetch farm's animals first (needed to filter other queries)
+    const animalsResult = await supabase
+      .from('animals')
+      .select('id, name, ear_tag, gender, birth_date, livestock_type, life_stage, current_weight_kg')
+      .eq('farm_id', farmId)
+      .eq('is_deleted', false);
+    
+    const animals = animalsResult.data || [];
+    const farmAnimalIds = animals.map(a => a.id);
+    
+    console.log(`Fetching data for farm ${farmId} with ${farmAnimalIds.length} animals`);
+    
+    // PHASE 2: Fetch farm-specific records using animal IDs
     const [
       milkingResult,
-      animalsResult,
       aiRecordsResult,
       healthRecordsResult,
       preventiveResult,
       heatRecordsResult
     ] = await Promise.all([
-      // Milk production last 90 days
-      supabase
-        .from('milking_records')
-        .select('record_date, liters, animal_id')
-        .gte('record_date', ninetyDaysAgo.toISOString().split('T')[0])
-        .order('record_date', { ascending: true }),
+      // Milk production last 90 days - FILTERED BY FARM'S ANIMALS
+      farmAnimalIds.length > 0 
+        ? supabase
+            .from('milking_records')
+            .select('record_date, liters, animal_id')
+            .in('animal_id', farmAnimalIds)
+            .gte('record_date', ninetyDaysAgo.toISOString().split('T')[0])
+            .order('record_date', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       
-      // Animals
-      supabase
-        .from('animals')
-        .select('id, name, ear_tag, gender, birth_date, livestock_type, life_stage, current_weight_kg')
-        .eq('farm_id', farmId)
-        .eq('is_deleted', false),
+      // AI/Breeding records - FILTERED BY FARM'S ANIMALS
+      farmAnimalIds.length > 0
+        ? supabase
+            .from('ai_records')
+            .select('animal_id, scheduled_date, performed_date, pregnancy_confirmed, expected_delivery_date')
+            .in('animal_id', farmAnimalIds)
+        : Promise.resolve({ data: [], error: null }),
       
-      // AI/Breeding records
-      supabase
-        .from('ai_records')
-        .select('animal_id, scheduled_date, performed_date, pregnancy_confirmed, expected_delivery_date')
-        .in('animal_id', (await supabase.from('animals').select('id').eq('farm_id', farmId).eq('is_deleted', false)).data?.map(a => a.id) || []),
+      // Health records last 90 days - FILTERED BY FARM'S ANIMALS
+      farmAnimalIds.length > 0
+        ? supabase
+            .from('health_records')
+            .select('animal_id, visit_date, diagnosis, treatment')
+            .in('animal_id', farmAnimalIds)
+            .gte('visit_date', ninetyDaysAgo.toISOString().split('T')[0])
+        : Promise.resolve({ data: [], error: null }),
       
-      // Health records last 90 days
-      supabase
-        .from('health_records')
-        .select('animal_id, visit_date, diagnosis, treatment')
-        .gte('visit_date', ninetyDaysAgo.toISOString().split('T')[0]),
-      
-      // Preventive health schedules
+      // Preventive health schedules - already filtered by farm_id
       supabase
         .from('preventive_health_schedules')
         .select('animal_id, schedule_type, treatment_name, scheduled_date, status')
         .eq('farm_id', farmId),
       
-      // Heat records last 90 days
+      // Heat records last 90 days - already filtered by farm_id
       supabase
         .from('heat_records')
         .select('animal_id, detected_at, intensity')
@@ -94,11 +106,12 @@ serve(async (req) => {
     ]);
 
     const milkRecords = milkingResult.data || [];
-    const animals = animalsResult.data || [];
     const aiRecords = aiRecordsResult.data || [];
     const healthRecords = healthRecordsResult.data || [];
     const preventiveSchedules = preventiveResult.data || [];
     const heatRecords = heatRecordsResult.data || [];
+    
+    console.log(`Farm ${farmId} data: ${milkRecords.length} milk records, ${healthRecords.length} health records, ${aiRecords.length} AI records`);
 
     // Calculate milk statistics with historical bounds
     const dailyMilkTotals: Record<string, number> = {};
