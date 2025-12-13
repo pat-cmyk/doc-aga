@@ -4,10 +4,38 @@ export async function executeToolCall(
   toolName: string,
   args: any,
   supabase: SupabaseClient,
-  farmId: string | undefined
+  farmId: string | undefined,
+  context: 'farmer' | 'government' = 'farmer'
 ) {
-  console.log(`Executing tool: ${toolName}`, args);
+  console.log(`Executing tool: ${toolName} (context: ${context})`, args);
 
+  // Government analyst tools
+  if (context === 'government') {
+    switch (toolName) {
+      case "get_national_overview":
+        return await getNationalOverview(supabase);
+      
+      case "get_regional_stats":
+        return await getRegionalStats(args, supabase);
+      
+      case "get_breeding_analytics":
+        return await getBreedingAnalytics(args, supabase);
+      
+      case "get_health_analytics":
+        return await getHealthAnalytics(args, supabase);
+      
+      case "get_production_trends":
+        return await getProductionTrends(args, supabase);
+      
+      case "get_farmer_feedback_summary":
+        return await getFarmerFeedbackSummary(args, supabase);
+      
+      default:
+        return { error: `Unknown government tool: ${toolName}` };
+    }
+  }
+
+  // Farmer tools
   switch (toolName) {
     case "get_animal_profile":
       return await getAnimalProfile(args, supabase, farmId);
@@ -54,6 +82,324 @@ export async function executeToolCall(
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
+}
+
+// ============= GOVERNMENT ANALYST TOOLS =============
+
+async function getNationalOverview(supabase: SupabaseClient) {
+  // Get total farms count
+  const { count: totalFarms } = await supabase
+    .from('farms')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_deleted', false);
+
+  // Get total animals count by livestock type
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('livestock_type, life_stage, milking_stage')
+    .eq('is_deleted', false);
+
+  const totalAnimals = animals?.length || 0;
+  const livestockBreakdown: Record<string, number> = {};
+  let totalLactating = 0;
+
+  animals?.forEach(a => {
+    const type = a.livestock_type || 'Unknown';
+    livestockBreakdown[type] = (livestockBreakdown[type] || 0) + 1;
+    
+    const isLactating = 
+      (a.milking_stage && a.milking_stage !== 'Dry Period') ||
+      (a.life_stage && a.life_stage.includes('Lactating'));
+    if (isLactating) totalLactating++;
+  });
+
+  // Get farms by region
+  const { data: farmsByRegion } = await supabase
+    .from('farms')
+    .select('region')
+    .eq('is_deleted', false);
+
+  const regionBreakdown: Record<string, number> = {};
+  farmsByRegion?.forEach(f => {
+    const region = f.region || 'Unknown';
+    regionBreakdown[region] = (regionBreakdown[region] || 0) + 1;
+  });
+
+  // Get today's total milk production
+  const today = new Date().toISOString().split('T')[0];
+  const { data: milkToday } = await supabase
+    .from('milking_records')
+    .select('liters')
+    .gte('record_date', today);
+
+  const todayMilk = milkToday?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
+
+  // Get AI procedure stats this month
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const { count: aiProceduresThisMonth } = await supabase
+    .from('ai_records')
+    .select('*', { count: 'exact', head: true })
+    .gte('performed_date', monthStart.toISOString().split('T')[0]);
+
+  return {
+    total_farms: totalFarms || 0,
+    total_animals: totalAnimals,
+    total_lactating: totalLactating,
+    livestock_breakdown: livestockBreakdown,
+    farms_by_region: regionBreakdown,
+    today_milk_liters: todayMilk,
+    ai_procedures_this_month: aiProceduresThisMonth || 0,
+  };
+}
+
+async function getRegionalStats(args: any, supabase: SupabaseClient) {
+  const region = args.region;
+  
+  let farmsQuery = supabase
+    .from('farms')
+    .select('id, name, province, municipality')
+    .eq('is_deleted', false);
+
+  if (region) {
+    farmsQuery = farmsQuery.eq('region', region);
+  }
+
+  const { data: farms } = await farmsQuery;
+  const farmIds = farms?.map(f => f.id) || [];
+
+  if (farmIds.length === 0) {
+    return { 
+      region: region || 'All Regions',
+      total_farms: 0,
+      total_animals: 0,
+      message: "No farms found in this region"
+    };
+  }
+
+  // Get animals for these farms
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('livestock_type, life_stage, milking_stage')
+    .in('farm_id', farmIds)
+    .eq('is_deleted', false);
+
+  const livestockBreakdown: Record<string, number> = {};
+  let totalLactating = 0;
+
+  animals?.forEach(a => {
+    const type = a.livestock_type || 'Unknown';
+    livestockBreakdown[type] = (livestockBreakdown[type] || 0) + 1;
+    
+    const isLactating = 
+      (a.milking_stage && a.milking_stage !== 'Dry Period') ||
+      (a.life_stage && a.life_stage.includes('Lactating'));
+    if (isLactating) totalLactating++;
+  });
+
+  // Province breakdown
+  const provinceBreakdown: Record<string, number> = {};
+  farms?.forEach(f => {
+    const province = f.province || 'Unknown';
+    provinceBreakdown[province] = (provinceBreakdown[province] || 0) + 1;
+  });
+
+  return {
+    region: region || 'All Regions',
+    total_farms: farms?.length || 0,
+    total_animals: animals?.length || 0,
+    total_lactating: totalLactating,
+    livestock_breakdown: livestockBreakdown,
+    farms_by_province: provinceBreakdown,
+  };
+}
+
+async function getBreedingAnalytics(args: any, supabase: SupabaseClient) {
+  const days = args.days || 90;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Get AI records
+  const { data: aiRecords } = await supabase
+    .from('ai_records')
+    .select('performed_date, pregnancy_confirmed, animals!inner(livestock_type)')
+    .gte('performed_date', startDate)
+    .not('performed_date', 'is', null);
+
+  const totalAI = aiRecords?.length || 0;
+  const confirmedPregnancies = aiRecords?.filter(r => r.pregnancy_confirmed)?.length || 0;
+  const successRate = totalAI > 0 ? Math.round((confirmedPregnancies / totalAI) * 100) : 0;
+
+  // Success rate by livestock type
+  const aiByType: Record<string, { total: number; confirmed: number }> = {};
+  aiRecords?.forEach((r: any) => {
+    const type = r.animals?.livestock_type || 'Unknown';
+    if (!aiByType[type]) aiByType[type] = { total: 0, confirmed: 0 };
+    aiByType[type].total++;
+    if (r.pregnancy_confirmed) aiByType[type].confirmed++;
+  });
+
+  const successByType: Record<string, number> = {};
+  Object.entries(aiByType).forEach(([type, stats]) => {
+    successByType[type] = stats.total > 0 ? Math.round((stats.confirmed / stats.total) * 100) : 0;
+  });
+
+  // Get currently pregnant animals count
+  const { count: pregnantCount } = await supabase
+    .from('ai_records')
+    .select('*', { count: 'exact', head: true })
+    .eq('pregnancy_confirmed', true);
+
+  return {
+    period_days: days,
+    total_ai_procedures: totalAI,
+    confirmed_pregnancies: confirmedPregnancies,
+    overall_success_rate: successRate,
+    success_rate_by_type: successByType,
+    currently_pregnant: pregnantCount || 0,
+  };
+}
+
+async function getHealthAnalytics(args: any, supabase: SupabaseClient) {
+  const days = args.days || 30;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Get health records
+  const { data: healthRecords } = await supabase
+    .from('health_records')
+    .select('diagnosis, treatment, visit_date')
+    .gte('visit_date', startDate);
+
+  const totalRecords = healthRecords?.length || 0;
+
+  // Common diagnoses
+  const diagnosisCount: Record<string, number> = {};
+  healthRecords?.forEach(r => {
+    const diagnosis = r.diagnosis || 'Unspecified';
+    diagnosisCount[diagnosis] = (diagnosisCount[diagnosis] || 0) + 1;
+  });
+
+  // Sort by count
+  const topDiagnoses = Object.entries(diagnosisCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([diagnosis, count]) => ({ diagnosis, count }));
+
+  // Animal exits (mortality, sales)
+  const { data: exitedAnimals } = await supabase
+    .from('animals')
+    .select('exit_reason, exit_date')
+    .gte('exit_date', startDate)
+    .not('exit_date', 'is', null);
+
+  const exitReasons: Record<string, number> = {};
+  exitedAnimals?.forEach(a => {
+    const reason = a.exit_reason || 'Unknown';
+    exitReasons[reason] = (exitReasons[reason] || 0) + 1;
+  });
+
+  return {
+    period_days: days,
+    total_health_records: totalRecords,
+    top_diagnoses: topDiagnoses,
+    animal_exits: exitReasons,
+    total_exits: exitedAnimals?.length || 0,
+  };
+}
+
+async function getProductionTrends(args: any, supabase: SupabaseClient) {
+  const days = args.days || 30;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Get daily milk production
+  const { data: milkRecords } = await supabase
+    .from('milking_records')
+    .select('record_date, liters, animals!inner(livestock_type)')
+    .gte('record_date', startDate)
+    .order('record_date', { ascending: true });
+
+  // Aggregate by date
+  const dailyTotals: Record<string, number> = {};
+  const dailyByType: Record<string, Record<string, number>> = {};
+
+  milkRecords?.forEach((r: any) => {
+    const date = r.record_date;
+    const type = r.animals?.livestock_type || 'Unknown';
+    
+    dailyTotals[date] = (dailyTotals[date] || 0) + Number(r.liters);
+    
+    if (!dailyByType[date]) dailyByType[date] = {};
+    dailyByType[date][type] = (dailyByType[date][type] || 0) + Number(r.liters);
+  });
+
+  // Calculate averages
+  const dates = Object.keys(dailyTotals);
+  const totalMilk = Object.values(dailyTotals).reduce((a, b) => a + b, 0);
+  const avgDaily = dates.length > 0 ? Math.round(totalMilk / dates.length) : 0;
+
+  // Total by livestock type
+  const totalByType: Record<string, number> = {};
+  milkRecords?.forEach((r: any) => {
+    const type = r.animals?.livestock_type || 'Unknown';
+    totalByType[type] = (totalByType[type] || 0) + Number(r.liters);
+  });
+
+  return {
+    period_days: days,
+    total_milk_liters: Math.round(totalMilk),
+    average_daily_liters: avgDaily,
+    production_by_livestock_type: totalByType,
+    daily_trend: Object.entries(dailyTotals).map(([date, liters]) => ({ date, liters })),
+  };
+}
+
+async function getFarmerFeedbackSummary(args: any, supabase: SupabaseClient) {
+  const days = args.days || 30;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  // Get feedback records
+  const { data: feedback } = await supabase
+    .from('farmer_feedback')
+    .select('primary_category, sentiment, status, auto_priority, created_at')
+    .gte('created_at', startDate);
+
+  const totalFeedback = feedback?.length || 0;
+
+  // Category breakdown
+  const categoryCount: Record<string, number> = {};
+  feedback?.forEach(f => {
+    const category = f.primary_category || 'Unknown';
+    categoryCount[category] = (categoryCount[category] || 0) + 1;
+  });
+
+  // Sentiment breakdown
+  const sentimentCount: Record<string, number> = {};
+  feedback?.forEach(f => {
+    const sentiment = f.sentiment || 'Unknown';
+    sentimentCount[sentiment] = (sentimentCount[sentiment] || 0) + 1;
+  });
+
+  // Status breakdown
+  const statusCount: Record<string, number> = {};
+  feedback?.forEach(f => {
+    const status = f.status || 'Unknown';
+    statusCount[status] = (statusCount[status] || 0) + 1;
+  });
+
+  // Priority breakdown
+  const priorityCount: Record<string, number> = {};
+  feedback?.forEach(f => {
+    const priority = f.auto_priority || 'Unknown';
+    priorityCount[priority] = (priorityCount[priority] || 0) + 1;
+  });
+
+  return {
+    period_days: days,
+    total_feedback: totalFeedback,
+    by_category: categoryCount,
+    by_sentiment: sentimentCount,
+    by_status: statusCount,
+    by_priority: priorityCount,
+  };
 }
 
 async function getAnimalProfile(args: any, supabase: SupabaseClient, farmId: string | undefined) {

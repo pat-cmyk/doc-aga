@@ -10,7 +10,9 @@ import { Loader2, Send, Bot, User, Volume2, FileText, Square, Activity, BarChart
 import { useToast } from "@/hooks/use-toast";
 import VoiceInterface from "./VoiceInterface";
 import { useRole } from "@/hooks/useRole";
+import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
+import { useLocation } from "react-router-dom";
 
 interface Message {
   role: "user" | "assistant";
@@ -51,6 +53,11 @@ const DocAga = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { roles, hasRole } = useRole();
+  const { hasAccess: hasGovernmentAccess } = useGovernmentAccess();
+  const location = useLocation();
+  
+  // Detect if user is on government dashboard
+  const isGovernmentContext = hasGovernmentAccess && location.pathname.startsWith('/government');
 
   // Quick actions based on role
   const getQuickActions = (): QuickAction[] => {
@@ -212,7 +219,7 @@ const DocAga = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: messagesToSend }),
+        body: JSON.stringify({ messages: messagesToSend, context: isGovernmentContext ? 'government' : 'farmer' }),
       });
 
       if (!resp.ok) {
