@@ -274,10 +274,9 @@ serve(async (req) => {
                 text: 'Please transcribe this audio recording from a Filipino farmer. Preserve the natural Taglish speech patterns.'
               },
               {
-                type: 'input_audio',
-                input_audio: {
-                  data: audio,
-                  format: 'webm'
+                type: 'image_url',
+                image_url: {
+                  url: `data:audio/webm;base64,${audio}`
                 }
               }
             ]
