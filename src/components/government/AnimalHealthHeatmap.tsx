@@ -2,8 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { HeatmapData } from "@/hooks/useGovernmentStats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, AlertTriangle } from "lucide-react";
-
 interface AnimalHealthHeatmapProps {
   data?: HeatmapData[];
   comparisonData?: HeatmapData[];
@@ -163,8 +163,9 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <Badge className="mb-3">Primary</Badge>
-              <div className="space-y-3">
-                {data.slice(0, 5).map((item, index) => {
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-3">
+                {data.map((item, index) => {
                   const severity = getSeverityLevel(item.prevalence_rate);
                   return (
                     <div
@@ -202,13 +203,15 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </ScrollArea>
             </div>
             
             <div>
               <Badge variant="secondary" className="mb-3">Comparison</Badge>
-              <div className="space-y-3">
-                {comparisonData.slice(0, 5).map((item, index) => {
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-3">
+                {comparisonData.map((item, index) => {
                   const severity = getSeverityLevel(item.prevalence_rate);
                   return (
                     <div
@@ -246,12 +249,14 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </ScrollArea>
             </div>
           </div>
         ) : (
+          <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-3">
-          {data.slice(0, 10).map((item, index) => {
+          {data.map((item, index) => {
             const severity = getSeverityLevel(item.prevalence_rate);
             return (
               <div
@@ -304,6 +309,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
             );
           })}
           </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
