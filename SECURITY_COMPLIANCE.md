@@ -118,6 +118,56 @@ All edge functions now:
 - ✅ `useGovernmentAccess()` hook for frontend route protection
 - ✅ Separate authentication portal (/government/auth)
 
+### 8. Government Farm Analytics Security (FIXED)
+**Status:** ✅ Completed
+
+**Issue:** The `gov_farm_analytics` view exposed owner_id, GPS coordinates, and government program participation data publicly.
+
+**Fixes Applied:**
+- ✅ View recreated with `security_invoker = true` to enforce RLS of querying user
+- ✅ Created `get_gov_farm_analytics()` RPC function with role validation
+- ✅ Revoked direct SELECT access from `anon` and `public` roles
+- ✅ Only users with 'government' or 'admin' roles can access farm analytics
+
+**Security Pattern:**
+```sql
+-- Secure view with security_invoker
+CREATE OR REPLACE VIEW gov_farm_analytics WITH (security_invoker = true) AS ...
+
+-- Role-gated RPC function
+CREATE FUNCTION get_gov_farm_analytics()
+RETURNS SETOF gov_farm_analytics
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NOT (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'government')) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+  RETURN QUERY SELECT * FROM gov_farm_analytics;
+END;
+$$;
+
+-- Revoke direct access
+REVOKE ALL ON gov_farm_analytics FROM anon, public;
+```
+
+### 9. User Profile Privacy Protection (FIXED)
+**Status:** ✅ Completed
+
+**Issue:** The `profiles` table allowed `anon` and `public` roles to access user contact information (phone, email), enabling potential scraping and targeting.
+
+**Fixes Applied:**
+- ✅ Revoked all access from `anon` and `public` roles
+- ✅ Consolidated duplicate RLS policies into clean set
+- ✅ Users can only view/update their own profile
+- ✅ Admins can view and update all profiles for support operations
+
+**Active RLS Policies:**
+- `users_select_own_profile`: Users can read own profile (auth.uid() = id)
+- `users_update_own_profile`: Users can update own profile (auth.uid() = id)
+- `profiles_self_insert`: Users can create own profile (auth.uid() = id)
+- `admins_can_view_all_profiles`: Admins can view all profiles
+- `admins_can_update_profiles`: Admins can update profiles for support
+
 ## ⚠️ Manual Action Required
 
 ### Leaked Password Protection
@@ -168,6 +218,8 @@ Add these secrets to your Lovable Cloud backend:
 - ✅ Sanitized error messages
 - ✅ Strict storage access controls
 - ✅ Webhook signature verification for CI/CD
+- ✅ Secure views with role-gated RPC functions
+- ✅ Profile table protected from public harvesting
 
 ### Attack Surface Reduction:
 - **API Abuse:** Rate limiting + authentication prevents unauthorized API consumption

@@ -1840,6 +1840,42 @@ catch (error) {
 - Test policies with different user roles
 - Never expose sensitive data to unauthorized users
 
+**✅ Securing Database Views:**
+Views can bypass RLS by default. Use this pattern for sensitive views:
+
+```sql
+-- 1. Create view with security_invoker to enforce caller's RLS
+CREATE OR REPLACE VIEW public.sensitive_data_view
+WITH (security_invoker = true)
+AS SELECT ... FROM sensitive_table;
+
+-- 2. Revoke direct access from anonymous/public roles
+REVOKE ALL ON public.sensitive_data_view FROM anon;
+REVOKE ALL ON public.sensitive_data_view FROM public;
+
+-- 3. Create role-gated RPC function as the access layer
+CREATE OR REPLACE FUNCTION public.get_sensitive_data()
+RETURNS SETOF public.sensitive_data_view
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Validate caller has required role
+  IF NOT (has_role(auth.uid(), 'admin'::user_role) OR 
+          has_role(auth.uid(), 'government'::user_role)) THEN
+    RAISE EXCEPTION 'Access denied: Required role not found';
+  END IF;
+  
+  RETURN QUERY SELECT * FROM sensitive_data_view;
+END;
+$$;
+
+-- 4. Revoke direct function execution from public
+REVOKE EXECUTE ON FUNCTION get_sensitive_data() FROM anon, public;
+GRANT EXECUTE ON FUNCTION get_sensitive_data() TO authenticated;
+```
+
 **✅ Webhook Security:**
 ```typescript
 // Verify webhook signatures
