@@ -247,12 +247,12 @@ const Auth = () => {
             <CardTitle className="text-2xl font-bold">Doc Aga</CardTitle>
             <p className="text-sm text-muted-foreground">by Golden Forage</p>
           </div>
-          <CardDescription>Sign in or create your farmer account to manage your livestock</CardDescription>
+          <CardDescription>Log in or create your farmer account to manage your livestock</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signin">Log In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
             
@@ -290,7 +290,7 @@ const Auth = () => {
                   </Button>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log In"}
                 </Button>
               </form>
             </TabsContent>
