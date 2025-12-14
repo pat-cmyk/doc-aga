@@ -1,9 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { format, parseISO } from "date-fns";
-import { TrendingUp, Activity, FileText, Droplets } from "lucide-react";
+import { TrendingUp, Activity, FileText, Droplets, Layers } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface GovTrendChartsProps {
@@ -233,6 +233,98 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 />
               ))}
             </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Livestock Composition Stacked Area Chart */}
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary" />
+            <CardTitle>Livestock Composition Trend</CardTitle>
+          </div>
+          <CardDescription>Stacked view of animal population by type over time</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
+            <AreaChart data={mergedChartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis 
+                dataKey="date" 
+                className="text-xs"
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                className="text-xs"
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const total = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+                    return (
+                      <div className="rounded-lg border bg-background p-3 shadow-lg">
+                        <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
+                        <p className="text-sm font-medium text-foreground mb-1">Total: {total.toLocaleString()} animals</p>
+                        {payload.map((entry: any, index: number) => {
+                          const percentage = total > 0 ? ((Number(entry.value) / total) * 100).toFixed(1) : '0';
+                          return (
+                            <p key={index} className="text-sm" style={{ color: entry.color }}>
+                              {entry.name}: {Number(entry.value).toLocaleString()} ({percentage}%)
+                            </p>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconSize={10}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="cattle_count" 
+                stackId="1" 
+                stroke="hsl(var(--chart-1))" 
+                fill="hsl(var(--chart-1))" 
+                fillOpacity={0.6}
+                name="Cattle" 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="goat_count" 
+                stackId="1" 
+                stroke="hsl(var(--chart-2))" 
+                fill="hsl(var(--chart-2))" 
+                fillOpacity={0.6}
+                name="Goat" 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="carabao_count" 
+                stackId="1" 
+                stroke="hsl(var(--chart-3))" 
+                fill="hsl(var(--chart-3))" 
+                fillOpacity={0.6}
+                name="Carabao" 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="sheep_count" 
+                stackId="1" 
+                stroke="hsl(var(--chart-4))" 
+                fill="hsl(var(--chart-4))" 
+                fillOpacity={0.6}
+                name="Sheep" 
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
