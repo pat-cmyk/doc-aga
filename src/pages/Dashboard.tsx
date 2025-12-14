@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +32,15 @@ import { usePendingActivities } from "@/hooks/usePendingActivities";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { syncQueue } from "@/lib/syncService";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
+import { BottomNav } from "@/components/ui/bottom-nav";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  const isMobile = useIsMobile();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
@@ -365,27 +369,30 @@ const Dashboard = () => {
       )}
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-7xl pb-safe">
+      <main className={cn(
+        "container mx-auto px-4 py-6 max-w-7xl",
+        isMobile ? "pb-24" : "pb-safe"
+      )}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <div className="relative">
-            {/* Scroll indicator gradients */}
-            <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none md:hidden" />
-            <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none md:hidden" />
-            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 px-1 md:grid md:w-auto md:grid-cols-5">
-              <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
-              <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
-              <TabsTrigger value="operations" disabled={!farmId}>Operations</TabsTrigger>
-              <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
-              <TabsTrigger value="more" disabled={!farmId} className="gap-2">
-                More
-                {pendingCount > 0 && canManageFarm && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          {/* Desktop: Top tabs */}
+          {!isMobile && (
+            <div className="relative">
+              <TabsList className="grid w-auto grid-cols-5">
+                <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
+                <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
+                <TabsTrigger value="operations" disabled={!farmId}>Operations</TabsTrigger>
+                <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
+                <TabsTrigger value="more" disabled={!farmId} className="gap-2">
+                  More
+                  {pendingCount > 0 && canManageFarm && (
+                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      {pendingCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          )}
 
           {/* Offline Onboarding Dialog */}
           {farmId && <OfflineOnboarding farmId={farmId} />}
@@ -513,6 +520,16 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* Mobile: Bottom navigation */}
+      {isMobile && (
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          pendingCount={canManageFarm ? pendingCount : 0}
+          disabled={!farmId}
+        />
+      )}
       
       {/* Queue Status FAB */}
       <QueueStatus />
