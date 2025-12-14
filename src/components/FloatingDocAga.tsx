@@ -86,7 +86,7 @@ export function FloatingDocAga() {
             <Button
               onClick={handleOpen}
               className={cn(
-                "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50",
+                "fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50",
                 "h-16 w-16 sm:h-18 sm:w-18 rounded-full shadow-lg",
                 "transition-all duration-300 hover:scale-110",
                 "bg-primary hover:bg-primary/90",
