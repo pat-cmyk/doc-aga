@@ -3294,19 +3294,21 @@ export type Database = {
       get_government_stats_timeseries: {
         Args: {
           end_date: string
-          municipality_filter?: string
-          province_filter?: string
-          region_filter?: string
+          filter_municipality?: string
+          filter_province?: string
+          filter_region?: string
           start_date: string
         }
         Returns: {
-          active_animal_count: number
-          avg_milk_liters: number
+          carabao_count: number
+          cattle_count: number
           date: string
-          doc_aga_query_count: number
-          farm_count: number
-          health_event_count: number
-          livestock_type: string
+          doc_aga_queries: number
+          goat_count: number
+          health_events: number
+          sheep_count: number
+          total_farms: number
+          total_milk_liters: number
         }[]
       }
       get_health_heatmap_data: {
