@@ -243,7 +243,10 @@ const Auth = () => {
               <Sprout className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Farmer Portal</CardTitle>
+          <div>
+            <CardTitle className="text-2xl font-bold">Doc Aga</CardTitle>
+            <p className="text-sm text-muted-foreground">by Golden Forage</p>
+          </div>
           <CardDescription>Sign in or create your farmer account to manage your livestock</CardDescription>
         </CardHeader>
         <CardContent>
