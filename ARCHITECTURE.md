@@ -289,6 +289,27 @@ is_farm_owner(user_id, farm_id)      # Check farm ownership
 is_farm_manager(user_id, farm_id)    # Check manager status
 is_farmhand(user_id, farm_id)        # Check farmhand access
 can_access_farm(farm_id)             # Unified farm access check
+get_gov_farm_analytics()             # Role-gated government analytics access
+```
+
+**Secure View Pattern:**
+Views containing sensitive data use `security_invoker = true` and are accessed through role-gated RPC functions:
+```sql
+-- 1. Create view with security_invoker
+CREATE VIEW sensitive_view WITH (security_invoker = true) AS ...
+
+-- 2. Revoke direct access
+REVOKE ALL ON sensitive_view FROM anon, public;
+
+-- 3. Create role-gated RPC function
+CREATE FUNCTION get_sensitive_data() RETURNS SETOF sensitive_view AS $$
+BEGIN
+  IF NOT has_role(auth.uid(), 'required_role') THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+  RETURN QUERY SELECT * FROM sensitive_view;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ---
