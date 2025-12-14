@@ -3316,6 +3316,15 @@ export type Database = {
         Returns: Json
       }
       get_system_health_metrics: { Args: never; Returns: Json }
+      get_team_members: {
+        Args: { p_farm_id: string }
+        Returns: {
+          full_name: string
+          id: string
+          invitation_status: string
+          role_in_farm: Database["public"]["Enums"]["user_role"]
+        }[]
+      }
       get_upcoming_alerts: {
         Args: { p_days_ahead?: number; p_farm_id: string }
         Returns: {
