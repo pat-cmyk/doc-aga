@@ -992,16 +992,6 @@ const GovernmentDashboard = () => {
                 error={undefined}
                 comparisonMode={comparisonMode}
               />
-              
-              {/* Farmer Queries */}
-              <FarmerQueriesTopics 
-                startDate={primaryDateRange.start} 
-                endDate={primaryDateRange.end}
-                comparisonStartDate={comparisonMode ? comparisonDateRange.start : undefined}
-                comparisonEndDate={comparisonMode ? comparisonDateRange.end : undefined}
-                enabled={hasAccess}
-                comparisonMode={comparisonMode}
-              />
             </div>
           </TabsContent>
 
