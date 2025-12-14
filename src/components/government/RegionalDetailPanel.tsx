@@ -76,10 +76,10 @@ const RegionalDetailPanel = ({
     if (!timeseriesData) return [];
     return timeseriesData.map((d) => ({
       date: format(new Date(d.date), "MMM d"),
-      farms: d.farm_count,
-      animals: d.active_animal_count,
-      healthEvents: d.health_event_count,
-      avgMilk: d.avg_milk_liters,
+      farms: d.total_farms,
+      animals: d.cattle_count + d.goat_count + d.carabao_count + d.sheep_count,
+      healthEvents: d.health_events,
+      avgMilk: d.total_milk_liters,
     }));
   }, [timeseriesData]);
 

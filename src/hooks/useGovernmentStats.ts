@@ -4,12 +4,14 @@ import { subDays, format } from "date-fns";
 
 export interface TimeseriesDataPoint {
   date: string;
-  livestock_type: string;
-  farm_count: number;
-  active_animal_count: number;
-  health_event_count: number;
-  doc_aga_query_count: number;
-  avg_milk_liters: number;
+  total_farms: number;
+  cattle_count: number;
+  goat_count: number;
+  carabao_count: number;
+  sheep_count: number;
+  health_events: number;
+  doc_aga_queries: number;
+  total_milk_liters: number;
 }
 
 export interface GovStats {
@@ -191,9 +193,9 @@ export const useGovernmentStatsTimeseries = (
         {
           start_date: format(startDate, "yyyy-MM-dd"),
           end_date: format(endDate, "yyyy-MM-dd"),
-          region_filter: region || null,
-          province_filter: province || null,
-          municipality_filter: municipality || null,
+          filter_region: region || null,
+          filter_province: province || null,
+          filter_municipality: municipality || null,
         }
       );
 
