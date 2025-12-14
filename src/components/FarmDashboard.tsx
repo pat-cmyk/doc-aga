@@ -18,6 +18,8 @@ import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
+import { QuickActionsFab } from "./dashboard/QuickActionsFab";
+import { useNavigate } from "react-router-dom";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -33,6 +35,25 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Quick action handlers
+  const handleRecordMilk = () => {
+    // Navigate to Operations tab with Milk sub-tab
+    navigate('/?tab=operations&subtab=milk');
+  };
+
+  const handleRecordHealth = () => {
+    setHealthDialogOpen(true);
+  };
+
+  const handleLogActivity = () => {
+    // Trigger Doc Aga for voice activity logging
+    const docAgaButton = document.querySelector('[data-doc-aga-trigger]') as HTMLButtonElement;
+    if (docAgaButton) {
+      docAgaButton.click();
+    }
+  };
 
   // Memoize date calculations
   const { startDate, endDate } = useMemo(() => {
@@ -314,6 +335,13 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         open={healthDialogOpen}
         onClose={() => setHealthDialogOpen(false)}
         onNavigateToAnimal={(animalId) => onNavigateToAnimalDetails?.(animalId)}
+      />
+
+      {/* Quick Actions FAB - positioned left to avoid conflict with Doc Aga */}
+      <QuickActionsFab
+        onRecordMilk={handleRecordMilk}
+        onRecordHealth={handleRecordHealth}
+        onLogActivity={handleLogActivity}
       />
     </div>
   );

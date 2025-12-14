@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useMorningBrief, type MorningBrief, type MorningBriefMetrics } from '@/hooks/useMorningBrief';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MorningBriefCardProps {
   farmId: string;
@@ -26,7 +27,17 @@ interface MorningBriefCardProps {
 
 export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
   const { brief, metrics, isLoading, error, isDismissed, dismiss, refresh } = useMorningBrief(farmId);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const isMobile = useIsMobile();
+  // Default to collapsed on mobile, expanded on desktop
+  const [isExpanded, setIsExpanded] = useState(!isMobile);
+
+  // Update expanded state when viewport changes (e.g., rotating device)
+  useEffect(() => {
+    // Only auto-collapse if switching TO mobile, don't force expand on desktop
+    if (isMobile && isExpanded) {
+      setIsExpanded(false);
+    }
+  }, [isMobile]);
 
   if (isDismissed) {
     return null;
@@ -52,13 +63,27 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
               <div className="p-2 rounded-full bg-primary/10">
                 <Sun className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-base">{brief.greeting}</h3>
                 <p className="text-xs text-muted-foreground">Doc Aga's Morning Brief</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-1">
+            {/* Compact preview on mobile when collapsed */}
+            {!isExpanded && isMobile && metrics && (
+              <div className="flex items-center gap-2 text-xs animate-fade-in">
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <TrendingUp className="h-3 w-3" />
+                  {metrics.totalAnimals}
+                </span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Milk className="h-3 w-3" />
+                  {metrics.todayMilk}L
+                </span>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-1 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
