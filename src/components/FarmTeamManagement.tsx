@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Mail, Calendar, Send, Check, MicOff } from "lucide-react";
+import { UserPlus, Trash2, Mail, Calendar, Send } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -19,16 +19,12 @@ interface FarmTeamManagementProps {
 
 interface TeamMember {
   id: string;
-  user_id: string;
+  user_id: string | null;
   role_in_farm: string;
   invitation_status: string;
   invited_email: string | null;
   invited_at: string;
-  profiles: {
-    full_name: string;
-    email: string;
-    voice_training_completed: boolean;
-  } | null;
+  full_name: string | null;
 }
 
 export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps) => {
@@ -38,11 +34,12 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch team members
+  // Fetch team members - using secure RPC for accepted members, direct query for pending
   const { data: teamMembers, isLoading } = useQuery({
     queryKey: ["farm-team", farmId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch all memberships (including pending) from farm_memberships
+      const { data: memberships, error: membershipError } = await supabase
         .from("farm_memberships")
         .select(`
           id,
@@ -50,18 +47,30 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
           role_in_farm,
           invitation_status,
           invited_email,
-          invited_at,
-          profiles:user_id (
-            full_name,
-            email,
-            voice_training_completed
-          )
+          invited_at
         `)
         .eq("farm_id", farmId)
         .order("invited_at", { ascending: false });
 
-      if (error) throw error;
-      return data as TeamMember[];
+      if (membershipError) throw membershipError;
+
+      // Fetch accepted team members with safe profile data using secure RPC
+      const { data: teamData, error: teamError } = await supabase
+        .rpc('get_team_members', { p_farm_id: farmId });
+
+      // Create a map of user_id to full_name from secure RPC
+      const nameMap = new Map<string, string>();
+      if (teamData && !teamError) {
+        teamData.forEach((member: { id: string; full_name: string }) => {
+          nameMap.set(member.id, member.full_name || '');
+        });
+      }
+
+      // Merge the data - only include safe fields
+      return (memberships || []).map((m) => ({
+        ...m,
+        full_name: m.user_id ? nameMap.get(m.user_id) || null : null,
+      })) as TeamMember[];
     },
   });
 
@@ -268,22 +277,6 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const getVoiceTrainingBadge = (completed: boolean | undefined) => {
-    if (completed === undefined || completed === null) return null;
-    
-    return completed ? (
-      <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-        <Check className="h-3 w-3 mr-1" />
-        Voice Training
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="text-muted-foreground">
-        <MicOff className="h-3 w-3 mr-1" />
-        Training Pending
-      </Badge>
-    );
-  };
-
   if (isLoading) {
     return <div>Loading team members...</div>;
   }
@@ -365,19 +358,16 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium">
-                      {member.profiles?.full_name || member.invited_email}
+                      {member.full_name || member.invited_email || "Unknown"}
                     </span>
                     {getRoleBadge(member.role_in_farm)}
                     {getStatusBadge(member.invitation_status)}
-                    {member.invitation_status === "accepted" && 
-                     member.profiles && 
-                     getVoiceTrainingBadge(member.profiles.voice_training_completed)}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {member.profiles?.email && (
+                    {member.invitation_status === "pending" && member.invited_email && (
                       <span className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
-                        {member.profiles.email}
+                        {member.invited_email}
                       </span>
                     )}
                     <span className="flex items-center gap-1">
