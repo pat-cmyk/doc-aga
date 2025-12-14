@@ -233,8 +233,13 @@ const Dashboard = () => {
     const tab = params.get('tab');
     const feedType = params.get('prefillFeedType');
     
-    if (tab === 'feed') {
-      setActiveTab('feed');
+    // Support legacy 'feed' tab param and new 'operations' tab
+    if (tab === 'feed' || tab === 'operations') {
+      setActiveTab('operations');
+    } else if (tab === 'milk') {
+      setActiveTab('operations');
+    } else if (tab === 'approvals' || tab === 'government') {
+      setActiveTab('more');
     }
     
     if (feedType) {
@@ -361,37 +366,31 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-7xl pb-safe">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="relative">
             {/* Scroll indicator gradients */}
             <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none md:hidden" />
             <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none md:hidden" />
-            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 px-1 md:grid md:w-auto md:grid-cols-7">
+            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 px-1 md:grid md:w-auto md:grid-cols-5">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
-              <TabsTrigger value="milk" disabled={!farmId}>Milk</TabsTrigger>
-              <TabsTrigger value="feed" disabled={!farmId}>Feeds</TabsTrigger>
+              <TabsTrigger value="operations" disabled={!farmId}>Operations</TabsTrigger>
               <TabsTrigger value="finance" disabled={!farmId}>Finance</TabsTrigger>
-              <TabsTrigger value="approvals" disabled={!farmId || !canManageFarm} className="gap-2">
-                Approvals
+              <TabsTrigger value="more" disabled={!farmId} className="gap-2">
+                More
                 {pendingCount > 0 && canManageFarm && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
                     {pendingCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="government" disabled={!farmId}>Government</TabsTrigger>
             </TabsList>
-            {/* Marketplace button - hidden for this development stage */}
-            {/* <Button variant="outline" onClick={() => navigate("/marketplace")}>
-              Marketplace
-            </Button> */}
           </div>
 
           {/* Offline Onboarding Dialog */}
           {farmId && <OfflineOnboarding farmId={farmId} />}
 
-          <TabsContent value="dashboard" className="space-y-6">
+          <TabsContent value="dashboard" className="space-y-4 sm:space-y-6">
             {farmId && (
               <FarmDashboard 
                 farmId={farmId} 
@@ -401,9 +400,9 @@ const Dashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="animals" className="space-y-6">
+          <TabsContent value="animals" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle>My Animals</CardTitle>
                 <CardDescription>Manage your livestock and animal records</CardDescription>
               </CardHeader>
@@ -418,84 +417,98 @@ const Dashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="milk" className="space-y-6">
+          {/* Operations Tab - Consolidated Milk + Feeds */}
+          <TabsContent value="operations" className="space-y-4 sm:space-y-6">
             {farmId && (
-              <MilkInventoryTab farmId={farmId} canManage={canManageFarm} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="feed" className="space-y-4">
-            {farmId && (
-              <FeedInventoryTab
-                farmId={farmId}
-                forecasts={forecastData}
-                canManage={canManageFarm}
-                prefillFeedType={prefillFeedType}
-                onPrefillUsed={() => setPrefillFeedType(undefined)}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="finance" className="space-y-6">
-            {farmId && (
-              <FinanceTab farmId={farmId} canManage={canManageFarm} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="approvals" className="space-y-6">
-            {farmId && canManageFarm && (
-              <Tabs defaultValue="queue" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="queue" className="gap-2">
-                    Approval Queue
-                    {pendingCount > 0 && (
-                      <Badge variant="secondary" className="ml-1">
-                        {pendingCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="settings">Settings</TabsTrigger>
+              <Tabs defaultValue="milk" className="space-y-4">
+                <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
+                  <TabsTrigger value="milk">Milk Inventory</TabsTrigger>
+                  <TabsTrigger value="feed">Feed Stock</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="queue">
-                  <PendingActivitiesQueue farmId={farmId} />
+                <TabsContent value="milk">
+                  <MilkInventoryTab farmId={farmId} canManage={canManageFarm} />
                 </TabsContent>
 
-                <TabsContent value="settings">
-                  <ApprovalSettings farmId={farmId} />
+                <TabsContent value="feed">
+                  <FeedInventoryTab
+                    farmId={farmId}
+                    forecasts={forecastData}
+                    canManage={canManageFarm}
+                    prefillFeedType={prefillFeedType}
+                    onPrefillUsed={() => setPrefillFeedType(undefined)}
+                  />
                 </TabsContent>
               </Tabs>
             )}
           </TabsContent>
 
-          <TabsContent value="government" className="space-y-6">
+          <TabsContent value="finance" className="space-y-4 sm:space-y-6">
             {farmId && (
-              <>
-                <Tabs defaultValue="submit" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="submit">Submit Feedback</TabsTrigger>
-                    <TabsTrigger value="submissions">My Submissions</TabsTrigger>
-                  </TabsList>
+              <FinanceTab farmId={farmId} canManage={canManageFarm} />
+            )}
+          </TabsContent>
 
-                  <TabsContent value="submit">
-                    <GovernmentConnectTab farmId={farmId} />
-                  </TabsContent>
+          {/* More Tab - Consolidated Approvals + Government */}
+          <TabsContent value="more" className="space-y-4 sm:space-y-6">
+            {farmId && (
+              <Tabs defaultValue={canManageFarm ? "approvals" : "government"} className="space-y-4">
+                <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
+                  {canManageFarm && (
+                    <TabsTrigger value="approvals" className="gap-2">
+                      Approvals
+                      {pendingCount > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs">
+                          {pendingCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="government">Government</TabsTrigger>
+                  {canManageFarm && (
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
+                  )}
+                </TabsList>
 
-                  <TabsContent value="submissions">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>My Submissions</CardTitle>
-                        <CardDescription>
-                          Track your feedback to the government
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <FarmerFeedbackList farmId={farmId} />
-                      </CardContent>
-                    </Card>
+                {canManageFarm && (
+                  <TabsContent value="approvals">
+                    <PendingActivitiesQueue farmId={farmId} />
                   </TabsContent>
-                </Tabs>
-              </>
+                )}
+
+                <TabsContent value="government">
+                  <Tabs defaultValue="submit" className="space-y-4">
+                    <TabsList>
+                      <TabsTrigger value="submit">Submit Feedback</TabsTrigger>
+                      <TabsTrigger value="submissions">My Submissions</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="submit">
+                      <GovernmentConnectTab farmId={farmId} />
+                    </TabsContent>
+
+                    <TabsContent value="submissions">
+                      <Card>
+                        <CardHeader className="pb-3 sm:pb-6">
+                          <CardTitle>My Submissions</CardTitle>
+                          <CardDescription>
+                            Track your feedback to the government
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <FarmerFeedbackList farmId={farmId} />
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
+                </TabsContent>
+
+                {canManageFarm && (
+                  <TabsContent value="settings">
+                    <ApprovalSettings farmId={farmId} />
+                  </TabsContent>
+                )}
+              </Tabs>
             )}
           </TabsContent>
         </Tabs>
