@@ -72,7 +72,7 @@ export function FloatingVoiceTrainingButton() {
           <Button
             onClick={handleClick}
             size="lg"
-            className="fixed bottom-4 left-4 h-14 w-14 rounded-full shadow-lg z-50 animate-pulse bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+            className="fixed bottom-24 left-20 sm:bottom-4 sm:left-4 h-14 w-14 rounded-full shadow-lg z-50 animate-pulse bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
           >
             <Mic className="h-6 w-6" />
           </Button>
