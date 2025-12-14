@@ -360,10 +360,13 @@ const Dashboard = () => {
       )}
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+      <main className="container mx-auto px-4 py-6 max-w-7xl pb-safe">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <div className="relative">
+            {/* Scroll indicator gradients */}
+            <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none md:hidden" />
+            <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none md:hidden" />
+            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 px-1 md:grid md:w-auto md:grid-cols-7">
               <TabsTrigger value="dashboard" disabled={!farmId}>Dashboard</TabsTrigger>
               <TabsTrigger value="animals" disabled={!farmId}>Animals</TabsTrigger>
               <TabsTrigger value="milk" disabled={!farmId}>Milk</TabsTrigger>

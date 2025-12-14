@@ -221,65 +221,60 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   }
 
   return (
-    <div className="space-y-6">
-      {/* Morning Brief - AI-generated daily summary */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Stats first - most important info for farmers */}
+      {loading ? (
+        <>
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-4 rounded-full" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-7 w-14 mb-1" />
+                  <Skeleton className="h-3 w-24" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <DashboardStats stats={stats} trends={trends} />
+      )}
+
+      {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
+      <DashboardAlertsWidget farmId={farmId} />
+
+      {/* Morning Brief - AI-generated daily summary (collapsible) */}
       <MorningBriefCard farmId={farmId} />
 
       {/* AI Predictions - Milk, Breeding, Health forecasts */}
       <PredictiveInsightsWidget farmId={farmId} />
 
-      {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
-      <DashboardAlertsWidget farmId={farmId} />
-
-      {loading ? (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-4 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-16 mb-2" />
-                  <Skeleton className="h-3 w-32" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
-          {/* Chart Skeletons with Responsive Heights */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader className="space-y-2 pb-4">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-64" />
-                <div className="flex gap-2 pt-2">
-                  <Skeleton className="h-9 w-32" />
-                  <Skeleton className="h-9 w-32" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-[260px] sm:h-[320px] md:h-[360px] w-full" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="space-y-2 pb-4">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-64" />
-                <div className="flex gap-2 pt-2">
-                  <Skeleton className="h-9 w-32" />
-                  <Skeleton className="h-9 w-32" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-[320px] sm:h-[360px] w-full" />
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      ) : (
-        <DashboardStats stats={stats} trends={trends} />
+      {/* Chart Skeletons when loading */}
+      {loading && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="space-y-2 pb-4">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[220px] sm:h-[280px] w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="space-y-2 pb-4">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[220px] sm:h-[280px] w-full" />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Lazy load charts to reduce initial bundle size */}

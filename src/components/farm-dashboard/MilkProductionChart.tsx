@@ -172,7 +172,7 @@ export const MilkProductionChart = ({
         </CardHeader>
         <CardContent>
           {!data?.length ? (
-            <div className="h-[260px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[220px] sm:h-[280px] flex items-center justify-center text-muted-foreground">
               No data for selected period
             </div>
           ) : (
@@ -183,7 +183,7 @@ export const MilkProductionChart = ({
                   color: "hsl(var(--chart-1))",
                 },
               }}
-              className="aspect-auto w-full h-[260px] sm:h-[320px] md:h-[360px]"
+              className="aspect-auto w-full h-[220px] sm:h-[280px] md:h-[320px]"
             >
               <AreaChart 
                 data={data} 

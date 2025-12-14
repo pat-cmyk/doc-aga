@@ -261,7 +261,7 @@ export const HeadcountChart = ({
 
         <CardContent>
           {!data?.length ? (
-            <div className="h-[320px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[220px] sm:h-[280px] flex items-center justify-center text-muted-foreground">
               No data for selected period
             </div>
           ) : (
@@ -275,7 +275,7 @@ export const HeadcountChart = ({
                       color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
                     }
                   }), {})}
-                  className="aspect-auto w-full h-[320px] sm:h-[360px]"
+                  className="aspect-auto w-full h-[220px] sm:h-[280px] md:h-[320px]"
                 >
                   <ComposedChart 
                     data={enhancedData} 
