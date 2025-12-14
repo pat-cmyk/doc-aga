@@ -3191,6 +3191,33 @@ export type Database = {
         }
         Returns: Json
       }
+      get_gov_farm_analytics: {
+        Args: {
+          p_municipality?: string
+          p_province?: string
+          p_region?: string
+        }
+        Returns: {
+          active_animal_count: number
+          animal_count: number
+          ffedis_id: string
+          gps_lat: number
+          gps_lng: number
+          health_events_30d: number
+          health_events_7d: number
+          id: string
+          is_program_participant: boolean
+          lgu_code: string
+          municipality: string
+          name: string
+          owner_id: string
+          program_group: string
+          province: string
+          region: string
+          validated_at: string
+          validation_status: string
+        }[]
+      }
       get_government_breeding_stats: {
         Args: {
           end_date: string
