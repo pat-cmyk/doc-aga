@@ -38,6 +38,7 @@ const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
 const AdminViewFarm = lazy(() => import("./pages/AdminViewFarm"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -123,10 +124,10 @@ const SyncHandler = () => {
 // Component to conditionally render floating components (hide on auth pages)
 const ConditionalFloatingComponents = () => {
   const location = useLocation();
-  const authRoutes = ['/auth', '/auth/merchant', '/auth/admin', '/auth/government'];
-  const isAuthPage = authRoutes.includes(location.pathname);
+  const staticRoutes = ['/auth', '/auth/merchant', '/auth/admin', '/auth/government', '/privacy'];
+  const isStaticPage = staticRoutes.includes(location.pathname);
   
-  if (isAuthPage) return null;
+  if (isStaticPage) return null;
   
   return (
     <>
@@ -186,6 +187,7 @@ const App = () => (
               <Route path="/admin/create-user" element={<AdminCreateUser />} />
               <Route path="/farmhand" element={<FarmhandDashboard />} />
               <Route path="/voice-training" element={<VoiceTraining />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
