@@ -176,69 +176,8 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
         </CardContent>
       </Card>
 
-      {/* Animal Count Chart */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>Animal Population by Type</CardTitle>
-          </div>
-          <CardDescription>Number of active animals by livestock type over time</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-            <LineChart data={mergedChartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="date" 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                iconSize={10}
-              />
-              {/* Render a line for each livestock type */}
-              {livestockTypes.map((type) => (
-                <Line
-                  key={type}
-                  type="monotone"
-                  dataKey={`${type}_count`}
-                  stroke={livestockColors[type]}
-                  strokeWidth={2}
-                  name={type.charAt(0).toUpperCase() + type.slice(1)}
-                  dot={{ fill: livestockColors[type] }}
-                  connectNulls
-                />
-              ))}
-              {comparisonMode && livestockTypes.map((type) => (
-                <Line
-                  key={`comparison_${type}`}
-                  type="monotone"
-                  dataKey={`comparison_${type}_count`}
-                  stroke={livestockColors[type]}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name={`Comparison ${type.charAt(0).toUpperCase() + type.slice(1)}`}
-                  dot={{ fill: livestockColors[type] }}
-                  connectNulls
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
       {/* Livestock Composition Stacked Area Chart */}
-      <Card className="md:col-span-2">
+      <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Layers className="h-5 w-5 text-primary" />
