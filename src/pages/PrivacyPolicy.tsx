@@ -147,7 +147,7 @@ const PrivacyPolicy = () => {
                 If you have any questions or suggestions about our Privacy Policy, do not hesitate to contact us at:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                <li><strong>Email:</strong> support@goldenforage.com</li>
+                <li><strong>Email:</strong> grow@goldenforage.com</li>
                 <li><strong>Developer:</strong> Golden Forage</li>
               </ul>
             </section>
