@@ -10,12 +10,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users, Smartphone } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
 import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { FarmLogoUpload } from "@/components/FarmLogoUpload";
 import { FarmTeamManagement } from "@/components/FarmTeamManagement";
+import { DevicePermissionHub } from "@/components/permissions/DevicePermissionHub";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -396,6 +397,9 @@ const Profile = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Device Permissions */}
+          <DevicePermissionHub />
 
           {/* Cache Settings */}
           <Card>

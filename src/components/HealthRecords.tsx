@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
+import { CameraPermissionDialog } from "./permissions/CameraPermissionDialog";
 
 interface HealthRecordsProps {
   animalId: string;
@@ -27,6 +28,7 @@ const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) 
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
@@ -242,11 +244,17 @@ const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) 
       });
     } catch (error: any) {
       console.error('Photo upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      // Check for permission-related errors
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError' || 
+          error.message?.includes('permission') || error.message?.includes('denied')) {
+        setShowCameraDialog(true);
+      } else {
+        toast({
+          title: "Upload failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsUploadingImage(false);
       setIsSelectingPhoto(false);
@@ -549,6 +557,12 @@ const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) 
           livestockType={livestockType} 
         />
       </TabsContent>
+
+      <CameraPermissionDialog
+        open={showCameraDialog}
+        onOpenChange={setShowCameraDialog}
+        onRetry={() => fileInputRef.current?.click()}
+      />
     </Tabs>
   );
 };
