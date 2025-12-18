@@ -8,11 +8,13 @@ import { TRAINING_PHRASES, TrainingPhrase } from "@/lib/voiceTrainingPhrases";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
 
 type LanguageFilter = 'all' | 'english' | 'tagalog' | 'taglish';
 
 export function VoiceTrainingSession() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -74,11 +76,7 @@ export function VoiceTrainingSession() {
       setIsRecording(true);
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast({
-        title: "Microphone Error",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive"
-      });
+      setShowPermissionDialog(true);
     }
   };
 
@@ -190,6 +188,11 @@ export function VoiceTrainingSession() {
 
   return (
     <div className="min-h-screen bg-background p-4 flex flex-col">
+      <MicrophonePermissionDialog
+        open={showPermissionDialog}
+        onOpenChange={setShowPermissionDialog}
+        onRetry={startRecording}
+      />
       <audio ref={audioRef} className="hidden" />
       
       {/* Header */}
