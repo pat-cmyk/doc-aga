@@ -6,6 +6,7 @@ import { Loader2, Upload, Sprout, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { CameraPermissionDialog } from "./permissions/CameraPermissionDialog";
 
 interface FarmLogoUploadProps {
   farmId: string;
@@ -17,6 +18,7 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
 
   const validateFile = (file: File): boolean => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'];
@@ -98,11 +100,17 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         description: "Farm logo updated successfully"
       });
     } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      // Check for permission-related errors
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError' || 
+          error.message?.includes('permission') || error.message?.includes('denied')) {
+        setShowCameraDialog(true);
+      } else {
+        toast({
+          title: "Upload failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
     } finally {
       setUploading(false);
       event.target.value = '';
@@ -204,6 +212,12 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
         onChange={handleFileSelect}
         className="hidden"
+      />
+
+      <CameraPermissionDialog
+        open={showCameraDialog}
+        onOpenChange={setShowCameraDialog}
+        onRetry={() => document.getElementById('logo-upload')?.click()}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { useFarmerFeedback } from "@/hooks/useFarmerFeedback";
 import { useFeedbackNotifications } from "@/hooks/useFeedbackNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
 
 interface GovernmentConnectTabProps {
   farmId: string;
@@ -21,6 +22,7 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
   const { submitFeedback, isSubmitting } = useFarmerFeedback(farmId);
   
@@ -50,8 +52,12 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
       setAudioChunks(chunks);
       setIsRecording(true);
       toast.info("Nagsisimula nang mag-record...");
-    } catch (error) {
-      toast.error("Hindi ma-access ang microphone");
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setShowPermissionDialog(true);
+      } else {
+        toast.error("Hindi ma-access ang microphone");
+      }
       console.error(error);
     }
   };
@@ -207,6 +213,12 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
           Makikita ninyo ang status ng inyong submission sa "My Submissions" tab.
         </p>
       </Card>
+
+      <MicrophonePermissionDialog
+        open={showPermissionDialog}
+        onOpenChange={setShowPermissionDialog}
+        onRetry={startRecording}
+      />
     </div>
   );
 };

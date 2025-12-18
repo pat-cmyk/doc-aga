@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sprout, MapPin } from "lucide-react";
 import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
 import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
+import { LocationPermissionDialog } from "@/components/permissions/LocationPermissionDialog";
 
 interface FarmSetupProps {
   onFarmCreated: (farmId: string) => void;
@@ -28,6 +29,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
   });
 
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
 
   // Check if user already owns or is a member of a farm
   useEffect(() => {
@@ -123,11 +125,15 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
         });
       },
       (error) => {
-        toast({
-          title: "Location error",
-          description: error.message,
-          variant: "destructive"
-        });
+        if (error.code === error.PERMISSION_DENIED) {
+          setShowLocationDialog(true);
+        } else {
+          toast({
+            title: "Location error",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
       }
     );
   };
@@ -433,6 +439,12 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
           </form>
         </CardContent>
       </Card>
+
+      <LocationPermissionDialog
+        open={showLocationDialog}
+        onOpenChange={setShowLocationDialog}
+        onRetry={fetchCurrentLocation}
+      />
     </div>
   );
 }
