@@ -13,6 +13,7 @@ import { getOfflineMessage } from '@/lib/errorMessages';
 import { getCachedAnimalDetails } from '@/lib/dataCache';
 import { TranscriptionCorrectionDialog } from '@/components/TranscriptionCorrectionDialog';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
+import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -38,6 +39,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   const [needsAnimalSelection, setNeedsAnimalSelection] = useState(false);
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
   const [lastTranscription, setLastTranscription] = useState<string>('');
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -151,11 +153,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     } catch (error) {
       console.error('Error starting recording:', error);
       await hapticNotification('error');
-      toast({
-        title: "Recording Error",
-        description: "Could not access microphone",
-        variant: "destructive",
-      });
+      setShowPermissionDialog(true);
     }
   };
 
@@ -465,6 +463,11 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
 
   return (
     <>
+      <MicrophonePermissionDialog
+        open={showPermissionDialog}
+        onOpenChange={setShowPermissionDialog}
+        onRetry={startRecording}
+      />
       <TranscriptionCorrectionDialog
         open={showCorrectionDialog}
         onOpenChange={setShowCorrectionDialog}

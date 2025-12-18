@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, Square, Loader2, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
 
 interface VoiceInterfaceProps {
   onTranscription: (text: string) => void;
@@ -22,6 +23,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -88,11 +90,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       });
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast({
-        title: "Recording Error",
-        description: "Could not access microphone",
-        variant: "destructive",
-      });
+      setShowPermissionDialog(true);
     }
   };
 
@@ -166,6 +164,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   };
 
   return (
+    <>
+    <MicrophonePermissionDialog
+      open={showPermissionDialog}
+      onOpenChange={setShowPermissionDialog}
+      onRetry={startRecording}
+    />
     <div className={`flex items-center justify-center gap-2 ${compact ? 'p-2' : 'p-4 border-t bg-muted/30'} ${className}`}>
       {!isRecording ? (
         <Button 
@@ -202,6 +206,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
 
