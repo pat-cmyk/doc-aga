@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea',
+  appId: 'com.goldenforage.docaga',
   appName: 'Doc Aga',
   webDir: 'dist',
   server: {
@@ -10,6 +10,15 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorHttp: {
       enabled: true,
+    },
+    SplashScreen: {
+      launchShowDuration: 2000,
+      backgroundColor: "#166534",
+      showSpinner: false,
+    },
+    LocalNotifications: {
+      smallIcon: "ic_stat_icon_config_sample",
+      iconColor: "#166534",
     },
   },
 };
