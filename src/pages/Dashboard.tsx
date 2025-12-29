@@ -310,56 +310,107 @@ const Dashboard = () => {
   return (
     <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto">
       <PullToRefreshIndicator />
-      {/* Header */}
+      {/* Header - Optimized for mobile with 2-row layout */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {farmLogoUrl ? (
-              <Avatar className="h-10 w-10 shrink-0">
-                <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
-                <AvatarFallback className="bg-primary/10">
-                  <Sprout className="h-6 w-6 text-primary" />
-                </AvatarFallback>
-              </Avatar>
-            ) : (
-              <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-                <Sprout className="h-6 w-6 text-primary" />
+        <div className="container mx-auto px-4 py-3">
+          {/* Mobile: 2-row layout */}
+          {isMobile ? (
+            <div className="space-y-2">
+              {/* Row 1: Farm info + Farm switcher */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {farmLogoUrl ? (
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
+                      <AvatarFallback className="bg-primary/10">
+                        <Sprout className="h-5 w-5 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Sprout className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-base font-bold truncate">{farmName}</h1>
+                  </div>
+                </div>
+                <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
               </div>
-            )}
-            <div>
-              <h1 className="text-xl font-bold">{farmName}</h1>
-              <p className="text-xs text-muted-foreground">Welcome back!</p>
+              {/* Row 2: Status indicators + User dropdown */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <NetworkStatusIndicator />
+                </div>
+                <UserEmailDropdown />
+              </div>
             </div>
-            <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
-          </div>
-        <div className="flex items-center gap-2">
-          <NetworkStatusIndicator />
-          <UserEmailDropdown />
-        </div>
+          ) : (
+            /* Desktop: Single row layout */
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-3">
+                {farmLogoUrl ? (
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
+                    <AvatarFallback className="bg-primary/10">
+                      <Sprout className="h-6 w-6 text-primary" />
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sprout className="h-6 w-6 text-primary" />
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-xl font-bold">{farmName}</h1>
+                  <p className="text-xs text-muted-foreground">Welcome back!</p>
+                </div>
+                <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
+              </div>
+              <div className="flex items-center gap-2">
+                <NetworkStatusIndicator />
+                <UserEmailDropdown />
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Voice Training Completion Banner */}
+      {/* Voice Training Completion Banner - Toast-like on mobile */}
       {voiceTrainingCompleted && (
-        <div className="container mx-auto px-4 pt-4 max-w-7xl">
-          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
-                <Check className="h-6 w-6 text-white" />
+        <div className="container mx-auto px-4 pt-3 max-w-7xl">
+          <Card className={cn(
+            "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800",
+            isMobile && "shadow-lg"
+          )}>
+            <CardContent className={cn(
+              "flex items-center gap-3",
+              isMobile ? "py-3 px-4" : "py-4"
+            )}>
+              <div className={cn(
+                "rounded-full bg-green-500 flex items-center justify-center shrink-0",
+                isMobile ? "h-8 w-8" : "h-10 w-10"
+              )}>
+                <Check className={cn("text-white", isMobile ? "h-4 w-4" : "h-6 w-6")} />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-green-900 dark:text-green-100">
-                  🎉 Voice Training Complete!
+              <div className="flex-1 min-w-0">
+                <h3 className={cn(
+                  "font-semibold text-green-900 dark:text-green-100",
+                  isMobile ? "text-sm" : "text-base"
+                )}>
+                  {isMobile ? "Voice Training Complete! 🎉" : "🎉 Voice Training Complete!"}
                 </h3>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  Your AI assistant is now optimized for your voice. Try asking questions!
-                </p>
+                {!isMobile && (
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Your AI assistant is now optimized for your voice. Try asking questions!
+                  </p>
+                )}
               </div>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => setVoiceTrainingCompleted(false)}
-                className="text-green-700 hover:text-green-900 dark:text-green-300"
+                className="text-green-700 hover:text-green-900 dark:text-green-300 h-8 w-8 shrink-0"
               >
                 <X className="h-4 w-4" />
               </Button>
