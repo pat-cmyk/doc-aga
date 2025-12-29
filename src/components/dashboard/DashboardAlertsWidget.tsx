@@ -181,15 +181,15 @@ function AlertItem({ alert, onComplete, onViewAnimal }: AlertItemProps) {
   const urgencyLabel = getUrgencyLabel(alert.urgency, alert.days_until_due);
 
   return (
-    <div className={`flex items-center justify-between p-2 rounded-md border ${urgencyColor}`}>
+    <div className={`flex items-center justify-between p-3 rounded-lg border ${urgencyColor}`}>
       <button
         onClick={onViewAnimal}
-        className="flex-1 text-left hover:underline"
+        className="flex-1 text-left min-h-[44px] active:opacity-70 transition-opacity"
       >
-        <p className="text-sm font-medium">
+        <p className="text-sm font-medium truncate max-w-[180px]">
           {alert.animal_name || alert.animal_ear_tag || 'Unknown'}
         </p>
-        <p className="text-xs opacity-75">
+        <p className="text-xs opacity-75 mt-0.5">
           {alert.alert_title} • {urgencyLabel}
         </p>
       </button>
@@ -197,13 +197,13 @@ function AlertItem({ alert, onComplete, onViewAnimal }: AlertItemProps) {
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 shrink-0"
+          className="h-11 w-11 shrink-0 ml-2 active:scale-95 transition-transform"
           onClick={(e) => {
             e.stopPropagation();
             onComplete();
           }}
         >
-          <Check className="h-4 w-4" />
+          <Check className="h-5 w-5" />
         </Button>
       )}
     </div>
