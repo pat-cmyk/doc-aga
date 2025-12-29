@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Sprout } from "lucide-react";
+import { Sprout, PawPrint, Wheat, FileCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import VoiceRecordButton from "@/components/farmhand/VoiceRecordButton";
@@ -21,6 +22,7 @@ import { syncQueue } from "@/lib/syncService";
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [farmId, setFarmId] = useState<string | null>(null);
@@ -193,10 +195,20 @@ const FarmhandDashboard = () => {
             <VoiceRecordButton farmId={farmId} animalId={selectedAnimalId} />
 
             <Tabs defaultValue="animals" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="animals">Animals</TabsTrigger>
-                <TabsTrigger value="feed">Feeds</TabsTrigger>
-                <TabsTrigger value="submissions">My Submissions</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="animals" className="flex items-center gap-1.5 py-2.5 text-xs sm:text-sm">
+                  <PawPrint className="h-4 w-4" />
+                  <span className={isMobile ? "" : ""}>Animals</span>
+                </TabsTrigger>
+                <TabsTrigger value="feed" className="flex items-center gap-1.5 py-2.5 text-xs sm:text-sm">
+                  <Wheat className="h-4 w-4" />
+                  <span className={isMobile ? "" : ""}>Feeds</span>
+                </TabsTrigger>
+                <TabsTrigger value="submissions" className="flex items-center gap-1.5 py-2.5 text-xs sm:text-sm">
+                  <FileCheck className="h-4 w-4" />
+                  <span className={isMobile ? "hidden sm:inline" : ""}>Submissions</span>
+                  <span className={isMobile ? "sm:hidden" : "hidden"}>Logs</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="animals" className="space-y-4">

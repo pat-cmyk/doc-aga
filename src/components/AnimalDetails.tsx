@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
@@ -177,6 +178,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadAnimal();
@@ -687,52 +689,107 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
       />
 
       <Tabs defaultValue={isFemale ? 'milking' : 'weight'} className="space-y-4">
-        <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-5 grid-rows-2 sm:grid-rows-1'}`}>
-          {isFemale && (
+        {/* Mobile: Horizontal scrollable tabs with icons only */}
+        {isMobile ? (
+          <div className="relative">
+            {/* Scroll indicator gradient */}
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+            <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide gap-1 p-1.5 flex-nowrap">
+              {isFemale && (
+                <TabsTrigger 
+                  value="milking" 
+                  className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+                >
+                  <Milk className="h-4 w-4" />
+                  <span>Milk</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger 
+                value="weight" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Scale className="h-4 w-4" />
+                <span>Weight</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="feeding" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Wheat className="h-4 w-4" />
+                <span>Feed</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="health" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Stethoscope className="h-4 w-4" />
+                <span>Health</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ai" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Breed</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="photos" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Image className="h-4 w-4" />
+                <span>Photos</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        ) : (
+          /* Desktop: Grid layout */
+          <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-5 grid-rows-2 sm:grid-rows-1'}`}>
+            {isFemale && (
+              <TabsTrigger 
+                value="milking" 
+                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+              >
+                <Milk className="h-5 w-5 sm:h-4 sm:w-4" />
+                <span className="text-center">Milking</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger 
-              value="milking" 
+              value="weight" 
               className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
             >
-              <Milk className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Milking</span>
+              <Scale className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">Weight</span>
             </TabsTrigger>
-          )}
-          <TabsTrigger 
-            value="weight" 
-            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-          >
-            <Scale className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="text-center">Weight</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="feeding" 
-            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-          >
-            <Wheat className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="text-center">Feeding</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="health" 
-            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-          >
-            <Stethoscope className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="text-center">Health</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="ai" 
-            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-          >
-            <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="text-center">AI/Breeding</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="photos" 
-            className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-          >
-            <Image className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="text-center">Photos</span>
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="feeding" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Wheat className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">Feeding</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="health" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Stethoscope className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">Health</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ai" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">AI/Breeding</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="photos" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Image className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">Photos</span>
+            </TabsTrigger>
+          </TabsList>
+        )}
 
         {isFemale && (
           <TabsContent value="milking">
