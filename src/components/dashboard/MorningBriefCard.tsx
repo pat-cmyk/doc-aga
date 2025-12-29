@@ -57,57 +57,61 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
       
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CardHeader className="pb-2 relative">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-primary/10">
-                <Sun className="h-5 w-5 text-primary" />
+        <CardHeader className={`relative ${isMobile ? 'pt-5 pb-4' : 'pb-2'}`}>
+          {/* Action buttons - positioned top-right on mobile */}
+          <div className={`flex items-center gap-1 ${isMobile ? 'absolute top-3 right-3' : 'absolute top-2 right-4'}`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 active:scale-95 transition-transform"
+              onClick={refresh}
+              title="Refresh brief"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 active:scale-95 transition-transform">
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 active:scale-95 transition-transform"
+              onClick={dismiss}
+              title="Dismiss for today"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Main content - full width on mobile */}
+          <div className={`${isMobile ? 'pr-28' : 'pr-24'}`}>
+            <div className="flex items-start gap-3">
+              <div className={`p-2.5 rounded-full bg-primary/10 shrink-0 ${isMobile ? 'mt-0.5' : ''}`}>
+                <Sun className={`text-primary ${isMobile ? 'h-6 w-6' : 'h-5 w-5'}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base">{brief.greeting}</h3>
-                <p className="text-xs text-muted-foreground">Doc Aga's Morning Brief</p>
+                <h3 className={`font-semibold leading-snug ${isMobile ? 'text-lg' : 'text-base'}`}>
+                  {brief.greeting}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Doc Aga's Morning Brief</p>
               </div>
             </div>
             
-            {/* Compact preview on mobile when collapsed */}
+            {/* Compact metrics preview on mobile when collapsed */}
             {!isExpanded && isMobile && metrics && (
-              <div className="flex items-center gap-2 text-xs animate-fade-in">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <TrendingUp className="h-3 w-3" />
-                  {metrics.totalAnimals}
+              <div className="flex items-center gap-4 mt-3 animate-fade-in">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="font-medium text-foreground">{metrics.totalAnimals}</span> Hayop
                 </span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Milk className="h-3 w-3" />
-                  {metrics.todayMilk}L
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Milk className="h-4 w-4" />
+                  <span className="font-medium text-foreground">{metrics.todayMilk}L</span> Milk
                 </span>
               </div>
             )}
-            
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={refresh}
-                title="Refresh brief"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={dismiss}
-                title="Dismiss for today"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
           </div>
         </CardHeader>
 

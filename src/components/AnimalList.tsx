@@ -362,7 +362,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+          <SheetContent side="bottom" className="h-[60vh] overflow-y-auto rounded-t-2xl">
+            {/* Drag handle indicator */}
+            <div className="flex justify-center pt-2 pb-4">
+              <div className="w-10 h-1.5 rounded-full bg-muted-foreground/30" />
+            </div>
             <SheetHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
                 <SheetTitle className="flex items-center gap-2">
@@ -371,10 +375,10 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                 </SheetTitle>
                 {hasActiveFilters && (
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     onClick={resetAllFilters}
-                    className="text-xs"
+                    className="text-sm font-medium min-h-[40px] px-4"
                   >
                     Reset All
                   </Button>
