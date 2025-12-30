@@ -462,6 +462,7 @@ export type Database = {
       }
       animals: {
         Row: {
+          acquisition_type: string | null
           avatar_url: string | null
           birth_date: string | null
           birth_date_unknown: boolean | null
@@ -483,6 +484,8 @@ export type Database = {
           father_id: string | null
           father_unknown: boolean | null
           gender: string | null
+          grant_source: string | null
+          grant_source_other: string | null
           id: string
           is_deleted: boolean
           life_stage: string | null
@@ -492,11 +495,13 @@ export type Database = {
           mother_id: string | null
           mother_unknown: boolean | null
           name: string | null
+          purchase_price: number | null
           sale_price: number | null
           unique_code: string
           updated_at: string
         }
         Insert: {
+          acquisition_type?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           birth_date_unknown?: boolean | null
@@ -518,6 +523,8 @@ export type Database = {
           father_id?: string | null
           father_unknown?: boolean | null
           gender?: string | null
+          grant_source?: string | null
+          grant_source_other?: string | null
           id?: string
           is_deleted?: boolean
           life_stage?: string | null
@@ -527,11 +534,13 @@ export type Database = {
           mother_id?: string | null
           mother_unknown?: boolean | null
           name?: string | null
+          purchase_price?: number | null
           sale_price?: number | null
           unique_code: string
           updated_at?: string
         }
         Update: {
+          acquisition_type?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           birth_date_unknown?: boolean | null
@@ -553,6 +562,8 @@ export type Database = {
           father_id?: string | null
           father_unknown?: boolean | null
           gender?: string | null
+          grant_source?: string | null
+          grant_source_other?: string | null
           id?: string
           is_deleted?: boolean
           life_stage?: string | null
@@ -562,6 +573,7 @@ export type Database = {
           mother_id?: string | null
           mother_unknown?: boolean | null
           name?: string | null
+          purchase_price?: number | null
           sale_price?: number | null
           unique_code?: string
           updated_at?: string

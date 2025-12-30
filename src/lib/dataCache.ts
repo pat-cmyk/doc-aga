@@ -194,6 +194,10 @@ interface Animal {
   entry_weight_kg?: number | null;
   entry_weight_unknown?: boolean | null;
   birth_weight_kg?: number | null;
+  acquisition_type?: string | null;
+  purchase_price?: number | null;
+  grant_source?: string | null;
+  grant_source_other?: string | null;
 }
 
 interface AnimalDataCache {

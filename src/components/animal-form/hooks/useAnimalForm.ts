@@ -30,6 +30,11 @@ export interface AnimalFormData {
   entry_weight: string;
   entry_weight_unknown: boolean;
   birth_weight: string;
+  // Acquisition fields for new entrants
+  acquisition_type: string; // "purchased" or "grant"
+  purchase_price: string;
+  grant_source: string; // "national_dairy_authority" | "local_government_unit" | "other"
+  grant_source_other: string;
 }
 
 export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
@@ -61,7 +66,12 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     // Weight fields
     entry_weight: "",
     entry_weight_unknown: false,
-    birth_weight: ""
+    birth_weight: "",
+    // Acquisition fields
+    acquisition_type: "purchased",
+    purchase_price: "",
+    grant_source: "",
+    grant_source_other: ""
   });
 
   const calculateBreed = (mothers: any[], fathers: any[]): string => {
@@ -169,6 +179,17 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       entry_weight_unknown: formData.animal_type === "new_entrant" ? formData.entry_weight_unknown : false,
       birth_weight_kg: formData.animal_type === "offspring" && formData.birth_weight 
         ? parseFloat(formData.birth_weight) 
+        : null,
+      // Acquisition fields (only for new entrants)
+      acquisition_type: formData.animal_type === "new_entrant" ? formData.acquisition_type : null,
+      purchase_price: formData.animal_type === "new_entrant" && formData.acquisition_type === "purchased" && formData.purchase_price 
+        ? parseFloat(formData.purchase_price) 
+        : null,
+      grant_source: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" 
+        ? formData.grant_source 
+        : null,
+      grant_source_other: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" && formData.grant_source === "other" 
+        ? formData.grant_source_other 
         : null,
     };
 
