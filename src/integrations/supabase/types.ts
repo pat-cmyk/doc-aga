@@ -1028,6 +1028,7 @@ export type Database = {
         Row: {
           allocation_type: string | null
           amount: number
+          animal_id: string | null
           category: string
           created_at: string | null
           description: string | null
@@ -1044,6 +1045,7 @@ export type Database = {
         Insert: {
           allocation_type?: string | null
           amount: number
+          animal_id?: string | null
           category: string
           created_at?: string | null
           description?: string | null
@@ -1060,6 +1062,7 @@ export type Database = {
         Update: {
           allocation_type?: string | null
           amount?: number
+          animal_id?: string | null
           category?: string
           created_at?: string | null
           description?: string | null
@@ -1074,6 +1077,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "farm_expenses_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "farm_expenses_farm_id_fkey"
             columns: ["farm_id"]
