@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { Scale, Database, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
 import type { Animal } from "./hooks/useAnimalList";
 
 interface AnimalCardProps {
@@ -16,6 +17,8 @@ interface AnimalCardProps {
   milkingStageBadgeColor: string;
   livestockIcon: string;
   onClick: () => void;
+  onCacheOffline?: () => void;
+  onViewDetails?: () => void;
 }
 
 export const AnimalCard = ({
@@ -27,7 +30,9 @@ export const AnimalCard = ({
   lifeStageBadgeColor,
   milkingStageBadgeColor,
   livestockIcon,
-  onClick
+  onClick,
+  onCacheOffline,
+  onViewDetails,
 }: AnimalCardProps) => {
   const isMobile = useIsMobile();
   
@@ -55,61 +60,73 @@ export const AnimalCard = ({
     );
   };
 
-  // Compact mobile variant
+  // Mobile card content (extracted for reuse)
+  const mobileCardContent = (
+    <Card
+      className="cursor-pointer active:scale-[0.98] transition-transform"
+      onClick={onClick}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center gap-2.5">
+          {/* Smaller avatar on mobile */}
+          <Avatar className="h-10 w-10 shrink-0">
+            <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
+            <AvatarFallback className="text-sm">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+          </Avatar>
+          
+          {/* Info section - compact layout */}
+          <div className="flex-1 min-w-0">
+            {/* Name row with livestock icon and cache status */}
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-sm truncate max-w-[140px]">
+                {animal.name || "Unnamed"}
+              </h3>
+              <span className="text-sm shrink-0">{livestockIcon}</span>
+              {getCacheIcon()}
+            </div>
+            
+            {/* Breed and ear tag - single line truncated */}
+            <p className="text-xs text-muted-foreground truncate">
+              {animal.breed} • {animal.ear_tag}
+            </p>
+          </div>
+          
+          {/* Right side: Stage badges stacked + weight chip */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-col gap-1 items-end">
+              {animal.lifeStage && (
+                <Badge 
+                  variant="secondary" 
+                  className={`text-[10px] px-1.5 py-0 h-5 ${lifeStageBadgeColor}`}
+                >
+                  {animal.lifeStage.split(' ').slice(0, 2).join(' ')}
+                </Badge>
+              )}
+              {animal.current_weight_kg && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                  <Scale className="h-2.5 w-2.5 mr-0.5" />
+                  {animal.current_weight_kg}kg
+                </Badge>
+              )}
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Compact mobile variant with swipe gestures
   if (isMobile) {
     return (
-      <Card
-        className="cursor-pointer active:scale-[0.98] transition-transform"
-        onClick={onClick}
+      <SwipeableAnimalCard
+        onSwipeLeftAction={onCacheOffline || (() => {})}
+        onSwipeRightAction={onViewDetails || onClick}
+        isCached={isCached}
+        isDownloading={isDownloading}
       >
-        <CardContent className="p-3">
-          <div className="flex items-center gap-2.5">
-            {/* Smaller avatar on mobile */}
-            <Avatar className="h-10 w-10 shrink-0">
-              <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
-              <AvatarFallback className="text-sm">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-            </Avatar>
-            
-            {/* Info section - compact layout */}
-            <div className="flex-1 min-w-0">
-              {/* Name row with livestock icon and cache status */}
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-semibold text-sm truncate max-w-[140px]">
-                  {animal.name || "Unnamed"}
-                </h3>
-                <span className="text-sm shrink-0">{livestockIcon}</span>
-                {getCacheIcon()}
-              </div>
-              
-              {/* Breed and ear tag - single line truncated */}
-              <p className="text-xs text-muted-foreground truncate">
-                {animal.breed} • {animal.ear_tag}
-              </p>
-            </div>
-            
-            {/* Right side: Stage badges stacked + weight chip */}
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex flex-col gap-1 items-end">
-                {animal.lifeStage && (
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-[10px] px-1.5 py-0 h-5 ${lifeStageBadgeColor}`}
-                  >
-                    {animal.lifeStage.split(' ').slice(0, 2).join(' ')}
-                  </Badge>
-                )}
-                {animal.current_weight_kg && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
-                    <Scale className="h-2.5 w-2.5 mr-0.5" />
-                    {animal.current_weight_kg}kg
-                  </Badge>
-                )}
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {mobileCardContent}
+      </SwipeableAnimalCard>
     );
   }
 
