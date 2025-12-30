@@ -12,11 +12,13 @@ import {
   ChevronDown, 
   ChevronUp,
   Bell,
-  Check
+  Check,
+  Scale
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
 import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
+import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardAlertsWidgetProps {
@@ -26,12 +28,16 @@ interface DashboardAlertsWidgetProps {
 export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const { data: alerts = [], isLoading } = useUpcomingAlerts(farmId);
+  const { data: weightData } = useWeightDataCompleteness(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
 
   const groupedAlerts = groupAlertsByType(alerts);
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
+  
+  // Weight data alert
+  const missingWeightCount = (weightData?.missingEntryWeight || 0) + (weightData?.unknownEntryWeight || 0);
 
   const handleQuickComplete = async (alert: UpcomingAlert) => {
     if (alert.alert_type === 'vaccination' || alert.alert_type === 'deworming') {
@@ -47,6 +53,10 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     navigate(`/dashboard?animalId=${animalId}`);
   };
 
+  const handleViewAnimalsWithMissingWeight = () => {
+    navigate('/dashboard?filter=missing-weight');
+  };
+
   if (isLoading) {
     return (
       <Card className="mb-4">
@@ -60,7 +70,9 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  if (alerts.length === 0) {
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0);
+
+  if (totalAlertCount === 0) {
     return null; // Don't show widget if no alerts
   }
 
@@ -124,6 +136,33 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                 onViewAnimal={handleViewAnimal}
                 iconColor="text-pink-600 bg-pink-100 dark:bg-pink-900/30 dark:text-pink-400"
               />
+            )}
+
+            {/* Missing Weight Data Alert */}
+            {missingWeightCount > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 rounded-full text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400">
+                    <Scale className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium">Weight Data Incomplete</span>
+                </div>
+                <div className="ml-8">
+                  <button
+                    onClick={handleViewAnimalsWithMissingWeight}
+                    className="w-full flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-left active:opacity-70 transition-opacity"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        {missingWeightCount} animals missing weight data
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                        Affects feed forecast accuracy
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
             )}
           </CardContent>
         </CollapsibleContent>
