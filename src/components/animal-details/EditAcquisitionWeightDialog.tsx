@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil, Loader2 } from "lucide-react";
+import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
 interface EditAcquisitionWeightDialogProps {
   animalId: string;
@@ -38,6 +39,8 @@ interface EditAcquisitionWeightDialogProps {
   };
   isOnline: boolean;
   onSaved: () => void;
+  livestockType?: string;
+  gender?: string | null;
 }
 
 export function EditAcquisitionWeightDialog({
@@ -46,6 +49,8 @@ export function EditAcquisitionWeightDialog({
   currentValues,
   isOnline,
   onSaved,
+  livestockType = "cattle",
+  gender,
 }: EditAcquisitionWeightDialogProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -233,6 +238,11 @@ export function EditAcquisitionWeightDialog({
                     />
                     <span className="text-muted-foreground">kg</span>
                   </div>
+                  <WeightHintBadge
+                    livestockType={livestockType}
+                    gender={gender}
+                    weightType="entry"
+                  />
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="entry-weight-unknown"
@@ -340,6 +350,10 @@ export function EditAcquisitionWeightDialog({
                 />
                 <span className="text-muted-foreground">kg</span>
               </div>
+              <WeightHintBadge
+                livestockType={livestockType}
+                weightType="birth"
+              />
             </div>
           )}
         </div>

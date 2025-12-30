@@ -776,6 +776,8 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                       }}
                       isOnline={isOnline}
                       onSaved={loadAnimal}
+                      livestockType={animal.livestock_type || "cattle"}
+                      gender={animal.gender}
                     />
                   </div>
                   <p className="font-medium">
@@ -830,6 +832,8 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                     }}
                     isOnline={isOnline}
                     onSaved={loadAnimal}
+                    livestockType={animal.livestock_type || "cattle"}
+                    gender={animal.gender}
                   />
                 </div>
                 <p className="font-medium">
@@ -1044,7 +1048,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
         )}
 
         <TabsContent value="weight">
-          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} />
+          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} livestockType={animal?.livestock_type || "cattle"} gender={animal?.gender} lifeStage={animal?.life_stage} />
         </TabsContent>
 
         <TabsContent value="feeding">
