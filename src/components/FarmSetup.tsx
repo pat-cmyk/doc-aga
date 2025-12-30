@@ -240,7 +240,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
       return;
     }
     // Navigate to the invite accept page with the token
-    navigate(`/invite/${inviteCode.trim()}`);
+    navigate(`/invite/accept/${inviteCode.trim()}`);
   };
 
   const roleDescriptions = {
