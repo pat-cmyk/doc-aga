@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,6 +31,7 @@ import { RecordAnimalExitDialog } from "./animal-exit/RecordAnimalExitDialog";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
+import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -502,7 +503,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
 
   // Determine tab count based on gender
   const isFemale = animal?.gender?.toLowerCase() === 'female';
-  const tabCount = isFemale ? 6 : 5; // Milking, Weight, Feeding, Health, AI/Breeding, Photos (6 for female, 5 for male)
+  const tabCount = isFemale ? 7 : 6; // Milking, Weight, Feeding, Health, AI/Breeding, Photos, Costs (7 for female, 6 for male)
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -970,11 +971,18 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 <Image className="h-4 w-4" />
                 <span>Photos</span>
               </TabsTrigger>
+              <TabsTrigger 
+                value="costs" 
+                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
+              >
+                <Wallet className="h-4 w-4" />
+                <span>Costs</span>
+              </TabsTrigger>
             </TabsList>
           </div>
         ) : (
           /* Desktop: Grid layout */
-          <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-5 grid-rows-2 sm:grid-rows-1'}`}>
+          <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-4 sm:grid-cols-7 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1'}`}>
             {isFemale && (
               <TabsTrigger 
                 value="milking" 
@@ -1019,6 +1027,13 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
               <Image className="h-5 w-5 sm:h-4 sm:w-4" />
               <span className="text-center">Photos</span>
             </TabsTrigger>
+            <TabsTrigger 
+              value="costs" 
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+            >
+              <Wallet className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="text-center">Costs</span>
+            </TabsTrigger>
           </TabsList>
         )}
 
@@ -1058,6 +1073,18 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
           <PhotoTimelineTab 
             animalId={animalId} 
             animalName={animal?.name || animal?.ear_tag || undefined}
+          />
+        </TabsContent>
+
+        <TabsContent value="costs">
+          <AnimalExpenseTab
+            animalId={animalId}
+            farmId={farmId}
+            animalName={animal?.name || animal?.ear_tag || undefined}
+            purchasePrice={animal?.purchase_price || null}
+            grantSource={animal?.grant_source === 'other' ? animal?.grant_source_other : animal?.grant_source}
+            acquisitionType={animal?.acquisition_type || null}
+            isOnline={isOnline}
           />
         </TabsContent>
       </Tabs>
