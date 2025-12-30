@@ -115,8 +115,10 @@ const Dashboard = () => {
         setVoiceTrainingCompleted(profileResult.data.voice_training_completed || false);
       }
       
-      // Process roles and redirect based on role
+      // Process roles and redirect based on GLOBAL roles only
+      // Farm-specific roles (farmer_owner, farmhand) are now determined by farm_memberships
       const userRoles = rolesResult.data?.map(r => r.role) || [];
+      const GLOBAL_ROLES = ["admin", "government", "merchant", "distributor"];
       
       if (userRoles.includes("admin")) {
         navigate("/admin");
@@ -133,13 +135,22 @@ const Dashboard = () => {
         return;
       }
       
-      if (userRoles.includes("farmhand")) {
+      // For farm access, check farm_memberships.role_in_farm instead of user_roles
+      const ownedFarms = ownedFarmsResult.data;
+      const memberFarms = memberFarmsResult.data;
+      
+      // User is ONLY a farmhand if:
+      // 1. They don't own any farms
+      // 2. They have a membership with role_in_farm = 'farmhand'
+      // 3. They don't have any global roles that would take priority
+      const ownsAnyFarm = ownedFarms && ownedFarms.length > 0;
+      const hasOnlyGlobalRoles = userRoles.every(role => GLOBAL_ROLES.includes(role));
+      const membershipRole = memberFarms?.[0]?.role_in_farm;
+      
+      if (!ownsAnyFarm && membershipRole === 'farmhand' && (userRoles.length === 0 || hasOnlyGlobalRoles)) {
         navigate("/farmhand");
         return;
       }
-      
-      const ownedFarms = ownedFarmsResult.data;
-      const memberFarms = memberFarmsResult.data;
       
       if (ownedFarmsResult.error) {
         toast({

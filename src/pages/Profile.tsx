@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
-import { useRole } from "@/hooks/useRole";
+import { useRole, GlobalRole } from "@/hooks/useRole";
+import { useFarmRole } from "@/hooks/useFarmRole";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users, Smartphone } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
@@ -21,7 +22,8 @@ import { DevicePermissionHub } from "@/components/permissions/DevicePermissionHu
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile, updatePassword } = useProfile();
-  const { roles, isLoading: rolesLoading } = useRole();
+  const { globalRoles, isLoading: rolesLoading } = useRole();
+  const { primaryFarmRole, isLoading: farmRoleLoading } = useFarmRole();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -152,10 +154,22 @@ const Profile = () => {
   const getRoleLabel = (role: string) => {
     if (role === 'farmhand') return 'Farmhand';
     if (role === 'farmer_owner') return 'Farm Owner';
+    if (role === 'admin') return 'Admin';
+    if (role === 'merchant') return 'Merchant';
+    if (role === 'government') return 'Government';
+    if (role === 'distributor') return 'Distributor';
+    if (role === 'vet') return 'Veterinarian';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  if (loading || rolesLoading) {
+  // Combine global roles with farm-specific role for display
+  const displayRoles: string[] = [...globalRoles];
+  if (primaryFarmRole) {
+    // Show the farm-specific role (e.g., "Farmhand" or "Farm Owner")
+    displayRoles.push(primaryFarmRole.roleInFarm);
+  }
+
+  if (loading || rolesLoading || farmRoleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -189,9 +203,9 @@ const Profile = () => {
               <CardTitle className="text-2xl">{profile?.full_name || "User Profile"}</CardTitle>
               <CardDescription className="flex items-center justify-center gap-2 flex-wrap">
                 <Shield className="h-4 w-4" />
-                {roles.length > 0 ? (
+                {displayRoles.length > 0 ? (
                   <div className="flex gap-1 flex-wrap justify-center">
-                    {roles.map((role) => (
+                    {displayRoles.map((role) => (
                       <Badge key={role} variant="secondary" className="text-xs">
                         {getRoleLabel(role)}
                       </Badge>
