@@ -13,6 +13,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { getCachedRecords } from "@/lib/dataCache";
 import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
+import { validateRecordDate } from "@/lib/recordValidation";
 
 const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [records, setRecords] = useState<any[]>([]);
@@ -28,6 +29,7 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const [latestCalvingDate, setLatestCalvingDate] = useState<Date | null>(null);
   const [animalGender, setAnimalGender] = useState<string | null>(null);
   const [animalFarmId, setAnimalFarmId] = useState<string | null>(null);
+  const [animalFarmEntryDate, setAnimalFarmEntryDate] = useState<string | null>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   
@@ -64,11 +66,12 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const loadAnimalGender = async () => {
     const { data } = await supabase
       .from("animals")
-      .select("gender, farm_id")
+      .select("gender, farm_id, farm_entry_date")
       .eq("id", animalId)
       .single();
     setAnimalGender(data?.gender || null);
     setAnimalFarmId(data?.farm_id || null);
+    setAnimalFarmEntryDate(data?.farm_entry_date || null);
   };
 
   const loadLatestCalvingDate = async () => {
@@ -105,6 +108,13 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // Validate record date against farm entry date
+    const validation = validateRecordDate(formData.date, { farm_entry_date: animalFarmEntryDate });
+    if (!validation.valid) {
+      toast({ title: "Invalid Date", description: validation.message, variant: "destructive" });
+      return;
+    }
     
     const liters = parseFloat(formData.liters);
     const pricePerLiter = formData.isSold ? parseFloat(formData.pricePerLiter) : null;
