@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Mail, Calendar, Send } from "lucide-react";
+import { UserPlus, Trash2, Mail, Calendar, Send, Copy, Check, Key } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -25,12 +25,14 @@ interface TeamMember {
   invited_email: string | null;
   invited_at: string;
   full_name: string | null;
+  invitation_token: string | null;
 }
 
 export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps) => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"farmhand" | "farmer_owner">("farmhand");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -47,7 +49,8 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
           role_in_farm,
           invitation_status,
           invited_email,
-          invited_at
+          invited_at,
+          invitation_token
         `)
         .eq("farm_id", farmId)
         .order("invited_at", { ascending: false });
@@ -67,9 +70,11 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
       }
 
       // Merge the data - only include safe fields
+      // Only include invitation_token for pending invitations (security)
       return (memberships || []).map((m) => ({
         ...m,
         full_name: m.user_id ? nameMap.get(m.user_id) || null : null,
+        invitation_token: m.invitation_status === "pending" ? m.invitation_token : null,
       })) as TeamMember[];
     },
   });
@@ -277,6 +282,24 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
+  const handleCopyToken = async (token: string) => {
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopiedToken(token);
+      toast({
+        title: "Copied!",
+        description: "Invitation code copied to clipboard",
+      });
+      setTimeout(() => setCopiedToken(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to copy code",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return <div>Loading team members...</div>;
   }
@@ -375,6 +398,27 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                       Invited {format(new Date(member.invited_at), "MMM d, yyyy")}
                     </span>
                   </div>
+                  {isOwner && member.invitation_status === "pending" && member.invitation_token && (
+                    <div className="flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-md">
+                      <Key className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Invite Code:</span>
+                      <code className="text-xs font-mono bg-background px-2 py-0.5 rounded">
+                        {member.invitation_token.slice(0, 8)}...
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={() => handleCopyToken(member.invitation_token!)}
+                      >
+                        {copiedToken === member.invitation_token ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 {isOwner && (
                   <div className="flex items-center gap-2">
