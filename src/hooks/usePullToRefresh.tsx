@@ -8,10 +8,15 @@ interface UsePullToRefreshOptions {
   maxPullDistance?: number;
 }
 
+// Dead zone before PTR activates - prevents accidental triggers during normal scroll
+const ACTIVATION_THRESHOLD = 20;
+// Pull multiplier for diminishing returns - lower = less sensitive
+const PULL_MULTIPLIER = 0.4;
+
 export const usePullToRefresh = ({
   onRefresh,
-  threshold = 80,
-  maxPullDistance = 120,
+  threshold = 120,
+  maxPullDistance = 160,
 }: UsePullToRefreshOptions) => {
   const [isPulling, setIsPulling] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -22,10 +27,10 @@ export const usePullToRefresh = ({
   const startedAtTop = useRef(false);
   const hasPassedThreshold = useRef(false);
 
-  // Haptic feedback when threshold is reached
+  // Haptic feedback when threshold is reached - use light for less intrusive feedback
   useEffect(() => {
     if (pullDistance >= threshold && !hasPassedThreshold.current) {
-      hapticImpact('medium');
+      hapticImpact('light');
       hasPassedThreshold.current = true;
     } else if (pullDistance < threshold) {
       hasPassedThreshold.current = false;
@@ -71,13 +76,18 @@ export const usePullToRefresh = ({
         return;
       }
 
+      // Dead zone: ignore small pulls that are likely scroll gestures
+      if (distance <= ACTIVATION_THRESHOLD) {
+        return;
+      }
+
       // Now we're definitely in pull-to-refresh mode
       if (!isPulling) {
         setIsPulling(true);
       }
 
-      // Apply diminishing returns for pull distance
-      const adjustedDistance = Math.min(maxPullDistance, distance * 0.5);
+      // Apply diminishing returns for pull distance with reduced sensitivity
+      const adjustedDistance = Math.min(maxPullDistance, (distance - ACTIVATION_THRESHOLD) * PULL_MULTIPLIER);
       setPullDistance(adjustedDistance);
 
       // Prevent default scroll behavior while pulling
