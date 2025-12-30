@@ -9,7 +9,8 @@ import {
   WifiOff, 
   MessageSquare, 
   Bell,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from "lucide-react";
 
 const getNotificationIcon = (type: string) => {
@@ -30,23 +31,36 @@ const getNotificationIcon = (type: string) => {
 };
 
 export const NotificationDropdown = () => {
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead, clearAll } = useNotifications();
 
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold">Notifications</h3>
-        {notifications.some((n) => !n.read) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => markAllAsRead()}
-            className="h-8 text-xs"
-          >
-            <CheckCheck className="h-4 w-4 mr-1" />
-            Mark all read
-          </Button>
-        )}
+        <div className="flex gap-1">
+          {notifications.some((n) => !n.read) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => markAllAsRead()}
+              className="h-8 text-xs"
+            >
+              <CheckCheck className="h-4 w-4 mr-1" />
+              Mark all read
+            </Button>
+          )}
+          {notifications.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => clearAll()}
+              className="h-8 text-xs text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear all
+            </Button>
+          )}
+        </div>
       </div>
 
       <ScrollArea className="h-[300px]">

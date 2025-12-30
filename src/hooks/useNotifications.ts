@@ -78,6 +78,23 @@ export const useNotifications = () => {
     },
   });
 
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
   const unreadCount = notifications?.filter((n) => !n.read).length || 0;
 
   return {
@@ -86,5 +103,6 @@ export const useNotifications = () => {
     unreadCount,
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,
+    clearAll: clearAllMutation.mutate,
   };
 };
