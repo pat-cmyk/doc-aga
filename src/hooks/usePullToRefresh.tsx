@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { hapticImpact, hapticNotification } from '@/lib/haptics';
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -18,37 +19,69 @@ export const usePullToRefresh = ({
   const startY = useRef(0);
   const currentY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const startedAtTop = useRef(false);
+  const hasPassedThreshold = useRef(false);
+
+  // Haptic feedback when threshold is reached
+  useEffect(() => {
+    if (pullDistance >= threshold && !hasPassedThreshold.current) {
+      hapticImpact('medium');
+      hasPassedThreshold.current = true;
+    } else if (pullDistance < threshold) {
+      hasPassedThreshold.current = false;
+    }
+  }, [pullDistance, threshold]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Only start pull if at top of scroll
-      if (container.scrollTop === 0) {
+      // Only track pull if at top of scroll
+      startedAtTop.current = container.scrollTop === 0;
+      if (startedAtTop.current) {
         startY.current = e.touches[0].clientY;
-        setIsPulling(true);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isPulling || isRefreshing) return;
+      // Only allow pull-to-refresh if:
+      // 1. We started at the top
+      // 2. We're still at the top (scrollTop === 0)
+      // 3. We're not already refreshing
+      if (!startedAtTop.current || container.scrollTop > 0 || isRefreshing) {
+        // Reset if user scrolled away from top
+        if (isPulling) {
+          setIsPulling(false);
+          setPullDistance(0);
+        }
+        return;
+      }
 
       currentY.current = e.touches[0].clientY;
-      const distance = Math.max(0, currentY.current - startY.current);
-      
+      const distance = currentY.current - startY.current;
+
+      // Only consider positive distance (pulling down)
+      if (distance <= 0) {
+        // User is scrolling up, not pulling down for refresh
+        if (isPulling) {
+          setIsPulling(false);
+          setPullDistance(0);
+        }
+        return;
+      }
+
+      // Now we're definitely in pull-to-refresh mode
+      if (!isPulling) {
+        setIsPulling(true);
+      }
+
       // Apply diminishing returns for pull distance
-      const adjustedDistance = Math.min(
-        maxPullDistance,
-        distance * 0.5
-      );
-      
+      const adjustedDistance = Math.min(maxPullDistance, distance * 0.5);
       setPullDistance(adjustedDistance);
 
       // Prevent default scroll behavior while pulling
-      if (distance > 0) {
-        e.preventDefault();
-      }
+      e.preventDefault();
     };
 
     const handleTouchEnd = async () => {
@@ -59,11 +92,13 @@ export const usePullToRefresh = ({
       if (pullDistance >= threshold) {
         setIsRefreshing(true);
         setPullDistance(threshold);
-        
+
         try {
           await onRefresh();
+          await hapticNotification('success');
         } catch (error) {
           console.error('Refresh failed:', error);
+          await hapticNotification('error');
         } finally {
           setIsRefreshing(false);
           setPullDistance(0);
