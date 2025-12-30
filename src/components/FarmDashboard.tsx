@@ -18,6 +18,7 @@ import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
+import { AcquisitionDistributionCard } from "./dashboard/AcquisitionDistributionCard";
 import { useNavigate } from "react-router-dom";
 
 interface FarmDashboardProps {
@@ -258,11 +259,14 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           </div>
         </>
       ) : (
-        <DashboardStats stats={stats} trends={trends} />
+        <DashboardStats stats={stats} trends={trends} farmId={farmId} />
       )}
 
       {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
       <DashboardAlertsWidget farmId={farmId} />
+
+      {/* Acquisition Sources - Shows purchased vs grant distribution */}
+      <AcquisitionDistributionCard farmId={farmId} />
 
       {/* Morning Brief - AI-generated daily summary (collapsible) */}
       <MorningBriefCard farmId={farmId} />
