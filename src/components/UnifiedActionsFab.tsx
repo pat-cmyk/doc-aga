@@ -135,33 +135,29 @@ export function UnifiedActionsFab({
         ref={containerRef}
         className="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end"
       >
-        {/* Action buttons - animate in when expanded */}
-        <div 
-          className={cn(
-            "flex flex-col-reverse items-end gap-2 mb-3 transition-all duration-200",
-            isExpanded ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
-          {quickActions.map((action, index) => (
-            <Button
-              key={action.id}
-              onClick={() => handleAction(action.id)}
-              variant={action.isPrimary ? "default" : "secondary"}
-              className={cn(
-                "h-12 gap-2 shadow-lg justify-start pl-3 pr-4 min-w-[160px]",
-                action.isPrimary && "bg-primary hover:bg-primary/90",
-                isExpanded ? "animate-slide-up" : ""
-              )}
-              style={{
-                animationDelay: isExpanded ? `${index * 50}ms` : '0ms',
-                animationFillMode: 'backwards'
-              }}
-            >
-              <action.icon className={cn("h-4 w-4", !action.isPrimary && action.color)} />
-              <span className="text-sm font-medium">{action.label}</span>
-            </Button>
-          ))}
-        </div>
+        {/* Action buttons - Only render when expanded to prevent click blocking */}
+        {isExpanded && (
+          <div className="flex flex-col-reverse items-end gap-2 mb-3">
+            {quickActions.map((action, index) => (
+              <Button
+                key={action.id}
+                onClick={() => handleAction(action.id)}
+                variant={action.isPrimary ? "default" : "secondary"}
+                className={cn(
+                  "h-12 gap-2 shadow-lg justify-start pl-3 pr-4 min-w-[160px] animate-slide-up",
+                  action.isPrimary && "bg-primary hover:bg-primary/90"
+                )}
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                  animationFillMode: 'backwards'
+                }}
+              >
+                <action.icon className={cn("h-4 w-4", !action.isPrimary && action.color)} />
+                <span className="text-sm font-medium">{action.label}</span>
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Main FAB button */}
         <Button
