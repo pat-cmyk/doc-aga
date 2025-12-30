@@ -2,6 +2,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import type { GovStatsWithGrowth, TimeseriesDataPoint, HeatmapData } from "@/hooks/useGovernmentStats";
+import type { GrantAnalytics } from "@/hooks/useGrantAnalytics";
+import type { RegionalInvestmentData } from "@/hooks/useRegionalInvestment";
+import type { VeterinaryExpenseSummary } from "@/hooks/useVeterinaryExpenseHeatmap";
 
 interface ExportData {
   stats: GovStatsWithGrowth | null;
@@ -16,6 +19,10 @@ interface ExportData {
   comparisonDateRange?: { start: Date; end: Date };
   region?: string;
   comparisonRegion?: string;
+  // Phase 3 additions
+  grantAnalytics?: GrantAnalytics;
+  regionalInvestment?: RegionalInvestmentData;
+  veterinaryExpenses?: VeterinaryExpenseSummary;
 }
 
 export const exportToCSV = (data: ExportData) => {
@@ -85,6 +92,60 @@ export const exportToCSV = (data: ExportData) => {
       const cleanQuestion = query.question.replace(/"/g, '""');
       csv += `${format(new Date(query.created_at), "yyyy-MM-dd HH:mm")},"${cleanQuestion}"\n`;
     });
+  }
+
+  // Grant Analytics Section
+  if (data.grantAnalytics) {
+    const ga = data.grantAnalytics;
+    csv += "\n\nGrant Program Distribution\n";
+    csv += "Metric,Value\n";
+    csv += `Total Grant Recipients,${ga.totalGrantAnimals}\n`;
+    csv += `Total Purchased,${ga.totalPurchasedAnimals}\n`;
+    csv += `Total Born on Farm,${ga.totalBornOnFarm}\n`;
+    csv += `Grant Percentage,${ga.grantPercentage.toFixed(1)}%\n`;
+    csv += `Average Purchase Price,${ga.avgPurchasePrice.toFixed(2)}\n`;
+    
+    if (ga.grantSourceBreakdown.length > 0) {
+      csv += "\nGrant Source Breakdown\n";
+      csv += "Source,Count,Percentage\n";
+      ga.grantSourceBreakdown.forEach(source => {
+        csv += `"${source.grantSource}",${source.count},${source.percentage.toFixed(1)}%\n`;
+      });
+    }
+  }
+
+  // Regional Investment Section
+  if (data.regionalInvestment) {
+    const ri = data.regionalInvestment;
+    csv += "\n\nRegional Investment Summary\n";
+    csv += "Metric,Value\n";
+    csv += `Total Herd Investment,${ri.totalHerdInvestment.toFixed(2)}\n`;
+    csv += `Total Animal Expenses,${ri.totalAnimalExpenses.toFixed(2)}\n`;
+    csv += `Average Investment Per Farm,${ri.averageInvestmentPerFarm.toFixed(2)}\n`;
+    csv += `Average Investment Per Animal,${ri.averageInvestmentPerAnimal.toFixed(2)}\n`;
+    csv += `Total Farms,${ri.farmCount}\n`;
+    csv += `Total Animals,${ri.animalCount}\n`;
+  }
+
+  // Veterinary Expenses Section
+  if (data.veterinaryExpenses) {
+    const ve = data.veterinaryExpenses;
+    csv += "\n\nVeterinary Expense Summary\n";
+    csv += "Metric,Value\n";
+    csv += `Total Veterinary Services,${ve.totalVetExpenses.toFixed(2)}\n`;
+    csv += `Total Medicine & Vaccines,${ve.totalMedicineExpenses.toFixed(2)}\n`;
+    csv += `Combined Total,${ve.totalCombined.toFixed(2)}\n`;
+    csv += `Average Cost Per Animal,${ve.avgCostPerAnimal.toFixed(2)}\n`;
+    csv += `Total Animals,${ve.totalAnimals}\n`;
+    csv += `Total Farms,${ve.totalFarms}\n`;
+    
+    if (ve.byLocation.length > 0) {
+      csv += "\nVeterinary Expense Hotspots (Top 10)\n";
+      csv += "Municipality,Province,Total Expenses,Animals,Cost Per Animal\n";
+      ve.byLocation.slice(0, 10).forEach(loc => {
+        csv += `"${loc.municipality}","${loc.province}",${loc.combinedTotal.toFixed(2)},${loc.animalCount},${loc.costPerAnimal.toFixed(2)}\n`;
+      });
+    }
   }
   
   // Create download
