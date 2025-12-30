@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Mail, Calendar, Send, Copy, Check, Key } from "lucide-react";
+import { UserPlus, Trash2, Mail, Calendar, Send, Copy, Check, Key, QrCode } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { QRCodeCanvas } from "qrcode.react";
 
 interface FarmTeamManagementProps {
   farmId: string;
@@ -33,8 +34,12 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"farmhand" | "farmer_owner">("farmhand");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [showQRFor, setShowQRFor] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const getInviteUrl = (token: string) => 
+    `${window.location.origin}/invite/accept/${token}`;
 
   // Fetch team members - using secure RPC for accepted members, direct query for pending
   const { data: teamMembers, isLoading } = useQuery({
@@ -399,24 +404,56 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
                     </span>
                   </div>
                   {isOwner && member.invitation_status === "pending" && member.invitation_token && (
-                    <div className="flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-md">
-                      <Key className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Invite Code:</span>
-                      <code className="text-xs font-mono bg-background px-2 py-0.5 rounded">
-                        {member.invitation_token.slice(0, 8)}...
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={() => handleCopyToken(member.invitation_token!)}
-                      >
-                        {copiedToken === member.invitation_token ? (
-                          <Check className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                        <Key className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Invite Code:</span>
+                        <code className="text-xs font-mono bg-background px-2 py-0.5 rounded">
+                          {member.invitation_token.slice(0, 8)}...
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => handleCopyToken(member.invitation_token!)}
+                        >
+                          {copiedToken === member.invitation_token ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => setShowQRFor(showQRFor === member.id ? null : member.id)}
+                        >
+                          <QrCode className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {showQRFor === member.id && (
+                        <div className="p-3 bg-white rounded-lg border flex items-center gap-4">
+                          <QRCodeCanvas 
+                            value={getInviteUrl(member.invitation_token)}
+                            size={100}
+                            level="M"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground">
+                              Scan this QR code with your phone camera to join the farm
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => setShowQRFor(null)}
+                              className="mt-2"
+                            >
+                              Hide QR Code
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
