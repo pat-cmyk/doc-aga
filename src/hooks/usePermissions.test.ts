@@ -31,13 +31,16 @@ describe('usePermissions', () => {
   it('should return loading state initially', () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: [],
+      globalRoles: [],
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: false,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: true,
     });
 
     const { result } = renderHook(() => usePermissions(mockFarmId));
@@ -48,13 +51,16 @@ describe('usePermissions', () => {
   it('should handle no farmId provided', async () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: [],
+      globalRoles: [],
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: false,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: true,
     });
 
     const { result } = renderHook(() => usePermissions(undefined));
@@ -70,13 +76,16 @@ describe('usePermissions', () => {
   it('should identify farm owner correctly', async () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: ['farmer_owner'],
+      globalRoles: [],
       isAdmin: false,
       isFarmer: true,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: false,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: false,
     });
 
     (supabase.auth.getUser as any).mockResolvedValue({
@@ -129,13 +138,16 @@ describe('usePermissions', () => {
   it('should identify farm manager correctly', async () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: ['farmer_owner'],
+      globalRoles: [],
       isAdmin: false,
       isFarmer: true,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: false,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: false,
     });
 
     (supabase.auth.getUser as any).mockResolvedValue({
@@ -189,13 +201,16 @@ describe('usePermissions', () => {
   it('should grant admin full permissions', async () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: ['admin'],
+      globalRoles: ['admin'],
       isAdmin: true,
       isFarmer: false,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: true,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: true,
     });
 
     (supabase.auth.getUser as any).mockResolvedValue({
@@ -248,13 +263,16 @@ describe('usePermissions', () => {
   it('should allow farmhand to create records', async () => {
     vi.spyOn(useRoleModule, 'useRole').mockReturnValue({
       roles: ['farmhand'],
+      globalRoles: [],
       isAdmin: false,
       isFarmer: false,
       isMerchant: false,
       isGovernment: false,
       hasGovernmentAccess: false,
+      isDistributor: false,
       isLoading: false,
       hasRole: vi.fn(),
+      hasOnlyGlobalRoles: false,
     });
 
     (supabase.auth.getUser as any).mockResolvedValue({

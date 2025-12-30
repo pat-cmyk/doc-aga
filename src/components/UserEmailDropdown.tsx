@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, type UserRole } from "@/hooks/useRole";
+import { useFarmRole, type FarmRoleInFarm } from "@/hooks/useFarmRole";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,8 @@ import { toast } from "@/hooks/use-toast";
 export const UserEmailDropdown = () => {
   const [userEmail, setUserEmail] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
-  const { roles, isLoading } = useRole();
+  const { globalRoles, isLoading } = useRole();
+  const { primaryFarmRole, hasAnyOwnerRole, isOnlyFarmhand, isLoading: farmRoleLoading } = useFarmRole();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export const UserEmailDropdown = () => {
     }
   };
 
-  const getRoleBadgeVariant = (role: UserRole) => {
+  const getRoleBadgeVariant = (role: string) => {
     if (role === 'admin') return 'destructive';
     if (role === 'government') return 'default';
     if (role === 'merchant') return 'default';
@@ -63,14 +65,24 @@ export const UserEmailDropdown = () => {
     return 'secondary';
   };
 
-  const getRoleLabel = (role: UserRole) => {
+  const getRoleLabel = (role: string) => {
     if (role === 'government') return 'Government';
     if (role === 'farmhand') return 'Farmhand';
     if (role === 'farmer_owner') return 'Farm Owner';
+    if (role === 'admin') return 'Admin';
+    if (role === 'merchant') return 'Merchant';
+    if (role === 'distributor') return 'Distributor';
+    if (role === 'vet') return 'Veterinarian';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  if (isLoading || !userEmail) {
+  // Combine global roles with farm-specific role for display
+  const displayRoles: string[] = [...globalRoles];
+  if (primaryFarmRole) {
+    displayRoles.push(primaryFarmRole.roleInFarm);
+  }
+
+  if (isLoading || farmRoleLoading || !userEmail) {
     return (
       <Button variant="ghost" size="sm" disabled>
         <User className="h-4 w-4 mr-2" />
@@ -94,7 +106,7 @@ export const UserEmailDropdown = () => {
               {userEmail}
             </p>
             <div className="flex flex-wrap gap-1 mt-2">
-              {roles.map((role) => (
+              {displayRoles.map((role) => (
                 <Badge key={role} variant={getRoleBadgeVariant(role)} className="text-xs">
                   {getRoleLabel(role)}
                 </Badge>
@@ -104,33 +116,42 @@ export const UserEmailDropdown = () => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        {roles.includes("farmer_owner") || roles.includes("farmhand") ? (
+        {/* Show Farm Dashboard for farm owners/managers */}
+        {hasAnyOwnerRole && (
           <DropdownMenuItem onClick={() => navigate("/")}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Farm Dashboard</span>
           </DropdownMenuItem>
-        ) : null}
+        )}
         
-        {roles.includes("merchant") ? (
+        {/* Show Farmhand Dashboard for farmhands */}
+        {isOnlyFarmhand && (
+          <DropdownMenuItem onClick={() => navigate("/farmhand")}>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>Farmhand Dashboard</span>
+          </DropdownMenuItem>
+        )}
+        
+        {globalRoles.includes("merchant") && (
           <DropdownMenuItem onClick={() => navigate("/merchant")}>
             <Store className="mr-2 h-4 w-4" />
             <span>Merchant Portal</span>
           </DropdownMenuItem>
-        ) : null}
+        )}
         
-        {roles.includes("government") && (
+        {globalRoles.includes("government") && (
           <DropdownMenuItem onClick={() => navigate("/government")}>
             <BarChart3 className="mr-2 h-4 w-4" />
             <span>Government Portal</span>
           </DropdownMenuItem>
         )}
         
-        {roles.includes("admin") ? (
+        {globalRoles.includes("admin") && (
           <DropdownMenuItem onClick={() => navigate("/admin")}>
             <Shield className="mr-2 h-4 w-4" />
             <span>Admin Panel</span>
           </DropdownMenuItem>
-        ) : null}
+        )}
         
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate("/profile")}>

@@ -75,37 +75,43 @@ const FarmhandDashboard = () => {
       
       setUser(session.user);
       
-      // Verify user is a farmhand
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id);
-      
-      const userRoles = roles?.map(r => r.role) || [];
-      
-      if (!userRoles.includes("farmhand")) {
-        // Not a farmhand, redirect to main dashboard
-        navigate("/");
-        return;
-      }
-      
-      // Get farmhand's farm membership
-      const { data: membership } = await supabase
+      // Check farm membership with role_in_farm instead of user_roles
+      // This is the source of truth for farm-specific access
+      const { data: membership, error: membershipError } = await supabase
         .from("farm_memberships")
-        .select("farm_id")
+        .select(`
+          farm_id,
+          role_in_farm,
+          farms!inner (
+            id,
+            name,
+            owner_id
+          )
+        `)
         .eq("user_id", session.user.id)
-        .eq("role_in_farm", "farmhand")
         .eq("invitation_status", "accepted")
         .limit(1)
         .single();
       
-      if (!membership) {
-        toast({
-          title: "No farm assigned",
-          description: "You are not assigned to any farm yet.",
-          variant: "destructive"
-        });
+      if (membershipError || !membership) {
+        // User has no farm membership - show no farm assigned state
         setLoading(false);
+        return;
+      }
+      
+      const farm = membership.farms as unknown as { id: string; name: string; owner_id: string };
+      const isOwner = farm.owner_id === session.user.id;
+      const isFarmOwnerRole = membership.role_in_farm === 'farmer_owner';
+      
+      // If user owns the farm or has farmer_owner role, redirect to main dashboard
+      if (isOwner || isFarmOwnerRole) {
+        navigate("/");
+        return;
+      }
+      
+      // Only farmhand role should access this dashboard
+      if (membership.role_in_farm !== 'farmhand') {
+        navigate("/");
         return;
       }
       
