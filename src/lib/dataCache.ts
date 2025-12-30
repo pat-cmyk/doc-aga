@@ -1,7 +1,24 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLifeStage, calculateMilkingStage } from './animalStages';
-import { toast } from '@/hooks/use-toast';
+
+// Helper to create system notification in database
+async function createSystemNotification(title: string, body: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'system',
+        title,
+        body,
+        read: false
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create notification:', error);
+  }
+}
 
 // ============= CACHE PROGRESS SYSTEM =============
 
@@ -756,12 +773,6 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
 
   console.log('[DataCache] Preloading critical data for farm:', farmId);
 
-  // Show start toast
-  toast({
-    title: "📦 Preparing offline data...",
-    description: "This will only take a moment",
-  });
-
   try {
     // Phase 1: Animals
     emitProgress({
@@ -806,19 +817,17 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
     // Get final stats for success message
     const stats = await getCacheStats(farmId);
     
-    toast({
-      title: "✅ Offline cache ready!",
-      description: `${stats.animals.count} animals and ${stats.records.count} records available offline`,
-      duration: 5000,
-    });
+    await createSystemNotification(
+      "Offline Cache Ready",
+      `${stats.animals.count} animals and ${stats.records.count} records available offline`
+    );
   } catch (error) {
     console.error('[DataCache] Preload failed:', error);
     
-    toast({
-      title: "⚠️ Cache incomplete",
-      description: "Some data may not be available offline",
-      variant: "destructive",
-    });
+    await createSystemNotification(
+      "Cache Incomplete",
+      "Some data may not be available offline"
+    );
   }
 }
 
