@@ -133,7 +133,7 @@ export function UnifiedActionsFab({
       {/* FAB Container */}
       <div 
         ref={containerRef}
-        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50"
+        className="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-50"
       >
         {/* Action buttons - animate in when expanded */}
         <div 
