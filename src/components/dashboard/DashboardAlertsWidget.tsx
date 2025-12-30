@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   AlertTriangle, 
   Syringe, 
@@ -13,12 +14,15 @@ import {
   ChevronUp,
   Bell,
   Check,
-  Scale
+  Scale,
+  HelpCircle,
+  Pencil
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
 import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
 import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
+import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardAlertsWidgetProps {
@@ -29,6 +33,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const { data: alerts = [], isLoading } = useUpcomingAlerts(farmId);
   const { data: weightData } = useWeightDataCompleteness(farmId);
+  const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
 
@@ -57,6 +62,10 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     navigate('/?tab=animals&filter=missing-weight');
   };
 
+  const handleEditAnimalWeight = (animalId: string) => {
+    navigate(`/?animalId=${animalId}&editWeight=true`);
+  };
+
   if (isLoading) {
     return (
       <Card className="mb-4">
@@ -70,6 +79,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
+  // Total alert count includes weight warning
   const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0);
 
   if (totalAlertCount === 0) {
@@ -86,7 +96,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                 <Bell className="h-4 w-4" />
                 Upcoming Tasks
                 <Badge variant="secondary" className="ml-1">
-                  {alerts.length}
+                  {totalAlertCount}
                 </Badge>
                 {overdueCount > 0 && (
                   <Badge variant="destructive" className="ml-1">
@@ -146,21 +156,66 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                     <Scale className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-medium">Weight Data Incomplete</span>
+                  <Badge variant="outline" className="text-xs">
+                    {missingWeightCount}
+                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="p-1 rounded-full hover:bg-muted">
+                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="text-xs">
+                          Animals with no entry weight recorded and not marked as "Unknown". 
+                          Entry weight is needed for accurate feed forecasting and growth tracking.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                <div className="ml-8">
-                  <button
-                    onClick={handleViewAnimalsWithMissingWeight}
-                    className="w-full flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-left active:opacity-70 transition-opacity"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        {missingWeightCount} animals missing entry weight
-                      </p>
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                        Affects feed forecast accuracy
-                      </p>
+                <div className="space-y-2 ml-8">
+                  {/* Show specific animals */}
+                  {animalsMissingWeight.map((animal) => (
+                    <div
+                      key={animal.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
+                    >
+                      <button
+                        onClick={() => handleViewAnimal(animal.id)}
+                        className="flex-1 text-left min-h-[44px] active:opacity-70 transition-opacity"
+                      >
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate max-w-[180px]">
+                          {animal.name || animal.ear_tag || 'Unnamed animal'}
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                          Missing entry weight
+                        </p>
+                      </button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-11 w-11 shrink-0 ml-2 active:scale-95 transition-transform text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditAnimalWeight(animal.id);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </button>
+                  ))}
+                  
+                  {/* Show "more" link if there are additional animals */}
+                  {missingWeightCount > 3 && (
+                    <button
+                      onClick={handleViewAnimalsWithMissingWeight}
+                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      +{missingWeightCount - 3} more animals
+                    </button>
+                  )}
                 </div>
               </div>
             )}

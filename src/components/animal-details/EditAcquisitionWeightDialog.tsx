@@ -178,8 +178,9 @@ export function EditAcquisitionWeightDialog({
         }
       }
 
-      // Invalidate weight completeness cache so alerts update immediately
+      // Invalidate weight-related caches so alerts update immediately
       queryClient.invalidateQueries({ queryKey: ["weight-data-completeness"] });
+      queryClient.invalidateQueries({ queryKey: ["animals-missing-entry-weight"] });
 
       toast({
         title: "Saved",
