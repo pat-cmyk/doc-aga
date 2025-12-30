@@ -52,12 +52,11 @@ export const NotificationDropdown = () => {
           {notifications.length > 0 && (
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => clearAll()}
-              className="h-8 text-xs text-destructive hover:text-destructive"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear all
+              <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>
