@@ -82,10 +82,9 @@ export const UserEmailDropdown = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="icon" className="h-9 w-9">
           <User className="h-4 w-4" />
-          <span className="max-w-[150px] truncate">{userEmail}</span>
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3 w-3 ml-0.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 bg-background border-border z-50">
