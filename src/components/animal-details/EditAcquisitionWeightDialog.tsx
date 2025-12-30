@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,7 @@ export function EditAcquisitionWeightDialog({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Form state
   const [entryWeightKg, setEntryWeightKg] = useState<string>(
@@ -175,6 +177,9 @@ export function EditAcquisitionWeightDialog({
             .eq("id", existingRecord.id);
         }
       }
+
+      // Invalidate weight completeness cache so alerts update immediately
+      queryClient.invalidateQueries({ queryKey: ["weight-data-completeness"] });
 
       toast({
         title: "Saved",

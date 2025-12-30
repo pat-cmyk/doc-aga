@@ -37,7 +37,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
   
   // Weight data alert
-  const missingWeightCount = (weightData?.missingEntryWeight || 0) + (weightData?.unknownEntryWeight || 0);
+  const missingWeightCount = weightData?.missingEntryWeight || 0;
 
   const handleQuickComplete = async (alert: UpcomingAlert) => {
     if (alert.alert_type === 'vaccination' || alert.alert_type === 'deworming') {
@@ -154,7 +154,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   >
                     <div>
                       <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        {missingWeightCount} animals missing weight data
+                        {missingWeightCount} animals missing entry weight
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                         Affects feed forecast accuracy
