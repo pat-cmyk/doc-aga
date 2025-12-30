@@ -54,7 +54,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   const handleViewAnimalsWithMissingWeight = () => {
-    navigate('/?filter=missing-weight');
+    navigate('/?tab=animals&filter=missing-weight');
   };
 
   if (isLoading) {
