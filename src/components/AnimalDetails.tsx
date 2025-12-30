@@ -30,6 +30,7 @@ import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingl
 import { RecordAnimalExitDialog } from "./animal-exit/RecordAnimalExitDialog";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
+import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -754,44 +755,87 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 </p>
               </div>
             )}
-            {/* Entry Weight - for new entrants */}
-            {(animal.entry_weight_kg !== null || animal.entry_weight_unknown) && (
+            {/* Entry Weight & Acquisition for new entrants */}
+            {animal.farm_entry_date && (
+              <>
+                <div>
+                  <div className="flex items-center gap-1">
+                    <p className="text-muted-foreground">Entry Weight</p>
+                    <EditAcquisitionWeightDialog
+                      animalId={animalId}
+                      isNewEntrant={true}
+                      currentValues={{
+                        entry_weight_kg: animal.entry_weight_kg,
+                        entry_weight_unknown: animal.entry_weight_unknown,
+                        birth_weight_kg: animal.birth_weight_kg,
+                        acquisition_type: animal.acquisition_type,
+                        purchase_price: animal.purchase_price,
+                        grant_source: animal.grant_source,
+                        grant_source_other: animal.grant_source_other,
+                      }}
+                      isOnline={isOnline}
+                      onSaved={loadAnimal}
+                    />
+                  </div>
+                  <p className="font-medium">
+                    {animal.entry_weight_unknown 
+                      ? <span className="text-muted-foreground italic">Unknown</span>
+                      : animal.entry_weight_kg !== null
+                        ? `${animal.entry_weight_kg} kg`
+                        : <span className="text-muted-foreground italic">Not set</span>
+                    }
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Acquisition</p>
+                  <p className="font-medium">
+                    {animal.acquisition_type === "purchased" && (
+                      <>
+                        Purchased
+                        {animal.purchase_price && ` - ₱${animal.purchase_price.toLocaleString()}`}
+                      </>
+                    )}
+                    {animal.acquisition_type === "grant" && (
+                      <>
+                        Grant from{" "}
+                        {animal.grant_source === "national_dairy_authority" && "National Dairy Authority (NDA)"}
+                        {animal.grant_source === "local_government_unit" && "Local Government Unit (LGU)"}
+                        {animal.grant_source === "other" && (animal.grant_source_other || "Unknown")}
+                      </>
+                    )}
+                    {!animal.acquisition_type && (
+                      <span className="text-muted-foreground italic">Not set</span>
+                    )}
+                  </p>
+                </div>
+              </>
+            )}
+            {/* Birth Weight for offspring (no farm_entry_date) */}
+            {!animal.farm_entry_date && (
               <div>
-                <p className="text-muted-foreground">Entry Weight</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-muted-foreground">Birth Weight</p>
+                  <EditAcquisitionWeightDialog
+                    animalId={animalId}
+                    isNewEntrant={false}
+                    currentValues={{
+                      entry_weight_kg: animal.entry_weight_kg,
+                      entry_weight_unknown: animal.entry_weight_unknown,
+                      birth_weight_kg: animal.birth_weight_kg,
+                      acquisition_type: animal.acquisition_type,
+                      purchase_price: animal.purchase_price,
+                      grant_source: animal.grant_source,
+                      grant_source_other: animal.grant_source_other,
+                    }}
+                    isOnline={isOnline}
+                    onSaved={loadAnimal}
+                  />
+                </div>
                 <p className="font-medium">
-                  {animal.entry_weight_unknown 
-                    ? <span className="text-muted-foreground italic">Unknown</span>
-                    : `${animal.entry_weight_kg} kg`
+                  {animal.birth_weight_kg !== null 
+                    ? `${animal.birth_weight_kg} kg`
+                    : <span className="text-muted-foreground italic">Not set</span>
                   }
-                </p>
-              </div>
-            )}
-            {/* Birth Weight - for offspring */}
-            {animal.birth_weight_kg !== null && (
-              <div>
-                <p className="text-muted-foreground">Birth Weight</p>
-                <p className="font-medium">{animal.birth_weight_kg} kg</p>
-              </div>
-            )}
-            {/* Acquisition Info - for new entrants */}
-            {animal.acquisition_type && (
-              <div className="col-span-2">
-                <p className="text-muted-foreground">Acquisition</p>
-                <p className="font-medium">
-                  {animal.acquisition_type === "purchased" && (
-                    <>
-                      Purchased
-                      {animal.purchase_price && ` - ₱${animal.purchase_price.toLocaleString()}`}
-                    </>
-                  )}
-                  {animal.acquisition_type === "grant" && (
-                    <>
-                      Grant from{" "}
-                      {animal.grant_source === "national_dairy_authority" && "National Dairy Authority (NDA)"}
-                      {animal.grant_source === "local_government_unit" && "Local Government Unit (LGU)"}
-                      {animal.grant_source === "other" && (animal.grant_source_other || "Unknown")}
-                    </>
-                  )}
                 </p>
               </div>
             )}
