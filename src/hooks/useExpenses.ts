@@ -145,6 +145,7 @@ export function useAddExpense() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["expenses", variables.farm_id] });
       queryClient.invalidateQueries({ queryKey: ["expense-summary", variables.farm_id] });
+      queryClient.invalidateQueries({ queryKey: ["profitability", variables.farm_id] });
       toast.success("Expense added successfully");
     },
     onError: (error, variables) => {
@@ -172,6 +173,7 @@ export function useUpdateExpense() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["expenses", data.farm_id] });
       queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farm_id] });
+      queryClient.invalidateQueries({ queryKey: ["profitability", data.farm_id] });
       toast.success("Expense updated successfully");
     },
     onError: (error) => {
@@ -197,6 +199,7 @@ export function useDeleteExpense() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["expenses", data.farmId] });
       queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farmId] });
+      queryClient.invalidateQueries({ queryKey: ["profitability", data.farmId] });
       toast.success("Expense deleted successfully");
     },
     onError: (error) => {
