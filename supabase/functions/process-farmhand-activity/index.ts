@@ -968,10 +968,10 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
     // Insert record for single animal activities
     if (finalAnimalId && extractedData.activity_type && !hasMultipleFeeds) {
-      // Verify animal belongs to user's farm (security check)
+      // Verify animal belongs to user's farm (security check) and get farm_entry_date
       const { data: animalCheck, error: animalError } = await supabase
         .from('animals')
-        .select('farm_id, id')
+        .select('farm_id, id, farm_entry_date')
         .eq('id', finalAnimalId)
         .eq('farm_id', farmId)
         .eq('is_deleted', false)
@@ -985,6 +985,24 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       }
       
       console.log('✅ Animal ownership verified');
+
+      // Validate activity date against farm_entry_date
+      const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];
+      if (animalCheck.farm_entry_date) {
+        const entryDate = new Date(animalCheck.farm_entry_date);
+        entryDate.setHours(0, 0, 0, 0);
+        const activityDate = new Date(recordDate);
+        activityDate.setHours(0, 0, 0, 0);
+        
+        if (activityDate < entryDate) {
+          const formattedEntryDate = entryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          console.error('❌ Activity date before farm entry date:', { recordDate, farmEntryDate: animalCheck.farm_entry_date });
+          throw new Error(
+            `Hindi pwede ang record date bago ang farm entry date (${formattedEntryDate}). / ` +
+            `Record date cannot be before farm entry date (${formattedEntryDate}).`
+          );
+        }
+      }
 
       // Check if this activity needs approval (farmhand submissions)
       const approvalCheck = await checkAndQueueForApproval(
@@ -1010,7 +1028,7 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
         );
       }
 
-      const recordDate = extractedData.validated_date || new Date().toISOString().split('T')[0];
+      // recordDate already defined above for farm_entry_date validation
       const recordDatetime = extractedData.validated_datetime || new Date().toISOString();
       
       try {

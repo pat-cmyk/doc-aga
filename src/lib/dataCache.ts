@@ -187,6 +187,10 @@ interface Animal {
   lifeStage?: string | null;
   milkingStage?: string | null;
   unique_code?: string | null;
+  farm_entry_date?: string | null;
+  birth_date_unknown?: boolean | null;
+  mother_unknown?: boolean | null;
+  father_unknown?: boolean | null;
 }
 
 interface AnimalDataCache {

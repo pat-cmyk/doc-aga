@@ -15,6 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
+import { validateRecordDate } from "@/lib/recordValidation";
 
 interface WeightRecord {
   id: string;
@@ -28,9 +29,10 @@ interface WeightRecord {
 interface WeightRecordsProps {
   animalId: string;
   animalBirthDate?: string;
+  animalFarmEntryDate?: string;
 }
 
-export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,6 +108,13 @@ export function WeightRecords({ animalId, animalBirthDate }: WeightRecordsProps)
     const weightNum = parseFloat(weight);
     if (isNaN(weightNum) || weightNum <= 0) {
       toast.error("Please enter a valid weight");
+      return;
+    }
+
+    // Validate record date against farm entry date
+    const dateValidation = validateRecordDate(date, { farm_entry_date: animalFarmEntryDate });
+    if (!dateValidation.valid) {
+      toast.error(dateValidation.message || "Invalid date");
       return;
     }
 

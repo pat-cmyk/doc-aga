@@ -13,6 +13,7 @@ import { getCachedRecords } from "@/lib/dataCache";
 import { useInventoryDeduction } from "./farmhand/activity-confirmation/hooks/useInventoryDeduction";
 import { FeedTypeCombobox } from "./feed-inventory/FeedTypeCombobox";
 import { normalizeFeedType } from "@/lib/feedTypeNormalization";
+import { validateRecordDate } from "@/lib/recordValidation";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
   const [kilograms, setKilograms] = useState("");
   const [recordDate, setRecordDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
+  const [animalFarmEntryDate, setAnimalFarmEntryDate] = useState<string | null>(null);
 
   useEffect(() => {
     loadFeedingRecords();
@@ -92,14 +94,17 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
 
   const loadFeedInventory = async () => {
     try {
-      // Get animal's farm_id
+      // Get animal's farm_id and farm_entry_date
       const { data: animal } = await supabase
         .from("animals")
-        .select("farm_id")
+        .select("farm_id, farm_entry_date")
         .eq("id", animalId)
         .maybeSingle();
 
       if (!animal) return;
+
+      // Store farm entry date for validation
+      setAnimalFarmEntryDate(animal.farm_entry_date);
 
       // Fetch feed inventory for the farm
       const { data: inventory, error } = await supabase
@@ -155,6 +160,17 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       toast({
         title: "Validation Error",
         description: "Please fill in feed type and kilograms",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate record date against farm entry date
+    const dateValidation = validateRecordDate(recordDate, { farm_entry_date: animalFarmEntryDate });
+    if (!dateValidation.valid) {
+      toast({
+        title: "Invalid Date",
+        description: dateValidation.message,
         variant: "destructive",
       });
       return;

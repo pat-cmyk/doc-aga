@@ -143,6 +143,10 @@ interface Animal {
   milking_stage: string | null;
   unique_code: string | null;
   livestock_type: string | null;
+  farm_entry_date: string | null;
+  birth_date_unknown: boolean | null;
+  mother_unknown: boolean | null;
+  father_unknown: boolean | null;
 }
 
 interface ParentAnimal {
@@ -722,7 +726,11 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
             <div>
               <p className="text-muted-foreground">Birth Date</p>
               <p className="font-medium">
-                {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Not set"}
+                {animal.birth_date_unknown 
+                  ? <span className="text-muted-foreground italic">Unknown</span>
+                  : animal.birth_date 
+                    ? new Date(animal.birth_date).toLocaleDateString() 
+                    : "Not set"}
               </p>
             </div>
             <div>
@@ -731,29 +739,51 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 {animal.milking_start_date ? new Date(animal.milking_start_date).toLocaleDateString() : "Not yet"}
               </p>
             </div>
+            {animal.farm_entry_date && (
+              <div>
+                <p className="text-muted-foreground">Farm Entry</p>
+                <p className="font-medium">
+                  {new Date(animal.farm_entry_date).toLocaleDateString()}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Parents Section */}
-          {(mother || father) && (
+          {(mother || father || animal?.mother_unknown || animal?.father_unknown) && (
             <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
               <h3 className="text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Parents
               </h3>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {mother && (
+                {mother ? (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Mother</p>
                     <Badge variant="secondary" className="text-sm">
                       {mother.name || mother.ear_tag || "Unknown"}
                     </Badge>
                   </div>
+                ) : animal?.mother_unknown && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Mother</p>
+                    <Badge variant="outline" className="text-sm text-muted-foreground italic">
+                      Unknown
+                    </Badge>
+                  </div>
                 )}
-                {father && (
+                {father ? (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Father</p>
                     <Badge variant="secondary" className="text-sm">
                       {father.name || father.ear_tag || "Unknown"}
+                    </Badge>
+                  </div>
+                ) : animal?.father_unknown && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Father</p>
+                    <Badge variant="outline" className="text-sm text-muted-foreground italic">
+                      Unknown
                     </Badge>
                   </div>
                 )}
@@ -907,7 +937,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
         )}
 
         <TabsContent value="weight">
-          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} />
+          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} />
         </TabsContent>
 
         <TabsContent value="feeding">
@@ -919,6 +949,7 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
             animalId={animalId} 
             farmId={farmId}
             livestockType={animal?.livestock_type || 'cattle'}
+            animalFarmEntryDate={animal?.farm_entry_date}
           />
         </TabsContent>
 
