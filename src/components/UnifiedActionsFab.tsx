@@ -133,7 +133,7 @@ export function UnifiedActionsFab({
       {/* FAB Container */}
       <div 
         ref={containerRef}
-        className="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-50"
+        className="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end"
       >
         {/* Action buttons - animate in when expanded */}
         <div 
@@ -168,7 +168,7 @@ export function UnifiedActionsFab({
           onClick={handleToggle}
           size="lg"
           className={cn(
-            "h-16 w-16 rounded-full shadow-lg ml-auto",
+            "h-16 w-16 rounded-full shadow-lg",
             "bg-primary hover:bg-primary/90",
             "transition-transform duration-200",
             isExpanded ? "rotate-45" : "rotate-0",
