@@ -14,6 +14,7 @@ import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import FarmSetup from "@/components/FarmSetup";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { MilkInventoryTab } from "@/components/milk-inventory/MilkInventoryTab";
@@ -337,11 +338,10 @@ const Dashboard = () => {
                 </div>
                 <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
               </div>
-              {/* Row 2: Status indicators + User dropdown */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <NetworkStatusIndicator />
-                </div>
+              {/* Row 2: Status indicators + Notifications + User dropdown */}
+              <div className="flex items-center justify-end gap-2">
+                <NetworkStatusIndicator />
+                <NotificationBell />
                 <UserEmailDropdown />
               </div>
             </div>
@@ -369,6 +369,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center gap-2">
                 <NetworkStatusIndicator />
+                <NotificationBell />
                 <UserEmailDropdown />
               </div>
             </div>
