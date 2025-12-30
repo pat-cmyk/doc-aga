@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export const UserEmailDropdown = () => {
@@ -84,7 +84,6 @@ export const UserEmailDropdown = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" className="h-9 w-9">
           <User className="h-4 w-4" />
-          <ChevronDown className="h-3 w-3 ml-0.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 bg-background border-border z-50">
