@@ -464,6 +464,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           birth_date: string | null
+          birth_date_unknown: boolean | null
           breed: string | null
           buyer_info: string | null
           client_generated_id: string | null
@@ -474,8 +475,10 @@ export type Database = {
           exit_notes: string | null
           exit_reason: string | null
           exit_reason_details: string | null
+          farm_entry_date: string | null
           farm_id: string
           father_id: string | null
+          father_unknown: boolean | null
           gender: string | null
           id: string
           is_deleted: boolean
@@ -484,6 +487,7 @@ export type Database = {
           milking_stage: string | null
           milking_start_date: string | null
           mother_id: string | null
+          mother_unknown: boolean | null
           name: string | null
           sale_price: number | null
           unique_code: string
@@ -492,6 +496,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           birth_date?: string | null
+          birth_date_unknown?: boolean | null
           breed?: string | null
           buyer_info?: string | null
           client_generated_id?: string | null
@@ -502,8 +507,10 @@ export type Database = {
           exit_notes?: string | null
           exit_reason?: string | null
           exit_reason_details?: string | null
+          farm_entry_date?: string | null
           farm_id: string
           father_id?: string | null
+          father_unknown?: boolean | null
           gender?: string | null
           id?: string
           is_deleted?: boolean
@@ -512,6 +519,7 @@ export type Database = {
           milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null
+          mother_unknown?: boolean | null
           name?: string | null
           sale_price?: number | null
           unique_code: string
@@ -520,6 +528,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           birth_date?: string | null
+          birth_date_unknown?: boolean | null
           breed?: string | null
           buyer_info?: string | null
           client_generated_id?: string | null
@@ -530,8 +539,10 @@ export type Database = {
           exit_notes?: string | null
           exit_reason?: string | null
           exit_reason_details?: string | null
+          farm_entry_date?: string | null
           farm_id?: string
           father_id?: string | null
+          father_unknown?: boolean | null
           gender?: string | null
           id?: string
           is_deleted?: boolean
@@ -540,6 +551,7 @@ export type Database = {
           milking_stage?: string | null
           milking_start_date?: string | null
           mother_id?: string | null
+          mother_unknown?: boolean | null
           name?: string | null
           sale_price?: number | null
           unique_code?: string
