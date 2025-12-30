@@ -329,4 +329,26 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
       // Don't fail the whole sync for AI record failure
     }
   }
+
+  // Create initial weight record if provided
+  if (item.payload.initialWeight && data) {
+    const weightRecord = {
+      animal_id: data.id,
+      weight_kg: item.payload.initialWeight.weight_kg,
+      measurement_date: item.payload.initialWeight.measurement_date,
+      measurement_method: item.payload.initialWeight.type === 'entry' ? 'entry_weight' : 'birth_weight',
+      notes: item.payload.initialWeight.type === 'entry' 
+        ? 'Initial weight at farm entry' 
+        : 'Birth weight',
+    };
+
+    const { error: weightError } = await supabase
+      .from('weight_records')
+      .insert(weightRecord);
+
+    if (weightError) {
+      console.error('Failed to create weight record:', weightError);
+      // Don't fail the whole sync for weight record failure
+    }
+  }
 }

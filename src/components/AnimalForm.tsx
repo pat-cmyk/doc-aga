@@ -56,7 +56,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     farm_entry_date: new Date().toISOString().split("T")[0], // Default to today
     birth_date_unknown: false,
     mother_unknown: false,
-    father_unknown: false
+    father_unknown: false,
+    // Weight fields
+    entry_weight: "",
+    entry_weight_unknown: false,
+    birth_weight: ""
   });
 
   useEffect(() => {
@@ -189,6 +193,14 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       birth_date_unknown: formData.animal_type === "new_entrant" ? formData.birth_date_unknown : false,
       mother_unknown: formData.animal_type === "new_entrant" ? formData.mother_unknown : false,
       father_unknown: formData.animal_type === "new_entrant" ? formData.father_unknown : false,
+      // Weight fields
+      entry_weight_kg: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight 
+        ? parseFloat(formData.entry_weight) 
+        : null,
+      entry_weight_unknown: formData.animal_type === "new_entrant" ? formData.entry_weight_unknown : false,
+      birth_weight_kg: formData.animal_type === "offspring" && formData.birth_weight 
+        ? parseFloat(formData.birth_weight) 
+        : null,
     };
 
     // If offline, queue the data
@@ -204,7 +216,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               ai_bull_reference: formData.ai_bull_reference,
               ai_bull_breed: formData.ai_bull_breed,
               birth_date: formData.birth_date
-            } : null
+            } : null,
+            initialWeight: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight
+              ? { type: 'entry', weight_kg: parseFloat(formData.entry_weight), measurement_date: formData.farm_entry_date }
+              : formData.animal_type === "offspring" && formData.birth_weight && formData.birth_date
+              ? { type: 'birth', weight_kg: parseFloat(formData.birth_weight), measurement_date: formData.birth_date }
+              : null
           },
           createdAt: Date.now(),
         });
@@ -231,15 +248,41 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     // Online: Normal submission
     const { data, error } = await supabase.from("animals").insert([animalData]).select();
 
-    // If AI was used and animal was created successfully, create AI record
-    if (!error && formData.is_father_ai && data && data[0]) {
-      await supabase.from("ai_records").insert({
-        animal_id: data[0].id,
-        scheduled_date: formData.birth_date || null,
-        performed_date: formData.birth_date || null,
-        notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
-        created_by: user?.id || null,
-      });
+    if (!error && data && data[0]) {
+      // If AI was used, create AI record
+      if (formData.is_father_ai) {
+        await supabase.from("ai_records").insert({
+          animal_id: data[0].id,
+          scheduled_date: formData.birth_date || null,
+          performed_date: formData.birth_date || null,
+          notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
+          created_by: user?.id || null,
+        });
+      }
+
+      // Create initial weight record if weight was provided
+      if (formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight) {
+        await supabase.from("weight_records").insert({
+          animal_id: data[0].id,
+          weight_kg: parseFloat(formData.entry_weight),
+          measurement_date: formData.farm_entry_date || new Date().toISOString().split("T")[0],
+          measurement_method: "entry_weight",
+          notes: "Initial weight at farm entry",
+          created_by: user?.id || null,
+        });
+      }
+
+      // Create birth weight record for offspring if provided
+      if (formData.animal_type === "offspring" && formData.birth_weight && formData.birth_date) {
+        await supabase.from("weight_records").insert({
+          animal_id: data[0].id,
+          weight_kg: parseFloat(formData.birth_weight),
+          measurement_date: formData.birth_date,
+          measurement_method: "birth_weight",
+          notes: "Birth weight",
+          created_by: user?.id || null,
+        });
+      }
     }
 
     setCreating(false);
@@ -384,6 +427,46 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               </p>
             </div>
           )}
+
+          {/* Entry Weight - Only for new entrants */}
+          {formData.animal_type === "new_entrant" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="entry_weight">Entry Weight (kg)</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="entry_weight_unknown"
+                    checked={formData.entry_weight_unknown}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      entry_weight_unknown: checked === true,
+                      entry_weight: checked === true ? "" : prev.entry_weight
+                    }))}
+                  />
+                  <label
+                    htmlFor="entry_weight_unknown"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    No data
+                  </label>
+                </div>
+              </div>
+              <Input
+                id="entry_weight"
+                type="number"
+                step="0.1"
+                min="0"
+                value={formData.entry_weight}
+                onChange={(e) => setFormData(prev => ({ ...prev, entry_weight: e.target.value }))}
+                placeholder="e.g., 350"
+                disabled={formData.entry_weight_unknown}
+                className={formData.entry_weight_unknown ? "opacity-50" : ""}
+              />
+              <p className="text-sm text-muted-foreground">
+                Weight when the animal was introduced to your farm
+              </p>
+            </div>
+          )}
           
           {formData.animal_type === "new_entrant" && (
             <>
@@ -493,7 +576,25 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             )}
           </div>
 
-          {/* Parent Selection */}
+          {/* Birth Weight - Only for offspring */}
+          {formData.animal_type === "offspring" && (
+            <div className="space-y-2">
+              <Label htmlFor="birth_weight">Birth Weight (kg)</Label>
+              <Input
+                id="birth_weight"
+                type="number"
+                step="0.1"
+                min="0"
+                value={formData.birth_weight}
+                onChange={(e) => setFormData(prev => ({ ...prev, birth_weight: e.target.value }))}
+                placeholder="e.g., 35"
+              />
+              <p className="text-sm text-muted-foreground">
+                Optional - enter if the birth weight was recorded
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4 pt-4 border-t">
             <h3 className="text-sm font-semibold">
               Parent Information {formData.animal_type === "offspring" ? "*" : "(Optional)"}

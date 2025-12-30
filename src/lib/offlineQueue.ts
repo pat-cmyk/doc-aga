@@ -38,6 +38,11 @@ interface QueueItem {
       ai_bull_breed?: string;
       birth_date?: string;
     } | null;
+    initialWeight?: {
+      type: 'entry' | 'birth';
+      weight_kg: number;
+      measurement_date: string;
+    } | null;
     transcription?: string;
     transcriptionConfirmed?: boolean;
   };

@@ -465,12 +465,15 @@ export type Database = {
           avatar_url: string | null
           birth_date: string | null
           birth_date_unknown: boolean | null
+          birth_weight_kg: number | null
           breed: string | null
           buyer_info: string | null
           client_generated_id: string | null
           created_at: string
           current_weight_kg: number | null
           ear_tag: string | null
+          entry_weight_kg: number | null
+          entry_weight_unknown: boolean | null
           exit_date: string | null
           exit_notes: string | null
           exit_reason: string | null
@@ -497,12 +500,15 @@ export type Database = {
           avatar_url?: string | null
           birth_date?: string | null
           birth_date_unknown?: boolean | null
+          birth_weight_kg?: number | null
           breed?: string | null
           buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
           current_weight_kg?: number | null
           ear_tag?: string | null
+          entry_weight_kg?: number | null
+          entry_weight_unknown?: boolean | null
           exit_date?: string | null
           exit_notes?: string | null
           exit_reason?: string | null
@@ -529,12 +535,15 @@ export type Database = {
           avatar_url?: string | null
           birth_date?: string | null
           birth_date_unknown?: boolean | null
+          birth_weight_kg?: number | null
           breed?: string | null
           buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
           current_weight_kg?: number | null
           ear_tag?: string | null
+          entry_weight_kg?: number | null
+          entry_weight_unknown?: boolean | null
           exit_date?: string | null
           exit_notes?: string | null
           exit_reason?: string | null
