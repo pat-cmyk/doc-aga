@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet, Pencil, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -128,6 +128,44 @@ const getMilkingStageDefinition = (stage: string | null): string => {
       return "Non-lactating period before next calving, typically 60 days";
     default:
       return "";
+  }
+};
+
+// Helper to determine origin badge info
+const getOriginBadgeInfo = (animal: { farm_entry_date: string | null; acquisition_type: string | null }): { label: string; iconType: 'home' | 'cart' | 'gift'; className: string } | null => {
+  const isFarmBorn = animal.farm_entry_date === null;
+  
+  if (isFarmBorn) {
+    return {
+      label: "Farm Born",
+      iconType: 'home',
+      className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+    };
+  }
+  
+  // Acquired animal
+  if (animal.acquisition_type === "grant") {
+    return {
+      label: "Grant",
+      iconType: 'gift',
+      className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30"
+    };
+  }
+  
+  // Default to purchased for acquired animals
+  return {
+    label: "Purchased",
+    iconType: 'cart',
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+  };
+};
+
+// Helper to render origin badge icon
+const OriginBadgeIcon = ({ type }: { type: 'home' | 'cart' | 'gift' }) => {
+  switch (type) {
+    case 'home': return <Home className="h-3 w-3 mr-1" />;
+    case 'cart': return <ShoppingCart className="h-3 w-3 mr-1" />;
+    case 'gift': return <Gift className="h-3 w-3 mr-1" />;
   }
 };
 
@@ -568,6 +606,15 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 items-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditWeightDialogOpen(true)}
+                    disabled={!isOnline}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit Details
+                  </Button>
                   <RecordAnimalExitDialog 
                     animalId={animalId}
                     animalName={animal.name || animal.ear_tag || 'Animal'}
@@ -587,6 +634,15 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <CardTitle className="text-lg">{animal.name}</CardTitle>
+                  {(() => {
+                    const originInfo = getOriginBadgeInfo(animal);
+                    return originInfo ? (
+                      <Badge variant="outline" className={`text-xs border ${originInfo.className}`}>
+                        <OriginBadgeIcon type={originInfo.iconType} />
+                        {originInfo.label}
+                      </Badge>
+                    ) : null;
+                  })()}
                   {displayLifeStage && (
                     <StageBadge 
                       stage={displayLifeStage}
@@ -674,6 +730,15 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-2xl truncate">{animal.name}</CardTitle>
+                    {(() => {
+                      const originInfo = getOriginBadgeInfo(animal);
+                      return originInfo ? (
+                        <Badge variant="outline" className={`text-xs border ${originInfo.className}`}>
+                          <OriginBadgeIcon type={originInfo.iconType} />
+                          {originInfo.label}
+                        </Badge>
+                      ) : null;
+                    })()}
                     {displayLifeStage && (
                       <StageBadge 
                         stage={displayLifeStage}
@@ -725,6 +790,15 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 </div>
               </div>
               <div className="flex flex-col gap-2 items-end">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setEditWeightDialogOpen(true)}
+                  disabled={!isOnline}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit Details
+                </Button>
                 <RecordAnimalExitDialog 
                   animalId={animalId}
                   animalName={animal.name || animal.ear_tag || 'Animal'}

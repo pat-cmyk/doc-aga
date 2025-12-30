@@ -5,11 +5,40 @@ import { Button } from "@/components/ui/button";
 import { CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
-import { Camera, Loader2, Database, Globe, Copy, Baby } from "lucide-react";
+import { Camera, Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { formatDistanceToNow } from "date-fns";
 import type { Animal } from "./hooks/useAnimalDetails";
+
+// Helper to determine origin badge info
+const getOriginBadgeInfo = (animal: Animal): { label: string; icon: React.ReactNode; className: string } | null => {
+  const isFarmBorn = animal.farm_entry_date === null;
+  
+  if (isFarmBorn) {
+    return {
+      label: "Farm Born",
+      icon: <Home className="h-3 w-3 mr-1" />,
+      className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+    };
+  }
+  
+  // Acquired animal
+  if (animal.acquisition_type === "grant") {
+    return {
+      label: "Grant",
+      icon: <Gift className="h-3 w-3 mr-1" />,
+      className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30"
+    };
+  }
+  
+  // Default to purchased for acquired animals
+  return {
+    label: "Purchased",
+    icon: <ShoppingCart className="h-3 w-3 mr-1" />,
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+  };
+};
 
 interface AnimalProfileProps {
   animal: Animal;
@@ -160,6 +189,15 @@ export const AnimalProfile = ({
       <div className="flex-1 overflow-hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
+          {(() => {
+            const originInfo = getOriginBadgeInfo(animal);
+            return originInfo ? (
+              <Badge variant="outline" className={`text-xs border ${originInfo.className}`}>
+                {originInfo.icon}
+                {originInfo.label}
+              </Badge>
+            ) : null;
+          })()}
           {computedLifeStage && (
             <StageBadge 
               stage={computedLifeStage}
