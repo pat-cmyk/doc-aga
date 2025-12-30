@@ -6,12 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface InvitationData {
+  farm_id: string;
+  farm_name: string;
+  inviter_name: string;
+  invited_email: string;
+  role_in_farm: string;
+  token_expires_at: string;
+}
+
 export default function InviteAccept() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [invitation, setInvitation] = useState<any>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
@@ -27,35 +37,24 @@ export default function InviteAccept() {
       } = await supabase.auth.getUser();
       setUser(currentUser);
 
-      // Fetch invitation details
+      // Fetch invitation details using secure RPC
       const { data: inviteData, error: inviteError } = await supabase
-        .from("farm_memberships")
-        .select(
-          `
-          *,
-          farms (name),
-          profiles!farm_memberships_invited_by_fkey (full_name)
-        `
-        )
-        .eq("invitation_token", token)
-        .eq("invitation_status", "pending")
-        .single();
+        .rpc("get_farm_invitation_public", { p_token: token });
 
-      if (inviteError || !inviteData) {
+      if (inviteError) {
+        console.error("Error fetching invitation:", inviteError);
+        setError("Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (!inviteData || inviteData.length === 0) {
         setError("Invalid or expired invitation link.");
         setLoading(false);
         return;
       }
 
-      // Check if invitation is expired
-      const expiresAt = new Date(inviteData.token_expires_at);
-      if (expiresAt < new Date()) {
-        setError("This invitation has expired.");
-        setLoading(false);
-        return;
-      }
-
-      setInvitation(inviteData);
+      setInvitation(inviteData[0] as InvitationData);
       setLoading(false);
     } catch (err) {
       console.error("Error checking invitation:", err);
@@ -72,30 +71,39 @@ export default function InviteAccept() {
       return;
     }
 
-    if (user.email !== invitation.invited_email) {
-      toast({
-        title: "Email Mismatch",
-        description: `This invitation was sent to ${invitation.invited_email}. Please log in with that email address.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
+    setAccepting(true);
     try {
-      const { error: updateError } = await supabase
-        .from("farm_memberships")
-        .update({
-          user_id: user.id,
-          invitation_status: "accepted",
-        })
-        .eq("invitation_token", token);
+      const { data, error: rpcError } = await supabase
+        .rpc("accept_farm_invitation", { p_token: token });
 
-      if (updateError) throw updateError;
+      if (rpcError) {
+        console.error("RPC error:", rpcError);
+        throw new Error("Failed to accept invitation");
+      }
+
+      const result = data?.[0];
+      
+      if (!result?.success) {
+        const errorMessages: Record<string, string> = {
+          not_authenticated: "Please sign in to accept this invitation.",
+          invalid_token: "This invitation link is invalid.",
+          already_used: "This invitation has already been used.",
+          expired: "This invitation has expired.",
+          email_mismatch: `This invitation was sent to ${invitation?.invited_email}. Please log in with that email address.`,
+        };
+        
+        toast({
+          title: "Cannot Accept Invitation",
+          description: errorMessages[result?.error_code || ""] || "Failed to accept invitation. Please try again.",
+          variant: "destructive",
+        });
+        setAccepting(false);
+        return;
+      }
 
       toast({
         title: "Success!",
-        description: `You've joined ${invitation.farms.name}!`,
+        description: `You've joined ${result.farm_name}!`,
       });
 
       setTimeout(() => {
@@ -108,7 +116,7 @@ export default function InviteAccept() {
         description: "Failed to accept invitation. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
+      setAccepting(false);
     }
   };
 
@@ -134,7 +142,7 @@ export default function InviteAccept() {
   }
 
   const roleName =
-    invitation.role_in_farm === "farmer_owner" ? "Farm Manager" : "Farm Hand";
+    invitation?.role_in_farm === "farmer_owner" ? "Farm Manager" : "Farm Hand";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -145,11 +153,11 @@ export default function InviteAccept() {
         </h1>
         <div className="space-y-4 mb-6">
           <p className="text-center text-muted-foreground">
-            <strong>{invitation.profiles?.full_name || "Someone"}</strong> has
+            <strong>{invitation?.inviter_name || "Someone"}</strong> has
             invited you to join
           </p>
           <div className="bg-muted p-4 rounded-lg text-center">
-            <h2 className="text-xl font-semibold">{invitation.farms.name}</h2>
+            <h2 className="text-xl font-semibold">{invitation?.farm_name}</h2>
             <p className="text-sm text-muted-foreground mt-1">
               as a <strong>{roleName}</strong>
             </p>
@@ -161,8 +169,22 @@ export default function InviteAccept() {
             </p>
           )}
         </div>
-        <Button onClick={acceptInvitation} className="w-full" size="lg">
-          {user ? "Accept Invitation" : "Sign In to Accept"}
+        <Button 
+          onClick={acceptInvitation} 
+          className="w-full" 
+          size="lg"
+          disabled={accepting}
+        >
+          {accepting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Accepting...
+            </>
+          ) : user ? (
+            "Accept Invitation"
+          ) : (
+            "Sign In to Accept"
+          )}
         </Button>
       </Card>
     </div>

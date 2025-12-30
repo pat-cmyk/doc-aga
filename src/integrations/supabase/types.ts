@@ -3124,6 +3124,15 @@ export type Database = {
       }
     }
     Functions: {
+      accept_farm_invitation: {
+        Args: { p_token: string }
+        Returns: {
+          error_code: string
+          farm_id: string
+          farm_name: string
+          success: boolean
+        }[]
+      }
       admin_add_animal: {
         Args: {
           _animal_data: Json
@@ -3233,6 +3242,17 @@ export type Database = {
           p_start_date: string
         }
         Returns: Json
+      }
+      get_farm_invitation_public: {
+        Args: { p_token: string }
+        Returns: {
+          farm_id: string
+          farm_name: string
+          invited_email: string
+          inviter_name: string
+          role_in_farm: string
+          token_expires_at: string
+        }[]
       }
       get_gov_farm_analytics: {
         Args: {
