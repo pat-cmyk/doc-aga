@@ -147,6 +147,9 @@ interface Animal {
   birth_date_unknown: boolean | null;
   mother_unknown: boolean | null;
   father_unknown: boolean | null;
+  entry_weight_kg: number | null;
+  entry_weight_unknown: boolean | null;
+  birth_weight_kg: number | null;
 }
 
 interface ParentAnimal {
@@ -745,6 +748,25 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 <p className="font-medium">
                   {new Date(animal.farm_entry_date).toLocaleDateString()}
                 </p>
+              </div>
+            )}
+            {/* Entry Weight - for new entrants */}
+            {(animal.entry_weight_kg !== null || animal.entry_weight_unknown) && (
+              <div>
+                <p className="text-muted-foreground">Entry Weight</p>
+                <p className="font-medium">
+                  {animal.entry_weight_unknown 
+                    ? <span className="text-muted-foreground italic">Unknown</span>
+                    : `${animal.entry_weight_kg} kg`
+                  }
+                </p>
+              </div>
+            )}
+            {/* Birth Weight - for offspring */}
+            {animal.birth_weight_kg !== null && (
+              <div>
+                <p className="text-muted-foreground">Birth Weight</p>
+                <p className="font-medium">{animal.birth_weight_kg} kg</p>
               </div>
             )}
           </div>

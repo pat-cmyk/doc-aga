@@ -26,6 +26,10 @@ export interface AnimalFormData {
   birth_date_unknown: boolean;
   mother_unknown: boolean;
   father_unknown: boolean;
+  // Weight fields
+  entry_weight: string;
+  entry_weight_unknown: boolean;
+  birth_weight: string;
 }
 
 export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
@@ -53,7 +57,11 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     farm_entry_date: new Date().toISOString().split("T")[0], // Default to today
     birth_date_unknown: false,
     mother_unknown: false,
-    father_unknown: false
+    father_unknown: false,
+    // Weight fields
+    entry_weight: "",
+    entry_weight_unknown: false,
+    birth_weight: ""
   });
 
   const calculateBreed = (mothers: any[], fathers: any[]): string => {
@@ -154,6 +162,14 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       birth_date_unknown: formData.animal_type === "new_entrant" ? formData.birth_date_unknown : false,
       mother_unknown: formData.animal_type === "new_entrant" ? formData.mother_unknown : false,
       father_unknown: formData.animal_type === "new_entrant" ? formData.father_unknown : false,
+      // Weight fields
+      entry_weight_kg: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight 
+        ? parseFloat(formData.entry_weight) 
+        : null,
+      entry_weight_unknown: formData.animal_type === "new_entrant" ? formData.entry_weight_unknown : false,
+      birth_weight_kg: formData.animal_type === "offspring" && formData.birth_weight 
+        ? parseFloat(formData.birth_weight) 
+        : null,
     };
 
     // If offline, queue the data
@@ -196,14 +212,41 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     // Online submission
     const { data, error } = await supabase.from("animals").insert([animalData]).select();
 
-    if (!error && formData.is_father_ai && data && data[0]) {
-      await supabase.from("ai_records").insert({
-        animal_id: data[0].id,
-        scheduled_date: formData.birth_date || null,
-        performed_date: formData.birth_date || null,
-        notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
-        created_by: user?.id || null,
-      });
+    if (!error && data && data[0]) {
+      // Create AI record if AI was used
+      if (formData.is_father_ai) {
+        await supabase.from("ai_records").insert({
+          animal_id: data[0].id,
+          scheduled_date: formData.birth_date || null,
+          performed_date: formData.birth_date || null,
+          notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
+          created_by: user?.id || null,
+        });
+      }
+
+      // Create initial weight record if weight was provided
+      if (formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight) {
+        await supabase.from("weight_records").insert({
+          animal_id: data[0].id,
+          weight_kg: parseFloat(formData.entry_weight),
+          measurement_date: formData.farm_entry_date || new Date().toISOString().split("T")[0],
+          measurement_method: "entry_weight",
+          notes: "Initial weight at farm entry",
+          created_by: user?.id || null,
+        });
+      }
+
+      // Create birth weight record for offspring if provided
+      if (formData.animal_type === "offspring" && formData.birth_weight && formData.birth_date) {
+        await supabase.from("weight_records").insert({
+          animal_id: data[0].id,
+          weight_kg: parseFloat(formData.birth_weight),
+          measurement_date: formData.birth_date,
+          measurement_method: "birth_weight",
+          notes: "Birth weight",
+          created_by: user?.id || null,
+        });
+      }
     }
 
     setCreating(false);

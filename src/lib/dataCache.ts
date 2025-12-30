@@ -191,6 +191,9 @@ interface Animal {
   birth_date_unknown?: boolean | null;
   mother_unknown?: boolean | null;
   father_unknown?: boolean | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
 }
 
 interface AnimalDataCache {
