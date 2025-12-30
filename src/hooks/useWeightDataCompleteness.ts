@@ -18,7 +18,7 @@ export const useWeightDataCompleteness = (farmId: string) => {
     queryFn: async () => {
       const { data: animals, error } = await supabase
         .from("animals")
-        .select("id, entry_weight_kg, entry_weight_unknown, birth_weight_kg, birth_date")
+        .select("id, entry_weight_kg, entry_weight_unknown, birth_weight_kg, birth_date, farm_entry_date")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .is("exit_date", null);
@@ -32,24 +32,28 @@ export const useWeightDataCompleteness = (farmId: string) => {
       let completeWeightData = 0;
 
       animals?.forEach((animal) => {
+        const isAcquired = animal.farm_entry_date !== null;
         const hasEntryWeight = animal.entry_weight_kg !== null;
         const hasBirthWeight = animal.birth_weight_kg !== null;
         const isEntryUnknown = animal.entry_weight_unknown === true;
 
-        if (isEntryUnknown) {
-          unknownEntryWeight++;
-        } else if (!hasEntryWeight) {
-          missingEntryWeight++;
-        }
-
-        // Only check birth weight for animals with birth dates
-        if (animal.birth_date && !hasBirthWeight) {
-          missingBirthWeight++;
-        }
-
-        // Consider complete if has entry weight or explicitly marked unknown
-        if (hasEntryWeight || isEntryUnknown) {
-          completeWeightData++;
+        if (isAcquired) {
+          // Acquired animals: check entry weight
+          if (isEntryUnknown) {
+            unknownEntryWeight++;
+            completeWeightData++;
+          } else if (!hasEntryWeight) {
+            missingEntryWeight++;
+          } else {
+            completeWeightData++;
+          }
+        } else {
+          // Farm-born animals: check birth weight
+          if (animal.birth_date && !hasBirthWeight) {
+            missingBirthWeight++;
+          } else {
+            completeWeightData++;
+          }
         }
       });
 

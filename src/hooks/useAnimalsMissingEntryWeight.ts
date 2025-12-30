@@ -13,12 +13,14 @@ export function useAnimalsMissingEntryWeight(farmId?: string, limit: number = 3)
     queryFn: async () => {
       if (!farmId) return [];
 
+      // Only fetch ACQUIRED animals (with farm_entry_date) that are missing entry weight
       const { data, error } = await supabase
         .from('animals')
         .select('id, name, ear_tag')
         .eq('farm_id', farmId)
         .eq('is_deleted', false)
         .is('exit_date', null)
+        .not('farm_entry_date', 'is', null) // Only acquired animals
         .is('entry_weight_kg', null)
         .or('entry_weight_unknown.is.null,entry_weight_unknown.eq.false')
         .limit(limit);

@@ -20,6 +20,8 @@ export interface Animal {
   milking_stage: string | null;
   unique_code: string | null;
   livestock_type: string | null;
+  farm_entry_date: string | null;
+  acquisition_type: string | null;
 }
 
 export interface ParentAnimal {
