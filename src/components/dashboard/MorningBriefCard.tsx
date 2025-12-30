@@ -93,9 +93,9 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className={`font-semibold leading-snug ${isMobile ? 'text-lg' : 'text-base'}`}>
-                  {brief.greeting}
+                  Doc Aga's Morning Brief
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Doc Aga's Morning Brief</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{brief.greeting}</p>
               </div>
             </div>
             
