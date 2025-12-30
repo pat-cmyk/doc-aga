@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
+import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
 interface WeightRecord {
   id: string;
@@ -30,9 +31,12 @@ interface WeightRecordsProps {
   animalId: string;
   animalBirthDate?: string;
   animalFarmEntryDate?: string;
+  livestockType?: string;
+  gender?: string | null;
+  lifeStage?: string | null;
 }
 
-export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -220,6 +224,15 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate }
                     onChange={(e) => setWeight(e.target.value)}
                     required
                   />
+                  {livestockType && (
+                    <WeightHintBadge
+                      livestockType={livestockType}
+                      gender={gender}
+                      lifeStage={lifeStage}
+                      weightType="current"
+                      className="mt-1"
+                    />
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="date">Measurement Date</Label>

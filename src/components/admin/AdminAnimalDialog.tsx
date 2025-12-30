@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { LIVESTOCK_BREEDS } from "@/lib/livestockBreeds";
+import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
 interface AnimalData {
   id?: string;
@@ -320,6 +321,12 @@ export const AdminAnimalDialog = ({
                 }))
               }
               placeholder="e.g., 450"
+            />
+            <WeightHintBadge
+              livestockType={livestockType}
+              gender={formData.gender}
+              lifeStage={formData.life_stage}
+              weightType="current"
             />
           </div>
 

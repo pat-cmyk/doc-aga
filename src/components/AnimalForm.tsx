@@ -15,6 +15,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { updateAnimalCache, getCachedAnimals } from "@/lib/animalCache";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
 import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
+import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
 interface ParentAnimal {
   id: string;
@@ -479,9 +480,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 disabled={formData.entry_weight_unknown}
                 className={formData.entry_weight_unknown ? "opacity-50" : ""}
               />
-              <p className="text-sm text-muted-foreground">
-                Weight when the animal was introduced to your farm
-              </p>
+              <WeightHintBadge
+                livestockType={formData.livestock_type}
+                gender={formData.gender}
+                weightType="entry"
+              />
             </div>
           )}
 
@@ -685,9 +688,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 onChange={(e) => setFormData(prev => ({ ...prev, birth_weight: e.target.value }))}
                 placeholder="e.g., 35"
               />
-              <p className="text-sm text-muted-foreground">
-                Optional - enter if the birth weight was recorded
-              </p>
+              <WeightHintBadge
+                livestockType={formData.livestock_type}
+                weightType="birth"
+              />
             </div>
           )}
 
