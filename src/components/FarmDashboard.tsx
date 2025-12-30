@@ -18,7 +18,6 @@ import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
-import { QuickActionsFab } from "./dashboard/QuickActionsFab";
 import { useNavigate } from "react-router-dom";
 
 interface FarmDashboardProps {
@@ -48,11 +47,8 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   };
 
   const handleLogActivity = () => {
-    // Trigger Doc Aga for voice activity logging
-    const docAgaButton = document.querySelector('[data-doc-aga-trigger]') as HTMLButtonElement;
-    if (docAgaButton) {
-      docAgaButton.click();
-    }
+    // Navigate to farmhand dashboard for voice activity logging
+    navigate('/?tab=operations');
   };
 
   // Memoize date calculations
@@ -335,13 +331,6 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         open={healthDialogOpen}
         onClose={() => setHealthDialogOpen(false)}
         onNavigateToAnimal={(animalId) => onNavigateToAnimalDetails?.(animalId)}
-      />
-
-      {/* Quick Actions FAB - positioned left to avoid conflict with Doc Aga */}
-      <QuickActionsFab
-        onRecordMilk={handleRecordMilk}
-        onRecordHealth={handleRecordHealth}
-        onLogActivity={handleLogActivity}
       />
     </div>
   );
