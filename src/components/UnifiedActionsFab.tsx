@@ -138,7 +138,7 @@ export function UnifiedActionsFab({
         {/* Action buttons - animate in when expanded */}
         <div 
           className={cn(
-            "flex flex-col-reverse gap-2 mb-3 transition-all duration-200",
+            "flex flex-col-reverse items-end gap-2 mb-3 transition-all duration-200",
             isExpanded ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
         >
