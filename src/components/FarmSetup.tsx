@@ -1,30 +1,33 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Sprout, MapPin } from "lucide-react";
+import { Sprout, MapPin, LogOut, Users } from "lucide-react";
 import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
 import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
 import { LocationPermissionDialog } from "@/components/permissions/LocationPermissionDialog";
-
 interface FarmSetupProps {
   onFarmCreated: (farmId: string) => void;
 }
 
 export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [checkingOwnership, setCheckingOwnership] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     region: "",
     province: "",
     municipality: "",
-    role_in_farm: "farmer_owner" as "farmer_owner" | "farmhand" | "vet",
+    role_in_farm: "farmer_owner" as "farmer_owner" | "vet",
     livestock_type: "cattle"
   });
 
@@ -222,9 +225,26 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     }
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  const handleJoinWithCode = () => {
+    if (!inviteCode.trim()) {
+      toast({
+        title: "Missing invitation code",
+        description: "Please enter your invitation code",
+        variant: "destructive"
+      });
+      return;
+    }
+    // Navigate to the invite accept page with the token
+    navigate(`/invite/${inviteCode.trim()}`);
+  };
+
   const roleDescriptions = {
     farmer_owner: "I own and manage this farm",
-    farmhand: "I work on this farm",
     vet: "I provide veterinary services"
   };
 
@@ -250,7 +270,16 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center space-y-2">
+        <CardHeader className="text-center space-y-2 relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="absolute left-4 top-4 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
           <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
             <Sprout className="h-8 w-8 text-primary" />
           </div>
@@ -324,12 +353,6 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
                     <div>
                       <div className="font-medium">Farm Owner</div>
                       <div className="text-sm text-muted-foreground">I own and manage this farm</div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="farmhand">
-                    <div>
-                      <div className="font-medium">Farm Hand</div>
-                      <div className="text-sm text-muted-foreground">I work on this farm</div>
                     </div>
                   </SelectItem>
                   <SelectItem value="vet">
@@ -437,6 +460,53 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
               {isSubmitting ? "Creating Farm..." : "Create Farm"}
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-8">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-4 text-sm text-muted-foreground">
+              OR
+            </span>
+          </div>
+
+          {/* Join as Farm Hand Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center">
+                <Users className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-medium">Joining an existing farm?</h3>
+                <p className="text-sm text-muted-foreground">
+                  If you're a farm hand, ask your farm owner to send you an invitation link.
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="invite-code">Have an invitation code?</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="invite-code"
+                  placeholder="Enter invitation code..."
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  onClick={handleJoinWithCode}
+                  disabled={!inviteCode.trim()}
+                >
+                  Join Farm
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The invitation code is the last part of the invitation link sent by your farm owner.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
