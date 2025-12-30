@@ -155,13 +155,31 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
 
+  // Helper to create notification in database
+  const createCacheNotification = async (
+    title: string,
+    body: string
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'system' as const,
+          title,
+          body,
+          read: false
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create notification:', error);
+    }
+  };
+
   // Handle swipe-to-cache action
   const handleCacheAnimal = async (animalId: string) => {
     if (cachedAnimalIds.has(animalId)) {
-      toast({ 
-        title: "Already cached", 
-        description: "This animal is available offline" 
-      });
+      // Silent - user can see the cached indicator on card
       return;
     }
 
@@ -187,15 +205,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       if (details && records) {
         setCachedAnimalIds(prev => new Set(prev).add(animalId));
         hapticNotification('success');
-        toast({ title: "Cached!", description: "Animal available offline" });
+        await createCacheNotification('Cached!', 'Animal available offline');
       }
     } catch (error) {
       hapticNotification('error');
-      toast({ 
-        title: "Cache failed", 
-        description: "Could not save for offline use",
-        variant: "destructive" 
-      });
+      await createCacheNotification('Cache Failed', 'Could not save for offline use');
     } finally {
       setDownloadingAnimalIds(prev => {
         const newSet = new Set(prev);
