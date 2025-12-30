@@ -129,6 +129,8 @@ interface Animal {
   avatar_url?: string | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
 }
 
 interface AnimalListProps {
@@ -136,9 +138,10 @@ interface AnimalListProps {
   initialSelectedAnimalId?: string | null;
   readOnly?: boolean;
   onAnimalSelect?: (animalId: string | null) => void;
+  weightFilter?: 'missing' | undefined;
 }
 
-const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect, weightFilter }: AnimalListProps) => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -149,6 +152,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [lifeStageFilter, setLifeStageFilter] = useState<string>("all");
   const [milkingStageFilter, setMilkingStageFilter] = useState<string>("all");
+  const [weightDataFilter, setWeightDataFilter] = useState<string>(weightFilter === 'missing' ? 'missing' : 'all');
   const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
   const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -224,6 +228,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       setSelectedAnimalId(initialSelectedAnimalId);
     }
   }, [initialSelectedAnimalId]);
+
+  // Sync weightDataFilter when weightFilter prop changes
+  useEffect(() => {
+    if (weightFilter === 'missing') {
+      setWeightDataFilter('missing');
+    }
+  }, [weightFilter]);
 
   useEffect(() => {
     loadAnimals();
@@ -367,20 +378,22 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   // Check if filters are active
   const hasActiveFilters = 
     searchQuery !== "" || 
-    livestockTypeFilter !== "all" || // NEW
+    livestockTypeFilter !== "all" ||
     breedFilter !== "all" || 
     genderFilter !== "all" || 
     lifeStageFilter !== "all" || 
-    milkingStageFilter !== "all";
+    milkingStageFilter !== "all" ||
+    weightDataFilter !== "all";
 
   // Reset all filters
   const resetAllFilters = () => {
     setSearchQuery("");
-    setLivestockTypeFilter("all"); // NEW
+    setLivestockTypeFilter("all");
     setBreedFilter("all");
     setGenderFilter("all");
     setLifeStageFilter("all");
     setMilkingStageFilter("all");
+    setWeightDataFilter("all");
   };
 
   // Apply filters
@@ -389,13 +402,18 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       animal.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       animal.ear_tag?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesLivestockType = livestockTypeFilter === "all" || animal.livestock_type === livestockTypeFilter; // NEW
+    const matchesLivestockType = livestockTypeFilter === "all" || animal.livestock_type === livestockTypeFilter;
     const matchesBreed = breedFilter === "all" || animal.breed === breedFilter;
     const matchesGender = genderFilter === "all" || animal.gender?.toLowerCase() === genderFilter.toLowerCase();
     const matchesLifeStage = lifeStageFilter === "all" || animal.lifeStage === lifeStageFilter;
     const matchesMilkingStage = milkingStageFilter === "all" || animal.milkingStage === milkingStageFilter;
+    
+    // Weight data filter
+    const matchesWeightData = weightDataFilter === "all" ||
+      (weightDataFilter === "missing" && animal.entry_weight_kg === null && !animal.entry_weight_unknown) ||
+      (weightDataFilter === "complete" && (animal.entry_weight_kg !== null || animal.entry_weight_unknown === true));
 
-    return matchesSearch && matchesLivestockType && matchesBreed && matchesGender && matchesLifeStage && matchesMilkingStage;
+    return matchesSearch && matchesLivestockType && matchesBreed && matchesGender && matchesLifeStage && matchesMilkingStage && matchesWeightData;
   });
 
   return (
@@ -529,6 +547,23 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                       {uniqueMilkingStages.map(stage => (
                         <SelectItem key={stage} value={stage!}>{stage}</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block flex items-center gap-1">
+                    <Scale className="h-4 w-4" />
+                    Weight Data
+                  </label>
+                  <Select value={weightDataFilter} onValueChange={setWeightDataFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Weight Data" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card z-50">
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="missing">Missing Entry Weight</SelectItem>
+                      <SelectItem value="complete">Weight Recorded</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
