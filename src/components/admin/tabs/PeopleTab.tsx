@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, ScrollText } from "lucide-react";
+import { Users, ScrollText, Bug } from "lucide-react";
 import { UserManagement } from "../UserManagement";
 import { UserActivityLogs } from "../UserActivityLogs";
+import { RoleDebugger } from "../RoleDebugger";
 import { useSearchParams } from "react-router-dom";
 
 export const PeopleTab = () => {
@@ -27,6 +27,10 @@ export const PeopleTab = () => {
             <ScrollText className="h-4 w-4" />
             Activity Logs
           </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2">
+            <Bug className="h-4 w-4" />
+            Role Debugger
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="mt-6">
@@ -35,6 +39,10 @@ export const PeopleTab = () => {
 
         <TabsContent value="activity" className="mt-6">
           <UserActivityLogs />
+        </TabsContent>
+
+        <TabsContent value="roles" className="mt-6">
+          <RoleDebugger />
         </TabsContent>
       </Tabs>
     </div>
