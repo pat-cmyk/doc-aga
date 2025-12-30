@@ -12,9 +12,12 @@ import { StageBadge } from "@/components/ui/stage-badge";
 import { Badge } from "@/components/ui/badge";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
+import { AnimalCard } from "./animal-list/AnimalCard";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor, displayStageForSpecies } from "@/lib/animalStages";
 import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { hapticNotification } from "@/lib/haptics";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -150,6 +153,57 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  const isMobile = useIsMobile();
+
+  // Handle swipe-to-cache action
+  const handleCacheAnimal = async (animalId: string) => {
+    if (cachedAnimalIds.has(animalId)) {
+      toast({ 
+        title: "Already cached", 
+        description: "This animal is available offline" 
+      });
+      return;
+    }
+
+    if (!isOnline) {
+      toast({ 
+        title: "Offline", 
+        description: "Connect to internet to cache animal data",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setDownloadingAnimalIds(prev => new Set(prev).add(animalId));
+
+    try {
+      await updateRecordsCache(animalId);
+      
+      const [details, records] = await Promise.all([
+        getCachedAnimalDetails(animalId, farmId),
+        getCachedRecords(animalId)
+      ]);
+
+      if (details && records) {
+        setCachedAnimalIds(prev => new Set(prev).add(animalId));
+        hapticNotification('success');
+        toast({ title: "Cached!", description: "Animal available offline" });
+      }
+    } catch (error) {
+      hapticNotification('error');
+      toast({ 
+        title: "Cache failed", 
+        description: "Could not save for offline use",
+        variant: "destructive" 
+      });
+    } finally {
+      setDownloadingAnimalIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(animalId);
+        return newSet;
+      });
+    }
+  };
 
   useEffect(() => {
     if (initialSelectedAnimalId) {
@@ -490,101 +544,135 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         </Card>
       ) : (
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredAnimals.map((animal) => (
-            <Card
-              key={animal.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              style={{ contentVisibility: 'auto' }}
-              onClick={() => {
-                setSelectedAnimalId(animal.id);
-                onAnimalSelect?.(animal.id);
+          {filteredAnimals.map((animal) => {
+            const displayedLifeStage = displayStageForSpecies(animal.lifeStage || null, animal.livestock_type);
+            const lifeStageDefinition = getLifeStageDefinition(displayedLifeStage);
+            const lifeStageBadgeColor = getLifeStageBadgeColor(displayedLifeStage);
+            const milkingStageDefinition = getMilkingStageDefinition(animal.milkingStage || null);
+            const milkingStageBadgeColor = getMilkingStageBadgeColor(animal.milkingStage || null);
+            const livestockIcon = getLivestockIcon(animal.livestock_type);
+
+            const handleViewAnimal = () => {
+              setSelectedAnimalId(animal.id);
+              onAnimalSelect?.(animal.id);
+              
+              // Pre-cache this animal's records in background
+              if (isOnline && !cachedAnimalIds.has(animal.id)) {
+                setDownloadingAnimalIds(prev => new Set(prev).add(animal.id));
                 
-                // Track download progress and pre-cache this animal's records in background
-                if (isOnline && !cachedAnimalIds.has(animal.id)) {
-                  setDownloadingAnimalIds(prev => new Set(prev).add(animal.id));
-                  
-                  updateRecordsCache(animal.id)
-                    .then(() => {
-                      // Re-check cache status
-                      Promise.all([
-                        getCachedAnimalDetails(animal.id, farmId),
-                        getCachedRecords(animal.id)
-                      ]).then(([details, records]) => {
-                        if (details && records) {
-                          setCachedAnimalIds(prev => new Set(prev).add(animal.id));
-                        }
-                        setDownloadingAnimalIds(prev => {
-                          const newSet = new Set(prev);
-                          newSet.delete(animal.id);
-                          return newSet;
-                        });
-                      });
-                    })
-                    .catch(err => {
-                      console.error('Error pre-caching records:', err);
+                updateRecordsCache(animal.id)
+                  .then(() => {
+                    Promise.all([
+                      getCachedAnimalDetails(animal.id, farmId),
+                      getCachedRecords(animal.id)
+                    ]).then(([details, records]) => {
+                      if (details && records) {
+                        setCachedAnimalIds(prev => new Set(prev).add(animal.id));
+                      }
                       setDownloadingAnimalIds(prev => {
                         const newSet = new Set(prev);
                         newSet.delete(animal.id);
                         return newSet;
                       });
                     });
-                }
-              }}
-            >
-              <CardHeader>
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-12 w-12 flex-shrink-0">
-                    <AvatarImage 
-                      src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
-                      alt={animal.name || animal.ear_tag || "Animal"}
-                      loading="lazy"
-                    />
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                      {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
-                    <CardDescription className="flex items-center">
-                      <span>
-                        {getLivestockIcon(animal.livestock_type)} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                  })
+                  .catch(err => {
+                    console.error('Error pre-caching records:', err);
+                    setDownloadingAnimalIds(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(animal.id);
+                      return newSet;
+                    });
+                  });
+              }
+            };
+
+            // Use AnimalCard component on mobile for swipe gestures
+            if (isMobile) {
+              return (
+                <AnimalCard
+                  key={animal.id}
+                  animal={{
+                    ...animal,
+                    lifeStage: displayedLifeStage,
+                  }}
+                  isCached={cachedAnimalIds.has(animal.id)}
+                  isDownloading={downloadingAnimalIds.has(animal.id)}
+                  lifeStageDefinition={lifeStageDefinition}
+                  milkingStageDefinition={milkingStageDefinition}
+                  lifeStageBadgeColor={lifeStageBadgeColor}
+                  milkingStageBadgeColor={milkingStageBadgeColor}
+                  livestockIcon={livestockIcon}
+                  onClick={handleViewAnimal}
+                  onCacheOffline={() => handleCacheAnimal(animal.id)}
+                  onViewDetails={handleViewAnimal}
+                />
+              );
+            }
+
+            // Desktop card (unchanged)
+            return (
+              <Card
+                key={animal.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                style={{ contentVisibility: 'auto' }}
+                onClick={handleViewAnimal}
+              >
+                <CardHeader>
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-12 w-12 flex-shrink-0">
+                      <AvatarImage 
+                        src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
+                        alt={animal.name || animal.ear_tag || "Animal"}
+                        loading="lazy"
+                      />
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
+                      <CardDescription className="flex items-center">
+                        <span>
+                          {livestockIcon} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                        </span>
+                        {getCacheIcon(animal.id)}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}</span>
+                    {animal.current_weight_kg && (
+                      <span className="flex items-center gap-1 font-medium text-foreground">
+                        <Scale className="h-3 w-3" />
+                        {animal.current_weight_kg} kg
                       </span>
-                      {getCacheIcon(animal.id)}
-                    </CardDescription>
+                    )}
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Born: {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : "Unknown"}</span>
-                  {animal.current_weight_kg && (
-                    <span className="flex items-center gap-1 font-medium text-foreground">
-                      <Scale className="h-3 w-3" />
-                      {animal.current_weight_kg} kg
-                    </span>
+                  {(animal.lifeStage || animal.milkingStage) && (
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      {animal.lifeStage && (
+                        <StageBadge 
+                          stage={displayedLifeStage}
+                          definition={lifeStageDefinition}
+                          colorClass={lifeStageBadgeColor}
+                        />
+                      )}
+                      {animal.milkingStage && (
+                        <StageBadge 
+                          stage={animal.milkingStage}
+                          definition={milkingStageDefinition}
+                          colorClass={milkingStageBadgeColor}
+                        />
+                      )}
+                    </div>
                   )}
-                </div>
-                {(animal.lifeStage || animal.milkingStage) && (
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {animal.lifeStage && (
-                      <StageBadge 
-                        stage={displayStageForSpecies(animal.lifeStage, animal.livestock_type)}
-                        definition={getLifeStageDefinition(displayStageForSpecies(animal.lifeStage, animal.livestock_type))}
-                        colorClass={getLifeStageBadgeColor(displayStageForSpecies(animal.lifeStage, animal.livestock_type))}
-                      />
-                    )}
-                    {animal.milkingStage && (
-                      <StageBadge 
-                        stage={animal.milkingStage}
-                        definition={getMilkingStageDefinition(animal.milkingStage)}
-                        colorClass={getMilkingStageBadgeColor(animal.milkingStage)}
-                      />
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
