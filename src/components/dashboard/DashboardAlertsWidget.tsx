@@ -50,11 +50,11 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/dashboard?animalId=${animalId}`);
+    navigate(`/?animalId=${animalId}`);
   };
 
   const handleViewAnimalsWithMissingWeight = () => {
-    navigate('/dashboard?filter=missing-weight');
+    navigate('/?filter=missing-weight');
   };
 
   if (isLoading) {
