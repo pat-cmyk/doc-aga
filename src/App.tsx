@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { FloatingDocAga } from "./components/FloatingDocAga";
+import { UnifiedActionsFab } from "./components/UnifiedActionsFab";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -131,7 +131,7 @@ const ConditionalFloatingComponents = () => {
   
   return (
     <>
-      <FloatingDocAga />
+      <UnifiedActionsFab />
       <FloatingVoiceTrainingButton />
     </>
   );
