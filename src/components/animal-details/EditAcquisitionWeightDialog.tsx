@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,10 @@ interface EditAcquisitionWeightDialogProps {
   onSaved: () => void;
   livestockType?: string;
   gender?: string | null;
+  /** Controlled open state (optional) */
+  open?: boolean;
+  /** Callback when open state changes (optional) */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function EditAcquisitionWeightDialog({
@@ -52,8 +56,15 @@ export function EditAcquisitionWeightDialog({
   onSaved,
   livestockType = "cattle",
   gender,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: EditAcquisitionWeightDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Support both controlled and uncontrolled usage
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (controlledOnOpenChange ?? (() => {})) : setInternalOpen;
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -81,9 +92,9 @@ export function EditAcquisitionWeightDialog({
     currentValues.grant_source_other || ""
   );
 
-  // Reset form when dialog opens
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
+  // Reset form when dialog opens (for controlled mode, track when open becomes true)
+  useEffect(() => {
+    if (open) {
       setEntryWeightKg(currentValues.entry_weight_kg?.toString() || "");
       setEntryWeightUnknown(currentValues.entry_weight_unknown || false);
       setBirthWeightKg(currentValues.birth_weight_kg?.toString() || "");
@@ -92,6 +103,10 @@ export function EditAcquisitionWeightDialog({
       setGrantSource(currentValues.grant_source || "");
       setGrantSourceOther(currentValues.grant_source_other || "");
     }
+  }, [open, currentValues]);
+
+  // Handle open change for uncontrolled mode
+  const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
   };
 
