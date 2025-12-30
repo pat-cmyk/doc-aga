@@ -150,6 +150,10 @@ interface Animal {
   entry_weight_kg: number | null;
   entry_weight_unknown: boolean | null;
   birth_weight_kg: number | null;
+  acquisition_type: string | null;
+  purchase_price: number | null;
+  grant_source: string | null;
+  grant_source_other: string | null;
 }
 
 interface ParentAnimal {
@@ -767,6 +771,28 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
               <div>
                 <p className="text-muted-foreground">Birth Weight</p>
                 <p className="font-medium">{animal.birth_weight_kg} kg</p>
+              </div>
+            )}
+            {/* Acquisition Info - for new entrants */}
+            {animal.acquisition_type && (
+              <div className="col-span-2">
+                <p className="text-muted-foreground">Acquisition</p>
+                <p className="font-medium">
+                  {animal.acquisition_type === "purchased" && (
+                    <>
+                      Purchased
+                      {animal.purchase_price && ` - ₱${animal.purchase_price.toLocaleString()}`}
+                    </>
+                  )}
+                  {animal.acquisition_type === "grant" && (
+                    <>
+                      Grant from{" "}
+                      {animal.grant_source === "national_dairy_authority" && "National Dairy Authority (NDA)"}
+                      {animal.grant_source === "local_government_unit" && "Local Government Unit (LGU)"}
+                      {animal.grant_source === "other" && (animal.grant_source_other || "Unknown")}
+                    </>
+                  )}
+                </p>
               </div>
             )}
           </div>

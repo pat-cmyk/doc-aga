@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, ArrowLeft, WifiOff, Dices, CalendarIcon } from "lucide-react";
 import { generateFilipinoAnimalName } from "@/lib/filipinoAnimalNames";
 import { useToast } from "@/hooks/use-toast";
@@ -60,7 +61,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     // Weight fields
     entry_weight: "",
     entry_weight_unknown: false,
-    birth_weight: ""
+    birth_weight: "",
+    // Acquisition fields
+    acquisition_type: "purchased",
+    purchase_price: "",
+    grant_source: "",
+    grant_source_other: ""
   });
 
   useEffect(() => {
@@ -200,6 +206,17 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       entry_weight_unknown: formData.animal_type === "new_entrant" ? formData.entry_weight_unknown : false,
       birth_weight_kg: formData.animal_type === "offspring" && formData.birth_weight 
         ? parseFloat(formData.birth_weight) 
+        : null,
+      // Acquisition fields (only for new entrants)
+      acquisition_type: formData.animal_type === "new_entrant" ? formData.acquisition_type : null,
+      purchase_price: formData.animal_type === "new_entrant" && formData.acquisition_type === "purchased" && formData.purchase_price 
+        ? parseFloat(formData.purchase_price) 
+        : null,
+      grant_source: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" 
+        ? formData.grant_source 
+        : null,
+      grant_source_other: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" && formData.grant_source === "other" 
+        ? formData.grant_source_other 
         : null,
     };
 
@@ -465,6 +482,85 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               <p className="text-sm text-muted-foreground">
                 Weight when the animal was introduced to your farm
               </p>
+            </div>
+          )}
+
+          {/* Acquisition Type - Only for new entrants */}
+          {formData.animal_type === "new_entrant" && (
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <Label>How was this animal acquired? *</Label>
+              <RadioGroup
+                value={formData.acquisition_type}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  acquisition_type: value,
+                  purchase_price: value === "grant" ? "" : prev.purchase_price,
+                  grant_source: value === "purchased" ? "" : prev.grant_source,
+                  grant_source_other: value === "purchased" ? "" : prev.grant_source_other
+                }))}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="purchased" id="acquired_purchased" />
+                  <Label htmlFor="acquired_purchased" className="cursor-pointer font-normal">Purchased</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="grant" id="acquired_grant" />
+                  <Label htmlFor="acquired_grant" className="cursor-pointer font-normal">Grant / Donation</Label>
+                </div>
+              </RadioGroup>
+
+              {formData.acquisition_type === "purchased" && (
+                <div className="space-y-2">
+                  <Label htmlFor="purchase_price">Purchase Price (PHP)</Label>
+                  <Input
+                    id="purchase_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.purchase_price}
+                    onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
+                    placeholder="e.g., 50000"
+                  />
+                </div>
+              )}
+
+              {formData.acquisition_type === "grant" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="grant_source">Grant Source *</Label>
+                    <Select
+                      value={formData.grant_source}
+                      onValueChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        grant_source: value,
+                        grant_source_other: value !== "other" ? "" : prev.grant_source_other
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select grant source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="national_dairy_authority">National Dairy Authority (NDA)</SelectItem>
+                        <SelectItem value="local_government_unit">Local Government Unit (LGU)</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.grant_source === "other" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="grant_source_other">Specify Source *</Label>
+                      <Input
+                        id="grant_source_other"
+                        value={formData.grant_source_other}
+                        onChange={(e) => setFormData(prev => ({ ...prev, grant_source_other: e.target.value }))}
+                        placeholder="Enter grant source"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
           
