@@ -7,14 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Loader2, Plus, Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { validateRecordDate } from "@/lib/recordValidation";
 
 interface AddHealthRecordDialogProps {
   animalId: string;
   isOnline: boolean;
   onSuccess: () => void;
+  animalFarmEntryDate?: string | null;
 }
 
-export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess }: AddHealthRecordDialogProps) => {
+export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFarmEntryDate }: AddHealthRecordDialogProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
@@ -175,6 +177,17 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess }: AddHeal
       toast({
         title: "Missing field",
         description: "Visit date is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate record date against farm entry date
+    const dateValidation = validateRecordDate(formData.visit_date, { farm_entry_date: animalFarmEntryDate });
+    if (!dateValidation.valid) {
+      toast({
+        title: "Invalid Date",
+        description: dateValidation.message,
         variant: "destructive"
       });
       return;

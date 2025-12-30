@@ -13,14 +13,16 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
 import { CameraPermissionDialog } from "./permissions/CameraPermissionDialog";
+import { validateRecordDate } from "@/lib/recordValidation";
 
 interface HealthRecordsProps {
   animalId: string;
   farmId?: string;
   livestockType?: string;
+  animalFarmEntryDate?: string | null;
 }
 
-const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) => {
+const HealthRecords = ({ animalId, farmId, livestockType, animalFarmEntryDate }: HealthRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -273,6 +275,17 @@ const HealthRecords = ({ animalId, farmId, livestockType }: HealthRecordsProps) 
       toast({
         title: "Missing field",
         description: "Visit date is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate record date against farm entry date
+    const dateValidation = validateRecordDate(formData.visit_date, { farm_entry_date: animalFarmEntryDate });
+    if (!dateValidation.valid) {
+      toast({
+        title: "Invalid Date",
+        description: dateValidation.message,
         variant: "destructive"
       });
       return;

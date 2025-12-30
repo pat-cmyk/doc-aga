@@ -35,6 +35,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
     breed?: string;
     birth_date?: string;
     life_stage?: string;
+    farm_entry_date?: string;
   } | null>(null);
   const [needsAnimalSelection, setNeedsAnimalSelection] = useState(false);
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
@@ -71,13 +72,14 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
               breed: cached.animal.breed || undefined,
               birth_date: cached.animal.birth_date || undefined,
               life_stage: cached.animal.life_stage || undefined,
+              farm_entry_date: cached.animal.farm_entry_date || undefined,
             });
           }
         } else {
           // Online: fetch from backend with cache fallback
           const { data, error } = await supabase
             .from('animals')
-            .select('name, ear_tag, gender, breed, birth_date, life_stage')
+            .select('name, ear_tag, gender, breed, birth_date, life_stage, farm_entry_date')
             .eq('id', effectiveAnimalId)
             .single();
 
@@ -91,6 +93,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
               breed: data.breed || undefined,
               birth_date: data.birth_date || undefined,
               life_stage: data.life_stage || undefined,
+              farm_entry_date: data.farm_entry_date || undefined,
             });
           }
         }
@@ -107,6 +110,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
               breed: cached.animal.breed || undefined,
               birth_date: cached.animal.birth_date || undefined,
               life_stage: cached.animal.life_stage || undefined,
+              farm_entry_date: cached.animal.farm_entry_date || undefined,
             });
           }
         } catch (cacheError) {

@@ -28,6 +28,7 @@ interface QueueItem {
       breed?: string;
       birth_date?: string;
       life_stage?: string;
+      farm_entry_date?: string;
     } | null;
     timestamp?: number;
     formData?: any;
