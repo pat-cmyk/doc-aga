@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,9 +176,15 @@ interface AnimalDetailsProps {
   animalId: string;
   farmId: string;
   onBack: () => void;
+  /** If true, open the edit entry weight dialog on mount */
+  editWeightOnOpen?: boolean;
+  /** Callback to clear the editWeight flag after it's consumed */
+  onEditWeightConsumed?: () => void;
 }
 
-const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
+const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeightConsumed }: AnimalDetailsProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [mother, setMother] = useState<ParentAnimal | null>(null);
   const [father, setFather] = useState<ParentAnimal | null>(null);
@@ -188,10 +195,24 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [caching, setCaching] = useState(false);
+  const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
+  
+  // Handle opening the edit weight dialog from URL params
+  useEffect(() => {
+    if (editWeightOnOpen && animal && !loading) {
+      setEditWeightDialogOpen(true);
+      onEditWeightConsumed?.();
+      // Remove editWeight from URL
+      const params = new URLSearchParams(location.search);
+      params.delete('editWeight');
+      const newSearch = params.toString();
+      navigate({ search: newSearch ? `?${newSearch}` : '' }, { replace: true });
+    }
+  }, [editWeightOnOpen, animal, loading, onEditWeightConsumed, navigate, location.search]);
 
   useEffect(() => {
     loadAnimal();
@@ -778,6 +799,8 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                       onSaved={loadAnimal}
                       livestockType={animal.livestock_type || "cattle"}
                       gender={animal.gender}
+                      open={editWeightDialogOpen}
+                      onOpenChange={setEditWeightDialogOpen}
                     />
                   </div>
                   <p className="font-medium">

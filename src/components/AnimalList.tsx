@@ -139,9 +139,13 @@ interface AnimalListProps {
   readOnly?: boolean;
   onAnimalSelect?: (animalId: string | null) => void;
   weightFilter?: 'missing' | undefined;
+  /** If true, open the edit weight dialog when animal details opens */
+  editWeightOnOpen?: boolean;
+  /** Callback to clear the editWeight flag after it's consumed */
+  onEditWeightConsumed?: () => void;
 }
 
-const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect, weightFilter }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect, weightFilter, editWeightOnOpen, onEditWeightConsumed }: AnimalListProps) => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -303,10 +307,16 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   };
 
   if (selectedAnimalId) {
-    return <AnimalDetails animalId={selectedAnimalId} farmId={farmId} onBack={() => {
-      setSelectedAnimalId(null);
-      onAnimalSelect?.(null);
-    }} />;
+    return <AnimalDetails 
+      animalId={selectedAnimalId} 
+      farmId={farmId} 
+      onBack={() => {
+        setSelectedAnimalId(null);
+        onAnimalSelect?.(null);
+      }}
+      editWeightOnOpen={editWeightOnOpen}
+      onEditWeightConsumed={onEditWeightConsumed}
+    />;
   }
 
   if (showForm) {

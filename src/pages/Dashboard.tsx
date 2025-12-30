@@ -234,12 +234,24 @@ const Dashboard = () => {
 
   // Handle URL query params for deep linking
   const [weightFilter, setWeightFilter] = useState<'missing' | undefined>(undefined);
+  const [editWeightOnOpen, setEditWeightOnOpen] = useState(false);
   
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     const feedType = params.get('prefillFeedType');
     const filter = params.get('filter');
+    const animalIdParam = params.get('animalId');
+    const editWeight = params.get('editWeight') === 'true';
+    
+    // Handle animalId deep link - open that animal's details
+    if (animalIdParam) {
+      setSelectedAnimalId(animalIdParam);
+      setActiveTab('animals');
+      setEditWeightOnOpen(editWeight);
+    } else {
+      setEditWeightOnOpen(false);
+    }
     
     // Handle weight filter - switch to animals tab
     if (filter === 'missing-weight') {
@@ -256,7 +268,7 @@ const Dashboard = () => {
       setActiveTab('operations');
     } else if (tab === 'approvals' || tab === 'government') {
       setActiveTab('more');
-    } else if (tab === 'animals') {
+    } else if (tab === 'animals' && !animalIdParam) {
       setActiveTab('animals');
     }
     
@@ -484,6 +496,8 @@ const Dashboard = () => {
                     farmId={farmId} 
                     initialSelectedAnimalId={selectedAnimalId}
                     weightFilter={weightFilter}
+                    editWeightOnOpen={editWeightOnOpen}
+                    onEditWeightConsumed={() => setEditWeightOnOpen(false)}
                   />
                 )}
               </CardContent>

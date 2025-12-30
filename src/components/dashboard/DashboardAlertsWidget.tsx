@@ -55,7 +55,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/?animalId=${animalId}`);
+    navigate(`/?tab=animals&animalId=${animalId}`);
   };
 
   const handleViewAnimalsWithMissingWeight = () => {
@@ -63,7 +63,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   const handleEditAnimalWeight = (animalId: string) => {
-    navigate(`/?animalId=${animalId}&editWeight=true`);
+    navigate(`/?tab=animals&animalId=${animalId}&editWeight=true`);
   };
 
   if (isLoading) {
