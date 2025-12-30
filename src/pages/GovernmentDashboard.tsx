@@ -32,6 +32,8 @@ import { MortalityAnalyticsCard } from "@/components/government/MortalityAnalyti
 import { HeatDetectionMetrics } from "@/components/government/HeatDetectionMetrics";
 import { GrantDistributionCard } from "@/components/government/GrantDistributionCard";
 import { RegionalInvestmentCards } from "@/components/government/RegionalInvestmentCards";
+import { GrantEffectivenessPanel } from "@/components/government/GrantEffectivenessPanel";
+import { VeterinaryExpenseHeatmap } from "@/components/government/VeterinaryExpenseHeatmap";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -976,6 +978,13 @@ const GovernmentDashboard = () => {
                   comparisonMode={comparisonMode}
                 />
               </div>
+
+              {/* Veterinary Expense Heatmap */}
+              <VeterinaryExpenseHeatmap
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+              />
             </div>
 
             {/* =====================================================
@@ -1071,6 +1080,13 @@ const GovernmentDashboard = () => {
 
               {/* Grant Distribution Card */}
               <GrantDistributionCard
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+              />
+
+              {/* Grant Effectiveness Panel */}
+              <GrantEffectivenessPanel
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
