@@ -30,6 +30,8 @@ import { VaccinationComplianceCard } from "@/components/government/VaccinationCo
 import { BCSDistributionChart } from "@/components/government/BCSDistributionChart";
 import { MortalityAnalyticsCard } from "@/components/government/MortalityAnalyticsCard";
 import { HeatDetectionMetrics } from "@/components/government/HeatDetectionMetrics";
+import { GrantDistributionCard } from "@/components/government/GrantDistributionCard";
+import { RegionalInvestmentCards } from "@/components/government/RegionalInvestmentCards";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -854,13 +856,16 @@ const GovernmentDashboard = () => {
                 <span className="text-sm text-muted-foreground">Census & geographic distribution</span>
               </div>
               
-              {/* Overview Stats - 4 cards */}
+              {/* Overview Stats - 6 cards */}
               <GovDashboardOverview
                 stats={stats as any} 
                 comparisonStats={comparisonMode ? (comparisonStats as any) : undefined}
                 isLoading={statsLoading} 
                 error={statsError}
                 comparisonMode={comparisonMode}
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
               />
 
               {/* Regional Map */}
@@ -1049,6 +1054,29 @@ const GovernmentDashboard = () => {
 
           {/* Tab 3: Programs & Insights */}
           <TabsContent value="programs" className="space-y-6">
+            {/* Grant Distribution Analytics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Target className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Grant Program Analytics</h3>
+                <span className="text-sm text-muted-foreground">Distribution and investment metrics</span>
+              </div>
+              
+              {/* Regional Investment Cards */}
+              <RegionalInvestmentCards
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+              />
+
+              {/* Grant Distribution Card */}
+              <GrantDistributionCard
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+              />
+            </div>
+
             {/* Farmer Queries Deep Dive */}
             <Card>
               <CardHeader>
