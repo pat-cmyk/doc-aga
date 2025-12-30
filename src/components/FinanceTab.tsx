@@ -6,6 +6,7 @@ import { ExpenseList } from "@/components/finance/ExpenseList";
 import { AddExpenseDialog } from "@/components/finance/AddExpenseDialog";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
 import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
+import { AnimalCostAnalysis } from "@/components/finance/AnimalCostAnalysis";
 
 interface FinanceTabProps {
   farmId: string;
@@ -38,6 +39,9 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
 
       {/* Biological Asset Valuation - The Living Bank Account */}
       <HerdValueChart farmId={farmId} />
+
+      {/* Per-Animal Cost Analysis */}
+      <AnimalCostAnalysis farmId={farmId} />
 
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Revenue</h3>
