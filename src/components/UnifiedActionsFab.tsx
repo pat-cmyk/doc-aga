@@ -233,37 +233,29 @@ export function UnifiedActionsFab({
         </div>
       )}
 
-      {/* Floating Chat Interface */}
-      <Card
-        className={cn(
-          "fixed z-50 flex flex-col shadow-2xl transition-all duration-300",
-          // Mobile: Full screen
-          "inset-0 rounded-none",
-          // Desktop: Floating bottom-right
-          "sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[450px] sm:h-[650px] sm:rounded-lg",
-          "lg:w-[500px] lg:h-[700px]",
-          isDocAgaOpen ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b p-3 sm:p-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <Stethoscope className="h-5 w-5" />
-            <h2 className="font-semibold text-base sm:text-lg">Doc Aga</h2>
+      {/* Floating Chat Interface - Only render when open to prevent click blocking */}
+      {isDocAgaOpen && (
+        <Card
+          className="fixed z-50 flex flex-col shadow-2xl inset-0 rounded-none sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[450px] sm:h-[650px] sm:rounded-lg lg:w-[500px] lg:h-[700px] animate-in fade-in zoom-in-95 duration-200"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b p-3 sm:p-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5" />
+              <h2 className="font-semibold text-base sm:text-lg">Doc Aga</h2>
+            </div>
+            <Button
+              onClick={() => setIsDocAgaOpen(false)}
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 sm:h-8 sm:w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <X className="h-5 w-5 sm:h-4 sm:w-4" />
+            </Button>
           </div>
-          <Button
-            onClick={() => setIsDocAgaOpen(false)}
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 sm:h-8 sm:w-8 text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <X className="h-5 w-5 sm:h-4 sm:w-4" />
-          </Button>
-        </div>
 
-        {/* Chat Content - lazy loaded */}
-        <div className="flex-1 overflow-hidden">
-          {isDocAgaOpen && (
+          {/* Chat Content - lazy loaded */}
+          <div className="flex-1 overflow-hidden">
             <Suspense fallback={
               <div className="flex items-center justify-center h-full">
                 <div className="animate-pulse text-muted-foreground">Loading Doc Aga...</div>
@@ -271,9 +263,9 @@ export function UnifiedActionsFab({
             }>
               <DocAga />
             </Suspense>
-          )}
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
 
       {/* Desktop backdrop for Doc Aga chat */}
       {isDocAgaOpen && (
