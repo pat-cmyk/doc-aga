@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, WifiOff } from "lucide-react";
+import { Loader2, ArrowLeft, WifiOff, Dices } from "lucide-react";
+import { generateFilipinoAnimalName } from "@/lib/filipinoAnimalNames";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -307,12 +308,27 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Bessie"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Bessie"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  const newName = generateFilipinoAnimalName(formData.livestock_type);
+                  setFormData(prev => ({ ...prev, name: newName }));
+                }}
+                title="Generate random Filipino name"
+              >
+                <Dices className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="ear_tag">Ear Tag *</Label>
