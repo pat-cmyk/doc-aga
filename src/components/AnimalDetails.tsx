@@ -496,41 +496,63 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
     <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
-          <div className="flex items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-              <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="relative">
-                <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                  <AvatarImage 
-                    src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-                    alt={animal.name || "Animal"} 
-                    key={animal.avatar_url}
+          {isMobile ? (
+            // Mobile: Stacked layout with details below avatar
+            <div className="space-y-3">
+              {/* Row 1: Back, Avatar, Actions */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onClick={onBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="relative">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage 
+                        src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
+                        alt={animal.name || "Animal"} 
+                        key={animal.avatar_url}
+                      />
+                      <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+                    </Avatar>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading || !isOnline}
+                      title={!isOnline ? "Available when online" : ""}
+                    >
+                      {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 items-end">
+                  <RecordAnimalExitDialog 
+                    animalId={animalId}
+                    animalName={animal.name || animal.ear_tag || 'Animal'}
+                    farmId={farmId}
+                    livestockType={animal.livestock_type || undefined}
+                    earTag={animal.ear_tag || undefined}
+                    onExitRecorded={onBack}
                   />
-                  <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-                </Avatar>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || !isOnline}
-                  title={!isOnline ? "Available when online" : ""}
-                >
-                  {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
+                  <RecalculateSingleAnimalButton 
+                    animalId={animalId} 
+                    onSuccess={loadAnimal}
+                  />
+                </div>
               </div>
-              <div className="flex-1 overflow-hidden">
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
+              
+              {/* Row 2: Animal Details (full width) */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <CardTitle className="text-lg">{animal.name}</CardTitle>
                   {displayLifeStage && (
                     <StageBadge 
                       stage={displayLifeStage}
@@ -548,20 +570,19 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                   {expectedDeliveryDate && (
                     <Badge className="bg-green-500 hover:bg-green-600 text-xs">
                       <Baby className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Due: </span>
-                      {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                      Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="space-y-1 text-xs sm:text-sm">
+                <CardDescription className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
+                    <span>{animal.breed} • Tag: {animal.ear_tag}</span>
                     {getCacheIcon()}
                   </div>
                   {animal.unique_code && (
                     <div className="flex items-center gap-1.5">
                       <Globe className="h-3 w-3 flex-shrink-0" />
-                      <code className="text-[10px] sm:text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
+                      <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -582,21 +603,109 @@ const AnimalDetails = ({ animalId, farmId, onBack }: AnimalDetailsProps) => {
                 </CardDescription>
               </div>
             </div>
-            <div className="flex flex-col gap-2 items-end">
-              <RecordAnimalExitDialog 
-                animalId={animalId}
-                animalName={animal.name || animal.ear_tag || 'Animal'}
-                farmId={farmId}
-                livestockType={animal.livestock_type || undefined}
-                earTag={animal.ear_tag || undefined}
-                onExitRecorded={onBack}
-              />
-              <RecalculateSingleAnimalButton 
-                animalId={animalId} 
-                onSuccess={loadAnimal}
-              />
+          ) : (
+            // Desktop: Horizontal layout
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <Button variant="ghost" size="sm" onClick={onBack}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="relative">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage 
+                      src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
+                      alt={animal.name || "Animal"} 
+                      key={animal.avatar_url}
+                    />
+                    <AvatarFallback className="text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+                  </Avatar>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || !isOnline}
+                    title={!isOnline ? "Available when online" : ""}
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-2xl truncate">{animal.name}</CardTitle>
+                    {displayLifeStage && (
+                      <StageBadge 
+                        stage={displayLifeStage}
+                        definition={getLifeStageDefinition(displayLifeStage)}
+                        colorClass={getLifeStageBadgeColor(displayLifeStage)}
+                      />
+                    )}
+                    {computedMilkingStage && (
+                      <StageBadge 
+                        stage={computedMilkingStage}
+                        definition={getMilkingStageDefinition(computedMilkingStage)}
+                        colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
+                      />
+                    )}
+                    {expectedDeliveryDate && (
+                      <Badge className="bg-green-500 hover:bg-green-600 text-xs">
+                        <Baby className="h-3 w-3 mr-1" />
+                        Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
+                      {getCacheIcon()}
+                    </div>
+                    {animal.unique_code && (
+                      <div className="flex items-center gap-1.5">
+                        <Globe className="h-3 w-3 flex-shrink-0" />
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(animal.unique_code!);
+                            toast({
+                              title: "Copied!",
+                              description: "Universal ID copied to clipboard",
+                            });
+                          }}
+                          title="Copy Universal ID"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 items-end">
+                <RecordAnimalExitDialog 
+                  animalId={animalId}
+                  animalName={animal.name || animal.ear_tag || 'Animal'}
+                  farmId={farmId}
+                  livestockType={animal.livestock_type || undefined}
+                  earTag={animal.ear_tag || undefined}
+                  onExitRecorded={onBack}
+                />
+                <RecalculateSingleAnimalButton 
+                  animalId={animalId} 
+                  onSuccess={loadAnimal}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
           {/* Offline Indicator */}
