@@ -500,6 +500,58 @@ await cacheFeedInventory(farmId, inventory);
 
 ## 6. Offline-First Architecture
 
+### Overview
+
+Doc Aga implements a comprehensive offline-first architecture that enables farmers and farmhands to work without internet connectivity. The system uses IndexedDB for persistent storage, service workers for background sync, and optimistic UI updates for seamless user experience.
+
+### Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        UI[React UI]
+        TQ[TanStack Query]
+        IDB[(IndexedDB)]
+        SW[Service Worker]
+    end
+    
+    subgraph "Sync Layer"
+        OQ[Offline Queue]
+        SS[Sync Service]
+        CD[Conflict Detection]
+    end
+    
+    subgraph "Server Layer"
+        SB[Supabase]
+        EF[Edge Functions]
+        DB[(PostgreSQL)]
+    end
+    
+    UI --> TQ
+    TQ --> IDB
+    UI --> OQ
+    OQ --> IDB
+    SW --> OQ
+    OQ --> SS
+    SS --> CD
+    SS --> SB
+    CD --> SB
+    SB --> EF
+    SB --> DB
+```
+
+### Core Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Offline Queue | `src/lib/offlineQueue.ts` | Queue operations for offline submission |
+| Data Cache | `src/lib/dataCache.ts` | IndexedDB caching for reads |
+| Sync Service | `src/lib/syncService.ts` | Orchestrate queue processing |
+| Sync Checkpoints | `src/lib/syncCheckpoint.ts` | Track sync progress per table |
+| Conflict Detection | `src/lib/conflictDetection.ts` | Detect and resolve data conflicts |
+| SW Bridge | `src/lib/swBridge.ts` | Service worker communication |
+| Sync Health | `src/lib/syncHealthCheck.ts` | Health monitoring and diagnostics |
+
 ### Network Status Monitoring
 
 **NetworkStatusIndicator Component:**
@@ -508,11 +560,11 @@ await cacheFeedInventory(farmId, inventory);
 - Tooltip shows detailed status and pending operation count
 - Uses `useOnlineStatus()` hook for state management
 
-**User Experience Improvements:**
-- Non-blocking status indicator
-- Clear visual feedback without disrupting workflow
-- Persistent visibility in navigation header
-- Voice-first defaults: Doc Aga opens to Voice tab by default for new users
+**NetworkStatusBanner Component:**
+- Fixed banner at top of screen for important status updates
+- Shows caching progress with progress bar
+- Displays pending sync count with "Sync Now" action
+- Success flash when returning online and synced
 
 ### Caching Strategy
 
@@ -527,6 +579,57 @@ graph LR
     G --> H[Sync Queue]
     H --> I[Process Items]
     I --> J[Update UI]
+```
+
+### IndexedDB Schema
+
+```typescript
+// Database: 'doc-aga-offline'
+// Version: 2
+
+interface OfflineDatabase {
+  // Offline Queue Store
+  offlineQueue: {
+    id: string;                    // Unique queue item ID
+    type: 'voice_activity' | 'animal_form' | 'bulk_record';
+    payload: {
+      audioBlob?: Blob;
+      farmId?: string;
+      formData?: any;
+      transcription?: string;
+      clientGeneratedId?: string;  // For deduplication
+    };
+    status: 'pending' | 'processing' | 'awaiting_confirmation' | 'completed' | 'failed';
+    retries: number;
+    maxRetries: number;
+    createdAt: number;
+    lastAttempt?: number;
+    errorMessage?: string;
+  };
+
+  // Animals Cache Store
+  animals: {
+    farmId: string;                // Index key
+    data: Animal[];                // Cached animal records
+    lastUpdated: number;           // Cache timestamp
+    version: number;               // For cache invalidation
+  };
+
+  // Records Cache Store
+  records: {
+    farmId: string;
+    type: 'milking' | 'feeding' | 'health' | 'weight';
+    data: Record[];
+    lastUpdated: number;
+  };
+
+  // Feed Inventory Cache Store
+  feedInventory: {
+    farmId: string;
+    data: FeedItem[];
+    lastUpdated: number;
+  };
+}
 ```
 
 ### Cache Layers
@@ -547,26 +650,118 @@ dataCache.ts:
 
 offlineQueue.ts:
 ├── Voice Activities   (until synced)
-└── Form Submissions   (until synced)
+├── Form Submissions   (until synced)
+└── Bulk Records       (until synced)
 ```
 
 ### Sync Flow
 
 **Voice Activity Sync:**
-1. User records voice command → Stored in queue
-2. App goes online → `syncService.ts` triggered
-3. Audio uploaded to `voice-to-text` edge function
-4. Transcription returned → Status: `awaiting_confirmation`
-5. User confirms transcription → Status: `pending`
-6. Activity processed via `process-farmhand-activity` function
-7. Success → Status: `completed`, Notification sent
-8. Failure → Status: `failed`, Retry logic applied
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant Q as Offline Queue
+    participant SW as Service Worker
+    participant SS as Sync Service
+    participant EF as Edge Function
+    participant DB as Database
+    
+    U->>Q: Record voice command
+    Q->>Q: Store with clientGeneratedId
+    Note over Q: status: 'pending'
+    
+    SW->>Q: Background sync trigger
+    Q->>SS: Process queue
+    SS->>EF: Upload audio (voice-to-text)
+    EF-->>SS: Return transcription
+    Note over Q: status: 'awaiting_confirmation'
+    
+    U->>SS: Confirm transcription
+    SS->>EF: Process activity
+    EF->>DB: Insert records
+    
+    alt Success
+        DB-->>SS: Confirm insert
+        Note over Q: status: 'completed'
+        SS->>U: Show success toast
+    else Conflict Detected
+        DB-->>SS: Return conflict
+        SS->>U: Show conflict resolution UI
+    else Failure
+        SS->>Q: Increment retry counter
+        Note over Q: status: 'failed' if max retries
+    end
+```
 
 **Form Submission Sync:**
-1. Form submitted offline → Queued with `status: 'pending'`
+1. Form submitted offline → Queued with `status: 'pending'` and `clientGeneratedId`
 2. Online detected → Direct submission to Supabase
-3. Success → Remove from queue
-4. Failure → Increment retry counter, exponential backoff
+3. Success → Remove from queue, invalidate TanStack Query cache
+4. Conflict → Show conflict resolution UI
+5. Failure → Increment retry counter, exponential backoff
+
+### Conflict Detection & Resolution
+
+**Detection Strategies:**
+```typescript
+// Server-side RPC function checks for conflicts
+interface ConflictInfo {
+  hasConflict: boolean;
+  serverTimestamp: string | null;
+  serverData: Record<string, any> | null;
+}
+
+// Client-side detection before sync
+const conflict = await detectConflict(
+  tableName,
+  recordId,
+  clientTimestamp,
+  clientData
+);
+```
+
+**Resolution Strategies:**
+| Strategy | Description | When to Use |
+|----------|-------------|-------------|
+| `use_client` | Keep client data, overwrite server | User explicitly chooses local changes |
+| `use_server` | Keep server data, discard client | Server data is authoritative |
+| `merge` | Combine both versions | Non-conflicting field changes |
+| `manual` | User resolves field-by-field | Complex conflicts |
+
+**Conflict Resolution UI:**
+- `SyncConflictResolution` component shows pending conflicts
+- Side-by-side comparison of client vs server data
+- One-click resolution buttons
+- Auto-merge for simple conflicts
+
+### Service Worker Background Sync
+
+**Registration:**
+```typescript
+// sw.ts - Service worker with background sync
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'offline-sync') {
+    event.waitUntil(processOfflineQueue());
+  }
+});
+
+// Request background sync from main thread
+await navigator.serviceWorker.ready;
+await registration.sync.register('offline-sync');
+```
+
+**Browser Support:**
+| Browser | Background Sync | Fallback |
+|---------|-----------------|----------|
+| Chrome (Desktop/Android) | ✅ Full support | N/A |
+| Edge | ✅ Full support | N/A |
+| Safari | ❌ Not supported | Sync on app open |
+| Firefox | ❌ Not supported | Sync on app open |
+
+**Fallback Strategy:**
+- Use `visibilitychange` event to sync when app becomes visible
+- Periodic sync attempts every 30 seconds when online
+- Manual "Sync Now" button in UI
 
 ### Retry Strategy
 
@@ -581,6 +776,126 @@ if (retries < MAX_RETRIES) {
   showNotification('Sync failed. Please try again manually.');
 }
 ```
+
+### Sync Checkpoints
+
+Track sync progress per table for incremental syncs:
+
+```typescript
+// farm_sync_checkpoints table
+interface SyncCheckpoint {
+  farmId: string;
+  tableName: string;
+  lastSyncAt: string;           // ISO timestamp
+  lastRecordTimestamp: string;  // Latest record timestamp
+  recordsSynced: number;        // Count for this sync
+}
+
+// Check if full sync needed
+const needsFull = await needsFullSync(farmId, 'animals', 24 * 60 * 60 * 1000);
+if (needsFull) {
+  await fullSync(farmId, 'animals');
+} else {
+  await incrementalSync(farmId, 'animals', checkpoint.lastRecordTimestamp);
+}
+```
+
+### Health Monitoring
+
+**Sync Health Check (`syncHealthCheck.ts`):**
+```typescript
+interface SyncHealthStatus {
+  indexedDB: { available: boolean; estimatedSize: number };
+  serviceWorker: { registered: boolean; state: string };
+  queue: { size: number; failedCount: number; healthy: boolean };
+  cache: { available: boolean; tableCount: number };
+  conflicts: { count: number };
+  lastSync: Date | null;
+}
+
+// Get current health status
+const health = await getSyncHealth();
+
+// Diagnose issues
+const issues = await diagnoseSyncIssues();
+// ["Queue has 15 failed items", "Last sync was 2 days ago"]
+
+// Repair sync state
+const success = await repairSyncState();
+// Clears stale data, resets retry counters
+```
+
+### Optimistic Updates
+
+**Visual Indicators:**
+- `OptimisticBadge` component shows "Pending Sync" on unsynced records
+- Animates during active sync
+- Updates when sync completes
+
+**Implementation:**
+```typescript
+// Mark record as optimistic
+const record = {
+  ...data,
+  clientGeneratedId: generateClientId(), // Unique client ID
+  _optimistic: true,                       // UI flag
+};
+
+// In component
+{record._optimistic && (
+  <OptimisticBadge status={syncStatus} />
+)}
+```
+
+### UI Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `NetworkStatusIndicator` | Header | Compact online/offline status |
+| `NetworkStatusBanner` | Top of page | Detailed status with actions |
+| `SyncStatusSheet` | Dashboard | Full sync status and controls |
+| `SyncConflictResolution` | Floating button | Resolve data conflicts |
+| `SyncErrorBoundary` | Wraps sync UI | Graceful error handling |
+| `OfflineModeCard` | Dashboard | First-time offline guidance |
+| `CacheSettingsDialog` | Settings | Cache and sync preferences |
+
+### Testing Offline Features
+
+```bash
+# Run offline-related tests
+npm run test -- --grep "offline"
+npm run test -- --grep "sync"
+npm run test -- --grep "conflict"
+```
+
+**Manual Testing Checklist:**
+- [ ] Chrome DevTools: Network → Offline mode
+- [ ] Add records while offline
+- [ ] Verify queue count in UI
+- [ ] Go online, verify auto-sync
+- [ ] Test conflict resolution UI
+- [ ] Test "Sync Now" manual trigger
+- [ ] Verify optimistic badges clear after sync
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **"Sync stuck on processing"**
+   - Check `syncHealthCheck` for queue health
+   - Use "Repair Sync State" in settings
+
+2. **"Data not appearing after sync"**
+   - Check for conflicts in `SyncConflictResolution`
+   - Verify TanStack Query cache invalidation
+
+3. **"Background sync not working"**
+   - Check browser support (Chrome/Edge only)
+   - Verify service worker is registered
+
+4. **"Cache stale or missing"**
+   - Use "Refresh Cache" in settings
+   - Check IndexedDB quota
 
 ---
 
