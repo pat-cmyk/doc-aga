@@ -340,4 +340,32 @@ export async function confirmTranscription(id: string, transcription: string): P
   }
 }
 
+/**
+ * Reset all failed items back to pending status
+ * Used for bulk retry of stuck items
+ */
+export async function resetAllFailed(): Promise<number> {
+  const db = await getDB();
+  const failed = await db.getAllFromIndex('queue', 'by-status', 'failed');
+  
+  let resetCount = 0;
+  for (const item of failed) {
+    item.status = 'pending';
+    item.retries = 0;
+    item.error = undefined;
+    await db.put('queue', item);
+    resetCount++;
+  }
+  
+  return resetCount;
+}
+
+/**
+ * Get all failed items for review
+ */
+export async function getAllFailed(): Promise<QueueItem[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('queue', 'by-status', 'failed');
+}
+
 export type { QueueItem };

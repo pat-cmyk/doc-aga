@@ -50,6 +50,12 @@ export interface SystemHealthMetrics {
     under_review: number;
     total: number;
   };
+  sync: {
+    total_syncs_24h: number;
+    success_rate: number;
+    avg_duration_ms: number;
+    failed_24h: number;
+  };
   activity_trend: Array<{
     date: string;
     logins: number;
@@ -119,6 +125,20 @@ export function calculateHealthScore(metrics: SystemHealthMetrics | undefined): 
     const penalty = Math.min(10, metrics.stt.failed_24h * 2);
     score -= penalty;
     deductions.push({ reason: "Recent STT failures", points: penalty });
+  }
+
+  // Sync health (if available)
+  if (metrics.sync) {
+    if (metrics.sync.success_rate < 95) {
+      const penalty = Math.min(15, (95 - metrics.sync.success_rate) * 1.5);
+      score -= penalty;
+      deductions.push({ reason: "Sync success rate below 95%", points: penalty });
+    }
+    if (metrics.sync.failed_24h > 0) {
+      const penalty = Math.min(10, metrics.sync.failed_24h * 2);
+      score -= penalty;
+      deductions.push({ reason: "Recent sync failures", points: penalty });
+    }
   }
 
   return Math.max(0, Math.round(score));
