@@ -67,6 +67,7 @@ interface AddExpenseDialogProps {
 export function AddExpenseDialog({ farmId, expense, trigger, onSuccess }: AddExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPersonal, setIsPersonal] = useState(expense?.allocation_type === 'Personal');
+  const [expenseDatePopoverOpen, setExpenseDatePopoverOpen] = useState(false);
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
 
@@ -235,7 +236,7 @@ export function AddExpenseDialog({ farmId, expense, trigger, onSuccess }: AddExp
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date</FormLabel>
-                  <Popover>
+                  <Popover open={expenseDatePopoverOpen} onOpenChange={setExpenseDatePopoverOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
@@ -258,7 +259,10 @@ export function AddExpenseDialog({ farmId, expense, trigger, onSuccess }: AddExp
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setExpenseDatePopoverOpen(false);
+                        }}
                         disabled={(date) => date > new Date()}
                         initialFocus
                         className="pointer-events-auto"

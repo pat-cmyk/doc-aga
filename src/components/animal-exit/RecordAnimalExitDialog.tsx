@@ -46,6 +46,7 @@ export function RecordAnimalExitDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [exitDate, setExitDate] = useState<Date>(new Date());
+  const [exitDatePopoverOpen, setExitDatePopoverOpen] = useState(false);
   const [exitReason, setExitReason] = useState('');
   const [exitReasonDetails, setExitReasonDetails] = useState('');
   const [salePrice, setSalePrice] = useState('');
@@ -145,7 +146,7 @@ export function RecordAnimalExitDialog({
             {/* Exit Date */}
             <div className="space-y-2">
               <Label>Exit Date</Label>
-              <Popover>
+              <Popover open={exitDatePopoverOpen} onOpenChange={setExitDatePopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -159,8 +160,14 @@ export function RecordAnimalExitDialog({
                   <Calendar
                     mode="single"
                     selected={exitDate}
-                    onSelect={(date) => date && setExitDate(date)}
+                    onSelect={(date) => {
+                      if (date) {
+                        setExitDate(date);
+                        setExitDatePopoverOpen(false);
+                      }
+                    }}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
