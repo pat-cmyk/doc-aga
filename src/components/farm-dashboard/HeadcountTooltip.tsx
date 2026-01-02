@@ -21,8 +21,11 @@ export const HeadcountTooltip = ({
 }: HeadcountTooltipProps) => {
   if (!active || !payload || payload.length === 0) return null;
 
+  // Filter out the "total" trend line to avoid double-counting
+  const stagePayload = payload.filter(entry => entry.dataKey !== 'total');
+  
   // Calculate totals
-  const currentTotal = payload.reduce((sum, entry) => sum + (entry.value || 0), 0);
+  const currentTotal = stagePayload.reduce((sum, entry) => sum + (entry.value || 0), 0);
   
   // Calculate by category
   const categoryTotals = {
@@ -31,7 +34,7 @@ export const HeadcountTooltip = ({
     breeding: 0
   };
 
-  payload.forEach(entry => {
+  stagePayload.forEach(entry => {
     const stage = entry.dataKey as string;
     if (stageCategories.productive.includes(stage)) {
       categoryTotals.productive += entry.value || 0;
