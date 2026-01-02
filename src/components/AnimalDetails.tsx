@@ -1155,7 +1155,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         )}
 
         <TabsContent value="weight">
-          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} livestockType={animal?.livestock_type || "cattle"} gender={animal?.gender} lifeStage={animal?.life_stage} />
+          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} livestockType={animal?.livestock_type || "cattle"} gender={animal?.gender} lifeStage={animal?.life_stage} farmId={farmId} />
         </TabsContent>
 
         <TabsContent value="feeding">
