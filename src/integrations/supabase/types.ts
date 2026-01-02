@@ -475,6 +475,7 @@ export type Database = {
           ear_tag: string | null
           entry_weight_kg: number | null
           entry_weight_unknown: boolean | null
+          estimated_days_in_milk: number | null
           exit_date: string | null
           exit_notes: string | null
           exit_reason: string | null
@@ -487,6 +488,7 @@ export type Database = {
           grant_source: string | null
           grant_source_other: string | null
           id: string
+          is_currently_lactating: boolean | null
           is_deleted: boolean
           life_stage: string | null
           livestock_type: string
@@ -514,6 +516,7 @@ export type Database = {
           ear_tag?: string | null
           entry_weight_kg?: number | null
           entry_weight_unknown?: boolean | null
+          estimated_days_in_milk?: number | null
           exit_date?: string | null
           exit_notes?: string | null
           exit_reason?: string | null
@@ -526,6 +529,7 @@ export type Database = {
           grant_source?: string | null
           grant_source_other?: string | null
           id?: string
+          is_currently_lactating?: boolean | null
           is_deleted?: boolean
           life_stage?: string | null
           livestock_type?: string
@@ -553,6 +557,7 @@ export type Database = {
           ear_tag?: string | null
           entry_weight_kg?: number | null
           entry_weight_unknown?: boolean | null
+          estimated_days_in_milk?: number | null
           exit_date?: string | null
           exit_notes?: string | null
           exit_reason?: string | null
@@ -565,6 +570,7 @@ export type Database = {
           grant_source?: string | null
           grant_source_other?: string | null
           id?: string
+          is_currently_lactating?: boolean | null
           is_deleted?: boolean
           life_stage?: string | null
           livestock_type?: string

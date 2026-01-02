@@ -10,6 +10,7 @@ export interface LactatingAnimal {
   livestock_type: string;
   milking_stage: string | null;
   current_weight_kg: number | null;
+  is_currently_lactating?: boolean | null;
 }
 
 export function useLactatingAnimals(farmId: string | null) {
@@ -18,14 +19,15 @@ export function useLactatingAnimals(farmId: string | null) {
     queryFn: async () => {
       if (!farmId) return [];
 
+      // Enhancement 1: Include animals with is_currently_lactating = true OR milking_stage in lactating stages
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg')
+        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, is_currently_lactating')
         .eq('farm_id', farmId)
         .eq('gender', 'Female')
-        .in('milking_stage', LACTATING_STAGES)
         .is('exit_date', null)
         .eq('is_deleted', false)
+        .or(`milking_stage.in.(${LACTATING_STAGES.map(s => `"${s}"`).join(',')}),is_currently_lactating.eq.true`)
         .order('name');
 
       if (error) throw error;
