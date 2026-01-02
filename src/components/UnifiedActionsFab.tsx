@@ -7,6 +7,7 @@ import { hapticImpact } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
 import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
+import { RecordBulkHealthDialog } from "@/components/health-recording/RecordBulkHealthDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
 import { useFarm } from "@/contexts/FarmContext";
@@ -40,6 +41,7 @@ export function UnifiedActionsFab({
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
   const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
   const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
+  const [isRecordHealthOpen, setIsRecordHealthOpen] = useState(false);
   const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -126,7 +128,11 @@ export function UnifiedActionsFab({
         }
         break;
       case 'health':
-        onRecordHealth?.();
+        if (onRecordHealth) {
+          onRecordHealth();
+        } else {
+          setIsRecordHealthOpen(true);
+        }
         break;
       case 'add-animal':
         if (onAddAnimal) {
@@ -328,6 +334,13 @@ export function UnifiedActionsFab({
       <RecordBulkFeedDialog
         open={isRecordFeedOpen}
         onOpenChange={setIsRecordFeedOpen}
+        farmId={farmId}
+      />
+
+      {/* Record Bulk Health Dialog */}
+      <RecordBulkHealthDialog
+        open={isRecordHealthOpen}
+        onOpenChange={setIsRecordHealthOpen}
         farmId={farmId}
       />
 
