@@ -23,9 +23,9 @@ interface UnifiedActionsFabProps {
 const quickActions = [
   { id: 'doc-aga', label: 'Ask Doc Aga', icon: Stethoscope, color: 'bg-primary text-primary-foreground', isPrimary: true },
   { id: 'milk', label: 'Record Milk', icon: Milk, color: 'text-blue-500' },
+  { id: 'feed', label: 'Record Feed', icon: Wheat, color: 'text-orange-500' },
   { id: 'health', label: 'Record Health', icon: Heart, color: 'text-red-500' },
   { id: 'add-animal', label: 'Add Animal', icon: PawPrint, color: 'text-green-500' },
-  { id: 'feed', label: 'Record Feed', icon: Wheat, color: 'text-orange-500' },
 ];
 
 export function UnifiedActionsFab({ 
