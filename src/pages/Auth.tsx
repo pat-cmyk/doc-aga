@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import docAgaLogo from "@/assets/doc-aga-logo.png";
+import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { logAuthEvent } from "@/lib/authLogger";
 
 // Lazy load components to reduce auth page bundle size
@@ -240,13 +240,7 @@ const Auth = () => {
         <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full overflow-hidden">
-              <img 
-                src={docAgaLogo} 
-                alt="Doc Aga Logo" 
-                className="h-full w-full object-cover"
-              />
-            </div>
+            <DocAgaLogo size="lg" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Doc Aga</CardTitle>
