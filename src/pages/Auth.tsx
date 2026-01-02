@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Sprout, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import docAgaLogo from "@/assets/doc-aga-logo.png";
 import { logAuthEvent } from "@/lib/authLogger";
 
 // Lazy load components to reduce auth page bundle size
@@ -239,8 +240,12 @@ const Auth = () => {
         <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sprout className="h-8 w-8 text-primary" />
+            <div className="h-16 w-16 rounded-full overflow-hidden">
+              <img 
+                src={docAgaLogo} 
+                alt="Doc Aga Logo" 
+                className="h-full w-full object-cover"
+              />
             </div>
           </div>
           <div>
