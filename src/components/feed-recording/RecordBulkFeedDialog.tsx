@@ -33,7 +33,7 @@ import {
   getAnimalDropdownOptions,
   getSelectedAnimals,
 } from "@/hooks/useFarmAnimals";
-import { calculateFeedSplit, FeedSplitResult } from "@/lib/feedSplitCalculation";
+import { calculateFeedSplit, calculateCostPerKg, FeedSplitResult } from "@/lib/feedSplitCalculation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 
@@ -61,14 +61,14 @@ export function RecordBulkFeedDialog({
   // Fetch animals
   const { data: animals = [], isLoading: isLoadingAnimals } = useFarmAnimals(farmId);
   
-  // Fetch feed inventory for feed types
+  // Fetch feed inventory for feed types (including cost data)
   const { data: feedInventory = [], isLoading: isLoadingInventory } = useQuery({
     queryKey: ['feed-inventory-types', farmId],
     queryFn: async () => {
       if (!farmId) return [];
       const { data, error } = await supabase
         .from('feed_inventory')
-        .select('id, feed_type, quantity_kg')
+        .select('id, feed_type, quantity_kg, cost_per_unit, unit, weight_per_unit')
         .eq('farm_id', farmId)
         .gt('quantity_kg', 0)
         .order('feed_type');
@@ -108,13 +108,23 @@ export function RecordBulkFeedDialog({
     [animals, selectedOption]
   );
 
+  // Calculate cost per kg for selected feed
+  const costPerKg = useMemo(() => {
+    if (!selectedFeedInventory) return 0;
+    return calculateCostPerKg(
+      selectedFeedInventory.cost_per_unit,
+      selectedFeedInventory.weight_per_unit,
+      selectedFeedInventory.unit
+    );
+  }, [selectedFeedInventory]);
+
   const splitPreview = useMemo(() => {
     const kg = parseFloat(totalKg);
     if (!selectedAnimals.length || isNaN(kg) || kg <= 0) {
       return [];
     }
-    return calculateFeedSplit(selectedAnimals, kg);
-  }, [selectedAnimals, totalKg]);
+    return calculateFeedSplit(selectedAnimals, kg, costPerKg);
+  }, [selectedAnimals, totalKg, costPerKg]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -192,6 +202,33 @@ export function RecordBulkFeedDialog({
         if (txError) {
           console.error('Failed to create transaction:', txError);
         }
+
+        // Create expense records for each animal if cost data is available
+        if (costPerKg > 0 && user?.id) {
+          const expenseRecords = splitPreview
+            .filter(split => split.cost && split.cost > 0)
+            .map((split) => ({
+              animal_id: split.animalId,
+              farm_id: farmId,
+              user_id: user.id,
+              category: 'Feed & Supplements',
+              amount: split.cost!,
+              description: `${feedTypeName} feeding: ${split.kilograms.toFixed(2)} kg`,
+              expense_date: format(recordDate, 'yyyy-MM-dd'),
+              allocation_type: 'Operational',
+              linked_feed_inventory_id: selectedFeedInventory.id,
+            }));
+
+          if (expenseRecords.length > 0) {
+            const { error: expenseError } = await supabase
+              .from('farm_expenses')
+              .insert(expenseRecords);
+
+            if (expenseError) {
+              console.error('Failed to create expense records:', expenseError);
+            }
+          }
+        }
       }
 
       // Invalidate relevant queries
@@ -199,6 +236,10 @@ export function RecordBulkFeedDialog({
       queryClient.invalidateQueries({ queryKey: ["feed-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["feed-inventory-types"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["animal-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["animal-expense-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["animal-cost-aggregates"] });
 
       hapticNotification('success');
       toast({
@@ -404,9 +445,16 @@ function SplitPreviewRow({ split }: { split: FeedSplitResult }) {
           {split.weight}kg
         </span>
       </div>
-      <span className="font-semibold text-orange-600 shrink-0 ml-2">
-        {split.kilograms.toFixed(1)}kg
-      </span>
+      <div className="flex flex-col items-end shrink-0 ml-2">
+        <span className="font-semibold text-orange-600">
+          {split.kilograms.toFixed(1)}kg
+        </span>
+        {split.cost !== undefined && split.cost > 0 && (
+          <span className="text-xs text-muted-foreground">
+            ₱{split.cost.toFixed(2)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
