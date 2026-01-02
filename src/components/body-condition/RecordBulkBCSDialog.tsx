@@ -246,8 +246,8 @@ export function RecordBulkBCSDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" />
             Record Body Condition
@@ -308,63 +308,74 @@ export function RecordBulkBCSDialog({
 
             <Separator />
 
-            {/* Score Display */}
+            {/* Score Controls - Moved above display for visibility */}
             <div className="space-y-4">
               <Label>Body Condition Score</Label>
-              
-              {/* Large Score Display */}
-              <div
-                className={cn(
-                  "rounded-lg p-4 text-center transition-colors",
-                  getBCSBgColor(score)
-                )}
-              >
-                <div className={cn("text-4xl font-bold", getBCSStatusColor(score))}>
-                  {score.toFixed(1)}
-                </div>
-                <div className={cn("text-lg font-medium", getBCSStatusColor(score))}>
-                  {currentLevel.label}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {currentLevel.labelTagalog}
-                </div>
-              </div>
 
               {/* Quick Score Buttons */}
-              <div className="flex justify-center gap-2">
-                {QUICK_SCORES.map(({ score: s, label }) => (
-                  <Button
-                    key={s}
-                    variant={score === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleQuickScore(s)}
-                    className="w-12"
-                  >
-                    {label}
-                  </Button>
-                ))}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">Quick Select:</span>
+                <div className="grid grid-cols-5 gap-2">
+                  {QUICK_SCORES.map(({ score: s, label }) => (
+                    <Button
+                      key={s}
+                      variant={score === s ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleQuickScore(s)}
+                      className="h-10"
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               {/* Slider */}
-              <div className="px-2">
-                <Slider
-                  value={[score]}
-                  onValueChange={handleScoreChange}
-                  min={1}
-                  max={5}
-                  step={0.5}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>1.0</span>
-                  <span>5.0</span>
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">Fine Tune:</span>
+                <div className="px-1">
+                  <Slider
+                    value={[score]}
+                    onValueChange={handleScoreChange}
+                    min={1}
+                    max={5}
+                    step={0.5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>1.0</span>
+                    <span>3.0</span>
+                    <span>5.0</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Indicators */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-                {currentLevel.indicators.map((indicator, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm">
+              {/* Score Display Card - Compact */}
+              <div
+                className={cn(
+                  "rounded-lg p-3 text-center transition-colors",
+                  getBCSBgColor(score)
+                )}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <div className={cn("text-3xl font-bold", getBCSStatusColor(score))}>
+                    {score.toFixed(1)}
+                  </div>
+                  <div className="text-left">
+                    <div className={cn("text-base font-medium", getBCSStatusColor(score))}>
+                      {currentLevel.label}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {currentLevel.labelTagalog}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Indicators - Collapsible style */}
+              <div className="bg-muted/50 rounded-lg p-2.5 space-y-0.5">
+                {currentLevel.indicators.slice(0, 3).map((indicator, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-xs">
                     <span className="text-muted-foreground">•</span>
                     <span>{indicator}</span>
                   </div>
