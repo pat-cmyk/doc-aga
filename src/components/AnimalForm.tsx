@@ -452,7 +452,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Animal Type - Hidden in Quick Mode (defaults to new_entrant) */}
         {showField('animal_type') && (
           <div className="space-y-2">
-            <BilingualLabel filipino="Uri ng Hayop" english="Animal Type" required htmlFor="animal_type" />
+            <BilingualLabel english="Animal Type" filipino="Uri ng Hayop" required htmlFor="animal_type" />
             <Select
               value={formData.animal_type}
               onValueChange={(value) => setFormData(prev => ({ 
@@ -464,11 +464,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Pumili ng uri / Select type" />
+                <SelectValue placeholder="Select type / Pumili ng uri" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="new_entrant">Bagong Dating / New Entrant</SelectItem>
-                <SelectItem value="offspring">Anak / Offspring</SelectItem>
+                <SelectItem value="new_entrant">New Entrant / Bagong Dating</SelectItem>
+                <SelectItem value="offspring">Offspring / Anak</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -476,7 +476,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         
         {/* Livestock Type - Always shown */}
         <div className="space-y-2">
-          <BilingualLabel filipino="Uri ng Livestock" english="Livestock Type" required htmlFor="livestock_type" />
+          <BilingualLabel english="Livestock Type" filipino="Uri ng Livestock" required htmlFor="livestock_type" />
           <Select 
             value={formData.livestock_type} 
             onValueChange={(value) => {
@@ -493,15 +493,15 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cattle">{getLivestockEmoji('cattle')} Baka / Cattle</SelectItem>
-              <SelectItem value="goat">{getLivestockEmoji('goat')} Kambing / Goat</SelectItem>
-              <SelectItem value="sheep">{getLivestockEmoji('sheep')} Tupa / Sheep</SelectItem>
-              <SelectItem value="carabao">{getLivestockEmoji('carabao')} Kalabaw / Carabao</SelectItem>
+              <SelectItem value="cattle">{getLivestockEmoji('cattle')} Cattle / Baka</SelectItem>
+              <SelectItem value="goat">{getLivestockEmoji('goat')} Goat / Kambing</SelectItem>
+              <SelectItem value="sheep">{getLivestockEmoji('sheep')} Sheep / Tupa</SelectItem>
+              <SelectItem value="carabao">{getLivestockEmoji('carabao')} Carabao / Kalabaw</SelectItem>
             </SelectContent>
           </Select>
           {!isQuickMode && (
             <p className="text-sm text-muted-foreground">
-              Pwede kang mag-manage ng iba't ibang uri ng hayop sa iisang farm / You can manage multiple types of livestock on the same farm
+              You can manage multiple types of livestock on the same farm
             </p>
           )}
         </div>
@@ -509,7 +509,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Name - Hidden in Quick Mode */}
         {showField('name') && (
           <div className="space-y-2">
-            <BilingualLabel filipino="Pangalan" english="Name" htmlFor="name" />
+            <BilingualLabel english="Name" filipino="Pangalan" htmlFor="name" />
             <div className="flex gap-2">
               <Input
                 id="name"
@@ -536,7 +536,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         
         {/* Ear Tag - Always shown */}
         <div className="space-y-2">
-          <BilingualLabel filipino="Tatak sa Tainga" english="Ear Tag" required htmlFor="ear_tag" />
+          <BilingualLabel english="Ear Tag" filipino="Tatak sa Tainga" required htmlFor="ear_tag" />
           <Input
             id="ear_tag"
             value={formData.ear_tag}
@@ -579,7 +579,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Farm Entry Date - Hidden in Quick Mode */}
         {showField('farm_entry_date') && formData.animal_type === "new_entrant" && (
           <div className="space-y-2">
-            <BilingualLabel filipino="Petsa ng Pagpasok sa Farm" english="Farm Entry Date" required htmlFor="farm_entry_date" />
+            <BilingualLabel english="Farm Entry Date" filipino="Petsa ng Pagpasok sa Farm" required htmlFor="farm_entry_date" />
             <Input
               id="farm_entry_date"
               type="date"
@@ -589,7 +589,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             />
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <CalendarIcon className="h-3 w-3" />
-              Petsa kung kailan pumasok sa farm ang hayop / Date when the animal was introduced to your farm
+              Date when the animal was introduced to your farm
             </p>
           </div>
         )}
@@ -597,7 +597,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Birth Date - Always shown */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <BilingualLabel filipino="Petsa ng Kapanganakan" english="Birth Date" htmlFor="birth_date" />
+            <BilingualLabel english="Birth Date" filipino="Petsa ng Kapanganakan" htmlFor="birth_date" />
             {formData.animal_type === "new_entrant" && (
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -613,7 +613,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   htmlFor="birth_date_unknown"
                   className="text-sm text-muted-foreground cursor-pointer"
                 >
-                  Hindi Alam / Unknown
+                  Unknown / Hindi Alam
                 </label>
               </div>
             )}
@@ -628,7 +628,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
           />
           {formData.birth_date && formData.gender === "Female" && !formData.birth_date_unknown && (
             <p className="text-sm text-muted-foreground mt-2">
-              Inirerekumendang unang AI / Recommended first AI: <span className="font-medium">{getFirstAIDate(formData.birth_date)}</span>
+              Recommended first AI: <span className="font-medium">{getFirstAIDate(formData.birth_date)}</span>
             </p>
           )}
         </div>
@@ -637,7 +637,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {formData.animal_type === "new_entrant" && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <BilingualLabel filipino="Timbang sa Pagpasok" english="Entry Weight (kg)" htmlFor="entry_weight" />
+              <BilingualLabel english="Entry Weight (kg)" filipino="Timbang sa Pagpasok" htmlFor="entry_weight" />
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="entry_weight_unknown"
@@ -652,7 +652,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   htmlFor="entry_weight_unknown"
                   className="text-sm text-muted-foreground cursor-pointer"
                 >
-                  Walang Data / No Data
+                  No Data / Walang Data
                 </label>
               </div>
             </div>
@@ -688,7 +688,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Acquisition Type - Hidden in Quick Mode */}
         {showField('acquisition') && formData.animal_type === "new_entrant" && (
           <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-            <BilingualLabel filipino="Paano nakuha ang hayop?" english="How was this animal acquired?" required />
+            <BilingualLabel english="How was this animal acquired?" filipino="Paano nakuha ang hayop?" required />
             <RadioGroup
               value={formData.acquisition_type}
               onValueChange={(value) => setFormData(prev => ({ 
@@ -702,17 +702,17 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="purchased" id="acquired_purchased" />
-                <label htmlFor="acquired_purchased" className="cursor-pointer font-normal">Binili / Purchased</label>
+                <label htmlFor="acquired_purchased" className="cursor-pointer font-normal">Purchased / Binili</label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="grant" id="acquired_grant" />
-                <label htmlFor="acquired_grant" className="cursor-pointer font-normal">Bigay / Grant</label>
+                <label htmlFor="acquired_grant" className="cursor-pointer font-normal">Grant / Bigay</label>
               </div>
             </RadioGroup>
 
             {formData.acquisition_type === "purchased" && (
               <div className="space-y-2">
-                <BilingualLabel filipino="Halaga ng Pagbili" english="Purchase Price (PHP)" htmlFor="purchase_price" />
+                <BilingualLabel english="Purchase Price (PHP)" filipino="Halaga ng Pagbili" htmlFor="purchase_price" />
                 <Input
                   id="purchase_price"
                   type="number"
@@ -728,7 +728,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             {formData.acquisition_type === "grant" && (
               <>
                 <div className="space-y-2">
-                  <BilingualLabel filipino="Pinagmulan ng Bigay" english="Grant Source" required htmlFor="grant_source" />
+                  <BilingualLabel english="Grant Source" filipino="Pinagmulan ng Bigay" required htmlFor="grant_source" />
                   <Select
                     value={formData.grant_source}
                     onValueChange={(value) => setFormData(prev => ({ 
@@ -738,24 +738,24 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                     }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Pumili ng pinagmulan / Select grant source" />
+                      <SelectValue placeholder="Select grant source / Pumili ng pinagmulan" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="national_dairy_authority">National Dairy Authority (NDA)</SelectItem>
                       <SelectItem value="local_government_unit">Local Government Unit (LGU)</SelectItem>
-                      <SelectItem value="other">Iba pa / Other</SelectItem>
+                      <SelectItem value="other">Other / Iba pa</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {formData.grant_source === "other" && (
                   <div className="space-y-2">
-                    <BilingualLabel filipino="Tukuyin ang Pinagmulan" english="Specify Source" required htmlFor="grant_source_other" />
+                    <BilingualLabel english="Specify Source" filipino="Tukuyin ang Pinagmulan" required htmlFor="grant_source_other" />
                     <Input
                       id="grant_source_other"
                       value={formData.grant_source_other}
                       onChange={(e) => setFormData(prev => ({ ...prev, grant_source_other: e.target.value }))}
-                      placeholder="Ilagay ang pinagmulan / Enter grant source"
+                      placeholder="Enter grant source / Ilagay ang pinagmulan"
                     />
                   </div>
                 )}
@@ -768,13 +768,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {showField('breed') && formData.animal_type === "new_entrant" && (
           <>
             <div className="space-y-2">
-              <BilingualLabel filipino="Lahi" english="Breed" htmlFor="breed" />
+              <BilingualLabel english="Breed" filipino="Lahi" htmlFor="breed" />
               <Select
                 value={formData.breed}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value, breed1: "", breed2: "" }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pumili ng lahi / Select breed" />
+                  <SelectValue placeholder="Select breed / Pumili ng lahi" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableBreeds.map((breed) => (
@@ -788,13 +788,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             {formData.breed === "Mix Breed" && (
               <>
                 <div className="space-y-2">
-                  <BilingualLabel filipino="Unang Lahi" english="First Breed" htmlFor="breed1" />
+                  <BilingualLabel english="First Breed" filipino="Unang Lahi" htmlFor="breed1" />
                   <Select
                     value={formData.breed1}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Pumili ng unang lahi / Select first breed" />
+                      <SelectValue placeholder="Select first breed / Pumili ng unang lahi" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
@@ -806,13 +806,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <BilingualLabel filipino="Ikalawang Lahi" english="Second Breed" htmlFor="breed2" />
+                  <BilingualLabel english="Second Breed" filipino="Ikalawang Lahi" htmlFor="breed2" />
                   <Select
                     value={formData.breed2}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Pumili ng ikalawang lahi / Select second breed" />
+                      <SelectValue placeholder="Select second breed / Pumili ng ikalawang lahi" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
@@ -830,9 +830,9 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         
         {showField('breed') && formData.animal_type === "offspring" && (
           <div className="space-y-2">
-            <BilingualLabel filipino="Lahi" english="Breed" />
+            <BilingualLabel english="Breed" filipino="Lahi" />
             <p className="text-sm text-muted-foreground">
-              Awtomatikong makukuha ang lahi mula sa mga magulang / Breed will be automatically determined from parents
+              Breed will be automatically determined from parents
             </p>
           </div>
         )}
@@ -840,7 +840,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {/* Birth Weight - Only for offspring */}
         {formData.animal_type === "offspring" && (
           <div className="space-y-2">
-            <BilingualLabel filipino="Timbang sa Kapanganakan" english="Birth Weight (kg)" htmlFor="birth_weight" />
+            <BilingualLabel english="Birth Weight (kg)" filipino="Timbang sa Kapanganakan" htmlFor="birth_weight" />
             <div className="flex gap-2">
               <Input
                 id="birth_weight"
@@ -870,12 +870,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
         {showField('parents') && (
           <div className="space-y-4 pt-4 border-t">
             <h3 className="text-sm font-semibold">
-              Impormasyon ng Magulang / Parent Information {formData.animal_type === "offspring" ? "*" : "(Opsyonal / Optional)"}
+              Parent Information / Impormasyon ng Magulang {formData.animal_type === "offspring" ? "*" : "(Optional)"}
             </h3>
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <BilingualLabel filipino="Ina" english="Mother" htmlFor="mother_id" />
+                <BilingualLabel english="Mother" filipino="Ina" htmlFor="mother_id" />
                 {formData.animal_type === "new_entrant" && (
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -891,7 +891,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                       htmlFor="mother_unknown"
                       className="text-sm text-muted-foreground cursor-pointer"
                     >
-                      Hindi Alam / Unknown
+                      Unknown / Hindi Alam
                     </label>
                   </div>
                 )}
@@ -902,13 +902,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 disabled={formData.mother_unknown}
               >
                 <SelectTrigger className={formData.mother_unknown ? "opacity-50" : ""}>
-                  <SelectValue placeholder="Pumili ng ina / Select mother" />
+                  <SelectValue placeholder="Select mother / Pumili ng ina" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Wala / None</SelectItem>
+                  <SelectItem value="none">None / Wala</SelectItem>
                   {mothers.map((mother) => (
                     <SelectItem key={mother.id} value={mother.id}>
-                      {mother.name || mother.ear_tag || "Walang pangalan / Unnamed"}
+                      {mother.name || mother.ear_tag || "Unnamed"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -917,7 +917,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <BilingualLabel filipino="Ama" english="Father" htmlFor="father_id" />
+                <BilingualLabel english="Father" filipino="Ama" htmlFor="father_id" />
                 {formData.animal_type === "new_entrant" && (
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -934,7 +934,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                       htmlFor="father_unknown"
                       className="text-sm text-muted-foreground cursor-pointer"
                     >
-                      Hindi Alam / Unknown
+                      Unknown / Hindi Alam
                     </label>
                   </div>
                 )}
@@ -951,14 +951,14 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                 disabled={formData.father_unknown}
               >
                 <SelectTrigger className={formData.father_unknown ? "opacity-50" : ""}>
-                  <SelectValue placeholder="Pumili ng ama / Select father" />
+                  <SelectValue placeholder="Select father / Pumili ng ama" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Wala / None</SelectItem>
-                  <SelectItem value="ai">Artipisyal na Inseminasyon / AI</SelectItem>
+                  <SelectItem value="none">None / Wala</SelectItem>
+                  <SelectItem value="ai">Artificial Insemination / AI</SelectItem>
                   {fathers.map((father) => (
                     <SelectItem key={father.id} value={father.id}>
-                      {father.name || father.ear_tag || "Walang pangalan / Unnamed"}
+                      {father.name || father.ear_tag || "Unnamed"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -968,32 +968,32 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             {formData.is_father_ai && !formData.father_unknown && (
               <>
                 <div className="space-y-2">
-                  <BilingualLabel filipino="Brand ng Semen" english="Bull Semen Brand" htmlFor="ai_bull_brand" />
+                  <BilingualLabel english="Bull Semen Brand" filipino="Brand ng Semen" htmlFor="ai_bull_brand" />
                   <Input
                     id="ai_bull_brand"
                     value={formData.ai_bull_brand}
                     onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_brand: e.target.value }))}
-                    placeholder="Ilagay ang brand ng semen / Enter bull semen brand"
+                    placeholder="Enter bull semen brand"
                   />
                 </div>
                 <div className="space-y-2">
-                  <BilingualLabel filipino="Pangalan ng Toro" english="Bull Reference/Name" htmlFor="ai_bull_reference" />
+                  <BilingualLabel english="Bull Reference/Name" filipino="Pangalan ng Toro" htmlFor="ai_bull_reference" />
                   <Input
                     id="ai_bull_reference"
                     value={formData.ai_bull_reference}
                     onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_reference: e.target.value }))}
-                    placeholder="Ilagay ang pangalan o reference ng toro / Enter bull reference or name"
+                    placeholder="Enter bull reference or name"
                   />
                 </div>
                 {formData.animal_type === "offspring" && (
                   <div className="space-y-2">
-                    <BilingualLabel filipino="Lahi ng Toro" english="Bull Breed" required htmlFor="ai_bull_breed" />
+                    <BilingualLabel english="Bull Breed" filipino="Lahi ng Toro" required htmlFor="ai_bull_breed" />
                     <Select
                       value={formData.ai_bull_breed}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Pumili ng lahi ng toro / Select bull breed" />
+                        <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
@@ -1019,16 +1019,16 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
             onClick={() => setIsQuickMode(false)}
           >
             <ChevronDown className="h-4 w-4 mr-2" />
-            Ipakita ang Higit Pang Fields / Show More Fields
+            Show More Fields / Ipakita ang Higit Pang Fields
           </Button>
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-            Kanselahin / Cancel
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1 h-12">
+            Cancel
           </Button>
-          <Button type="submit" disabled={creating} className="flex-1">
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Magdagdag ng Hayop / Add Animal"}
+          <Button type="submit" disabled={creating} className="flex-1 h-12">
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Animal"}
           </Button>
         </div>
       </form>

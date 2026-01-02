@@ -41,8 +41,8 @@ export const AddAnimalSuccessScreen = ({
       // Offspring: Photo first, then add another
       steps.push({
         action: "add_photo",
-        label: "Magdagdag ng Larawan",
-        sublabel: "Add Photo",
+        label: "Add Photo",
+        sublabel: "Magdagdag ng Larawan",
         icon: <Camera className="h-5 w-5" />,
         primary: true,
       });
@@ -51,8 +51,8 @@ export const AddAnimalSuccessScreen = ({
         // Lactating female: Record milk
         steps.push({
           action: "record_milk",
-          label: "Itala ang Gatas",
-          sublabel: "Record First Milk",
+          label: "Record First Milk",
+          sublabel: "Itala ang Gatas",
           icon: <Milk className="h-5 w-5" />,
           primary: true,
         });
@@ -60,8 +60,8 @@ export const AddAnimalSuccessScreen = ({
         // Non-lactating female: Schedule AI
         steps.push({
           action: "schedule_ai",
-          label: "Mag-iskedyul ng AI",
-          sublabel: "Schedule AI",
+          label: "Schedule AI",
+          sublabel: "Mag-iskedyul ng AI",
           icon: <Syringe className="h-5 w-5" />,
           primary: true,
         });
@@ -70,8 +70,8 @@ export const AddAnimalSuccessScreen = ({
       // Male: Record weight
       steps.push({
         action: "record_weight",
-        label: "Itala ang Timbang",
-        sublabel: "Record Weight",
+        label: "Record Weight",
+        sublabel: "Itala ang Timbang",
         icon: <Scale className="h-5 w-5" />,
         primary: true,
       });
@@ -80,8 +80,8 @@ export const AddAnimalSuccessScreen = ({
     // Always add "Add Another" as secondary option
     steps.push({
       action: "add_another",
-      label: "Magdagdag Pa",
-      sublabel: "Add Another Animal",
+      label: "Add Another Animal",
+      sublabel: "Magdagdag Pa",
       icon: <Plus className="h-5 w-5" />,
     });
     
@@ -90,7 +90,7 @@ export const AddAnimalSuccessScreen = ({
   
   const nextSteps = getNextSteps();
   const emoji = getLivestockEmoji(livestockType);
-  const genderLabel = gender === "Female" ? "Babae / Female" : "Lalaki / Male";
+  const genderLabel = gender === "Female" ? "Female / Babae" : "Male / Lalaki";
   const displayName = name || earTag;
   
   return (
@@ -106,14 +106,15 @@ export const AddAnimalSuccessScreen = ({
             </div>
           </div>
           
-          <SheetTitle className="text-xl">
-            <span className="text-primary">Matagumpay!</span>
-            <span className="text-muted-foreground text-sm ml-2">/ Success!</span>
+          <SheetTitle className="flex flex-col gap-0.5">
+            <span className="text-xl text-primary">Success!</span>
+            <span className="text-sm text-muted-foreground font-normal">Matagumpay!</span>
           </SheetTitle>
           
-          <p className="text-muted-foreground text-sm mt-1">
-            Naidagdag ang hayop / Animal added successfully
-          </p>
+          <div className="flex flex-col gap-0.5 mt-1">
+            <span className="text-sm text-muted-foreground">Animal added successfully</span>
+            <span className="text-xs text-muted-foreground">Naidagdag ang hayop</span>
+          </div>
         </SheetHeader>
         
         {/* Animal Summary Card */}
@@ -129,7 +130,7 @@ export const AddAnimalSuccessScreen = ({
                 <span>{genderLabel}</span>
                 {isLactating && (
                   <span className="ml-2 inline-flex items-center gap-1 text-primary">
-                    <Milk className="h-3 w-3" /> Nagpapasuso
+                    <Milk className="h-3 w-3" /> Lactating
                   </span>
                 )}
               </p>
@@ -139,9 +140,10 @@ export const AddAnimalSuccessScreen = ({
         
         {/* Next Steps */}
         <div className="space-y-3">
-          <p className="text-sm font-medium text-center text-muted-foreground">
-            Ano ang susunod? / What's next?
-          </p>
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">What's next?</p>
+            <p className="text-xs text-muted-foreground">Ano ang susunod?</p>
+          </div>
           
           <div className="flex flex-col gap-2">
             {nextSteps.map((step) => (
@@ -150,14 +152,14 @@ export const AddAnimalSuccessScreen = ({
                 variant={step.primary ? "default" : "outline"}
                 size="lg"
                 className={cn(
-                  "w-full justify-start gap-3 h-14",
+                  "w-full justify-start gap-3 h-16",
                   step.primary && "bg-primary hover:bg-primary/90"
                 )}
                 onClick={() => onAction(step.action)}
               >
                 {step.icon}
-                <div className="flex flex-col items-start">
-                  <span className="font-medium">{step.label}</span>
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="font-medium text-base">{step.label}</span>
                   <span className={cn(
                     "text-xs",
                     step.primary ? "text-primary-foreground/80" : "text-muted-foreground"
@@ -171,11 +173,14 @@ export const AddAnimalSuccessScreen = ({
           
           <Button
             variant="ghost"
-            className="w-full text-muted-foreground mt-2"
+            className="w-full text-muted-foreground mt-2 h-12"
             onClick={() => onAction("back_to_herd")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Bumalik sa Kawan / Back to Herd
+            <div className="flex flex-col items-start gap-0.5">
+              <span className="text-sm">Back to Herd</span>
+              <span className="text-xs">Bumalik sa Kawan</span>
+            </div>
           </Button>
         </div>
       </SheetContent>

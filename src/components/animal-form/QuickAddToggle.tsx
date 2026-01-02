@@ -9,19 +9,19 @@ interface QuickAddToggleProps {
 
 export const QuickAddToggle = ({ isQuickMode, onToggle }: QuickAddToggleProps) => {
   return (
-    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border min-h-14">
       <div className="flex items-center gap-2">
         {isQuickMode ? (
-          <Zap className="h-4 w-4 text-primary" />
+          <Zap className="h-4 w-4 text-primary flex-shrink-0" />
         ) : (
-          <FileText className="h-4 w-4 text-muted-foreground" />
+          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         )}
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">
-            {isQuickMode ? "Mabilisang Pagdagdag" : "Buong Detalye"}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium leading-none">
+            {isQuickMode ? "Quick Add" : "Full Details"}
           </span>
-          <span className="text-xs text-muted-foreground">
-            {isQuickMode ? "Quick Add (5 fields)" : "Full Details"}
+          <span className="text-xs text-muted-foreground leading-none">
+            {isQuickMode ? "Mabilisang Pagdagdag (5 fields)" : "Buong Detalye"}
           </span>
         </div>
       </div>
