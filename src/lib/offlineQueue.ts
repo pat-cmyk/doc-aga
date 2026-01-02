@@ -16,7 +16,7 @@ const MAX_QUEUE_SIZE = 50;
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'bulk_feed' | 'bulk_health';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -45,6 +45,33 @@ interface QueueItem {
     } | null;
     transcription?: string;
     transcriptionConfirmed?: boolean;
+    // Bulk milk recording
+    milkRecords?: Array<{
+      animalId: string;
+      animalName: string;
+      liters: number;
+      recordDate: string;
+      session: 'AM' | 'PM';
+    }>;
+    // Bulk feed recording
+    feedRecords?: Array<{
+      animalId: string;
+      animalName: string;
+      kilograms: number;
+      cost?: number;
+    }>;
+    feedType?: string;
+    feedInventoryId?: string;
+    totalKg?: number;
+    recordDate?: string;
+    // Bulk health recording
+    healthRecords?: Array<{
+      animalId: string;
+      animalName: string;
+    }>;
+    diagnosis?: string;
+    treatment?: string;
+    notes?: string;
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
