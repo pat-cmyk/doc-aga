@@ -17,6 +17,7 @@ import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBre
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { GenderSelector } from "@/components/animal-form/GenderSelector";
 import { LactatingToggle, calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
+import { WeightEstimateButton } from "@/components/animal-form/WeightEstimateButton";
 
 interface ParentAnimal {
   id: string;
@@ -515,17 +516,27 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
                   </label>
                 </div>
               </div>
-              <Input
-                id="entry_weight"
-                type="number"
-                step="0.1"
-                min="0"
-                value={formData.entry_weight}
-                onChange={(e) => setFormData(prev => ({ ...prev, entry_weight: e.target.value }))}
-                placeholder="e.g., 350"
-                disabled={formData.entry_weight_unknown}
-                className={formData.entry_weight_unknown ? "opacity-50" : ""}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="entry_weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={formData.entry_weight}
+                  onChange={(e) => setFormData(prev => ({ ...prev, entry_weight: e.target.value }))}
+                  placeholder="e.g., 350"
+                  disabled={formData.entry_weight_unknown}
+                  className={`flex-1 ${formData.entry_weight_unknown ? "opacity-50" : ""}`}
+                />
+                <WeightEstimateButton
+                  livestockType={formData.livestock_type}
+                  gender={formData.gender}
+                  birthDate={formData.birth_date_unknown ? null : formData.birth_date}
+                  onEstimate={(weight) => setFormData(prev => ({ ...prev, entry_weight: weight.toString() }))}
+                  disabled={formData.entry_weight_unknown || !formData.gender}
+                  weightType="entry"
+                />
+              </div>
               <WeightHintBadge
                 livestockType={formData.livestock_type}
                 gender={formData.gender}
@@ -725,15 +736,24 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
           {formData.animal_type === "offspring" && (
             <div className="space-y-2">
               <Label htmlFor="birth_weight">Birth Weight (kg)</Label>
-              <Input
-                id="birth_weight"
-                type="number"
-                step="0.1"
-                min="0"
-                value={formData.birth_weight}
-                onChange={(e) => setFormData(prev => ({ ...prev, birth_weight: e.target.value }))}
-                placeholder="e.g., 35"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="birth_weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={formData.birth_weight}
+                  onChange={(e) => setFormData(prev => ({ ...prev, birth_weight: e.target.value }))}
+                  placeholder="e.g., 35"
+                  className="flex-1"
+                />
+                <WeightEstimateButton
+                  livestockType={formData.livestock_type}
+                  gender={formData.gender}
+                  onEstimate={(weight) => setFormData(prev => ({ ...prev, birth_weight: weight.toString() }))}
+                  weightType="birth"
+                />
+              </div>
               <WeightHintBadge
                 livestockType={formData.livestock_type}
                 weightType="birth"
