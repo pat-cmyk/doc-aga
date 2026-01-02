@@ -200,11 +200,26 @@ interface Animal {
   grant_source_other?: string | null;
 }
 
+// ============= SYNC STATUS TYPES (Phase 1 - Offline First) =============
+
+/**
+ * Sync status for cached items
+ * - synced: Data matches server
+ * - pending: Local changes waiting to sync
+ * - conflict: Server has different version
+ * - error: Sync failed, needs retry
+ */
+export type CacheSyncStatus = 'synced' | 'pending' | 'conflict' | 'error';
+
 interface AnimalDataCache {
   farmId: string;
   data: Animal[];
   lastUpdated: number;
   version: number;
+  // Offline-first additions
+  syncStatus: CacheSyncStatus;
+  serverVersion?: number;
+  lastSyncedAt?: number; // When data was last confirmed with server
 }
 
 interface RecordCache {
@@ -215,12 +230,17 @@ interface RecordCache {
   ai: any[];
   feeding: any[];
   lastUpdated: number;
+  // Offline-first additions
+  syncStatus: CacheSyncStatus;
+  pendingChanges?: number; // Count of unsynced local changes
 }
 
 interface FeedInventoryCache {
   farmId: string;
   items: any[];
   lastUpdated: number;
+  // Offline-first additions
+  syncStatus: CacheSyncStatus;
 }
 
 interface FarmDataCache {
@@ -228,6 +248,8 @@ interface FarmDataCache {
   info: any;
   members: any[];
   lastUpdated: number;
+  // Offline-first additions
+  syncStatus: CacheSyncStatus;
 }
 
 interface DataCacheDB extends DBSchema {
@@ -250,12 +272,16 @@ interface DataCacheDB extends DBSchema {
 }
 
 // Cache expiration times (in milliseconds)
+// OFFLINE-FIRST: Extended TTLs since we prioritize cache
 const CACHE_TTL = {
-  animals: 60 * 60 * 1000, // 1 hour
-  records: 30 * 60 * 1000, // 30 minutes
-  feedInventory: 2 * 60 * 60 * 1000, // 2 hours
-  farmData: 24 * 60 * 60 * 1000, // 24 hours
+  animals: 2 * 60 * 60 * 1000, // 2 hours (increased from 1 hour)
+  records: 60 * 60 * 1000, // 1 hour (increased from 30 minutes)
+  feedInventory: 4 * 60 * 60 * 1000, // 4 hours (increased from 2 hours)
+  farmData: 24 * 60 * 60 * 1000, // 24 hours (unchanged)
 };
+
+// OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
+const OFFLINE_GRACE_PERIOD = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 
@@ -478,6 +504,8 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
       data: animalsWithStages,
       lastUpdated: Date.now(),
       version: 1,
+      syncStatus: 'synced',
+      lastSyncedAt: Date.now(),
     };
 
     const db = await getDB();
@@ -543,6 +571,8 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       ai: aiRes.data || [],
       feeding: feedingRes.data || [],
       lastUpdated: Date.now(),
+      syncStatus: 'synced',
+      pendingChanges: 0,
     };
 
     const db = await getDB();
@@ -559,6 +589,8 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       ai: [],
       feeding: [],
       lastUpdated: Date.now(),
+      syncStatus: 'error' as CacheSyncStatus,
+      pendingChanges: 0,
     };
   }
 }
@@ -605,6 +637,7 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
       farmId,
       items: data || [],
       lastUpdated: Date.now(),
+      syncStatus: 'synced',
     };
 
     const db = await getDB();
@@ -660,6 +693,7 @@ export async function updateFarmDataCache(farmId: string): Promise<FarmDataCache
       info: farmRes.data,
       members: membersRes.data || [],
       lastUpdated: Date.now(),
+      syncStatus: 'synced',
     };
 
     const db = await getDB();
