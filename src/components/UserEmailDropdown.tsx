@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useRole, type UserRole } from "@/hooks/useRole";
-import { useFarmRole, type FarmRoleInFarm } from "@/hooks/useFarmRole";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +18,7 @@ import { toast } from "@/hooks/use-toast";
 export const UserEmailDropdown = () => {
   const [userEmail, setUserEmail] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
-  const { globalRoles, isLoading } = useRole();
-  const { primaryFarmRole, hasAnyOwnerRole, isOnlyFarmhand, isLoading: farmRoleLoading } = useFarmRole();
+  const { globalRoles, primaryFarmRole, hasAnyOwnerRole, isOnlyFarmhand, isLoading } = useUnifiedPermissions();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,7 +80,7 @@ export const UserEmailDropdown = () => {
     displayRoles.push(primaryFarmRole.roleInFarm);
   }
 
-  if (isLoading || farmRoleLoading || !userEmail) {
+  if (isLoading || !userEmail) {
     return (
       <Button variant="ghost" size="sm" disabled>
         <User className="h-4 w-4 mr-2" />

@@ -9,6 +9,7 @@ import { UnifiedActionsFab } from "./components/UnifiedActionsFab";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { CartProvider } from "./hooks/useCart";
 import { FarmProvider } from "./contexts/FarmContext";
+import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/auth/SuperAdminRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
@@ -162,59 +163,61 @@ const App = () => (
     <TooltipProvider>
       <CartProvider>
         <FarmProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <SyncHandler />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/merchant" element={<MerchantAuth />} />
-                <Route path="/auth/admin" element={<AdminAuth />} />
-                <Route path="/auth/government" element={<GovernmentAuth />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route 
-                  path="/admin" 
-                  element={
-                    <SuperAdminRoute>
-                      <AdminDashboard />
-                    </SuperAdminRoute>
-                  } 
-                />
-                <Route 
-                  path="/admin/view-farm/:farmId" 
-                  element={
-                    <SuperAdminRoute>
-                      <AdminViewFarm />
-                    </SuperAdminRoute>
-                  } 
-                />
-                <Route 
-                  path="/government" 
-                  element={
-                    <ProtectedRoute requiredRoles={["government"]}>
-                      <GovernmentDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="/merchant" element={<MerchantDashboard />} />
-                <Route path="/marketplace" element={<Marketplace />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/distributors" element={<DistributorFinder />} />
-                <Route path="/orders" element={<OrderHistory />} />
-                <Route path="/messages" element={<MessagingPage />} />
-                <Route path="/invite/accept/:token" element={<InviteAccept />} />
-                <Route path="/admin/create-user" element={<AdminCreateUser />} />
-                <Route path="/farmhand" element={<FarmhandDashboard />} />
-                <Route path="/voice-training" element={<VoiceTraining />} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-            <ConditionalFloatingComponents />
-          </BrowserRouter>
+          <PermissionsProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <SyncHandler />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/auth/merchant" element={<MerchantAuth />} />
+                  <Route path="/auth/admin" element={<AdminAuth />} />
+                  <Route path="/auth/government" element={<GovernmentAuth />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <SuperAdminRoute>
+                        <AdminDashboard />
+                      </SuperAdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/view-farm/:farmId" 
+                    element={
+                      <SuperAdminRoute>
+                        <AdminViewFarm />
+                      </SuperAdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/government" 
+                    element={
+                      <ProtectedRoute requiredRoles={["government"]}>
+                        <GovernmentDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/merchant" element={<MerchantDashboard />} />
+                  <Route path="/marketplace" element={<Marketplace />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/distributors" element={<DistributorFinder />} />
+                  <Route path="/orders" element={<OrderHistory />} />
+                  <Route path="/messages" element={<MessagingPage />} />
+                  <Route path="/invite/accept/:token" element={<InviteAccept />} />
+                  <Route path="/admin/create-user" element={<AdminCreateUser />} />
+                  <Route path="/farmhand" element={<FarmhandDashboard />} />
+                  <Route path="/voice-training" element={<VoiceTraining />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <ConditionalFloatingComponents />
+            </BrowserRouter>
+          </PermissionsProvider>
         </FarmProvider>
       </CartProvider>
     </TooltipProvider>

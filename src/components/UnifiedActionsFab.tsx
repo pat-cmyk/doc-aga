@@ -10,8 +10,7 @@ import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeed
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
 import { useFarm } from "@/contexts/FarmContext";
-import { usePermissions } from "@/hooks/usePermissions";
-import { useFarmRole } from "@/hooks/useFarmRole";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -49,14 +48,13 @@ export function UnifiedActionsFab({
   // Get current farm ID from context
   const { farmId } = useFarm();
   
-  // Get permissions and farm role for filtering actions
-  const { canAddAnimals, canCreateRecords, isLoading: permissionsLoading } = usePermissions(farmId);
-  const { hasFarmAccess, isLoading: farmRoleLoading } = useFarmRole(farmId);
+  // Get permissions from unified context
+  const { canAddAnimals, canCreateRecords, hasFarmAccess, isLoading: permissionsLoading } = useUnifiedPermissions();
 
   // Filter quick actions based on permissions
   const filteredQuickActions = useMemo(() => {
     // While loading, show all actions to prevent flicker
-    if (permissionsLoading || farmRoleLoading) return quickActions;
+    if (permissionsLoading) return quickActions;
     
     return quickActions.filter(action => {
       // Doc Aga is available to all farm roles
@@ -70,7 +68,7 @@ export function UnifiedActionsFab({
       
       return true;
     });
-  }, [canAddAnimals, canCreateRecords, permissionsLoading, farmRoleLoading]);
+  }, [canAddAnimals, canCreateRecords, permissionsLoading]);
 
   useEffect(() => {
     // Check if onboarding should be shown when Doc Aga opens
