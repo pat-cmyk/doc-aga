@@ -235,8 +235,10 @@ const Dashboard = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [showFarmSetup]);
 
+  // Sync farmId to localStorage for FAB and other components
   useEffect(() => {
     if (farmId) {
+      localStorage.setItem('currentFarmId', farmId);
       loadForecastData();
       // Preload critical data when farm is selected
       preloadAllData(farmId, isOnline);
