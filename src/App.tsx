@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-ro
 import { Loader2 } from "lucide-react";
 import { UnifiedActionsFab } from "./components/UnifiedActionsFab";
 import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
+import { GovernmentFab } from "./components/government/GovernmentFab";
+import { MerchantFab } from "./components/merchant/MerchantFab";
 import { CartProvider } from "./hooks/useCart";
 import { FarmProvider } from "./contexts/FarmContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -123,33 +125,43 @@ const SyncHandler = () => {
   return null;
 };
 
-// Component to conditionally render floating components (hide on non-farm routes)
+// Component to conditionally render floating components based on route
 const ConditionalFloatingComponents = () => {
   const location = useLocation();
   
-  // Routes where FAB should be completely hidden
-  const hideFabRoutes = [
+  // Routes where no FAB should appear at all
+  const noFabRoutes = [
     '/auth',
     '/auth/merchant',
     '/auth/admin',
     '/auth/government',
     '/privacy',
-    '/government',    // Government users don't need farm FAB
-    '/merchant',      // Merchants don't need farm FAB
-    '/admin',         // Admin has its own interface
+    '/admin',
     '/marketplace',
     '/checkout',
     '/distributors',
     '/orders',
     '/messages',
+    '/invite',
   ];
   
-  const shouldHideFab = hideFabRoutes.some(route => 
+  const shouldHideFab = noFabRoutes.some(route => 
     location.pathname === route || location.pathname.startsWith(route + '/')
   );
   
   if (shouldHideFab) return null;
   
+  // Government portal gets its own FAB
+  if (location.pathname.startsWith('/government')) {
+    return <GovernmentFab />;
+  }
+  
+  // Merchant portal gets its own FAB
+  if (location.pathname.startsWith('/merchant')) {
+    return <MerchantFab />;
+  }
+  
+  // Default farm FAB for all other routes
   return (
     <>
       <UnifiedActionsFab />
