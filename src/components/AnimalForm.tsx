@@ -21,6 +21,7 @@ import { QuickAddToggle } from "@/components/animal-form/QuickAddToggle";
 import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSuccessScreen";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
 import { labels, getLivestockEmoji } from "@/lib/filipinoLabels";
+import VoiceQuickAdd, { type ExtractedAnimalData } from "@/components/animal-form/VoiceQuickAdd";
 
 interface ParentAnimal {
   id: string;
@@ -433,6 +434,26 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     return quickModeFields.includes(fieldName);
   };
 
+  // Handle voice-extracted animal data
+  const handleVoiceData = (data: ExtractedAnimalData) => {
+    setFormData(prev => ({
+      ...prev,
+      livestock_type: data.livestock_type || prev.livestock_type,
+      gender: data.gender || prev.gender,
+      ear_tag: data.ear_tag || prev.ear_tag,
+      name: data.name || prev.name,
+      is_currently_lactating: data.is_lactating || prev.is_currently_lactating,
+      entry_weight: data.entry_weight_kg?.toString() || prev.entry_weight,
+      breed: data.breed || prev.breed,
+      acquisition_type: data.acquisition_type || prev.acquisition_type,
+    }));
+    
+    // Clear gender error if gender was provided
+    if (data.gender) {
+      setGenderError(false);
+    }
+  };
+
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -448,6 +469,14 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
           isQuickMode={isQuickMode}
           onToggle={setIsQuickMode}
         />
+        
+        {/* Voice Quick Add - Only shown in Quick Mode */}
+        {isQuickMode && (
+          <VoiceQuickAdd 
+            onDataExtracted={handleVoiceData}
+            disabled={!isOnline}
+          />
+        )}
         
         {/* Animal Type - Hidden in Quick Mode (defaults to new_entrant) */}
         {showField('animal_type') && (

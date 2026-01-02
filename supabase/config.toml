@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.review-pending-activity]
 verify_jwt = true
+
+[functions.process-animal-voice]
+verify_jwt = true
