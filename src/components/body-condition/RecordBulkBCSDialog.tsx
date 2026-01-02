@@ -81,7 +81,7 @@ export function RecordBulkBCSDialog({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cachedAnimals, setCachedAnimals] = useState<FarmAnimal[]>([]);
-  const [showGuide, setShowGuide] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
 
   // Fetch animals
   const { data: animals = [], isLoading: animalsLoading } = useFarmAnimals(farmId);
