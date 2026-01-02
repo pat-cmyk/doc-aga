@@ -25,15 +25,44 @@ interface HeadcountChartProps {
   isLoading?: boolean;
 }
 
-// Stage category definitions
+// Stage category definitions - includes all species (cattle, carabao, goat, sheep)
 const STAGE_CATEGORIES = {
-  productive: ["Mature Cow", "Early Lactation", "First-Calf Heifer"],
-  development: ["Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer", 
-                "Pregnant Heifer", "Bull Calf", "Young Bull"],
-  breeding: ["Mature Bull"]
+  productive: [
+    // Cattle
+    "Mature Cow", "Early Lactation", "First-Calf Heifer",
+    // Carabao
+    "Mature Carabao", "First-Time Mother",
+    // Goat
+    "Mature Doe", "First Freshener",
+    // Sheep
+    "Mature Ewe", "First-Time Mother Ewe"
+  ],
+  development: [
+    // Cattle
+    "Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer", 
+    "Pregnant Heifer", "Bull Calf", "Young Bull",
+    // Carabao
+    "Carabao Calf", "Young Carabao", "Breeding Carabao", "Pregnant Carabao",
+    "Young Bull Carabao",
+    // Goat
+    "Kid", "Doeling", "Breeding Doe", "Pregnant Doe", "Buckling", "Young Buck",
+    // Sheep
+    "Lamb", "Ewe Lamb", "Breeding Ewe", "Pregnant Ewe", "Ram Lamb", "Young Ram"
+  ],
+  breeding: [
+    // Cattle
+    "Mature Bull",
+    // Carabao
+    "Mature Bull Carabao",
+    // Goat
+    "Buck",
+    // Sheep
+    "Mature Ram"
+  ]
 };
 
 const STAGE_COLORS: Record<string, string> = {
+  // Cattle
   "Calf": "hsl(280 65% 60%)",
   "Heifer Calf": "hsl(320 60% 65%)",
   "Yearling Heifer": "hsl(15 75% 60%)",
@@ -45,13 +74,62 @@ const STAGE_COLORS: Record<string, string> = {
   "Bull Calf": "hsl(210 70% 65%)",
   "Young Bull": "hsl(220 65% 55%)",
   "Mature Bull": "hsl(240 60% 45%)",
+  // Carabao
+  "Carabao Calf": "hsl(275 55% 55%)",
+  "Young Carabao": "hsl(310 50% 60%)",
+  "Breeding Carabao": "hsl(35 75% 55%)",
+  "Pregnant Carabao": "hsl(75 55% 50%)",
+  "First-Time Mother": "hsl(150 50% 50%)",
+  "Mature Carabao": "hsl(190 55% 50%)",
+  "Young Bull Carabao": "hsl(205 60% 55%)",
+  "Mature Bull Carabao": "hsl(225 55% 45%)",
+  // Goat
+  "Kid": "hsl(350 60% 60%)",
+  "Buckling": "hsl(200 60% 60%)",
+  "Doeling": "hsl(330 55% 60%)",
+  "Breeding Doe": "hsl(55 70% 50%)",
+  "Pregnant Doe": "hsl(95 55% 50%)",
+  "First Freshener": "hsl(140 50% 50%)",
+  "Mature Doe": "hsl(170 55% 50%)",
+  "Young Buck": "hsl(195 60% 55%)",
+  "Buck": "hsl(215 60% 45%)",
+  // Sheep
+  "Lamb": "hsl(340 55% 60%)",
+  "Ram Lamb": "hsl(190 55% 60%)",
+  "Ewe Lamb": "hsl(315 50% 60%)",
+  "Breeding Ewe": "hsl(65 65% 50%)",
+  "Pregnant Ewe": "hsl(105 50% 50%)",
+  "First-Time Mother Ewe": "hsl(135 50% 50%)",
+  "Mature Ewe": "hsl(165 55% 50%)",
+  "Young Ram": "hsl(180 55% 55%)",
+  "Mature Ram": "hsl(210 55% 45%)"
 };
 
 type CategoryFilter = "all" | "productive" | "development" | "breeding" | "female" | "male";
 
-const FEMALE_STAGES = ["Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer", 
-                       "Pregnant Heifer", "First-Calf Heifer", "Mature Cow", "Early Lactation"];
-const MALE_STAGES = ["Bull Calf", "Young Bull", "Mature Bull"];
+const FEMALE_STAGES = [
+  // Cattle
+  "Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer", 
+  "Pregnant Heifer", "First-Calf Heifer", "Mature Cow", "Early Lactation",
+  // Carabao
+  "Carabao Calf", "Young Carabao", "Breeding Carabao", "Pregnant Carabao",
+  "First-Time Mother", "Mature Carabao",
+  // Goat
+  "Kid", "Doeling", "Breeding Doe", "Pregnant Doe", "First Freshener", "Mature Doe",
+  // Sheep
+  "Lamb", "Ewe Lamb", "Breeding Ewe", "Pregnant Ewe", "First-Time Mother Ewe", "Mature Ewe"
+];
+
+const MALE_STAGES = [
+  // Cattle
+  "Bull Calf", "Young Bull", "Mature Bull",
+  // Carabao
+  "Young Bull Carabao", "Mature Bull Carabao",
+  // Goat
+  "Buckling", "Young Buck", "Buck",
+  // Sheep
+  "Ram Lamb", "Young Ram", "Mature Ram"
+];
 
 export const HeadcountChart = ({
   data,
