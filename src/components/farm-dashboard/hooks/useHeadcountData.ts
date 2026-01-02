@@ -22,6 +22,16 @@ export const useHeadcountData = (
   const loadHeadcountData = useCallback(async () => {
     setLoading(true);
     try {
+      // Self-healing: ensure farm stats exist for the requested period
+      try {
+        await supabase.rpc('ensure_farm_stats', {
+          p_farm_id: farmId,
+          p_start_date: monthlyStartDate.toISOString().split("T")[0],
+          p_end_date: monthlyEndDate.toISOString().split("T")[0]
+        });
+      } catch (ensureErr) {
+        console.warn("Stats backfill skipped:", ensureErr);
+      }
 
       // Fetch pre-aggregated monthly stats
       const { data: monthlyStats } = await supabase

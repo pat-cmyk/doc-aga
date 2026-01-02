@@ -312,6 +312,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         onMonthlyTimePeriodChange={setMonthlyTimePeriod}
         onYearChange={setSelectedYear}
         farmId={farmId}
+        totalAnimals={stats.totalAnimals}
+        onRefresh={reloadStats}
+        isLoading={loading}
       />
 
       <div className="flex gap-2 flex-wrap">

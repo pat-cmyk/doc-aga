@@ -48,6 +48,19 @@ export const useCombinedDashboardData = (
     setLoading(true);
     setError(null);
     try {
+      // Self-healing: ensure farm stats exist for the requested period
+      // This fills any gaps automatically (max 30 days backfill)
+      try {
+        await supabase.rpc('ensure_farm_stats', {
+          p_farm_id: farmId,
+          p_start_date: monthlyStartDate.toISOString().split('T')[0],
+          p_end_date: endDate.toISOString().split('T')[0]
+        });
+      } catch (ensureErr) {
+        // Non-critical - continue even if backfill fails
+        console.warn("Stats backfill skipped:", ensureErr);
+      }
+
       const { data, error: rpcError } = await supabase.rpc('get_combined_dashboard_data', {
         p_farm_id: farmId,
         p_start_date: startDate.toISOString().split('T')[0],

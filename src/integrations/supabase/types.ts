@@ -2616,6 +2616,39 @@ export type Database = {
         }
         Relationships: []
       }
+      stats_job_runs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          job_name: string
+          result: Json | null
+          started_at: string
+          success: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name: string
+          result?: Json | null
+          started_at?: string
+          success?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name?: string
+          result?: Json | null
+          started_at?: string
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       stt_analytics: {
         Row: {
           audio_duration_seconds: number | null
@@ -3409,6 +3442,10 @@ export type Database = {
         Args: { _farm_id: string }
         Returns: string
       }
+      calculate_daily_farm_stats: {
+        Args: { p_target_date?: string }
+        Returns: Json
+      }
       can_access_farm: { Args: { fid: string }; Returns: boolean }
       create_default_farm:
         | {
@@ -3446,6 +3483,10 @@ export type Database = {
           p_record_id: string
           p_table_name: string
         }
+        Returns: Json
+      }
+      ensure_farm_stats: {
+        Args: { p_end_date: string; p_farm_id: string; p_start_date: string }
         Returns: Json
       }
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
@@ -3711,6 +3752,7 @@ export type Database = {
         Args: { _activity_type: string; _farm_id: string; _user_id: string }
         Returns: boolean
       }
+      run_daily_stats_job: { Args: never; Returns: undefined }
       update_sync_checkpoint: {
         Args: {
           p_farm_id: string
