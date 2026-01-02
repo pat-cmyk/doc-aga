@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Heart, CalendarIcon, Users } from "lucide-react";
+import { Loader2, Heart, CalendarIcon, Users, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
@@ -27,6 +27,9 @@ import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { HEALTH_CATEGORIES, QUICK_DIAGNOSES, QUICK_TREATMENTS } from "@/lib/healthCategories";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
+import { getCachedAnimals } from "@/lib/dataCache";
 
 interface RecordBulkHealthDialogProps {
   open: boolean;
@@ -46,11 +49,26 @@ export function RecordBulkHealthDialog({
   const [treatment, setTreatment] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   const { data: animals = [], isLoading } = useFarmAnimals(farmId);
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(animals), [animals]);
+
+  // Load cached animals when offline
+  useEffect(() => {
+    if (!isOnline && farmId) {
+      getCachedAnimals(farmId).then(cached => {
+        if (cached?.data) {
+          setCachedAnimals(cached.data);
+        }
+      });
+    }
+  }, [isOnline, farmId]);
+
+  const displayAnimals = isOnline ? animals : cachedAnimals;
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
 
   // Haptic on dialog open
   useEffect(() => {
@@ -72,8 +90,8 @@ export function RecordBulkHealthDialog({
   }, [open]);
 
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(animals, selectedOption),
-    [animals, selectedOption]
+    () => getSelectedAnimals(displayAnimals, selectedOption),
+    [displayAnimals, selectedOption]
   );
 
   const currentQuickDiagnoses = useMemo(() => {
@@ -123,8 +141,37 @@ export function RecordBulkHealthDialog({
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const dateStr = format(recordDate, "yyyy-MM-dd");
+
+      if (!isOnline) {
+        // Queue for offline sync
+        await addToQueue({
+          id: `bulk_health_${Date.now()}`,
+          type: 'bulk_health',
+          payload: {
+            farmId,
+            healthRecords: selectedAnimals.map((animal) => ({
+              animalId: animal.id,
+              animalName: animal.name || animal.ear_tag || 'Unknown',
+            })),
+            diagnosis,
+            treatment: treatment || undefined,
+            notes: notes || undefined,
+            recordDate: dateStr,
+          },
+          createdAt: Date.now(),
+        });
+
+        hapticNotification('success');
+        toast({
+          title: "Queued for Sync",
+          description: `Health record for ${selectedAnimals.length} animal(s) will sync when online`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Create health records for each animal
       const records = selectedAnimals.map((animal) => ({
@@ -174,17 +221,23 @@ export function RecordBulkHealthDialog({
           <DialogTitle className="flex items-center gap-2">
             <Heart className="h-5 w-5 text-red-500" />
             Record Health Event
+            {!isOnline && (
+              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                <WifiOff className="h-3 w-3" />
+                Offline
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             Record veterinary visits and treatments for your animals
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
+        {isLoading && isOnline ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : animals.length === 0 ? (
+        ) : displayAnimals.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Heart className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>No animals in your herd</p>
@@ -288,6 +341,7 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
+                    disabled={!isOnline}
                   />
                 </div>
               </div>
@@ -307,6 +361,7 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
+                    disabled={!isOnline}
                   />
                 </div>
               </div>
@@ -340,6 +395,7 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
+                    disabled={!isOnline}
                   />
                 </div>
               </div>
@@ -359,6 +415,7 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
+                    disabled={!isOnline}
                   />
                 </div>
               </div>
@@ -378,6 +435,7 @@ export function RecordBulkHealthDialog({
                 <VoiceInputButton
                   onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
                   className="self-start"
+                  disabled={!isOnline}
                 />
               </div>
             </div>
@@ -423,10 +481,12 @@ export function RecordBulkHealthDialog({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Recording...
+                    {isOnline ? "Recording..." : "Queuing..."}
                   </>
-                ) : (
+                ) : isOnline ? (
                   "Record Health"
+                ) : (
+                  "Queue for Sync"
                 )}
               </Button>
             </div>

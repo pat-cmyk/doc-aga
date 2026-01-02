@@ -205,6 +205,12 @@ export async function syncQueue(): Promise<void> {
           await syncAnimalForm(item);
         } else if (item.type === 'voice_activity') {
           await processVoiceQueue(item);
+        } else if (item.type === 'bulk_milk') {
+          await syncBulkMilk(item);
+        } else if (item.type === 'bulk_feed') {
+          await syncBulkFeed(item);
+        } else if (item.type === 'bulk_health') {
+          await syncBulkHealth(item);
         }
         
         await updateStatus(item.id, 'completed');
@@ -351,4 +357,128 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
       // Don't fail the whole sync for weight record failure
     }
   }
+}
+
+/**
+ * Sync bulk milk records from offline queue to Supabase
+ */
+async function syncBulkMilk(item: QueueItem): Promise<void> {
+  const { milkRecords, farmId } = item.payload;
+  
+  if (!milkRecords || milkRecords.length === 0 || !farmId) {
+    throw new Error('No milk records in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const records = milkRecords.map((record) => ({
+    animal_id: record.animalId,
+    record_date: record.recordDate,
+    liters: record.liters,
+    session: record.session,
+    created_by: user?.id,
+    is_sold: false,
+  }));
+
+  const { error } = await supabase.from('milking_records').insert(records);
+  if (error) throw error;
+}
+
+/**
+ * Sync bulk feed records from offline queue to Supabase
+ */
+async function syncBulkFeed(item: QueueItem): Promise<void> {
+  const { feedRecords, feedType, feedInventoryId, totalKg, recordDate, farmId } = item.payload;
+  
+  if (!feedRecords || feedRecords.length === 0 || !farmId || !feedType) {
+    throw new Error('No feed records in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const dateTime = recordDate || new Date().toISOString();
+
+  // Create feeding records
+  const records = feedRecords.map((record) => ({
+    animal_id: record.animalId,
+    record_datetime: dateTime,
+    kilograms: record.kilograms,
+    feed_type: feedType,
+    created_by: user?.id,
+  }));
+
+  const { error: insertError } = await supabase.from('feeding_records').insert(records);
+  if (insertError) throw insertError;
+
+  // Update inventory if applicable
+  if (feedInventoryId && totalKg) {
+    const { data: currentInventory } = await supabase
+      .from('feed_inventory')
+      .select('quantity_kg')
+      .eq('id', feedInventoryId)
+      .single();
+
+    if (currentInventory) {
+      const newQuantity = Math.max(0, currentInventory.quantity_kg - totalKg);
+      
+      await supabase
+        .from('feed_inventory')
+        .update({ quantity_kg: newQuantity, last_updated: new Date().toISOString() })
+        .eq('id', feedInventoryId);
+
+      // Create transaction record
+      await supabase.from('feed_stock_transactions').insert({
+        feed_inventory_id: feedInventoryId,
+        transaction_type: 'consumption',
+        quantity_change_kg: -totalKg,
+        balance_after: newQuantity,
+        notes: `Offline sync: Bulk feeding ${feedRecords.length} animals`,
+        created_by: user?.id,
+      });
+    }
+  }
+
+  // Create expense records if costs are provided
+  const expenseRecords = feedRecords
+    .filter(record => record.cost && record.cost > 0)
+    .map((record) => ({
+      animal_id: record.animalId,
+      farm_id: farmId,
+      user_id: user?.id,
+      category: 'Feed & Supplements',
+      amount: record.cost!,
+      description: `${feedType} feeding: ${record.kilograms.toFixed(2)} kg`,
+      expense_date: recordDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+      allocation_type: 'Operational',
+      linked_feed_inventory_id: feedInventoryId || null,
+    }));
+
+  if (expenseRecords.length > 0 && user?.id) {
+    await supabase.from('farm_expenses').insert(expenseRecords);
+  }
+}
+
+/**
+ * Sync bulk health records from offline queue to Supabase
+ */
+async function syncBulkHealth(item: QueueItem): Promise<void> {
+  const { healthRecords, diagnosis, treatment, notes, recordDate, farmId } = item.payload;
+  
+  if (!healthRecords || healthRecords.length === 0 || !diagnosis || !farmId) {
+    throw new Error('No health records in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const dateStr = recordDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+
+  const records = healthRecords.map((record) => ({
+    animal_id: record.animalId,
+    visit_date: dateStr,
+    diagnosis: diagnosis,
+    treatment: treatment || null,
+    notes: notes || null,
+    created_by: user?.id,
+  }));
+
+  const { error } = await supabase.from('health_records').insert(records);
+  if (error) throw error;
 }

@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Milk, Scale, TrendingUp, CalendarIcon, Sun, Moon } from "lucide-react";
+import { Loader2, Milk, Scale, TrendingUp, CalendarIcon, Sun, Moon, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,6 +30,9 @@ import {
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
 import { AnimalCombobox } from "./AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
+import { getCachedAnimals } from "@/lib/dataCache";
 
 interface RecordBulkMilkDialogProps {
   open: boolean;
@@ -49,11 +52,32 @@ export function RecordBulkMilkDialog({
     new Date().getHours() < 12 ? 'AM' : 'PM'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   const { data: animals = [], isLoading } = useLactatingAnimals(farmId);
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(animals), [animals]);
+
+  // Load cached animals when offline
+  useEffect(() => {
+    if (!isOnline && farmId) {
+      getCachedAnimals(farmId).then(cached => {
+        if (cached?.data) {
+          // Filter for lactating animals only
+          const lactating = cached.data.filter(a => 
+            a.gender?.toLowerCase() === 'female' && 
+            ['early_lactation', 'mid_lactation', 'late_lactation'].includes(a.milkingStage || a.milking_stage || '')
+          );
+          setCachedAnimals(lactating);
+        }
+      });
+    }
+  }, [isOnline, farmId]);
+
+  // Use cached animals when offline
+  const displayAnimals = isOnline ? animals : cachedAnimals;
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
 
   // Haptic on dialog open
   useEffect(() => {
@@ -73,8 +97,8 @@ export function RecordBulkMilkDialog({
   }, [open]);
 
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(animals, selectedOption),
-    [animals, selectedOption]
+    () => getSelectedAnimals(displayAnimals, selectedOption),
+    [displayAnimals, selectedOption]
   );
 
   const splitPreview = useMemo(() => {
@@ -111,8 +135,36 @@ export function RecordBulkMilkDialog({
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const dateStr = format(recordDate, "yyyy-MM-dd");
+
+      if (!isOnline) {
+        // Queue for offline sync
+        await addToQueue({
+          id: `bulk_milk_${Date.now()}`,
+          type: 'bulk_milk',
+          payload: {
+            farmId,
+            milkRecords: splitPreview.map((split) => ({
+              animalId: split.animalId,
+              animalName: split.animalName,
+              liters: split.liters,
+              recordDate: dateStr,
+              session: session,
+            })),
+          },
+          createdAt: Date.now(),
+        });
+
+        hapticNotification('success');
+        toast({
+          title: "Queued for Sync",
+          description: `${totalLiters}L (${session}) will sync when online`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Create milking records for each animal
       const records = splitPreview.map((split) => ({
@@ -162,17 +214,23 @@ export function RecordBulkMilkDialog({
           <DialogTitle className="flex items-center gap-2">
             <Milk className="h-5 w-5 text-blue-500" />
             Record Milk Production
+            {!isOnline && (
+              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                <WifiOff className="h-3 w-3" />
+                Offline
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             Record milk collected and split proportionally by weight and lactation stage
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
+        {isLoading && isOnline ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : animals.length === 0 ? (
+        ) : displayAnimals.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Milk className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>No lactating animals in your herd</p>
@@ -298,10 +356,12 @@ export function RecordBulkMilkDialog({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Recording...
+                    {isOnline ? "Recording..." : "Queuing..."}
                   </>
-                ) : (
+                ) : isOnline ? (
                   "Record Milk"
+                ) : (
+                  "Queue for Sync"
                 )}
               </Button>
             </div>

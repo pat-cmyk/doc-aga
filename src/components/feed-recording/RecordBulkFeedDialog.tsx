@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle } from "lucide-react";
+import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -36,6 +36,9 @@ import {
 import { calculateFeedSplit, calculateCostPerKg, FeedSplitResult } from "@/lib/feedSplitCalculation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
+import { getCachedAnimals, getCachedFeedInventory } from "@/lib/dataCache";
 
 interface RecordBulkFeedDialogProps {
   open: boolean;
@@ -55,8 +58,11 @@ export function RecordBulkFeedDialog({
   const [recordDate, setRecordDate] = useState<Date>(new Date());
   const [feedType, setFeedType] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
+  const [cachedFeed, setCachedFeed] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   // Fetch animals
   const { data: animals = [], isLoading: isLoadingAnimals } = useFarmAnimals(farmId);
@@ -75,16 +81,34 @@ export function RecordBulkFeedDialog({
       if (error) throw error;
       return data || [];
     },
-    enabled: !!farmId,
+    enabled: !!farmId && isOnline,
   });
 
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(animals), [animals]);
+  // Load cached data when offline
+  useEffect(() => {
+    if (!isOnline && farmId) {
+      getCachedAnimals(farmId).then(cached => {
+        if (cached?.data) {
+          setCachedAnimals(cached.data);
+        }
+      });
+      getCachedFeedInventory(farmId).then(cached => {
+        if (cached?.items) {
+          setCachedFeed(cached.items.filter((f: any) => f.quantity_kg > 0));
+        }
+      });
+    }
+  }, [isOnline, farmId]);
+
+  const displayAnimals = isOnline ? animals : cachedAnimals;
+  const displayFeedInventory = isOnline ? feedInventory : cachedFeed;
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
   
   // Get available quantity for selected feed type
   const selectedFeedInventory = useMemo(() => {
     if (!feedType || feedType === FRESH_CUT_OPTION) return null;
-    return feedInventory.find(f => f.id === feedType);
-  }, [feedType, feedInventory]);
+    return displayFeedInventory.find(f => f.id === feedType);
+  }, [feedType, displayFeedInventory]);
 
   // Haptic on dialog open
   useEffect(() => {
@@ -104,8 +128,8 @@ export function RecordBulkFeedDialog({
   }, [open]);
 
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(animals, selectedOption),
-    [animals, selectedOption]
+    () => getSelectedAnimals(displayAnimals, selectedOption),
+    [displayAnimals, selectedOption]
   );
 
   // Calculate cost per kg for selected feed
@@ -153,11 +177,42 @@ export function RecordBulkFeedDialog({
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const dateTime = format(recordDate, "yyyy-MM-dd'T'HH:mm:ss");
       const feedTypeName = feedType === FRESH_CUT_OPTION 
         ? FRESH_CUT_OPTION 
         : selectedFeedInventory?.feed_type || feedType;
+
+      if (!isOnline) {
+        // Queue for offline sync
+        await addToQueue({
+          id: `bulk_feed_${Date.now()}`,
+          type: 'bulk_feed',
+          payload: {
+            farmId,
+            feedRecords: splitPreview.map((split) => ({
+              animalId: split.animalId,
+              animalName: split.animalName,
+              kilograms: split.kilograms,
+              cost: split.cost,
+            })),
+            feedType: feedTypeName,
+            feedInventoryId: feedType !== FRESH_CUT_OPTION ? selectedFeedInventory?.id : undefined,
+            totalKg: parseFloat(totalKg),
+            recordDate: dateTime,
+          },
+          createdAt: Date.now(),
+        });
+
+        hapticNotification('success');
+        toast({
+          title: "Queued for Sync",
+          description: `${totalKg}kg feeding will sync when online`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Create feeding records for each animal
       const records = splitPreview.map((split) => ({
@@ -262,7 +317,7 @@ export function RecordBulkFeedDialog({
   };
 
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalKg) > 0 && feedType && !isOverStock;
-  const isLoading = isLoadingAnimals || isLoadingInventory;
+  const isLoading = (isLoadingAnimals || isLoadingInventory) && isOnline;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -271,6 +326,12 @@ export function RecordBulkFeedDialog({
           <DialogTitle className="flex items-center gap-2">
             <Wheat className="h-5 w-5 text-orange-500" />
             Record Bulk Feeding
+            {!isOnline && (
+              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                <WifiOff className="h-3 w-3" />
+                Offline
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             Record feed given and split proportionally by animal weight
@@ -281,7 +342,7 @@ export function RecordBulkFeedDialog({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : animals.length === 0 ? (
+        ) : displayAnimals.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Wheat className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>No animals in your herd</p>
@@ -336,7 +397,7 @@ export function RecordBulkFeedDialog({
                       <span className="text-xs text-muted-foreground">No inventory deduction</span>
                     </div>
                   </SelectItem>
-                  {feedInventory.map((feed) => (
+                  {displayFeedInventory.map((feed) => (
                     <SelectItem key={feed.id} value={feed.id}>
                       <div className="flex flex-col">
                         <span>{feed.feed_type}</span>
@@ -421,10 +482,12 @@ export function RecordBulkFeedDialog({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Recording...
+                    {isOnline ? "Recording..." : "Queuing..."}
                   </>
-                ) : (
+                ) : isOnline ? (
                   "Record Feed"
+                ) : (
+                  "Queue for Sync"
                 )}
               </Button>
             </div>
