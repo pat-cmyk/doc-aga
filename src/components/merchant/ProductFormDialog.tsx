@@ -21,6 +21,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface Product {
   id: string;
@@ -57,6 +59,7 @@ export const ProductFormDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const isOnline = useOnlineStatus();
 
   // Form state
   const [name, setName] = useState("");
@@ -320,13 +323,21 @@ export const ProductFormDialog = ({
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your product..."
-              rows={3}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe your product..."
+                rows={3}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           {/* Category */}

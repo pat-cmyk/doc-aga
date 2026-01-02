@@ -13,12 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Mail, Phone, MapPin, Upload, X, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export const MerchantProfile = () => {
   const { merchant, loading, updateMerchant } = useMerchant();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const isOnline = useOnlineStatus();
 
   // Form state
   const [businessName, setBusinessName] = useState("");
@@ -279,13 +282,21 @@ export const MerchantProfile = () => {
             {/* Business Description */}
             <div className="space-y-2">
               <Label htmlFor="businessDescription">Business Description</Label>
-              <Textarea
-                id="businessDescription"
-                value={businessDescription}
-                onChange={(e) => setBusinessDescription(e.target.value)}
-                placeholder="Tell farmers about your business..."
-                rows={4}
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  id="businessDescription"
+                  value={businessDescription}
+                  onChange={(e) => setBusinessDescription(e.target.value)}
+                  placeholder="Tell farmers about your business..."
+                  rows={4}
+                  className="flex-1"
+                />
+                <VoiceInputButton
+                  onTranscription={(text) => setBusinessDescription(prev => prev ? `${prev} ${text}` : text)}
+                  disabled={!isOnline}
+                  className="self-start"
+                />
+              </div>
             </div>
 
             <Separator />
@@ -329,15 +340,22 @@ export const MerchantProfile = () => {
             {/* Business Address */}
             <div className="space-y-2">
               <Label htmlFor="businessAddress">Business Address</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Textarea
-                  id="businessAddress"
-                  value={businessAddress}
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                  placeholder="Your business address"
-                  rows={2}
-                  className="pl-9"
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Textarea
+                    id="businessAddress"
+                    value={businessAddress}
+                    onChange={(e) => setBusinessAddress(e.target.value)}
+                    placeholder="Your business address"
+                    rows={2}
+                    className="pl-9"
+                  />
+                </div>
+                <VoiceInputButton
+                  onTranscription={(text) => setBusinessAddress(prev => prev ? `${prev} ${text}` : text)}
+                  disabled={!isOnline}
+                  className="self-start"
                 />
               </div>
             </div>

@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Syringe, Bug } from 'lucide-react';
 import { usePreventiveHealthProtocols, useAddPreventiveHealthSchedule } from '@/hooks/usePreventiveHealth';
 import { format, addMonths } from 'date-fns';
+import { VoiceInputButton } from '@/components/ui/voice-input-button';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface AddPreventiveHealthDialogProps {
   animalId: string;
@@ -28,6 +30,7 @@ export function AddPreventiveHealthDialog({
   const [customTreatment, setCustomTreatment] = useState('');
   const [scheduledDate, setScheduledDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
+  const isOnline = useOnlineStatus();
 
   const { data: protocols = [] } = usePreventiveHealthProtocols(livestockType);
   const addSchedule = useAddPreventiveHealthSchedule();
@@ -179,12 +182,20 @@ export function AddPreventiveHealthDialog({
 
           <div className="space-y-2">
             <Label>Notes (Optional)</Label>
-            <Textarea
-              placeholder="Add any notes..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Add any notes..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2">

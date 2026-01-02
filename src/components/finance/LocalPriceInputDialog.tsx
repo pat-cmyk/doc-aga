@@ -22,6 +22,8 @@ import {
 import { TrendingUp, Info } from "lucide-react";
 import { useAddLocalPrice, useCurrentMarketPrice, getSourceLabel } from "@/hooks/useMarketPrices";
 import { format } from "date-fns";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface LocalPriceInputDialogProps {
   farmId: string;
@@ -45,6 +47,7 @@ export function LocalPriceInputDialog({
   const [livestockType, setLivestockType] = useState(defaultLivestockType);
   const [pricePerKg, setPricePerKg] = useState("");
   const [notes, setNotes] = useState("");
+  const isOnline = useOnlineStatus();
 
   const { data: currentPrice } = useCurrentMarketPrice(farmId, livestockType);
   const addLocalPrice = useAddLocalPrice();
@@ -126,13 +129,21 @@ export function LocalPriceInputDialog({
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              placeholder="e.g., Presyo sa palengke ng Lucena ngayong linggo"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="notes"
+                placeholder="e.g., Presyo sa palengke ng Lucena ngayong linggo"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <DialogFooter>

@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
 import { format } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface RecordMilkSaleDialogProps {
   farmId: string;
@@ -32,6 +34,7 @@ export function RecordMilkSaleDialog({
   const queryClient = useQueryClient();
   const { data: lastMilkPrice } = useLastMilkPrice(farmId);
   const addRevenue = useAddRevenue();
+  const isOnline = useOnlineStatus();
 
   const [litersToSell, setLitersToSell] = useState("");
   const [pricePerLiter, setPricePerLiter] = useState("");
@@ -242,13 +245,20 @@ export function RecordMilkSaleDialog({
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Buyer name, delivery details, etc."
-              className="min-h-[80px]"
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Buyer name, delivery details, etc."
+                className="min-h-[80px] flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
         </div>
 

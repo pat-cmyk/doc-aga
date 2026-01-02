@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Loader2, Plus, Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { validateRecordDate } from "@/lib/recordValidation";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 
 interface AddHealthRecordDialogProps {
   animalId: string;
@@ -310,30 +311,54 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
           </div>
           <div className="space-y-2">
             <Label htmlFor="diagnosis">Diagnosis</Label>
-            <Input
-              id="diagnosis"
-              value={formData.diagnosis}
-              onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
-              placeholder="Diagnosis"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="diagnosis"
+                value={formData.diagnosis}
+                onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                placeholder="Diagnosis"
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${text}` : text }))}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="treatment">Treatment</Label>
-            <Input
-              id="treatment"
-              value={formData.treatment}
-              onChange={(e) => setFormData(prev => ({ ...prev, treatment: e.target.value }))}
-              placeholder="Treatment provided"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="treatment"
+                value={formData.treatment}
+                onChange={(e) => setFormData(prev => ({ ...prev, treatment: e.target.value }))}
+                placeholder="Treatment provided"
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${text}` : text }))}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Additional notes"
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Additional notes"
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${text}` : text }))}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Photos</Label>
