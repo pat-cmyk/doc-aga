@@ -20,6 +20,7 @@ import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { MilkInventoryTab } from "@/components/milk-inventory/MilkInventoryTab";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
+import { SyncConflictResolution, SyncStatusSheet } from "@/components/sync";
 import { FinanceTab } from "@/components/FinanceTab";
 import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { preloadAllData } from "@/lib/dataCache";
@@ -385,6 +386,7 @@ const Dashboard = () => {
               </div>
               {/* Row 2: Status indicators + Notifications + User dropdown */}
               <div className="flex items-center justify-end gap-2">
+                <SyncStatusSheet />
                 <NetworkStatusIndicator />
                 <NotificationBell />
                 <UserEmailDropdown />
@@ -413,6 +415,7 @@ const Dashboard = () => {
                 <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
               </div>
               <div className="flex items-center gap-2">
+                <SyncStatusSheet />
                 <NetworkStatusIndicator />
                 <NotificationBell />
                 <UserEmailDropdown />
@@ -633,6 +636,9 @@ const Dashboard = () => {
       
       {/* Queue Status FAB */}
       <QueueStatus />
+      
+      {/* Sync Conflict Resolution FAB */}
+      <SyncConflictResolution />
     </div>
   );
 };
