@@ -19,6 +19,7 @@ import { MySubmissions } from "@/components/approval/MySubmissions";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { syncQueue } from "@/lib/syncService";
 import { useFarm } from "@/contexts/FarmContext";
+import { SyncStatusSheet, SyncConflictResolution } from "@/components/sync";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -185,6 +186,7 @@ const FarmhandDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <SyncStatusSheet />
             <NetworkStatusIndicator />
             <UserEmailDropdown />
           </div>
@@ -254,6 +256,9 @@ const FarmhandDashboard = () => {
       
       {/* Queue Status FAB */}
       <QueueStatus />
+      
+      {/* Conflict Resolution FAB */}
+      <SyncConflictResolution />
     </div>
   );
 };
