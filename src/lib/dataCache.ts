@@ -1,6 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
-import { calculateLifeStage, calculateMilkingStage } from './animalStages';
+import { calculateLifeStage, calculateMilkingStage, calculateMaleStage } from './animalStages';
 
 // Helper to create system notification in database
 async function createSystemNotification(title: string, body: string) {
@@ -388,7 +388,7 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
         .catch(err => console.error('[DataCache] Error pre-caching records:', err));
     }
 
-    // Calculate stages for each animal
+    // Calculate stages for each animal (both male and female)
     const animalsWithStages = await Promise.all(
       (animals || []).map(async (animal, index) => {
         if (emitProgressUpdates) {
@@ -399,39 +399,52 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
             message: `Processing animals (${index + 1}/${totalAnimals})...`,
           });
         }
-        if (animal.gender?.toLowerCase() !== 'female') {
+        
+        const isMale = animal.gender?.toLowerCase() === 'male';
+        const isFemale = animal.gender?.toLowerCase() === 'female';
+        
+        // If no valid gender, return without stage calculation
+        if (!isMale && !isFemale) {
           return { ...animal, lifeStage: null, milkingStage: null };
         }
 
-        // Get offspring count
+        // Get offspring count (for both males and females)
         const { count: offspringCount } = await supabase
           .from('animals')
           .select('*', { count: 'exact', head: true })
-          .eq('mother_id', animal.id);
+          .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`);
 
         // Get last calving date
         const { data: offspring } = await supabase
           .from('animals')
           .select('birth_date')
-          .eq('mother_id', animal.id)
+          .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`)
           .order('birth_date', { ascending: false })
           .limit(1);
 
-        // Check for recent milking records
-        const { data: recentMilking } = await supabase
-          .from('milking_records')
-          .select('id')
-          .eq('animal_id', animal.id)
-          .gte('record_date', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-          .limit(1);
+        // Check for recent milking records (only relevant for females)
+        let hasRecentMilking = false;
+        if (isFemale) {
+          const { data: recentMilking } = await supabase
+            .from('milking_records')
+            .select('id')
+            .eq('animal_id', animal.id)
+            .gte('record_date', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
+            .limit(1);
+          hasRecentMilking = (recentMilking?.length || 0) > 0;
+        }
 
-        // Check for active AI records
-        const { data: aiRecords } = await supabase
-          .from('ai_records')
-          .select('performed_date')
-          .eq('animal_id', animal.id)
-          .order('scheduled_date', { ascending: false })
-          .limit(1);
+        // Check for active AI records (only relevant for females)
+        let hasActiveAI = false;
+        if (isFemale) {
+          const { data: aiRecords } = await supabase
+            .from('ai_records')
+            .select('performed_date')
+            .eq('animal_id', animal.id)
+            .order('scheduled_date', { ascending: false })
+            .limit(1);
+          hasActiveAI = (aiRecords?.length || 0) > 0 && !offspringCount;
+        }
 
         const stageData = {
           birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
@@ -439,13 +452,22 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
           milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
           offspringCount: offspringCount || 0,
           lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
-          hasRecentMilking: (recentMilking?.length || 0) > 0,
-          hasActiveAI: (aiRecords?.length || 0) > 0 && !offspringCount,
+          hasRecentMilking,
+          hasActiveAI,
           livestockType: animal.livestock_type,
         };
 
-        const lifeStage = calculateLifeStage(stageData);
-        const milkingStage = calculateMilkingStage(stageData);
+        // Calculate life stage based on gender
+        let lifeStage: string | null = null;
+        let milkingStage: string | null = null;
+        
+        if (isMale) {
+          lifeStage = calculateMaleStage(stageData);
+          milkingStage = null; // Males don't have milking stages
+        } else {
+          lifeStage = calculateLifeStage(stageData);
+          milkingStage = calculateMilkingStage(stageData);
+        }
 
         return { ...animal, lifeStage, milkingStage };
       })
