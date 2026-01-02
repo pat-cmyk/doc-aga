@@ -22,6 +22,7 @@ import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSucces
 import { BilingualLabel } from "@/components/ui/bilingual-label";
 import { labels, getLivestockEmoji } from "@/lib/filipinoLabels";
 import VoiceQuickAdd, { type ExtractedAnimalData } from "@/components/animal-form/VoiceQuickAdd";
+import { calculateLifeStage, calculateMaleStage, type AnimalStageData } from "@/lib/animalStages";
 
 interface ParentAnimal {
   id: string;
@@ -275,6 +276,29 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
       : null;
     
+    // Calculate life stage for new animal
+    let calculatedLifeStage: string | null = null;
+    const birthDateValue = formData.birth_date_unknown ? null : formData.birth_date;
+    
+    if (birthDateValue && formData.gender && formData.livestock_type) {
+      const stageData: AnimalStageData = {
+        birthDate: new Date(birthDateValue),
+        gender: formData.gender,
+        milkingStartDate: shouldSetMilkingStage ? new Date() : null,
+        offspringCount: 0, // New animals have no offspring
+        lastCalvingDate: null, // New animals haven't calved
+        hasRecentMilking: shouldSetMilkingStage,
+        hasActiveAI: false, // New animals don't have AI records yet
+        livestockType: formData.livestock_type,
+      };
+      
+      if (formData.gender === 'Male') {
+        calculatedLifeStage = calculateMaleStage(stageData);
+      } else {
+        calculatedLifeStage = calculateLifeStage(stageData);
+      }
+    }
+    
     const animalData = {
       farm_id: farmId,
       livestock_type: formData.livestock_type,
@@ -310,6 +334,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       is_currently_lactating: shouldSetMilkingStage,
       estimated_days_in_milk: shouldSetMilkingStage ? formData.estimated_days_in_milk : null,
       milking_stage: calculatedMilkingStage,
+      life_stage: calculatedLifeStage,
     };
 
     if (!isOnline) {

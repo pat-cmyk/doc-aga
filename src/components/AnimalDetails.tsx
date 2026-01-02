@@ -21,6 +21,7 @@ import { StageBadge } from "@/components/ui/stage-badge";
 import { 
   calculateLifeStage, 
   calculateMilkingStage, 
+  calculateMaleStage,
   getLifeStageBadgeColor, 
   getMilkingStageBadgeColor,
   displayStageForSpecies,
@@ -553,9 +554,18 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
     );
   }
 
-  // Use stored values from database directly
-  const computedLifeStage = animal?.life_stage || null;
-  const computedMilkingStage = animal?.milking_stage || null;
+  // Compute life stage dynamically from stageData for consistency with AnimalList
+  // Fall back to DB value if stageData isn't available yet
+  const isMale = animal?.gender?.toLowerCase() === 'male';
+  const computedLifeStage = stageData 
+    ? (isMale 
+        ? calculateMaleStage(stageData) 
+        : calculateLifeStage(stageData))
+    : animal?.life_stage || null;
+  
+  const computedMilkingStage = stageData 
+    ? (isMale ? null : calculateMilkingStage(stageData))
+    : animal?.milking_stage || null;
   
   // Map to species-appropriate display names
   const displayLifeStage = displayStageForSpecies(computedLifeStage, animal?.livestock_type || null);
