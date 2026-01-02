@@ -24,11 +24,35 @@ export interface FeedSplitResult {
   kilograms: number;
   weight: number;
   percentage: number;
+  cost?: number;
+}
+
+/**
+ * Calculate cost per kilogram from inventory data
+ */
+export function calculateCostPerKg(
+  costPerUnit: number | null,
+  weightPerUnit: number | null,
+  unit: string
+): number {
+  if (!costPerUnit || costPerUnit <= 0) return 0;
+  
+  // If unit is already "kg", cost_per_unit is cost per kg
+  if (unit === 'kg') return costPerUnit;
+  
+  // If we have weight_per_unit, calculate cost per kg
+  if (weightPerUnit && weightPerUnit > 0) {
+    return costPerUnit / weightPerUnit;
+  }
+  
+  // Default: assume 1 unit = 1 kg if no weight info
+  return costPerUnit;
 }
 
 export function calculateFeedSplit(
   animals: AnimalForFeedSplit[],
-  totalKg: number
+  totalKg: number,
+  costPerKg: number = 0
 ): FeedSplitResult[] {
   if (animals.length === 0 || totalKg <= 0) {
     return [];
@@ -44,6 +68,7 @@ export function calculateFeedSplit(
       kilograms: totalKg,
       weight,
       percentage: 100,
+      cost: costPerKg > 0 ? Math.round(totalKg * costPerKg * 100) / 100 : undefined,
     }];
   }
 
@@ -60,9 +85,13 @@ export function calculateFeedSplit(
   const totalWeight = animalWeights.reduce((sum, a) => sum + a.weight, 0);
 
   // Calculate proportional feed for each animal
-  return animalWeights.map(a => ({
-    ...a,
-    kilograms: Math.round((a.weight / totalWeight) * totalKg * 100) / 100,
-    percentage: Math.round((a.weight / totalWeight) * 100),
-  }));
+  return animalWeights.map(a => {
+    const kilograms = Math.round((a.weight / totalWeight) * totalKg * 100) / 100;
+    return {
+      ...a,
+      kilograms,
+      percentage: Math.round((a.weight / totalWeight) * 100),
+      cost: costPerKg > 0 ? Math.round(kilograms * costPerKg * 100) / 100 : undefined,
+    };
+  });
 }
