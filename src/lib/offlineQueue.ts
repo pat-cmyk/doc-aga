@@ -14,6 +14,14 @@ const MAX_QUEUE_SIZE = 50;
  * Stores all data needed to process voice recordings and animal form submissions
  * when internet connection is restored. Tracks retry attempts and processing status.
  */
+/**
+ * Queue item representing an offline operation waiting to be synced
+ * 
+ * Stores all data needed to process voice recordings and animal form submissions
+ * when internet connection is restored. Tracks retry attempts and processing status.
+ * 
+ * Phase 2: Added optimistic update support fields
+ */
 interface QueueItem {
   id: string;
   type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'bulk_feed' | 'bulk_health';
@@ -78,6 +86,18 @@ interface QueueItem {
   retries: number;
   error?: string;
   processedAt?: number;
+  
+  // Phase 2: Optimistic update support
+  /** Temporary ID for instant UI display before server confirms */
+  optimisticId: string;
+  /** Server response after successful sync */
+  serverResponse?: any;
+  /** Server data if conflict detected during sync */
+  conflictData?: any;
+  /** Version when edit started (for conflict detection) */
+  baseVersion?: number;
+  /** Only the changed fields (for partial updates) */
+  localChanges?: Record<string, any>;
 }
 
 /**
@@ -112,8 +132,15 @@ async function getDB() {
 
 /**
  * Add a new item to the offline queue
+ * 
+ * Auto-generates optimisticId if not provided for tracking optimistic updates.
  */
-export async function addToQueue(item: Omit<QueueItem, 'retries' | 'status'> & { status?: QueueItem['status'] }): Promise<void> {
+export async function addToQueue(
+  item: Omit<QueueItem, 'retries' | 'status' | 'optimisticId'> & { 
+    status?: QueueItem['status'];
+    optimisticId?: string;
+  }
+): Promise<string> {
   const db = await getDB();
   const tx = db.transaction('queue', 'readwrite');
   
@@ -126,13 +153,19 @@ export async function addToQueue(item: Omit<QueueItem, 'retries' | 'status'> & {
     }
   }
   
+  // Auto-generate optimisticId if not provided
+  const optimisticId = item.optimisticId || crypto.randomUUID();
+  
   await tx.store.add({
     ...item,
     status: item.status || 'pending',
     retries: 0,
+    optimisticId,
   } as QueueItem);
   
   await tx.done;
+  
+  return optimisticId;
 }
 
 /**

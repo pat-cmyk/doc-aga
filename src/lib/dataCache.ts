@@ -963,3 +963,208 @@ export async function clearAllCaches() {
     console.error('[DataCache] Failed to clear caches:', error);
   }
 }
+
+// ============= OPTIMISTIC UPDATE FUNCTIONS (Phase 2) =============
+
+/**
+ * Optimistic record storage for pending sync items
+ */
+interface OptimisticRecordEntry {
+  optimisticId: string;
+  type: 'milking' | 'feeding' | 'health' | 'weight' | 'ai';
+  animalId: string;
+  farmId: string;
+  data: any;
+  createdAt: number;
+}
+
+// In-memory store for optimistic records (cleared on page refresh)
+const optimisticRecordsStore = new Map<string, OptimisticRecordEntry>();
+
+/**
+ * Add optimistic records to cache with pending status
+ * 
+ * Immediately adds records to cache so they appear in UI before server sync.
+ * 
+ * @param farmId - UUID of the farm
+ * @param recordType - Type of record being added
+ * @param records - Array of record data with animalId
+ * @param optimisticId - Unique ID for tracking this batch
+ * 
+ * @example
+ * ```typescript
+ * await addOptimisticRecords(farmId, 'milking', [
+ *   { animalId: 'abc', liters: 5, date: '2024-01-01' }
+ * ], 'opt-123');
+ * ```
+ */
+export async function addOptimisticRecords(
+  farmId: string,
+  recordType: 'milking' | 'weight' | 'health' | 'ai' | 'feeding',
+  records: Array<{ animalId: string; [key: string]: any }>,
+  optimisticId: string
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const now = Date.now();
+
+    // Store in memory for quick access
+    for (const record of records) {
+      const entry: OptimisticRecordEntry = {
+        optimisticId,
+        type: recordType,
+        animalId: record.animalId,
+        farmId,
+        data: { ...record, optimisticId, syncStatus: 'pending' },
+        createdAt: now,
+      };
+      optimisticRecordsStore.set(`${optimisticId}-${record.animalId}`, entry);
+    }
+
+    // Also update IndexedDB cache for each animal
+    for (const record of records) {
+      const existingCache = await db.get('records', record.animalId);
+      if (existingCache) {
+        const recordsArray = existingCache[recordType] || [];
+        const optimisticRecord = {
+          ...record,
+          id: `optimistic-${optimisticId}-${record.animalId}`,
+          optimisticId,
+          syncStatus: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        
+        await db.put('records', {
+          ...existingCache,
+          [recordType]: [optimisticRecord, ...recordsArray],
+          syncStatus: 'pending',
+          pendingChanges: (existingCache.pendingChanges || 0) + 1,
+        });
+      }
+    }
+
+    console.log(`[DataCache] Added ${records.length} optimistic ${recordType} records`);
+  } catch (error) {
+    console.error('[DataCache] Failed to add optimistic records:', error);
+  }
+}
+
+/**
+ * Confirm optimistic records after successful server sync
+ * 
+ * Updates cached records with server-confirmed IDs and removes pending status.
+ * 
+ * @param optimisticId - The optimistic ID used when creating records
+ * @param serverRecords - Array of records returned from server with real IDs
+ */
+export async function confirmOptimisticRecords(
+  optimisticId: string,
+  serverRecords: any[]
+): Promise<void> {
+  try {
+    const db = await getDB();
+    
+    // Get all entries with this optimisticId
+    const entries = Array.from(optimisticRecordsStore.entries())
+      .filter(([key]) => key.startsWith(`${optimisticId}-`));
+
+    for (const [key, entry] of entries) {
+      // Find matching server record
+      const serverRecord = serverRecords.find(sr => sr.animal_id === entry.animalId);
+      
+      if (serverRecord) {
+        // Update the cache with server-confirmed data
+        const existingCache = await db.get('records', entry.animalId);
+        if (existingCache) {
+          const recordsArray = existingCache[entry.type] || [];
+          const updatedRecords = recordsArray.map((r: any) => {
+            if (r.optimisticId === optimisticId) {
+              return {
+                ...serverRecord,
+                syncStatus: 'synced',
+                optimisticId: undefined,
+              };
+            }
+            return r;
+          });
+
+          await db.put('records', {
+            ...existingCache,
+            [entry.type]: updatedRecords,
+            syncStatus: 'synced',
+            pendingChanges: Math.max(0, (existingCache.pendingChanges || 1) - 1),
+          });
+        }
+      }
+
+      // Remove from memory store
+      optimisticRecordsStore.delete(key);
+    }
+
+    console.log(`[DataCache] Confirmed ${entries.length} optimistic records`);
+  } catch (error) {
+    console.error('[DataCache] Failed to confirm optimistic records:', error);
+  }
+}
+
+/**
+ * Rollback optimistic records on sync failure
+ * 
+ * Removes optimistic records from cache when sync fails.
+ * 
+ * @param optimisticId - The optimistic ID of records to remove
+ */
+export async function rollbackOptimisticRecords(
+  optimisticId: string
+): Promise<void> {
+  try {
+    const db = await getDB();
+    
+    // Get all entries with this optimisticId
+    const entries = Array.from(optimisticRecordsStore.entries())
+      .filter(([key]) => key.startsWith(`${optimisticId}-`));
+
+    for (const [key, entry] of entries) {
+      // Remove from cache
+      const existingCache = await db.get('records', entry.animalId);
+      if (existingCache) {
+        const recordsArray = existingCache[entry.type] || [];
+        const filteredRecords = recordsArray.filter(
+          (r: any) => r.optimisticId !== optimisticId
+        );
+
+        await db.put('records', {
+          ...existingCache,
+          [entry.type]: filteredRecords,
+          pendingChanges: Math.max(0, (existingCache.pendingChanges || 1) - 1),
+        });
+      }
+
+      // Remove from memory store
+      optimisticRecordsStore.delete(key);
+    }
+
+    console.log(`[DataCache] Rolled back ${entries.length} optimistic records`);
+  } catch (error) {
+    console.error('[DataCache] Failed to rollback optimistic records:', error);
+  }
+}
+
+/**
+ * Get all optimistic (pending) records for a farm
+ */
+export function getOptimisticRecords(farmId: string): OptimisticRecordEntry[] {
+  return Array.from(optimisticRecordsStore.values())
+    .filter(entry => entry.farmId === farmId);
+}
+
+/**
+ * Check if there are any pending optimistic records
+ */
+export function hasPendingOptimisticRecords(farmId?: string): boolean {
+  if (!farmId) {
+    return optimisticRecordsStore.size > 0;
+  }
+  return Array.from(optimisticRecordsStore.values())
+    .some(entry => entry.farmId === farmId);
+}

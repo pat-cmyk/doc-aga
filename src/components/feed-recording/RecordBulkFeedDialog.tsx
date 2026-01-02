@@ -176,11 +176,30 @@ export function RecordBulkFeedDialog({
     if (!farmId || splitPreview.length === 0 || !feedType) return;
 
     setIsSubmitting(true);
+    const optimisticId = crypto.randomUUID();
+    
     try {
       const dateTime = format(recordDate, "yyyy-MM-dd'T'HH:mm:ss");
       const feedTypeName = feedType === FRESH_CUT_OPTION 
         ? FRESH_CUT_OPTION 
         : selectedFeedInventory?.feed_type || feedType;
+
+      // Build optimistic records for immediate UI update
+      const optimisticRecords = splitPreview.map((split) => ({
+        id: `optimistic-${optimisticId}-${split.animalId}`,
+        animal_id: split.animalId,
+        record_datetime: dateTime,
+        kilograms: split.kilograms,
+        feed_type: feedTypeName,
+        created_at: new Date().toISOString(),
+        optimisticId,
+        syncStatus: isOnline ? 'syncing' : 'pending',
+      }));
+
+      // Immediately update React Query cache for instant UI feedback
+      queryClient.setQueryData(['feeding-records', farmId], (old: any[] = []) => 
+        [...optimisticRecords, ...old]
+      );
 
       if (!isOnline) {
         // Queue for offline sync
@@ -201,6 +220,7 @@ export function RecordBulkFeedDialog({
             recordDate: dateTime,
           },
           createdAt: Date.now(),
+          optimisticId,
         });
 
         hapticNotification('success');
@@ -305,6 +325,12 @@ export function RecordBulkFeedDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording feed:", error);
+      
+      // Rollback optimistic update
+      queryClient.setQueryData(['feeding-records', farmId], (old: any[] = []) => 
+        old.filter((r: any) => r.optimisticId !== optimisticId)
+      );
+      
       hapticNotification('error');
       toast({
         title: "Error",

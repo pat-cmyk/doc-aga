@@ -140,8 +140,28 @@ export function RecordBulkHealthDialog({
     if (!farmId || selectedAnimals.length === 0 || !diagnosis) return;
 
     setIsSubmitting(true);
+    const optimisticId = crypto.randomUUID();
+    
     try {
       const dateStr = format(recordDate, "yyyy-MM-dd");
+
+      // Build optimistic records for immediate UI update
+      const optimisticRecords = selectedAnimals.map((animal) => ({
+        id: `optimistic-${optimisticId}-${animal.id}`,
+        animal_id: animal.id,
+        visit_date: dateStr,
+        diagnosis: diagnosis,
+        treatment: treatment || null,
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+        optimisticId,
+        syncStatus: isOnline ? 'syncing' : 'pending',
+      }));
+
+      // Immediately update React Query cache for instant UI feedback
+      queryClient.setQueryData(['health-records', farmId], (old: any[] = []) => 
+        [...optimisticRecords, ...old]
+      );
 
       if (!isOnline) {
         // Queue for offline sync
@@ -160,6 +180,7 @@ export function RecordBulkHealthDialog({
             recordDate: dateStr,
           },
           createdAt: Date.now(),
+          optimisticId,
         });
 
         hapticNotification('success');
@@ -201,6 +222,12 @@ export function RecordBulkHealthDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording health:", error);
+      
+      // Rollback optimistic update
+      queryClient.setQueryData(['health-records', farmId], (old: any[] = []) => 
+        old.filter((r: any) => r.optimisticId !== optimisticId)
+      );
+      
       hapticNotification('error');
       toast({
         title: "Error",

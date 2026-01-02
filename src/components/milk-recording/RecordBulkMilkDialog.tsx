@@ -134,8 +134,28 @@ export function RecordBulkMilkDialog({
     if (!farmId || splitPreview.length === 0) return;
 
     setIsSubmitting(true);
+    const optimisticId = crypto.randomUUID();
+    
     try {
       const dateStr = format(recordDate, "yyyy-MM-dd");
+
+      // Build optimistic records for immediate UI update
+      const optimisticRecords = splitPreview.map((split) => ({
+        id: `optimistic-${optimisticId}-${split.animalId}`,
+        animal_id: split.animalId,
+        record_date: dateStr,
+        liters: split.liters,
+        session: session,
+        is_sold: false,
+        created_at: new Date().toISOString(),
+        optimisticId,
+        syncStatus: isOnline ? 'syncing' : 'pending',
+      }));
+
+      // Immediately update React Query cache for instant UI feedback
+      queryClient.setQueryData(['milking-records', farmId], (old: any[] = []) => 
+        [...optimisticRecords, ...old]
+      );
 
       if (!isOnline) {
         // Queue for offline sync
@@ -153,6 +173,7 @@ export function RecordBulkMilkDialog({
             })),
           },
           createdAt: Date.now(),
+          optimisticId,
         });
 
         hapticNotification('success');
@@ -194,6 +215,12 @@ export function RecordBulkMilkDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
+      
+      // Rollback optimistic update
+      queryClient.setQueryData(['milking-records', farmId], (old: any[] = []) => 
+        old.filter((r: any) => r.optimisticId !== optimisticId)
+      );
+      
       hapticNotification('error');
       toast({
         title: "Error",
