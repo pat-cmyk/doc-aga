@@ -4,11 +4,13 @@ import {
   updateStatus, 
   incrementRetries,
   setAwaitingConfirmation,
+  updateItem,
   type QueueItem 
 } from './offlineQueue';
 import { processVoiceQueue } from './voiceQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
+import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
 
 /**
  * Maximum number of retry attempts for failed sync operations
@@ -380,8 +382,19 @@ async function syncBulkMilk(item: QueueItem): Promise<void> {
     is_sold: false,
   }));
 
-  const { error } = await supabase.from('milking_records').insert(records);
+  const { data: insertedRecords, error } = await supabase
+    .from('milking_records')
+    .insert(records)
+    .select();
+    
   if (error) throw error;
+
+  // Confirm optimistic records with server data
+  if (item.optimisticId && insertedRecords) {
+    await confirmOptimisticRecords(item.optimisticId, insertedRecords);
+    // Store server response in queue item
+    await updateItem(item.id, { serverResponse: insertedRecords });
+  }
 }
 
 /**
@@ -406,8 +419,17 @@ async function syncBulkFeed(item: QueueItem): Promise<void> {
     created_by: user?.id,
   }));
 
-  const { error: insertError } = await supabase.from('feeding_records').insert(records);
+  const { data: insertedRecords, error: insertError } = await supabase
+    .from('feeding_records')
+    .insert(records)
+    .select();
   if (insertError) throw insertError;
+
+  // Confirm optimistic records with server data
+  if (item.optimisticId && insertedRecords) {
+    await confirmOptimisticRecords(item.optimisticId, insertedRecords);
+    await updateItem(item.id, { serverResponse: insertedRecords });
+  }
 
   // Update inventory if applicable
   if (feedInventoryId && totalKg) {
@@ -479,6 +501,16 @@ async function syncBulkHealth(item: QueueItem): Promise<void> {
     created_by: user?.id,
   }));
 
-  const { error } = await supabase.from('health_records').insert(records);
+  const { data: insertedRecords, error } = await supabase
+    .from('health_records')
+    .insert(records)
+    .select();
+    
   if (error) throw error;
+
+  // Confirm optimistic records with server data
+  if (item.optimisticId && insertedRecords) {
+    await confirmOptimisticRecords(item.optimisticId, insertedRecords);
+    await updateItem(item.id, { serverResponse: insertedRecords });
+  }
 }
