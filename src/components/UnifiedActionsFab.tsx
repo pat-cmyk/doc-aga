@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { hapticImpact } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
+import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
+import { useSearchParams } from "react-router-dom";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -32,9 +34,14 @@ export function UnifiedActionsFab({
 }: UnifiedActionsFabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
+  const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Get current farm ID from URL params
+  const [searchParams] = useSearchParams();
+  const currentFarmId = searchParams.get('farm') || localStorage.getItem('currentFarmId');
 
   useEffect(() => {
     // Check if onboarding should be shown when Doc Aga opens
@@ -85,7 +92,11 @@ export function UnifiedActionsFab({
         }
         break;
       case 'milk':
-        onRecordMilk?.();
+        if (onRecordMilk) {
+          onRecordMilk();
+        } else {
+          setIsRecordMilkOpen(true);
+        }
         break;
       case 'health':
         onRecordHealth?.();
@@ -270,6 +281,13 @@ export function UnifiedActionsFab({
           onClick={() => setIsDocAgaOpen(false)}
         />
       )}
+
+      {/* Record Bulk Milk Dialog */}
+      <RecordBulkMilkDialog
+        open={isRecordMilkOpen}
+        onOpenChange={setIsRecordMilkOpen}
+        farmId={currentFarmId}
+      />
     </>
   );
 }
