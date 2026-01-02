@@ -7,9 +7,9 @@ import { hapticImpact } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
 import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
-import { useSearchParams } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
+import { useFarm } from "@/contexts/FarmContext";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -44,9 +44,8 @@ export function UnifiedActionsFab({
   const [onboardingStep, setOnboardingStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Get current farm ID from URL params
-  const [searchParams] = useSearchParams();
-  const currentFarmId = searchParams.get('farm') || localStorage.getItem('currentFarmId');
+  // Get current farm ID from context
+  const { farmId } = useFarm();
 
   useEffect(() => {
     // Check if onboarding should be shown when Doc Aga opens
@@ -299,14 +298,14 @@ export function UnifiedActionsFab({
       <RecordBulkMilkDialog
         open={isRecordMilkOpen}
         onOpenChange={setIsRecordMilkOpen}
-        farmId={currentFarmId}
+        farmId={farmId}
       />
 
       {/* Record Bulk Feed Dialog */}
       <RecordBulkFeedDialog
         open={isRecordFeedOpen}
         onOpenChange={setIsRecordFeedOpen}
-        farmId={currentFarmId}
+        farmId={farmId}
       />
 
       {/* Add Animal Sheet */}
@@ -320,9 +319,9 @@ export function UnifiedActionsFab({
             </SheetTitle>
           </SheetHeader>
           <div className="py-4">
-            {currentFarmId && (
+            {farmId && (
               <AnimalForm 
-                farmId={currentFarmId} 
+                farmId={farmId} 
                 onSuccess={() => setIsAddAnimalOpen(false)}
                 onCancel={() => setIsAddAnimalOpen(false)}
                 defaultQuickMode={true}

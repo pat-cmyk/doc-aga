@@ -18,14 +18,18 @@ import { QueueStatus } from "@/components/QueueStatus";
 import { MySubmissions } from "@/components/approval/MySubmissions";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { syncQueue } from "@/lib/syncService";
+import { useFarm } from "@/contexts/FarmContext";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  
+  // Farm context for shared state
+  const { farmId, setFarmId } = useFarm();
+  
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [farmId, setFarmId] = useState<string | null>(null);
   const [showDocAga, setShowDocAga] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
