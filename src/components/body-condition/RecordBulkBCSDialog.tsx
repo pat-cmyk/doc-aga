@@ -250,6 +250,11 @@ export function RecordBulkBCSDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Drag Handle Indicator */}
+        <div className="flex justify-center pt-2 pb-1 -mt-2">
+          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
+        </div>
+
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" />
@@ -266,7 +271,8 @@ export function RecordBulkBCSDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <div className="relative flex-1 min-h-0">
+          <ScrollArea className="h-full max-h-[calc(85vh-200px)] -mx-6 px-6">
           <div className="space-y-5 pb-4">
             {/* Date Selection */}
             <div className="space-y-2">
@@ -460,7 +466,11 @@ export function RecordBulkBCSDialog({
               />
             </div>
           </div>
-        </ScrollArea>
+          </ScrollArea>
+
+          {/* Bottom scroll shadow indicator */}
+          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4 border-t">

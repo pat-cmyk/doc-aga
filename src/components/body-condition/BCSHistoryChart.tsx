@@ -9,14 +9,17 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { Scale, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Scale, TrendingUp, TrendingDown, Minus, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useBodyConditionScores } from "@/hooks/useBodyConditionScores";
 import { cn } from "@/lib/utils";
+import { RecordBCSDialog } from "./RecordBCSDialog";
 
 interface BCSHistoryChartProps {
   animalId: string;
+  farmId?: string;
   className?: string;
 }
 
@@ -58,7 +61,7 @@ const CustomTooltip = ({ active, payload, getBCSStatus }: CustomTooltipProps) =>
   );
 };
 
-export function BCSHistoryChart({ animalId, className }: BCSHistoryChartProps) {
+export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChartProps) {
   const { bcsRecords, isLoading, latestBCS, getBCSStatus } = useBodyConditionScores(animalId);
 
   const chartData = useMemo(() => {
@@ -77,15 +80,33 @@ export function BCSHistoryChart({ animalId, className }: BCSHistoryChartProps) {
 
   const currentStatus = latestBCS ? getBCSStatus(latestBCS.score) : null;
 
+  // Shared header with Record BCS button
+  const renderHeader = () => (
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+        <Scale className="h-5 w-5 text-purple-500" />
+        Body Condition Score
+      </CardTitle>
+      {farmId && (
+        <RecordBCSDialog
+          animalId={animalId}
+          farmId={farmId}
+          trigger={
+            <Button size="sm" className="gap-1.5 min-h-[40px]">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Record BCS</span>
+              <span className="sm:hidden">BCS</span>
+            </Button>
+          }
+        />
+      )}
+    </CardHeader>
+  );
+
   if (isLoading) {
     return (
       <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-purple-500" />
-            Body Condition Score
-          </CardTitle>
-        </CardHeader>
+        {renderHeader()}
         <CardContent>
           <div className="h-[200px] flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">Loading BCS data...</div>
@@ -98,12 +119,7 @@ export function BCSHistoryChart({ animalId, className }: BCSHistoryChartProps) {
   if (bcsRecords.length === 0) {
     return (
       <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-purple-500" />
-            Body Condition Score
-          </CardTitle>
-        </CardHeader>
+        {renderHeader()}
         <CardContent>
           <div className="h-[150px] flex flex-col items-center justify-center text-center">
             <Scale className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -119,12 +135,7 @@ export function BCSHistoryChart({ animalId, className }: BCSHistoryChartProps) {
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-purple-500" />
-          Body Condition Score
-        </CardTitle>
-      </CardHeader>
+      {renderHeader()}
       <CardContent className="space-y-4">
         {/* Current BCS Summary */}
         {latestBCS && currentStatus && (

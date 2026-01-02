@@ -35,9 +35,10 @@ interface WeightRecordsProps {
   livestockType?: string;
   gender?: string | null;
   lifeStage?: string | null;
+  farmId?: string;
 }
 
-export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage, farmId }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -390,7 +391,7 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
 
       {/* BCS History Chart */}
       <div className="mt-6 pt-6 border-t">
-        <BCSHistoryChart animalId={animalId} />
+        <BCSHistoryChart animalId={animalId} farmId={farmId} />
       </div>
     </div>
   );
