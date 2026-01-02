@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
-import { Stethoscope, X, Milk, Heart, PawPrint, Wheat } from "lucide-react";
+import { Stethoscope, X, Milk, Heart, PawPrint, Wheat, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, complete
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
 import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
 import { RecordBulkHealthDialog } from "@/components/health-recording/RecordBulkHealthDialog";
+import { RecordBulkBCSDialog } from "@/components/body-condition/RecordBulkBCSDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
 import { useFarm } from "@/contexts/FarmContext";
@@ -21,6 +22,7 @@ interface UnifiedActionsFabProps {
   onRecordHealth?: () => void;
   onAddAnimal?: () => void;
   onRecordFeed?: () => void;
+  onRecordBCS?: () => void;
 }
 
 const quickActions = [
@@ -28,6 +30,7 @@ const quickActions = [
   { id: 'milk', label: 'Record Milk', icon: Milk, color: 'text-blue-500' },
   { id: 'feed', label: 'Record Feed', icon: Wheat, color: 'text-orange-500' },
   { id: 'health', label: 'Record Health', icon: Heart, color: 'text-red-500' },
+  { id: 'bcs', label: 'Record BCS', icon: Scale, color: 'text-purple-500' },
   { id: 'add-animal', label: 'Add Animal', icon: PawPrint, color: 'text-green-500' },
 ];
 
@@ -35,13 +38,15 @@ export function UnifiedActionsFab({
   onRecordMilk, 
   onRecordHealth, 
   onAddAnimal,
-  onRecordFeed 
+  onRecordFeed,
+  onRecordBCS
 }: UnifiedActionsFabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
   const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
   const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
   const [isRecordHealthOpen, setIsRecordHealthOpen] = useState(false);
+  const [isRecordBCSOpen, setIsRecordBCSOpen] = useState(false);
   const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -66,7 +71,7 @@ export function UnifiedActionsFab({
       if (action.id === 'add-animal') return canAddAnimals;
       
       // Recording actions for all farm members with record permission
-      if (['milk', 'feed', 'health'].includes(action.id)) return canCreateRecords;
+      if (['milk', 'feed', 'health', 'bcs'].includes(action.id)) return canCreateRecords;
       
       return true;
     });
@@ -146,6 +151,13 @@ export function UnifiedActionsFab({
           onRecordFeed();
         } else {
           setIsRecordFeedOpen(true);
+        }
+        break;
+      case 'bcs':
+        if (onRecordBCS) {
+          onRecordBCS();
+        } else {
+          setIsRecordBCSOpen(true);
         }
         break;
     }
@@ -341,6 +353,13 @@ export function UnifiedActionsFab({
       <RecordBulkHealthDialog
         open={isRecordHealthOpen}
         onOpenChange={setIsRecordHealthOpen}
+        farmId={farmId}
+      />
+
+      {/* Record Bulk BCS Dialog */}
+      <RecordBulkBCSDialog
+        open={isRecordBCSOpen}
+        onOpenChange={setIsRecordBCSOpen}
         farmId={farmId}
       />
 
