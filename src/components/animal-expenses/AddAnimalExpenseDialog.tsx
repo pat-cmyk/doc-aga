@@ -50,6 +50,7 @@ export function AddAnimalExpenseDialog({
   const [date, setDate] = useState<Date>(new Date());
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const addExpense = useAddAnimalExpense();
 
@@ -136,7 +137,7 @@ export function AddAnimalExpenseDialog({
 
           <div className="space-y-2">
             <Label>Date *</Label>
-            <Popover>
+            <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -153,9 +154,15 @@ export function AddAnimalExpenseDialog({
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={(d) => d && setDate(d)}
+                  onSelect={(d) => {
+                    if (d) {
+                      setDate(d);
+                      setDatePopoverOpen(false);
+                    }
+                  }}
                   disabled={(d) => d > new Date()}
                   initialFocus
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
