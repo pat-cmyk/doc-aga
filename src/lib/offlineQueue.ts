@@ -134,6 +134,7 @@ async function getDB() {
  * Add a new item to the offline queue
  * 
  * Auto-generates optimisticId if not provided for tracking optimistic updates.
+ * Triggers background sync if online.
  */
 export async function addToQueue(
   item: Omit<QueueItem, 'retries' | 'status' | 'optimisticId'> & { 
@@ -164,6 +165,16 @@ export async function addToQueue(
   } as QueueItem);
   
   await tx.done;
+  
+  // Trigger background sync if online
+  if (navigator.onLine) {
+    // Dynamically import to avoid circular dependencies
+    import('./swBridge').then(({ requestBackgroundSync }) => {
+      requestBackgroundSync();
+    }).catch(() => {
+      // Silently fail if bridge not available
+    });
+  }
   
   return optimisticId;
 }

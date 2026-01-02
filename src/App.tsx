@@ -19,6 +19,7 @@ import { syncQueue } from "./lib/syncService";
 import { initNotifications } from "./lib/notificationService";
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
+import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
 
 // Lazy load page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -81,10 +82,19 @@ const queryClient = new QueryClient({
   },
 });
 
-// Component to handle sync and notifications
+// Component to handle sync, notifications, and service worker bridge
 const SyncHandler = () => {
   const isOnline = useOnlineStatus();
   const navigate = useNavigate();
+
+  // Initialize service worker bridge on mount
+  useEffect(() => {
+    initServiceWorkerBridge(() => {
+      // Service worker triggered a sync (e.g., when device comes online)
+      console.log('[SyncHandler] SW bridge triggered sync');
+      syncQueue();
+    });
+  }, []);
 
   useEffect(() => {
     // Initialize notifications on mount
@@ -109,28 +119,32 @@ const SyncHandler = () => {
   useEffect(() => {
     // Trigger sync when coming back online
     if (isOnline) {
-      console.log('Online detected, starting sync...');
-      // Debounce to avoid rapid sync attempts
-      const timer = setTimeout(() => {
-        syncQueue();
-      }, 2000);
-      return () => clearTimeout(timer);
+      console.log('[SyncHandler] Online detected, requesting background sync...');
+      
+      // Try background sync first (works even if app closes)
+      requestBackgroundSync().then((registered) => {
+        if (!registered) {
+          // Fallback: sync immediately if Background Sync API not supported
+          console.log('[SyncHandler] Background sync not available, syncing directly...');
+          setTimeout(() => syncQueue(), 2000);
+        }
+      });
     }
   }, [isOnline]);
 
   useEffect(() => {
-    // Periodic background sync every 5 minutes while online
+    // Periodic background sync every 5 minutes while online (fallback for browsers without Periodic Sync)
     if (!isOnline) return;
 
-    console.log('[BackgroundSync] Setting up periodic sync (every 5 minutes)');
+    console.log('[SyncHandler] Setting up periodic sync fallback (every 5 minutes)');
     
     const interval = setInterval(() => {
-      console.log('[BackgroundSync] Running periodic sync...');
+      console.log('[SyncHandler] Running periodic sync...');
       syncQueue();
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
-      console.log('[BackgroundSync] Clearing periodic sync interval');
+      console.log('[SyncHandler] Clearing periodic sync interval');
       clearInterval(interval);
     };
   }, [isOnline]);
