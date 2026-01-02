@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { DocAgaLogo } from "@/components/DocAgaLogo";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const MerchantAuth = () => {
@@ -212,7 +213,7 @@ const MerchantAuth = () => {
       <Card className="w-full max-w-2xl">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Store className="h-12 w-12 text-primary" />
+            <DocAgaLogo size="lg" />
           </div>
           <CardTitle className="text-2xl text-center">Merchant Portal</CardTitle>
           <CardDescription className="text-center">
