@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { format, subDays } from "date-fns";
-import { Scale, CalendarIcon, WifiOff } from "lucide-react";
+import { Scale, CalendarIcon, WifiOff, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,6 +22,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals, FarmAnimal } from "@/hooks/useFarmAnimals";
@@ -30,6 +31,7 @@ import { BCS_LEVELS } from "@/lib/bcsDefinitions";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { hapticSelection, hapticNotification } from "@/lib/haptics";
+import { BCSReferenceGuide } from "./BCSReferenceGuide";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -79,6 +81,7 @@ export function RecordBulkBCSDialog({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cachedAnimals, setCachedAnimals] = useState<FarmAnimal[]>([]);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Fetch animals
   const { data: animals = [], isLoading: animalsLoading } = useFarmAnimals(farmId);
@@ -310,7 +313,34 @@ export function RecordBulkBCSDialog({
 
             {/* Score Controls - Moved above display for visibility */}
             <div className="space-y-4">
-              <Label>Body Condition Score</Label>
+              <div className="flex items-center justify-between">
+                <Label>Body Condition Score</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    hapticSelection();
+                    setShowGuide(!showGuide);
+                  }}
+                  className="gap-1.5 text-xs h-8 px-2"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {showGuide ? "Hide Guide" : "Show Guide"}
+                  {showGuide ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
+              </div>
+
+              {/* Visual BCS Reference Guide */}
+              <Collapsible open={showGuide} onOpenChange={setShowGuide}>
+                <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+                  <BCSReferenceGuide
+                    selectedScore={score}
+                    onScoreSelect={handleQuickScore}
+                    compact
+                  />
+                  <div className="h-3" />
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Quick Score Buttons */}
               <div className="space-y-1.5">
