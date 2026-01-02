@@ -15,8 +15,11 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: null, // Don't inject - we'll register manually after load
+      strategies: 'injectManifest', // Use custom service worker
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'autoUpdate',
+      injectRegister: false, // Manual registration
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
       manifest: {
         name: "Doc Aga - Farm Management System",
@@ -44,59 +47,9 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        runtimeCaching: [
-          {
-            // Cache animal data with cache-first strategy
-            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/animals\?.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "animals-cache",
-              expiration: {
-                maxAgeSeconds: 60 * 60, // 1 hour
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            // Cache records with network-first strategy
-            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/(milking_records|weight_records|health_records|ai_records)\?.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "records-cache",
-              expiration: {
-                maxAgeSeconds: 30 * 60, // 30 minutes
-              },
-            },
-          },
-          {
-            // Cache feed inventory
-            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/rest\/v1\/feed_inventory\?.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "feed-cache",
-              expiration: {
-                maxAgeSeconds: 2 * 60 * 60, // 2 hours
-              },
-            },
-          },
-          {
-            // General API cache fallback
-            urlPattern: /^https:\/\/sxorybjlxyquxteptdyk\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
-            },
-          },
-        ],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
       },
     }),
     // Bundle analyzer - generates stats.html after build
