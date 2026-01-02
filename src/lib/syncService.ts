@@ -11,6 +11,7 @@ import { processVoiceQueue } from './voiceQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
+import { generateClientId } from './syncCheckpoint';
 
 /**
  * Maximum number of retry attempts for failed sync operations
@@ -307,15 +308,24 @@ async function syncAnimalForm(item: QueueItem): Promise<void> {
     }
   }
 
-  // Insert animal
+  // Insert animal with client_generated_id for deduplication
   const { created_by: _createdBy, ...animalInsert } = formData;
+  const clientId = formData.client_generated_id || generateClientId();
+  
   const { data, error } = await supabase
     .from('animals')
-    .insert(animalInsert)
+    .insert({ ...animalInsert, client_generated_id: clientId })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Check if it's a duplicate client_id (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Animal already synced (duplicate client_id), skipping...');
+      return;
+    }
+    throw error;
+  }
 
   // If AI was used, create AI record
   if (item.payload.aiInfo && data) {
@@ -373,21 +383,29 @@ async function syncBulkMilk(item: QueueItem): Promise<void> {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const records = milkRecords.map((record) => ({
+  const records = milkRecords.map((record, index) => ({
     animal_id: record.animalId,
     record_date: record.recordDate,
     liters: record.liters,
     session: record.session,
     created_by: user?.id,
     is_sold: false,
+    client_generated_id: `${item.optimisticId}_milk_${index}`,
   }));
 
   const { data: insertedRecords, error } = await supabase
     .from('milking_records')
     .insert(records)
     .select();
-    
-  if (error) throw error;
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Milk records already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
 
   // Confirm optimistic records with server data
   if (item.optimisticId && insertedRecords) {
@@ -411,19 +429,28 @@ async function syncBulkFeed(item: QueueItem): Promise<void> {
   const dateTime = recordDate || new Date().toISOString();
 
   // Create feeding records
-  const records = feedRecords.map((record) => ({
+  const records = feedRecords.map((record, index) => ({
     animal_id: record.animalId,
     record_datetime: dateTime,
     kilograms: record.kilograms,
     feed_type: feedType,
     created_by: user?.id,
+    client_generated_id: `${item.optimisticId}_feed_${index}`,
   }));
 
   const { data: insertedRecords, error: insertError } = await supabase
     .from('feeding_records')
     .insert(records)
     .select();
-  if (insertError) throw insertError;
+    
+  if (insertError) {
+    // Check if it's a duplicate (already synced)
+    if (insertError.code === '23505' && insertError.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Feed records already synced, skipping...');
+      return;
+    }
+    throw insertError;
+  }
 
   // Confirm optimistic records with server data
   if (item.optimisticId && insertedRecords) {
@@ -492,21 +519,29 @@ async function syncBulkHealth(item: QueueItem): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   const dateStr = recordDate?.split('T')[0] || new Date().toISOString().split('T')[0];
 
-  const records = healthRecords.map((record) => ({
+  const records = healthRecords.map((record, index) => ({
     animal_id: record.animalId,
     visit_date: dateStr,
     diagnosis: diagnosis,
     treatment: treatment || null,
     notes: notes || null,
     created_by: user?.id,
+    client_generated_id: `${item.optimisticId}_health_${index}`,
   }));
 
   const { data: insertedRecords, error } = await supabase
     .from('health_records')
     .insert(records)
     .select();
-    
-  if (error) throw error;
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Health records already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
 
   // Confirm optimistic records with server data
   if (item.optimisticId && insertedRecords) {

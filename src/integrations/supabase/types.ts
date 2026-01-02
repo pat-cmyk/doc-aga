@@ -310,6 +310,7 @@ export type Database = {
       ai_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           confirmed_at: string | null
           created_at: string
           created_by: string | null
@@ -324,6 +325,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -338,6 +340,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -678,6 +681,7 @@ export type Database = {
           animal_id: string
           assessment_date: string
           assessor_id: string | null
+          client_generated_id: string | null
           created_at: string
           farm_id: string
           id: string
@@ -689,6 +693,7 @@ export type Database = {
           animal_id: string
           assessment_date?: string
           assessor_id?: string | null
+          client_generated_id?: string | null
           created_at?: string
           farm_id: string
           id?: string
@@ -700,6 +705,7 @@ export type Database = {
           animal_id?: string
           assessment_date?: string
           assessor_id?: string | null
+          client_generated_id?: string | null
           created_at?: string
           farm_id?: string
           id?: string
@@ -1036,6 +1042,7 @@ export type Database = {
           amount: number
           animal_id: string | null
           category: string
+          client_generated_id: string | null
           created_at: string | null
           description: string | null
           expense_date: string
@@ -1053,6 +1060,7 @@ export type Database = {
           amount: number
           animal_id?: string | null
           category: string
+          client_generated_id?: string | null
           created_at?: string | null
           description?: string | null
           expense_date?: string
@@ -1070,6 +1078,7 @@ export type Database = {
           amount?: number
           animal_id?: string | null
           category?: string
+          client_generated_id?: string | null
           created_at?: string | null
           description?: string | null
           expense_date?: string
@@ -1247,6 +1256,57 @@ export type Database = {
             columns: ["linked_milk_log_id"]
             isOneToOne: false
             referencedRelation: "milking_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farm_sync_checkpoints: {
+        Row: {
+          created_at: string
+          farm_id: string
+          id: string
+          last_record_timestamp: string | null
+          last_sync_at: string
+          records_synced: number
+          table_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          farm_id: string
+          id?: string
+          last_record_timestamp?: string | null
+          last_sync_at?: string
+          records_synced?: number
+          table_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          farm_id?: string
+          id?: string
+          last_record_timestamp?: string | null
+          last_sync_at?: string
+          records_synced?: number
+          table_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_sync_checkpoints_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_sync_checkpoints_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]
@@ -1537,6 +1597,7 @@ export type Database = {
       feeding_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           created_at: string
           created_by: string | null
           feed_type: string | null
@@ -1547,6 +1608,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           feed_type?: string | null
@@ -1557,6 +1619,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           feed_type?: string | null
@@ -1585,6 +1648,7 @@ export type Database = {
       health_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           created_at: string
           created_by: string | null
           diagnosis: string | null
@@ -1595,6 +1659,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           diagnosis?: string | null
@@ -1605,6 +1670,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           diagnosis?: string | null
@@ -1668,6 +1734,7 @@ export type Database = {
       heat_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           created_at: string
           created_by: string | null
           detected_at: string
@@ -1682,6 +1749,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           detected_at?: string
@@ -1696,6 +1764,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           detected_at?: string
@@ -2008,6 +2077,7 @@ export type Database = {
       milking_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -2020,6 +2090,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2032,6 +2103,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2704,6 +2776,132 @@ export type Database = {
           },
         ]
       }
+      sync_conflicts: {
+        Row: {
+          client_data: Json
+          created_at: string
+          farm_id: string
+          id: string
+          record_id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_data: Json | null
+          server_data: Json
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          client_data: Json
+          created_at?: string
+          farm_id: string
+          id?: string
+          record_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_data?: Json | null
+          server_data: Json
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          client_data?: Json
+          created_at?: string
+          farm_id?: string
+          id?: string
+          record_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_data?: Json | null
+          server_data?: Json
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_conflicts_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_conflicts_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_queue: {
+        Row: {
+          client_generated_id: string | null
+          client_timestamp: string | null
+          created_at: string
+          error_message: string | null
+          farm_id: string
+          id: string
+          operation_type: string
+          payload: Json
+          processed_at: string | null
+          record_id: string | null
+          retry_count: number
+          sync_status: Database["public"]["Enums"]["sync_status"]
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          client_generated_id?: string | null
+          client_timestamp?: string | null
+          created_at?: string
+          error_message?: string | null
+          farm_id: string
+          id?: string
+          operation_type: string
+          payload: Json
+          processed_at?: string | null
+          record_id?: string | null
+          retry_count?: number
+          sync_status?: Database["public"]["Enums"]["sync_status"]
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          client_generated_id?: string | null
+          client_timestamp?: string | null
+          created_at?: string
+          error_message?: string | null
+          farm_id?: string
+          id?: string
+          operation_type?: string
+          payload?: Json
+          processed_at?: string | null
+          record_id?: string | null
+          retry_count?: number
+          sync_status?: Database["public"]["Enums"]["sync_status"]
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_queue_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_queue_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_results: {
         Row: {
           created_at: string
@@ -3060,6 +3258,7 @@ export type Database = {
       weight_records: {
         Row: {
           animal_id: string
+          client_generated_id: string | null
           created_at: string
           id: string
           measurement_date: string
@@ -3070,6 +3269,7 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          client_generated_id?: string | null
           created_at?: string
           id?: string
           measurement_date: string
@@ -3080,6 +3280,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          client_generated_id?: string | null
           created_at?: string
           id?: string
           measurement_date?: string
@@ -3238,6 +3439,15 @@ export type Database = {
             }
             Returns: string
           }
+      detect_sync_conflict: {
+        Args: {
+          p_client_data: Json
+          p_client_timestamp: string
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: Json
+      }
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
@@ -3501,6 +3711,15 @@ export type Database = {
         Args: { _activity_type: string; _farm_id: string; _user_id: string }
         Returns: boolean
       }
+      update_sync_checkpoint: {
+        Args: {
+          p_farm_id: string
+          p_last_record_timestamp: string
+          p_records_synced: number
+          p_table_name: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       animal_event_type:
@@ -3557,6 +3776,7 @@ export type Database = {
         | "health_observation"
         | "weight_measurement"
         | "injection"
+      sync_status: "pending" | "syncing" | "synced" | "conflict" | "error"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status:
         | "open"
@@ -3760,6 +3980,7 @@ export const Constants = {
         "weight_measurement",
         "injection",
       ],
+      sync_status: ["pending", "syncing", "synced", "conflict", "error"],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: [
         "open",
