@@ -23,6 +23,7 @@ interface RecordHeatDialogProps {
 export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: RecordHeatDialogProps) {
   const [open, setOpen] = useState(false);
   const [detectedAt, setDetectedAt] = useState<Date>(new Date());
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [detectionMethod, setDetectionMethod] = useState('visual');
   const [intensity, setIntensity] = useState('normal');
   const [standingHeat, setStandingHeat] = useState(false);
@@ -75,7 +76,7 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
           {/* Date/Time */}
           <div className="space-y-2">
             <Label>When Detected</Label>
-            <Popover>
+            <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -89,8 +90,14 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
                 <Calendar
                   mode="single"
                   selected={detectedAt}
-                  onSelect={(date) => date && setDetectedAt(date)}
+                  onSelect={(date) => {
+                    if (date) {
+                      setDetectedAt(date);
+                      setDatePopoverOpen(false);
+                    }
+                  }}
                   initialFocus
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>

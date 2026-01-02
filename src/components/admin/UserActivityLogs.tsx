@@ -18,6 +18,8 @@ export const UserActivityLogs = () => {
   const [activityCategory, setActivityCategory] = useState<string | undefined>();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromPopoverOpen, setDateFromPopoverOpen] = useState(false);
+  const [dateToPopoverOpen, setDateToPopoverOpen] = useState(false);
 
   const { data: logs, isLoading } = useActivityLogs({
     activityType,
@@ -141,7 +143,7 @@ export const UserActivityLogs = () => {
             </SelectContent>
           </Select>
 
-          <Popover>
+          <Popover open={dateFromPopoverOpen} onOpenChange={setDateFromPopoverOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -149,11 +151,20 @@ export const UserActivityLogs = () => {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus />
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={(d) => {
+                  setDateFrom(d);
+                  setDateFromPopoverOpen(false);
+                }}
+                initialFocus
+                className="pointer-events-auto"
+              />
             </PopoverContent>
           </Popover>
 
-          <Popover>
+          <Popover open={dateToPopoverOpen} onOpenChange={setDateToPopoverOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -161,7 +172,16 @@ export const UserActivityLogs = () => {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus />
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={(d) => {
+                  setDateTo(d);
+                  setDateToPopoverOpen(false);
+                }}
+                initialFocus
+                className="pointer-events-auto"
+              />
             </PopoverContent>
           </Popover>
 
