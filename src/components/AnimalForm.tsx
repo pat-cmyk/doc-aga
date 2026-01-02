@@ -34,9 +34,10 @@ interface AnimalFormProps {
   farmId: string;
   onSuccess: () => void;
   onCancel: () => void;
+  defaultQuickMode?: boolean;
 }
 
-const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
+const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFormProps) => {
   const [creating, setCreating] = useState(false);
   const [genderError, setGenderError] = useState(false);
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
@@ -46,8 +47,9 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   
-  // Quick Add Mode state - persisted to localStorage
+  // Quick Add Mode state - persisted to localStorage (unless defaultQuickMode is provided)
   const [isQuickMode, setIsQuickMode] = useState(() => {
+    if (defaultQuickMode !== undefined) return defaultQuickMode;
     const saved = localStorage.getItem('animalForm_quickMode');
     return saved === null ? true : saved === 'true'; // Default to quick mode for new users
   });

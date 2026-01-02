@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { Stethoscope, X, Milk, Heart, Activity, Wheat } from "lucide-react";
+import { Stethoscope, X, Milk, Heart, PawPrint, Wheat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,8 @@ import { hapticImpact } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
 import { useSearchParams } from "react-router-dom";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import AnimalForm from "@/components/AnimalForm";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -14,7 +16,7 @@ const DocAga = lazy(() => import("./DocAga"));
 interface UnifiedActionsFabProps {
   onRecordMilk?: () => void;
   onRecordHealth?: () => void;
-  onLogActivity?: () => void;
+  onAddAnimal?: () => void;
   onRecordFeed?: () => void;
 }
 
@@ -22,19 +24,20 @@ const quickActions = [
   { id: 'doc-aga', label: 'Ask Doc Aga', icon: Stethoscope, color: 'bg-primary text-primary-foreground', isPrimary: true },
   { id: 'milk', label: 'Record Milk', icon: Milk, color: 'text-blue-500' },
   { id: 'health', label: 'Record Health', icon: Heart, color: 'text-red-500' },
-  { id: 'activity', label: 'Log Activity', icon: Activity, color: 'text-green-500' },
+  { id: 'add-animal', label: 'Add Animal', icon: PawPrint, color: 'text-green-500' },
   { id: 'feed', label: 'Record Feed', icon: Wheat, color: 'text-orange-500' },
 ];
 
 export function UnifiedActionsFab({ 
   onRecordMilk, 
   onRecordHealth, 
-  onLogActivity,
+  onAddAnimal,
   onRecordFeed 
 }: UnifiedActionsFabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
   const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
+  const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,8 +104,12 @@ export function UnifiedActionsFab({
       case 'health':
         onRecordHealth?.();
         break;
-      case 'activity':
-        onLogActivity?.();
+      case 'add-animal':
+        if (onAddAnimal) {
+          onAddAnimal();
+        } else {
+          setIsAddAnimalOpen(true);
+        }
         break;
       case 'feed':
         onRecordFeed?.();
@@ -288,6 +295,29 @@ export function UnifiedActionsFab({
         onOpenChange={setIsRecordMilkOpen}
         farmId={currentFarmId}
       />
+
+      {/* Add Animal Sheet */}
+      <Sheet open={isAddAnimalOpen} onOpenChange={setIsAddAnimalOpen}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <PawPrint className="h-5 w-5" />
+              Quick Add Animal
+              <span className="text-xs text-muted-foreground ml-1">Mabilis na Pagdagdag</span>
+            </SheetTitle>
+          </SheetHeader>
+          <div className="py-4">
+            {currentFarmId && (
+              <AnimalForm 
+                farmId={currentFarmId} 
+                onSuccess={() => setIsAddAnimalOpen(false)}
+                onCancel={() => setIsAddAnimalOpen(false)}
+                defaultQuickMode={true}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
