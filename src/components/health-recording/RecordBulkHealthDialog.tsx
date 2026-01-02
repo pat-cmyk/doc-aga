@@ -26,6 +26,7 @@ import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { HEALTH_CATEGORIES, QUICK_DIAGNOSES, QUICK_TREATMENTS } from "@/lib/healthCategories";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 
 interface RecordBulkHealthDialogProps {
   open: boolean;
@@ -277,13 +278,18 @@ export function RecordBulkHealthDialog({
                     </Button>
                   ))}
                 </div>
-                <Input
-                  placeholder="Or type custom diagnosis..."
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  onFocus={() => hapticImpact('light')}
-                  className="min-h-[48px]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Or type custom diagnosis..."
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                    onFocus={() => hapticImpact('light')}
+                    className="min-h-[48px] flex-1"
+                  />
+                  <VoiceInputButton
+                    onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
+                  />
+                </div>
               </div>
             )}
 
@@ -291,13 +297,18 @@ export function RecordBulkHealthDialog({
             {(selectedCategory === '' || selectedCategory === 'other') && (
               <div className="space-y-2">
                 <Label>Diagnosis *</Label>
-                <Input
-                  placeholder="Enter diagnosis..."
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  onFocus={() => hapticImpact('light')}
-                  className="min-h-[48px]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter diagnosis..."
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                    onFocus={() => hapticImpact('light')}
+                    className="min-h-[48px] flex-1"
+                  />
+                  <VoiceInputButton
+                    onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
+                  />
+                </div>
               </div>
             )}
 
@@ -319,13 +330,18 @@ export function RecordBulkHealthDialog({
                     </Button>
                   ))}
                 </div>
-                <Input
-                  placeholder="Or type custom treatment..."
-                  value={treatment}
-                  onChange={(e) => setTreatment(e.target.value)}
-                  onFocus={() => hapticImpact('light')}
-                  className="min-h-[48px]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Or type custom treatment..."
+                    value={treatment}
+                    onChange={(e) => setTreatment(e.target.value)}
+                    onFocus={() => hapticImpact('light')}
+                    className="min-h-[48px] flex-1"
+                  />
+                  <VoiceInputButton
+                    onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
+                  />
+                </div>
               </div>
             )}
 
@@ -333,26 +349,37 @@ export function RecordBulkHealthDialog({
             {(selectedCategory === '' || selectedCategory === 'other') && (
               <div className="space-y-2">
                 <Label>Treatment</Label>
-                <Input
-                  placeholder="Enter treatment..."
-                  value={treatment}
-                  onChange={(e) => setTreatment(e.target.value)}
-                  onFocus={() => hapticImpact('light')}
-                  className="min-h-[48px]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter treatment..."
+                    value={treatment}
+                    onChange={(e) => setTreatment(e.target.value)}
+                    onFocus={() => hapticImpact('light')}
+                    className="min-h-[48px] flex-1"
+                  />
+                  <VoiceInputButton
+                    onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
+                  />
+                </div>
               </div>
             )}
 
             {/* Notes */}
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
-              <Textarea
-                placeholder="Additional notes..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onFocus={() => hapticImpact('light')}
-                className="min-h-[80px]"
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Additional notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onFocus={() => hapticImpact('light')}
+                  className="min-h-[80px] flex-1"
+                />
+                <VoiceInputButton
+                  onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                  className="self-start"
+                />
+              </div>
             </div>
 
             {/* Preview */}
