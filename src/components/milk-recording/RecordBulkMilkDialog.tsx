@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -8,17 +9,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Milk, Scale, TrendingUp } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Loader2, Milk, Scale, TrendingUp, CalendarIcon, Sun, Moon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLactatingAnimals,
@@ -26,6 +28,8 @@ import {
   getSelectedAnimals,
 } from "@/hooks/useLactatingAnimals";
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
+import { AnimalCombobox } from "./AnimalCombobox";
+import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 
 interface RecordBulkMilkDialogProps {
   open: boolean;
@@ -40,6 +44,10 @@ export function RecordBulkMilkDialog({
 }: RecordBulkMilkDialogProps) {
   const [selectedOption, setSelectedOption] = useState("");
   const [totalLiters, setTotalLiters] = useState("");
+  const [recordDate, setRecordDate] = useState<Date>(new Date());
+  const [session, setSession] = useState<'AM' | 'PM'>(
+    new Date().getHours() < 12 ? 'AM' : 'PM'
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,11 +55,20 @@ export function RecordBulkMilkDialog({
   const { data: animals = [], isLoading } = useLactatingAnimals(farmId);
   const dropdownOptions = useMemo(() => getAnimalDropdownOptions(animals), [animals]);
 
+  // Haptic on dialog open
+  useEffect(() => {
+    if (open) {
+      hapticImpact('light');
+    }
+  }, [open]);
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       setSelectedOption("");
       setTotalLiters("");
+      setRecordDate(new Date());
+      setSession(new Date().getHours() < 12 ? 'AM' : 'PM');
     }
   }, [open]);
 
@@ -68,19 +85,41 @@ export function RecordBulkMilkDialog({
     return calculateMilkSplit(selectedAnimals, liters);
   }, [selectedAnimals, totalLiters]);
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      hapticSelection();
+      setRecordDate(date);
+    }
+  };
+
+  const handleSessionChange = (value: string) => {
+    hapticSelection();
+    setSession(value as 'AM' | 'PM');
+  };
+
+  const handleAnimalChange = (value: string) => {
+    setSelectedOption(value);
+  };
+
+  const handleClose = () => {
+    hapticImpact('light');
+    onOpenChange(false);
+  };
+
   const handleSubmit = async () => {
     if (!farmId || splitPreview.length === 0) return;
 
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const today = new Date().toISOString().split("T")[0];
+      const dateStr = format(recordDate, "yyyy-MM-dd");
 
       // Create milking records for each animal
       const records = splitPreview.map((split) => ({
         animal_id: split.animalId,
-        record_date: today,
+        record_date: dateStr,
         liters: split.liters,
+        session: session,
         created_by: user?.id,
         is_sold: false,
       }));
@@ -94,14 +133,16 @@ export function RecordBulkMilkDialog({
       queryClient.invalidateQueries({ queryKey: ["milk-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
+      hapticNotification('success');
       toast({
         title: "Milk Recorded",
-        description: `${totalLiters}L split across ${splitPreview.length} animal${splitPreview.length > 1 ? "s" : ""}`,
+        description: `${totalLiters}L (${session}) split across ${splitPreview.length} animal${splitPreview.length > 1 ? "s" : ""}`,
       });
 
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
+      hapticNotification('error');
       toast({
         title: "Error",
         description: "Failed to record milk production",
@@ -141,30 +182,71 @@ export function RecordBulkMilkDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Animal Selection */}
+            {/* Date Selection */}
             <div className="space-y-2">
-              <Label htmlFor="animal-select">Select Animals</Label>
-              <Select value={selectedOption} onValueChange={setSelectedOption}>
-                <SelectTrigger id="animal-select" className="min-h-[48px]">
-                  <SelectValue placeholder="Choose animals..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {dropdownOptions.map((opt) =>
-                    opt.value === "__separator__" ? (
-                      <div
-                        key={opt.value}
-                        className="text-xs text-muted-foreground px-2 py-1"
-                      >
-                        Individual Animals
-                      </div>
-                    ) : (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left min-h-[48px]",
+                      !recordDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(recordDate, "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={recordDate}
+                    onSelect={handleDateSelect}
+                    disabled={(date) =>
+                      date > new Date() || date < subDays(new Date(), 7)
+                    }
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* AM/PM Session */}
+            <div className="space-y-2">
+              <Label>Session</Label>
+              <RadioGroup
+                value={session}
+                onValueChange={handleSessionChange}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="AM" id="am" />
+                  <Label htmlFor="am" className="flex items-center gap-1.5 cursor-pointer">
+                    <Sun className="h-4 w-4 text-amber-500" />
+                    Morning
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="PM" id="pm" />
+                  <Label htmlFor="pm" className="flex items-center gap-1.5 cursor-pointer">
+                    <Moon className="h-4 w-4 text-indigo-500" />
+                    Evening
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Animal Selection - Searchable Combobox */}
+            <div className="space-y-2">
+              <Label>Select Animals</Label>
+              <AnimalCombobox
+                options={dropdownOptions}
+                value={selectedOption}
+                onChange={handleAnimalChange}
+                placeholder="Search or select animals..."
+              />
             </div>
 
             {/* Total Liters */}
@@ -178,6 +260,7 @@ export function RecordBulkMilkDialog({
                 placeholder="e.g. 25.5"
                 value={totalLiters}
                 onChange={(e) => setTotalLiters(e.target.value)}
+                onFocus={() => hapticImpact('light')}
                 className="min-h-[48px]"
               />
             </div>
@@ -201,7 +284,7 @@ export function RecordBulkMilkDialog({
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={handleClose}
                 className="flex-1 min-h-[48px]"
                 disabled={isSubmitting}
               >
