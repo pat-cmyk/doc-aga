@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { Calculator } from "lucide-react";
+import { Calculator, Gauge } from "lucide-react";
 import { estimateWeightByAge } from "@/lib/weightEstimates";
 import { useToast } from "@/hooks/use-toast";
 
@@ -153,9 +153,15 @@ export function WeightEstimateButton({
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
         <div className="space-y-4">
-          <div>
-            <h4 className="font-medium text-sm">Ilang buwan ang hayop?</h4>
-            <p className="text-xs text-muted-foreground">How old is the animal?</p>
+          <div className="text-center pb-3 border-b">
+            <div className="flex items-center justify-center gap-2">
+              <Gauge className="h-5 w-5 text-primary" />
+              <h4 className="font-bold text-base text-primary">Tantiya-Meter</h4>
+              <Gauge className="h-5 w-5 text-primary" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ilang buwan ang hayop? (How old is the animal?)
+            </p>
           </div>
           
           <div className="space-y-3">
