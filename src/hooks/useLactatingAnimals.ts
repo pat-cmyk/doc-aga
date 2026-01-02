@@ -35,43 +35,53 @@ export function useLactatingAnimals(farmId: string | null) {
   });
 }
 
-export function getAnimalDropdownOptions(animals: LactatingAnimal[]) {
-  const options: { value: string; label: string; count?: number }[] = [];
-  
-  if (animals.length === 0) return options;
+import type { AnimalOption } from "@/components/milk-recording/AnimalCombobox";
 
-  // Get unique species
-  const species = [...new Set(animals.map(a => a.livestock_type))];
+export function getAnimalDropdownOptions(animals: LactatingAnimal[]): AnimalOption[] {
+  if (animals.length === 0) return [];
 
-  // Add "All Animals" option
+  const options: AnimalOption[] = [];
+
+  // "All Animals" option
   options.push({
     value: 'all',
     label: `All Animals (${animals.length})`,
-    count: animals.length,
+    group: 'quick',
   });
 
-  // Add "All {Species}" for multi-species farms
-  if (species.length > 1) {
-    species.forEach(s => {
-      const count = animals.filter(a => a.livestock_type === s).length;
-      const displayName = s.charAt(0).toUpperCase() + s.slice(1);
+  // Group by species for "All Species" options
+  const speciesGroups = animals.reduce((acc, animal) => {
+    const species = animal.livestock_type;
+    if (!acc[species]) acc[species] = [];
+    acc[species].push(animal);
+    return acc;
+  }, {} as Record<string, LactatingAnimal[]>);
+
+  const speciesTypes = Object.keys(speciesGroups);
+
+  // Add "All {Species}" options if multiple species exist
+  if (speciesTypes.length > 1) {
+    speciesTypes.forEach((species) => {
+      const count = speciesGroups[species].length;
       options.push({
-        value: `all-${s}`,
-        label: `All ${displayName} (${count})`,
-        count,
+        value: `species:${species}`,
+        label: `All ${species.charAt(0).toUpperCase() + species.slice(1)} (${count})`,
+        group: 'quick',
       });
     });
   }
 
-  // Add separator marker
-  options.push({ value: '__separator__', label: '───────────' });
-
   // Add individual animals
-  animals.forEach(a => {
-    const stageSuffix = a.milking_stage ? ` • ${a.milking_stage.replace(' Lactation', '')}` : '';
+  animals.forEach((animal) => {
+    const name = animal.name || animal.ear_tag || 'Unknown';
+    const weight = animal.current_weight_kg ? `${animal.current_weight_kg}kg` : 'No weight';
+    const stage = animal.milking_stage || 'Unknown stage';
+    
     options.push({
-      value: a.id,
-      label: `${a.name || a.ear_tag || 'Unknown'}${stageSuffix}`,
+      value: animal.id,
+      label: name,
+      group: 'individual',
+      subLabel: `${weight} • ${stage}`,
     });
   });
 

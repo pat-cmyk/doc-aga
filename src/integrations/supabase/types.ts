@@ -2010,6 +2010,7 @@ export type Database = {
           price_per_liter: number | null
           record_date: string
           sale_amount: number | null
+          session: string | null
         }
         Insert: {
           animal_id: string
@@ -2021,6 +2022,7 @@ export type Database = {
           price_per_liter?: number | null
           record_date: string
           sale_amount?: number | null
+          session?: string | null
         }
         Update: {
           animal_id?: string
@@ -2032,6 +2034,7 @@ export type Database = {
           price_per_liter?: number | null
           record_date?: string
           sale_amount?: number | null
+          session?: string | null
         }
         Relationships: [
           {
