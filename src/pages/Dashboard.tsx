@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { User, Session } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ import { syncQueue } from "@/lib/syncService";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useFarm } from "@/contexts/FarmContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -42,17 +43,17 @@ const Dashboard = () => {
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
+  
+  // Farm context for shared state
+  const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();
+  
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [farmId, setFarmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [showFarmSetup, setShowFarmSetup] = useState(false);
-  const [canManageFarm, setCanManageFarm] = useState(false);
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [prefillFeedType, setPrefillFeedType] = useState<string | undefined>(undefined);
-  const [farmName, setFarmName] = useState<string>('My Farm');
-  const [farmLogoUrl, setFarmLogoUrl] = useState<string | null>(null);
   const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
 
   // Get pending activities count for badge
@@ -165,13 +166,14 @@ const Dashboard = () => {
       if (ownedFarms && ownedFarms.length > 0) {
         // User owns a farm - farm details already fetched in parallel
         setFarmId(ownedFarms[0].id);
-        setCanManageFarm(true);
-        setFarmName(ownedFarms[0].name || 'My Farm');
-        setFarmLogoUrl(ownedFarms[0].logo_url || null);
+        setFarmDetails({ 
+          name: ownedFarms[0].name || 'My Farm', 
+          logoUrl: ownedFarms[0].logo_url || null,
+          canManage: true 
+        });
       } else if (memberFarms && memberFarms.length > 0) {
         // User is a member of a farm - fetch farm details
         setFarmId(memberFarms[0].farm_id);
-        setCanManageFarm(userRoles.includes("farmer_owner"));
         
         const { data: farmData } = await supabase
           .from('farms')
@@ -180,8 +182,11 @@ const Dashboard = () => {
           .single();
         
         if (farmData) {
-          setFarmName(farmData.name || 'My Farm');
-          setFarmLogoUrl(farmData.logo_url || null);
+          setFarmDetails({
+            name: farmData.name || 'My Farm',
+            logoUrl: farmData.logo_url || null,
+            canManage: userRoles.includes("farmer_owner")
+          });
         }
       } else {
         // Show farm setup for new users without any farm access
@@ -223,10 +228,12 @@ const Dashboard = () => {
         if (ownedFarms && ownedFarms.length > 0) {
           // Farm was created - hide setup and show dashboard
           setFarmId(ownedFarms[0].id);
-          setCanManageFarm(true);
+          setFarmDetails({
+            name: ownedFarms[0].name || 'My Farm',
+            logoUrl: ownedFarms[0].logo_url || null,
+            canManage: true
+          });
           setShowFarmSetup(false);
-          setFarmName(ownedFarms[0].name || 'My Farm');
-          setFarmLogoUrl(ownedFarms[0].logo_url || null);
         }
       }
     };
@@ -235,10 +242,9 @@ const Dashboard = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [showFarmSetup]);
 
-  // Sync farmId to localStorage for FAB and other components
+  // Load forecast data when farmId changes
   useEffect(() => {
     if (farmId) {
-      localStorage.setItem('currentFarmId', farmId);
       loadForecastData();
       // Preload critical data when farm is selected
       preloadAllData(farmId, isOnline);
@@ -326,12 +332,13 @@ const Dashboard = () => {
       .single();
     
     if (farmData) {
-      setFarmName(farmData.name || 'My Farm');
-      setFarmLogoUrl(farmData.logo_url || null);
-      
       // Check if user owns this farm
       const { data: { user } } = await supabase.auth.getUser();
-      setCanManageFarm(farmData.owner_id === user?.id);
+      setFarmDetails({
+        name: farmData.name || 'My Farm',
+        logoUrl: farmData.logo_url || null,
+        canManage: farmData.owner_id === user?.id
+      });
     }
   };
 
