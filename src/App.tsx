@@ -122,13 +122,32 @@ const SyncHandler = () => {
   return null;
 };
 
-// Component to conditionally render floating components (hide on auth pages)
+// Component to conditionally render floating components (hide on non-farm routes)
 const ConditionalFloatingComponents = () => {
   const location = useLocation();
-  const staticRoutes = ['/auth', '/auth/merchant', '/auth/admin', '/auth/government', '/privacy'];
-  const isStaticPage = staticRoutes.includes(location.pathname);
   
-  if (isStaticPage) return null;
+  // Routes where FAB should be completely hidden
+  const hideFabRoutes = [
+    '/auth',
+    '/auth/merchant',
+    '/auth/admin',
+    '/auth/government',
+    '/privacy',
+    '/government',    // Government users don't need farm FAB
+    '/merchant',      // Merchants don't need farm FAB
+    '/admin',         // Admin has its own interface
+    '/marketplace',
+    '/checkout',
+    '/distributors',
+    '/orders',
+    '/messages',
+  ];
+  
+  const shouldHideFab = hideFabRoutes.some(route => 
+    location.pathname === route || location.pathname.startsWith(route + '/')
+  );
+  
+  if (shouldHideFab) return null;
   
   return (
     <>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
 import { Stethoscope, X, Milk, Heart, PawPrint, Wheat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeed
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
 import { useFarm } from "@/contexts/FarmContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useFarmRole } from "@/hooks/useFarmRole";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -46,6 +48,29 @@ export function UnifiedActionsFab({
   
   // Get current farm ID from context
   const { farmId } = useFarm();
+  
+  // Get permissions and farm role for filtering actions
+  const { canAddAnimals, canCreateRecords, isLoading: permissionsLoading } = usePermissions(farmId);
+  const { hasFarmAccess, isLoading: farmRoleLoading } = useFarmRole(farmId);
+
+  // Filter quick actions based on permissions
+  const filteredQuickActions = useMemo(() => {
+    // While loading, show all actions to prevent flicker
+    if (permissionsLoading || farmRoleLoading) return quickActions;
+    
+    return quickActions.filter(action => {
+      // Doc Aga is available to all farm roles
+      if (action.id === 'doc-aga') return true;
+      
+      // Add Animal only for those with permission (owners, managers, admins)
+      if (action.id === 'add-animal') return canAddAnimals;
+      
+      // Recording actions for all farm members with record permission
+      if (['milk', 'feed', 'health'].includes(action.id)) return canCreateRecords;
+      
+      return true;
+    });
+  }, [canAddAnimals, canCreateRecords, permissionsLoading, farmRoleLoading]);
 
   useEffect(() => {
     // Check if onboarding should be shown when Doc Aga opens
@@ -161,7 +186,7 @@ export function UnifiedActionsFab({
         {/* Action buttons - Only render when expanded to prevent click blocking */}
         {isExpanded && (
           <div className="flex flex-col-reverse items-end gap-2 mb-3">
-            {quickActions.map((action, index) => (
+            {filteredQuickActions.map((action, index) => (
               <Button
                 key={action.id}
                 onClick={() => handleAction(action.id)}
