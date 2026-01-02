@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Sprout, PawPrint, Wheat, FileCheck } from "lucide-react";
+import { PawPrint, Wheat, FileCheck } from "lucide-react";
+import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
@@ -146,7 +147,7 @@ const FarmhandDashboard = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Sprout className="h-12 w-12 text-primary animate-pulse mx-auto" />
+          <DocAgaLogo size="lg" className="animate-pulse mx-auto" />
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -177,9 +178,7 @@ const FarmhandDashboard = () => {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sprout className="h-6 w-6 text-primary" />
-            </div>
+            <DocAgaLogo size={40} />
             <div>
               <h1 className="text-xl font-bold">Doc Aga</h1>
               <p className="text-xs text-muted-foreground">Farmhand Dashboard</p>
