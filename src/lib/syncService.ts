@@ -12,6 +12,7 @@ import { sendSyncSuccessNotification, sendSyncFailureNotification } from './noti
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
 import { generateClientId } from './syncCheckpoint';
+import { startSyncSession, completeSyncSession, recordSyncError, type SyncType } from './syncTelemetry';
 
 /**
  * Maximum number of retry attempts for failed sync operations
@@ -155,7 +156,7 @@ function blobToBase64(blob: Blob): Promise<string> {
  * </Button>
  * ```
  */
-export async function syncQueue(): Promise<void> {
+export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
   // Prevent multiple simultaneous syncs
   if (isSyncing) {
     console.log('[SyncQueue] Sync already in progress, skipping...');
@@ -170,9 +171,14 @@ export async function syncQueue(): Promise<void> {
   }
 
   isSyncing = true;
-  const startTime = new Date().toISOString();
-  console.log(`[SyncQueue] Starting sync at ${startTime}`);
+  const startTime = Date.now();
+  console.log(`[SyncQueue] Starting sync at ${new Date(startTime).toISOString()}`);
 
+  // Start telemetry session
+  let sessionId: string | undefined;
+  let succeeded = 0;
+  let failed = 0;
+  
   try {
     const pending = await getAllPending();
     console.log(`[SyncQueue] Found ${pending.length} pending items to process`);
@@ -181,6 +187,10 @@ export async function syncQueue(): Promise<void> {
       console.log('[SyncQueue] No pending items to sync');
       return;
     }
+
+    // Get farmId from first item for telemetry
+    const farmId = pending[0]?.payload?.farmId;
+    sessionId = await startSyncSession(farmId, syncType);
 
     console.log(`[SyncQueue] Syncing ${pending.length} pending items...`);
 
@@ -217,6 +227,7 @@ export async function syncQueue(): Promise<void> {
         }
         
         await updateStatus(item.id, 'completed');
+        succeeded++;
         
         // Send success notification
         const details = item.type === 'animal_form'
@@ -227,6 +238,11 @@ export async function syncQueue(): Promise<void> {
         
       } catch (error: any) {
         console.error(`[SyncQueue] Failed to sync item ${item.id}:`, error);
+        failed++;
+        
+        if (sessionId) {
+          await recordSyncError(sessionId, error);
+        }
         
         const retries = await incrementRetries(item.id);
         
@@ -242,8 +258,18 @@ export async function syncQueue(): Promise<void> {
       }
     }
     
-    const endTime = new Date().toISOString();
-    console.log(`[SyncQueue] Sync completed at ${endTime}`);
+    const endTime = Date.now();
+    console.log(`[SyncQueue] Sync completed at ${new Date(endTime).toISOString()}`);
+    
+    // Complete telemetry session
+    if (sessionId) {
+      await completeSyncSession(sessionId, {
+        itemsProcessed: succeeded + failed,
+        itemsSucceeded: succeeded,
+        itemsFailed: failed,
+        durationMs: endTime - startTime,
+      });
+    }
   } finally {
     isSyncing = false;
   }
