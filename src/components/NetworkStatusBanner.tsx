@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff, Loader2, X } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, X, RefreshCw, ChevronRight } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { getPendingCount } from '@/lib/offlineQueue';
+import { getPendingCount, getAllPending } from '@/lib/offlineQueue';
+import { requestBackgroundSync } from '@/lib/swBridge';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { getCacheStats, onCacheProgress, type CacheStats, type CacheProgress } from '@/lib/dataCache';
 import { Progress } from '@/components/ui/progress';
+import { toast } from '@/hooks/use-toast';
 
 export const NetworkStatusBanner = () => {
   const isOnline = useOnlineStatus();
@@ -14,6 +17,7 @@ export const NetworkStatusBanner = () => {
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [cacheProgress, setCacheProgress] = useState<CacheProgress | null>(null);
   const [hasShownSuccess, setHasShownSuccess] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Track cache progress
   useEffect(() => {
@@ -72,6 +76,29 @@ export const NetworkStatusBanner = () => {
     }
   }, [isOnline, pendingCount, hasShownSuccess]);
 
+  // Sync now action
+  const handleSyncNow = async () => {
+    if (!isOnline || isSyncing || pendingCount === 0) return;
+    
+    setIsSyncing(true);
+    try {
+      await requestBackgroundSync();
+      toast({
+        title: "✅ Sync triggered",
+        description: `Syncing ${pendingCount} pending items in background`,
+      });
+      setLastSyncTime(new Date());
+    } catch (error) {
+      toast({
+        title: "❌ Sync failed",
+        description: "Could not trigger sync",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Show caching progress (when online)
   if (isOnline && cacheProgress && cacheProgress.phase !== 'complete') {
     const progressPercent = cacheProgress.total > 0 
@@ -98,6 +125,20 @@ export const NetworkStatusBanner = () => {
     );
   }
 
+  // Show syncing progress banner
+  if (isOnline && isSyncing) {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-50 bg-blue-50 border-b-2 border-blue-300 px-4 py-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+          <span className="text-sm font-medium text-blue-900">
+            🔄 Syncing {pendingCount} pending items...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // Show success flash when back online and synced
   if (showSuccess) {
     return (
@@ -119,6 +160,41 @@ export const NetworkStatusBanner = () => {
           >
             <X className="h-4 w-4" />
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show pending sync banner when online with pending items
+  if (isOnline && pendingCount > 0) {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-50 bg-amber-50 border-b-2 border-amber-300 px-4 py-3 shadow-lg">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <RefreshCw className="h-5 w-5 text-amber-700" />
+            <span className="text-sm font-medium text-amber-900">
+              {pendingCount} {pendingCount === 1 ? 'item' : 'items'} pending sync
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs bg-amber-100 border-amber-400 text-amber-900 hover:bg-amber-200"
+              onClick={handleSyncNow}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
+              Sync Now
+            </Button>
+            <button
+              onClick={() => setPendingCount(0)} // Dismiss temporarily
+              className="hover:bg-amber-200 rounded-full p-1 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4 text-amber-700" />
+            </button>
+          </div>
         </div>
       </div>
     );
