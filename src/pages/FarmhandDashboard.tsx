@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { PawPrint, Wheat, FileCheck } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
@@ -144,14 +145,7 @@ const FarmhandDashboard = () => {
   }, [farmId]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <DocAgaLogo size="lg" className="animate-pulse mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!farmId) {
