@@ -5,13 +5,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -21,8 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals, FarmAnimal } from "@/hooks/useFarmAnimals";
@@ -32,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { hapticSelection, hapticNotification } from "@/lib/haptics";
 import { BCSReferenceGuide } from "./BCSReferenceGuide";
+import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -247,254 +240,244 @@ export function RecordBulkBCSDialog({
   const minDate = subDays(new Date(), 7);
   const maxDate = new Date();
 
+  const dialogTitle = (
+    <span className="flex items-center gap-2">
+      <Scale className="h-5 w-5 text-primary" />
+      Record Body Condition
+      {!isOnline && (
+        <Badge variant="secondary" className="ml-2">
+          <WifiOff className="h-3 w-3 mr-1" />
+          Offline
+        </Badge>
+      )}
+    </span>
+  );
+
+  const dialogFooter = (
+    <div className="flex gap-3 w-full">
+      <Button
+        variant="outline"
+        onClick={handleClose}
+        disabled={isSubmitting}
+        className="flex-1 min-h-[48px]"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSubmit}
+        disabled={isSubmitting || selectedAnimals.length === 0}
+        className="flex-1 min-h-[48px]"
+      >
+        {isSubmitting
+          ? "Saving..."
+          : isOnline
+          ? "Record BCS"
+          : "Queue for Sync"}
+      </Button>
+    </div>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
-        {/* Drag Handle Indicator */}
-        <div className="flex justify-center pt-2 pb-1 -mt-2">
-          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
-        </div>
-
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-primary" />
-            Record Body Condition
-            {!isOnline && (
-              <Badge variant="secondary" className="ml-2">
-                <WifiOff className="h-3 w-3 mr-1" />
-                Offline
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Score animals and track their body condition over time.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="relative flex-1 min-h-0">
-          <ScrollArea className="h-full max-h-[calc(85vh-200px)] -mx-6 px-6">
-          <div className="space-y-5 pb-4">
-            {/* Date Selection */}
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal min-h-[48px]",
-                      !recordDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {recordDate ? format(recordDate, "PPP") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={recordDate}
-                    onSelect={handleDateSelect}
-                    disabled={(date) => date < minDate || date > maxDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Animal Selection */}
-            <div className="space-y-2">
-              <Label>Select Animals</Label>
-              <AnimalCombobox
-                options={dropdownOptions}
-                value={selectedOption}
-                onChange={handleAnimalChange}
-                placeholder="Search or select animals..."
-                disabled={animalsLoading && isOnline}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Score Controls - Moved above display for visibility */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Body Condition Score</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    hapticSelection();
-                    setShowGuide(!showGuide);
-                  }}
-                  className="gap-1.5 text-xs h-8 px-2"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  {showGuide ? "Hide Guide" : "Show Guide"}
-                  {showGuide ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </Button>
-              </div>
-
-              {/* Visual BCS Reference Guide */}
-              <Collapsible open={showGuide} onOpenChange={setShowGuide}>
-                <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-                  <BCSReferenceGuide
-                    selectedScore={score}
-                    onScoreSelect={handleQuickScore}
-                    compact
-                  />
-                  <div className="h-3" />
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Quick Score Buttons */}
-              <div className="space-y-1.5">
-                <span className="text-xs text-muted-foreground">Quick Select:</span>
-                <div className="grid grid-cols-5 gap-2">
-                  {QUICK_SCORES.map(({ score: s, label }) => (
-                    <Button
-                      key={s}
-                      variant={score === s ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleQuickScore(s)}
-                      className="h-10"
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Slider */}
-              <div className="space-y-1.5">
-                <span className="text-xs text-muted-foreground">Fine Tune:</span>
-                <div className="px-1">
-                  <Slider
-                    value={[score]}
-                    onValueChange={handleScoreChange}
-                    min={1}
-                    max={5}
-                    step={0.5}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>1.0</span>
-                    <span>3.0</span>
-                    <span>5.0</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Score Display Card - Compact */}
-              <div
+    <ResponsiveBCSContainer
+      open={open}
+      onOpenChange={onOpenChange}
+      title={dialogTitle}
+      description="Score animals and track their body condition over time."
+      footer={dialogFooter}
+    >
+      <div className="space-y-5 pb-4">
+        {/* Date Selection */}
+        <div className="space-y-2">
+          <Label>Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
                 className={cn(
-                  "rounded-lg p-3 text-center transition-colors",
-                  getBCSBgColor(score)
+                  "w-full justify-start text-left font-normal min-h-[48px]",
+                  !recordDate && "text-muted-foreground"
                 )}
               >
-                <div className="flex items-center justify-center gap-3">
-                  <div className={cn("text-3xl font-bold", getBCSStatusColor(score))}>
-                    {score.toFixed(1)}
-                  </div>
-                  <div className="text-left">
-                    <div className={cn("text-base font-medium", getBCSStatusColor(score))}>
-                      {currentLevel.label}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {currentLevel.labelTagalog}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Indicators - Collapsible style */}
-              <div className="bg-muted/50 rounded-lg p-2.5 space-y-0.5">
-                {currentLevel.indicators.slice(0, 3).map((indicator, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-xs">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{indicator}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Animals Preview */}
-            {selectedAnimals.length > 0 && (
-              <div className="space-y-2">
-                <Label className="flex items-center justify-between">
-                  <span>Animals to Score</span>
-                  <Badge variant="secondary">{selectedAnimals.length}</Badge>
-                </Label>
-                <div className="bg-muted/30 rounded-lg max-h-32 overflow-y-auto">
-                  {selectedAnimals.slice(0, 10).map((animal) => (
-                    <div
-                      key={animal.id}
-                      className="flex items-center justify-between px-3 py-2 text-sm border-b last:border-0"
-                    >
-                      <span className="font-medium">
-                        {animal.name || animal.ear_tag || "Unnamed"}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={cn("text-xs", getBCSStatusColor(score))}
-                      >
-                        → {score.toFixed(1)}
-                      </Badge>
-                    </div>
-                  ))}
-                  {selectedAnimals.length > 10 && (
-                    <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-                      +{selectedAnimals.length - 10} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label>Notes (Optional)</Label>
-              <Textarea
-                placeholder="Additional observations..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="resize-none"
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {recordDate ? format(recordDate, "PPP") : "Select date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={recordDate}
+                onSelect={handleDateSelect}
+                disabled={(date) => date < minDate || date > maxDate}
+                initialFocus
+                className="pointer-events-auto"
               />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Animal Selection */}
+        <div className="space-y-2">
+          <Label>Select Animals</Label>
+          <AnimalCombobox
+            options={dropdownOptions}
+            value={selectedOption}
+            onChange={handleAnimalChange}
+            placeholder="Search or select animals..."
+            disabled={animalsLoading && isOnline}
+          />
+        </div>
+
+        <Separator />
+
+        {/* Score Controls */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Body Condition Score</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                hapticSelection();
+                setShowGuide(!showGuide);
+              }}
+              className="gap-1.5 text-xs h-8 px-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              {showGuide ? "Hide Guide" : "Show Guide"}
+              {showGuide ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
+          </div>
+
+          {/* Visual BCS Reference Guide */}
+          <Collapsible open={showGuide} onOpenChange={setShowGuide}>
+            <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+              <BCSReferenceGuide
+                selectedScore={score}
+                onScoreSelect={handleQuickScore}
+                compact
+              />
+              <div className="h-3" />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Quick Score Buttons */}
+          <div className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">Quick Select:</span>
+            <div className="grid grid-cols-5 gap-2">
+              {QUICK_SCORES.map(({ score: s, label }) => (
+                <Button
+                  key={s}
+                  variant={score === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleQuickScore(s)}
+                  className="h-10"
+                >
+                  {label}
+                </Button>
+              ))}
             </div>
           </div>
-          </ScrollArea>
 
-          {/* Bottom scroll shadow indicator */}
-          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+          {/* Slider */}
+          <div className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">Fine Tune:</span>
+            <div className="px-1">
+              <Slider
+                value={[score]}
+                onValueChange={handleScoreChange}
+                min={1}
+                max={5}
+                step={0.5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>1.0</span>
+                <span>3.0</span>
+                <span>5.0</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Score Display Card */}
+          <div
+            className={cn(
+              "rounded-lg p-3 text-center transition-colors",
+              getBCSBgColor(score)
+            )}
+          >
+            <div className="flex items-center justify-center gap-3">
+              <div className={cn("text-3xl font-bold", getBCSStatusColor(score))}>
+                {score.toFixed(1)}
+              </div>
+              <div className="text-left">
+                <div className={cn("text-base font-medium", getBCSStatusColor(score))}>
+                  {currentLevel.label}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {currentLevel.labelTagalog}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Indicators */}
+          <div className="bg-muted/50 rounded-lg p-2.5 space-y-0.5">
+            {currentLevel.indicators.slice(0, 3).map((indicator, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-xs">
+                <span className="text-muted-foreground">•</span>
+                <span>{indicator}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSubmitting}
-            className="flex-1 min-h-[48px]"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || selectedAnimals.length === 0}
-            className="flex-1 min-h-[48px]"
-          >
-            {isSubmitting
-              ? "Saving..."
-              : isOnline
-              ? "Record BCS"
-              : "Queue for Sync"}
-          </Button>
+        <Separator />
+
+        {/* Animals Preview */}
+        {selectedAnimals.length > 0 && (
+          <div className="space-y-2">
+            <Label className="flex items-center justify-between">
+              <span>Animals to Score</span>
+              <Badge variant="secondary">{selectedAnimals.length}</Badge>
+            </Label>
+            <div className="bg-muted/30 rounded-lg max-h-32 overflow-y-auto">
+              {selectedAnimals.slice(0, 10).map((animal) => (
+                <div
+                  key={animal.id}
+                  className="flex items-center justify-between px-3 py-2 text-sm border-b last:border-0"
+                >
+                  <span className="font-medium">
+                    {animal.name || animal.ear_tag || "Unnamed"}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={cn("text-xs", getBCSStatusColor(score))}
+                  >
+                    → {score.toFixed(1)}
+                  </Badge>
+                </div>
+              ))}
+              {selectedAnimals.length > 10 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                  +{selectedAnimals.length - 10} more
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div className="space-y-2">
+          <Label>Notes (Optional)</Label>
+          <Textarea
+            placeholder="Additional observations..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="resize-none"
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ResponsiveBCSContainer>
   );
 }
