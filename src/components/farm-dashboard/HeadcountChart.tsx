@@ -7,11 +7,11 @@ import {
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TrendingUp, TrendingDown, Minus, Users, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, BarChart3, AlertCircle, RefreshCw } from "lucide-react";
 import type { MonthlyHeadcount } from "./hooks/useHeadcountData";
 import { HeadcountTooltip } from "./HeadcountTooltip";
 import { HeadcountMonthDialog } from "./HeadcountMonthDialog";
-
+import { Button } from "@/components/ui/button";
 interface HeadcountChartProps {
   data: MonthlyHeadcount[];
   stageKeys: string[];
@@ -20,6 +20,9 @@ interface HeadcountChartProps {
   onMonthlyTimePeriodChange: (period: "all" | "ytd") => void;
   onYearChange: (year: number) => void;
   farmId: string;
+  totalAnimals?: number;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
 // Stage category definitions
@@ -57,7 +60,10 @@ export const HeadcountChart = ({
   selectedYear,
   onMonthlyTimePeriodChange,
   onYearChange,
-  farmId
+  farmId,
+  totalAnimals = 0,
+  onRefresh,
+  isLoading = false
 }: HeadcountChartProps) => {
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -261,8 +267,32 @@ export const HeadcountChart = ({
 
         <CardContent>
           {!data?.length ? (
-            <div className="h-[220px] sm:h-[280px] flex items-center justify-center text-muted-foreground">
-              No data for selected period
+            <div className="h-[220px] sm:h-[280px] flex flex-col items-center justify-center text-muted-foreground gap-3">
+              <AlertCircle className="h-8 w-8 text-muted-foreground/50" />
+              <div className="text-center">
+                <p className="font-medium">No headcount data for {selectedYear}</p>
+                {totalAnimals > 0 ? (
+                  <p className="text-sm mt-1">
+                    You have {totalAnimals} animal{totalAnimals !== 1 ? 's' : ''} registered.
+                    <br />
+                    Stats are calculated overnight or on first dashboard load.
+                  </p>
+                ) : (
+                  <p className="text-sm mt-1">Add animals to start tracking headcount.</p>
+                )}
+              </div>
+              {onRefresh && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onRefresh}
+                  disabled={isLoading}
+                  className="mt-2"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh Stats
+                </Button>
+              )}
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
