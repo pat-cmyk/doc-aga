@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useHeatRecords } from '@/hooks/useHeatRecords';
 import { DETECTION_METHODS, HEAT_INTENSITY } from '@/lib/bcsDefinitions';
+import { VoiceInputButton } from '@/components/ui/voice-input-button';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface RecordHeatDialogProps {
   animalId: string;
@@ -28,6 +30,7 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
   const [intensity, setIntensity] = useState('normal');
   const [standingHeat, setStandingHeat] = useState(false);
   const [notes, setNotes] = useState('');
+  const isOnline = useOnlineStatus();
 
   const { createHeatRecord } = useHeatRecords(animalId);
 
@@ -162,12 +165,20 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
           {/* Notes */}
           <div className="space-y-2">
             <Label>Notes (Optional)</Label>
-            <Textarea
-              placeholder="Additional observations..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Additional observations..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <Button

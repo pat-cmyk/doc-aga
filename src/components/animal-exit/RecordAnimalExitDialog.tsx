@@ -15,6 +15,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EXIT_REASONS, EXIT_DETAILS } from '@/lib/bcsDefinitions';
 import { useAddRevenue } from '@/hooks/useRevenues';
+import { VoiceInputButton } from '@/components/ui/voice-input-button';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface RecordAnimalExitDialogProps {
   animalId: string;
@@ -41,6 +43,7 @@ export function RecordAnimalExitDialog({
 }: RecordAnimalExitDialogProps) {
   const { toast } = useToast();
   const addRevenue = useAddRevenue();
+  const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -238,12 +241,20 @@ export function RecordAnimalExitDialog({
             {/* Notes */}
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>
-              <Textarea
-                placeholder="Additional details about the exit..."
-                value={exitNotes}
-                onChange={(e) => setExitNotes(e.target.value)}
-                rows={2}
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Additional details about the exit..."
+                  value={exitNotes}
+                  onChange={(e) => setExitNotes(e.target.value)}
+                  rows={2}
+                  className="flex-1"
+                />
+                <VoiceInputButton
+                  onTranscription={(text) => setExitNotes(prev => prev ? `${prev} ${text}` : text)}
+                  disabled={!isOnline}
+                  className="self-start"
+                />
+              </div>
             </div>
 
             <Button onClick={handleSubmit} variant="destructive" className="w-full">

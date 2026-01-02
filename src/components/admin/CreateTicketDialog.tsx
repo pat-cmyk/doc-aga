@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { useSupportTickets, TicketPriority } from "@/hooks/useSupportTickets";
 import { Loader2, Building2, User } from "lucide-react";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface CreateTicketDialogProps {
   open: boolean;
@@ -37,6 +39,7 @@ export const CreateTicketDialog = ({
   linkedUserId,
 }: CreateTicketDialogProps) => {
   const { createTicket } = useSupportTickets();
+  const isOnline = useOnlineStatus();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
@@ -118,13 +121,21 @@ export const CreateTicketDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Detailed information about the issue..."
-              rows={4}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Detailed information about the issue..."
+                rows={4}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

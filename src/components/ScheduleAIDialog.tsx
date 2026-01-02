@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface ScheduleAIDialogProps {
   animalId: string;
@@ -22,6 +24,7 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
   const [semenCode, setSemenCode] = useState("");
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,12 +123,20 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
           </div>
           <div>
             <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes..."
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional notes..."
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

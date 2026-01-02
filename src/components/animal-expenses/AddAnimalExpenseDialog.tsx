@@ -29,6 +29,8 @@ import { ANIMAL_EXPENSE_CATEGORIES } from "@/lib/animalExpenseCategories";
 import { PAYMENT_METHODS } from "@/lib/expenseCategories";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface AddAnimalExpenseDialogProps {
   open: boolean;
@@ -51,6 +53,7 @@ export function AddAnimalExpenseDialog({
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const addExpense = useAddAnimalExpense();
 
@@ -186,13 +189,21 @@ export function AddAnimalExpenseDialog({
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., Deworming treatment, Vitamin injection..."
-              rows={2}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g., Deworming treatment, Vitamin injection..."
+                rows={2}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <div className="flex gap-2 pt-2">

@@ -8,6 +8,8 @@ import { Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBodyConditionScores } from '@/hooks/useBodyConditionScores';
 import { BCS_LEVELS } from '@/lib/bcsDefinitions';
+import { VoiceInputButton } from '@/components/ui/voice-input-button';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface RecordBCSDialogProps {
   animalId: string;
@@ -20,6 +22,7 @@ export function RecordBCSDialog({ animalId, farmId, animalName, trigger }: Recor
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState(3.0);
   const [notes, setNotes] = useState('');
+  const isOnline = useOnlineStatus();
 
   const { createBCS } = useBodyConditionScores(animalId);
 
@@ -111,12 +114,20 @@ export function RecordBCSDialog({ animalId, farmId, animalName, trigger }: Recor
           {/* Notes */}
           <div className="space-y-2">
             <Label>Notes (Optional)</Label>
-            <Textarea
-              placeholder="Additional observations..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Additional observations..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="flex-1"
+              />
+              <VoiceInputButton
+                onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+                disabled={!isOnline}
+                className="self-start"
+              />
+            </div>
           </div>
 
           <Button
