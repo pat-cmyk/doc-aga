@@ -51,12 +51,25 @@ const PageLoader = () => (
   </div>
 );
 
-// Configure QueryClient with retry logic for network errors
+// Configure QueryClient with OFFLINE-FIRST strategy
+// Prioritizes cache, syncs in background, minimal network dependency
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // Data considered fresh for 5 minutes - reduces unnecessary refetches
+      staleTime: 5 * 60 * 1000,
+      // Keep cached data for 24 hours - essential for offline access
+      gcTime: 24 * 60 * 60 * 1000,
+      // Don't refetch on mount if data exists - cache-first behavior
+      refetchOnMount: false,
+      // Don't refetch when user returns to tab - saves bandwidth
+      refetchOnWindowFocus: false,
+      // DO refetch when back online - ensures data sync
+      refetchOnReconnect: 'always',
+      // Try cache before network - core offline-first principle
+      networkMode: 'offlineFirst',
+      // Only retry network errors, max 3 times
       retry: (failureCount, error) => {
-        // Only retry network errors, max 3 times
         const message = error instanceof Error ? error.message.toLowerCase() : '';
         const isNetworkErr = message.includes('failed to fetch') || 
                             message.includes('network') || 
