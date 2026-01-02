@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { hapticImpact } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
+import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
 import { useSearchParams } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AnimalForm from "@/components/AnimalForm";
@@ -37,6 +38,7 @@ export function UnifiedActionsFab({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
   const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
+  const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
   const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -112,7 +114,11 @@ export function UnifiedActionsFab({
         }
         break;
       case 'feed':
-        onRecordFeed?.();
+        if (onRecordFeed) {
+          onRecordFeed();
+        } else {
+          setIsRecordFeedOpen(true);
+        }
         break;
     }
   };
@@ -293,6 +299,13 @@ export function UnifiedActionsFab({
       <RecordBulkMilkDialog
         open={isRecordMilkOpen}
         onOpenChange={setIsRecordMilkOpen}
+        farmId={currentFarmId}
+      />
+
+      {/* Record Bulk Feed Dialog */}
+      <RecordBulkFeedDialog
+        open={isRecordFeedOpen}
+        onOpenChange={setIsRecordFeedOpen}
         farmId={currentFarmId}
       />
 
