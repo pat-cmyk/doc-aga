@@ -22,7 +22,15 @@ export interface CreateBCSData {
   notes?: string;
 }
 
-export function useBodyConditionScores(animalId: string) {
+export interface CreateBulkBCSData {
+  animal_ids: string[];
+  farm_id: string;
+  score: number;
+  assessment_date?: string;
+  notes?: string;
+}
+
+export function useBodyConditionScores(animalId?: string) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -32,7 +40,7 @@ export function useBodyConditionScores(animalId: string) {
       const { data, error } = await supabase
         .from('body_condition_scores')
         .select('*')
-        .eq('animal_id', animalId)
+        .eq('animal_id', animalId!)
         .order('assessment_date', { ascending: false });
 
       if (error) throw error;
@@ -72,6 +80,41 @@ export function useBodyConditionScores(animalId: string) {
     },
   });
 
+  const createBulkBCS = useMutation({
+    mutationFn: async (data: CreateBulkBCSData) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const assessmentDate = data.assessment_date || new Date().toISOString().split('T')[0];
+
+      const records = data.animal_ids.map((id) => ({
+        animal_id: id,
+        farm_id: data.farm_id,
+        score: data.score,
+        assessment_date: assessmentDate,
+        assessor_id: userData?.user?.id,
+        notes: data.notes,
+      }));
+
+      const { error } = await supabase.from('body_condition_scores').insert(records);
+
+      if (error) throw error;
+      return records.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['bcs-records'] });
+      toast({
+        title: 'BCS Recorded',
+        description: `${count} body condition score(s) saved successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const latestBCS = bcsRecords[0] || null;
 
   // Get BCS status indicator
@@ -87,6 +130,7 @@ export function useBodyConditionScores(animalId: string) {
     bcsRecords,
     isLoading,
     createBCS,
+    createBulkBCS,
     latestBCS,
     getBCSStatus,
   };
