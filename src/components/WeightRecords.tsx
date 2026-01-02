@@ -17,6 +17,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
+import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
 
 interface WeightRecord {
   id: string;
@@ -386,6 +387,11 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
           )}
         </CardContent>
       </Card>
+
+      {/* BCS History Chart */}
+      <div className="mt-6 pt-6 border-t">
+        <BCSHistoryChart animalId={animalId} />
+      </div>
     </div>
   );
 }
