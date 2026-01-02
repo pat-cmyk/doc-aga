@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/hooks/useRole";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -33,7 +34,7 @@ export const ProtectedRoute = ({ children, requiredRoles }: ProtectedRouteProps)
   };
 
   if (isAuthorized === null) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <LoadingScreen />;
   }
 
   if (!isAuthorized) {

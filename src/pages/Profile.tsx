@@ -11,7 +11,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useRole, GlobalRole } from "@/hooks/useRole";
 import { useFarmRole } from "@/hooks/useFarmRole";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users, Smartphone } from "lucide-react";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
 import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
@@ -170,11 +171,7 @@ const Profile = () => {
   }
 
   if (loading || rolesLoading || farmRoleLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen message="Loading profile..." />;
   }
 
   return (
