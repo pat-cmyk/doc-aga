@@ -17,13 +17,13 @@ interface WeightEstimateButtonProps {
 
 // Age labels for the slider
 const AGE_LABELS: { [key: number]: string } = {
-  0: "Bagong silang",
-  6: "6 buwan",
-  12: "1 taon",
-  24: "2 taon",
-  36: "3 taon",
-  48: "4 taon",
-  60: "5 taon",
+  0: "Newborn",
+  6: "6 months",
+  12: "1 year",
+  24: "2 years",
+  36: "3 years",
+  48: "4 years",
+  60: "5 years",
 };
 
 export function WeightEstimateButton({
@@ -67,8 +67,8 @@ export function WeightEstimateButton({
     );
     
     toast({
-      title: "Tantiya ng Timbang / Weight Estimated",
-      description: `~${estimated} kg para sa ${ageInMonths}-buwan na ${gender?.toLowerCase() || ""} ${livestockType}`,
+      title: "Weight Estimated",
+      description: `~${estimated} kg for ${ageInMonths}-month ${gender?.toLowerCase() || ""} ${livestockType}`,
     });
   };
 
@@ -79,8 +79,8 @@ export function WeightEstimateButton({
     setOpen(false);
     
     toast({
-      title: "Tantiya ng Timbang / Weight Estimated",
-      description: `~${estimated} kg batay sa ${ageMonths} buwan na edad`,
+      title: "Weight Estimated",
+      description: `~${estimated} kg based on ${ageMonths} months age`,
     });
   };
 
@@ -97,8 +97,8 @@ export function WeightEstimateButton({
     onEstimate(estimated);
     
     toast({
-      title: "Tantiya ng Timbang / Weight Estimated",
-      description: `Karaniwang birth weight: ~${estimated} kg para sa ${livestockType}`,
+      title: "Weight Estimated",
+      description: `Typical birth weight: ~${estimated} kg for ${livestockType}`,
     });
   };
 
@@ -111,10 +111,13 @@ export function WeightEstimateButton({
         size="sm"
         onClick={handleBirthWeightEstimate}
         disabled={disabled}
-        className="gap-1.5 text-xs h-7"
+        className="gap-1.5 text-xs h-8 min-h-[32px]"
       >
         <Calculator className="h-3.5 w-3.5" />
-        <span>Tantiya / Estimate</span>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="font-medium">Estimate</span>
+          <span className="text-[10px] text-muted-foreground">Tantiya</span>
+        </div>
       </Button>
     );
   }
@@ -128,10 +131,13 @@ export function WeightEstimateButton({
         size="sm"
         onClick={handleDirectEstimate}
         disabled={disabled || !gender}
-        className="gap-1.5 text-xs h-7"
+        className="gap-1.5 text-xs h-8 min-h-[32px]"
       >
         <Calculator className="h-3.5 w-3.5" />
-        <span>Tantiya / Estimate</span>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="font-medium">Estimate</span>
+          <span className="text-[10px] text-muted-foreground">Tantiya</span>
+        </div>
       </Button>
     );
   }
@@ -145,10 +151,13 @@ export function WeightEstimateButton({
           variant="outline"
           size="sm"
           disabled={disabled || !gender}
-          className="gap-1.5 text-xs h-7"
+          className="gap-1.5 text-xs h-8 min-h-[32px]"
         >
           <Calculator className="h-3.5 w-3.5" />
-          <span>Tantiya / Estimate</span>
+          <div className="flex flex-col items-start leading-tight">
+            <span className="font-medium">Estimate</span>
+            <span className="text-[10px] text-muted-foreground">Tantiya</span>
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
@@ -156,12 +165,16 @@ export function WeightEstimateButton({
           <div className="text-center pb-3 border-b">
             <div className="flex items-center justify-center gap-2">
               <Gauge className="h-5 w-5 text-primary" />
-              <h4 className="font-bold text-base text-primary">Tantiya-Meter</h4>
+              <div className="flex flex-col">
+                <h4 className="font-bold text-base text-primary">Weight Estimator</h4>
+                <span className="text-xs text-muted-foreground">Tantiya-Meter</span>
+              </div>
               <Gauge className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Ilang buwan ang hayop? (How old is the animal?)
-            </p>
+            <div className="flex flex-col gap-0.5 mt-2">
+              <p className="text-sm text-foreground">How old is the animal?</p>
+              <p className="text-xs text-muted-foreground">Ilang buwan ang hayop?</p>
+            </div>
           </div>
           
           <div className="space-y-3">
@@ -177,7 +190,7 @@ export function WeightEstimateButton({
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>0</span>
               <span className="font-medium text-foreground">
-                {ageMonths} {ageMonths === 1 ? "buwan" : "buwan"} ({Math.floor(ageMonths / 12)} taon {ageMonths % 12} buwan)
+                {ageMonths} months ({Math.floor(ageMonths / 12)} yrs {ageMonths % 12} mo)
               </span>
               <span>60</span>
             </div>
@@ -190,9 +203,9 @@ export function WeightEstimateButton({
                   variant={ageMonths === age ? "default" : "outline"}
                   size="sm"
                   onClick={() => setAgeMonths(age)}
-                  className="text-xs h-6 px-2"
+                  className="text-xs h-8 px-2 min-h-[32px]"
                 >
-                  {age === 0 ? "Bago" : age < 12 ? `${age}b` : `${age / 12}t`}
+                  {age === 0 ? "New" : age < 12 ? `${age}m` : `${age / 12}y`}
                 </Button>
               ))}
             </div>
@@ -202,18 +215,22 @@ export function WeightEstimateButton({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">
-                  Tantiya: ~{getEstimatedWeight(ageMonths)} kg
+                  Estimate: ~{getEstimatedWeight(ageMonths)} kg
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {gender || "Female"} {livestockType}, {ageMonths} buwan
+                  {gender || "Female"} {livestockType}, {ageMonths} months
                 </p>
               </div>
               <Button
                 type="button"
                 size="sm"
                 onClick={handleSliderEstimate}
+                className="h-10 min-h-[40px]"
               >
-                Gamitin
+                <div className="flex flex-col items-center leading-tight">
+                  <span>Use</span>
+                  <span className="text-xs opacity-80">Gamitin</span>
+                </div>
               </Button>
             </div>
           </div>

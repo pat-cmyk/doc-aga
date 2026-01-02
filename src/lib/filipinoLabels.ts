@@ -1,85 +1,85 @@
-// Filipino-English bilingual labels for the Animal Form
-// Format: "Filipino / English" for primary display
+// English-Filipino bilingual labels for the Animal Form
+// Format: { english: "Primary", filipino: "Subtitle" }
 
 export const labels = {
   // Animal Type
-  animalType: "Uri ng Hayop / Animal Type",
-  newEntrant: "Bagong Dating / New Entrant",
-  offspring: "Anak / Offspring",
+  animalType: { english: "Animal Type", filipino: "Uri ng Hayop" },
+  newEntrant: { english: "New Entrant", filipino: "Bagong Dating" },
+  offspring: { english: "Offspring", filipino: "Anak" },
   
   // Livestock Type
-  livestockType: "Uri ng Livestock / Livestock Type",
-  cattle: "Baka / Cattle",
-  goat: "Kambing / Goat",
-  sheep: "Tupa / Sheep",
-  carabao: "Kalabaw / Carabao",
+  livestockType: { english: "Livestock Type", filipino: "Uri ng Livestock" },
+  cattle: { english: "Cattle", filipino: "Baka" },
+  goat: { english: "Goat", filipino: "Kambing" },
+  sheep: { english: "Sheep", filipino: "Tupa" },
+  carabao: { english: "Carabao", filipino: "Kalabaw" },
   
   // Basic Info
-  name: "Pangalan / Name",
-  earTag: "Tatak sa Tainga / Ear Tag",
-  gender: "Kasarian / Gender",
-  female: "Babae / Female",
-  male: "Lalaki / Male",
+  name: { english: "Name", filipino: "Pangalan" },
+  earTag: { english: "Ear Tag", filipino: "Tatak sa Tainga" },
+  gender: { english: "Gender", filipino: "Kasarian" },
+  female: { english: "Female", filipino: "Babae" },
+  male: { english: "Male", filipino: "Lalaki" },
   
   // Dates
-  birthDate: "Petsa ng Kapanganakan / Birth Date",
-  farmEntryDate: "Petsa ng Pagpasok sa Farm / Farm Entry Date",
-  unknown: "Hindi Alam / Unknown",
-  noData: "Walang Data / No Data",
+  birthDate: { english: "Birth Date", filipino: "Petsa ng Kapanganakan" },
+  farmEntryDate: { english: "Farm Entry Date", filipino: "Petsa ng Pagpasok sa Farm" },
+  unknown: { english: "Unknown", filipino: "Hindi Alam" },
+  noData: { english: "No Data", filipino: "Walang Data" },
   
   // Weight
-  entryWeight: "Timbang sa Pagpasok / Entry Weight",
-  birthWeight: "Timbang sa Kapanganakan / Birth Weight",
+  entryWeight: { english: "Entry Weight", filipino: "Timbang sa Pagpasok" },
+  birthWeight: { english: "Birth Weight", filipino: "Timbang sa Kapanganakan" },
   
   // Breed
-  breed: "Lahi / Breed",
-  mixBreed: "Halong Lahi / Mix Breed",
-  firstBreed: "Unang Lahi / First Breed",
-  secondBreed: "Ikalawang Lahi / Second Breed",
+  breed: { english: "Breed", filipino: "Lahi" },
+  mixBreed: { english: "Mix Breed", filipino: "Halong Lahi" },
+  firstBreed: { english: "First Breed", filipino: "Unang Lahi" },
+  secondBreed: { english: "Second Breed", filipino: "Ikalawang Lahi" },
   
   // Acquisition
-  acquisitionQuestion: "Paano nakuha ang hayop? / How was this animal acquired?",
-  purchased: "Binili / Purchased",
-  grantDonation: "Bigay / Grant or Donation",
-  purchasePrice: "Halaga ng Pagbili / Purchase Price",
-  grantSource: "Pinagmulan ng Bigay / Grant Source",
-  specifySource: "Tukuyin ang Pinagmulan / Specify Source",
+  acquisitionQuestion: { english: "How was this animal acquired?", filipino: "Paano nakuha ang hayop?" },
+  purchased: { english: "Purchased", filipino: "Binili" },
+  grantDonation: { english: "Grant or Donation", filipino: "Bigay" },
+  purchasePrice: { english: "Purchase Price", filipino: "Halaga ng Pagbili" },
+  grantSource: { english: "Grant Source", filipino: "Pinagmulan ng Bigay" },
+  specifySource: { english: "Specify Source", filipino: "Tukuyin ang Pinagmulan" },
   
   // Parent Information
-  parentInfo: "Impormasyon ng Magulang / Parent Information",
-  mother: "Ina / Mother",
-  father: "Ama / Father",
-  none: "Wala / None",
+  parentInfo: { english: "Parent Information", filipino: "Impormasyon ng Magulang" },
+  mother: { english: "Mother", filipino: "Ina" },
+  father: { english: "Father", filipino: "Ama" },
+  none: { english: "None", filipino: "Wala" },
   
   // AI
-  artificialInsemination: "Artipisyal na Inseminasyon / AI",
-  bullSemenBrand: "Brand ng Semen / Bull Semen Brand",
-  bullReference: "Pangalan ng Toro / Bull Reference",
-  bullBreed: "Lahi ng Toro / Bull Breed",
+  artificialInsemination: { english: "Artificial Insemination", filipino: "Artipisyal na Inseminasyon" },
+  bullSemenBrand: { english: "Bull Semen Brand", filipino: "Brand ng Semen" },
+  bullReference: { english: "Bull Reference", filipino: "Pangalan ng Toro" },
+  bullBreed: { english: "Bull Breed", filipino: "Lahi ng Toro" },
   
   // Lactation
-  currentlyLactating: "Kasalukuyang Nagpapasuso / Currently Lactating",
-  daysInMilk: "Araw ng Paggagatas / Days in Milk",
+  currentlyLactating: { english: "Currently Lactating", filipino: "Kasalukuyang Nagpapasuso" },
+  daysInMilk: { english: "Days in Milk", filipino: "Araw ng Paggagatas" },
   
   // Actions
-  cancel: "Kanselahin / Cancel",
-  addAnimal: "Magdagdag ng Hayop / Add Animal",
-  addAnother: "Magdagdag Pa / Add Another",
-  backToHerd: "Bumalik sa Kawan / Back to Herd",
-  showMoreFields: "Ipakita ang Higit Pang Fields / Show More Fields",
+  cancel: { english: "Cancel", filipino: "Kanselahin" },
+  addAnimal: { english: "Add Animal", filipino: "Magdagdag ng Hayop" },
+  addAnother: { english: "Add Another", filipino: "Magdagdag Pa" },
+  backToHerd: { english: "Back to Herd", filipino: "Bumalik sa Kawan" },
+  showMoreFields: { english: "Show More Fields", filipino: "Ipakita ang Higit Pang Fields" },
   
   // Quick Add
-  quickAdd: "Mabilisang Pagdagdag / Quick Add",
-  fullDetails: "Buong Detalye / Full Details",
+  quickAdd: { english: "Quick Add", filipino: "Mabilisang Pagdagdag" },
+  fullDetails: { english: "Full Details", filipino: "Buong Detalye" },
   
   // Success Screen
-  success: "Matagumpay / Success",
-  animalAdded: "Naidagdag ang Hayop / Animal Added",
-  whatNext: "Ano ang susunod? / What's next?",
-  recordMilk: "Itala ang Gatas / Record Milk",
-  scheduleAI: "Mag-iskedyul ng AI / Schedule AI",
-  recordWeight: "Itala ang Timbang / Record Weight",
-  addPhoto: "Magdagdag ng Larawan / Add Photo",
+  success: { english: "Success!", filipino: "Matagumpay!" },
+  animalAdded: { english: "Animal Added", filipino: "Naidagdag ang Hayop" },
+  whatNext: { english: "What's next?", filipino: "Ano ang susunod?" },
+  recordMilk: { english: "Record First Milk", filipino: "Itala ang Gatas" },
+  scheduleAI: { english: "Schedule AI", filipino: "Mag-iskedyul ng AI" },
+  recordWeight: { english: "Record Weight", filipino: "Itala ang Timbang" },
+  addPhoto: { english: "Add Photo", filipino: "Magdagdag ng Larawan" },
   
   // Livestock Emoji Icons
   livestockEmojis: {
@@ -91,9 +91,8 @@ export const labels = {
 } as const;
 
 // Helper function to get a label by key
-export const getLabel = (key: keyof typeof labels): string => {
-  const value = labels[key];
-  return typeof value === 'string' ? value : '';
+export const getLabel = (key: keyof typeof labels): { english: string; filipino: string } | Record<string, string> => {
+  return labels[key];
 };
 
 // Helper to get livestock emoji
