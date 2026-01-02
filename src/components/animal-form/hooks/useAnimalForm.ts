@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
+import { calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
 
 export interface AnimalFormData {
   animal_type: string;
@@ -35,10 +36,14 @@ export interface AnimalFormData {
   purchase_price: string;
   grant_source: string; // "national_dairy_authority" | "local_government_unit" | "other"
   grant_source_other: string;
+  // Enhancement 1: Lactating toggle for new entrants
+  is_currently_lactating: boolean;
+  estimated_days_in_milk: number;
 }
 
 export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
   const [creating, setCreating] = useState(false);
+  const [genderError, setGenderError] = useState(false);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
@@ -71,7 +76,10 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     acquisition_type: "purchased",
     purchase_price: "",
     grant_source: "",
-    grant_source_other: ""
+    grant_source_other: "",
+    // Enhancement 1: Lactating toggle
+    is_currently_lactating: false,
+    estimated_days_in_milk: 60, // Default to 60 days (Early Lactation)
   });
 
   const calculateBreed = (mothers: any[], fathers: any[]): string => {
@@ -101,6 +109,18 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
 
   const handleSubmit = async (e: React.FormEvent, mothers: any[], fathers: any[]) => {
     e.preventDefault();
+    
+    // Enhancement 2: Gender is now required
+    if (!formData.gender) {
+      setGenderError(true);
+      toast({
+        title: "Missing fields",
+        description: "Please select the animal's gender",
+        variant: "destructive"
+      });
+      return;
+    }
+    setGenderError(false);
     
     if (!formData.ear_tag) {
       toast({
@@ -156,6 +176,15 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     const finalBreed = calculateBreed(mothers, fathers);
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Calculate milking_stage for lactating new entrants
+    const shouldSetMilkingStage = formData.animal_type === "new_entrant" 
+      && formData.gender === "Female" 
+      && formData.is_currently_lactating;
+    
+    const calculatedMilkingStage = shouldSetMilkingStage 
+      ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
+      : null;
+    
     const animalData = {
       farm_id: farmId,
       livestock_type: formData.livestock_type,
@@ -191,6 +220,10 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       grant_source_other: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" && formData.grant_source === "other" 
         ? formData.grant_source_other 
         : null,
+      // Enhancement 1: Lactating toggle fields
+      is_currently_lactating: shouldSetMilkingStage,
+      estimated_days_in_milk: shouldSetMilkingStage ? formData.estimated_days_in_milk : null,
+      milking_stage: calculatedMilkingStage,
     };
 
     // If offline, queue the data
@@ -290,6 +323,7 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     formData,
     setFormData,
     creating,
+    genderError,
     handleSubmit
   };
 };

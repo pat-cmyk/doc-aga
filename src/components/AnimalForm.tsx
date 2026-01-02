@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, ArrowLeft, WifiOff, Dices, CalendarIcon } from "lucide-react";
+import { Loader2, WifiOff, Dices, CalendarIcon } from "lucide-react";
 import { generateFilipinoAnimalName } from "@/lib/filipinoAnimalNames";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -16,6 +15,8 @@ import { updateAnimalCache, getCachedAnimals } from "@/lib/animalCache";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
 import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
+import { GenderSelector } from "@/components/animal-form/GenderSelector";
+import { LactatingToggle, calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
 
 interface ParentAnimal {
   id: string;
@@ -32,6 +33,7 @@ interface AnimalFormProps {
 
 const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
   const [creating, setCreating] = useState(false);
+  const [genderError, setGenderError] = useState(false);
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const [livestockType, setLivestockType] = useState<LivestockType>('cattle');
@@ -67,7 +69,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     acquisition_type: "purchased",
     purchase_price: "",
     grant_source: "",
-    grant_source_other: ""
+    grant_source_other: "",
+    // Enhancement 1: Lactating toggle
+    is_currently_lactating: false,
+    estimated_days_in_milk: 60,
   });
 
   useEffect(() => {
@@ -117,6 +122,18 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Enhancement 2: Gender is now required
+    if (!formData.gender) {
+      setGenderError(true);
+      toast({
+        title: "Missing fields",
+        description: "Please select the animal's gender",
+        variant: "destructive"
+      });
+      return;
+    }
+    setGenderError(false);
     
     if (!formData.ear_tag) {
       toast({
@@ -184,6 +201,15 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
     // Get user ID for created_by field
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Enhancement 1: Calculate milking_stage for lactating new entrants
+    const shouldSetMilkingStage = formData.animal_type === "new_entrant" 
+      && formData.gender === "Female" 
+      && formData.is_currently_lactating;
+    
+    const calculatedMilkingStage = shouldSetMilkingStage 
+      ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
+      : null;
+    
     const animalData = {
       farm_id: farmId,
       livestock_type: formData.livestock_type,
@@ -219,6 +245,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
       grant_source_other: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" && formData.grant_source === "other" 
         ? formData.grant_source_other 
         : null,
+      // Enhancement 1: Lactating toggle fields
+      is_currently_lactating: shouldSetMilkingStage,
+      estimated_days_in_milk: shouldSetMilkingStage ? formData.estimated_days_in_milk : null,
+      milking_stage: calculatedMilkingStage,
     };
 
     // If offline, queue the data
@@ -412,21 +442,37 @@ const AnimalForm = ({ farmId, onSuccess, onCancel }: AnimalFormProps) => {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="gender">Gender</Label>
-            <Select
-              value={formData.gender}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Female">Female</SelectItem>
-                <SelectItem value="Male">Male</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          
+          {/* Enhancement 2: Visual Gender Selector (Required) */}
+          <GenderSelector
+            value={formData.gender}
+            onChange={(value) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                gender: value,
+                // Reset lactating toggle when gender changes
+                is_currently_lactating: value === "Female" ? prev.is_currently_lactating : false,
+              }));
+              setGenderError(false);
+            }}
+            error={genderError}
+          />
+          
+          {/* Enhancement 1: Lactating Toggle - Only for Female new entrants */}
+          {formData.animal_type === "new_entrant" && formData.gender === "Female" && (
+            <LactatingToggle
+              isLactating={formData.is_currently_lactating}
+              onLactatingChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                is_currently_lactating: value 
+              }))}
+              daysInMilk={formData.estimated_days_in_milk}
+              onDaysChange={(days) => setFormData(prev => ({ 
+                ...prev, 
+                estimated_days_in_milk: days 
+              }))}
+            />
+          )}
           
           {/* Farm Entry Date - Only for new entrants */}
           {formData.animal_type === "new_entrant" && (
