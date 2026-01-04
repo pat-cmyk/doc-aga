@@ -11,6 +11,7 @@ import {
   Clock, 
   Activity,
   AlertTriangle,
+  AlertCircle,
   TrendingUp,
   TrendingDown,
   Minus
@@ -51,7 +52,7 @@ export const SyncMonitoringDashboard = () => {
       // Calculate 24h metrics
       const syncs24h = syncs.filter(s => new Date(s.created_at) >= yesterday);
       const synced24h = syncs24h.filter(s => s.sync_status === 'synced');
-      const failed24h = syncs24h.filter(s => s.sync_status === 'failed');
+      const failed24h = syncs24h.filter(s => s.sync_status === 'error');
       const pending24h = syncs24h.filter(s => s.sync_status === 'pending');
 
       // Success rate
@@ -106,10 +107,14 @@ export const SyncMonitoringDashboard = () => {
     switch (status) {
       case 'synced':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'failed':
+      case 'error':
         return <XCircle className="h-4 w-4 text-destructive" />;
       case 'pending':
         return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'syncing':
+        return <Activity className="h-4 w-4 text-blue-600" />;
+      case 'conflict':
+        return <AlertCircle className="h-4 w-4 text-orange-600" />;
       default:
         return <Activity className="h-4 w-4 text-muted-foreground" />;
     }
@@ -119,10 +124,14 @@ export const SyncMonitoringDashboard = () => {
     switch (status) {
       case 'synced':
         return <Badge variant="default">Synced</Badge>;
-      case 'failed':
+      case 'error':
         return <Badge variant="destructive">Failed</Badge>;
       case 'pending':
         return <Badge variant="secondary">Pending</Badge>;
+      case 'syncing':
+        return <Badge variant="outline" className="border-blue-500 text-blue-600">Syncing</Badge>;
+      case 'conflict':
+        return <Badge variant="outline" className="border-orange-500 text-orange-600">Conflict</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
