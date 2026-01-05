@@ -45,6 +45,8 @@ interface FarmWithDetails {
   owner_email: string;
   owner_phone: string | null;
   animal_count: number;
+  active_animal_count: number;
+  deleted_animal_count: number;
   team_members_count: number;
   is_deleted: boolean;
   province: string | null;
@@ -90,7 +92,6 @@ export const FarmOversight = () => {
           owner_id,
           is_deleted,
           profiles:owner_id (full_name, phone, email),
-          animals:animals(count),
           farm_memberships:farm_memberships(count)
         `);
 
@@ -125,33 +126,61 @@ export const FarmOversight = () => {
         owner_id: string;
         is_deleted: boolean;
         profiles: { full_name: string | null; phone: string | null; email: string | null } | null;
-        animals: Array<{ count: number }>;
         farm_memberships: Array<{ count: number }>;
       }>;
 
-      return farmsData.map((farm) => ({
-        id: farm.id,
-        name: farm.name,
-        region: farm.region,
-        province: farm.province,
-        municipality: farm.municipality,
-        gps_lat: farm.gps_lat,
-        gps_lng: farm.gps_lng,
-        livestock_type: farm.livestock_type,
-        ffedis_id: farm.ffedis_id,
-        lgu_code: farm.lgu_code,
-        validation_status: farm.validation_status,
-        is_program_participant: farm.is_program_participant,
-        program_group: farm.program_group,
-        created_at: farm.created_at,
-        owner_id: farm.owner_id,
-        owner_name: farm.profiles?.full_name || "Unknown",
-        owner_email: farm.profiles?.email || "N/A",
-        owner_phone: farm.profiles?.phone || "N/A",
-        animal_count: farm.animals?.[0]?.count || 0,
-        team_members_count: farm.farm_memberships?.[0]?.count || 0,
-        is_deleted: farm.is_deleted,
-      }));
+      // Fetch animal counts (active and deleted) for each farm
+      const animalCountsPromises = farmsData.map(async (farm) => {
+        const [activeResult, deletedResult] = await Promise.all([
+          supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("farm_id", farm.id)
+            .eq("is_deleted", false),
+          supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("farm_id", farm.id)
+            .eq("is_deleted", true),
+        ]);
+        return {
+          farmId: farm.id,
+          activeCount: activeResult.count || 0,
+          deletedCount: deletedResult.count || 0,
+        };
+      });
+
+      const animalCounts = await Promise.all(animalCountsPromises);
+      const countsMap = new Map(animalCounts.map(c => [c.farmId, c]));
+
+      return farmsData.map((farm) => {
+        const counts = countsMap.get(farm.id);
+        return {
+          id: farm.id,
+          name: farm.name,
+          region: farm.region,
+          province: farm.province,
+          municipality: farm.municipality,
+          gps_lat: farm.gps_lat,
+          gps_lng: farm.gps_lng,
+          livestock_type: farm.livestock_type,
+          ffedis_id: farm.ffedis_id,
+          lgu_code: farm.lgu_code,
+          validation_status: farm.validation_status,
+          is_program_participant: farm.is_program_participant,
+          program_group: farm.program_group,
+          created_at: farm.created_at,
+          owner_id: farm.owner_id,
+          owner_name: farm.profiles?.full_name || "Unknown",
+          owner_email: farm.profiles?.email || "N/A",
+          owner_phone: farm.profiles?.phone || "N/A",
+          animal_count: (counts?.activeCount || 0) + (counts?.deletedCount || 0),
+          active_animal_count: counts?.activeCount || 0,
+          deleted_animal_count: counts?.deletedCount || 0,
+          team_members_count: farm.farm_memberships?.[0]?.count || 0,
+          is_deleted: farm.is_deleted,
+        };
+      });
     },
   });
 
@@ -285,7 +314,7 @@ export const FarmOversight = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Region</TableHead>
-                <TableHead>Animals</TableHead>
+                <TableHead>Animals (Active/Deleted)</TableHead>
                 <TableHead>Team Members</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -294,7 +323,7 @@ export const FarmOversight = () => {
             </TableHeader>
             <TableBody>
             {farms?.map((farm) => {
-              const canPermanentlyDelete = farm.is_deleted && farm.animal_count === 0;
+              const canPermanentlyDelete = farm.is_deleted && farm.active_animal_count === 0;
               const confirmationKey = farm.id;
               const typedNameMatches = confirmationInput[confirmationKey]?.trim().toLowerCase() === farm.name.trim().toLowerCase();
               
@@ -305,7 +334,13 @@ export const FarmOversight = () => {
                   <TableCell>{farm.owner_email}</TableCell>
                   <TableCell>{farm.owner_phone}</TableCell>
                   <TableCell>{farm.region || "N/A"}</TableCell>
-                  <TableCell>{farm.animal_count}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <span className="text-green-600 font-medium">{farm.active_animal_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-red-500">{farm.deleted_animal_count}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{farm.team_members_count}</TableCell>
                   <TableCell>
                     <Badge variant={farm.is_deleted ? "destructive" : "default"}>
@@ -437,7 +472,7 @@ export const FarmOversight = () => {
                           {!canPermanentlyDelete && (
                             <TooltipContent>
                               {!farm.is_deleted && "Farm must be deactivated first"}
-                              {farm.is_deleted && farm.animal_count > 0 && `Remove all ${farm.animal_count} animals first`}
+                              {farm.is_deleted && farm.active_animal_count > 0 && `Remove all ${farm.active_animal_count} active animals first`}
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -454,7 +489,7 @@ export const FarmOversight = () => {
                                       {farm.is_deleted ? "Deactivated" : "Active"}
                                     </Badge>
                                   </p>
-                                  <p><strong>Animals:</strong> {farm.animal_count}</p>
+                                  <p><strong>Animals:</strong> {farm.active_animal_count} active / {farm.deleted_animal_count} deleted</p>
                                 </div>
                                 
                                 <div className="border-l-4 border-destructive pl-4 space-y-2">
@@ -462,8 +497,8 @@ export const FarmOversight = () => {
                                   <p className={farm.is_deleted ? "text-green-600" : "text-destructive"}>
                                     {farm.is_deleted ? "✓" : "✗"} Farm must be deactivated first
                                   </p>
-                                  <p className={farm.animal_count === 0 ? "text-green-600" : "text-destructive"}>
-                                    {farm.animal_count === 0 ? "✓" : "✗"} All animals must be removed
+                                  <p className={farm.active_animal_count === 0 ? "text-green-600" : "text-destructive"}>
+                                    {farm.active_animal_count === 0 ? "✓" : "✗"} All active animals must be removed ({farm.active_animal_count} remaining)
                                   </p>
                                 </div>
 
