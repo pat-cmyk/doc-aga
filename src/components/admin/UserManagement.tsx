@@ -73,17 +73,23 @@ export const UserManagement = () => {
             .select("role")
             .eq("user_id", profile.id);
           
-          // Count farms owned
-          const { count: farmsOwned } = await supabase
+          // Get unique active farms (owned or member of)
+          const { data: farmsOwnedData } = await supabase
             .from("farms")
-            .select("*", { count: "exact", head: true })
-            .eq("owner_id", profile.id);
+            .select("id")
+            .eq("owner_id", profile.id)
+            .eq("is_deleted", false);
           
-          // Count farm memberships
-          const { count: farmMemberships } = await supabase
+          const { data: farmMembershipsData } = await supabase
             .from("farm_memberships")
-            .select("*", { count: "exact", head: true })
-            .eq("user_id", profile.id);
+            .select("farm_id, farms!inner(is_deleted)")
+            .eq("user_id", profile.id)
+            .eq("farms.is_deleted", false);
+          
+          // Deduplicate farm IDs (user can be owner AND member of same farm)
+          const ownedFarmIds = (farmsOwnedData || []).map(f => f.id);
+          const memberFarmIds = (farmMembershipsData || []).map(m => m.farm_id);
+          const uniqueFarmIds = new Set([...ownedFarmIds, ...memberFarmIds]);
           
           return {
             id: profile.id,
@@ -92,7 +98,7 @@ export const UserManagement = () => {
             roles: (rolesData || []).map(r => r.role as UserRole),
             created_at: profile.created_at,
             email: profile.email || "N/A",
-            farm_count: (farmsOwned || 0) + (farmMemberships || 0),
+            farm_count: uniqueFarmIds.size,
             is_disabled: profile.is_disabled || false
           };
         })
