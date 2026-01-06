@@ -316,6 +316,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       }}
       editWeightOnOpen={editWeightOnOpen}
       onEditWeightConsumed={onEditWeightConsumed}
+      readOnly={readOnly}
     />;
   }
 

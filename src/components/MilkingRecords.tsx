@@ -15,7 +15,12 @@ import { getCachedRecords } from "@/lib/dataCache";
 import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
 import { validateRecordDate } from "@/lib/recordValidation";
 
-const MilkingRecords = ({ animalId }: { animalId: string }) => {
+interface MilkingRecordsProps {
+  animalId: string;
+  readOnly?: boolean;
+}
+
+const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -242,19 +247,21 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {!showForm ? (
-            <Button 
-              onClick={() => setShowForm(true)} 
-              className="w-full sm:w-auto min-h-[48px]"
-              disabled={!isOnline}
-              title={!isOnline ? "Available when online" : ""}
-            >
-              <Plus className="h-5 w-5 mr-2" />Add Record
-            </Button>
-          ) : (
-            <Button onClick={() => setShowForm(false)} variant="outline" className="w-full sm:w-auto min-h-[48px]">
-              Cancel
-            </Button>
+          {!readOnly && (
+            !showForm ? (
+              <Button 
+                onClick={() => setShowForm(true)} 
+                className="w-full sm:w-auto min-h-[48px]"
+                disabled={!isOnline}
+                title={!isOnline ? "Available when online" : ""}
+              >
+                <Plus className="h-5 w-5 mr-2" />Add Record
+              </Button>
+            ) : (
+              <Button onClick={() => setShowForm(false)} variant="outline" className="w-full sm:w-auto min-h-[48px]">
+                Cancel
+              </Button>
+            )
           )}
           
           <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as "all" | "cycle" | "month")}>
@@ -269,7 +276,7 @@ const MilkingRecords = ({ animalId }: { animalId: string }) => {
           </Select>
         </div>
         
-        {showForm && (
+        {showForm && !readOnly && (
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>

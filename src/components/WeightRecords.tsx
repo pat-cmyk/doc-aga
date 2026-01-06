@@ -36,9 +36,10 @@ interface WeightRecordsProps {
   gender?: string | null;
   lifeStage?: string | null;
   farmId?: string;
+  readOnly?: boolean;
 }
 
-export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage, farmId }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage, farmId, readOnly = false }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -199,18 +200,19 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
             <Scale className="h-5 w-5" />
             Current Weight
           </CardTitle>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm" 
-                className="min-h-[48px]"
-                disabled={!isOnline}
-                title={!isOnline ? "Available when online" : ""}
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Record Weight
-              </Button>
-            </DialogTrigger>
+          {!readOnly && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  size="sm" 
+                  className="min-h-[48px]"
+                  disabled={!isOnline}
+                  title={!isOnline ? "Available when online" : ""}
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Record Weight
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-full sm:max-w-lg h-[100dvh] sm:h-auto overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record New Weight</DialogTitle>
@@ -272,8 +274,9 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
                   {submitting ? "Saving..." : "Save Weight Record"}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent className="pb-3 sm:pb-6">
           <div className="flex items-center justify-between">

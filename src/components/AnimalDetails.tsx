@@ -219,9 +219,11 @@ interface AnimalDetailsProps {
   editWeightOnOpen?: boolean;
   /** Callback to clear the editWeight flag after it's consumed */
   onEditWeightConsumed?: () => void;
+  /** If true, all editing actions are hidden (admin read-only mode) */
+  readOnly?: boolean;
 }
 
-const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeightConsumed }: AnimalDetailsProps) => {
+const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeightConsumed, readOnly = false }: AnimalDetailsProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [animal, setAnimal] = useState<Animal | null>(null);
@@ -596,16 +598,18 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       />
                       <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
                     </Avatar>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || !isOnline}
-                      title={!isOnline ? "Available when online" : ""}
-                    >
-                      {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading || !isOnline}
+                        title={!isOnline ? "Available when online" : ""}
+                      >
+                        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                      </Button>
+                    )}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -615,29 +619,31 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     />
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 items-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setEditWeightDialogOpen(true)}
-                    disabled={!isOnline}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit Details
-                  </Button>
-                  <RecordAnimalExitDialog 
-                    animalId={animalId}
-                    animalName={animal.name || animal.ear_tag || 'Animal'}
-                    farmId={farmId}
-                    livestockType={animal.livestock_type || undefined}
-                    earTag={animal.ear_tag || undefined}
-                    onExitRecorded={onBack}
-                  />
-                  <RecalculateSingleAnimalButton 
-                    animalId={animalId} 
-                    onSuccess={loadAnimal}
-                  />
-                </div>
+                {!readOnly && (
+                  <div className="flex flex-col gap-2 items-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setEditWeightDialogOpen(true)}
+                      disabled={!isOnline}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit Details
+                    </Button>
+                    <RecordAnimalExitDialog 
+                      animalId={animalId}
+                      animalName={animal.name || animal.ear_tag || 'Animal'}
+                      farmId={farmId}
+                      livestockType={animal.livestock_type || undefined}
+                      earTag={animal.ear_tag || undefined}
+                      onExitRecorded={onBack}
+                    />
+                    <RecalculateSingleAnimalButton 
+                      animalId={animalId} 
+                      onSuccess={loadAnimal}
+                    />
+                  </div>
+                )}
               </div>
               
               {/* Row 2: Animal Details (full width) */}
@@ -710,33 +716,35 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 <Button variant="ghost" size="sm" onClick={onBack}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <div className="relative">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage 
-                      src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-                      alt={animal.name || "Animal"} 
-                      key={animal.avatar_url}
+                  <div className="relative">
+                    <Avatar className="h-20 w-20">
+                      <AvatarImage 
+                        src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
+                        alt={animal.name || "Animal"} 
+                        key={animal.avatar_url}
+                      />
+                      <AvatarFallback className="text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+                    </Avatar>
+                    {!readOnly && (
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading || !isOnline}
+                        title={!isOnline ? "Available when online" : ""}
+                      >
+                        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                      </Button>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
                     />
-                    <AvatarFallback className="text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-                  </Avatar>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading || !isOnline}
-                    title={!isOnline ? "Available when online" : ""}
-                  >
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarUpload}
-                  />
-                </div>
+                  </div>
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-2xl truncate">{animal.name}</CardTitle>
@@ -799,29 +807,31 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 items-end">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setEditWeightDialogOpen(true)}
-                  disabled={!isOnline}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Edit Details
-                </Button>
-                <RecordAnimalExitDialog 
-                  animalId={animalId}
-                  animalName={animal.name || animal.ear_tag || 'Animal'}
-                  farmId={farmId}
-                  livestockType={animal.livestock_type || undefined}
-                  earTag={animal.ear_tag || undefined}
-                  onExitRecorded={onBack}
-                />
-                <RecalculateSingleAnimalButton 
-                  animalId={animalId} 
-                  onSuccess={loadAnimal}
-                />
-              </div>
+              {!readOnly && (
+                <div className="flex flex-col gap-2 items-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditWeightDialogOpen(true)}
+                    disabled={!isOnline}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit Details
+                  </Button>
+                  <RecordAnimalExitDialog 
+                    animalId={animalId}
+                    animalName={animal.name || animal.ear_tag || 'Animal'}
+                    farmId={farmId}
+                    livestockType={animal.livestock_type || undefined}
+                    earTag={animal.ear_tag || undefined}
+                    onExitRecorded={onBack}
+                  />
+                  <RecalculateSingleAnimalButton 
+                    animalId={animalId} 
+                    onSuccess={loadAnimal}
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardHeader>
@@ -1150,16 +1160,16 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
 
         {isFemale && (
           <TabsContent value="milking">
-            <MilkingRecords animalId={animalId} />
+            <MilkingRecords animalId={animalId} readOnly={readOnly} />
           </TabsContent>
         )}
 
         <TabsContent value="weight">
-          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} livestockType={animal?.livestock_type || "cattle"} gender={animal?.gender} lifeStage={animal?.life_stage} farmId={farmId} />
+          <WeightRecords animalId={animalId} animalBirthDate={animal?.birth_date || undefined} animalFarmEntryDate={animal?.farm_entry_date || undefined} livestockType={animal?.livestock_type || "cattle"} gender={animal?.gender} lifeStage={animal?.life_stage} farmId={farmId} readOnly={readOnly} />
         </TabsContent>
 
         <TabsContent value="feeding">
-          <FeedingRecords animalId={animalId} />
+          <FeedingRecords animalId={animalId} readOnly={readOnly} />
         </TabsContent>
 
         <TabsContent value="health">
@@ -1168,6 +1178,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             farmId={farmId}
             livestockType={animal?.livestock_type || 'cattle'}
             animalFarmEntryDate={animal?.farm_entry_date}
+            readOnly={readOnly}
           />
         </TabsContent>
 
@@ -1177,6 +1188,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             farmId={farmId}
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
+            readOnly={readOnly}
           />
         </TabsContent>
 
@@ -1196,6 +1208,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             grantSource={animal?.grant_source === 'other' ? animal?.grant_source_other : animal?.grant_source}
             acquisitionType={animal?.acquisition_type || null}
             isOnline={isOnline}
+            readOnly={readOnly}
           />
         </TabsContent>
       </Tabs>

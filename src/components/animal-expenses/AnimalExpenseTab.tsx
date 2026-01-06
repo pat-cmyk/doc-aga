@@ -31,6 +31,7 @@ interface AnimalExpenseTabProps {
   grantSource: string | null;
   acquisitionType: string | null;
   isOnline: boolean;
+  readOnly?: boolean;
 }
 
 export function AnimalExpenseTab({
@@ -41,6 +42,7 @@ export function AnimalExpenseTab({
   grantSource,
   acquisitionType,
   isOnline,
+  readOnly = false,
 }: AnimalExpenseTabProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -95,14 +97,16 @@ export function AnimalExpenseTab({
             <Receipt className="h-4 w-4" />
             Expense History
           </CardTitle>
-          <Button
-            size="sm"
-            onClick={() => setAddDialogOpen(true)}
-            disabled={!isOnline}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+          {!readOnly && (
+            <Button
+              size="sm"
+              onClick={() => setAddDialogOpen(true)}
+              disabled={!isOnline}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {expensesLoading ? (
@@ -136,15 +140,17 @@ export function AnimalExpenseTab({
                     <span className="font-semibold text-sm">
                       {formatCurrency(expense.amount)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteConfirmId(expense.id)}
-                      disabled={!isOnline}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteConfirmId(expense.id)}
+                        disabled={!isOnline}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

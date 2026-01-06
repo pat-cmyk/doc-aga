@@ -21,9 +21,10 @@ interface HealthRecordsProps {
   farmId?: string;
   livestockType?: string;
   animalFarmEntryDate?: string | null;
+  readOnly?: boolean;
 }
 
-const HealthRecords = ({ animalId, farmId, livestockType, animalFarmEntryDate }: HealthRecordsProps) => {
+const HealthRecords = ({ animalId, farmId, livestockType, animalFarmEntryDate, readOnly = false }: HealthRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -398,16 +399,18 @@ const HealthRecords = ({ animalId, farmId, livestockType, animalFarmEntryDate }:
         <div className="flex items-center justify-between">
           <CardTitle>Health Records</CardTitle>
           <Dialog open={showDialog} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm"
-                disabled={!isOnline}
-                title={!isOnline ? "Available when online" : ""}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Record
-              </Button>
-            </DialogTrigger>
+            {!readOnly && (
+              <DialogTrigger asChild>
+                <Button 
+                  size="sm"
+                  disabled={!isOnline}
+                  title={!isOnline ? "Available when online" : ""}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Record
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-full sm:max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add Health Record</DialogTitle>

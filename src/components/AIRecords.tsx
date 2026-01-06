@@ -16,9 +16,10 @@ interface AIRecordsProps {
   farmId?: string;
   animalName?: string;
   gender?: string;
+  readOnly?: boolean;
 }
 
-const AIRecords = ({ animalId, farmId, animalName, gender }: AIRecordsProps) => {
+const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const isOnline = useOnlineStatus();
@@ -60,11 +61,13 @@ const AIRecords = ({ animalId, farmId, animalName, gender }: AIRecordsProps) => 
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>AI/Breeding Records</CardTitle>
-          <ScheduleAIDialog 
-            animalId={animalId} 
-            onSuccess={loadRecords} 
-            disabled={!isOnline}
-          />
+          {!readOnly && (
+            <ScheduleAIDialog 
+              animalId={animalId} 
+              onSuccess={loadRecords} 
+              disabled={!isOnline}
+            />
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -137,7 +140,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender }: AIRecordsProps) => 
                       </div>
                     )}
                     
-                    {!r.performed_date && r.scheduled_date && (
+                    {!readOnly && !r.performed_date && r.scheduled_date && (
                       <div className="mt-2">
                         <MarkAIPerformedDialog 
                           recordId={r.id}
@@ -147,7 +150,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender }: AIRecordsProps) => 
                       </div>
                     )}
                     
-                    {r.performed_date && !r.pregnancy_confirmed && (
+                    {!readOnly && r.performed_date && !r.pregnancy_confirmed && (
                       <div className="mt-2">
                         <ConfirmPregnancyDialog 
                           recordId={r.id}

@@ -46,9 +46,10 @@ interface FeedingRecord {
 
 interface FeedingRecordsProps {
   animalId: string;
+  readOnly?: boolean;
 }
 
-export function FeedingRecords({ animalId }: FeedingRecordsProps) {
+export function FeedingRecords({ animalId, readOnly = false }: FeedingRecordsProps) {
   const [records, setRecords] = useState<FeedingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -272,16 +273,17 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
       </Card>
 
       {/* Record Feed Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogTrigger asChild>
-          <Button 
-            className="w-full min-h-[48px] text-base"
-            disabled={!isOnline}
-            title={!isOnline ? "Available when online" : ""}
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Record Feed
-          </Button>
+      {!readOnly && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              className="w-full min-h-[48px] text-base"
+              disabled={!isOnline}
+              title={!isOnline ? "Available when online" : ""}
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Record Feed
+            </Button>
         </DialogTrigger>
         <DialogContent className="max-w-full sm:max-w-lg h-[100dvh] sm:h-auto overflow-y-auto">
           <DialogHeader>
@@ -367,9 +369,10 @@ export function FeedingRecords({ animalId }: FeedingRecordsProps) {
                 )}
               </Button>
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Feeding History */}
       <Card>
