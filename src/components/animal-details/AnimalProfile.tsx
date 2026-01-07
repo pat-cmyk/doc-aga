@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
+import { GenderBadge } from "@/components/ui/gender-indicator";
 import { Camera, Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -189,6 +190,7 @@ export const AnimalProfile = ({
       <div className="flex-1 overflow-hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <CardTitle className="text-lg sm:text-2xl truncate">{animal.name}</CardTitle>
+          <GenderBadge gender={animal.gender} />
           {(() => {
             const originInfo = getOriginBadgeInfo(animal);
             return originInfo ? (
