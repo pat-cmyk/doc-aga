@@ -12,7 +12,7 @@ interface GenderIndicatorProps {
 export function GenderSymbol({ gender, className }: GenderIndicatorProps) {
   if (!gender) return null;
   
-  const isFemale = gender === "Female";
+  const isFemale = gender.toLowerCase() === "female";
   
   return (
     <span 
@@ -35,7 +35,7 @@ export function GenderSymbol({ gender, className }: GenderIndicatorProps) {
 export function GenderBadge({ gender, className }: GenderIndicatorProps) {
   if (!gender) return null;
   
-  const isFemale = gender === "Female";
+  const isFemale = gender.toLowerCase() === "female";
   
   return (
     <Badge 
@@ -49,7 +49,7 @@ export function GenderBadge({ gender, className }: GenderIndicatorProps) {
       )}
     >
       <span className="mr-1">{isFemale ? "♀" : "♂"}</span>
-      <span className="hidden sm:inline">{gender}</span>
+      <span className="hidden sm:inline">{isFemale ? "Female" : "Male"}</span>
     </Badge>
   );
 }
