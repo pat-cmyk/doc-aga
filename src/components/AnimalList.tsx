@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { Badge } from "@/components/ui/badge";
+import { GenderSymbol } from "@/components/ui/gender-indicator";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { AnimalCard } from "./animal-list/AnimalCard";
@@ -691,7 +692,10 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg">{animal.name || "Unnamed"}</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-1.5">
+                        {animal.name || "Unnamed"}
+                        <GenderSymbol gender={animal.gender} />
+                      </CardTitle>
                       <CardDescription className="flex items-center">
                         <span>
                           {livestockIcon} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}

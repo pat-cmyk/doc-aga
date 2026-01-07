@@ -34,6 +34,7 @@ import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
+import { GenderBadge } from "@/components/ui/gender-indicator";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -650,6 +651,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <CardTitle className="text-lg">{animal.name}</CardTitle>
+                  <GenderBadge gender={animal.gender} />
                   {(() => {
                     const originInfo = getOriginBadgeInfo(animal);
                     return originInfo ? (
@@ -748,6 +750,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-2xl truncate">{animal.name}</CardTitle>
+                    <GenderBadge gender={animal.gender} />
                     {(() => {
                       const originInfo = getOriginBadgeInfo(animal);
                       return originInfo ? (
