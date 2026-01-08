@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { markMilkRecordsSold } from "@/lib/dataCache";
 
 interface RecordMilkSaleDialogProps {
   farmId: string;
@@ -101,7 +102,14 @@ export function RecordMilkSaleDialog({
     setIsSubmitting(true);
 
     try {
-      // Update each selected milking record
+      // STEP 1: Mark records as sold in local cache IMMEDIATELY for instant UI feedback
+      const recordIds = fifoPreview.records.map(({ record }) => record.id);
+      await markMilkRecordsSold(farmId, recordIds);
+      
+      // Force milk inventory to re-read from cache
+      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+
+      // STEP 2: Update each selected milking record in database
       for (const { record } of fifoPreview.records) {
         const saleAmount = record.liters * price;
         
