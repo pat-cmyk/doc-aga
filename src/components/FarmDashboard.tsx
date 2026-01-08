@@ -19,6 +19,7 @@ import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
 import { useNavigate } from "react-router-dom";
+import { addLocalMilkRecord } from "@/lib/dataCache";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -200,7 +201,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     }
   }, [farmId, loadFeedForecast]);
 
-  // Real-time subscription for milking records with throttling
+  // Real-time subscription for milking records with local cache update
   useEffect(() => {
     const channel = supabase
       .channel('milking-records-changes')
@@ -208,11 +209,19 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         event: 'INSERT',
         schema: 'public',
         table: 'milking_records'
-      }, () => {
+      }, async (payload) => {
         const now = Date.now();
+        
+        // Update local dashboard cache with the new record
+        const newRecord = payload.new as { record_date: string; liters: number };
+        if (newRecord.record_date && newRecord.liters) {
+          await addLocalMilkRecord(farmId, newRecord.record_date, newRecord.liters);
+        }
+        
+        // Throttled reload from cache/server
         if (now - lastReloadRef.current > 2000) {
           lastReloadRef.current = now;
-          console.log('New milking record added, refreshing dashboard...');
+          console.log('[Dashboard] New milking record detected, refreshing...');
           reloadStats();
         }
       })

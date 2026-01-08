@@ -252,6 +252,27 @@ interface FarmDataCache {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= DASHBOARD STATS CACHE (Offline-First) =============
+
+export interface DashboardStatsCache {
+  farmId: string;
+  stats: {
+    totalAnimals: number;
+    avgDailyMilk: number;
+    pregnantCount: number;
+    pendingConfirmation: number;
+    recentHealthEvents: number;
+  };
+  dailyMilk: Record<string, number>; // { "2026-01-08": 15, "2026-01-07": 12 }
+  stageCounts: Record<string, number>; // { "Early Lactation": 2, "Calf": 1 }
+  // MonthlyHeadcount format: { month: string; [stage: string]: number | string }
+  monthlyData: Array<{ month: string; [key: string]: string | number }>;
+  stageKeys: string[];
+  lastUpdated: number;
+  lastServerSync: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -269,6 +290,10 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: FarmDataCache;
   };
+  dashboardStats: {
+    key: string;
+    value: DashboardStatsCache;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -278,6 +303,7 @@ const CACHE_TTL = {
   records: 60 * 60 * 1000, // 1 hour (increased from 30 minutes)
   feedInventory: 4 * 60 * 60 * 1000, // 4 hours (increased from 2 hours)
   farmData: 24 * 60 * 60 * 1000, // 24 hours (unchanged)
+  dashboardStats: 5 * 60 * 1000, // 5 minutes - refresh frequently but show cache immediately
 };
 
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
@@ -296,8 +322,9 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 1, {
-    upgrade(db) {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 2, {
+    upgrade(db, oldVersion) {
+      // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
         db.createObjectStore('animals', { keyPath: 'farmId' });
       }
@@ -309,6 +336,12 @@ async function getDB() {
       }
       if (!db.objectStoreNames.contains('farmData')) {
         db.createObjectStore('farmData', { keyPath: 'farmId' });
+      }
+      // Version 2: Add dashboardStats store for offline-first dashboard
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains('dashboardStats')) {
+          db.createObjectStore('dashboardStats', { keyPath: 'farmId' });
+        }
       }
     },
   });
@@ -1167,4 +1200,150 @@ export function hasPendingOptimisticRecords(farmId?: string): boolean {
   }
   return Array.from(optimisticRecordsStore.values())
     .some(entry => entry.farmId === farmId);
+}
+
+// ============= DASHBOARD STATS CACHE (Offline-First) =============
+
+/**
+ * Get cached dashboard stats for a farm
+ * Returns cached data immediately for instant display
+ */
+export async function getCachedDashboardStats(farmId: string): Promise<DashboardStatsCache | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('dashboardStats', farmId);
+    
+    if (!cached) return null;
+    
+    // For offline-first, return cache even if "stale" - let background sync refresh
+    return cached;
+  } catch (error) {
+    console.error('[DataCache] Error reading dashboard stats cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if dashboard cache is fresh (within TTL)
+ */
+export async function isDashboardCacheFresh(farmId: string): Promise<boolean> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('dashboardStats', farmId);
+    
+    if (!cached) return false;
+    
+    return Date.now() - cached.lastServerSync < CACHE_TTL.dashboardStats;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Update dashboard stats cache with server data
+ * Called after successful server fetch to persist data locally
+ */
+export async function updateDashboardStatsCache(
+  farmId: string,
+  data: {
+    stats?: DashboardStatsCache['stats'];
+    dailyMilk?: Record<string, number>;
+    stageCounts?: Record<string, number>;
+    monthlyData?: DashboardStatsCache['monthlyData'];
+    stageKeys?: string[];
+  }
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('dashboardStats', farmId);
+    
+    const updated: DashboardStatsCache = {
+      farmId,
+      stats: data.stats || existing?.stats || {
+        totalAnimals: 0,
+        avgDailyMilk: 0,
+        pregnantCount: 0,
+        pendingConfirmation: 0,
+        recentHealthEvents: 0,
+      },
+      dailyMilk: { ...(existing?.dailyMilk || {}), ...(data.dailyMilk || {}) },
+      stageCounts: data.stageCounts || existing?.stageCounts || {},
+      monthlyData: data.monthlyData || existing?.monthlyData || [],
+      stageKeys: data.stageKeys || existing?.stageKeys || [],
+      lastUpdated: Date.now(),
+      lastServerSync: Date.now(),
+      syncStatus: 'synced',
+    };
+    
+    await db.put('dashboardStats', updated);
+    console.log('[DataCache] Dashboard stats cache updated');
+  } catch (error) {
+    console.error('[DataCache] Failed to update dashboard stats cache:', error);
+  }
+}
+
+/**
+ * Add milk record to local dashboard cache
+ * Used for instant UI updates before server sync
+ * 
+ * @param farmId - Farm ID
+ * @param date - Date string (YYYY-MM-DD)
+ * @param liters - Liters to add (accumulates throughout the day)
+ */
+export async function addLocalMilkRecord(
+  farmId: string,
+  date: string,
+  liters: number
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('dashboardStats', farmId);
+    
+    const updated: DashboardStatsCache = existing || {
+      farmId,
+      stats: {
+        totalAnimals: 0,
+        avgDailyMilk: 0,
+        pregnantCount: 0,
+        pendingConfirmation: 0,
+        recentHealthEvents: 0,
+      },
+      dailyMilk: {},
+      stageCounts: {},
+      monthlyData: [],
+      stageKeys: [],
+      lastUpdated: Date.now(),
+      lastServerSync: 0,
+      syncStatus: 'pending',
+    };
+    
+    // Add to existing date total (accumulate throughout the day)
+    updated.dailyMilk[date] = (updated.dailyMilk[date] || 0) + liters;
+    updated.syncStatus = 'pending';
+    updated.lastUpdated = Date.now();
+    
+    // Recalculate avgDailyMilk based on cached data (last 30 days)
+    const recentDates = Object.keys(updated.dailyMilk).sort().slice(-30);
+    const totalMilk = recentDates.reduce((sum, d) => sum + (updated.dailyMilk[d] || 0), 0);
+    updated.stats.avgDailyMilk = recentDates.length > 0 ? totalMilk / recentDates.length : 0;
+    
+    await db.put('dashboardStats', updated);
+    console.log(`[DataCache] Added ${liters}L milk for ${date}, new total: ${updated.dailyMilk[date]}L`);
+  } catch (error) {
+    console.error('[DataCache] Failed to add local milk record:', error);
+  }
+}
+
+/**
+ * Clear dashboard cache for a farm
+ * Useful when farm data needs to be fully refreshed
+ */
+export async function clearDashboardCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('dashboardStats', farmId);
+    console.log('[DataCache] Dashboard cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear dashboard cache:', error);
+  }
 }
