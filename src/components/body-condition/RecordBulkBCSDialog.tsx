@@ -479,9 +479,9 @@ export function RecordBulkBCSDialog({
               rows={2}
               className="resize-none flex-1"
             />
-            <VoiceFormInput<ExtractedTextData>
+            <VoiceFormInput
               extractorType="text"
-              onDataExtracted={(data) => setNotes(prev => prev ? `${prev} ${data.text}` : data.text)}
+              onDataExtracted={(data: any) => setNotes(prev => prev ? `${prev} ${data.text}` : data.text)}
               offlineMode="queue"
               formType="bcs-notes"
               size="md"
