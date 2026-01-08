@@ -24,7 +24,7 @@ const MAX_QUEUE_SIZE = 50;
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'bulk_feed' | 'bulk_health';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'bulk_feed' | 'bulk_health' | 'voice_form_input';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -80,6 +80,14 @@ interface QueueItem {
     diagnosis?: string;
     treatment?: string;
     notes?: string;
+    // Voice form input (unified component)
+    voiceFormInput?: {
+      audioBlob: Blob;
+      extractorType: 'milk' | 'feed' | 'text' | 'custom';
+      extractorContext?: any;
+      formType: string;
+      dialogId?: string;
+    };
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';

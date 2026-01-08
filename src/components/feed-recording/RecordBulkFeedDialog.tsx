@@ -25,8 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle, WifiOff, Mic } from "lucide-react";
-import { VoiceFeedInput } from "./VoiceFeedInput";
+import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle, WifiOff } from "lucide-react";
+import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { ExtractedFeedData } from "@/lib/voiceFormExtractors";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -346,7 +347,7 @@ export function RecordBulkFeedDialog({
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalKg) > 0 && feedType && !isOverStock;
   const isLoading = (isLoadingAnimals || isLoadingInventory) && isOnline;
 
-  const handleVoiceDataExtracted = (data: { totalKg?: number; feedType?: string; animalSelection?: string }) => {
+  const handleVoiceDataExtracted = (data: ExtractedFeedData) => {
     if (data.totalKg) setTotalKg(data.totalKg.toString());
     if (data.feedType) setFeedType(data.feedType);
     if (data.animalSelection) setSelectedOption(data.animalSelection);
@@ -366,10 +367,14 @@ export function RecordBulkFeedDialog({
               </span>
             )}
             {isOnline && (
-              <VoiceFeedInput
-                feedInventory={displayFeedInventory}
+              <VoiceFormInput<ExtractedFeedData>
+                extractorType="feed"
+                extractorContext={{ feedInventory: displayFeedInventory }}
                 onDataExtracted={handleVoiceDataExtracted}
                 disabled={isLoading}
+                offlineMode="queue"
+                formType="feed"
+                size="sm"
                 className="ml-auto"
               />
             )}
