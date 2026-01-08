@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-
-const LACTATING_STAGES = ['Early Lactation', 'Mid-Lactation', 'Late Lactation'];
+import { getLactatingAnimalsOrFilter } from "@/lib/animalQueries";
 
 export interface LactatingAnimal {
   id: string;
@@ -19,7 +18,7 @@ export function useLactatingAnimals(farmId: string | null) {
     queryFn: async () => {
       if (!farmId) return [];
 
-      // Enhancement 1: Include animals with is_currently_lactating = true OR milking_stage in lactating stages
+      // Include animals with is_currently_lactating = true OR milking_stage in lactating stages
       const { data, error } = await supabase
         .from('animals')
         .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, is_currently_lactating')
@@ -27,7 +26,7 @@ export function useLactatingAnimals(farmId: string | null) {
         .eq('gender', 'Female')
         .is('exit_date', null)
         .eq('is_deleted', false)
-        .or(`milking_stage.in.(${LACTATING_STAGES.map(s => `"${s}"`).join(',')}),is_currently_lactating.eq.true`)
+        .or(getLactatingAnimalsOrFilter())
         .order('name');
 
       if (error) throw error;

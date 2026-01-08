@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { getLactatingAnimalsOrFilter } from '@/lib/animalQueries';
 
 interface AnimalSelectionStepProps {
   activityType: string;
@@ -46,13 +47,16 @@ const AnimalSelectionStep = ({
 
         let query = supabase
           .from('animals')
-          .select('id, ear_tag, name, current_weight_kg, gender, milking_stage, livestock_type')
+          .select('id, ear_tag, name, current_weight_kg, gender, milking_stage, livestock_type, is_currently_lactating')
           .eq('farm_id', farmId)
-          .eq('is_deleted', false);
+          .eq('is_deleted', false)
+          .is('exit_date', null);
 
         // For milking activities, filter to only actively milking animals
         if (isMilkingActivity) {
-          query = query.in('milking_stage', ['Early Lactation', 'Mid-Lactation', 'Late Lactation']);
+          query = query
+            .eq('gender', 'Female')
+            .or(getLactatingAnimalsOrFilter());
           
           // Further filter by detected livestock type if provided
           if (detectedLivestockType) {
