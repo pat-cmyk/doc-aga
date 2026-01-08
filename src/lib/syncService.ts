@@ -8,6 +8,7 @@ import {
   type QueueItem 
 } from './offlineQueue';
 import { processVoiceQueue } from './voiceQueueProcessor';
+import { processVoiceFormInput } from './voiceFormQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
@@ -224,6 +225,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBulkFeed(item);
         } else if (item.type === 'bulk_health') {
           await syncBulkHealth(item);
+        } else if (item.type === 'voice_form_input') {
+          await processVoiceFormInput(item);
         }
         
         await updateStatus(item.id, 'completed');
