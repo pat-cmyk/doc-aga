@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
   const [livestockType, setLivestockType] = useState<LivestockType>('cattle');
   const [availableBreeds, setAvailableBreeds] = useState<readonly string[]>([]);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
   
   // Quick Add Mode state - persisted to localStorage (unless defaultQuickMode is provided)
@@ -420,6 +422,11 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
           notes: "Birth weight",
           created_by: user?.id || null,
         });
+      }
+      
+      // Invalidate lactating-animals cache if we added a lactating female
+      if (formData.gender === 'Female' && formData.is_currently_lactating) {
+        queryClient.invalidateQueries({ queryKey: ['lactating-animals'] });
       }
       
       // Show success screen instead of immediate callback

@@ -100,8 +100,8 @@ export function getSelectedAnimals(
     return animals;
   }
 
-  if (selectedOption.startsWith('all-')) {
-    const species = selectedOption.replace('all-', '');
+  if (selectedOption.startsWith('species:')) {
+    const species = selectedOption.replace('species:', '');
     return animals.filter(a => a.livestock_type === species);
   }
 
