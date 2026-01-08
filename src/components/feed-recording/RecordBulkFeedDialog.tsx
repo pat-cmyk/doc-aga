@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle, WifiOff } from "lucide-react";
+import { Loader2, Wheat, Scale, TrendingUp, CalendarIcon, AlertCircle, WifiOff, Mic } from "lucide-react";
+import { VoiceFeedInput } from "./VoiceFeedInput";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -345,6 +346,12 @@ export function RecordBulkFeedDialog({
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalKg) > 0 && feedType && !isOverStock;
   const isLoading = (isLoadingAnimals || isLoadingInventory) && isOnline;
 
+  const handleVoiceDataExtracted = (data: { totalKg?: number; feedType?: string; animalSelection?: string }) => {
+    if (data.totalKg) setTotalKg(data.totalKg.toString());
+    if (data.feedType) setFeedType(data.feedType);
+    if (data.animalSelection) setSelectedOption(data.animalSelection);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -357,6 +364,14 @@ export function RecordBulkFeedDialog({
                 <WifiOff className="h-3 w-3" />
                 Offline
               </span>
+            )}
+            {isOnline && (
+              <VoiceFeedInput
+                feedInventory={displayFeedInventory}
+                onDataExtracted={handleVoiceDataExtracted}
+                disabled={isLoading}
+                className="ml-auto"
+              />
             )}
           </DialogTitle>
           <DialogDescription>
