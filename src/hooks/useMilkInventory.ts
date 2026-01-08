@@ -36,28 +36,35 @@ export interface MilkInventorySummary {
 export function useMilkInventory(farmId: string) {
   const isOnline = useOnlineStatus();
   const [cachedData, setCachedData] = useState<MilkInventoryCache | null>(null);
+  const [cacheChecked, setCacheChecked] = useState(false);
   const [isCacheFresh, setIsCacheFresh] = useState(false);
 
   // Load cached data immediately on mount
   useEffect(() => {
     if (!farmId) return;
     
-    getCachedMilkInventory(farmId).then(cached => {
-      if (cached) {
-        setCachedData(cached);
-        console.log('[MilkInventory] Loaded cached data:', cached.items.length, 'items');
-      }
-    });
-    
-    isMilkInventoryCacheFresh(farmId).then(fresh => {
+    Promise.all([
+      getCachedMilkInventory(farmId),
+      isMilkInventoryCacheFresh(farmId)
+    ]).then(([cached, fresh]) => {
+      setCachedData(cached);
       setIsCacheFresh(fresh);
+      setCacheChecked(true);
+      console.log('[MilkInventory] Cache check complete:', {
+        hasCache: !!cached,
+        itemCount: cached?.items.length ?? 0,
+        isFresh: fresh
+      });
     });
   }, [farmId]);
 
-  // Server query - only runs if online and cache is stale
+  // Fetch if: cache checked AND online AND (stale OR no cache)
+  const shouldFetch = cacheChecked && isOnline && (!isCacheFresh || !cachedData);
+
   const serverQuery = useQuery({
     queryKey: ["milk-inventory", farmId],
     queryFn: async () => {
+      console.log('[MilkInventory] Fetching from server...');
       const { data, error } = await supabase
         .from("milking_records")
         .select(`
@@ -139,9 +146,8 @@ export function useMilkInventory(farmId: string) {
 
       return { items, summary };
     },
-    // Only fetch from server if online AND cache is stale
-    enabled: !!farmId && isOnline && !isCacheFresh,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!farmId && shouldFetch,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -154,8 +160,8 @@ export function useMilkInventory(farmId: string) {
   };
 
   return {
-    data: items.length > 0 || cachedData ? { items, summary } : undefined,
-    isLoading: !cachedData && serverQuery.isLoading,
+    data: items.length > 0 ? { items, summary } : undefined,
+    isLoading: !cacheChecked || (!cachedData && serverQuery.isLoading),
     isError: serverQuery.isError && !cachedData,
     error: serverQuery.error,
     refetch: serverQuery.refetch,
