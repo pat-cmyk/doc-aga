@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { hapticSelection, hapticNotification } from "@/lib/haptics";
 import { BCSReferenceGuide } from "./BCSReferenceGuide";
 import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -469,13 +470,20 @@ export function RecordBulkBCSDialog({
         {/* Notes */}
         <div className="space-y-2">
           <Label>Notes (Optional)</Label>
-          <Textarea
-            placeholder="Additional observations..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="resize-none"
-          />
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Additional observations..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="resize-none flex-1"
+            />
+            <VoiceInputButton
+              onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
+              disabled={!isOnline}
+              className="self-start"
+            />
+          </div>
         </div>
       </div>
     </ResponsiveBCSContainer>
