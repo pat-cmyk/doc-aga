@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 
 export interface PendingActivity {
   id: string;
@@ -161,9 +161,97 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
     },
   });
 
+  // Update pending submission
+  const updateMutation = useMutation({
+    mutationFn: async ({ 
+      pendingId, 
+      activityData 
+    }: { 
+      pendingId: string; 
+      activityData: any;
+    }) => {
+      const { error } = await supabase
+        .from('pending_activities')
+        .update({ 
+          activity_data: activityData,
+          submitted_at: new Date().toISOString()
+        })
+        .eq('id', pendingId)
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      toast.success('Submission updated successfully');
+    },
+    onError: (error) => {
+      console.error('Update error:', error);
+      toast.error('Failed to update submission');
+    },
+  });
+
+  // Resubmit rejected activity
+  const resubmitMutation = useMutation({
+    mutationFn: async ({ 
+      pendingId, 
+      activityData 
+    }: { 
+      pendingId: string; 
+      activityData: any;
+    }) => {
+      // Get current pending activity for farm_id
+      const { data: current, error: fetchError } = await supabase
+        .from('pending_activities')
+        .select('farm_id')
+        .eq('id', pendingId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Calculate new auto-approve time using the existing function
+      const { data: autoApproveTime } = await supabase.rpc('calculate_auto_approve_time', {
+        _farm_id: current.farm_id
+      });
+
+      // Update the rejected activity back to pending with new data
+      const { error } = await supabase
+        .from('pending_activities')
+        .update({ 
+          activity_data: activityData,
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+          auto_approve_at: autoApproveTime,
+          reviewed_by: null,
+          reviewed_at: null,
+          rejection_reason: null
+        })
+        .eq('id', pendingId)
+        .eq('status', 'rejected');
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      toast.success('Activity resubmitted for review');
+    },
+    onError: (error) => {
+      console.error('Resubmit error:', error);
+      toast.error('Failed to resubmit activity');
+    },
+  });
+
   const pendingCount = activities?.filter(a => a.status === 'pending').length || 0;
   const approvedCount = activities?.filter(a => ['approved', 'auto_approved'].includes(a.status)).length || 0;
   const rejectedCount = activities?.filter(a => a.status === 'rejected').length || 0;
+
+  const updateActivity = useCallback((pendingId: string, activityData: any) => {
+    updateMutation.mutate({ pendingId, activityData });
+  }, [updateMutation]);
+
+  const resubmitActivity = useCallback((pendingId: string, activityData: any) => {
+    resubmitMutation.mutate({ pendingId, activityData });
+  }, [resubmitMutation]);
 
   return {
     activities: activities || [],
@@ -177,5 +265,9 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
     isReviewing: reviewMutation.isPending,
     deleteActivity: (pendingId: string) => deleteMutation.mutate(pendingId),
     isDeleting: deleteMutation.isPending,
+    updateActivity,
+    isUpdating: updateMutation.isPending,
+    resubmitActivity,
+    isResubmitting: resubmitMutation.isPending,
   };
 };
