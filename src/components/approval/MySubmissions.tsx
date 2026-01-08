@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,8 +16,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Clock, CheckCircle, XCircle, Calendar, AlertCircle, Trash2 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Calendar, AlertCircle, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { usePendingActivities, PendingActivity } from "@/hooks/usePendingActivities";
+import { EditSubmissionDialog } from "./EditSubmissionDialog";
 import { formatDistanceToNow } from "date-fns";
 
 interface MySubmissionsProps {
@@ -24,8 +26,43 @@ interface MySubmissionsProps {
 }
 
 export const MySubmissions = ({ userId }: MySubmissionsProps) => {
-  const { activities, pendingCount, approvedCount, rejectedCount, isLoading, deleteActivity, isDeleting } = 
-    usePendingActivities(undefined, userId);
+  const { 
+    activities, 
+    pendingCount, 
+    approvedCount, 
+    rejectedCount, 
+    isLoading, 
+    deleteActivity, 
+    isDeleting,
+    updateActivity,
+    isUpdating,
+    resubmitActivity,
+    isResubmitting
+  } = usePendingActivities(undefined, userId);
+
+  const [editingActivity, setEditingActivity] = useState<PendingActivity | null>(null);
+  const [dialogMode, setDialogMode] = useState<'edit' | 'resubmit'>('edit');
+
+  const openEditDialog = (activity: PendingActivity) => {
+    setEditingActivity(activity);
+    setDialogMode('edit');
+  };
+
+  const openResubmitDialog = (activity: PendingActivity) => {
+    setEditingActivity(activity);
+    setDialogMode('resubmit');
+  };
+
+  const handleSave = (activityData: any) => {
+    if (!editingActivity) return;
+    
+    if (dialogMode === 'edit') {
+      updateActivity(editingActivity.id, activityData);
+    } else {
+      resubmitActivity(editingActivity.id, activityData);
+    }
+    setEditingActivity(null);
+  };
 
   const getActivityTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
@@ -94,36 +131,57 @@ export const MySubmissions = ({ userId }: MySubmissionsProps) => {
               </p>
             </div>
             {activity.status === 'pending' && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-destructive hover:text-destructive"
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete this {getActivityTypeLabel(activity.activity_type).toLowerCase()} submission? 
-                      This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => deleteActivity(activity.id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              <div className="flex gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => openEditDialog(activity)}
+                  disabled={isUpdating}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-destructive hover:text-destructive"
+                      disabled={isDeleting}
                     >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this {getActivityTypeLabel(activity.activity_type).toLowerCase()} submission? 
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => deleteActivity(activity.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+            {activity.status === 'rejected' && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => openResubmitDialog(activity)}
+                disabled={isResubmitting}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Resubmit
+              </Button>
             )}
           </div>
 
@@ -251,6 +309,15 @@ export const MySubmissions = ({ userId }: MySubmissionsProps) => {
             </ScrollArea>
           </TabsContent>
         </Tabs>
+
+        <EditSubmissionDialog
+          activity={editingActivity}
+          mode={dialogMode}
+          open={!!editingActivity}
+          onOpenChange={(open) => !open && setEditingActivity(null)}
+          onSave={handleSave}
+          isSaving={isUpdating || isResubmitting}
+        />
       </CardContent>
     </Card>
   );
