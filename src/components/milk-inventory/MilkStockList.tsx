@@ -3,9 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Milk, AlertTriangle, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
+import { Milk, AlertTriangle, DollarSign, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { RecordMilkSaleDialog } from "./RecordMilkSaleDialog";
+import { EditMilkRecordDialog } from "./EditMilkRecordDialog";
+import { DeleteMilkRecordDialog } from "./DeleteMilkRecordDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { MilkInventoryItem, MilkInventorySummary } from "@/hooks/useMilkInventory";
 
@@ -26,6 +28,8 @@ function getAgeIndicator(date: string): { label: string; variant: "default" | "s
 export function MilkStockList({ farmId, data, isLoading, canManage = true }: MilkStockListProps) {
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const [expandedAnimals, setExpandedAnimals] = useState<Set<string>>(new Set());
+  const [editingRecord, setEditingRecord] = useState<MilkInventoryItem | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<MilkInventoryItem | null>(null);
 
   const toggleAnimal = (animalId: string) => {
     setExpandedAnimals(prev => {
@@ -151,6 +155,33 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
                             {recordAge.label}
                           </Badge>
                           <span className="font-medium">{record.liters.toFixed(1)} L</span>
+                          
+                          {canManage && (
+                            <div className="flex items-center gap-1 ml-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7"
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setEditingRecord(record); 
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setDeletingRecord(record); 
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -170,6 +201,26 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
         availableItems={items}
         totalAvailable={summary.totalLiters}
       />
+      
+      {/* Edit Dialog */}
+      {editingRecord && (
+        <EditMilkRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          farmId={farmId}
+          record={editingRecord}
+        />
+      )}
+      
+      {/* Delete Dialog */}
+      {deletingRecord && (
+        <DeleteMilkRecordDialog
+          open={!!deletingRecord}
+          onOpenChange={(open) => !open && setDeletingRecord(null)}
+          farmId={farmId}
+          record={deletingRecord}
+        />
+      )}
     </div>
   );
 }

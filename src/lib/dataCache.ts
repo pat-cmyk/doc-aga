@@ -1596,6 +1596,91 @@ function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkI
 }
 
 /**
+ * Update a milk record in the local cache (for edit functionality)
+ */
+export async function updateLocalMilkInventoryRecord(
+  farmId: string,
+  recordId: string,
+  updates: { liters?: number; record_date?: string }
+): Promise<{ oldLiters: number; oldDate: string } | null> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('milkInventory', farmId);
+    
+    if (!existing) return null;
+    
+    let oldValues: { oldLiters: number; oldDate: string } | null = null;
+    
+    const items = existing.items.map(item => {
+      if (item.id === recordId) {
+        oldValues = { oldLiters: item.liters, oldDate: item.record_date };
+        return { 
+          ...item, 
+          ...updates, 
+          syncStatus: 'pending' as CacheSyncStatus 
+        };
+      }
+      return item;
+    });
+    
+    const summary = recalculateMilkInventorySummary(items);
+    
+    const updated: MilkInventoryCache = {
+      ...existing,
+      items,
+      summary,
+      lastUpdated: Date.now(),
+      syncStatus: 'pending',
+    };
+    
+    await db.put('milkInventory', updated);
+    console.log(`[DataCache] Updated milk inventory record ${recordId}`);
+    
+    return oldValues;
+  } catch (error) {
+    console.error('[DataCache] Failed to update milk inventory record:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete a milk record from the local cache
+ */
+export async function deleteLocalMilkInventoryRecord(
+  farmId: string,
+  recordId: string
+): Promise<{ liters: number; record_date: string } | null> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('milkInventory', farmId);
+    
+    if (!existing) return null;
+    
+    const deletedRecord = existing.items.find(i => i.id === recordId);
+    if (!deletedRecord) return null;
+    
+    const items = existing.items.filter(item => item.id !== recordId);
+    const summary = recalculateMilkInventorySummary(items);
+    
+    const updated: MilkInventoryCache = {
+      ...existing,
+      items,
+      summary,
+      lastUpdated: Date.now(),
+      syncStatus: 'pending',
+    };
+    
+    await db.put('milkInventory', updated);
+    console.log(`[DataCache] Deleted milk inventory record ${recordId}`);
+    
+    return { liters: deletedRecord.liters, record_date: deletedRecord.record_date };
+  } catch (error) {
+    console.error('[DataCache] Failed to delete milk inventory record:', error);
+    return null;
+  }
+}
+
+/**
  * Clear milk inventory cache for a farm
  */
 export async function clearMilkInventoryCache(farmId: string): Promise<void> {
