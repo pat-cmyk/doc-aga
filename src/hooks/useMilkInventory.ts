@@ -159,12 +159,18 @@ export function useMilkInventory(farmId: string) {
     byAnimal: [],
   };
 
+  // Wrap refetch to reset cache freshness, forcing a server fetch
+  const refetch = async () => {
+    setIsCacheFresh(false);
+    return serverQuery.refetch();
+  };
+
   return {
     data: items.length > 0 ? { items, summary } : undefined,
     isLoading: !cacheChecked || (!cachedData && serverQuery.isLoading),
     isError: serverQuery.isError && !cachedData,
     error: serverQuery.error,
-    refetch: serverQuery.refetch,
+    refetch,
   };
 }
 
