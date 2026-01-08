@@ -64,11 +64,17 @@ export function RecordBulkMilkDialog({
     if (!isOnline && farmId) {
       getCachedAnimals(farmId).then(cached => {
         if (cached?.data) {
-          // Filter for lactating animals only
-          const lactating = cached.data.filter(a => 
-            a.gender?.toLowerCase() === 'female' && 
-            ['early_lactation', 'mid_lactation', 'late_lactation'].includes(a.milkingStage || a.milking_stage || '')
-          );
+          // Filter for lactating animals only (matching online query behavior)
+          const lactating = cached.data.filter((a: any) => {
+            if (a.gender?.toLowerCase() !== 'female') return false;
+            
+            // Check is_currently_lactating flag first
+            if (a.is_currently_lactating) return true;
+            
+            // Then check milking stage with case-insensitive matching
+            const stage = (a.milkingStage || a.milking_stage || '').toLowerCase();
+            return ['early lactation', 'mid-lactation', 'late lactation'].includes(stage);
+          });
           setCachedAnimals(lactating);
         }
       });
