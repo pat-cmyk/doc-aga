@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import {
+  getCachedDashboardStats,
+  updateDashboardStatsCache,
+  isDashboardCacheFresh,
+  type DashboardStatsCache,
+} from "@/lib/dataCache";
 import type { DashboardStats, DashboardStatsTrends } from "./useDashboardStats";
 import type { CombinedDailyData } from "./useMilkData";
 import type { MonthlyHeadcount } from "./useHeadcountData";
@@ -19,8 +26,13 @@ interface CombinedDashboardData {
 }
 
 /**
- * Optimized hook that fetches all dashboard data in a single RPC call
- * Reduces waterfall queries from 10+ to 1 for FarmDashboard
+ * Offline-first hook that fetches all dashboard data
+ * 
+ * Strategy:
+ * 1. Read from IndexedDB cache immediately for instant display
+ * 2. If online, fetch from server in background
+ * 3. Merge server data with local pending records
+ * 4. Update IndexedDB with merged result
  */
 export const useCombinedDashboardData = (
   farmId: string,
@@ -43,13 +55,62 @@ export const useCombinedDashboardData = (
   const [stageKeys, setStageKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isOnline = useOnlineStatus();
+
+  // Convert cached dailyMilk to chart-compatible format
+  const buildCombinedDataFromCache = useCallback((
+    cachedDailyMilk: Record<string, number>,
+    cachedStageCounts: Record<string, number>
+  ): CombinedDailyData[] => {
+    return dateArray.map(date => ({
+      date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      rawDate: date,
+      milkTotal: cachedDailyMilk[date] || 0,
+      ...cachedStageCounts, // Spread stage counts as properties
+    }));
+  }, [dateArray]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
+      // ========== STEP 1: Read from IndexedDB cache immediately ==========
+      const cachedStats = await getCachedDashboardStats(farmId);
+      
+      if (cachedStats) {
+        console.log('[Dashboard] Showing cached data immediately');
+        setStats(cachedStats.stats);
+        setCombinedData(buildCombinedDataFromCache(cachedStats.dailyMilk, cachedStats.stageCounts));
+        // Cast monthlyData to MonthlyHeadcount[] since the structure matches
+        setMonthlyHeadcount(cachedStats.monthlyData as MonthlyHeadcount[]);
+        setStageKeys(cachedStats.stageKeys);
+        setLoading(false); // Show cached data immediately
+      }
+
+      // ========== STEP 2: Check if we need to fetch from server ==========
+      const cacheIsFresh = await isDashboardCacheFresh(farmId);
+      
+      if (!isOnline) {
+        // Offline: use cache only
+        if (!cachedStats) {
+          setError(new Error("No cached data available offline"));
+        }
+        setLoading(false);
+        return;
+      }
+
+      // If cache is fresh and we have data, skip server fetch
+      if (cacheIsFresh && cachedStats) {
+        console.log('[Dashboard] Cache is fresh, skipping server fetch');
+        setLoading(false);
+        return;
+      }
+
+      // ========== STEP 3: Fetch from server in background ==========
+      console.log('[Dashboard] Fetching fresh data from server...');
+
       // Self-healing: ensure farm stats exist for the requested period
-      // This fills any gaps automatically (max 30 days backfill)
       try {
         await supabase.rpc('ensure_farm_stats', {
           p_farm_id: farmId,
@@ -57,7 +118,6 @@ export const useCombinedDashboardData = (
           p_end_date: endDate.toISOString().split('T')[0]
         });
       } catch (ensureErr) {
-        // Non-critical - continue even if backfill fails
         console.warn("Stats backfill skipped:", ensureErr);
       }
 
@@ -72,32 +132,59 @@ export const useCombinedDashboardData = (
       if (rpcError) throw rpcError;
 
       if (data) {
-        // Cast the RPC result to the expected type (via unknown to satisfy TypeScript)
         const result = data as unknown as CombinedDashboardData;
         
-        // Process stats
-        setStats(result.stats || {
+        // Process server stats
+        const serverStats = result.stats || {
           totalAnimals: 0,
           avgDailyMilk: 0,
           pregnantCount: 0,
           pendingConfirmation: 0,
           recentHealthEvents: 0
+        };
+
+        // Process server daily data into dailyMilk map
+        const serverDailyMilk: Record<string, number> = {};
+        const serverStageCounts: Record<string, number> = {};
+        
+        (result.dailyData || []).forEach((item: any) => {
+          const date = item.date;
+          serverDailyMilk[date] = Number(item.milkTotal || 0);
+          
+          // Aggregate stage counts
+          const stageCounts = item.stageCounts || {};
+          Object.entries(stageCounts).forEach(([stage, count]) => {
+            serverStageCounts[stage] = (serverStageCounts[stage] || 0) + (count as number);
+          });
         });
 
-        // Process daily data
+        // ========== STEP 4: Merge server with local pending data ==========
+        // For today's date, prefer local cache if it has pending data (higher value wins)
+        const today = new Date().toISOString().split('T')[0];
+        const mergedDailyMilk = { ...serverDailyMilk };
+        
+        if (cachedStats?.dailyMilk[today] && cachedStats.syncStatus === 'pending') {
+          // Use MAX of server and local for today (handles both online adds and offline queued)
+          mergedDailyMilk[today] = Math.max(
+            serverDailyMilk[today] || 0,
+            cachedStats.dailyMilk[today] || 0
+          );
+        }
+
+        // Build combined data for charts
         const dailyDataMap: Record<string, CombinedDailyData> = {};
         dateArray.forEach(date => {
           dailyDataMap[date] = {
             date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawDate: date,
-            milkTotal: 0
+            milkTotal: mergedDailyMilk[date] || 0,
           };
         });
 
+        // Add stage counts to daily data
         (result.dailyData || []).forEach((item: any) => {
           const date = item.date;
           if (dailyDataMap[date]) {
-            dailyDataMap[date].milkTotal = Number(item.milkTotal || 0);
             const stageCounts = item.stageCounts || {};
             Object.entries(stageCounts).forEach(([stage, count]) => {
               dailyDataMap[date][stage] = count as number;
@@ -127,20 +214,30 @@ export const useCombinedDashboardData = (
           return new Date(a).getTime() - new Date(b).getTime();
         });
 
-        setMonthlyHeadcount(sortedMonths.map(month => monthlyMap[month]));
+        const processedMonthlyData = sortedMonths.map(month => monthlyMap[month]);
+        
+        setStats(serverStats);
+        setMonthlyHeadcount(processedMonthlyData as MonthlyHeadcount[]);
         setStageKeys(result.stageKeys || []);
+
+        // ========== STEP 5: Update IndexedDB with merged data ==========
+        await updateDashboardStatsCache(farmId, {
+          stats: serverStats,
+          dailyMilk: mergedDailyMilk,
+          stageCounts: serverStageCounts,
+          monthlyData: processedMonthlyData,
+          stageKeys: result.stageKeys || [],
+        });
       }
 
-      // Fetch previous period data for trends (previous 30 days before current period)
+      // Fetch previous period data for trends
       const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       const prevEndDate = new Date(startDate);
       prevEndDate.setDate(prevEndDate.getDate() - 1);
       const prevStartDate = new Date(prevEndDate);
       prevStartDate.setDate(prevStartDate.getDate() - daysDiff);
 
-      // Fetch previous period stats
       const [prevAnimals, prevMilk, prevPregnant, prevHealth] = await Promise.all([
-        // Previous animal count (animals that existed at prevEndDate)
         supabase
           .from("animals")
           .select("*", { count: "exact", head: true })
@@ -148,7 +245,6 @@ export const useCombinedDashboardData = (
           .eq("is_deleted", false)
           .lte("created_at", prevEndDate.toISOString()),
         
-        // Previous avg milk
         supabase
           .from("daily_farm_stats")
           .select("total_milk_liters")
@@ -156,7 +252,6 @@ export const useCombinedDashboardData = (
           .gte("stat_date", prevStartDate.toISOString().split("T")[0])
           .lte("stat_date", prevEndDate.toISOString().split("T")[0]),
         
-        // Previous pregnant count
         supabase
           .from("ai_records")
           .select("animal_id, animals!inner(farm_id), confirmed_at")
@@ -164,7 +259,6 @@ export const useCombinedDashboardData = (
           .eq("pregnancy_confirmed", true)
           .lte("confirmed_at", prevEndDate.toISOString()),
         
-        // Previous health events
         supabase
           .from("health_records")
           .select("*, animals!inner(farm_id)", { count: "exact", head: true })
@@ -186,11 +280,15 @@ export const useCombinedDashboardData = (
 
     } catch (err) {
       console.error("Error loading combined dashboard data:", err);
-      setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
+      // Only set error if we have no cached data
+      const cachedStats = await getCachedDashboardStats(farmId);
+      if (!cachedStats) {
+        setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
+      }
     } finally {
       setLoading(false);
     }
-  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray]);
+  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray, isOnline, buildCombinedDataFromCache]);
 
   useEffect(() => {
     loadData();

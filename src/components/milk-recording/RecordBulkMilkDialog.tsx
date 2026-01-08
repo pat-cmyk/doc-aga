@@ -33,7 +33,7 @@ import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals } from "@/lib/dataCache";
+import { getCachedAnimals, addLocalMilkRecord } from "@/lib/dataCache";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 
 interface RecordBulkMilkDialogProps {
@@ -164,6 +164,10 @@ export function RecordBulkMilkDialog({
     
     try {
       const dateStr = format(recordDate, "yyyy-MM-dd");
+      const totalLitersNum = parseFloat(totalLiters);
+
+      // STEP 1: Update local dashboard cache IMMEDIATELY for instant UI feedback
+      await addLocalMilkRecord(farmId, dateStr, totalLitersNum);
 
       // Build optimistic records for immediate UI update
       const optimisticRecords = splitPreview.map((split) => ({
@@ -182,6 +186,9 @@ export function RecordBulkMilkDialog({
       queryClient.setQueryData(['milking-records', farmId], (old: any[] = []) => 
         [...optimisticRecords, ...old]
       );
+
+      // Invalidate dashboard query to trigger re-read from local cache
+      queryClient.invalidateQueries({ queryKey: ["dashboard", farmId] });
 
       if (!isOnline) {
         // Queue for offline sync
