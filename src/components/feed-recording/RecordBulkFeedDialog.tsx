@@ -367,7 +367,7 @@ export function RecordBulkFeedDialog({
               </span>
             )}
             {isOnline && (
-              <VoiceFormInput<ExtractedFeedData>
+              <VoiceFormInput
                 extractorType="feed"
                 extractorContext={{ feedInventory: displayFeedInventory }}
                 onDataExtracted={handleVoiceDataExtracted}

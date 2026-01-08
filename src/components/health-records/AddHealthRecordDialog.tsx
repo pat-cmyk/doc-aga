@@ -320,9 +320,9 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Diagnosis"
                 className="flex-1"
               />
-              <VoiceFormInput<ExtractedTextData>
+              <VoiceFormInput
                 extractorType="text"
-                onDataExtracted={(data) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${data.text}` : data.text }))}
+                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${data.text}` : data.text }))}
                 disabled={!isOnline}
                 offlineMode="block"
                 formType="health-diagnosis"
@@ -342,9 +342,9 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Treatment provided"
                 className="flex-1"
               />
-              <VoiceFormInput<ExtractedTextData>
+              <VoiceFormInput
                 extractorType="text"
-                onDataExtracted={(data) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${data.text}` : data.text }))}
+                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${data.text}` : data.text }))}
                 disabled={!isOnline}
                 offlineMode="block"
                 formType="health-treatment"
@@ -364,9 +364,9 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Additional notes"
                 className="flex-1"
               />
-              <VoiceFormInput<ExtractedTextData>
+              <VoiceFormInput
                 extractorType="text"
-                onDataExtracted={(data) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${data.text}` : data.text }))}
+                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${data.text}` : data.text }))}
                 disabled={!isOnline}
                 offlineMode="block"
                 formType="health-notes"

@@ -268,7 +268,7 @@ export function RecordBulkMilkDialog({
             <Milk className="h-5 w-5 text-blue-500" />
             Record Milk Production
             <div className="ml-auto flex items-center gap-2">
-              <VoiceFormInput<ExtractedMilkData>
+              <VoiceFormInput
                 extractorType="milk"
                 onDataExtracted={handleVoiceDataExtracted}
                 disabled={isLoading || displayAnimals.length === 0}
