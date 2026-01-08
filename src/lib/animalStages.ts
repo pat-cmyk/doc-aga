@@ -73,17 +73,27 @@ export function calculateLifeStage(data: AnimalStageData): string | null {
   try {
     const { birthDate, gender, offspringCount, hasActiveAI, livestockType } = data;
     
-    if (!birthDate || gender !== "Female" || !livestockType) return null;
+    // Must have gender and livestock type
+    if (gender !== "Female" || !livestockType) return null;
+    
+    const normalizedType = livestockType.toLowerCase().trim();
+
+    // If birth date is unknown, infer stage from offspring/AI data
+    if (!birthDate) {
+      return inferLifeStageWithoutBirthDate(normalizedType, offspringCount, hasActiveAI);
+    }
     
     // Ensure birthDate is a valid date
-    if (isNaN(birthDate.getTime())) return null;
+    if (isNaN(birthDate.getTime())) {
+      return inferLifeStageWithoutBirthDate(normalizedType, offspringCount, hasActiveAI);
+    }
     
     const ageInMonths = differenceInMonths(new Date(), birthDate);
     
     // Ensure ageInMonths is a valid number
-    if (isNaN(ageInMonths) || ageInMonths < 0) return null;
-
-    const normalizedType = livestockType.toLowerCase().trim();
+    if (isNaN(ageInMonths) || ageInMonths < 0) {
+      return inferLifeStageWithoutBirthDate(normalizedType, offspringCount, hasActiveAI);
+    }
 
     // Species-specific logic
     if (normalizedType === 'cattle') {
@@ -101,6 +111,47 @@ export function calculateLifeStage(data: AnimalStageData): string | null {
     console.error("Error in calculateLifeStage:", error);
     return null;
   }
+}
+
+/**
+ * Infer life stage when birth date is unknown, using reproductive history
+ */
+function inferLifeStageWithoutBirthDate(
+  livestockType: string, 
+  offspringCount: number, 
+  hasActiveAI: boolean
+): string | null {
+  // If has 2+ offspring, animal is mature
+  if (offspringCount >= 2) {
+    if (livestockType === 'cattle') return "Mature Cow";
+    if (livestockType === 'carabao') return "Mature Carabao";
+    if (livestockType === 'goat') return "Mature Doe";
+    if (livestockType === 'sheep') return "Mature Ewe";
+  }
+  
+  // If has exactly 1 offspring, first-time mother
+  if (offspringCount === 1) {
+    if (livestockType === 'cattle') return "First-Calf Heifer";
+    if (livestockType === 'carabao') return "First-Time Mother";
+    if (livestockType === 'goat') return "First Freshener";
+    if (livestockType === 'sheep') return "First-Time Mother Ewe";
+  }
+  
+  // No offspring - check for pregnancy (active AI)
+  if (hasActiveAI) {
+    if (livestockType === 'cattle') return "Pregnant Heifer";
+    if (livestockType === 'carabao') return "Pregnant Carabao";
+    if (livestockType === 'goat') return "Pregnant Doe";
+    if (livestockType === 'sheep') return "Pregnant Ewe";
+  }
+  
+  // Default: assume breeding age for adult females with unknown birth date
+  if (livestockType === 'cattle') return "Breeding Heifer";
+  if (livestockType === 'carabao') return "Breeding Carabao";
+  if (livestockType === 'goat') return "Breeding Doe";
+  if (livestockType === 'sheep') return "Breeding Ewe";
+  
+  return null;
 }
 
 // Helper function for cattle life stages (preserves existing detailed logic)
