@@ -187,8 +187,9 @@ export function RecordBulkMilkDialog({
         [...optimisticRecords, ...old]
       );
 
-      // Invalidate dashboard query to trigger re-read from local cache
-      queryClient.invalidateQueries({ queryKey: ["dashboard", farmId] });
+      // Force dashboard to re-fetch and display updated local cache
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await queryClient.refetchQueries({ queryKey: ["dashboard", farmId] });
 
       if (!isOnline) {
         // Queue for offline sync
