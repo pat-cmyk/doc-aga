@@ -33,7 +33,7 @@ import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
+import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord, clearMilkInventoryCache } from "@/lib/dataCache";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 
 interface RecordBulkMilkDialogProps {
@@ -251,9 +251,13 @@ export function RecordBulkMilkDialog({
 
       if (error) throw error;
 
-      // Invalidate relevant queries
+      // Clear stale milk inventory cache and force refresh
+      await clearMilkInventoryCache(farmId);
+
+      // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: ["milking-records"] });
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory"] });
+      await queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      await queryClient.refetchQueries({ queryKey: ["milk-inventory", farmId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
       hapticNotification('success');
