@@ -100,11 +100,10 @@ export const useCombinedDashboardData = (
         return;
       }
 
-      // If cache is fresh and we have data, skip server fetch
+      // If cache is fresh and we have data, skip server fetch (but data is already displayed from step 1)
       if (cacheIsFresh && cachedStats) {
         console.log('[Dashboard] Cache is fresh, skipping server fetch');
-        setLoading(false);
-        return;
+        return; // Already set loading=false above when showing cached data
       }
 
       // ========== STEP 3: Fetch from server in background ==========
