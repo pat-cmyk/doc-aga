@@ -19,7 +19,8 @@ import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
 import { useNavigate } from "react-router-dom";
-import { addLocalMilkRecord } from "@/lib/dataCache";
+import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface FarmDashboardProps {
   farmId: string;
@@ -36,6 +37,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   const [monthlyTimePeriod, setMonthlyTimePeriod] = useState<"all" | "ytd">("ytd");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Quick action handlers
   const handleRecordMilk = () => {
@@ -213,9 +215,24 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         const now = Date.now();
         
         // Update local dashboard cache with the new record
-        const newRecord = payload.new as { record_date: string; liters: number };
+        const newRecord = payload.new as { id: string; animal_id: string; record_date: string; liters: number; created_at: string };
         if (newRecord.record_date && newRecord.liters) {
           await addLocalMilkRecord(farmId, newRecord.record_date, newRecord.liters);
+          
+          // Also update milk inventory cache
+          await addLocalMilkInventoryRecord(farmId, {
+            id: newRecord.id,
+            animal_id: newRecord.animal_id,
+            animal_name: null, // Will be filled on next server sync
+            ear_tag: null,
+            record_date: newRecord.record_date,
+            liters: newRecord.liters,
+            created_at: newRecord.created_at || new Date().toISOString(),
+            syncStatus: 'synced',
+          });
+          
+          // Invalidate milk inventory to trigger re-render with cached data
+          queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
         }
         
         // Throttled reload from cache/server
@@ -230,7 +247,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [farmId, reloadStats]);
+  }, [farmId, reloadStats, queryClient]);
 
 
   // Show error state with retry button

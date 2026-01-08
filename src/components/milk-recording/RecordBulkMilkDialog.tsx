@@ -33,7 +33,7 @@ import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals, addLocalMilkRecord } from "@/lib/dataCache";
+import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 
 interface RecordBulkMilkDialogProps {
@@ -169,6 +169,20 @@ export function RecordBulkMilkDialog({
       // STEP 1: Update local dashboard cache IMMEDIATELY for instant UI feedback
       await addLocalMilkRecord(farmId, dateStr, totalLitersNum);
 
+      // STEP 2: Update local milk inventory cache for EACH record
+      for (const split of splitPreview) {
+        await addLocalMilkInventoryRecord(farmId, {
+          id: `optimistic-${optimisticId}-${split.animalId}`,
+          animal_id: split.animalId,
+          animal_name: split.animalName,
+          ear_tag: null, // Not available in split preview
+          record_date: dateStr,
+          liters: split.liters,
+          created_at: new Date().toISOString(),
+          syncStatus: 'pending',
+        });
+      }
+
       // Build optimistic records for immediate UI update
       const optimisticRecords = splitPreview.map((split) => ({
         id: `optimistic-${optimisticId}-${split.animalId}`,
@@ -187,9 +201,11 @@ export function RecordBulkMilkDialog({
         [...optimisticRecords, ...old]
       );
 
-      // Force dashboard to re-fetch and display updated local cache
+      // Force dashboard and milk inventory to re-read from cache
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       await queryClient.refetchQueries({ queryKey: ["dashboard", farmId] });
+      await queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      await queryClient.refetchQueries({ queryKey: ["milk-inventory", farmId] });
 
       if (!isOnline) {
         // Queue for offline sync
