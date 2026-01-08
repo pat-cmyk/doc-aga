@@ -14,6 +14,7 @@ import { getCachedAnimalDetails } from '@/lib/dataCache';
 import { TranscriptionCorrectionDialog } from '@/components/TranscriptionCorrectionDialog';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
+import { getLactatingAnimalsOrFilter } from '@/lib/animalQueries';
 
 interface VoiceRecordButtonProps {
   farmId: string;
@@ -377,17 +378,19 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
             // Fetch all milking animals of this type
             const { data } = await supabase
               .from('animals')
-              .select('id, ear_tag, name, current_weight_kg, livestock_type, milking_stage')
+              .select('id, ear_tag, name, current_weight_kg, livestock_type, milking_stage, is_currently_lactating')
               .eq('farm_id', farmId)
               .eq('livestock_type', livestock_type)
-              .in('milking_stage', ['Early Lactation', 'Mid-Lactation', 'Late Lactation'])
-              .eq('is_deleted', false);
+              .eq('gender', 'Female')
+              .is('exit_date', null)
+              .eq('is_deleted', false)
+              .or(getLactatingAnimalsOrFilter());
             animals = data || [];
           } else {
             // Fetch selected animals
             const { data } = await supabase
               .from('animals')
-              .select('id, ear_tag, name, current_weight_kg, livestock_type, milking_stage')
+              .select('id, ear_tag, name, current_weight_kg, livestock_type, milking_stage, is_currently_lactating')
               .in('id', selection)
               .eq('is_deleted', false);
             animals = data || [];
