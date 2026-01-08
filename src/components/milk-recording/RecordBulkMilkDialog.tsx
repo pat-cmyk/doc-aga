@@ -30,6 +30,7 @@ import {
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
 import { AnimalCombobox } from "./AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
+import { VoiceMilkInput, ExtractedMilkData } from "./VoiceMilkInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals } from "@/lib/dataCache";
@@ -134,6 +135,24 @@ export function RecordBulkMilkDialog({
   const handleClose = () => {
     hapticImpact('light');
     onOpenChange(false);
+  };
+
+  const handleVoiceDataExtracted = (data: ExtractedMilkData) => {
+    if (data.totalLiters) {
+      setTotalLiters(data.totalLiters.toString());
+    }
+    if (data.session) {
+      setSession(data.session);
+    }
+    if (data.animalSelection === 'all-lactating' && dropdownOptions.length > 0) {
+      // Find the "all lactating" option
+      const allOption = dropdownOptions.find(opt => 
+        opt.value.startsWith('all-') || opt.label.toLowerCase().includes('all')
+      );
+      if (allOption) {
+        setSelectedOption(allOption.value);
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -247,12 +266,18 @@ export function RecordBulkMilkDialog({
           <DialogTitle className="flex items-center gap-2">
             <Milk className="h-5 w-5 text-blue-500" />
             Record Milk Production
-            {!isOnline && (
-              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
-                <WifiOff className="h-3 w-3" />
-                Offline
-              </span>
-            )}
+            <div className="ml-auto flex items-center gap-2">
+              <VoiceMilkInput 
+                onDataExtracted={handleVoiceDataExtracted}
+                disabled={isLoading || displayAnimals.length === 0}
+              />
+              {!isOnline && (
+                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
+                </span>
+              )}
+            </div>
           </DialogTitle>
           <DialogDescription>
             Record milk collected and split proportionally by weight and lactation stage
