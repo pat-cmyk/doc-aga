@@ -1436,27 +1436,55 @@ export async function isMilkInventoryCacheFresh(farmId: string): Promise<boolean
 
 /**
  * Update milk inventory cache with server data
+ * Properly reconciles optimistic/pending items to prevent data loss
  */
 export async function updateMilkInventoryCache(
   farmId: string,
-  items: MilkInventoryCacheItem[],
+  serverItems: MilkInventoryCacheItem[],
   summary: MilkInventoryCache['summary']
 ): Promise<void> {
   try {
     const db = await getDB();
     const existing = await db.get('milkInventory', farmId);
     
-    // Merge with any pending local items
-    const pendingItems = existing?.items.filter(i => i.syncStatus === 'pending') || [];
-    const serverItemIds = new Set(items.map(i => i.id));
+    // Get pending/optimistic items from cache
+    const pendingItems = existing?.items.filter(i => 
+      i.syncStatus === 'pending' || i.id.startsWith('optimistic-')
+    ) || [];
     
-    // Keep pending items that aren't confirmed by server yet
+    // Build lookup sets for reconciliation
+    const serverIds = new Set(serverItems.map(i => i.id));
+    const serverMilkingRecordIds = new Set(serverItems.map(i => i.milking_record_id));
+    
+    // Keep pending items ONLY if they're NOT confirmed by server
+    const unconfirmedPending = pendingItems.filter(pending => {
+      // If server has this exact ID, it's confirmed
+      if (serverIds.has(pending.id)) return false;
+      
+      // If server has a record with matching milking_record_id, it's confirmed
+      if (serverMilkingRecordIds.has(pending.milking_record_id)) return false;
+      
+      // For optimistic items, check if any server item matches by fingerprint
+      // (same animal + date + liters within 0.1L tolerance)
+      if (pending.id.startsWith('optimistic-')) {
+        const matchesFingerprint = serverItems.some(s => 
+          s.animal_id === pending.animal_id &&
+          s.record_date === pending.record_date &&
+          Math.abs(s.liters_original - pending.liters_original) < 0.1
+        );
+        if (matchesFingerprint) return false;
+      }
+      
+      return true; // Keep this pending item
+    });
+    
+    // Merge: server items (synced) + unconfirmed pending items
     const mergedItems = [
-      ...items.map(i => ({ ...i, syncStatus: 'synced' as CacheSyncStatus })),
-      ...pendingItems.filter(p => !serverItemIds.has(p.id) && !p.id.startsWith('optimistic-')),
+      ...serverItems.map(i => ({ ...i, syncStatus: 'synced' as CacheSyncStatus })),
+      ...unconfirmedPending,
     ];
     
-    // Recalculate summary including pending items
+    // Recalculate summary with merged items
     const recalculatedSummary = recalculateMilkInventorySummary(mergedItems);
     
     const updated: MilkInventoryCache = {
@@ -1465,11 +1493,15 @@ export async function updateMilkInventoryCache(
       summary: recalculatedSummary,
       lastUpdated: Date.now(),
       lastServerSync: Date.now(),
-      syncStatus: pendingItems.length > 0 ? 'pending' : 'synced',
+      syncStatus: unconfirmedPending.length > 0 ? 'pending' : 'synced',
     };
     
     await db.put('milkInventory', updated);
-    console.log('[DataCache] Milk inventory cache updated with', items.length, 'server items');
+    console.log('[DataCache] Milk inventory merged:', {
+      serverItems: serverItems.length,
+      pendingKept: unconfirmedPending.length,
+      total: mergedItems.length,
+    });
   } catch (error) {
     console.error('[DataCache] Failed to update milk inventory cache:', error);
   }
@@ -1554,7 +1586,7 @@ export async function markMilkRecordsSold(
 /**
  * Helper to recalculate milk inventory summary from items
  */
-function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkInventoryCache['summary'] {
+export function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkInventoryCache['summary'] {
   // Only include available items with remaining liters
   const availableItems = items.filter(i => i.is_available && i.liters_remaining > 0);
   
