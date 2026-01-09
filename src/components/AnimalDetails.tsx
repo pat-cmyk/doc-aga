@@ -30,6 +30,7 @@ import {
 import { getCachedAnimalDetails, getCachedRecords, updateRecordsCache } from "@/lib/dataCache";
 import { RecalculateSingleAnimalButton } from "./animal-details/RecalculateSingleAnimalButton";
 import { RecordAnimalExitDialog } from "./animal-exit/RecordAnimalExitDialog";
+import { DryOffAnimalButton } from "./animal-details/DryOffAnimalButton";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
@@ -639,6 +640,15 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       earTag={animal.ear_tag || undefined}
                       onExitRecorded={onBack}
                     />
+                    {animal.gender === 'Female' && (
+                      <DryOffAnimalButton
+                        animalId={animalId}
+                        animalName={animal.name || animal.ear_tag || 'Animal'}
+                        farmId={farmId}
+                        isCurrentlyLactating={stageData?.hasRecentMilking || animal.milking_stage?.includes('Lactation')}
+                        onSuccess={loadAnimal}
+                      />
+                    )}
                     <RecalculateSingleAnimalButton 
                       animalId={animalId} 
                       onSuccess={loadAnimal}

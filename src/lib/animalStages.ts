@@ -323,6 +323,40 @@ export function calculateMilkingStage(data: AnimalStageData): string | null {
 }
 
 /**
+ * Calculate milking stage based on milking_start_date or estimated_days_in_milk
+ * 
+ * This function is used during milk recording to automatically update
+ * the milking_stage as time progresses.
+ * 
+ * @param milkingStartDate - Date when animal started producing milk
+ * @param estimatedDaysInMilk - Fallback estimated days in milk (if start date unknown)
+ * @returns Milking stage string or null
+ */
+export function calculateMilkingStageFromDays(
+  milkingStartDate: string | null | undefined,
+  estimatedDaysInMilk: number | null | undefined
+): string | null {
+  let daysSinceStart: number;
+
+  if (milkingStartDate) {
+    const startDate = new Date(milkingStartDate);
+    if (isNaN(startDate.getTime())) return null;
+    daysSinceStart = differenceInDays(new Date(), startDate);
+  } else if (estimatedDaysInMilk !== null && estimatedDaysInMilk !== undefined) {
+    daysSinceStart = estimatedDaysInMilk;
+  } else {
+    return null;
+  }
+
+  if (daysSinceStart < 0) return null;
+
+  if (daysSinceStart <= 100) return "Early Lactation";
+  if (daysSinceStart <= 200) return "Mid-Lactation";
+  if (daysSinceStart <= 305) return "Late Lactation";
+  return "Dry Period";
+}
+
+/**
  * Get Tailwind CSS classes for life stage badge styling
  * 
  * Returns background and text color classes to visually distinguish different
