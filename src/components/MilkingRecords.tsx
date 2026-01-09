@@ -1,14 +1,26 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Loader2, Sun, Moon, Pencil, ChevronDown, ChevronUp, History } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis } from "recharts";
 import { getCachedRecords } from "@/lib/dataCache";
 import { RecordSingleMilkDialog } from "@/components/milk-recording/RecordSingleMilkDialog";
+import { EditMilkRecordDialog } from "@/components/milk-recording/EditMilkRecordDialog";
+
+interface MilkRecord {
+  id: string;
+  animal_id: string;
+  record_date: string;
+  liters: number;
+  session: 'AM' | 'PM';
+  created_at: string;
+}
 
 interface MilkingRecordsProps {
   animalId: string;
@@ -16,7 +28,7 @@ interface MilkingRecordsProps {
 }
 
 const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => {
-  const [records, setRecords] = useState<any[]>([]);
+  const [records, setRecords] = useState<MilkRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState<"all" | "cycle" | "month">("all");
@@ -26,6 +38,8 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
   const [earTag, setEarTag] = useState<string | null>(null);
   const [animalFarmId, setAnimalFarmId] = useState<string | null>(null);
   const [animalFarmEntryDate, setAnimalFarmEntryDate] = useState<string | null>(null);
+  const [editingRecord, setEditingRecord] = useState<MilkRecord | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -85,7 +99,7 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
     // Try cache first
     const cached = await getCachedRecords(animalId);
     if (cached?.milking) {
-      setRecords(cached.milking);
+      setRecords(cached.milking as MilkRecord[]);
       setLoading(false);
     }
     
@@ -95,8 +109,8 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
         .from("milking_records")
         .select("*")
         .eq("animal_id", animalId)
-        .order("record_date", { ascending: true });
-      setRecords(data || []);
+        .order("record_date", { ascending: false });
+      setRecords((data || []) as MilkRecord[]);
     }
     
     setLoading(false);
@@ -108,6 +122,10 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
     if (!open) {
       loadRecords();
     }
+  };
+
+  const handleEditSuccess = () => {
+    loadRecords();
   };
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
@@ -148,9 +166,14 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
 
   const filteredRecords = getFilteredRecords();
   
-  const chartData = filteredRecords.map(r => ({
-    date: new Date(r.record_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    liters: parseFloat(r.liters)
+  // For chart, sort ascending
+  const chartRecords = [...filteredRecords].sort((a, b) => 
+    new Date(a.record_date).getTime() - new Date(b.record_date).getTime()
+  );
+  
+  const chartData = chartRecords.map(r => ({
+    date: format(new Date(r.record_date), "MMM d"),
+    liters: r.liters
   }));
 
   const chartConfig = {
@@ -203,6 +226,64 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
                   <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
                 </LineChart>
               </ChartContainer>
+
+              {/* Records History */}
+              <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between px-2 py-2 h-auto">
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <History className="h-4 w-4" />
+                      Records History
+                    </span>
+                    {historyOpen ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {filteredRecords.map((record) => (
+                      <div 
+                        key={record.id}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
+                            {record.session === 'AM' ? (
+                              <Sun className="h-4 w-4 text-amber-500" />
+                            ) : (
+                              <Moon className="h-4 w-4 text-indigo-500" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">
+                              {format(new Date(record.record_date), "MMM d, yyyy")}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {record.session === 'AM' ? 'Morning' : 'Evening'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-lg">{record.liters}L</span>
+                          {!readOnly && (
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => setEditingRecord(record)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -221,6 +302,17 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
           earTag={earTag}
           farmId={animalFarmId}
           farmEntryDate={animalFarmEntryDate}
+        />
+      )}
+
+      {editingRecord && animalFarmId && (
+        <EditMilkRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          record={editingRecord}
+          animalName={animalName}
+          farmId={animalFarmId}
+          onSuccess={handleEditSuccess}
         />
       )}
     </>

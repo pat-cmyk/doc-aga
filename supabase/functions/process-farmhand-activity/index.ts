@@ -1099,15 +1099,18 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
             
           case 'milking':
             if (extractedData.quantity) {
+              const currentHour = new Date().getHours();
+              const milkSession = currentHour < 12 ? 'AM' : 'PM';
               const { error: milkError } = await supabase.from('milking_records').insert({
                 animal_id: finalAnimalId,
                 record_date: recordDate,
                 liters: extractedData.quantity,
+                session: milkSession,
                 created_by: user.id
               });
               
               if (milkError) throw milkError;
-              console.log(`✓ Inserted milking record: ${extractedData.quantity} liters`);
+              console.log(`✓ Inserted milking record: ${extractedData.quantity} liters (${milkSession})`);
             }
             break;
             
