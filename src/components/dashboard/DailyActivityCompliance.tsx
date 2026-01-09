@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
-import { RecordBulkFeedDialog } from '@/components/feed-recording/RecordBulkFeedDialog';
-import { RecordBulkMilkDialog } from '@/components/milk-recording/RecordBulkMilkDialog';
+import { useOperationDialogs } from '@/hooks/useOperationDialogs';
+import { OperationDialogs } from '@/components/operations/OperationDialogs';
 
 interface DailyActivityComplianceProps {
   farmId: string;
@@ -27,17 +27,15 @@ interface DailyActivityComplianceProps {
 
 export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
-  const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
-
-  const handleRecordFeed = () => {
-    setIsRecordFeedOpen(true);
-  };
-
-  const handleRecordMilk = () => {
-    setIsRecordMilkOpen(true);
-  };
+  const {
+    isRecordFeedOpen,
+    isRecordMilkOpen,
+    openFeedDialog: handleRecordFeed,
+    openMilkDialog: handleRecordMilk,
+    setRecordFeedOpen,
+    setRecordMilkOpen,
+  } = useOperationDialogs();
 
   if (isLoading) {
     return (
@@ -259,16 +257,12 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
         </CollapsibleContent>
       </Collapsible>
 
-      <RecordBulkFeedDialog
-        open={isRecordFeedOpen}
-        onOpenChange={setIsRecordFeedOpen}
+      <OperationDialogs
         farmId={farmId}
-      />
-
-      <RecordBulkMilkDialog
-        open={isRecordMilkOpen}
-        onOpenChange={setIsRecordMilkOpen}
-        farmId={farmId}
+        isRecordFeedOpen={isRecordFeedOpen}
+        onRecordFeedOpenChange={setRecordFeedOpen}
+        isRecordMilkOpen={isRecordMilkOpen}
+        onRecordMilkOpenChange={setRecordMilkOpen}
       />
     </Card>
   );
