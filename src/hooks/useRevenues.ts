@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 export interface Revenue {
   id: string;
@@ -131,9 +132,13 @@ export function useAddRevenue() {
       if (error) throw error;
       return revenue as Revenue;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["revenues", variables.farm_id] });
-      queryClient.invalidateQueries({ queryKey: ["revenue-summary", variables.farm_id] });
+    onSuccess: async (_, variables) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('revenue', variables.farm_id);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["revenues", variables.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["revenue-summary", variables.farm_id] });
+      }
     },
   });
 }

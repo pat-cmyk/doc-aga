@@ -3,7 +3,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteLocalMilkInventoryRecord } from "@/lib/dataCache";
-import { useQueryClient } from "@tanstack/react-query";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { toast } from "sonner";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 
@@ -21,7 +21,6 @@ export function DeleteMilkRecordDialog({
   record 
 }: DeleteMilkRecordDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -29,8 +28,10 @@ export function DeleteMilkRecordDialog({
       // Delete from local cache first for instant UI update
       await deleteLocalMilkInventoryRecord(farmId, record.id);
       
-      // Invalidate to refresh UI
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      // Invalidate using CacheManager
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
       
       // Delete from database
       const { error } = await supabase
@@ -46,7 +47,9 @@ export function DeleteMilkRecordDialog({
       console.error("Failed to delete milk record:", error);
       toast.error("Failed to delete record");
       // Refetch to restore correct state
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
     } finally {
       setIsDeleting(false);
     }

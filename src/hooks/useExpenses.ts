@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 export interface Expense {
   id: string;
@@ -142,10 +143,14 @@ export function useAddExpense() {
       if (error) throw error;
       return expense;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", variables.farm_id] });
-      queryClient.invalidateQueries({ queryKey: ["expense-summary", variables.farm_id] });
-      queryClient.invalidateQueries({ queryKey: ["profitability", variables.farm_id] });
+    onSuccess: async (_, variables) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('expense', variables.farm_id);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["expenses", variables.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["expense-summary", variables.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["profitability", variables.farm_id] });
+      }
       toast.success("Expense added successfully");
     },
     onError: (error, variables) => {
@@ -170,10 +175,14 @@ export function useUpdateExpense() {
       if (error) throw error;
       return expense;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", data.farm_id] });
-      queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farm_id] });
-      queryClient.invalidateQueries({ queryKey: ["profitability", data.farm_id] });
+    onSuccess: async (data) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('expense', data.farm_id);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["expenses", data.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["profitability", data.farm_id] });
+      }
       toast.success("Expense updated successfully");
     },
     onError: (error) => {
@@ -196,10 +205,14 @@ export function useDeleteExpense() {
       if (error) throw error;
       return { id, farmId };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", data.farmId] });
-      queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farmId] });
-      queryClient.invalidateQueries({ queryKey: ["profitability", data.farmId] });
+    onSuccess: async (data) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('expense', data.farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["expenses", data.farmId] });
+        queryClient.invalidateQueries({ queryKey: ["expense-summary", data.farmId] });
+        queryClient.invalidateQueries({ queryKey: ["profitability", data.farmId] });
+      }
       toast.success("Expense deleted successfully");
     },
     onError: (error) => {

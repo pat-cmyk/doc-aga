@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCacheManager, isCacheManagerReady } from '@/lib/cacheManager';
 
 export interface HeatRecord {
   id: string;
@@ -83,8 +84,11 @@ export function useHeatRecords(animalId: string) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['heat-records', animalId] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('heat-record', variables.farm_id);
+      }
       toast({
         title: 'Heat Record Added',
         description: 'Heat detection recorded successfully.',

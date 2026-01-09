@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { updateLocalMilkInventoryRecord } from "@/lib/dataCache";
-import { useQueryClient } from "@tanstack/react-query";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { toast } from "sonner";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 
@@ -30,7 +30,6 @@ export function EditMilkRecordDialog({
   const [liters, setLiters] = useState(record.liters.toString());
   const [date, setDate] = useState<Date>(new Date(record.record_date));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleSubmit = async () => {
     const newLiters = parseFloat(liters);
@@ -49,8 +48,10 @@ export function EditMilkRecordDialog({
         record_date: newDate,
       });
       
-      // Invalidate to refresh UI
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      // Invalidate using CacheManager
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
       
       // Update database
       const { error } = await supabase
@@ -69,7 +70,9 @@ export function EditMilkRecordDialog({
       console.error("Failed to update milk record:", error);
       toast.error("Failed to update record");
       // Refetch to restore correct state
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
     } finally {
       setIsSubmitting(false);
     }

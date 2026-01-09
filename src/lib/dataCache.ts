@@ -1692,3 +1692,28 @@ export async function clearMilkInventoryCache(farmId: string): Promise<void> {
     console.error('[DataCache] Failed to clear milk inventory cache:', error);
   }
 }
+
+/**
+ * Clear animal cache for a farm
+ */
+export async function clearAnimalCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('animals', farmId);
+    console.log('[DataCache] Animal cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear animal cache:', error);
+  }
+}
+
+/**
+ * Clear all caches for a farm (used when switching farms or logging out)
+ */
+export async function clearAllFarmCaches(farmId: string): Promise<void> {
+  await Promise.all([
+    clearMilkInventoryCache(farmId),
+    clearDashboardCache(farmId),
+    clearAnimalCache(farmId),
+  ]);
+  console.log('[DataCache] All caches cleared for farm:', farmId);
+}
