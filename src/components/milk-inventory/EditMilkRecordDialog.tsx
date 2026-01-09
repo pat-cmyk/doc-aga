@@ -9,8 +9,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { updateLocalMilkInventoryRecord } from "@/lib/dataCache";
-import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 
@@ -27,9 +26,10 @@ export function EditMilkRecordDialog({
   farmId, 
   record 
 }: EditMilkRecordDialogProps) {
-  const [liters, setLiters] = useState(record.liters.toString());
+  const [liters, setLiters] = useState(record.liters_remaining.toString());
   const [date, setDate] = useState<Date>(new Date(record.record_date));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleSubmit = async () => {
     const newLiters = parseFloat(liters);
@@ -42,37 +42,40 @@ export function EditMilkRecordDialog({
     try {
       const newDate = format(date, "yyyy-MM-dd");
       
-      // Update local cache first for instant UI update
-      await updateLocalMilkInventoryRecord(farmId, record.id, {
-        liters: newLiters,
-        record_date: newDate,
-      });
+      // Update milk_inventory table directly
+      const { error: invError } = await supabase
+        .from("milk_inventory")
+        .update({
+          liters_remaining: newLiters,
+          liters_original: newLiters,
+          record_date: newDate,
+        })
+        .eq("id", record.id);
       
-      // Invalidate using CacheManager
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-record', farmId);
-      }
+      if (invError) throw invError;
       
-      // Update database
-      const { error } = await supabase
+      // Also update the underlying milking_record
+      const { error: mrError } = await supabase
         .from("milking_records")
         .update({
           liters: newLiters,
           record_date: newDate,
         })
-        .eq("id", record.id);
+        .eq("id", record.milking_record_id);
       
-      if (error) throw error;
+      if (mrError) throw mrError;
+      
+      // Refetch to sync
+      await queryClient.refetchQueries({ 
+        queryKey: ['milk-inventory', farmId],
+        type: 'active',
+      });
       
       toast.success("Milk record updated");
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update milk record:", error);
       toast.error("Failed to update record");
-      // Refetch to restore correct state
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-record', farmId);
-      }
     } finally {
       setIsSubmitting(false);
     }

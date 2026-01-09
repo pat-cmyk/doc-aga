@@ -174,11 +174,14 @@ export function RecordBulkMilkDialog({
       for (const split of splitPreview) {
         await addLocalMilkInventoryRecord(farmId, {
           id: `optimistic-${optimisticId}-${split.animalId}`,
+          milking_record_id: `optimistic-${optimisticId}-${split.animalId}`,
           animal_id: split.animalId,
           animal_name: split.animalName,
           ear_tag: null, // Not available in split preview
           record_date: dateStr,
-          liters: split.liters,
+          liters_original: split.liters,
+          liters_remaining: split.liters,
+          is_available: true,
           created_at: new Date().toISOString(),
           syncStatus: 'pending',
         });
