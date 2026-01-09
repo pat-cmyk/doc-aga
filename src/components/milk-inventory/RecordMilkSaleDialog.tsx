@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
 import { format } from "date-fns";
@@ -15,6 +14,7 @@ import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { markMilkRecordsSold } from "@/lib/dataCache";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 interface RecordMilkSaleDialogProps {
   farmId: string;
@@ -32,7 +32,6 @@ export function RecordMilkSaleDialog({
   totalAvailable,
 }: RecordMilkSaleDialogProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { data: lastMilkPrice } = useLastMilkPrice(farmId);
   const addRevenue = useAddRevenue();
   const isOnline = useOnlineStatus();
@@ -107,7 +106,9 @@ export function RecordMilkSaleDialog({
       await markMilkRecordsSold(farmId, recordIds);
       
       // Force milk inventory to re-read from cache
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-sale', farmId);
+      }
 
       // STEP 2: Update each selected milking record in database
       for (const { record } of fifoPreview.records) {
@@ -135,11 +136,10 @@ export function RecordMilkSaleDialog({
         notes: notes || `Bulk sale: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
       });
 
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
-      queryClient.invalidateQueries({ queryKey: ["milk-sales-history", farmId] });
-      queryClient.invalidateQueries({ queryKey: ["revenues", farmId] });
-      queryClient.invalidateQueries({ queryKey: ["revenue-summary", farmId] });
+      // Final cache invalidation to ensure consistency
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-sale', farmId);
+      }
 
       toast({
         title: "Sale Recorded",

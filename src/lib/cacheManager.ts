@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { 
   clearMilkInventoryCache, 
   clearDashboardCache,
+  clearAnimalCache,
 } from "./dataCache";
 
 /**
@@ -11,17 +12,17 @@ import {
  * IndexedDB (offline cache) and React Query (in-memory cache) are both cleared.
  */
 const CACHE_DEPENDENCIES: Record<string, string[]> = {
-  'milk-record': ['milk-inventory', 'milking-records', 'dashboard'],
+  'milk-record': ['milk-inventory', 'milking-records', 'dashboard', 'lactating-animals'],
   'health-record': ['health-records', 'dashboard'],
   'feed-record': ['feeding-records', 'feed-inventory', 'dashboard'],
-  'animal': ['animals', 'dashboard', 'milk-inventory'],
-  'ai-record': ['ai-records', 'dashboard', 'breeding-stats'],
+  'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals'],
+  'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records'],
   'weight-record': ['weight-records', 'dashboard'],
   'bcs-record': ['bcs-records', 'dashboard'],
-  'heat-record': ['heat-records', 'dashboard'],
-  'expense': ['expenses', 'dashboard', 'finance'],
-  'revenue': ['revenues', 'dashboard', 'finance'],
-  'milk-sale': ['milk-inventory', 'milk-sales-history', 'dashboard', 'revenues'],
+  'heat-record': ['heat-records', 'dashboard', 'breeding-stats'],
+  'expense': ['expenses', 'expense-summary', 'dashboard', 'profitability'],
+  'revenue': ['revenues', 'revenue-summary', 'dashboard', 'profitability'],
+  'milk-sale': ['milk-inventory', 'milk-sales-history', 'dashboard', 'revenues', 'revenue-summary'],
 };
 
 /**
@@ -35,9 +36,11 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
     case 'dashboard':
       await clearDashboardCache(farmId);
       break;
-    // Add more as needed
+    case 'animals':
+      await clearAnimalCache(farmId);
+      break;
+    // React Query only caches (no IndexedDB equivalent)
     default:
-      // Some caches only exist in React Query, not IndexedDB
       break;
   }
 }

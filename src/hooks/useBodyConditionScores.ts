@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCacheManager, isCacheManagerReady } from '@/lib/cacheManager';
 
 export interface BodyConditionScore {
   id: string;
@@ -64,8 +65,11 @@ export function useBodyConditionScores(animalId?: string) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['bcs-records', animalId] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('bcs-record', variables.farm_id);
+      }
       toast({
         title: 'BCS Recorded',
         description: 'Body condition score saved successfully.',
@@ -97,13 +101,16 @@ export function useBodyConditionScores(animalId?: string) {
       const { error } = await supabase.from('body_condition_scores').insert(records);
 
       if (error) throw error;
-      return records.length;
+      return { count: records.length, farmId: data.farm_id };
     },
-    onSuccess: (count) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['bcs-records'] });
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('bcs-record', result.farmId);
+      }
       toast({
         title: 'BCS Recorded',
-        description: `${count} body condition score(s) saved successfully.`,
+        description: `${result.count} body condition score(s) saved successfully.`,
       });
     },
     onError: (error) => {
