@@ -36,6 +36,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
+import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 
 interface RecordBulkMilkDialogProps {
   open: boolean;
@@ -251,12 +252,43 @@ export function RecordBulkMilkDialog({
 
       if (error) throw error;
 
-      // Update is_currently_lactating for all animals that just had milk recorded
+      // Update is_currently_lactating and milking_stage for all animals that just had milk recorded
       const animalIds = [...new Set(records.map(r => r.animal_id))];
-      await supabase
-        .from('animals')
-        .update({ is_currently_lactating: true })
-        .in('id', animalIds);
+      
+      for (const animalId of animalIds) {
+        const animal = selectedAnimals.find(a => a.id === animalId);
+        if (!animal) continue;
+
+        // Check if this is a new lactation cycle (was dry or no milking_start_date)
+        const wasDry = !animal.is_currently_lactating || animal.milking_stage === 'Dry Period';
+        const hasNoStartDate = !animal.milking_start_date;
+
+        if (wasDry || hasNoStartDate) {
+          // Start new lactation cycle
+          await supabase
+            .from('animals')
+            .update({ 
+              is_currently_lactating: true,
+              milking_start_date: dateStr,
+              milking_stage: 'Early Lactation',
+            })
+            .eq('id', animalId);
+        } else {
+          // Calculate and update milking stage based on days since start
+          const newStage = calculateMilkingStageFromDays(
+            animal.milking_start_date,
+            animal.estimated_days_in_milk
+          );
+          
+          await supabase
+            .from('animals')
+            .update({ 
+              is_currently_lactating: true,
+              ...(newStage && { milking_stage: newStage }),
+            })
+            .eq('id', animalId);
+        }
+      }
 
       // Use CacheManager to invalidate all related caches
       if (isCacheManagerReady()) {
