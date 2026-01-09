@@ -1182,7 +1182,13 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         </TabsContent>
 
         <TabsContent value="feeding">
-          <FeedingRecords animalId={animalId} readOnly={readOnly} />
+          <FeedingRecords 
+            animalId={animalId} 
+            animalName={animal?.name || animal?.ear_tag || 'Unknown'}
+            farmId={farmId}
+            animalFarmEntryDate={animal?.farm_entry_date}
+            readOnly={readOnly} 
+          />
         </TabsContent>
 
         <TabsContent value="health">
