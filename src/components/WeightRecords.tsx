@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
 import { RecordSingleWeightDialog } from "@/components/weight-recording/RecordSingleWeightDialog";
+import { ADGBadge } from "@/components/weight-recording/ADGBadge";
+import { calculateADG, calculateOverallADG, type ADGResult } from "@/lib/growthMetrics";
 
 interface WeightRecord {
   id: string;
@@ -133,6 +135,41 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
   const previousWeight = records[1]?.weight_kg;
   const weightChange = latestWeight && previousWeight ? latestWeight - previousWeight : null;
 
+  // Calculate overall ADG from all records
+  const overallADG = useMemo(() => {
+    if (records.length < 2) return null;
+    return calculateOverallADG(
+      records.map(r => ({ weight_kg: r.weight_kg, measurement_date: r.measurement_date })),
+      livestockType || 'cattle',
+      gender || 'female',
+      lifeStage
+    );
+  }, [records, livestockType, gender, lifeStage]);
+
+  // Calculate ADG for each record (compared to previous)
+  const recordsWithADG = useMemo(() => {
+    // Records are sorted descending by date, so reverse for calculations
+    const sortedAsc = [...records].reverse();
+    
+    return records.map((record, index) => {
+      // Find index in ascending sorted array
+      const ascIndex = sortedAsc.findIndex(r => r.id === record.id);
+      
+      if (ascIndex <= 0) return { ...record, adgFromPrevious: null };
+      
+      const previousRecord = sortedAsc[ascIndex - 1];
+      const adgFromPrevious = calculateADG(
+        { weight_kg: record.weight_kg, measurement_date: record.measurement_date },
+        { weight_kg: previousRecord.weight_kg, measurement_date: previousRecord.measurement_date },
+        livestockType || 'cattle',
+        gender || 'female',
+        lifeStage
+      );
+      
+      return { ...record, adgFromPrevious };
+    });
+  }, [records, livestockType, gender, lifeStage]);
+
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Current Weight Card */}
@@ -179,14 +216,23 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                 </p>
               )}
             </div>
-            {weightChange !== null && (
-              <div className={`flex items-center gap-1 text-sm sm:text-base ${weightChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                <TrendingUp className="h-4 w-4" />
-                <span className="font-medium">
-                  {weightChange >= 0 ? "+" : ""}{weightChange.toFixed(1)} kg
-                </span>
-              </div>
-            )}
+            <div className="text-right space-y-1">
+              {weightChange !== null && (
+                <div className={`flex items-center justify-end gap-1 text-sm sm:text-base ${weightChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="font-medium">
+                    {weightChange >= 0 ? "+" : ""}{weightChange.toFixed(1)} kg
+                  </span>
+                </div>
+              )}
+              {overallADG && (
+                <div className="flex items-center justify-end gap-1 text-xs sm:text-sm text-muted-foreground">
+                  <span>ADG:</span>
+                  <span className="font-medium text-foreground">{overallADG.adgGrams} g/day</span>
+                  <span>({overallADG.daysBetween}d)</span>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -219,13 +265,13 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
         <CardContent>
           {loading ? (
             <p>Loading...</p>
-          ) : records.length === 0 ? (
+          ) : recordsWithADG.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
               No weight records yet. Click "Record Weight" to add the first measurement.
             </p>
           ) : isMobile ? (
             <div className="space-y-3">
-              {records.map((record) => (
+              {recordsWithADG.map((record) => (
                 <Card key={record.id} className="border">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
@@ -237,8 +283,11 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                           {format(new Date(record.measurement_date), "MMM dd, yyyy")}
                         </p>
                       </div>
-                      <div className="text-xs text-muted-foreground capitalize">
-                        {record.measurement_method?.replace("_", " ") || "—"}
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="text-xs text-muted-foreground capitalize">
+                          {record.measurement_method?.replace("_", " ") || "—"}
+                        </div>
+                        <ADGBadge adgResult={record.adgFromPrevious} showDays size="sm" />
                       </div>
                     </div>
                     {record.notes && (
@@ -257,15 +306,19 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Weight</TableHead>
+                    <TableHead>ADG</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((record) => (
+                  {recordsWithADG.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.measurement_date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.weight_kg} kg</TableCell>
+                      <TableCell>
+                        <ADGBadge adgResult={record.adgFromPrevious} showDays size="sm" />
+                      </TableCell>
                       <TableCell className="capitalize">
                         {record.measurement_method?.replace("_", " ") || "—"}
                       </TableCell>

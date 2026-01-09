@@ -120,6 +120,35 @@ export function GrowthBenchmarkCard({ animalId, animalData }: GrowthBenchmarkCar
           </div>
         )}
 
+        {/* ADG Section */}
+        {benchmark.adgActual !== null && (
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div>
+              <p className="text-sm text-muted-foreground">Average Daily Gain</p>
+              <p className="text-xl font-bold">{benchmark.adgActual} g/day</p>
+              {benchmark.adgStatus && (
+                <p className={cn(
+                  "text-xs font-medium capitalize",
+                  benchmark.adgStatus === 'excellent' && "text-green-600 dark:text-green-400",
+                  benchmark.adgStatus === 'good' && "text-blue-600 dark:text-blue-400",
+                  benchmark.adgStatus === 'fair' && "text-yellow-600 dark:text-yellow-400",
+                  benchmark.adgStatus === 'poor' && "text-red-600 dark:text-red-400"
+                )}>
+                  {benchmark.adgStatus} ({benchmark.adgPercentOfExpected}% of expected)
+                </p>
+              )}
+            </div>
+            {benchmark.adgExpected && (
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Expected</p>
+                <p className="text-lg font-medium text-muted-foreground">
+                  {benchmark.adgExpected} g/day
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Recommendation */}
         <div className={cn('rounded-lg p-3 text-sm', config.bg)}>
           <p className={cn('font-medium', config.color)}>{benchmark.recommendation}</p>
