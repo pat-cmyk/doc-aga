@@ -70,6 +70,7 @@ export function useMilkInventory(farmId: string) {
           liters_remaining,
           is_available,
           created_at,
+          client_generated_id,
           animals!inner(name, ear_tag)
         `)
         .eq("farm_id", farmId)
@@ -90,6 +91,7 @@ export function useMilkInventory(farmId: string) {
         liters_remaining: parseFloat(r.liters_remaining),
         is_available: r.is_available,
         created_at: r.created_at,
+        client_generated_id: r.client_generated_id, // For reconciliation
         syncStatus: 'synced' as const,
       }));
 
@@ -168,6 +170,7 @@ export function useMilkInventory(farmId: string) {
     created_at: item.created_at,
   });
 
+  // Prioritize server data, fall back to cache
   const items: MilkInventoryItem[] = serverQuery.data?.items?.map(transformItem) 
     || cachedData?.items?.map(transformItem) 
     || [];
@@ -182,13 +185,19 @@ export function useMilkInventory(farmId: string) {
     return serverQuery.refetch();
   };
 
+  // Never return undefined if we have any cached data - prevents "empty inventory" flash
+  const hasCachedData = !!cachedData && (cachedData.items.length > 0 || cachedData.summary.totalLiters > 0);
+  const hasAnyData = items.length > 0 || hasCachedData;
+
   return {
-    data: items.length > 0 || cachedData ? { items, summary } : undefined,
+    data: hasAnyData ? { items, summary } : undefined,
     isLoading: !cacheChecked || (!cachedData && serverQuery.isLoading),
     isFetching: serverQuery.isFetching,
     isError: serverQuery.isError && !cachedData,
     error: serverQuery.error,
     refetch,
+    hasCachedData,
+    cachedItemCount: cachedData?.items.length ?? 0,
   };
 }
 

@@ -171,13 +171,17 @@ export function RecordBulkMilkDialog({
       await addLocalMilkRecord(farmId, dateStr, totalLitersNum);
 
       // STEP 2: Update local milk inventory cache for EACH record
-      for (const split of splitPreview) {
+      // Use consistent client_generated_id format that matches syncService
+      for (let index = 0; index < splitPreview.length; index++) {
+        const split = splitPreview[index];
+        const clientId = `${optimisticId}_milk_${index}`; // Matches syncService format
+        
         await addLocalMilkInventoryRecord(farmId, {
-          id: `optimistic-${optimisticId}-${split.animalId}`,
-          milking_record_id: `optimistic-${optimisticId}-${split.animalId}`,
+          id: `optimistic-${clientId}`,
+          milking_record_id: clientId, // This is the client_generated_id for reconciliation
           animal_id: split.animalId,
           animal_name: split.animalName,
-          ear_tag: null, // Not available in split preview
+          ear_tag: null,
           record_date: dateStr,
           liters_original: split.liters,
           liters_remaining: split.liters,

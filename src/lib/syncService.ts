@@ -439,8 +439,50 @@ async function syncBulkMilk(item: QueueItem): Promise<void> {
   // Confirm optimistic records with server data
   if (item.optimisticId && insertedRecords) {
     await confirmOptimisticRecords(item.optimisticId, insertedRecords);
-    // Store server response in queue item
     await updateItem(item.id, { serverResponse: insertedRecords });
+    
+    // Reconcile milk inventory cache with server data
+    // The database trigger has already created milk_inventory rows
+    if (farmId) {
+      try {
+        const { getCachedMilkInventory } = await import('./dataCache');
+        const cached = await getCachedMilkInventory(farmId);
+        
+        if (cached) {
+          // Update optimistic items with real server IDs
+          const updatedItems = cached.items.map(cacheItem => {
+            // Check if this optimistic item matches any inserted record by client_generated_id
+            const matchedServer = insertedRecords.find((r: any) => 
+              cacheItem.milking_record_id === r.client_generated_id
+            );
+            
+            if (matchedServer) {
+              return {
+                ...cacheItem,
+                id: matchedServer.id,
+                milking_record_id: matchedServer.id,
+                syncStatus: 'synced' as const,
+              };
+            }
+            return cacheItem;
+          });
+          
+          // Remove duplicates and update cache
+          const uniqueItems = updatedItems.filter((item, index, self) => 
+            index === self.findIndex(i => i.id === item.id)
+          );
+          
+          const { updateMilkInventoryCache, recalculateMilkInventorySummary } = await import('./dataCache');
+          const newSummary = recalculateMilkInventorySummary(uniqueItems);
+          await updateMilkInventoryCache(farmId, uniqueItems, newSummary);
+          
+          console.log('[SyncService] Milk inventory cache reconciled after sync');
+        }
+      } catch (cacheError) {
+        console.error('[SyncService] Failed to reconcile milk inventory cache:', cacheError);
+        // Don't fail the sync for cache reconciliation errors
+      }
+    }
   }
 }
 
