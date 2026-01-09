@@ -24,7 +24,7 @@ const MAX_QUEUE_SIZE = 50;
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'bulk_feed' | 'bulk_health' | 'voice_form_input';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'bulk_health' | 'voice_form_input';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -61,6 +61,15 @@ interface QueueItem {
       recordDate: string;
       session: 'AM' | 'PM';
     }>;
+    // Single milk recording (from animal profile)
+    singleMilk?: {
+      animalId: string;
+      animalName: string | null;
+      earTag: string | null;
+      liters: number;
+      recordDate: string;
+      session: 'AM' | 'PM';
+    };
     // Bulk feed recording
     feedRecords?: Array<{
       animalId: string;

@@ -221,6 +221,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await processVoiceQueue(item);
         } else if (item.type === 'bulk_milk') {
           await syncBulkMilk(item);
+        } else if (item.type === 'single_milk') {
+          await syncSingleMilk(item);
         } else if (item.type === 'bulk_feed') {
           await syncBulkFeed(item);
         } else if (item.type === 'bulk_health') {
@@ -482,6 +484,81 @@ async function syncBulkMilk(item: QueueItem): Promise<void> {
         console.error('[SyncService] Failed to reconcile milk inventory cache:', cacheError);
         // Don't fail the sync for cache reconciliation errors
       }
+    }
+  }
+}
+
+/**
+ * Sync single milk record from offline queue to Supabase (from animal profile)
+ */
+async function syncSingleMilk(item: QueueItem): Promise<void> {
+  const { singleMilk, farmId } = item.payload;
+  
+  if (!singleMilk || !farmId) {
+    throw new Error('No single milk data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_milk_0`;
+
+  const { data: insertedRecord, error } = await supabase
+    .from('milking_records')
+    .insert({
+      animal_id: singleMilk.animalId,
+      record_date: singleMilk.recordDate,
+      liters: singleMilk.liters,
+      session: singleMilk.session,
+      created_by: user?.id,
+      is_sold: false,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Single milk record already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  // Confirm optimistic records and reconcile cache
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
+    
+    // Reconcile milk inventory cache
+    try {
+      const { getCachedMilkInventory } = await import('./dataCache');
+      const cached = await getCachedMilkInventory(farmId);
+      
+      if (cached) {
+        const updatedItems = cached.items.map(cacheItem => {
+          if (cacheItem.milking_record_id === clientId) {
+            return {
+              ...cacheItem,
+              id: insertedRecord.id,
+              milking_record_id: insertedRecord.id,
+              syncStatus: 'synced' as const,
+            };
+          }
+          return cacheItem;
+        });
+        
+        const uniqueItems = updatedItems.filter((item, index, self) => 
+          index === self.findIndex(i => i.id === item.id)
+        );
+        
+        const { updateMilkInventoryCache, recalculateMilkInventorySummary } = await import('./dataCache');
+        const newSummary = recalculateMilkInventorySummary(uniqueItems);
+        await updateMilkInventoryCache(farmId, uniqueItems, newSummary);
+        
+        console.log('[SyncService] Single milk inventory cache reconciled after sync');
+      }
+    } catch (cacheError) {
+      console.error('[SyncService] Failed to reconcile single milk inventory cache:', cacheError);
     }
   }
 }
