@@ -11,13 +11,24 @@ interface RegionalStats {
   avg_gps_lng: number;
 }
 
+interface GovFarmAnalyticsRow {
+  region: string | null;
+  active_animal_count: number | null;
+  health_events_7d: number | null;
+  gps_lat: number | null;
+  gps_lng: number | null;
+}
+
 export const useRegionalStats = () => {
   return useQuery({
     queryKey: ["regional-stats"],
     queryFn: async () => {
+      // Use RPC function with audit logging
       const { data, error } = await supabase
-        .from("gov_farm_analytics")
-        .select("*");
+        .rpc("get_gov_farm_analytics_with_audit" as unknown as "get_gov_farm_analytics", {
+          _access_type: "view",
+          _metadata: { source: "regional_stats_dashboard" }
+        } as unknown as { p_region?: string; p_province?: string; p_municipality?: string });
 
       if (error) throw error;
 
@@ -25,7 +36,7 @@ export const useRegionalStats = () => {
       type InternalRegion = RegionalStats & { latSum: number; lngSum: number; coordCount: number };
       const regionMap = new Map<string, InternalRegion>();
 
-      data?.forEach((farm) => {
+      (data as unknown as GovFarmAnalyticsRow[])?.forEach((farm) => {
         if (!farm.region) return;
 
         const key = String(farm.region);

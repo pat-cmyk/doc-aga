@@ -3612,6 +3612,35 @@ export type Database = {
           validation_status: string
         }[]
       }
+      get_gov_farm_analytics_with_audit: {
+        Args: { _access_type?: string; _metadata?: Json }
+        Returns: {
+          active_animal_count: number | null
+          animal_count: number | null
+          ffedis_id: string | null
+          gps_lat: number | null
+          gps_lng: number | null
+          health_events_30d: number | null
+          health_events_7d: number | null
+          id: string | null
+          is_program_participant: boolean | null
+          lgu_code: string | null
+          municipality: string | null
+          name: string | null
+          owner_id: string | null
+          program_group: string | null
+          province: string | null
+          region: string | null
+          validated_at: string | null
+          validation_status: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gov_farm_analytics"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_government_breeding_stats: {
         Args: {
           end_date: string
