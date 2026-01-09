@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getWeightRange, estimateWeightByAge } from '@/lib/weightEstimates';
+import { calculateOverallADG, getExpectedADG, getADGStatus } from '@/lib/growthMetrics';
 
 export interface GrowthBenchmark {
   status: 'on_track' | 'below' | 'above' | 'critical';
@@ -13,6 +14,11 @@ export interface GrowthBenchmark {
   monthlyGainExpected: number | null;
   recommendation: string;
   recommendationTagalog: string;
+  // ADG fields
+  adgActual: number | null;
+  adgExpected: number | null;
+  adgStatus: 'excellent' | 'good' | 'fair' | 'poor' | null;
+  adgPercentOfExpected: number | null;
 }
 
 interface AnimalData {
@@ -86,6 +92,33 @@ export function useGrowthBenchmark(animalId: string, animalData: AnimalData | nu
     // Expected monthly gain from weight range data
     const monthlyGainExpected = expectedRange?.avgMonthlyGrowth || null;
 
+    // Calculate ADG from weight records
+    let adgActual: number | null = null;
+    let adgExpected: number | null = null;
+    let adgStatus: GrowthBenchmark['adgStatus'] = null;
+    let adgPercentOfExpected: number | null = null;
+
+    if (weightRecords.length >= 2) {
+      const adgResult = calculateOverallADG(
+        weightRecords.map(r => ({ weight_kg: r.weight_kg, measurement_date: r.measurement_date })),
+        livestockType,
+        gender,
+        lifeStage
+      );
+      
+      if (adgResult) {
+        adgActual = adgResult.adgGrams;
+        adgStatus = adgResult.status;
+        adgPercentOfExpected = adgResult.percentOfExpected;
+      }
+    }
+
+    // Get expected ADG for life stage
+    const expectedADGData = getExpectedADG(livestockType, gender, lifeStage);
+    if (expectedADGData) {
+      adgExpected = expectedADGData.optimal;
+    }
+
     // Determine status
     let status: GrowthBenchmark['status'];
     let recommendation: string;
@@ -119,6 +152,10 @@ export function useGrowthBenchmark(animalId: string, animalData: AnimalData | nu
       monthlyGainExpected,
       recommendation,
       recommendationTagalog,
+      adgActual,
+      adgExpected,
+      adgStatus,
+      adgPercentOfExpected,
     };
   }, [animalData, weightRecords]);
 
