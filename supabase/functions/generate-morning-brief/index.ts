@@ -141,11 +141,24 @@ serve(async (req) => {
     const weekMilkTotal = milkingRecords.reduce((sum, r) => sum + (r.liters || 0), 0);
     const avgDailyMilk = weekMilkTotal / 7;
 
-    // Detect all livestock types on the farm
+    // Detect all livestock types on the farm with detailed breakdown
     const livestockTypes = [...new Set(animals.map(a => a.livestock_type).filter(Boolean))];
     const hasMultipleTypes = livestockTypes.length > 1;
+    
+    // Create detailed breakdown per species
+    const speciesBreakdown = livestockTypes.map(type => {
+      const animalsOfType = animals.filter(a => a.livestock_type === type);
+      const lactatingOfType = animalsOfType.filter(a => a.milking_stage && a.milking_stage !== 'Dry Period').length;
+      return {
+        type,
+        total: animalsOfType.length,
+        lactating: lactatingOfType
+      };
+    });
+    
+    // Create human-readable species description
     const livestockTypesDescription = hasMultipleTypes 
-      ? `mixed (${livestockTypes.join(' and ')})` 
+      ? speciesBreakdown.map(s => `${s.total} ${s.type}`).join(', ')
       : (livestockTypes[0] || farm?.livestock_type || 'livestock');
 
     // Animals needing attention
@@ -191,33 +204,42 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    const speciesRule = hasMultipleTypes 
+      ? `This farm has MULTIPLE species: ${speciesBreakdown.map(s => `${s.total} ${s.type}`).join(', ')}. You MUST use inclusive language like "lahat ng ating mga hayop" or "ating mga baka at kambing". NEVER mention only one species in tips or summary.`
+      : `This farm has only ${livestockTypes[0] || 'livestock'}.`;
+
     const systemPrompt = `You are Doc Aga, a friendly Filipino veterinarian AI assistant for farmers. Generate a personalized morning brief in Taglish (mix of Tagalog and English). Keep it warm, encouraging, and actionable.
 
-IMPORTANT GUIDELINES:
-- Be precise about dates: only say "kahapon" when referencing yesterday's data, and "ngayon" for today's data.
-- When giving tips, if the farm has multiple livestock types (e.g., cattle and goats), use inclusive language like "lahat ng ating lactating na hayop" or mention both species, not just one.
+CRITICAL RULES - YOU MUST FOLLOW THESE:
+1. DATE PRECISION: Only say "kahapon" when referencing yesterday's data, and "ngayon" for today's data.
+2. SPECIES ACCURACY: ${speciesRule}
 
 Format your response as a JSON object with these fields:
 - greeting: A warm Taglish greeting mentioning the day
 - summary: 2-3 sentence overview of the farm status
 - highlights: Array of 2-4 positive highlights or achievements
 - alerts: Array of urgent items needing attention (if any)
-- tip: One practical tip for the day
+- tip: One practical tip for the day (MUST follow species rule above)
 
 Keep each field concise. Use "po" for respect. Be encouraging even when there are issues.`;
 
+    const speciesBreakdownText = speciesBreakdown.map(s => `- ${s.type}: ${s.total} total, ${s.lactating} lactating`).join('\n');
+    
     const userPrompt = `Generate a morning brief for ${contextData.farmName} on ${contextData.dayOfWeek}, ${contextData.date}.
 
-IMPORTANT DATE REFERENCE:
-- Today is: ${contextData.date}
-- Yesterday was: ${contextData.phYesterday}
-- Today's Milk Production: ${contextData.todayMilk}L (use "ngayon" when referring to this)
-- Yesterday's Milk Production: ${contextData.yesterdayMilk}L (use "kahapon" when referring to this)
+DATE REFERENCE (BE PRECISE):
+- Today = ${contextData.date} (use "ngayon")
+- Yesterday = ${contextData.phYesterday} (use "kahapon")
+- Today's Milk: ${contextData.todayMilk}L
+- Yesterday's Milk: ${contextData.yesterdayMilk}L
 
-Farm Data:
-- Livestock Types: ${contextData.livestockTypesDescription}${contextData.hasMultipleTypes ? ' - use inclusive language for tips!' : ''}
+FARM COMPOSITION:
+${speciesBreakdownText}
+${hasMultipleTypes ? '\n⚠️ IMPORTANT: This is a MIXED SPECIES farm. Tips and summary must apply to ALL species or use inclusive language like "lahat ng ating mga hayop".' : ''}
+
+Farm Metrics:
 - Total Animals: ${contextData.totalAnimals}
-- Lactating Animals: ${contextData.lactatingAnimals}
+- Total Lactating: ${contextData.lactatingAnimals}
 - Weekly Average Milk: ${contextData.avgDailyMilk}L/day
 - Pregnant Animals: ${contextData.pregnantCount}
 - Upcoming Deliveries (30 days): ${contextData.upcomingDeliveries}
