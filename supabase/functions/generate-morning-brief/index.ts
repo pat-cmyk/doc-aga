@@ -132,8 +132,21 @@ serve(async (req) => {
     const totalAnimals = animals.length;
     const lactatingAnimals = animals.filter(a => a.milking_stage && a.milking_stage !== 'Dry Period').length;
     const todayMilk = milkingRecords.filter(r => r.record_date === phDate).reduce((sum, r) => sum + (r.liters || 0), 0);
+    
+    // Calculate yesterday's milk
+    const yesterdayDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const phYesterday = new Date(yesterdayDate.getTime() + (8 * 60 * 60 * 1000)).toISOString().split('T')[0];
+    const yesterdayMilk = milkingRecords.filter(r => r.record_date === phYesterday).reduce((sum, r) => sum + (r.liters || 0), 0);
+    
     const weekMilkTotal = milkingRecords.reduce((sum, r) => sum + (r.liters || 0), 0);
     const avgDailyMilk = weekMilkTotal / 7;
+
+    // Detect all livestock types on the farm
+    const livestockTypes = [...new Set(animals.map(a => a.livestock_type).filter(Boolean))];
+    const hasMultipleTypes = livestockTypes.length > 1;
+    const livestockTypesDescription = hasMultipleTypes 
+      ? `mixed (${livestockTypes.join(' and ')})` 
+      : (livestockTypes[0] || farm?.livestock_type || 'livestock');
 
     // Animals needing attention
     const overdueVaccines = upcomingVaccines.filter(v => v.scheduled_date < phDate).length;
@@ -150,9 +163,13 @@ serve(async (req) => {
     const contextData = {
       farmName: farm?.name || 'Your Farm',
       livestockType: farm?.livestock_type || 'cattle',
+      livestockTypes,
+      livestockTypesDescription,
+      hasMultipleTypes,
       totalAnimals,
       lactatingAnimals,
       todayMilk,
+      yesterdayMilk,
       avgDailyMilk: avgDailyMilk.toFixed(1),
       pregnantCount: pregnantAnimals.length,
       upcomingDeliveries: upcomingDeliveries.length,
@@ -164,6 +181,7 @@ serve(async (req) => {
       lowFeedItems: lowFeedItems.map(f => f.feed_type),
       recentEvents: recentEvents.map(e => e.event_type),
       date: phDate,
+      phYesterday,
       dayOfWeek: ['Linggo', 'Lunes', 'Martes', 'Miyerkules', 'Huwebes', 'Biyernes', 'Sabado'][today.getDay()]
     };
 
@@ -174,6 +192,10 @@ serve(async (req) => {
     }
 
     const systemPrompt = `You are Doc Aga, a friendly Filipino veterinarian AI assistant for farmers. Generate a personalized morning brief in Taglish (mix of Tagalog and English). Keep it warm, encouraging, and actionable.
+
+IMPORTANT GUIDELINES:
+- Be precise about dates: only say "kahapon" when referencing yesterday's data, and "ngayon" for today's data.
+- When giving tips, if the farm has multiple livestock types (e.g., cattle and goats), use inclusive language like "lahat ng ating lactating na hayop" or mention both species, not just one.
 
 Format your response as a JSON object with these fields:
 - greeting: A warm Taglish greeting mentioning the day
@@ -186,11 +208,17 @@ Keep each field concise. Use "po" for respect. Be encouraging even when there ar
 
     const userPrompt = `Generate a morning brief for ${contextData.farmName} on ${contextData.dayOfWeek}, ${contextData.date}.
 
+IMPORTANT DATE REFERENCE:
+- Today is: ${contextData.date}
+- Yesterday was: ${contextData.phYesterday}
+- Today's Milk Production: ${contextData.todayMilk}L (use "ngayon" when referring to this)
+- Yesterday's Milk Production: ${contextData.yesterdayMilk}L (use "kahapon" when referring to this)
+
 Farm Data:
-- Total Animals: ${contextData.totalAnimals} ${contextData.livestockType}
-- Lactating: ${contextData.lactatingAnimals}
-- Today's Milk: ${contextData.todayMilk}L
-- Weekly Average: ${contextData.avgDailyMilk}L/day
+- Livestock Types: ${contextData.livestockTypesDescription}${contextData.hasMultipleTypes ? ' - use inclusive language for tips!' : ''}
+- Total Animals: ${contextData.totalAnimals}
+- Lactating Animals: ${contextData.lactatingAnimals}
+- Weekly Average Milk: ${contextData.avgDailyMilk}L/day
 - Pregnant Animals: ${contextData.pregnantCount}
 - Upcoming Deliveries (30 days): ${contextData.upcomingDeliveries}
 - Overdue Vaccinations: ${contextData.overdueVaccines}
