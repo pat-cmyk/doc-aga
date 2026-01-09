@@ -251,6 +251,13 @@ export function RecordBulkMilkDialog({
 
       if (error) throw error;
 
+      // Update is_currently_lactating for all animals that just had milk recorded
+      const animalIds = [...new Set(records.map(r => r.animal_id))];
+      await supabase
+        .from('animals')
+        .update({ is_currently_lactating: true })
+        .in('id', animalIds);
+
       // Use CacheManager to invalidate all related caches
       if (isCacheManagerReady()) {
         await getCacheManager().invalidateForMutation('milk-record', farmId);

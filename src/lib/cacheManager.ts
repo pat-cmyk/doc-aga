@@ -12,7 +12,7 @@ import {
  * IndexedDB (offline cache) and React Query (in-memory cache) are both cleared.
  */
 const CACHE_DEPENDENCIES: Record<string, string[]> = {
-  'milk-record': ['milk-inventory', 'milking-records', 'dashboard', 'lactating-animals'],
+  'milk-record': ['milk-inventory', 'milking-records', 'dashboard', 'lactating-animals', 'animals'],
   'health-record': ['health-records', 'dashboard'],
   'feed-record': ['feeding-records', 'feed-inventory', 'dashboard'],
   'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals'],
