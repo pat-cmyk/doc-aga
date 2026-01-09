@@ -225,6 +225,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncSingleMilk(item);
         } else if (item.type === 'bulk_feed') {
           await syncBulkFeed(item);
+        } else if (item.type === 'single_feed') {
+          await syncSingleFeed(item);
         } else if (item.type === 'bulk_health') {
           await syncBulkHealth(item);
         } else if (item.type === 'single_health') {
@@ -653,6 +655,92 @@ async function syncBulkFeed(item: QueueItem): Promise<void> {
 
   if (expenseRecords.length > 0 && user?.id) {
     await supabase.from('farm_expenses').insert(expenseRecords);
+  }
+}
+
+/**
+ * Sync single feed record from offline queue to Supabase (from animal profile)
+ */
+async function syncSingleFeed(item: QueueItem): Promise<void> {
+  const { singleFeed, farmId } = item.payload;
+  
+  if (!singleFeed || !farmId) {
+    throw new Error('No single feed data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_feed_0`;
+
+  const { data: insertedRecord, error } = await supabase
+    .from('feeding_records')
+    .insert({
+      animal_id: singleFeed.animalId,
+      record_datetime: singleFeed.recordDate,
+      kilograms: singleFeed.kilograms,
+      feed_type: singleFeed.feedType,
+      notes: singleFeed.notes || null,
+      created_by: user?.id,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Single feed record already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  // Confirm optimistic records
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
+  }
+
+  // Update inventory if applicable
+  if (singleFeed.feedInventoryId) {
+    const { data: currentInventory } = await supabase
+      .from('feed_inventory')
+      .select('quantity_kg')
+      .eq('id', singleFeed.feedInventoryId)
+      .single();
+
+    if (currentInventory) {
+      const newQuantity = Math.max(0, currentInventory.quantity_kg - singleFeed.kilograms);
+
+      await supabase
+        .from('feed_inventory')
+        .update({ quantity_kg: newQuantity, last_updated: new Date().toISOString() })
+        .eq('id', singleFeed.feedInventoryId);
+
+      // Create transaction record
+      await supabase.from('feed_stock_transactions').insert({
+        feed_inventory_id: singleFeed.feedInventoryId,
+        transaction_type: 'consumption',
+        quantity_change_kg: -singleFeed.kilograms,
+        balance_after: newQuantity,
+        notes: `Offline sync: Single feeding ${singleFeed.animalName || 'Animal'}`,
+        created_by: user?.id,
+      });
+    }
+  }
+
+  // Create expense record if cost data is available
+  if (singleFeed.cost && singleFeed.cost > 0 && user?.id) {
+    await supabase.from('farm_expenses').insert({
+      animal_id: singleFeed.animalId,
+      farm_id: farmId,
+      user_id: user.id,
+      category: 'Feed & Supplements',
+      amount: singleFeed.cost,
+      description: `${singleFeed.feedType} feeding: ${singleFeed.kilograms.toFixed(2)} kg`,
+      expense_date: singleFeed.recordDate.split('T')[0],
+      allocation_type: 'Operational',
+      linked_feed_inventory_id: singleFeed.feedInventoryId || null,
+    });
   }
 }
 
