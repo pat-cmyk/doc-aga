@@ -34,7 +34,6 @@ import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
-import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 
@@ -203,10 +202,11 @@ export function RecordBulkMilkDialog({
         [...optimisticRecords, ...old]
       );
 
-      // Use CacheManager to invalidate all related caches
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-record', farmId);
-      }
+      // Refetch milk inventory to merge optimistic data with cache
+      await queryClient.refetchQueries({ 
+        queryKey: ['milk-inventory', farmId],
+        type: 'active',
+      });
 
       if (!isOnline) {
         // Queue for offline sync
@@ -290,10 +290,15 @@ export function RecordBulkMilkDialog({
         }
       }
 
-      // Use CacheManager to invalidate all related caches
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-record', farmId);
-      }
+      // Refetch queries to sync with server data (don't clear IndexedDB)
+      await queryClient.refetchQueries({ 
+        queryKey: ['milk-inventory', farmId],
+        type: 'active',
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['dashboard', farmId],
+        type: 'active',
+      });
 
       hapticNotification('success');
       toast({
