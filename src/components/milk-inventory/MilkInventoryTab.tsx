@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,6 @@ import { MilkSalesHistory } from "./MilkSalesHistory";
 import { useMilkInventory } from "@/hooks/useMilkInventory";
 import { Milk, TrendingUp, History, RefreshCw } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 interface MilkInventoryTabProps {
   farmId: string;
@@ -20,20 +19,10 @@ export function MilkInventoryTab({ farmId, canManage = true }: MilkInventoryTabP
   const { data, isLoading, refetch } = useMilkInventory(farmId);
   const isOnline = useOnlineStatus();
 
-  // Force fresh data on mount by invalidating caches
-  useEffect(() => {
-    if (farmId && isOnline && isCacheManagerReady()) {
-      getCacheManager().invalidateForMutation('milk-record', farmId);
-    }
-  }, [farmId, isOnline]);
-
   const handleRefresh = async () => {
     if (!isOnline || isRefreshing) return;
     setIsRefreshing(true);
     try {
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-record', farmId);
-      }
       await refetch();
     } finally {
       setIsRefreshing(false);
