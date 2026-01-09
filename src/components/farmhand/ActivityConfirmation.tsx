@@ -303,11 +303,13 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
         case 'milking':
           if (data.distributions_by_type) {
             // Bulk milking with type grouping
+            const currentSession = new Date().getHours() < 12 ? 'AM' : 'PM';
             const allRecords = data.distributions_by_type.flatMap(typeGroup =>
               typeGroup.distributions.map(dist => ({
                 animal_id: dist.animal_id,
                 record_date: today,
                 liters: dist.milk_liters,
+                session: currentSession,
                 created_by: user.id
               }))
             );
@@ -329,10 +331,12 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             });
           } else if (data.is_bulk_milking && data.distributions) {
             // Legacy bulk milking (without type grouping)
+            const legacySession = new Date().getHours() < 12 ? 'AM' : 'PM';
             const milkingRecords = data.distributions.map(dist => ({
               animal_id: dist.animal_id,
               record_date: today,
               liters: dist.milk_liters || 0,
+              session: legacySession,
               created_by: user.id
             }));
             
@@ -349,10 +353,12 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           } else {
             // Single animal milking
             if (!data.animal_id) throw new Error('Please select an animal for this activity');
+            const singleSession = new Date().getHours() < 12 ? 'AM' : 'PM';
             await supabase.from('milking_records').insert({
               animal_id: data.animal_id,
               record_date: today,
               liters: data.quantity || 0,
+              session: singleSession,
               created_by: user.id
             });
           }
