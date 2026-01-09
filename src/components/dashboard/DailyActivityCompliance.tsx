@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
-import { useNavigate } from 'react-router-dom';
+import { RecordBulkFeedDialog } from '@/components/feed-recording/RecordBulkFeedDialog';
+import { RecordBulkMilkDialog } from '@/components/milk-recording/RecordBulkMilkDialog';
 
 interface DailyActivityComplianceProps {
   farmId: string;
@@ -26,15 +27,16 @@ interface DailyActivityComplianceProps {
 
 export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
+  const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
-  const navigate = useNavigate();
-
-  const handleRecordMilk = () => {
-    navigate('/?tab=operations&subtab=milk');
-  };
 
   const handleRecordFeed = () => {
-    navigate('/?tab=operations&subtab=feeding');
+    setIsRecordFeedOpen(true);
+  };
+
+  const handleRecordMilk = () => {
+    setIsRecordMilkOpen(true);
   };
 
   if (isLoading) {
@@ -256,6 +258,18 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
+
+      <RecordBulkFeedDialog
+        open={isRecordFeedOpen}
+        onOpenChange={setIsRecordFeedOpen}
+        farmId={farmId}
+      />
+
+      <RecordBulkMilkDialog
+        open={isRecordMilkOpen}
+        onOpenChange={setIsRecordMilkOpen}
+        farmId={farmId}
+      />
     </Card>
   );
 }
