@@ -28,6 +28,8 @@ import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
 import { useMissingActivityAlerts, MissingActivityAlert } from '@/hooks/useMissingActivityAlerts';
 import { useNavigate } from 'react-router-dom';
+import { useOperationDialogs } from '@/hooks/useOperationDialogs';
+import { OperationDialogs } from '@/components/operations/OperationDialogs';
 
 interface DashboardAlertsWidgetProps {
   farmId: string;
@@ -41,6 +43,14 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { alerts: activityAlerts } = useMissingActivityAlerts(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
+  const {
+    isRecordFeedOpen,
+    isRecordMilkOpen,
+    openFeedDialog,
+    openMilkDialog,
+    setRecordFeedOpen,
+    setRecordMilkOpen,
+  } = useOperationDialogs();
 
   const groupedAlerts = groupAlertsByType(alerts);
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
@@ -172,7 +182,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                           size="sm"
                           variant="outline"
                           className="shrink-0 ml-2 h-8 text-xs"
-                          onClick={() => navigate('/?tab=operations&subtab=milk')}
+                          onClick={openMilkDialog}
                         >
                           Record
                         </Button>
@@ -182,7 +192,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                           size="sm"
                           variant="outline"
                           className="shrink-0 ml-2 h-8 text-xs"
-                          onClick={() => navigate('/?tab=operations&subtab=feeding')}
+                          onClick={openFeedDialog}
                         >
                           Record
                         </Button>
@@ -302,6 +312,14 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
+
+      <OperationDialogs
+        farmId={farmId}
+        isRecordFeedOpen={isRecordFeedOpen}
+        onRecordFeedOpenChange={setRecordFeedOpen}
+        isRecordMilkOpen={isRecordMilkOpen}
+        onRecordMilkOpenChange={setRecordMilkOpen}
+      />
     </Card>
   );
 }
