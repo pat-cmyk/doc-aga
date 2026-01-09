@@ -1,17 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Loader2, Sun, Moon, Pencil, ChevronDown, ChevronUp, History } from "lucide-react";
+import { Plus, Loader2, Sun, Moon, Pencil, ChevronDown, ChevronUp, History, Trash2, RotateCcw } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis } from "recharts";
 import { getCachedRecords } from "@/lib/dataCache";
 import { RecordSingleMilkDialog } from "@/components/milk-recording/RecordSingleMilkDialog";
 import { EditMilkRecordDialog } from "@/components/milk-recording/EditMilkRecordDialog";
+import { DeleteMilkRecordFromProfileDialog } from "@/components/milk-recording/DeleteMilkRecordFromProfileDialog";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { hapticNotification } from "@/lib/haptics";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface MilkRecord {
   id: string;
@@ -39,8 +44,12 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
   const [animalFarmId, setAnimalFarmId] = useState<string | null>(null);
   const [animalFarmEntryDate, setAnimalFarmEntryDate] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<MilkRecord | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<MilkRecord | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const pendingDeletesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     loadAnimalInfo();
@@ -127,6 +136,73 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
   const handleEditSuccess = () => {
     loadRecords();
   };
+
+  const handleDeleteWithUndo = async (record: MilkRecord) => {
+    // Optimistically remove from UI
+    setRecords(prev => prev.filter(r => r.id !== record.id));
+    setDeletingRecord(null);
+    
+    // Set timeout for actual deletion (30 seconds)
+    const timeoutId = setTimeout(async () => {
+      try {
+        // Delete from milk_inventory first (FK constraint)
+        await supabase.from("milk_inventory").delete().eq("milking_record_id", record.id);
+        
+        // Perform actual database deletion
+        await supabase.from("milking_records").delete().eq("id", record.id);
+        
+        // Clean up pending delete tracking
+        pendingDeletesRef.current.delete(record.id);
+        
+        // Refetch queries
+        await queryClient.refetchQueries({ queryKey: ['milk-inventory', animalFarmId] });
+      } catch (error) {
+        console.error('Error deleting milk record:', error);
+      }
+    }, 30000); // 30 second window
+    
+    // Track pending delete
+    pendingDeletesRef.current.set(record.id, timeoutId);
+    
+    // Show toast with undo action
+    toast({
+      title: "Record deleted",
+      description: `${record.liters}L (${record.session}) removed`,
+      action: (
+        <ToastAction altText="Undo" onClick={() => handleUndoDelete(record, timeoutId)}>
+          <RotateCcw className="h-4 w-4 mr-1" />
+          Undo
+        </ToastAction>
+      ),
+      duration: 30000, // Match the delete timer
+    });
+  };
+
+  const handleUndoDelete = (record: MilkRecord, timeoutId: NodeJS.Timeout) => {
+    // Cancel the pending delete
+    clearTimeout(timeoutId);
+    
+    // Restore record to UI
+    setRecords(prev => [...prev, record].sort((a, b) => 
+      new Date(b.record_date).getTime() - new Date(a.record_date).getTime()
+    ));
+    
+    // Clean up tracking
+    pendingDeletesRef.current.delete(record.id);
+    
+    hapticNotification('success');
+    toast({
+      title: "Record restored",
+      description: `${record.liters}L (${record.session}) has been restored`,
+    });
+  };
+
+  // Cleanup pending deletes on unmount
+  useEffect(() => {
+    return () => {
+      pendingDeletesRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
@@ -266,17 +342,27 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <span className="font-bold text-lg">{record.liters}L</span>
                           {!readOnly && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => setEditingRecord(record)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => setEditingRecord(record)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => setDeletingRecord(record)}
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -313,6 +399,16 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
           animalName={animalName}
           farmId={animalFarmId}
           onSuccess={handleEditSuccess}
+        />
+      )}
+
+      {deletingRecord && animalFarmId && (
+        <DeleteMilkRecordFromProfileDialog
+          open={!!deletingRecord}
+          onOpenChange={(open) => !open && setDeletingRecord(null)}
+          record={deletingRecord}
+          animalName={animalName}
+          onDelete={handleDeleteWithUndo}
         />
       )}
     </>
