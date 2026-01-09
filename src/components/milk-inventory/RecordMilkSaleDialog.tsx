@@ -9,12 +9,12 @@ import { Loader2, CheckCircle2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLastMilkPrice, useAddRevenue } from "@/hooks/useRevenues";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { markMilkRecordsSold } from "@/lib/dataCache";
-import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { deductMilkFromInventoryCache } from "@/lib/dataCache";
 
 interface RecordMilkSaleDialogProps {
   farmId: string;
@@ -35,6 +35,7 @@ export function RecordMilkSaleDialog({
   const { data: lastMilkPrice } = useLastMilkPrice(farmId);
   const addRevenue = useAddRevenue();
   const isOnline = useOnlineStatus();
+  const queryClient = useQueryClient();
 
   const [litersToSell, setLitersToSell] = useState("");
   const [pricePerLiter, setPricePerLiter] = useState("");
@@ -48,14 +49,13 @@ export function RecordMilkSaleDialog({
     }
   });
 
-  // Calculate FIFO selection preview
+  // Calculate FIFO selection preview with partial sales support
   const fifoPreview = useMemo(() => {
     const liters = parseFloat(litersToSell) || 0;
     if (liters <= 0) return { records: [], totalLiters: 0, warning: null };
 
     const selectedRecords: { record: MilkInventoryItem; litersUsed: number }[] = [];
     let remaining = liters;
-    let totalSelected = 0;
 
     // Sort by date ascending (oldest first - FIFO)
     const sorted = [...availableItems].sort((a, b) => 
@@ -65,17 +65,16 @@ export function RecordMilkSaleDialog({
     for (const record of sorted) {
       if (remaining <= 0) break;
       
-      // Use full record (no partial sales supported by schema)
-      selectedRecords.push({ record, litersUsed: record.liters });
-      totalSelected += record.liters;
-      remaining -= record.liters;
+      // Use only what's needed from this record (partial sale support)
+      const litersFromThis = Math.min(remaining, record.liters_remaining);
+      selectedRecords.push({ record, litersUsed: litersFromThis });
+      remaining -= litersFromThis;
     }
 
-    const warning = totalSelected > liters 
-      ? `Will sell ${totalSelected.toFixed(1)}L (includes full records)`
-      : totalSelected < liters 
-        ? `Only ${totalSelected.toFixed(1)}L available`
-        : null;
+    const totalSelected = selectedRecords.reduce((sum, r) => sum + r.litersUsed, 0);
+    const warning = remaining > 0 
+      ? `Only ${totalSelected.toFixed(1)}L available`
+      : null;
 
     return { records: selectedRecords, totalLiters: totalSelected, warning };
   }, [litersToSell, availableItems]);
@@ -101,45 +100,58 @@ export function RecordMilkSaleDialog({
     setIsSubmitting(true);
 
     try {
-      // STEP 1: Mark records as sold in local cache IMMEDIATELY for instant UI feedback
-      const recordIds = fifoPreview.records.map(({ record }) => record.id);
-      await markMilkRecordsSold(farmId, recordIds);
-      
-      // Force milk inventory to re-read from cache
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-sale', farmId);
-      }
+      // STEP 1: Update local cache immediately for instant UI feedback
+      const deductions = fifoPreview.records.map(({ record, litersUsed }) => ({
+        id: record.id,
+        litersUsed,
+      }));
+      await deductMilkFromInventoryCache(farmId, deductions);
 
-      // STEP 2: Update each selected milking record in database
-      for (const { record } of fifoPreview.records) {
-        const saleAmount = record.liters * price;
+      // STEP 2: Update each inventory record in the database
+      for (const { record, litersUsed } of fifoPreview.records) {
+        const newRemaining = record.liters_remaining - litersUsed;
+        const isFullyConsumed = newRemaining <= 0;
         
-        const { error } = await supabase
-          .from("milking_records")
+        // Update milk_inventory table directly
+        const { error: invError } = await supabase
+          .from("milk_inventory")
           .update({
-            is_sold: true,
-            price_per_liter: price,
-            sale_amount: saleAmount,
+            liters_remaining: Math.max(0, newRemaining),
+            is_available: !isFullyConsumed,
           })
           .eq("id", record.id);
 
-        if (error) throw error;
+        if (invError) throw invError;
+
+        // If fully consumed, also mark the milking_record as sold
+        if (isFullyConsumed) {
+          const saleAmount = record.liters_original * price;
+          await supabase
+            .from("milking_records")
+            .update({
+              is_sold: true,
+              price_per_liter: price,
+              sale_amount: saleAmount,
+            })
+            .eq("id", record.milking_record_id);
+        }
       }
 
-      // Create single revenue record for the bulk sale
+      // STEP 3: Create single revenue record for the bulk sale
       await addRevenue.mutateAsync({
         farm_id: farmId,
         amount: totalAmount,
         source: "Milk Sales",
         transaction_date: format(new Date(), "yyyy-MM-dd"),
-        linked_milk_log_id: fifoPreview.records[0].record.id,
-        notes: notes || `Bulk sale: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
+        linked_milk_log_id: fifoPreview.records[0].record.milking_record_id,
+        notes: notes || `Sale: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
       });
 
-      // Final cache invalidation to ensure consistency
-      if (isCacheManagerReady()) {
-        await getCacheManager().invalidateForMutation('milk-sale', farmId);
-      }
+      // STEP 4: Refetch to sync with server
+      await queryClient.refetchQueries({ 
+        queryKey: ['milk-inventory', farmId],
+        type: 'active',
+      });
 
       toast({
         title: "Sale Recorded",
@@ -157,6 +169,11 @@ export function RecordMilkSaleDialog({
         title: "Error",
         description: error.message || "Failed to record sale",
         variant: "destructive",
+      });
+      // Refetch to restore correct state
+      await queryClient.refetchQueries({ 
+        queryKey: ['milk-inventory', farmId],
+        type: 'active',
       });
     } finally {
       setIsSubmitting(false);
@@ -213,17 +230,22 @@ export function RecordMilkSaleDialog({
             />
           </div>
 
-          {/* FIFO Preview */}
+          {/* FIFO Preview with partial sale indicators */}
           {fifoPreview.records.length > 0 && (
             <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
               <p className="text-sm font-medium">Sale Preview (FIFO):</p>
               <div className="space-y-1 text-sm">
-                {fifoPreview.records.slice(0, 5).map(({ record }) => (
+                {fifoPreview.records.slice(0, 5).map(({ record, litersUsed }) => (
                   <div key={record.id} className="flex justify-between text-muted-foreground">
                     <span>
                       {format(new Date(record.record_date), "MMM d")}: {record.animal_name || record.ear_tag}
                     </span>
-                    <span>{record.liters.toFixed(1)} L</span>
+                    <span>
+                      {litersUsed.toFixed(1)} L
+                      {litersUsed < record.liters_remaining && (
+                        <span className="text-xs ml-1 text-amber-600 dark:text-amber-400">(partial)</span>
+                      )}
+                    </span>
                   </div>
                 ))}
                 {fifoPreview.records.length > 5 && (

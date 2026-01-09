@@ -277,14 +277,18 @@ export interface DashboardStatsCache {
 
 export interface MilkInventoryCacheItem {
   id: string;
+  milking_record_id?: string;
   animal_id: string;
   animal_name: string | null;
   ear_tag: string | null;
   record_date: string;
-  liters: number;
+  liters_original: number;
+  liters_remaining: number;
+  is_available: boolean;
   created_at: string;
-  is_sold?: boolean;
   syncStatus: CacheSyncStatus;
+  // Legacy field for backward compat with old cache
+  liters?: number;
 }
 
 export interface MilkInventoryCache {
@@ -1551,11 +1555,11 @@ export async function markMilkRecordsSold(
  * Helper to recalculate milk inventory summary from items
  */
 function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkInventoryCache['summary'] {
-  // Only include unsold items
-  const unsoldItems = items.filter(i => !i.is_sold);
+  // Only include available items with remaining liters
+  const availableItems = items.filter(i => i.is_available && i.liters_remaining > 0);
   
-  const totalLiters = unsoldItems.reduce((sum, r) => sum + r.liters, 0);
-  const sortedItems = [...unsoldItems].sort((a, b) => 
+  const totalLiters = availableItems.reduce((sum, r) => sum + r.liters_remaining, 0);
+  const sortedItems = [...availableItems].sort((a, b) => 
     new Date(a.record_date).getTime() - new Date(b.record_date).getTime()
   );
   const oldestDate = sortedItems.length > 0 ? sortedItems[0].record_date : null;
@@ -1569,10 +1573,10 @@ function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkI
     record_count: number;
   }>();
   
-  unsoldItems.forEach(item => {
+  availableItems.forEach(item => {
     const existing = animalMap.get(item.animal_id);
     if (existing) {
-      existing.total_liters += item.liters;
+      existing.total_liters += item.liters_remaining;
       existing.record_count += 1;
       if (item.record_date < existing.oldest_date) {
         existing.oldest_date = item.record_date;
@@ -1581,7 +1585,7 @@ function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkI
       animalMap.set(item.animal_id, {
         animal_name: item.animal_name,
         ear_tag: item.ear_tag,
-        total_liters: item.liters,
+        total_liters: item.liters_remaining,
         oldest_date: item.record_date,
         record_count: 1,
       });
@@ -1593,6 +1597,48 @@ function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[]): MilkI
     .sort((a, b) => b.total_liters - a.total_liters);
   
   return { totalLiters, oldestDate, byAnimal };
+}
+
+/**
+ * Deduct milk from inventory cache (for partial sales)
+ */
+export async function deductMilkFromInventoryCache(
+  farmId: string,
+  deductions: Array<{ id: string; litersUsed: number }>
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('milkInventory', farmId);
+    if (!existing) return;
+    
+    const items = existing.items.map(item => {
+      const deduction = deductions.find(d => d.id === item.id);
+      if (deduction) {
+        const newRemaining = item.liters_remaining - deduction.litersUsed;
+        return {
+          ...item,
+          liters_remaining: Math.max(0, newRemaining),
+          is_available: newRemaining > 0,
+          syncStatus: 'pending' as CacheSyncStatus
+        };
+      }
+      return item;
+    });
+    
+    const summary = recalculateMilkInventorySummary(items);
+    
+    await db.put('milkInventory', { 
+      ...existing, 
+      items, 
+      summary, 
+      lastUpdated: Date.now(),
+      syncStatus: 'pending' 
+    });
+    
+    console.log(`[DataCache] Deducted milk from ${deductions.length} inventory items`);
+  } catch (error) {
+    console.error('[DataCache] Failed to deduct milk from inventory:', error);
+  }
 }
 
 /**
@@ -1613,12 +1659,16 @@ export async function updateLocalMilkInventoryRecord(
     
     const items = existing.items.map(item => {
       if (item.id === recordId) {
-        oldValues = { oldLiters: item.liters, oldDate: item.record_date };
-        return { 
-          ...item, 
-          ...updates, 
-          syncStatus: 'pending' as CacheSyncStatus 
-        };
+        oldValues = { oldLiters: item.liters_remaining, oldDate: item.record_date };
+        const newItem = { ...item, syncStatus: 'pending' as CacheSyncStatus };
+        if (updates.liters !== undefined) {
+          newItem.liters_remaining = updates.liters;
+          newItem.liters_original = updates.liters;
+        }
+        if (updates.record_date !== undefined) {
+          newItem.record_date = updates.record_date;
+        }
+        return newItem;
       }
       return item;
     });
@@ -1673,7 +1723,7 @@ export async function deleteLocalMilkInventoryRecord(
     await db.put('milkInventory', updated);
     console.log(`[DataCache] Deleted milk inventory record ${recordId}`);
     
-    return { liters: deletedRecord.liters, record_date: deletedRecord.record_date };
+    return { liters: deletedRecord.liters_remaining, record_date: deletedRecord.record_date };
   } catch (error) {
     console.error('[DataCache] Failed to delete milk inventory record:', error);
     return null;

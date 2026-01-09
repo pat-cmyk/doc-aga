@@ -222,11 +222,14 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
           // Also update milk inventory cache
           await addLocalMilkInventoryRecord(farmId, {
             id: newRecord.id,
+            milking_record_id: newRecord.id,
             animal_id: newRecord.animal_id,
             animal_name: null, // Will be filled on next server sync
             ear_tag: null,
             record_date: newRecord.record_date,
-            liters: newRecord.liters,
+            liters_original: newRecord.liters,
+            liters_remaining: newRecord.liters,
+            is_available: true,
             created_at: newRecord.created_at || new Date().toISOString(),
             syncStatus: 'synced',
           });

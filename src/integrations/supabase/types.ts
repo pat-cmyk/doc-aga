@@ -2074,6 +2074,77 @@ export type Database = {
           },
         ]
       }
+      milk_inventory: {
+        Row: {
+          animal_id: string
+          client_generated_id: string | null
+          created_at: string | null
+          farm_id: string
+          id: string
+          is_available: boolean
+          liters_original: number
+          liters_remaining: number
+          milking_record_id: string
+          record_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          animal_id: string
+          client_generated_id?: string | null
+          created_at?: string | null
+          farm_id: string
+          id?: string
+          is_available?: boolean
+          liters_original: number
+          liters_remaining: number
+          milking_record_id: string
+          record_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          animal_id?: string
+          client_generated_id?: string | null
+          created_at?: string | null
+          farm_id?: string
+          id?: string
+          is_available?: boolean
+          liters_original?: number
+          liters_remaining?: number
+          milking_record_id?: string
+          record_date?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milk_inventory_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milk_inventory_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milk_inventory_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milk_inventory_milking_record_id_fkey"
+            columns: ["milking_record_id"]
+            isOneToOne: true
+            referencedRelation: "milking_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       milking_records: {
         Row: {
           animal_id: string

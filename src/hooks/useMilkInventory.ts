@@ -11,11 +11,14 @@ import {
 
 export interface MilkInventoryItem {
   id: string;
+  milking_record_id: string;
   animal_id: string;
   animal_name: string | null;
   ear_tag: string | null;
   record_date: string;
-  liters: number;
+  liters_original: number;
+  liters_remaining: number;
+  is_available: boolean;
   created_at: string;
 }
 
@@ -51,41 +54,47 @@ export function useMilkInventory(farmId: string) {
     });
   }, [farmId]);
 
-  // Simplified: Always fetch when online and cache is checked
-  // CacheManager handles invalidation, so we trust RQ's cache state
+  // Query the new milk_inventory table directly
   const serverQuery = useQuery({
     queryKey: ["milk-inventory", farmId],
     queryFn: async () => {
-      console.log('[MilkInventory] Fetching from server...');
+      console.log('[MilkInventory] Fetching from milk_inventory table...');
       const { data, error } = await supabase
-        .from("milking_records")
+        .from("milk_inventory")
         .select(`
           id,
+          milking_record_id,
           animal_id,
           record_date,
-          liters,
+          liters_original,
+          liters_remaining,
+          is_available,
           created_at,
-          animals!inner(farm_id, name, ear_tag)
+          animals!inner(name, ear_tag)
         `)
-        .eq("animals.farm_id", farmId)
-        .or("is_sold.eq.false,is_sold.is.null")
+        .eq("farm_id", farmId)
+        .eq("is_available", true)
+        .gt("liters_remaining", 0)
         .order("record_date", { ascending: true });
 
       if (error) throw error;
 
       const items: MilkInventoryCacheItem[] = (data || []).map((r: any) => ({
         id: r.id,
+        milking_record_id: r.milking_record_id,
         animal_id: r.animal_id,
         animal_name: r.animals?.name,
         ear_tag: r.animals?.ear_tag,
         record_date: r.record_date,
-        liters: parseFloat(r.liters),
+        liters_original: parseFloat(r.liters_original),
+        liters_remaining: parseFloat(r.liters_remaining),
+        is_available: r.is_available,
         created_at: r.created_at,
         syncStatus: 'synced' as const,
       }));
 
-      // Calculate summary
-      const totalLiters = items.reduce((sum, r) => sum + r.liters, 0);
+      // Calculate summary using liters_remaining
+      const totalLiters = items.reduce((sum, r) => sum + r.liters_remaining, 0);
       const oldestDate = items.length > 0 ? items[0].record_date : null;
 
       // Group by animal
@@ -100,7 +109,7 @@ export function useMilkInventory(farmId: string) {
       items.forEach(item => {
         const existing = animalMap.get(item.animal_id);
         if (existing) {
-          existing.total_liters += item.liters;
+          existing.total_liters += item.liters_remaining;
           existing.record_count += 1;
           if (item.record_date < existing.oldest_date) {
             existing.oldest_date = item.record_date;
@@ -109,7 +118,7 @@ export function useMilkInventory(farmId: string) {
           animalMap.set(item.animal_id, {
             animal_name: item.animal_name,
             ear_tag: item.ear_tag,
-            total_liters: item.liters,
+            total_liters: item.liters_remaining,
             oldest_date: item.record_date,
             record_count: 1,
           });
@@ -136,30 +145,47 @@ export function useMilkInventory(farmId: string) {
         setCachedData(newCache);
       }
 
+      console.log('[MilkInventory] Server returned', items.length, 'items, total', totalLiters.toFixed(1), 'L');
       return { items, summary };
     },
     enabled: !!farmId && cacheChecked && isOnline,
-    staleTime: 0, // Always consider data stale to allow CacheManager-triggered refetches
-    gcTime: 5 * 60 * 1000, // Keep in memory for 5 min
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  // Derive the data to return - prefer cached data for instant display
-  const items: MilkInventoryItem[] = serverQuery.data?.items || cachedData?.items || [];
+  // Transform cache/server items to the consistent MilkInventoryItem type
+  const transformItem = (item: any): MilkInventoryItem => ({
+    id: item.id,
+    milking_record_id: item.milking_record_id || item.id,
+    animal_id: item.animal_id,
+    animal_name: item.animal_name,
+    ear_tag: item.ear_tag,
+    record_date: item.record_date,
+    liters_original: item.liters_original ?? item.liters ?? 0,
+    liters_remaining: item.liters_remaining ?? item.liters ?? 0,
+    is_available: item.is_available ?? true,
+    created_at: item.created_at,
+  });
+
+  const items: MilkInventoryItem[] = serverQuery.data?.items?.map(transformItem) 
+    || cachedData?.items?.map(transformItem) 
+    || [];
+  
   const summary: MilkInventorySummary = serverQuery.data?.summary || cachedData?.summary || {
     totalLiters: 0,
     oldestDate: null,
     byAnimal: [],
   };
 
-  // Simplified refetch - just trigger the server query
   const refetch = async () => {
     return serverQuery.refetch();
   };
 
   return {
-    data: items.length > 0 ? { items, summary } : undefined,
+    data: items.length > 0 || cachedData ? { items, summary } : undefined,
     isLoading: !cacheChecked || (!cachedData && serverQuery.isLoading),
+    isFetching: serverQuery.isFetching,
     isError: serverQuery.isError && !cachedData,
     error: serverQuery.error,
     refetch,
@@ -171,35 +197,34 @@ export function useMilkSalesHistory(farmId: string) {
     queryKey: ["milk-sales-history", farmId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("milking_records")
+        .from("milk_inventory")
         .select(`
           id,
+          milking_record_id,
           animal_id,
           record_date,
-          liters,
-          price_per_liter,
-          sale_amount,
-          is_sold,
+          liters_original,
+          liters_remaining,
+          is_available,
           created_at,
-          animals!inner(farm_id, name, ear_tag)
+          animals!inner(name, ear_tag)
         `)
-        .eq("animals.farm_id", farmId)
-        .eq("is_sold", true)
-        .not("sale_amount", "is", null)
-        .order("record_date", { ascending: false })
+        .eq("farm_id", farmId)
+        .eq("is_available", false)
+        .order("updated_at", { ascending: false })
         .limit(100);
 
       if (error) throw error;
 
       return (data || []).map((r: any) => ({
         id: r.id,
+        milking_record_id: r.milking_record_id,
         animal_id: r.animal_id,
         animal_name: r.animals?.name,
         ear_tag: r.animals?.ear_tag,
         record_date: r.record_date,
-        liters: parseFloat(r.liters),
-        price_per_liter: r.price_per_liter ? parseFloat(r.price_per_liter) : null,
-        sale_amount: r.sale_amount ? parseFloat(r.sale_amount) : null,
+        liters_original: parseFloat(r.liters_original),
+        liters_sold: parseFloat(r.liters_original) - parseFloat(r.liters_remaining),
       }));
     },
     enabled: !!farmId,
