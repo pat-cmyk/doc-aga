@@ -227,6 +227,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBulkFeed(item);
         } else if (item.type === 'bulk_health') {
           await syncBulkHealth(item);
+        } else if (item.type === 'single_health') {
+          await syncSingleHealth(item);
         } else if (item.type === 'voice_form_input') {
           await processVoiceFormInput(item);
         }
@@ -695,5 +697,48 @@ async function syncBulkHealth(item: QueueItem): Promise<void> {
   if (item.optimisticId && insertedRecords) {
     await confirmOptimisticRecords(item.optimisticId, insertedRecords);
     await updateItem(item.id, { serverResponse: insertedRecords });
+  }
+}
+
+/**
+ * Sync single health record from offline queue to Supabase (from animal profile)
+ */
+async function syncSingleHealth(item: QueueItem): Promise<void> {
+  const { singleHealth, farmId } = item.payload;
+  
+  if (!singleHealth || !farmId) {
+    throw new Error('No single health data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_health_0`;
+
+  const { data: insertedRecord, error } = await supabase
+    .from('health_records')
+    .insert({
+      animal_id: singleHealth.animalId,
+      visit_date: singleHealth.visitDate,
+      diagnosis: singleHealth.diagnosis,
+      treatment: singleHealth.treatment || null,
+      notes: singleHealth.notes || null,
+      created_by: user?.id,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Single health record already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  // Confirm optimistic records
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
   }
 }
