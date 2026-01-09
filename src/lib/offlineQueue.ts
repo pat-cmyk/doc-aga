@@ -24,7 +24,7 @@ const MAX_QUEUE_SIZE = 50;
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'voice_form_input';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -108,6 +108,15 @@ interface QueueItem {
       category?: string;
       diagnosis: string;
       treatment?: string;
+      notes?: string;
+    };
+    // Single weight recording (from animal profile)
+    singleWeight?: {
+      animalId: string;
+      animalName: string | null;
+      weightKg: number;
+      measurementDate: string;
+      measurementMethod: string;
       notes?: string;
     };
     // Voice form input (unified component)

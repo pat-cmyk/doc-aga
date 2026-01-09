@@ -231,6 +231,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBulkHealth(item);
         } else if (item.type === 'single_health') {
           await syncSingleHealth(item);
+        } else if (item.type === 'single_weight') {
+          await syncSingleWeight(item);
         } else if (item.type === 'voice_form_input') {
           await processVoiceFormInput(item);
         }
@@ -819,6 +821,49 @@ async function syncSingleHealth(item: QueueItem): Promise<void> {
     // Check if it's a duplicate (already synced)
     if (error.code === '23505' && error.message?.includes('client_generated_id')) {
       console.log('[SyncQueue] Single health record already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  // Confirm optimistic records
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
+  }
+}
+
+/**
+ * Sync single weight record from offline queue to Supabase (from animal profile)
+ */
+async function syncSingleWeight(item: QueueItem): Promise<void> {
+  const { singleWeight, farmId } = item.payload;
+  
+  if (!singleWeight || !farmId) {
+    throw new Error('No single weight data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_weight_0`;
+
+  const { data: insertedRecord, error } = await supabase
+    .from('weight_records')
+    .insert({
+      animal_id: singleWeight.animalId,
+      weight_kg: singleWeight.weightKg,
+      measurement_date: singleWeight.measurementDate,
+      measurement_method: singleWeight.measurementMethod,
+      notes: singleWeight.notes || null,
+      recorded_by: user?.id,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] Single weight record already synced, skipping...');
       return;
     }
     throw error;
