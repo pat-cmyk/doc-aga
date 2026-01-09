@@ -16,13 +16,17 @@ import {
   Check,
   Scale,
   HelpCircle,
-  Pencil
+  Pencil,
+  Milk,
+  Wheat,
+  UserX
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
 import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
 import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
+import { useMissingActivityAlerts, MissingActivityAlert } from '@/hooks/useMissingActivityAlerts';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardAlertsWidgetProps {
@@ -34,12 +38,14 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: alerts = [], isLoading } = useUpcomingAlerts(farmId);
   const { data: weightData } = useWeightDataCompleteness(farmId);
   const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
+  const { alerts: activityAlerts } = useMissingActivityAlerts(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
 
   const groupedAlerts = groupAlertsByType(alerts);
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
+  const urgentActivityAlerts = activityAlerts.filter(a => a.urgency === 'urgent');
   
   // Weight data alert
   const missingWeightCount = weightData?.missingEntryWeight || 0;
@@ -79,12 +85,29 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count includes weight warning
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0);
+  // Total alert count includes weight warning and activity alerts
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + urgentActivityAlerts.length;
 
   if (totalAlertCount === 0) {
     return null; // Don't show widget if no alerts
   }
+
+  const getActivityAlertIcon = (alertType: MissingActivityAlert['alertType']) => {
+    switch (alertType) {
+      case 'missing_milking': return <Milk className="h-4 w-4" />;
+      case 'no_feeding': return <Wheat className="h-4 w-4" />;
+      case 'inactive_farmhand': return <UserX className="h-4 w-4" />;
+      default: return <AlertTriangle className="h-4 w-4" />;
+    }
+  };
+
+  const getActivityAlertColor = (urgency: MissingActivityAlert['urgency']) => {
+    switch (urgency) {
+      case 'urgent': return 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
+      case 'warning': return 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400';
+      default: return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400';
+    }
+  };
 
   return (
     <Card className={`mb-4 ${overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
@@ -113,6 +136,63 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
 
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
+            {/* Missing Activity Alerts */}
+            {urgentActivityAlerts.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 rounded-full text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium">Activity Alerts</span>
+                  <Badge variant="destructive" className="text-xs">
+                    {urgentActivityAlerts.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2 ml-8">
+                  {urgentActivityAlerts.slice(0, 3).map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className={`p-1 rounded-full ${getActivityAlertColor(alert.urgency)}`}>
+                          {getActivityAlertIcon(alert.alertType)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-red-900 dark:text-red-100 truncate">
+                            {alert.title}
+                          </p>
+                          <p className="text-xs text-red-600 dark:text-red-400 truncate">
+                            {alert.description}
+                          </p>
+                        </div>
+                      </div>
+                      {alert.alertType === 'missing_milking' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 ml-2 h-8 text-xs"
+                          onClick={() => navigate('/?tab=operations&subtab=milk')}
+                        >
+                          Record
+                        </Button>
+                      )}
+                      {alert.alertType === 'no_feeding' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 ml-2 h-8 text-xs"
+                          onClick={() => navigate('/?tab=operations&subtab=feeding')}
+                        >
+                          Record
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Vaccinations */}
             {groupedAlerts.vaccination.length > 0 && (
               <AlertSection

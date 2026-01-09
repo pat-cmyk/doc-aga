@@ -18,6 +18,9 @@ import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
+import { DailyActivityCompliance } from "./dashboard/DailyActivityCompliance";
+import { ActivityTimeline } from "./dashboard/ActivityTimeline";
+import { FarmhandProductivityDashboard } from "./dashboard/FarmhandProductivityDashboard";
 import { useNavigate } from "react-router-dom";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { useQueryClient } from "@tanstack/react-query";
@@ -290,6 +293,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <DashboardStats stats={stats} trends={trends} farmId={farmId} />
       )}
 
+      {/* Daily Activity Compliance - Milking and feeding progress */}
+      <DailyActivityCompliance farmId={farmId} />
+
       {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
       <DashboardAlertsWidget farmId={farmId} />
 
@@ -298,6 +304,12 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
       {/* AI Predictions - Milk, Breeding, Health forecasts */}
       <PredictiveInsightsWidget farmId={farmId} />
+
+      {/* Activity Timeline - Chronological view of today's activities */}
+      <ActivityTimeline farmId={farmId} />
+
+      {/* Team Productivity Dashboard */}
+      <FarmhandProductivityDashboard farmId={farmId} />
 
       {/* Chart Skeletons when loading */}
       {loading && (
