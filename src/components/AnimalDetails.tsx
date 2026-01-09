@@ -1188,6 +1188,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         <TabsContent value="health">
           <HealthRecords 
             animalId={animalId} 
+            animalName={animal?.name || undefined}
+            earTag={animal?.ear_tag}
             farmId={farmId}
             livestockType={animal?.livestock_type || 'cattle'}
             animalFarmEntryDate={animal?.farm_entry_date}
