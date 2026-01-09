@@ -20,6 +20,7 @@ import { initNotifications } from "./lib/notificationService";
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
+import { initCacheManager } from "./lib/cacheManager";
 
 // Lazy load page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -82,6 +83,8 @@ const queryClient = new QueryClient({
   },
 });
 
+// Initialize CacheManager singleton with queryClient
+initCacheManager(queryClient);
 // Component to handle sync, notifications, and service worker bridge
 const SyncHandler = () => {
   const isOnline = useOnlineStatus();

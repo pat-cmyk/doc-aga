@@ -33,7 +33,8 @@ import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord, clearMilkInventoryCache } from "@/lib/dataCache";
+import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 
 interface RecordBulkMilkDialogProps {
@@ -201,11 +202,10 @@ export function RecordBulkMilkDialog({
         [...optimisticRecords, ...old]
       );
 
-      // Force dashboard and milk inventory to re-read from cache
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      await queryClient.refetchQueries({ queryKey: ["dashboard", farmId] });
-      await queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
-      await queryClient.refetchQueries({ queryKey: ["milk-inventory", farmId] });
+      // Use CacheManager to invalidate all related caches
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
 
       if (!isOnline) {
         // Queue for offline sync
@@ -251,14 +251,10 @@ export function RecordBulkMilkDialog({
 
       if (error) throw error;
 
-      // Clear stale milk inventory cache and force refresh
-      await clearMilkInventoryCache(farmId);
-
-      // Invalidate and refetch relevant queries
-      queryClient.invalidateQueries({ queryKey: ["milking-records"] });
-      await queryClient.invalidateQueries({ queryKey: ["milk-inventory", farmId] });
-      await queryClient.refetchQueries({ queryKey: ["milk-inventory", farmId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      // Use CacheManager to invalidate all related caches
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
 
       hapticNotification('success');
       toast({

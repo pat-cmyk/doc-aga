@@ -5,7 +5,6 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   getCachedMilkInventory,
   updateMilkInventoryCache,
-  isMilkInventoryCacheFresh,
   type MilkInventoryCache,
   type MilkInventoryCacheItem,
 } from "@/lib/dataCache";
@@ -37,30 +36,23 @@ export function useMilkInventory(farmId: string) {
   const isOnline = useOnlineStatus();
   const [cachedData, setCachedData] = useState<MilkInventoryCache | null>(null);
   const [cacheChecked, setCacheChecked] = useState(false);
-  const [isCacheFresh, setIsCacheFresh] = useState(false);
 
-  // Load cached data immediately on mount
+  // Load cached data immediately on mount for instant display
   useEffect(() => {
     if (!farmId) return;
     
-    Promise.all([
-      getCachedMilkInventory(farmId),
-      isMilkInventoryCacheFresh(farmId)
-    ]).then(([cached, fresh]) => {
+    getCachedMilkInventory(farmId).then((cached) => {
       setCachedData(cached);
-      setIsCacheFresh(fresh);
       setCacheChecked(true);
-      console.log('[MilkInventory] Cache check complete:', {
+      console.log('[MilkInventory] Cache loaded:', {
         hasCache: !!cached,
         itemCount: cached?.items.length ?? 0,
-        isFresh: fresh
       });
     });
   }, [farmId]);
 
-  // Fetch if: cache checked AND online AND (stale OR no cache)
-  const shouldFetch = cacheChecked && isOnline && (!isCacheFresh || !cachedData);
-
+  // Simplified: Always fetch when online and cache is checked
+  // CacheManager handles invalidation, so we trust RQ's cache state
   const serverQuery = useQuery({
     queryKey: ["milk-inventory", farmId],
     queryFn: async () => {
@@ -146,8 +138,9 @@ export function useMilkInventory(farmId: string) {
 
       return { items, summary };
     },
-    enabled: !!farmId && shouldFetch,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!farmId && cacheChecked && isOnline,
+    staleTime: 0, // Always consider data stale to allow CacheManager-triggered refetches
+    gcTime: 5 * 60 * 1000, // Keep in memory for 5 min
     refetchOnWindowFocus: false,
   });
 
@@ -159,9 +152,8 @@ export function useMilkInventory(farmId: string) {
     byAnimal: [],
   };
 
-  // Wrap refetch to reset cache freshness, forcing a server fetch
+  // Simplified refetch - just trigger the server query
   const refetch = async () => {
-    setIsCacheFresh(false);
     return serverQuery.refetch();
   };
 
