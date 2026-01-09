@@ -2,22 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import { Scale, TrendingUp, Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
-import { validateRecordDate } from "@/lib/recordValidation";
-import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
+import { RecordSingleWeightDialog } from "@/components/weight-recording/RecordSingleWeightDialog";
 
 interface WeightRecord {
   id: string;
@@ -30,28 +23,22 @@ interface WeightRecord {
 
 interface WeightRecordsProps {
   animalId: string;
+  animalName: string;
   animalBirthDate?: string;
   animalFarmEntryDate?: string;
   livestockType?: string;
   gender?: string | null;
   lifeStage?: string | null;
-  farmId?: string;
+  farmId: string;
   readOnly?: boolean;
 }
 
-export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage, farmId, readOnly = false }: WeightRecordsProps) {
+export function WeightRecords({ animalId, animalName, animalBirthDate, animalFarmEntryDate, livestockType, gender, lifeStage, farmId, readOnly = false }: WeightRecordsProps) {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
   const isOnline = useOnlineStatus();
-  
-  // Form state
-  const [weight, setWeight] = useState("");
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [method, setMethod] = useState("scale");
-  const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadWeightRecords();
@@ -99,7 +86,6 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
 
       if (error) {
         console.error("Error loading weight records:", error);
-        toast.error("Failed to load weight records");
       } else {
         setRecords(data || []);
       }
@@ -107,50 +93,6 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
     
     // Always set loading to false, even if offline with no cache
     setLoading(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const weightNum = parseFloat(weight);
-    if (isNaN(weightNum) || weightNum <= 0) {
-      toast.error("Please enter a valid weight");
-      return;
-    }
-
-    // Validate record date against farm entry date
-    const dateValidation = validateRecordDate(date, { farm_entry_date: animalFarmEntryDate });
-    if (!dateValidation.valid) {
-      toast.error(dateValidation.message || "Invalid date");
-      return;
-    }
-
-    setSubmitting(true);
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const { error } = await supabase.from("weight_records").insert({
-      animal_id: animalId,
-      weight_kg: weightNum,
-      measurement_date: date,
-      measurement_method: method,
-      notes: notes.trim() || null,
-      recorded_by: user?.id,
-    });
-
-    if (error) {
-      console.error("Error adding weight record:", error);
-      toast.error("Failed to add weight record");
-    } else {
-      toast.success("Weight record added");
-      setDialogOpen(false);
-      setWeight("");
-      setNotes("");
-      setDate(format(new Date(), "yyyy-MM-dd"));
-      loadWeightRecords();
-    }
-    
-    setSubmitting(false);
   };
 
   const calculateAgeInMonths = (measurementDate: string) => {
@@ -201,81 +143,28 @@ export function WeightRecords({ animalId, animalBirthDate, animalFarmEntryDate, 
             Current Weight
           </CardTitle>
           {!readOnly && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  className="min-h-[48px]"
-                  disabled={!isOnline}
-                  title={!isOnline ? "Available when online" : ""}
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Record Weight
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-full sm:max-w-lg h-[100dvh] sm:h-auto overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Record New Weight</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-                <div>
-                  <Label htmlFor="weight">Weight (kg)</Label>
-                  <Input
-                    id="weight"
-                    type="number"
-                    step="0.1"
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                    required
-                  />
-                  {livestockType && (
-                    <WeightHintBadge
-                      livestockType={livestockType}
-                      gender={gender}
-                      lifeStage={lifeStage}
-                      weightType="current"
-                      className="mt-1"
-                    />
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="date">Measurement Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="method">Measurement Method</Label>
-                  <Select value={method} onValueChange={setMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scale">Scale</SelectItem>
-                      <SelectItem value="tape_measure">Tape Measure</SelectItem>
-                      <SelectItem value="visual_estimate">Visual Estimate</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="notes">Notes (optional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Any additional observations..."
-                  />
-                </div>
-                <Button type="submit" disabled={submitting} className="w-full min-h-[48px]">
-                  {submitting ? "Saving..." : "Save Weight Record"}
-                </Button>
-              </form>
-              </DialogContent>
-            </Dialog>
+            <>
+              <Button 
+                size="sm" 
+                className="min-h-[48px]"
+                onClick={() => setDialogOpen(true)}
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Record Weight
+              </Button>
+              <RecordSingleWeightDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                animalId={animalId}
+                animalName={animalName}
+                farmId={farmId}
+                livestockType={livestockType}
+                gender={gender}
+                lifeStage={lifeStage}
+                animalFarmEntryDate={animalFarmEntryDate}
+                onSuccess={loadWeightRecords}
+              />
+            </>
           )}
         </CardHeader>
         <CardContent className="pb-3 sm:pb-6">
