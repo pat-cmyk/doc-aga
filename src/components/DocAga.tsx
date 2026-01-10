@@ -144,11 +144,16 @@ const DocAga = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Use signed URL for private bucket (expires in 1 hour - enough for AI processing)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('doc-aga-images')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 3600); // 1 hour expiry
 
-      return publicUrl;
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error("Failed to generate secure image URL");
+      }
+
+      return signedUrlData.signedUrl;
     } catch (error: any) {
       toast({
         title: "Upload Error",
