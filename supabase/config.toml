@@ -49,7 +49,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.mapbox-token]
-verify_jwt = false
+verify_jwt = true
 
 [functions.bulk-recalculate-carabao-stages]
 verify_jwt = true
