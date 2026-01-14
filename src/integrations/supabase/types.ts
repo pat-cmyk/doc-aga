@@ -801,6 +801,51 @@ export type Database = {
           },
         ]
       }
+      daily_farm_checklists: {
+        Row: {
+          checklist_date: string
+          completed_by: string | null
+          completed_items: Json
+          created_at: string
+          farm_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          checklist_date: string
+          completed_by?: string | null
+          completed_items?: Json
+          created_at?: string
+          farm_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          checklist_date?: string
+          completed_by?: string | null
+          completed_items?: Json
+          created_at?: string
+          farm_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_farm_checklists_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_farm_checklists_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_farm_stats: {
         Row: {
           created_at: string

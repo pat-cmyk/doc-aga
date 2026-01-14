@@ -15,13 +15,16 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  CalendarX2
+  CalendarX2,
+  Heart
 } from 'lucide-react';
-import { formatDistanceToNow, format, parseISO } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
 import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
+import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
+import { useNavigate } from 'react-router-dom';
 
 interface DailyActivityComplianceProps {
   farmId: string;
@@ -29,8 +32,10 @@ interface DailyActivityComplianceProps {
 
 export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const navigate = useNavigate();
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
   const { data: gapData } = useDataGapAlerts(farmId);
+  const { data: heatData } = useDailyHeatMonitoring(farmId);
   const {
     isRecordFeedOpen,
     isRecordMilkOpen,
@@ -39,6 +44,10 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
     setRecordFeedOpen,
     setRecordMilkOpen,
   } = useOperationDialogs();
+
+  const handleRecordHeat = () => {
+    navigate('/?tab=operations&subtab=breeding');
+  };
 
   if (isLoading) {
     return (
@@ -257,6 +266,86 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                 </div>
               )}
             </div>
+
+            {/* Breeding Monitor Section */}
+            {heatData && heatData.breedingEligibleCount > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
+                      <Heart className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-sm font-medium">Breeding Monitor</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {heatData.breedingEligibleCount} eligible • {heatData.pregnantCount} pregnant
+                  </span>
+                </div>
+
+                {/* Animals needing observation */}
+                {heatData.animalsNeedingObservation.length > 0 && (
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                          {heatData.animalsNeedingObservation.length} animal{heatData.animalsNeedingObservation.length > 1 ? 's' : ''} due for heat observation
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
+                          {heatData.animalsNeedingObservation.slice(0, 3).map(a => a.name || a.earTag || 'Unknown').join(', ')}
+                          {heatData.animalsNeedingObservation.length > 3 && ` +${heatData.animalsNeedingObservation.length - 3} more`}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="shrink-0 h-7 text-xs"
+                        onClick={handleRecordHeat}
+                      >
+                        Record
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overdue animals - more urgent */}
+                {heatData.overdueAnimals.length > 0 && (
+                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-red-800 dark:text-red-200">
+                          {heatData.overdueAnimals.length} animal{heatData.overdueAnimals.length > 1 ? 's' : ''} overdue for heat
+                        </p>
+                        <p className="text-xs text-red-600 dark:text-red-400 truncate">
+                          {heatData.overdueAnimals.slice(0, 3).map(a => {
+                            const name = a.name || a.earTag || 'Unknown';
+                            const days = a.daysSinceLastHeat ? `${a.daysSinceLastHeat}d ago` : 'No record';
+                            return `${name} (${days})`;
+                          }).join(', ')}
+                          {heatData.overdueAnimals.length > 3 && ` +${heatData.overdueAnimals.length - 3} more`}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="shrink-0 h-7 text-xs"
+                        onClick={handleRecordHeat}
+                      >
+                        Record
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* All good state */}
+                {heatData.animalsNeedingObservation.length === 0 && heatData.overdueAnimals.length === 0 && (
+                  <div className="flex items-center gap-2 text-xs text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>All breeding-eligible animals on track</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Team Activity Summary */}
             {farmhandActivity.length > 0 && (
