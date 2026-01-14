@@ -19,18 +19,14 @@ import {
   Pencil,
   Milk,
   Wheat,
-  UserX,
-  CalendarX2,
-  Heart
+  CalendarX2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
 import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
 import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
-import { useMissingActivityAlerts, MissingActivityAlert } from '@/hooks/useMissingActivityAlerts';
 import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
-import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { useNavigate } from 'react-router-dom';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
@@ -44,9 +40,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: alerts = [], isLoading } = useUpcomingAlerts(farmId);
   const { data: weightData } = useWeightDataCompleteness(farmId);
   const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
-  const { alerts: activityAlerts } = useMissingActivityAlerts(farmId);
   const { data: gapData } = useDataGapAlerts(farmId);
-  const { data: heatData } = useDailyHeatMonitoring(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
   const {
@@ -61,11 +55,9 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const groupedAlerts = groupAlertsByType(alerts);
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
-  const urgentActivityAlerts = activityAlerts.filter(a => a.urgency === 'urgent');
-  const criticalGapAlerts = gapData?.alerts.filter(a => a.urgency === 'critical') || [];
   
-  // Heat detection alerts
-  const heatAlertCount = (heatData?.overdueAnimals.length || 0);
+  // Only show critical (3+ day) data gaps - daily gaps are shown in Today At A Glance
+  const criticalGapAlerts = gapData?.alerts.filter(a => a.urgency === 'critical') || [];
   
   // Weight data alert
   const missingWeightCount = weightData?.missingEntryWeight || 0;
@@ -92,10 +84,6 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     navigate(`/?tab=animals&animalId=${animalId}&editWeight=true`);
   };
 
-  const handleRecordHeat = () => {
-    navigate('/?tab=operations&subtab=breeding');
-  };
-
   if (isLoading) {
     return (
       <Card className="mb-4">
@@ -109,34 +97,16 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count includes weight warning, activity alerts, data gap alerts, and heat alerts
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + urgentActivityAlerts.length + criticalGapAlerts.length + heatAlertCount;
+  // Total alert count: scheduled alerts + weight warnings + critical data gaps
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + criticalGapAlerts.length;
   const hasDataGaps = criticalGapAlerts.length > 0;
-  const hasHeatAlerts = heatAlertCount > 0;
 
   if (totalAlertCount === 0) {
     return null; // Don't show widget if no alerts
   }
 
-  const getActivityAlertIcon = (alertType: MissingActivityAlert['alertType']) => {
-    switch (alertType) {
-      case 'missing_milking': return <Milk className="h-4 w-4" />;
-      case 'no_feeding': return <Wheat className="h-4 w-4" />;
-      case 'inactive_farmhand': return <UserX className="h-4 w-4" />;
-      default: return <AlertTriangle className="h-4 w-4" />;
-    }
-  };
-
-  const getActivityAlertColor = (urgency: MissingActivityAlert['urgency']) => {
-    switch (urgency) {
-      case 'urgent': return 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-      case 'warning': return 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400';
-      default: return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400';
-    }
-  };
-
   return (
-    <Card className={`mb-4 ${hasDataGaps || hasHeatAlerts ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+    <Card className={`mb-4 ${hasDataGaps ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
@@ -201,63 +171,6 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                       >
                         Catch Up
                       </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Missing Activity Alerts */}
-            {urgentActivityAlerts.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 rounded-full text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-                    <AlertTriangle className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium">Activity Alerts</span>
-                  <Badge variant="destructive" className="text-xs">
-                    {urgentActivityAlerts.length}
-                  </Badge>
-                </div>
-                <div className="space-y-2 ml-8">
-                  {urgentActivityAlerts.slice(0, 3).map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className={`p-1 rounded-full ${getActivityAlertColor(alert.urgency)}`}>
-                          {getActivityAlertIcon(alert.alertType)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-red-900 dark:text-red-100 truncate">
-                            {alert.title}
-                          </p>
-                          <p className="text-xs text-red-600 dark:text-red-400 truncate">
-                            {alert.description}
-                          </p>
-                        </div>
-                      </div>
-                      {alert.alertType === 'missing_milking' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0 ml-2 h-8 text-xs"
-                          onClick={openMilkDialog}
-                        >
-                          Record
-                        </Button>
-                      )}
-                      {alert.alertType === 'no_feeding' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0 ml-2 h-8 text-xs"
-                          onClick={openFeedDialog}
-                        >
-                          Record
-                        </Button>
-                      )}
                     </div>
                   ))}
                 </div>

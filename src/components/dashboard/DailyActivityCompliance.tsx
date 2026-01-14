@@ -6,21 +6,16 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
-  ClipboardCheck, 
+  Eye, 
   Milk, 
   Wheat, 
   Users, 
   ChevronDown, 
   ChevronUp,
-  AlertTriangle,
   CheckCircle2,
-  Clock,
-  CalendarX2,
   Heart
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
-import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
 import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
@@ -34,7 +29,6 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   const [isOpen, setIsOpen] = useState(true);
   const navigate = useNavigate();
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
-  const { data: gapData } = useDataGapAlerts(farmId);
   const { data: heatData } = useDailyHeatMonitoring(farmId);
   const {
     isRecordFeedOpen,
@@ -56,7 +50,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
           <Skeleton className="h-6 w-48" />
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>
@@ -71,34 +65,26 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
     milkingCompliancePercent, 
     completedMilkingSessions,
     expectedMilkingSessions,
-    animalsMissingMilking,
-    feedingCompliancePercent,
-    completedFeedingSessions,
     hasFeedingToday,
+    completedFeedingSessions,
     farmhandActivity,
-    isAfternoon,
-    lactatingAnimalsCount
+    lactatingAnimalsCount,
+    totalAnimalsCount
   } = compliance;
 
-  // Skip if no lactating animals
-  if (lactatingAnimalsCount === 0 && compliance.totalAnimalsCount === 0) {
+  // Skip if no animals
+  if (lactatingAnimalsCount === 0 && totalAnimalsCount === 0) {
     return null;
   }
 
-  const getMilkingStatusColor = () => {
-    if (milkingCompliancePercent >= 80) return 'text-green-600';
-    if (milkingCompliancePercent >= 50) return 'text-amber-600';
-    return 'text-red-600';
-  };
-
-  const getMilkingProgressColor = () => {
-    if (milkingCompliancePercent >= 80) return 'bg-green-500';
-    if (milkingCompliancePercent >= 50) return 'bg-amber-500';
-    return 'bg-red-500';
-  };
-
   const activeFarmhands = farmhandActivity.filter(f => f.activitiesCount > 0);
-  const inactiveFarmhands = farmhandActivity.filter(f => f.activitiesCount === 0);
+  const breedingNeedsAttention = (heatData?.animalsNeedingObservation.length || 0) + (heatData?.overdueAnimals.length || 0);
+
+  const getMilkingStatusColor = () => {
+    if (milkingCompliancePercent >= 80) return 'text-green-600 dark:text-green-400';
+    if (milkingCompliancePercent >= 50) return 'text-amber-600 dark:text-amber-400';
+    return 'text-red-600 dark:text-red-400';
+  };
 
   return (
     <Card>
@@ -107,8 +93,8 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer">
               <CardTitle className="text-base flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4" />
-                Daily Activity Compliance
+                <Eye className="h-4 w-4" />
+                Today At A Glance
                 <Badge variant="outline" className="ml-1 text-xs">
                   {new Date().toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </Badge>
@@ -121,269 +107,115 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
         </CardHeader>
 
         <CollapsibleContent>
-          <CardContent className="space-y-4">
-            {/* Data Gap Alerts - Show first if there are critical gaps */}
-            {gapData && gapData.alerts.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-full bg-destructive/10">
-                    <CalendarX2 className="h-4 w-4 text-destructive" />
-                  </div>
-                  <span className="text-sm font-medium">Data Gaps Detected</span>
-                </div>
-
-                {gapData.alerts.map((alert) => (
-                  <div 
-                    key={alert.id}
-                    className={`p-3 rounded-lg border ${getGapUrgencyColor(alert.urgency)}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          {alert.title}
-                        </p>
-                        <p className="text-xs opacity-80 mt-0.5">
-                          {alert.description}
-                          {alert.alertType === 'milking_gap' && ` • ${alert.affectedAnimalsCount} lactating`}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="shrink-0 h-7 text-xs"
-                        onClick={alert.alertType === 'milking_gap' ? handleRecordMilk : handleRecordFeed}
-                      >
-                        Catch Up
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Milking Progress */}
-            {lactatingAnimalsCount > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+          <CardContent className="pt-0">
+            {/* Compact Grid Layout */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Milking Status */}
+              {lactatingAnimalsCount > 0 && (
+                <button
+                  onClick={handleRecordMilk}
+                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                      <Milk className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <Milk className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <span className="text-sm font-medium">Milking Progress</span>
+                    <span className="text-xs font-medium text-muted-foreground">Milking</span>
                   </div>
-                  <span className={`text-sm font-semibold ${getMilkingStatusColor()}`}>
-                    {completedMilkingSessions.total}/{expectedMilkingSessions} sessions
-                  </span>
-                </div>
-                
-                <div className="relative">
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-lg font-bold ${getMilkingStatusColor()}`}>
+                      {completedMilkingSessions.total}/{expectedMilkingSessions}
+                    </span>
+                  </div>
                   <Progress 
                     value={milkingCompliancePercent} 
-                    className="h-2"
+                    className="h-1.5 mt-2"
                   />
-                  <div 
-                    className={`absolute inset-0 h-2 rounded-full ${getMilkingProgressColor()}`}
-                    style={{ width: `${milkingCompliancePercent}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>AM: {completedMilkingSessions.AM}/{lactatingAnimalsCount}</span>
-                  <span>PM: {completedMilkingSessions.PM}/{lactatingAnimalsCount}</span>
-                </div>
-
-                {animalsMissingMilking.length > 0 && (
-                  <div className="mt-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                          Missing {isAfternoon ? 'PM' : 'AM'} Session
-                        </p>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
-                          {animalsMissingMilking.slice(0, 3).map(a => a.animalName || a.earTag || 'Unknown').join(', ')}
-                          {animalsMissingMilking.length > 3 && ` +${animalsMissingMilking.length - 3} more`}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="shrink-0 h-7 text-xs"
-                        onClick={handleRecordMilk}
-                      >
-                        Record
-                      </Button>
+                  {milkingCompliancePercent === 100 && (
+                    <div className="flex items-center gap-1 mt-1.5 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span className="text-xs">Done</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </button>
+              )}
 
-                {milkingCompliancePercent === 100 && (
-                  <div className="flex items-center gap-2 text-xs text-green-600">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>All milking sessions completed!</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Feeding Progress */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              {/* Feeding Status */}
+              <button
+                onClick={handleRecordFeed}
+                className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2 mb-2">
                   <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30">
-                    <Wheat className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <Wheat className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   </div>
-                  <span className="text-sm font-medium">Feeding Status</span>
+                  <span className="text-xs font-medium text-muted-foreground">Feeding</span>
                 </div>
-                <span className={`text-sm font-semibold ${hasFeedingToday ? 'text-green-600' : 'text-amber-600'}`}>
-                  {completedFeedingSessions} records today
-                </span>
-              </div>
-
-              {!hasFeedingToday ? (
-                <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs text-amber-800 dark:text-amber-200">
-                        No feeding recorded yet today
-                      </span>
+                {hasFeedingToday ? (
+                  <>
+                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm font-semibold">Done</span>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="shrink-0 h-7 text-xs"
-                      onClick={handleRecordFeed}
-                    >
-                      Record
-                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">{completedFeedingSessions} records</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg font-bold text-amber-600 dark:text-amber-400">0</span>
+                    <p className="text-xs text-muted-foreground mt-1">Not recorded</p>
+                  </>
+                )}
+              </button>
+
+              {/* Breeding Status */}
+              {heatData && heatData.breedingEligibleCount > 0 && (
+                <button
+                  onClick={handleRecordHeat}
+                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
+                      <Heart className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">Breeding</span>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Feeding activity recorded</span>
+                  {breedingNeedsAttention > 0 ? (
+                    <>
+                      <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                        {breedingNeedsAttention}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">Need observation</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-sm font-semibold">On track</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{heatData.pregnantCount} pregnant</p>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Team Activity */}
+              {farmhandActivity.length > 0 && (
+                <div className="p-3 rounded-lg border bg-card text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30">
+                      <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">Team</span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-lg font-bold ${activeFarmhands.length > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {activeFarmhands.length}/{farmhandActivity.length}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Active today</p>
                 </div>
               )}
             </div>
-
-            {/* Breeding Monitor Section */}
-            {heatData && heatData.breedingEligibleCount > 0 && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
-                      <Heart className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                    </div>
-                    <span className="text-sm font-medium">Breeding Monitor</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {heatData.breedingEligibleCount} eligible • {heatData.pregnantCount} pregnant
-                  </span>
-                </div>
-
-                {/* Animals needing observation */}
-                {heatData.animalsNeedingObservation.length > 0 && (
-                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                          {heatData.animalsNeedingObservation.length} animal{heatData.animalsNeedingObservation.length > 1 ? 's' : ''} due for heat observation
-                        </p>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
-                          {heatData.animalsNeedingObservation.slice(0, 3).map(a => a.name || a.earTag || 'Unknown').join(', ')}
-                          {heatData.animalsNeedingObservation.length > 3 && ` +${heatData.animalsNeedingObservation.length - 3} more`}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="shrink-0 h-7 text-xs"
-                        onClick={handleRecordHeat}
-                      >
-                        Record
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Overdue animals - more urgent */}
-                {heatData.overdueAnimals.length > 0 && (
-                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-red-800 dark:text-red-200">
-                          {heatData.overdueAnimals.length} animal{heatData.overdueAnimals.length > 1 ? 's' : ''} overdue for heat
-                        </p>
-                        <p className="text-xs text-red-600 dark:text-red-400 truncate">
-                          {heatData.overdueAnimals.slice(0, 3).map(a => {
-                            const name = a.name || a.earTag || 'Unknown';
-                            const days = a.daysSinceLastHeat ? `${a.daysSinceLastHeat}d ago` : 'No record';
-                            return `${name} (${days})`;
-                          }).join(', ')}
-                          {heatData.overdueAnimals.length > 3 && ` +${heatData.overdueAnimals.length - 3} more`}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="shrink-0 h-7 text-xs"
-                        onClick={handleRecordHeat}
-                      >
-                        Record
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* All good state */}
-                {heatData.animalsNeedingObservation.length === 0 && heatData.overdueAnimals.length === 0 && (
-                  <div className="flex items-center gap-2 text-xs text-green-600">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>All breeding-eligible animals on track</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Team Activity Summary */}
-            {farmhandActivity.length > 0 && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                    <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <span className="text-sm font-medium">Team Activity Today</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  {activeFarmhands.slice(0, 3).map(farmhand => (
-                    <div key={farmhand.userId} className="flex items-center justify-between text-sm">
-                      <span className="truncate max-w-[150px]">{farmhand.userName}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{farmhand.activitiesCount}</span>
-                        <span>activities</span>
-                        {farmhand.lastActivityAt && (
-                          <>
-                            <span>•</span>
-                            <Clock className="h-3 w-3" />
-                            <span>{formatDistanceToNow(new Date(farmhand.lastActivityAt), { addSuffix: true })}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {inactiveFarmhands.length > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-amber-600 pt-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      <span>{inactiveFarmhands.length} team member{inactiveFarmhands.length > 1 ? 's' : ''} with no activity</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </CardContent>
         </CollapsibleContent>
       </Collapsible>

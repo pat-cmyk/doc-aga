@@ -21,7 +21,7 @@ import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
 import { DailyActivityCompliance } from "./dashboard/DailyActivityCompliance";
 import { ActivityTimeline } from "./dashboard/ActivityTimeline";
 import { FarmhandProductivityDashboard } from "./dashboard/FarmhandProductivityDashboard";
-import { DailyChecklist } from "./dashboard/DailyChecklist";
+
 import { useNavigate } from "react-router-dom";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { useQueryClient } from "@tanstack/react-query";
@@ -294,13 +294,10 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <DashboardStats stats={stats} trends={trends} farmId={farmId} />
       )}
 
-      {/* Daily Activity Compliance - Milking, feeding, and breeding progress */}
+      {/* Today At A Glance - Compact daily status */}
       <DailyActivityCompliance farmId={farmId} />
 
-      {/* Daily Farm Checklist - Task tracking */}
-      <DailyChecklist farmId={farmId} />
-
-      {/* Dashboard Alerts Widget - Shows upcoming vaccinations, deworming, deliveries */}
+      {/* Actionable Alerts - Vaccinations, deworming, deliveries, critical gaps */}
       <DashboardAlertsWidget farmId={farmId} />
 
       {/* Morning Brief - AI-generated daily summary (collapsible) */}
