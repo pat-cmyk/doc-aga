@@ -14,10 +14,12 @@ import {
   ChevronUp,
   AlertTriangle,
   CheckCircle2,
-  Clock
+  Clock,
+  CalendarX2
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
+import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
 
@@ -28,6 +30,7 @@ interface DailyActivityComplianceProps {
 export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps) {
   const [isOpen, setIsOpen] = useState(true);
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
+  const { data: gapData } = useDataGapAlerts(farmId);
   const {
     isRecordFeedOpen,
     isRecordMilkOpen,
@@ -110,6 +113,45 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
 
         <CollapsibleContent>
           <CardContent className="space-y-4">
+            {/* Data Gap Alerts - Show first if there are critical gaps */}
+            {gapData && gapData.alerts.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-full bg-destructive/10">
+                    <CalendarX2 className="h-4 w-4 text-destructive" />
+                  </div>
+                  <span className="text-sm font-medium">Data Gaps Detected</span>
+                </div>
+
+                {gapData.alerts.map((alert) => (
+                  <div 
+                    key={alert.id}
+                    className={`p-3 rounded-lg border ${getGapUrgencyColor(alert.urgency)}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {alert.title}
+                        </p>
+                        <p className="text-xs opacity-80 mt-0.5">
+                          {alert.description}
+                          {alert.alertType === 'milking_gap' && ` • ${alert.affectedAnimalsCount} lactating`}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="shrink-0 h-7 text-xs"
+                        onClick={alert.alertType === 'milking_gap' ? handleRecordMilk : handleRecordFeed}
+                      >
+                        Catch Up
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Milking Progress */}
             {lactatingAnimalsCount > 0 && (
               <div className="space-y-2">
