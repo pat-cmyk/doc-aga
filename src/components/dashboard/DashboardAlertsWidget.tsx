@@ -56,8 +56,8 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
   
-  // Only show critical (3+ day) data gaps - daily gaps are shown in Today At A Glance
-  const criticalGapAlerts = gapData?.alerts.filter(a => a.urgency === 'critical') || [];
+  // Show all data gaps (warning for 2+ days, critical for 3+ days)
+  const dataGapAlerts = gapData?.alerts || [];
   
   // Weight data alert
   const missingWeightCount = weightData?.missingEntryWeight || 0;
@@ -97,9 +97,9 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count: scheduled alerts + weight warnings + critical data gaps
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + criticalGapAlerts.length;
-  const hasDataGaps = criticalGapAlerts.length > 0;
+  // Total alert count: scheduled alerts + weight warnings + data gaps
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + dataGapAlerts.length;
+  const hasDataGaps = dataGapAlerts.some(a => a.urgency === 'critical');
 
   if (totalAlertCount === 0) {
     return null; // Don't show widget if no alerts
@@ -113,7 +113,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
             <div className="flex items-center justify-between cursor-pointer">
               <CardTitle className="text-base flex items-center gap-2">
                 <Bell className="h-4 w-4" />
-                Upcoming Tasks
+                Needs Attention
                 <Badge variant="secondary" className="ml-1">
                   {totalAlertCount}
                 </Badge>
@@ -132,26 +132,26 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
 
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
-            {/* Critical Data Gap Alerts - Show FIRST */}
-            {criticalGapAlerts.length > 0 && (
+            {/* Data Gap Alerts - Show FIRST */}
+            {dataGapAlerts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 rounded-full bg-destructive/10 text-destructive">
+                  <div className={`p-1.5 rounded-full ${dataGapAlerts.some(a => a.urgency === 'critical') ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                     <CalendarX2 className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-medium">Missing Records</span>
-                  <Badge variant="destructive" className="text-xs">
-                    Critical
+                  <Badge variant={dataGapAlerts.some(a => a.urgency === 'critical') ? 'destructive' : 'outline'} className="text-xs">
+                    {dataGapAlerts.length}
                   </Badge>
                 </div>
                 <div className="space-y-2 ml-8">
-                  {criticalGapAlerts.map((alert) => (
+                  {dataGapAlerts.map((alert) => (
                     <div
                       key={alert.id}
                       className={`flex items-center justify-between p-3 rounded-lg border ${getGapUrgencyColor(alert.urgency)}`}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="p-1 rounded-full bg-destructive/10 text-destructive">
+                        <div className={`p-1 rounded-full ${alert.urgency === 'critical' ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                           {alert.alertType === 'milking_gap' ? <Milk className="h-4 w-4" /> : <Wheat className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0">
