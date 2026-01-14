@@ -5,6 +5,7 @@ import { useEffect } from "react";
 export interface Notification {
   id: string;
   user_id: string;
+  farm_id: string | null;
   type: string;
   title: string | null;
   body: string | null;
@@ -12,16 +13,30 @@ export interface Notification {
   created_at: string;
 }
 
-export const useNotifications = () => {
+interface UseNotificationsOptions {
+  /** Show all notifications (for admin/government users) */
+  showAll?: boolean;
+}
+
+export const useNotifications = (farmId?: string | null, options?: UseNotificationsOptions) => {
   const queryClient = useQueryClient();
+  const { showAll = false } = options || {};
 
   const { data: notifications, isLoading } = useQuery({
-    queryKey: ["notifications"],
+    queryKey: ["notifications", farmId, showAll],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("notifications")
         .select("*")
         .order("created_at", { ascending: false });
+
+      // If not showing all notifications, filter by farm
+      if (!showAll && farmId) {
+        // Show notifications for this farm OR global notifications (null farm_id)
+        query = query.or(`farm_id.eq.${farmId},farm_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Notification[];

@@ -12,6 +12,8 @@ import {
   AlertCircle,
   Trash2
 } from "lucide-react";
+import { useFarm } from "@/contexts/FarmContext";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -31,7 +33,13 @@ const getNotificationIcon = (type: string) => {
 };
 
 export const NotificationDropdown = () => {
-  const { notifications, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { farmId } = useFarm();
+  const { isAdmin, hasGovernmentAccess } = useUnifiedPermissions();
+  
+  // Admin/government users see all notifications, others see farm-scoped
+  const { notifications, markAsRead, markAllAsRead, clearAll } = useNotifications(farmId, { 
+    showAll: isAdmin || hasGovernmentAccess 
+  });
 
   return (
     <div className="flex flex-col">

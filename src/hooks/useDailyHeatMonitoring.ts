@@ -47,14 +47,14 @@ export function useDailyHeatMonitoring(farmId: string | null) {
 
       const today = new Date();
 
-      // Fetch female animals that are breeding eligible
+      // Fetch female animals that are breeding eligible - use case-insensitive match for gender
       const { data: animals, error: animalsError } = await supabase
         .from('animals')
         .select('id, name, ear_tag, birth_date, gender')
         .eq('farm_id', farmId)
         .eq('is_deleted', false)
         .is('exit_date', null)
-        .eq('gender', 'female');
+        .ilike('gender', 'female');
 
       if (animalsError) throw animalsError;
 

@@ -104,9 +104,9 @@ export function useDailyActivityCompliance(farmId: string | null) {
       const feedingRecords = feedingResult.data || [];
       const memberships = membershipsResult.data || [];
 
-      // Filter lactating animals
+      // Filter lactating animals - use case-insensitive match for gender
       const lactatingAnimals = animals.filter(a => 
-        a.gender === 'female' && 
+        a.gender?.toLowerCase() === 'female' && 
         (a.is_currently_lactating === true || 
          (a.milking_stage && a.milking_stage !== 'Dry Period'))
       );
