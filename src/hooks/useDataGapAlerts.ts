@@ -67,34 +67,32 @@ export function useDataGapAlerts(farmId: string | null) {
         };
       }
 
-      // Get lactating animals count
+      // Get lactating animals count - use case-insensitive match for gender
       const { data: lactatingAnimals } = await supabase
         .from("animals")
         .select("id")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .is("exit_date", null)
-        .eq("gender", "female")
+        .ilike("gender", "female")
         .or("is_currently_lactating.eq.true,milking_stage.in.(\"Early Lactation\",\"Mid-Lactation\",\"Late Lactation\")");
 
       const lactatingCount = lactatingAnimals?.length || 0;
 
-      // Get latest milking record date for this farm's animals
+      // Get latest milking record date for this farm's animals (no lookback limit for accurate gap detection)
       const { data: latestMilking } = await supabase
         .from("milking_records")
         .select("record_date, animal_id")
         .in("animal_id", animalIds)
-        .gte("record_date", lookbackDate)
         .lte("record_date", todayStr)
         .order("record_date", { ascending: false })
         .limit(1);
 
-      // Get latest feeding record date
+      // Get latest feeding record date (no lookback limit for accurate gap detection)
       const { data: latestFeeding } = await supabase
         .from("feeding_records")
         .select("record_datetime, animal_id")
         .in("animal_id", animalIds)
-        .gte("record_datetime", `${lookbackDate}T00:00:00`)
         .lte("record_datetime", `${todayStr}T23:59:59`)
         .order("record_datetime", { ascending: false })
         .limit(1);
@@ -105,13 +103,14 @@ export function useDataGapAlerts(farmId: string | null) {
         ? format(parseISO(latestFeeding[0].record_datetime), 'yyyy-MM-dd')
         : null;
 
+      // Calculate actual days since last record (no artificial caps)
       const daysSinceMilking = lastMilkingDate 
         ? differenceInDays(today, parseISO(lastMilkingDate))
-        : lookbackDays + 1;
+        : 999; // Very high number to indicate never recorded
 
       const daysSinceFeeding = lastFeedingDate
         ? differenceInDays(today, parseISO(lastFeedingDate))
-        : lookbackDays + 1;
+        : 999; // Very high number to indicate never recorded
 
       // Generate alerts
       const alerts: DataGapAlert[] = [];
@@ -125,10 +124,12 @@ export function useDataGapAlerts(farmId: string | null) {
         alerts.push({
           id: 'milking-gap',
           alertType: 'milking_gap',
-          title: `No milk records for ${daysSinceMilking} days`,
+          title: daysSinceMilking >= 999 
+            ? 'No milking records found' 
+            : `No milk records for ${daysSinceMilking} days`,
           description: lastMilkingDate 
             ? `Last record: ${format(parseISO(lastMilkingDate), 'MMM d')}`
-            : 'No recent records found',
+            : 'No records in database',
           daysMissing: daysSinceMilking,
           lastRecordDate: lastMilkingDate,
           affectedAnimalsCount: lactatingCount,
@@ -145,10 +146,12 @@ export function useDataGapAlerts(farmId: string | null) {
         alerts.push({
           id: 'feeding-gap',
           alertType: 'feeding_gap',
-          title: `No feeding records for ${daysSinceFeeding} days`,
+          title: daysSinceFeeding >= 999 
+            ? 'No feeding records found' 
+            : `No feeding records for ${daysSinceFeeding} days`,
           description: lastFeedingDate 
             ? `Last record: ${format(parseISO(lastFeedingDate), 'MMM d')}`
-            : 'No recent records found',
+            : 'No records in database',
           daysMissing: daysSinceFeeding,
           lastRecordDate: lastFeedingDate,
           affectedAnimalsCount: animalIds.length,

@@ -7,9 +7,17 @@ import {
 } from "@/components/ui/popover";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationDropdown } from "./NotificationDropdown";
+import { useFarm } from "@/contexts/FarmContext";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 
 export const NotificationBell = () => {
-  const { unreadCount } = useNotifications();
+  const { farmId } = useFarm();
+  const { isAdmin, hasGovernmentAccess } = useUnifiedPermissions();
+  
+  // Admin/government users see all notifications, others see farm-scoped
+  const { unreadCount } = useNotifications(farmId, { 
+    showAll: isAdmin || hasGovernmentAccess 
+  });
 
   return (
     <Popover>

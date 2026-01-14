@@ -2293,6 +2293,7 @@ export type Database = {
         Row: {
           body: string | null
           created_at: string
+          farm_id: string | null
           id: string
           read: boolean
           title: string | null
@@ -2302,6 +2303,7 @@ export type Database = {
         Insert: {
           body?: string | null
           created_at?: string
+          farm_id?: string | null
           id?: string
           read?: boolean
           title?: string | null
@@ -2311,6 +2313,7 @@ export type Database = {
         Update: {
           body?: string | null
           created_at?: string
+          farm_id?: string | null
           id?: string
           read?: boolean
           title?: string | null
@@ -2318,6 +2321,20 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]

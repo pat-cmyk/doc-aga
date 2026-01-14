@@ -10,7 +10,9 @@ import {
 import { NotificationDropdown } from "./NotificationDropdown";
 
 export const NotificationBell = () => {
-  const { unreadCount } = useNotifications();
+  // Merchant notifications are not farm-scoped, they are merchant-specific
+  // Pass null to show all notifications for this user (merchant context)
+  const { unreadCount } = useNotifications(null, { showAll: true });
 
   return (
     <Popover>

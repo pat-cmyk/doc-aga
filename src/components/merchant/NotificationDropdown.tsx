@@ -5,7 +5,8 @@ import { formatDistanceToNow } from "date-fns";
 import { CheckCheck } from "lucide-react";
 
 export const NotificationDropdown = () => {
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  // Merchant notifications are not farm-scoped
+  const { notifications, markAsRead, markAllAsRead } = useNotifications(null, { showAll: true });
 
   return (
     <div className="flex flex-col">
