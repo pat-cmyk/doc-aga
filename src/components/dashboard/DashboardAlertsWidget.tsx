@@ -20,7 +20,8 @@ import {
   Milk,
   Wheat,
   UserX,
-  CalendarX2
+  CalendarX2,
+  Heart
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
@@ -28,7 +29,8 @@ import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
 import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
 import { useMissingActivityAlerts, MissingActivityAlert } from '@/hooks/useMissingActivityAlerts';
-import { useDataGapAlerts, getGapUrgencyColor, DataGapAlert } from '@/hooks/useDataGapAlerts';
+import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
+import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { useNavigate } from 'react-router-dom';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
@@ -44,6 +46,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
   const { alerts: activityAlerts } = useMissingActivityAlerts(farmId);
   const { data: gapData } = useDataGapAlerts(farmId);
+  const { data: heatData } = useDailyHeatMonitoring(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
   const {
@@ -60,6 +63,9 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const urgentCount = alerts.filter((a) => a.urgency === 'urgent').length;
   const urgentActivityAlerts = activityAlerts.filter(a => a.urgency === 'urgent');
   const criticalGapAlerts = gapData?.alerts.filter(a => a.urgency === 'critical') || [];
+  
+  // Heat detection alerts
+  const heatAlertCount = (heatData?.overdueAnimals.length || 0);
   
   // Weight data alert
   const missingWeightCount = weightData?.missingEntryWeight || 0;
@@ -86,6 +92,10 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     navigate(`/?tab=animals&animalId=${animalId}&editWeight=true`);
   };
 
+  const handleRecordHeat = () => {
+    navigate('/?tab=operations&subtab=breeding');
+  };
+
   if (isLoading) {
     return (
       <Card className="mb-4">
@@ -99,9 +109,10 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count includes weight warning, activity alerts, and data gap alerts
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + urgentActivityAlerts.length + criticalGapAlerts.length;
+  // Total alert count includes weight warning, activity alerts, data gap alerts, and heat alerts
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + urgentActivityAlerts.length + criticalGapAlerts.length + heatAlertCount;
   const hasDataGaps = criticalGapAlerts.length > 0;
+  const hasHeatAlerts = heatAlertCount > 0;
 
   if (totalAlertCount === 0) {
     return null; // Don't show widget if no alerts
@@ -125,7 +136,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   return (
-    <Card className={`mb-4 ${hasDataGaps ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+    <Card className={`mb-4 ${hasDataGaps || hasHeatAlerts ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
