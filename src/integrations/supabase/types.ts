@@ -1776,6 +1776,58 @@ export type Database = {
           },
         ]
       }
+      heat_observation_checks: {
+        Row: {
+          animal_id: string
+          checked_at: string
+          checked_by: string | null
+          created_at: string
+          farm_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          animal_id: string
+          checked_at?: string
+          checked_by?: string | null
+          created_at?: string
+          farm_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          animal_id?: string
+          checked_at?: string
+          checked_by?: string | null
+          created_at?: string
+          farm_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heat_observation_checks_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_observation_checks_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_observation_checks_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       heat_records: {
         Row: {
           animal_id: string

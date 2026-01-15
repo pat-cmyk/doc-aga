@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Eye, 
   Milk, 
@@ -13,10 +14,12 @@ import {
   ChevronDown, 
   ChevronUp,
   CheckCircle2,
-  Heart
+  Heart,
+  X
 } from 'lucide-react';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
 import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
+import { useHeatObservationChecks } from '@/hooks/useHeatObservationChecks';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
 import { useNavigate } from 'react-router-dom';
@@ -27,9 +30,11 @@ interface DailyActivityComplianceProps {
 
 export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [breedingPopoverOpen, setBreedingPopoverOpen] = useState(false);
   const navigate = useNavigate();
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
   const { data: heatData } = useDailyHeatMonitoring(farmId);
+  const { markAsChecked, checkedAnimalIds } = useHeatObservationChecks(farmId);
   const {
     isRecordFeedOpen,
     isRecordMilkOpen,
@@ -39,8 +44,34 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
     setRecordMilkOpen,
   } = useOperationDialogs();
 
-  const handleRecordHeat = () => {
-    navigate('/?tab=operations&subtab=breeding');
+  // Combine overdue and needs observation animals, filtering out already checked ones
+  const animalsNeedingCheck = [
+    ...(heatData?.overdueAnimals || []).map(a => ({ ...a, priority: 'overdue' as const })),
+    ...(heatData?.animalsNeedingObservation || [])
+      .filter(a => !checkedAnimalIds.has(a.id))
+      .map(a => ({ ...a, priority: 'check' as const })),
+  ];
+
+  const handleBreedingClick = () => {
+    if (animalsNeedingCheck.length === 1) {
+      // Single animal - navigate directly to profile
+      navigate(`/?tab=animals&animalId=${animalsNeedingCheck[0].id}`);
+    } else if (animalsNeedingCheck.length > 1) {
+      // Multiple animals - open selection popover
+      setBreedingPopoverOpen(true);
+    } else {
+      // No animals need attention - go to breeding tab
+      navigate('/?tab=operations&subtab=breeding');
+    }
+  };
+
+  const handleSelectAnimal = (animalId: string) => {
+    setBreedingPopoverOpen(false);
+    navigate(`/?tab=animals&animalId=${animalId}`);
+  };
+
+  const handleMarkNoHeat = (animalId: string) => {
+    markAsChecked.mutate(animalId);
   };
 
   if (isLoading) {
@@ -78,7 +109,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   }
 
   const activeFarmhands = farmhandActivity.filter(f => f.activitiesCount > 0);
-  const breedingNeedsAttention = (heatData?.animalsNeedingObservation.length || 0) + (heatData?.overdueAnimals.length || 0);
+  const breedingNeedsAttention = animalsNeedingCheck.length;
 
   const getMilkingStatusColor = () => {
     if (milkingCompliancePercent >= 80) return 'text-green-600 dark:text-green-400';
@@ -167,35 +198,95 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                 )}
               </button>
 
-              {/* Breeding Status */}
+              {/* Breeding Status with Popover */}
               {heatData && heatData.breedingEligibleCount > 0 && (
-                <button
-                  onClick={handleRecordHeat}
-                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
-                      <Heart className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground">Breeding</span>
-                  </div>
-                  {breedingNeedsAttention > 0 ? (
-                    <>
-                      <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                        {breedingNeedsAttention}
-                      </span>
-                      <p className="text-xs text-muted-foreground mt-1">Need observation</p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm font-semibold">On track</span>
+                <Popover open={breedingPopoverOpen} onOpenChange={setBreedingPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      onClick={handleBreedingClick}
+                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
+                          <Heart className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">Breeding</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{heatData.pregnantCount} pregnant</p>
-                    </>
-                  )}
-                </button>
+                      {breedingNeedsAttention > 0 ? (
+                        <>
+                          <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                            {breedingNeedsAttention}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-1">Need observation</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-sm font-semibold">On track</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{heatData.pregnantCount} pregnant</p>
+                        </>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3" align="start">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Animals needing heat observation:
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setBreedingPopoverOpen(false)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {animalsNeedingCheck.map(animal => (
+                        <div 
+                          key={animal.id} 
+                          className="flex items-center justify-between p-2 rounded-md border bg-card"
+                        >
+                          <button
+                            onClick={() => handleSelectAnimal(animal.id)}
+                            className="flex-1 text-left hover:underline min-w-0"
+                          >
+                            <span className="text-sm font-medium truncate block">
+                              {animal.name || animal.earTag || 'Unknown'}
+                            </span>
+                          </button>
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                            <Badge 
+                              variant={animal.priority === 'overdue' ? 'destructive' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {animal.priority === 'overdue' ? 'Overdue' : 'Check'}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkNoHeat(animal.id);
+                              }}
+                              disabled={markAsChecked.isPending}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              No Heat
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">
+                      Click name to view profile, or mark as checked if no heat observed.
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
 
               {/* Team Activity */}
