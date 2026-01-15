@@ -16,13 +16,6 @@ export interface Revenue {
   created_at: string;
 }
 
-export interface RevenueSummary {
-  thisMonth: number;
-  lastMonth: number;
-  thisYear: number;
-  topSource: { source: string; amount: number } | null;
-}
-
 export interface AddRevenueData {
   farm_id: string;
   amount: number;
@@ -46,65 +39,6 @@ export function useRevenues(farmId: string) {
 
       if (error) throw error;
       return data as Revenue[];
-    },
-    enabled: !!farmId,
-  });
-}
-
-export function useRevenueSummary(farmId: string) {
-  return useQuery({
-    queryKey: ["revenue-summary", farmId],
-    queryFn: async () => {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-
-      const { data: revenues, error } = await supabase
-        .from("farm_revenues")
-        .select("*")
-        .eq("farm_id", farmId)
-        .eq("is_deleted", false);
-
-      if (error) throw error;
-
-      const thisMonth = (revenues || [])
-        .filter((r) => new Date(r.transaction_date) >= startOfMonth)
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      const lastMonth = (revenues || [])
-        .filter(
-          (r) =>
-            new Date(r.transaction_date) >= startOfLastMonth &&
-            new Date(r.transaction_date) <= endOfLastMonth
-        )
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      const thisYear = (revenues || [])
-        .filter((r) => new Date(r.transaction_date) >= startOfYear)
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      // Calculate top source this month
-      const monthlyRevenues = (revenues || []).filter(
-        (r) => new Date(r.transaction_date) >= startOfMonth
-      );
-      const sourceMap = monthlyRevenues.reduce(
-        (acc, r) => {
-          acc[r.source] = (acc[r.source] || 0) + Number(r.amount);
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      const topSource = Object.entries(sourceMap).sort((a, b) => b[1] - a[1])[0];
-
-      return {
-        thisMonth,
-        lastMonth,
-        thisYear,
-        topSource: topSource ? { source: topSource[0], amount: topSource[1] } : null,
-      } as RevenueSummary;
     },
     enabled: !!farmId,
   });

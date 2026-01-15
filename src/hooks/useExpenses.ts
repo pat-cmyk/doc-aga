@@ -19,14 +19,6 @@ export interface Expense {
   is_deleted: boolean;
 }
 
-export interface ExpenseSummary {
-  thisMonth: number;
-  lastMonth: number;
-  thisYear: number;
-  topCategory: { category: string; amount: number } | null;
-  averageDaily: number;
-}
-
 interface AddExpenseData {
   farm_id: string;
   category: string;
@@ -50,74 +42,6 @@ export function useExpenses(farmId: string) {
 
       if (error) throw error;
       return data as Expense[];
-    },
-    enabled: !!farmId,
-  });
-}
-
-export function useExpenseSummary(farmId: string) {
-  return useQuery({
-    queryKey: ["expense-summary", farmId],
-    queryFn: async () => {
-      const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      const thisYearStart = new Date(now.getFullYear(), 0, 1);
-
-      const { data, error } = await supabase
-        .from("farm_expenses")
-        .select("*")
-        .eq("farm_id", farmId)
-        .eq("is_deleted", false);
-
-      if (error) throw error;
-
-      const expenses = data as Expense[];
-
-      // Calculate this month total
-      const thisMonthExpenses = expenses.filter(
-        (e) => new Date(e.expense_date) >= thisMonthStart
-      );
-      const thisMonth = thisMonthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-      // Calculate last month total
-      const lastMonthExpenses = expenses.filter(
-        (e) =>
-          new Date(e.expense_date) >= lastMonthStart &&
-          new Date(e.expense_date) <= lastMonthEnd
-      );
-      const lastMonth = lastMonthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-      // Calculate this year total
-      const thisYearExpenses = expenses.filter(
-        (e) => new Date(e.expense_date) >= thisYearStart
-      );
-      const thisYear = thisYearExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-      // Calculate top category this month
-      const categoryTotals = thisMonthExpenses.reduce((acc, e) => {
-        acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
-        return acc;
-      }, {} as Record<string, number>);
-
-      const topCategory = Object.entries(categoryTotals).length
-        ? Object.entries(categoryTotals).reduce((top, [cat, amt]) =>
-            amt > top.amount ? { category: cat, amount: amt } : top
-          , { category: "", amount: 0 })
-        : null;
-
-      // Calculate average daily spending this month
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const averageDaily = thisMonth / daysInMonth;
-
-      return {
-        thisMonth,
-        lastMonth,
-        thisYear,
-        topCategory,
-        averageDaily,
-      } as ExpenseSummary;
     },
     enabled: !!farmId,
   });
