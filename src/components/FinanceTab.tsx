@@ -1,8 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { FinancialHealthSummary } from "@/components/finance/FinancialHealthSummary";
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar";
-import { ExpenseSummary } from "@/components/finance/ExpenseSummary";
-import { RevenueSummary } from "@/components/finance/RevenueSummary";
+import { RevenueExpenseComparison } from "@/components/finance/RevenueExpenseComparison";
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
 import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
@@ -21,8 +20,6 @@ interface FinanceTabProps {
 }
 
 export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
-  const [revenueOpen, setRevenueOpen] = useState(false);
-  const [expenseOpen, setExpenseOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
 
@@ -42,39 +39,14 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
       {/* HERO: Financial Health Summary - The 15-second answer */}
       <FinancialHealthSummary farmId={farmId} />
 
+      {/* NEW: Money In vs Money Out Comparison */}
+      <RevenueExpenseComparison farmId={farmId} />
+
       {/* Biological Asset Value - Important for farmers */}
       <HerdValueChart farmId={farmId} />
 
       {/* Collapsible Details Section */}
       <div className="space-y-3">
-        {/* Revenue Details */}
-        <Collapsible open={revenueOpen} onOpenChange={setRevenueOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/20">
-            <span className="font-semibold text-sm">Revenue Breakdown</span>
-            <ChevronDown className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              revenueOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <RevenueSummary farmId={farmId} />
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Expense Details */}
-        <Collapsible open={expenseOpen} onOpenChange={setExpenseOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors border border-border">
-            <span className="font-semibold text-sm">Expense Breakdown</span>
-            <ChevronDown className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              expenseOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <ExpenseSummary farmId={farmId} />
-          </CollapsibleContent>
-        </Collapsible>
-
         {/* Advanced Details */}
         <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
           <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors border border-border">
