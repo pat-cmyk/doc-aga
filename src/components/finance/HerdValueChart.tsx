@@ -1,34 +1,33 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useHerdValuation, useHerdValuationSummary } from "@/hooks/useHerdValuation";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, Beef, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Beef, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { LocalPriceInputDialog } from "./LocalPriceInputDialog";
 import { getSourceLabel } from "@/hooks/useMarketPrices";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 interface HerdValueChartProps {
   farmId: string;
   livestockType?: string;
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  farmer_sale: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  farmer_input: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  regional_aggregate: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  da_bulletin: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  system_default: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
-};
-
 export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueChartProps) {
-  const { data: chartData, isLoading: chartLoading } = useHerdValuation(farmId);
+  const [chartExpanded, setChartExpanded] = useState(false);
+  const { data: chartData, isLoading: chartLoading } = useHerdValuation(farmId, 3);
   const { data: summary, isLoading: summaryLoading } = useHerdValuationSummary(farmId, livestockType);
 
   const formatCurrency = (value: number) => {
@@ -40,25 +39,45 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
     }).format(value);
   };
 
+  const formatCompact = (value: number) => {
+    if (value >= 1000000) return `₱${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `₱${(value / 1000).toFixed(0)}k`;
+    return `₱${value.toFixed(0)}`;
+  };
+
   const isLoading = chartLoading || summaryLoading;
 
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48 mt-1" />
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-32 mt-1" />
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-[200px] w-full" />
+        <CardContent className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-4 w-48" />
         </CardContent>
       </Card>
     );
   }
 
   const hasData = chartData && chartData.some((d) => d.totalValue > 0);
-  const isGrowth = (summary?.changePercent ?? 0) >= 0;
+  const changePercent = summary?.changePercent ?? 0;
+  const changeAmount = summary && summary.previousMonthValue > 0 
+    ? summary.currentValue - summary.previousMonthValue 
+    : 0;
+  
+  // Determine status
+  const getStatusInfo = () => {
+    if (changePercent >= 5) return { text: "Growing!", color: "text-green-600 dark:text-green-400" };
+    if (changePercent >= 0) return { text: "Steady", color: "text-amber-600 dark:text-amber-400" };
+    if (changePercent >= -5) return { text: "Watch this", color: "text-amber-600 dark:text-amber-400" };
+    return { text: "Needs attention", color: "text-red-600 dark:text-red-400" };
+  };
+  
+  const status = getStatusInfo();
+  const isGrowth = changePercent >= 0;
 
   return (
     <Card className="overflow-hidden">
@@ -66,7 +85,7 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Beef className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Herd Value</CardTitle>
+            <CardTitle className="text-lg">Your Animals' Worth</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <LocalPriceInputDialog farmId={farmId} defaultLivestockType={livestockType} />
@@ -76,124 +95,176 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>Your herd is a living investment! This shows the estimated market value of your animals based on their current weight × market price per kg.</p>
+                  <p>Your animals = your savings account! As they grow heavier, their worth increases.</p>
                 </TooltipContent>
               </UITooltip>
             </TooltipProvider>
           </div>
         </div>
-        <CardDescription>
-          Biological asset valuation (Last 6 months)
-        </CardDescription>
+        <CardDescription>Growing value over time</CardDescription>
       </CardHeader>
-      <CardContent className="pt-2">
-        {/* Current Value Summary */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-3xl font-bold">
-              {formatCurrency(summary?.currentValue ?? 0)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {summary?.animalCount ?? 0} animals valued
+      
+      <CardContent className="pt-2 space-y-4">
+        {/* Main Value + This Month Change - Side by Side */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Current Value */}
+          <div className="p-3 rounded-lg bg-muted/30">
+            <p className="text-xs text-muted-foreground mb-1">Current Value</p>
+            <p className="text-2xl font-bold">{formatCompact(summary?.currentValue ?? 0)}</p>
+            <p className="text-xs text-muted-foreground">
+              {summary?.animalCount ?? 0} animals
             </p>
           </div>
-          {summary && summary.previousMonthValue > 0 && (
-            <div
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
-                isGrowth
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-              }`}
-            >
+          
+          {/* This Month Change - Prominent */}
+          <div className={`p-3 rounded-lg ${
+            isGrowth 
+              ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800" 
+              : "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800"
+          }`}>
+            <p className="text-xs text-muted-foreground mb-1">This Month</p>
+            <div className="flex items-center gap-1">
               {isGrowth ? (
-                <TrendingUp className="h-4 w-4" />
+                <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
               ) : (
-                <TrendingDown className="h-4 w-4" />
+                <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
               )}
-              <span>
-                {isGrowth ? "+" : ""}
-                {summary.changePercent.toFixed(1)}%
+              <span className={`text-lg font-bold ${isGrowth ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+                {isGrowth ? "+" : ""}{formatCompact(changeAmount)}
               </span>
             </div>
-          )}
+            <p className={`text-xs font-medium ${status.color}`}>
+              {changePercent !== 0 ? `${isGrowth ? "+" : ""}${changePercent.toFixed(1)}% • ` : ""}{status.text}
+            </p>
+          </div>
         </div>
 
-        {/* Market Price Indicator */}
+        {/* Market Price - Simplified */}
         {summary && (
-          <div className="flex items-center gap-2 mb-4 text-sm">
-            <span className="text-muted-foreground">Using:</span>
-            <span className="font-medium">₱{summary.marketPrice.toFixed(0)}/kg</span>
-            <Badge 
-              variant="secondary" 
-              className={`text-xs ${SOURCE_COLORS[summary.priceSource] || ""}`}
-            >
-              {getSourceLabel(summary.priceSource)}
-            </Badge>
+          <div className="flex items-center justify-between text-sm px-1">
+            <span className="text-muted-foreground">
+              ₱{summary.marketPrice.toFixed(0)}/kg 
+              <span className="text-xs ml-1">({getSourceLabel(summary.priceSource)})</span>
+            </span>
             <span className="text-xs text-muted-foreground">
-              ({format(new Date(summary.priceDate), "MMM d")})
+              {format(new Date(summary.priceDate), "MMM d")}
             </span>
           </div>
         )}
 
-        {/* Chart */}
+        {/* Chart - Collapsible on Mobile */}
         {hasData ? (
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="herdValueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                width={50}
-              />
-              <Tooltip
-                formatter={(value: number) => [formatCurrency(value), "Herd Value"]}
-                labelStyle={{ fontWeight: "bold" }}
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "1px solid hsl(var(--border))",
-                  backgroundColor: "hsl(var(--card))",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="totalValue"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="url(#herdValueGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <>
+            {/* Mobile: Collapsible */}
+            <div className="md:hidden">
+              <Collapsible open={chartExpanded} onOpenChange={setChartExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground">
+                    <span>{chartExpanded ? "Hide chart" : "See how it's growing"}</span>
+                    {chartExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="herdValueGradientMobile" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={(value) => formatCompact(value)}
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={45}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [formatCurrency(value), "Value"]}
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "1px solid hsl(var(--border))",
+                          backgroundColor: "hsl(var(--card))",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="totalValue"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        fill="url(#herdValueGradientMobile)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+
+            {/* Desktop: Always Visible */}
+            <div className="hidden md:block">
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="herdValueGradientDesktop" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => formatCompact(value)}
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={50}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Value"]}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: "hsl(var(--card))",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="totalValue"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="url(#herdValueGradientDesktop)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-            <Beef className="h-12 w-12 mb-2 opacity-50" />
-            <p className="text-center">No valuation data yet</p>
-            <p className="text-sm text-center mt-1">
-              Record animal weights to start tracking herd value
-            </p>
+          <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+            <Beef className="h-10 w-10 mb-2 opacity-50" />
+            <p className="text-sm text-center">No valuation data yet</p>
+            <p className="text-xs text-center mt-1">Record animal weights to start tracking</p>
           </div>
         )}
 
-        {/* Insight Banner */}
+        {/* Simple Insight */}
         {hasData && summary && (
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-            <p className="text-sm text-muted-foreground">
-              💡 <span className="font-medium">Living Bank Account:</span> Your herd grows in value even without sales. Each kilogram gained adds ₱{summary.marketPrice.toFixed(0)} to your assets!
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground text-center px-2">
+            💡 Each kg gained = ₱{summary.marketPrice.toFixed(0)} more value!
+          </p>
         )}
       </CardContent>
     </Card>
