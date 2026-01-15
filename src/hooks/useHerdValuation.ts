@@ -15,14 +15,14 @@ export interface HerdValuationSummary {
   animalCount: number;
 }
 
-export function useHerdValuation(farmId: string | undefined) {
+export function useHerdValuation(farmId: string | undefined, monthsBack: number = 3) {
   return useQuery({
-    queryKey: ["herd-valuation", farmId],
+    queryKey: ["herd-valuation", farmId, monthsBack],
     queryFn: async (): Promise<HerdValuationPoint[]> => {
       if (!farmId) return [];
 
-      // Get last 6 months of data
-      const sixMonthsAgo = subMonths(new Date(), 6);
+      // Get data for specified months back
+      const startDate = subMonths(new Date(), monthsBack);
 
       // Get all valuations for farm animals
       const { data: valuations, error } = await supabase
@@ -36,7 +36,7 @@ export function useHerdValuation(farmId: string | undefined) {
           market_price_per_kg
         `)
         .eq("farm_id", farmId)
-        .gte("valuation_date", format(sixMonthsAgo, "yyyy-MM-dd"))
+        .gte("valuation_date", format(startDate, "yyyy-MM-dd"))
         .order("valuation_date", { ascending: true });
 
       if (error) {
@@ -64,7 +64,7 @@ export function useHerdValuation(farmId: string | undefined) {
       const result: HerdValuationPoint[] = [];
       
       // Generate all months in range
-      for (let i = 5; i >= 0; i--) {
+      for (let i = monthsBack - 1; i >= 0; i--) {
         const monthDate = subMonths(new Date(), i);
         const monthKey = format(monthDate, "yyyy-MM");
         const monthLabel = format(monthDate, "MMM yyyy");
