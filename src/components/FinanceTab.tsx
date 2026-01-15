@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { FinancialHealthSummary } from "@/components/finance/FinancialHealthSummary";
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar";
+import { MobileQuickActions } from "@/components/finance/MobileQuickActions";
 import { RevenueExpenseComparison } from "@/components/finance/RevenueExpenseComparison";
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
@@ -24,8 +25,8 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
   const [transactionsOpen, setTransactionsOpen] = useState(false);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header with Quick Actions */}
+    <div className="space-y-4 sm:space-y-6 pb-24 md:pb-0">
+      {/* Header with Quick Actions (desktop only) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Finance</h2>
@@ -33,17 +34,19 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
             Track your farm income, expenses, and asset value
           </p>
         </div>
-        <QuickActionsBar farmId={farmId} canManage={canManage} />
+        <div className="hidden md:block">
+          <QuickActionsBar farmId={farmId} canManage={canManage} />
+        </div>
       </div>
 
       {/* HERO: Financial Health Summary - The 15-second answer */}
       <FinancialHealthSummary farmId={farmId} />
 
-      {/* NEW: Money In vs Money Out Comparison */}
-      <RevenueExpenseComparison farmId={farmId} />
-
-      {/* Biological Asset Value - Important for farmers */}
-      <HerdValueChart farmId={farmId} />
+      {/* 2-Column Grid on Desktop for comparison charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <RevenueExpenseComparison farmId={farmId} />
+        <HerdValueChart farmId={farmId} />
+      </div>
 
       {/* Collapsible Details Section */}
       <div className="space-y-3">
@@ -76,6 +79,13 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
           </CollapsibleContent>
         </Collapsible>
       </div>
+
+      {/* Mobile Sticky Bottom Quick Actions Bar */}
+      {canManage && (
+        <div className="fixed bottom-16 left-0 right-0 md:hidden z-40 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3">
+          <MobileQuickActions farmId={farmId} />
+        </div>
+      )}
     </div>
   );
 }
