@@ -107,7 +107,7 @@ export function AddRevenueDialog({
       source: data.source,
       amount: Number(data.amount),
       transaction_date: format(data.transaction_date, "yyyy-MM-dd"),
-      notes: data.notes || null,
+      notes: data.notes || undefined,
     });
 
     form.reset();
