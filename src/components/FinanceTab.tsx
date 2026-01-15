@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { FinancialHealthSummary } from "@/components/finance/FinancialHealthSummary";
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar";
 import { MobileQuickActions } from "@/components/finance/MobileQuickActions";
+import { ContextualInsights } from "@/components/finance/ContextualInsights";
 import { RevenueExpenseComparison } from "@/components/finance/RevenueExpenseComparison";
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
@@ -41,6 +42,9 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
 
       {/* HERO: Financial Health Summary - The 15-second answer */}
       <FinancialHealthSummary farmId={farmId} />
+
+      {/* Contextual Insights - Smart tips based on data */}
+      <ContextualInsights farmId={farmId} />
 
       {/* 2-Column Grid on Desktop for comparison charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
