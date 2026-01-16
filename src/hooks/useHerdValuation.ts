@@ -100,6 +100,7 @@ export interface HerdValuationSummaryWithPrice extends HerdValuationSummary {
   marketPrice: number;
   priceSource: string;
   priceDate: string;
+  totalAnimalCount: number;
 }
 
 export function useHerdValuationSummary(farmId: string | undefined, livestockType?: string) {
@@ -112,6 +113,7 @@ export function useHerdValuationSummary(farmId: string | undefined, livestockTyp
           previousMonthValue: 0, 
           changePercent: 0, 
           animalCount: 0,
+          totalAnimalCount: 0,
           marketPrice: 300,
           priceSource: "system_default",
           priceDate: format(new Date(), "yyyy-MM-dd"),
@@ -147,6 +149,7 @@ export function useHerdValuationSummary(farmId: string | undefined, livestockTyp
 
       let currentValue = 0;
       let animalCount = 0;
+      const totalAnimalCount = (animals || []).length;
 
       // For mixed herds, we'd ideally get price per livestock type
       // For now, use the primary livestock type price
@@ -188,6 +191,7 @@ export function useHerdValuationSummary(farmId: string | undefined, livestockTyp
         previousMonthValue,
         changePercent,
         animalCount,
+        totalAnimalCount,
         marketPrice,
         priceSource,
         priceDate,
