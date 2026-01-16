@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLactatingAnimalsOrFilter } from "@/lib/animalQueries";
+import { formatWeightWithSource } from "@/lib/animalWeightUtils";
 
 export interface LactatingAnimal {
   id: string;
@@ -9,6 +10,9 @@ export interface LactatingAnimal {
   livestock_type: string;
   milking_stage: string | null;
   current_weight_kg: number | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
   is_currently_lactating?: boolean | null;
   milking_start_date?: string | null;
   estimated_days_in_milk?: number | null;
@@ -23,7 +27,7 @@ export function useLactatingAnimals(farmId: string | null) {
       // Include animals with is_currently_lactating = true OR milking_stage in lactating stages
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk')
+        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk')
         .eq('farm_id', farmId)
         .eq('gender', 'Female')
         .is('exit_date', null)
@@ -37,6 +41,9 @@ export function useLactatingAnimals(farmId: string | null) {
     enabled: !!farmId,
   });
 }
+
+// Re-export utility for consumers
+export { formatWeightWithSource };
 
 import type { AnimalOption } from "@/components/milk-recording/AnimalCombobox";
 
@@ -77,14 +84,14 @@ export function getAnimalDropdownOptions(animals: LactatingAnimal[]): AnimalOpti
   // Add individual animals
   animals.forEach((animal) => {
     const name = animal.name || animal.ear_tag || 'Unknown';
-    const weight = animal.current_weight_kg ? `${animal.current_weight_kg}kg` : 'No weight';
+    const weightDisplay = formatWeightWithSource(animal);
     const stage = animal.milking_stage || 'Unknown stage';
     
     options.push({
       value: animal.id,
       label: name,
       group: 'individual',
-      subLabel: `${weight} • ${stage}`,
+      subLabel: `${weightDisplay} • ${stage}`,
     });
   });
 

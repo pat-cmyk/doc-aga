@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { AnimalOption } from "@/components/milk-recording/AnimalCombobox";
+import { getEffectiveWeight, formatWeightWithSource } from "@/lib/animalWeightUtils";
 
 export interface FarmAnimal {
   id: string;
@@ -8,6 +9,9 @@ export interface FarmAnimal {
   ear_tag: string | null;
   livestock_type: string;
   current_weight_kg: number | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
 }
 
 export function useFarmAnimals(farmId: string | null) {
@@ -18,7 +22,7 @@ export function useFarmAnimals(farmId: string | null) {
 
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, current_weight_kg')
+        .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg')
         .eq('farm_id', farmId)
         .is('exit_date', null)
         .eq('is_deleted', false)
@@ -30,6 +34,9 @@ export function useFarmAnimals(farmId: string | null) {
     enabled: !!farmId,
   });
 }
+
+// Re-export utility for consumers
+export { getEffectiveWeight, formatWeightWithSource };
 
 export function getAnimalDropdownOptions(animals: FarmAnimal[]): AnimalOption[] {
   if (animals.length === 0) return [];
@@ -68,13 +75,13 @@ export function getAnimalDropdownOptions(animals: FarmAnimal[]): AnimalOption[] 
   // Add individual animals
   animals.forEach((animal) => {
     const name = animal.name || animal.ear_tag || 'Unknown';
-    const weight = animal.current_weight_kg ? `${animal.current_weight_kg}kg` : 'No weight';
+    const weightDisplay = formatWeightWithSource(animal);
     
     options.push({
       value: animal.id,
       label: name,
       group: 'individual',
-      subLabel: weight,
+      subLabel: weightDisplay,
     });
   });
 

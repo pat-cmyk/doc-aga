@@ -2,13 +2,10 @@
  * Feed split calculation based on animal weight
  */
 
-// Default weights by livestock type when actual weight is unknown
-export const DEFAULT_WEIGHTS: Record<string, number> = {
-  cattle: 400,
-  carabao: 450,
-  goat: 50,
-  sheep: 45,
-};
+import { getEffectiveWeightWithDefault, DEFAULT_WEIGHTS } from "@/lib/animalWeightUtils";
+
+// Re-export for backwards compatibility
+export { DEFAULT_WEIGHTS };
 
 interface AnimalForFeedSplit {
   id: string;
@@ -16,6 +13,9 @@ interface AnimalForFeedSplit {
   ear_tag: string | null;
   livestock_type: string;
   current_weight_kg: number | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
 }
 
 export interface FeedSplitResult {
@@ -61,7 +61,7 @@ export function calculateFeedSplit(
   // If single animal, assign all feed
   if (animals.length === 1) {
     const animal = animals[0];
-    const weight = animal.current_weight_kg || DEFAULT_WEIGHTS[animal.livestock_type] || 400;
+    const weight = getEffectiveWeightWithDefault(animal);
     return [{
       animalId: animal.id,
       animalName: animal.name || animal.ear_tag || 'Unknown',
@@ -72,9 +72,9 @@ export function calculateFeedSplit(
     }];
   }
 
-  // Calculate weight for each animal
+  // Calculate weight for each animal using effective weight
   const animalWeights = animals.map(animal => {
-    const weight = animal.current_weight_kg || DEFAULT_WEIGHTS[animal.livestock_type] || 400;
+    const weight = getEffectiveWeightWithDefault(animal);
     return {
       animalId: animal.id,
       animalName: animal.name || animal.ear_tag || 'Unknown',

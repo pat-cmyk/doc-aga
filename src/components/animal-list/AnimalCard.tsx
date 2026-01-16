@@ -7,6 +7,7 @@ import { Scale, Database, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
 import type { Animal } from "./hooks/useAnimalList";
+import { getEffectiveWeight } from "@/lib/animalWeightUtils";
 
 interface AnimalCardProps {
   animal: Animal;
@@ -36,6 +37,7 @@ export const AnimalCard = ({
   onViewDetails,
 }: AnimalCardProps) => {
   const isMobile = useIsMobile();
+  const effectiveWeight = getEffectiveWeight(animal);
   
   const getCacheIcon = () => {
     if (isDownloading) {
@@ -104,10 +106,10 @@ export const AnimalCard = ({
                   {animal.lifeStage.split(' ').slice(0, 2).join(' ')}
                 </Badge>
               )}
-              {animal.current_weight_kg && (
+              {effectiveWeight && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
                   <Scale className="h-2.5 w-2.5 mr-0.5" />
-                  {animal.current_weight_kg}kg
+                  {effectiveWeight}kg
                 </Badge>
               )}
             </div>
@@ -169,10 +171,10 @@ export const AnimalCard = ({
                   colorClass={milkingStageBadgeColor}
                 />
               )}
-              {animal.current_weight_kg && (
+              {effectiveWeight && (
                 <Badge variant="outline" className="text-xs">
                   <Scale className="h-3 w-3 mr-1" />
-                  {animal.current_weight_kg} kg
+                  {effectiveWeight} kg
                 </Badge>
               )}
             </div>
