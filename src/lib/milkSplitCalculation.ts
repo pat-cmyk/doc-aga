@@ -2,19 +2,16 @@
  * Milk split calculation based on animal weight and lactation stage
  */
 
+import { getEffectiveWeightWithDefault, DEFAULT_WEIGHTS } from "@/lib/animalWeightUtils";
+
 export const LACTATION_STAGE_FACTORS: Record<string, number> = {
   'Early Lactation': 1.0,
   'Mid-Lactation': 0.85,
   'Late Lactation': 0.65,
 };
 
-// Default weights by livestock type when actual weight is unknown
-export const DEFAULT_WEIGHTS: Record<string, number> = {
-  cattle: 400,
-  carabao: 450,
-  goat: 50,
-  sheep: 45,
-};
+// Re-export for backwards compatibility
+export { DEFAULT_WEIGHTS };
 
 interface AnimalForSplit {
   id: string;
@@ -23,6 +20,9 @@ interface AnimalForSplit {
   livestock_type: string;
   milking_stage: string | null;
   current_weight_kg: number | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
 }
 
 export interface MilkSplitResult {
@@ -45,7 +45,7 @@ export function calculateMilkSplit(
   // If single animal, assign all liters
   if (animals.length === 1) {
     const animal = animals[0];
-    const weight = animal.current_weight_kg || DEFAULT_WEIGHTS[animal.livestock_type] || 400;
+    const weight = getEffectiveWeightWithDefault(animal);
     return [{
       animalId: animal.id,
       animalName: animal.name || animal.ear_tag || 'Unknown',
@@ -56,9 +56,9 @@ export function calculateMilkSplit(
     }];
   }
 
-  // Calculate production score for each animal
+  // Calculate production score for each animal using effective weight
   const scores = animals.map(animal => {
-    const weight = animal.current_weight_kg || DEFAULT_WEIGHTS[animal.livestock_type] || 400;
+    const weight = getEffectiveWeightWithDefault(animal);
     const factor = LACTATION_STAGE_FACTORS[animal.milking_stage || ''] || 0.75;
     const score = weight * factor;
     

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, subMonths, format } from "date-fns";
+import { getEffectiveWeight } from "@/lib/animalWeightUtils";
 
 export interface HerdValuationPoint {
   month: string;
@@ -134,10 +135,10 @@ export function useHerdValuationSummary(farmId: string | undefined, livestockTyp
       const priceSource = priceData?.[0]?.source || "system_default";
       const priceDate = priceData?.[0]?.effective_date || format(new Date(), "yyyy-MM-dd");
 
-      // Get active animals with their latest weights
+      // Get active animals with their latest weights (include all weight sources)
       const { data: animals, error: animalsError } = await supabase
         .from("animals")
-        .select("id, current_weight_kg, livestock_type")
+        .select("id, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, livestock_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .is("exit_date", null);
@@ -153,9 +154,11 @@ export function useHerdValuationSummary(farmId: string | undefined, livestockTyp
 
       // For mixed herds, we'd ideally get price per livestock type
       // For now, use the primary livestock type price
+      // Use getEffectiveWeight to check all weight sources (current > entry > birth)
       (animals || []).forEach((animal) => {
-        if (animal.current_weight_kg) {
-          currentValue += animal.current_weight_kg * marketPrice;
+        const effectiveWeight = getEffectiveWeight(animal);
+        if (effectiveWeight) {
+          currentValue += effectiveWeight * marketPrice;
           animalCount++;
         }
       });

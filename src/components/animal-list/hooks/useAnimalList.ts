@@ -13,6 +13,9 @@ export interface Animal {
   gender: string | null;
   milking_start_date: string | null;
   current_weight_kg: number | null;
+  entry_weight_kg?: number | null;
+  entry_weight_unknown?: boolean | null;
+  birth_weight_kg?: number | null;
   avatar_url?: string | null;
   lifeStage?: string | null;
   milkingStage?: string | null;
