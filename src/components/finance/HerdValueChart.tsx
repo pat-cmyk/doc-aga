@@ -112,7 +112,10 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
             <p className="text-xs text-muted-foreground mb-1">Current Value</p>
             <p className="text-2xl font-bold">{formatCompact(summary?.currentValue ?? 0)}</p>
             <p className="text-xs text-muted-foreground">
-              {summary?.animalCount ?? 0} animals
+              {summary && summary.animalCount < summary.totalAnimalCount
+                ? `${summary.animalCount} of ${summary.totalAnimalCount} animals valued`
+                : `${summary?.animalCount ?? 0} animals`
+              }
             </p>
           </div>
           
