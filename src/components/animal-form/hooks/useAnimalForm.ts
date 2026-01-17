@@ -209,6 +209,12 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       birth_weight_kg: formData.animal_type === "offspring" && formData.birth_weight 
         ? parseFloat(formData.birth_weight) 
         : null,
+      // Also set current_weight_kg from entry or birth weight for new animals
+      current_weight_kg: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight
+        ? parseFloat(formData.entry_weight)
+        : formData.animal_type === "offspring" && formData.birth_weight
+        ? parseFloat(formData.birth_weight)
+        : null,
       // Acquisition fields (only for new entrants)
       acquisition_type: formData.animal_type === "new_entrant" ? formData.acquisition_type : null,
       purchase_price: formData.animal_type === "new_entrant" && formData.acquisition_type === "purchased" && formData.purchase_price 
