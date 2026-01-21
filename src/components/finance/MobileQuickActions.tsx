@@ -1,7 +1,8 @@
-import { Plus, Coins, ShoppingCart } from "lucide-react";
+import { Plus, Coins, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { AddRevenueDialog } from "./AddRevenueDialog";
+import { FinancialCapacityReport } from "./FinancialCapacityReport";
 
 interface MobileQuickActionsProps {
   farmId: string;
@@ -38,17 +39,16 @@ export function MobileQuickActions({ farmId }: MobileQuickActionsProps) {
         }
       />
 
-      <AddRevenueDialog
+      <FinancialCapacityReport
         farmId={farmId}
-        defaultSource="Animal Sale"
         trigger={
           <Button 
             variant="outline" 
             size="sm" 
             className="w-full h-11 gap-1.5 text-xs font-medium"
           >
-            <ShoppingCart className="h-4 w-4" />
-            Sale
+            <FileText className="h-4 w-4" />
+            Report
           </Button>
         }
       />

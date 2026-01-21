@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { AddRevenueDialog } from "./AddRevenueDialog";
+import { FinancialCapacityReport } from "./FinancialCapacityReport";
 
 interface QuickActionsBarProps {
   farmId: string;
@@ -49,6 +50,8 @@ export function QuickActionsBar({ farmId, canManage }: QuickActionsBarProps) {
           </Button>
         }
       />
+
+      <FinancialCapacityReport farmId={farmId} />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
