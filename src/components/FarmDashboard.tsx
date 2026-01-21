@@ -297,11 +297,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       {/* Today At A Glance - Compact daily status */}
       <DailyActivityCompliance farmId={farmId} />
 
-      {/* Actionable Alerts - Vaccinations, deworming, deliveries, critical gaps */}
-      <DashboardAlertsWidget farmId={farmId} />
-
       {/* Morning Brief - AI-generated daily summary (collapsible) */}
       <MorningBriefCard farmId={farmId} />
+
+      {/* Actionable Alerts - Vaccinations, deworming, deliveries, critical gaps */}
+      <DashboardAlertsWidget farmId={farmId} />
 
       {/* AI Predictions - Milk, Breeding, Health forecasts */}
       <PredictiveInsightsWidget farmId={farmId} />
