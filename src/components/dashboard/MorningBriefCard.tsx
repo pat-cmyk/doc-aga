@@ -12,18 +12,9 @@ import {
   X, 
   RefreshCw,
   ChevronDown,
-  ChevronUp,
-  Milk,
-  Heart,
-  Syringe,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Check,
-  Utensils,
-  CircleDollarSign
+  ChevronUp
 } from 'lucide-react';
-import { useMorningBrief, type MorningBrief, type MorningBriefMetrics } from '@/hooks/useMorningBrief';
+import { useMorningBrief } from '@/hooks/useMorningBrief';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MorningBriefCardProps {
@@ -31,7 +22,7 @@ interface MorningBriefCardProps {
 }
 
 export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
-  const { brief, metrics, isLoading, error, isDismissed, dismiss, refresh } = useMorningBrief(farmId);
+  const { brief, isLoading, error, isDismissed, dismiss, refresh } = useMorningBrief(farmId);
   const isMobile = useIsMobile();
   // Default to collapsed on mobile, expanded on desktop
   const [isExpanded, setIsExpanded] = useState(!isMobile);
@@ -104,10 +95,6 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
               </div>
             </div>
             
-            {/* Compact status preview when collapsed */}
-            {!isExpanded && metrics && (
-              <TodayStatusStrip metrics={metrics} compact />
-            )}
           </div>
         </CardHeader>
 
@@ -115,36 +102,6 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
           <CardContent className="pt-0 space-y-4">
             {/* Summary */}
             <p className="text-sm text-foreground/90">{brief.summary}</p>
-
-            {/* Today's Status Strip - Full version */}
-            {metrics && <TodayStatusStrip metrics={metrics} />}
-
-            {/* Quick Metrics */}
-            {metrics && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <QuickMetric 
-                  icon={<TrendingUp className="h-3.5 w-3.5" />}
-                  label="Hayop"
-                  value={metrics.totalAnimals.toString()}
-                />
-                <QuickMetric 
-                  icon={<Milk className="h-3.5 w-3.5" />}
-                  label="Milk Today"
-                  value={`${metrics.todayMilk}L`}
-                />
-                <QuickMetric 
-                  icon={<Heart className="h-3.5 w-3.5" />}
-                  label="Buntis"
-                  value={metrics.pregnantCount.toString()}
-                />
-                <QuickMetric 
-                  icon={<Syringe className="h-3.5 w-3.5" />}
-                  label="Vaccines Due"
-                  value={metrics.overdueVaccines.toString()}
-                  highlight={metrics.overdueVaccines > 0}
-                />
-              </div>
-            )}
 
             {/* Highlights */}
             {brief.highlights && brief.highlights.length > 0 && (
@@ -198,149 +155,6 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
         </CollapsibleContent>
       </Collapsible>
     </Card>
-  );
-}
-
-interface TodayStatusStripProps {
-  metrics: MorningBriefMetrics;
-  compact?: boolean;
-}
-
-function TodayStatusStrip({ metrics, compact = false }: TodayStatusStripProps) {
-  const feedingOk = metrics.feedingDone;
-  const milkingOk = metrics.milkingCompliancePercent >= 80;
-  const trendIcon = metrics.milkTrend === 'up' 
-    ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-    : metrics.milkTrend === 'down'
-    ? <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-    : <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
-  
-  const financialIcon = metrics.financialStatus === 'profitable'
-    ? <CircleDollarSign className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-    : metrics.financialStatus === 'loss'
-    ? <CircleDollarSign className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-    : <CircleDollarSign className="h-3.5 w-3.5 text-muted-foreground" />;
-
-  if (compact) {
-    return (
-      <div className="flex items-center gap-3 mt-3 animate-fade-in flex-wrap">
-        <StatusIndicator 
-          icon={<Utensils className="h-3.5 w-3.5" />}
-          label="Feed"
-          ok={feedingOk}
-        />
-        <StatusIndicator 
-          icon={<Milk className="h-3.5 w-3.5" />}
-          label={`${metrics.milkingCompliancePercent}%`}
-          ok={milkingOk}
-        />
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          {trendIcon}
-          <span>30d</span>
-        </span>
-        {metrics.financialStatus !== 'breakeven' && (
-          <span className="flex items-center gap-1 text-xs">
-            {financialIcon}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border/50">
-      <span className="text-xs font-medium text-muted-foreground mr-1">Today:</span>
-      
-      <StatusBadge 
-        icon={<Utensils className="h-3 w-3" />}
-        label="Feeding"
-        value={feedingOk ? 'Done' : 'Pending'}
-        ok={feedingOk}
-      />
-      
-      <StatusBadge 
-        icon={<Milk className="h-3 w-3" />}
-        label="Milking"
-        value={`${metrics.milkingCompliancePercent}%`}
-        ok={milkingOk}
-      />
-      
-      <StatusBadge 
-        icon={trendIcon}
-        label="30-Day"
-        value={metrics.milkTrend === 'stable' ? 'Stable' : `${metrics.milkTrendPercent > 0 ? '+' : ''}${metrics.milkTrendPercent}%`}
-        ok={metrics.milkTrend !== 'down'}
-        neutral={metrics.milkTrend === 'stable'}
-      />
-      
-      {metrics.financialStatus !== 'breakeven' && (
-        <StatusBadge 
-          icon={financialIcon}
-          label="Month"
-          value={metrics.financialStatus === 'profitable' ? 'Profit' : 'Loss'}
-          ok={metrics.financialStatus === 'profitable'}
-        />
-      )}
-    </div>
-  );
-}
-
-interface StatusIndicatorProps {
-  icon: React.ReactNode;
-  label: string;
-  ok: boolean;
-}
-
-function StatusIndicator({ icon, label, ok }: StatusIndicatorProps) {
-  return (
-    <span className={`flex items-center gap-1 text-xs ${ok ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
-      {ok ? <Check className="h-3.5 w-3.5" /> : icon}
-      <span>{label}</span>
-    </span>
-  );
-}
-
-interface StatusBadgeProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  ok: boolean;
-  neutral?: boolean;
-}
-
-function StatusBadge({ icon, label, value, ok, neutral }: StatusBadgeProps) {
-  const colorClass = neutral 
-    ? 'bg-muted text-muted-foreground border-border'
-    : ok 
-    ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800'
-    : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border ${colorClass}`}>
-      {icon}
-      <span className="font-medium">{value}</span>
-    </span>
-  );
-}
-
-interface QuickMetricProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  highlight?: boolean;
-}
-
-function QuickMetric({ icon, label, value, highlight }: QuickMetricProps) {
-  return (
-    <div className={`flex items-center gap-2 p-2 rounded-md ${highlight ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-muted/50'}`}>
-      <div className={`${highlight ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'}`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className={`text-sm font-semibold ${highlight ? 'text-orange-700 dark:text-orange-300' : ''}`}>{value}</p>
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-      </div>
-    </div>
   );
 }
 
