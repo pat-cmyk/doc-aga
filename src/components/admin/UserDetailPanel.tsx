@@ -74,18 +74,16 @@ export const UserDetailPanel = ({ userId, open, onOpenChange }: UserDetailPanelP
         .single();
 
       if (profileError) throw profileError;
-
-      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
       
       const { data: roles } = await supabase
         .from("user_roles")
         .select("role, is_super_admin")
         .eq("user_id", userId);
 
+      // Use email from profiles table (synced via trigger) instead of admin API
       return {
         ...profile,
-        email: authUser?.user?.email || "Unknown",
-        created_at: authUser?.user?.created_at || profile.created_at,
+        email: profile.email || "Unknown",
         roles: roles || [],
       };
     },
