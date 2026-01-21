@@ -83,6 +83,8 @@ interface LazyHeadcountChartProps {
   totalAnimals?: number;
   onRefresh?: () => void;
   isLoading?: boolean;
+  showFeedForecast?: boolean;
+  onToggleFeedForecast?: () => void;
 }
 
 export const LazyHeadcountChart = (props: LazyHeadcountChartProps) => (

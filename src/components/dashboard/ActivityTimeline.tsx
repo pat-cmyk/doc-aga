@@ -214,22 +214,9 @@ export function ActivityTimeline({ farmId }: ActivityTimelineProps) {
     );
   }
 
+  // Hide empty timeline to save space on mobile
   if (!activities || activities.length === 0) {
-    return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Today's Activity Timeline
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No activities recorded today yet
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (
