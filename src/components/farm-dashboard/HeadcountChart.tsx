@@ -12,6 +12,8 @@ import type { MonthlyHeadcount } from "./hooks/useHeadcountData";
 import { HeadcountTooltip } from "./HeadcountTooltip";
 import { HeadcountMonthDialog } from "./HeadcountMonthDialog";
 import { Button } from "@/components/ui/button";
+import { Sprout } from "lucide-react";
+
 interface HeadcountChartProps {
   data: MonthlyHeadcount[];
   stageKeys: string[];
@@ -23,6 +25,8 @@ interface HeadcountChartProps {
   totalAnimals?: number;
   onRefresh?: () => void;
   isLoading?: boolean;
+  showFeedForecast?: boolean;
+  onToggleFeedForecast?: () => void;
 }
 
 // Stage category definitions - includes all species (cattle, carabao, goat, sheep)
@@ -141,7 +145,9 @@ export const HeadcountChart = ({
   farmId,
   totalAnimals = 0,
   onRefresh,
-  isLoading = false
+  isLoading = false,
+  showFeedForecast = false,
+  onToggleFeedForecast
 }: HeadcountChartProps) => {
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -261,6 +267,17 @@ export const HeadcountChart = ({
               <CardDescription>Distribution of animals by life stage</CardDescription>
             </div>
             <div className="flex gap-2 items-center flex-wrap">
+              {onToggleFeedForecast && (
+                <Button
+                  variant={showFeedForecast ? "default" : "outline"}
+                  size="sm"
+                  onClick={onToggleFeedForecast}
+                  className="h-8"
+                >
+                  <Sprout className="h-4 w-4 mr-1.5" />
+                  Feed Forecast
+                </Button>
+              )}
               <Select value={monthlyTimePeriod} onValueChange={(v) => onMonthlyTimePeriodChange(v as "all" | "ytd")}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />

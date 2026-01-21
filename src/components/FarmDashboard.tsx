@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HealthEventsDialog from "./HealthEventsDialog";
 import { generateFeedForecast, type MonthlyFeedForecast } from "@/lib/feedForecast";
@@ -17,11 +15,8 @@ import { NetworkError } from "@/components/ui/network-error";
 import { isNetworkError } from "@/lib/errorHandling";
 import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
-import { PredictiveInsightsWidget } from "./dashboard/PredictiveInsightsWidget";
 import { DailyActivityCompliance } from "./dashboard/DailyActivityCompliance";
 import { ActivityTimeline } from "./dashboard/ActivityTimeline";
-import { FarmhandProductivityDashboard } from "./dashboard/FarmhandProductivityDashboard";
-
 import { useNavigate } from "react-router-dom";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { useQueryClient } from "@tanstack/react-query";
@@ -294,23 +289,17 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         <DashboardStats stats={stats} trends={trends} farmId={farmId} />
       )}
 
-      {/* Today At A Glance - Compact daily status */}
+      {/* Today At A Glance - Compact daily status (action-first) */}
       <DailyActivityCompliance farmId={farmId} />
-
-      {/* Morning Brief - AI-generated daily summary (collapsible) */}
-      <MorningBriefCard farmId={farmId} />
 
       {/* Actionable Alerts - Vaccinations, deworming, deliveries, critical gaps */}
       <DashboardAlertsWidget farmId={farmId} />
 
-      {/* AI Predictions - Milk, Breeding, Health forecasts */}
-      <PredictiveInsightsWidget farmId={farmId} />
+      {/* Morning Brief - AI-generated insights (collapsed by default on mobile) */}
+      <MorningBriefCard farmId={farmId} />
 
-      {/* Activity Timeline - Chronological view of today's activities */}
+      {/* Activity Timeline - Only shows when there are activities */}
       <ActivityTimeline farmId={farmId} />
-
-      {/* Team Productivity Dashboard */}
-      <FarmhandProductivityDashboard farmId={farmId} />
 
       {/* Chart Skeletons when loading */}
       {loading && (
@@ -357,18 +346,11 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         totalAnimals={stats.totalAnimals}
         onRefresh={reloadStats}
         isLoading={loading}
+        showFeedForecast={showFeedForecast}
+        onToggleFeedForecast={() => setShowFeedForecast(!showFeedForecast)}
       />
 
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          onClick={() => setShowFeedForecast(!showFeedForecast)}
-        >
-          <Sprout className="h-4 w-4 mr-2" />
-          {showFeedForecast ? "Hide" : "Show"} Feed Forecast
-        </Button>
-      </div>
-
+      {/* Feed Forecast - integrated below headcount chart */}
       {showFeedForecast && <FeedForecast forecasts={feedForecast} />}
 
       <HealthEventsDialog
