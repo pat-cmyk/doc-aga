@@ -19,6 +19,23 @@ export interface MorningBriefMetrics {
   upcomingDeliveries: number;
   overdueVaccines: number;
   overdueDeworming: number;
+  // NEW: Activity compliance
+  feedingDone: boolean;
+  feedingRecordsCount: number;
+  animalsWithFeedingToday: number;
+  milkingCompliancePercent: number;
+  completedMilkingSessions: number;
+  expectedMilkingSessions: number;
+  amSessionsDone: number;
+  pmSessionsDone: number;
+  // NEW: 30-day milk trend
+  milkTrend: 'up' | 'down' | 'stable';
+  milkTrendPercent: number;
+  // NEW: Financial health
+  financialStatus: 'profitable' | 'breakeven' | 'loss';
+  monthlyRevenue: number;
+  monthlyExpenses: number;
+  netProfit: number;
 }
 
 interface MorningBriefResponse {

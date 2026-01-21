@@ -16,7 +16,12 @@ import {
   Milk,
   Heart,
   Syringe,
-  TrendingUp
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Check,
+  Utensils,
+  CircleDollarSign
 } from 'lucide-react';
 import { useMorningBrief, type MorningBrief, type MorningBriefMetrics } from '@/hooks/useMorningBrief';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -99,18 +104,9 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
               </div>
             </div>
             
-            {/* Compact metrics preview on mobile when collapsed */}
-            {!isExpanded && isMobile && metrics && (
-              <div className="flex items-center gap-4 mt-3 animate-fade-in">
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="font-medium text-foreground">{metrics.totalAnimals}</span> Hayop
-                </span>
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Milk className="h-4 w-4" />
-                  <span className="font-medium text-foreground">{metrics.todayMilk}L</span> Milk
-                </span>
-              </div>
+            {/* Compact status preview when collapsed */}
+            {!isExpanded && metrics && (
+              <TodayStatusStrip metrics={metrics} compact />
             )}
           </div>
         </CardHeader>
@@ -119,6 +115,9 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
           <CardContent className="pt-0 space-y-4">
             {/* Summary */}
             <p className="text-sm text-foreground/90">{brief.summary}</p>
+
+            {/* Today's Status Strip - Full version */}
+            {metrics && <TodayStatusStrip metrics={metrics} />}
 
             {/* Quick Metrics */}
             {metrics && (
@@ -199,6 +198,128 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
         </CollapsibleContent>
       </Collapsible>
     </Card>
+  );
+}
+
+interface TodayStatusStripProps {
+  metrics: MorningBriefMetrics;
+  compact?: boolean;
+}
+
+function TodayStatusStrip({ metrics, compact = false }: TodayStatusStripProps) {
+  const feedingOk = metrics.feedingDone;
+  const milkingOk = metrics.milkingCompliancePercent >= 80;
+  const trendIcon = metrics.milkTrend === 'up' 
+    ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+    : metrics.milkTrend === 'down'
+    ? <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+    : <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
+  
+  const financialIcon = metrics.financialStatus === 'profitable'
+    ? <CircleDollarSign className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+    : metrics.financialStatus === 'loss'
+    ? <CircleDollarSign className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+    : <CircleDollarSign className="h-3.5 w-3.5 text-muted-foreground" />;
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 mt-3 animate-fade-in flex-wrap">
+        <StatusIndicator 
+          icon={<Utensils className="h-3.5 w-3.5" />}
+          label="Feed"
+          ok={feedingOk}
+        />
+        <StatusIndicator 
+          icon={<Milk className="h-3.5 w-3.5" />}
+          label={`${metrics.milkingCompliancePercent}%`}
+          ok={milkingOk}
+        />
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          {trendIcon}
+          <span>30d</span>
+        </span>
+        {metrics.financialStatus !== 'breakeven' && (
+          <span className="flex items-center gap-1 text-xs">
+            {financialIcon}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border/50">
+      <span className="text-xs font-medium text-muted-foreground mr-1">Today:</span>
+      
+      <StatusBadge 
+        icon={<Utensils className="h-3 w-3" />}
+        label="Feeding"
+        value={feedingOk ? 'Done' : 'Pending'}
+        ok={feedingOk}
+      />
+      
+      <StatusBadge 
+        icon={<Milk className="h-3 w-3" />}
+        label="Milking"
+        value={`${metrics.milkingCompliancePercent}%`}
+        ok={milkingOk}
+      />
+      
+      <StatusBadge 
+        icon={trendIcon}
+        label="30-Day"
+        value={metrics.milkTrend === 'stable' ? 'Stable' : `${metrics.milkTrendPercent > 0 ? '+' : ''}${metrics.milkTrendPercent}%`}
+        ok={metrics.milkTrend !== 'down'}
+        neutral={metrics.milkTrend === 'stable'}
+      />
+      
+      {metrics.financialStatus !== 'breakeven' && (
+        <StatusBadge 
+          icon={financialIcon}
+          label="Month"
+          value={metrics.financialStatus === 'profitable' ? 'Profit' : 'Loss'}
+          ok={metrics.financialStatus === 'profitable'}
+        />
+      )}
+    </div>
+  );
+}
+
+interface StatusIndicatorProps {
+  icon: React.ReactNode;
+  label: string;
+  ok: boolean;
+}
+
+function StatusIndicator({ icon, label, ok }: StatusIndicatorProps) {
+  return (
+    <span className={`flex items-center gap-1 text-xs ${ok ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+      {ok ? <Check className="h-3.5 w-3.5" /> : icon}
+      <span>{label}</span>
+    </span>
+  );
+}
+
+interface StatusBadgeProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  ok: boolean;
+  neutral?: boolean;
+}
+
+function StatusBadge({ icon, label, value, ok, neutral }: StatusBadgeProps) {
+  const colorClass = neutral 
+    ? 'bg-muted text-muted-foreground border-border'
+    : ok 
+    ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800'
+    : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border ${colorClass}`}>
+      {icon}
+      <span className="font-medium">{value}</span>
+    </span>
   );
 }
 
