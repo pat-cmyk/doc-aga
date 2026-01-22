@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { hapticNotification } from "@/lib/haptics";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MilkRecord {
   id: string;
@@ -50,6 +51,7 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadAnimalInfo();
@@ -293,11 +295,26 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
               <div className="text-sm text-muted-foreground px-1">
                 Showing {filteredRecords.length} records {filterPeriod === "all" ? "(all-time)" : filterPeriod === "cycle" ? "(current cycle)" : "(this month)"}
               </div>
-              <ChartContainer key={filterPeriod} config={chartConfig} className="h-[250px] sm:h-[300px] w-full">
-                <LineChart data={chartData}>
+              <ChartContainer key={filterPeriod} config={chartConfig} className="h-[280px] sm:h-[320px] w-full">
+                <LineChart 
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 60 : 30 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 11 }} label={{ value: 'Liters', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} />
+                  <XAxis 
+                    dataKey="date" 
+                    className="text-xs" 
+                    tick={{ fontSize: isMobile ? 9 : 11 }}
+                    tickMargin={isMobile ? 15 : 8}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? 'end' : 'middle'}
+                    height={isMobile ? 50 : 30}
+                  />
+                  <YAxis 
+                    className="text-xs" 
+                    tick={{ fontSize: isMobile ? 9 : 11 }} 
+                    label={isMobile ? undefined : { value: 'Liters', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} 
+                  />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Line type="monotone" dataKey="liters" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
                 </LineChart>

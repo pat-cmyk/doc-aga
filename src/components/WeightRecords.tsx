@@ -244,11 +244,21 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
             <CardTitle className="text-base sm:text-lg">Weight Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={chartData}>
+            <ResponsiveContainer width="100%" height={isMobile ? 240 : 280}>
+              <LineChart 
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 50 : 30 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={<CustomXAxisTick />} height={60} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: isMobile ? 9 : 11 }}
+                  tickMargin={isMobile ? 15 : 8}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? 'end' : 'middle'}
+                  height={isMobile ? 50 : 40}
+                />
+                <YAxis tick={{ fontSize: isMobile ? 9 : 11 }} />
                 <Tooltip />
                 <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>

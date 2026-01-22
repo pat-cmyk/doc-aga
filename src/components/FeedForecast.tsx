@@ -3,12 +3,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sprout, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { MonthlyFeedForecast, calculateTotalFeedNeeded } from "@/lib/feedForecast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface FeedForecastProps {
   forecasts: MonthlyFeedForecast[];
 }
 
 export function FeedForecast({ forecasts }: FeedForecastProps) {
+  const isMobile = useIsMobile();
   const totals = calculateTotalFeedNeeded(forecasts);
 
   // Prepare chart data
@@ -73,20 +75,39 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
       {/* Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Daily Feed Requirements Trend</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Daily Feed Requirements Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData.map(d => ({
-              month: d.month,
-              dryMatter: d.feed,
-              freshForage: Math.round((d.feed / 0.30) * 10) / 10
-            }))}>
+          <ResponsiveContainer width="100%" height={isMobile ? 280 : 320}>
+            <BarChart 
+              data={chartData.map(d => ({
+                month: d.month,
+                dryMatter: d.feed,
+                freshForage: Math.round((d.feed / 0.30) * 10) / 10
+              }))}
+              margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 60 : 30 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis label={{ value: 'kg/day', angle: -90, position: 'insideLeft' }} />
+              <XAxis 
+                dataKey="month" 
+                tick={{ fontSize: isMobile ? 9 : 11 }}
+                tickMargin={isMobile ? 15 : 8}
+                angle={isMobile ? -45 : 0}
+                textAnchor={isMobile ? 'end' : 'middle'}
+                height={isMobile ? 50 : 30}
+              />
+              <YAxis 
+                tick={{ fontSize: isMobile ? 9 : 11 }}
+                label={isMobile ? undefined : { value: 'kg/day', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} 
+              />
               <Tooltip />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ 
+                  fontSize: isMobile ? '9px' : '11px',
+                  paddingTop: isMobile ? '12px' : '8px'
+                }}
+                iconSize={isMobile ? 8 : 10}
+              />
               <Bar dataKey="dryMatter" fill="hsl(var(--foreground))" name="Dry Matter (kg/day)" />
               <Bar dataKey="freshForage" fill="hsl(var(--primary))" name="Fresh Forage (kg/day)" />
             </BarChart>

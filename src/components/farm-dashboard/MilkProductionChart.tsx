@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MilkChartTooltip } from "./MilkChartTooltip";
 import { MilkDayDetailDialog } from "./MilkDayDetailDialog";
 import type { CombinedDailyData } from "./hooks/useMilkData";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface MilkProductionChartProps {
   data: CombinedDailyData[];
@@ -36,6 +37,13 @@ export const MilkProductionChart = ({
   
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Use centralized responsive chart configuration
+  const { isMobile, xAxisProps, margin, shouldShowBrush } = useResponsiveChart({
+    size: 'medium',
+    dataLength: data?.length || 0,
+    brushThreshold: 14,
+  });
 
   // Find min/max dates for navigation
   const { minDate, maxDate, highestDay, lowestDay } = useMemo(() => {
@@ -172,7 +180,7 @@ export const MilkProductionChart = ({
         </CardHeader>
         <CardContent>
           {!data?.length ? (
-            <div className="h-[220px] sm:h-[280px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[280px] sm:h-[320px] md:h-[360px] flex items-center justify-center text-muted-foreground">
               No data for selected period
             </div>
           ) : (
@@ -183,11 +191,11 @@ export const MilkProductionChart = ({
                   color: "hsl(var(--chart-1))",
                 },
               }}
-              className="aspect-auto w-full h-[220px] sm:h-[280px] md:h-[320px]"
+              className="aspect-auto w-full h-[300px] sm:h-[340px] md:h-[360px]"
             >
               <AreaChart 
                 data={data} 
-                margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 80 : 50 }}
                 onClick={handleChartClick}
                 style={{ cursor: 'pointer' }}
               >
@@ -200,14 +208,17 @@ export const MilkProductionChart = ({
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  tickMargin={8}
-                  minTickGap={12}
-                  interval="preserveStartEnd"
+                  tick={{ fontSize: isMobile ? 9 : 11 }}
+                  tickMargin={isMobile ? 15 : 8}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? 'end' : 'middle'}
+                  height={isMobile ? 60 : 30}
+                  interval={isMobile ? 0 : "preserveStartEnd"}
                   className="text-muted-foreground"
                 />
                 <YAxis 
                   width={40}
+                  tick={{ fontSize: isMobile ? 9 : 11 }}
                   tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
                   className="text-muted-foreground"
                 />
@@ -223,7 +234,7 @@ export const MilkProductionChart = ({
                     label={{
                       value: `Avg: ${averageMilk.toFixed(0)}L`,
                       position: 'right',
-                      fontSize: 10,
+                      fontSize: isMobile ? 8 : 10,
                       fill: 'hsl(var(--muted-foreground))',
                     }}
                   />
@@ -240,8 +251,8 @@ export const MilkProductionChart = ({
                   activeDot={renderActiveDot}
                 />
                 
-                {/* Brush for zoom/pan - only show for larger datasets */}
-                {data.length > 14 && (
+                {/* Brush for zoom/pan - hidden on mobile */}
+                {shouldShowBrush && (
                   <Brush
                     dataKey="date"
                     height={30}
