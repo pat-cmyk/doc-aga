@@ -2,11 +2,22 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
+ * Feed stock breakdown by category
+ */
+export interface FeedStockBreakdown {
+  concentrateDays: number | null;
+  roughageDays: number | null;
+  concentrateKg: number;
+  roughageKg: number;
+}
+
+/**
  * Dashboard statistics including animal counts, milk production, and health events
  */
 export interface DashboardStats {
   totalAnimals: number;
   feedStockDays: number | null;
+  feedStockBreakdown?: FeedStockBreakdown;
   avgDailyMilk: number;
   pregnantCount: number;
   pendingConfirmation: number;

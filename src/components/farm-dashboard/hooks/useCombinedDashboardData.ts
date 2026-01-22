@@ -137,6 +137,7 @@ export const useCombinedDashboardData = (
         const serverStats: DashboardStats = {
           totalAnimals: result.stats?.totalAnimals ?? 0,
           feedStockDays: result.stats?.feedStockDays ?? null,
+          feedStockBreakdown: result.stats?.feedStockBreakdown ?? undefined,
           avgDailyMilk: result.stats?.avgDailyMilk ?? 0,
           pregnantCount: result.stats?.pregnantCount ?? 0,
           pendingConfirmation: result.stats?.pendingConfirmation ?? 0,

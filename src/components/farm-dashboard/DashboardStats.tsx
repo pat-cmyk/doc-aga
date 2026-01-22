@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Activity, Milk, Heart, Calendar, Wallet, ChevronRight, Wheat } from "lucide-react";
 import type { DashboardStats as StatsType, DashboardStatsTrends } from "./hooks/useDashboardStats";
 import { TrendIndicator } from "./TrendIndicator";
@@ -50,40 +51,79 @@ export const DashboardStats = ({ stats, trends, farmId }: DashboardStatsProps) =
           </CardContent>
         </Card>
 
-        <Card 
-          className="min-h-[100px] sm:min-h-[120px] cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => navigate('/?tab=operations&subtab=feed')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Feed Stock</CardTitle>
-            <div className="flex items-center gap-1">
-              <Wheat className="h-4 w-4 text-muted-foreground" />
-              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.feedStockDays != null ? `${stats.feedStockDays}d` : "—"}
-            </div>
-            <p className={cn(
-              "text-xs mt-1",
-              stats.feedStockDays != null && stats.feedStockDays <= 30 
-                ? "text-destructive" 
-                : stats.feedStockDays != null && stats.feedStockDays <= 60 
-                  ? "text-yellow-600" 
-                  : "text-muted-foreground"
-            )}>
-              {stats.feedStockDays != null 
-                ? stats.feedStockDays <= 30 
-                  ? "critically low" 
-                  : stats.feedStockDays <= 60 
-                    ? "reorder soon"
-                    : "days remaining"
-                : "no inventory"
-              }
-            </p>
-          </CardContent>
-        </Card>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card 
+                className="min-h-[100px] sm:min-h-[120px] cursor-pointer transition-colors hover:bg-accent/50"
+                onClick={() => navigate('/?tab=operations&subtab=feed')}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Feed Stock</CardTitle>
+                  <div className="flex items-center gap-1">
+                    <Wheat className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.feedStockDays != null ? `${stats.feedStockDays}d` : "—"}
+                  </div>
+                  <p className={cn(
+                    "text-xs mt-1",
+                    stats.feedStockDays != null && stats.feedStockDays <= 30 
+                      ? "text-destructive" 
+                      : stats.feedStockDays != null && stats.feedStockDays <= 60 
+                        ? "text-yellow-600" 
+                        : "text-muted-foreground"
+                  )}>
+                    {stats.feedStockDays != null 
+                      ? stats.feedStockDays <= 30 
+                        ? "critically low" 
+                        : stats.feedStockDays <= 60 
+                          ? "reorder soon"
+                          : "days remaining"
+                      : "no inventory"
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="w-52">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Concentrates:</span>
+                  <span className={cn(
+                    "font-medium",
+                    stats.feedStockBreakdown?.concentrateDays != null && stats.feedStockBreakdown.concentrateDays <= 7
+                      ? "text-destructive"
+                      : ""
+                  )}>
+                    {stats.feedStockBreakdown?.concentrateDays != null 
+                      ? `${stats.feedStockBreakdown.concentrateDays}d` 
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Roughage:</span>
+                  <span className={cn(
+                    "font-medium",
+                    stats.feedStockBreakdown?.roughageDays != null && stats.feedStockBreakdown.roughageDays <= 7
+                      ? "text-destructive"
+                      : ""
+                  )}>
+                    {stats.feedStockBreakdown?.roughageDays != null 
+                      ? `${stats.feedStockBreakdown.roughageDays}d` 
+                      : "—"}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground pt-1.5 border-t">
+                  Stock: {stats.feedStockBreakdown?.concentrateKg?.toFixed(0) ?? 0}kg / {stats.feedStockBreakdown?.roughageKg?.toFixed(0) ?? 0}kg
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
         <Card className="min-h-[100px] sm:min-h-[120px]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
