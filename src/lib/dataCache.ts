@@ -258,7 +258,7 @@ export interface DashboardStatsCache {
   farmId: string;
   stats: {
     totalAnimals: number;
-    lactatingCount: number;
+    feedStockDays: number | null;
     avgDailyMilk: number;
     pregnantCount: number;
     pendingConfirmation: number;
@@ -1310,7 +1310,7 @@ export async function updateDashboardStatsCache(
       farmId,
       stats: data.stats || existing?.stats || {
         totalAnimals: 0,
-        lactatingCount: 0,
+        feedStockDays: null,
         avgDailyMilk: 0,
         pregnantCount: 0,
         pendingConfirmation: 0,
@@ -1353,7 +1353,7 @@ export async function addLocalMilkRecord(
       farmId,
       stats: {
         totalAnimals: 0,
-        lactatingCount: 0,
+        feedStockDays: null,
         avgDailyMilk: 0,
         pregnantCount: 0,
         pendingConfirmation: 0,

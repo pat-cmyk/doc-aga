@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getLactatingAnimalsOrFilter } from "@/lib/animalQueries";
 
 /**
  * Dashboard statistics including animal counts, milk production, and health events
  */
 export interface DashboardStats {
   totalAnimals: number;
-  lactatingCount: number;
+  feedStockDays: number | null;
   avgDailyMilk: number;
   pregnantCount: number;
   pendingConfirmation: number;
@@ -28,7 +27,7 @@ export interface DashboardStatsTrends {
 export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
-    lactatingCount: 0,
+    feedStockDays: null,
     avgDailyMilk: 0,
     pregnantCount: 0,
     pendingConfirmation: 0,
@@ -46,15 +45,18 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
-      // Get lactating animals count
-      const { count: lactatingCount } = await supabase
-        .from("animals")
-        .select("*", { count: "exact", head: true })
-        .eq("farm_id", farmId)
-        .eq("gender", "Female")
-        .is("exit_date", null)
-        .eq("is_deleted", false)
-        .or(getLactatingAnimalsOrFilter());
+      // Get feed inventory for stock days calculation
+      const { data: feedInventory } = await supabase
+        .from("feed_inventory")
+        .select("quantity_kg")
+        .eq("farm_id", farmId);
+
+      const totalStockKg = feedInventory?.reduce((sum, item) => sum + (item.quantity_kg || 0), 0) || 0;
+      // Estimate ~15kg/day per animal average consumption
+      const estimatedDailyConsumption = (animalCount || 0) * 15;
+      const feedStockDays = estimatedDailyConsumption > 0 
+        ? Math.floor(totalStockKg / estimatedDailyConsumption)
+        : null;
 
       // Get average daily milk - prefer pre-aggregated stats
       const { data: dailyStats } = await supabase
@@ -106,7 +108,7 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
 
       setStats({
         totalAnimals: animalCount || 0,
-        lactatingCount: lactatingCount || 0,
+        feedStockDays,
         avgDailyMilk: avgMilk,
         pregnantCount: pregnancyData?.length || 0,
         pendingConfirmation: pendingAI?.length || 0,

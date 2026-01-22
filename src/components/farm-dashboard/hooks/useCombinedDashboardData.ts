@@ -44,7 +44,7 @@ export const useCombinedDashboardData = (
 ) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
-    lactatingCount: 0,
+    feedStockDays: null,
     avgDailyMilk: 0,
     pregnantCount: 0,
     pendingConfirmation: 0,
@@ -136,7 +136,7 @@ export const useCombinedDashboardData = (
         
         const serverStats: DashboardStats = result.stats || {
           totalAnimals: 0,
-          lactatingCount: 0,
+          feedStockDays: null,
           avgDailyMilk: 0,
           pregnantCount: 0,
           pendingConfirmation: 0,
