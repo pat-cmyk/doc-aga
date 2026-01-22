@@ -556,7 +556,7 @@ const Dashboard = () => {
 
           <TabsContent value="finance" className="space-y-4 sm:space-y-6">
             {farmId && (
-              <FinanceTab farmId={farmId} canManage={canManageFarm} />
+              <FinanceTab farmId={farmId} canManage={canManageFarm} onNavigateToTab={setActiveTab} />
             )}
           </TabsContent>
 
