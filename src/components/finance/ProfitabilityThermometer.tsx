@@ -4,6 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, TrendingDown, Scale, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { CHART_FONT_SIZE } from "@/lib/chartConfig";
 
 interface ProfitabilityThermometerProps {
   farmId: string;
@@ -11,6 +13,8 @@ interface ProfitabilityThermometerProps {
 
 export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerProps) {
   const { data, isLoading } = useProfitability(farmId);
+  const isMobile = useIsMobile();
+  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -100,19 +104,19 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
 
         {/* Bar Chart */}
         {hasData ? (
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={isMobile ? 180 : 200}>
             <BarChart data={chartData} layout="vertical" barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
               <XAxis
                 type="number"
                 tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize }}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 12, fontWeight: 500 }}
-                width={60}
+                tick={{ fontSize: fontSize + 1, fontWeight: 500 }}
+                width={isMobile ? 50 : 60}
               />
               <Tooltip
                 formatter={(value: number) => [formatCurrency(value), ""]}

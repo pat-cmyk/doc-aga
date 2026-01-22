@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { CHART_FONT_SIZE } from "@/lib/chartConfig";
 
 interface BreedingSuccessChartProps {
   cattleSuccessRate: number;
@@ -54,17 +56,30 @@ export const BreedingSuccessChart = ({
     );
   }
 
+  const isMobile = useIsMobile();
+  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">AI Success Rate by Livestock Type</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={isMobile ? 240 : 300}>
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-            <YAxis type="category" dataKey="name" width={80} />
+            <XAxis 
+              type="number" 
+              domain={[0, 100]} 
+              tickFormatter={(value) => `${value}%`}
+              tick={{ fontSize }}
+            />
+            <YAxis 
+              type="category" 
+              dataKey="name" 
+              width={isMobile ? 65 : 80}
+              tick={{ fontSize }}
+            />
             <Tooltip
               formatter={(value: number) => [`${value}%`, "Success Rate"]}
               contentStyle={{

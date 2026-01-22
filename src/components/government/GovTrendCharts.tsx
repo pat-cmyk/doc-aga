@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { format, parseISO } from "date-fns";
 import { TrendingUp, Activity, FileText, Droplets, Layers } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CHART_FONT_SIZE, CHART_LEGEND, CHART_XAXIS } from "@/lib/chartConfig";
 
 interface GovTrendChartsProps {
   data?: TimeseriesDataPoint[];
@@ -16,6 +17,9 @@ interface GovTrendChartsProps {
 
 export const GovTrendCharts = ({ data, comparisonData, isLoading, error, comparisonMode }: GovTrendChartsProps) => {
   const isMobile = useIsMobile();
+  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
+  const xAxisConfig = isMobile ? CHART_XAXIS.mobile : CHART_XAXIS.desktop;
+  const legendConfig = isMobile ? CHART_LEGEND.mobile : CHART_LEGEND.desktop;
   
   if (isLoading) {
     return (
@@ -138,19 +142,21 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
+                angle={xAxisConfig.angle}
+                textAnchor={xAxisConfig.textAnchor}
+                height={xAxisConfig.height}
+                tickMargin={xAxisConfig.tickMargin}
+                interval={xAxisConfig.interval}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                iconSize={10}
+                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
+                iconSize={legendConfig.iconSize}
               />
               <Line 
                 type="monotone" 
@@ -192,14 +198,16 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
+                angle={xAxisConfig.angle}
+                textAnchor={xAxisConfig.textAnchor}
+                height={xAxisConfig.height}
+                tickMargin={xAxisConfig.tickMargin}
+                interval={xAxisConfig.interval}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
               />
               <Tooltip 
                 content={({ active, payload, label }) => {
@@ -224,8 +232,8 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 }}
               />
               <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                iconSize={10}
+                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
+                iconSize={legendConfig.iconSize}
               />
               <Area 
                 type="monotone" 
@@ -284,19 +292,21 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
+                angle={xAxisConfig.angle}
+                textAnchor={xAxisConfig.textAnchor}
+                height={xAxisConfig.height}
+                tickMargin={xAxisConfig.tickMargin}
+                interval={xAxisConfig.interval}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                iconSize={10}
+                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
+                iconSize={legendConfig.iconSize}
               />
               <Line 
                 type="monotone" 
@@ -357,19 +367,21 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               <XAxis 
                 dataKey="date" 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
+                angle={xAxisConfig.angle}
+                textAnchor={xAxisConfig.textAnchor}
+                height={xAxisConfig.height}
+                tickMargin={xAxisConfig.tickMargin}
+                interval={xAxisConfig.interval}
               />
               <YAxis 
                 className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                iconSize={10}
+                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
+                iconSize={legendConfig.iconSize}
               />
               <Line 
                 type="monotone" 

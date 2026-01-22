@@ -3,6 +3,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Scale, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
 import { GovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { CHART_LEGEND } from "@/lib/chartConfig";
 
 interface BCSDistributionChartProps {
   stats: GovernmentHealthStats | null;
@@ -49,6 +51,9 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
     return "Above Target";
   };
 
+  const isMobile = useIsMobile();
+  const legendConfig = isMobile ? CHART_LEGEND.mobile : CHART_LEGEND.desktop;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -77,15 +82,15 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
 
         {/* Distribution Chart */}
         {hasData ? (
-          <div className="h-48">
+          <div className={isMobile ? "h-56" : "h-48"}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
+                  innerRadius={isMobile ? 35 : 40}
+                  outerRadius={isMobile ? 60 : 70}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -103,14 +108,16 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
                 />
                 <Legend 
                   verticalAlign="bottom" 
-                  height={36}
+                  height={isMobile ? 48 : 36}
+                  wrapperStyle={{ fontSize: legendConfig.fontSize }}
+                  iconSize={legendConfig.iconSize}
                   formatter={(value) => <span className="text-xs">{value}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
+          <div className={`${isMobile ? "h-56" : "h-48"} flex items-center justify-center text-muted-foreground`}>
             No BCS data available
           </div>
         )}
