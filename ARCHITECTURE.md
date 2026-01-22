@@ -14,6 +14,7 @@
 11. [Known Technical Debt](#11-known-technical-debt)
 12. [Performance Optimizations](#12-performance-optimizations)
 13. [Mobile Support](#13-mobile-capacitor)
+14. [Data Governance & SSOT](#14-data-governance--single-source-of-truth)
 
 ---
 
@@ -1626,6 +1627,136 @@ await LocalNotifications.schedule({
 
 ---
 
+## 14. Data Governance & Single Source of Truth
+
+### Overview
+
+Doc Aga implements a Single Source of Truth (SSOT) architecture where each data domain has one authoritative source. Derived or cached data is synchronized automatically via database triggers and scheduled jobs.
+
+### Data Domain Reference Table
+
+| Domain | Source of Truth | Derived/Cached Tables | Sync Mechanism | Verified By |
+|--------|----------------|----------------------|----------------|-------------|
+| Animal Weight | `weight_records` | `animals.current_weight_kg` | DB trigger `sync_weight_to_animal` | `check_data_consistency` RPC |
+| Milk Production | `milking_records` | `daily_farm_stats.total_milk_liters` | Nightly `calculate-daily-stats` edge function | `check_data_consistency` RPC |
+| Milk Revenue | `milking_records` (when `is_sold=true`) | `farm_revenues` (via `linked_milk_log_id`) | DB trigger `sync_milk_sale_to_revenue` | `check_data_consistency` RPC |
+| Feed Inventory | `feed_inventory` | — | Direct writes | — |
+| Revenue (other) | `farm_revenues` | — | Direct writes | — |
+| Expenses | `farm_expenses` | — | Direct writes | — |
+| Animal Counts/Stages | `animals` | `daily_farm_stats.stage_counts`, `monthly_farm_stats` | Nightly aggregation | `check_data_consistency` RPC |
+| Herd Value (current) | `animals` × `get_market_price()` | — | Real-time calculation | — |
+| Herd Value (historical) | `biological_asset_valuations` | — | Monthly `create-valuation-snapshot` job | — |
+| User Roles | `user_roles` (global) + `farm_memberships` (farm-level) | — | Direct writes | — |
+
+### Data Hierarchy Diagram
+
+```mermaid
+graph TB
+    subgraph "Source of Truth (Bottom Layer)"
+        WR[weight_records]
+        MR[milking_records]
+        AN[animals]
+        FI[feed_inventory]
+        FR[farm_revenues]
+        FE[farm_expenses]
+    end
+
+    subgraph "Sync Triggers (Middle Layer)"
+        T1[sync_weight_to_animal]
+        T2[sync_milk_sale_to_revenue]
+        T3[calculate-daily-stats job]
+        T4[create-valuation-snapshot job]
+    end
+
+    subgraph "Derived/Cached Data (Top Layer)"
+        ACW[animals.current_weight_kg]
+        DFS[daily_farm_stats]
+        MFS[monthly_farm_stats]
+        BAV[biological_asset_valuations]
+    end
+
+    subgraph "Validation Layer"
+        CDC[check_data_consistency RPC]
+        DIH[data-integrity-helpers tests]
+    end
+
+    WR -->|triggers| T1 --> ACW
+    MR -->|triggers| T2 --> FR
+    MR -->|nightly| T3 --> DFS
+    AN -->|nightly| T3 --> DFS
+    AN -->|monthly| T4 --> BAV
+    
+    ACW -.->|validates| CDC
+    DFS -.->|validates| CDC
+    FR -.->|validates| CDC
+    CDC -.->|tests| DIH
+```
+
+### Sync Mechanisms
+
+#### 1. Database Triggers
+
+**`sync_weight_to_animal`**
+- Fires on INSERT/UPDATE to `weight_records`
+- Updates `animals.current_weight_kg` with latest measurement
+- Ensures weight consistency without manual intervention
+
+**`sync_milk_sale_to_revenue`**
+- Fires on UPDATE to `milking_records` when `is_sold` becomes true
+- Creates corresponding `farm_revenues` entry with `linked_milk_log_id`
+- Prevents orphaned sales without revenue tracking
+
+#### 2. Scheduled Edge Functions
+
+**`calculate-daily-stats`** (Nightly)
+- Aggregates milking records into `daily_farm_stats`
+- Computes stage counts from current animal distribution
+- Runs via external cron trigger
+
+**`create-valuation-snapshot`** (Monthly)
+- Creates point-in-time valuations for all animals
+- Uses current market prices from `get_market_price()` RPC
+- Stores snapshots in `biological_asset_valuations`
+
+### Data Consistency Validation
+
+**`check_data_consistency(p_farm_id, p_date)` RPC**
+
+Returns consistency checks comparing source and derived data:
+- Milk production: milking_records sum vs daily_farm_stats.total_milk_liters
+- Weight sync: weight_records latest vs animals.current_weight_kg
+- Revenue sync: sold milking_records vs farm_revenues with linked_milk_log_id
+
+### Testing Data Integrity
+
+Test utilities in `src/test-utils/data-integrity-helpers.ts`:
+
+```typescript
+// Run all integrity checks
+const results = await runAllIntegrityChecks(farmId);
+
+// Individual checks
+await checkMilkRevenueSync(farmId);
+await checkWeightSync(farmId);
+await checkStatsConsistency(farmId, '2026-01-22');
+await checkValuationConsistency(farmId);
+```
+
+Test files in `src/__tests__/data-integrity/`:
+- `milk-revenue-sync.test.ts` - Validates trigger-based revenue creation
+- `weight-sync.test.ts` - Validates weight propagation trigger
+- `stats-consistency.test.ts` - Validates RPC-based consistency checks
+- `valuation-consistency.test.ts` - Validates snapshot calculations
+
+### Best Practices
+
+1. **Always write to source tables** - Never directly update derived columns
+2. **Trust the triggers** - Sync happens automatically; don't duplicate logic
+3. **Run consistency checks after migrations** - Verify data integrity post-deploy
+4. **Use unified hooks** - `useHerdValuationUnified` for consistent valuation display
+
+---
+
 ## Conclusion
 
 This architecture document provides a comprehensive overview of the Doc Aga project. For contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md).
@@ -1637,6 +1768,7 @@ This architecture document provides a comprehensive overview of the Doc Aga proj
 - ✅ Multi-role support (Farmer, Merchant, Admin)
 - ✅ AI-powered veterinary assistant
 - ✅ Mobile-ready with Capacitor
+- ✅ Single Source of Truth architecture with automated sync
 - ⚠️ Testing coverage needs improvement
 - ⚠️ Some components need refactoring
 
