@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getLactatingAnimalsOrFilter } from "@/lib/animalQueries";
 
 /**
  * Dashboard statistics including animal counts, milk production, and health events
  */
 export interface DashboardStats {
   totalAnimals: number;
+  lactatingCount: number;
   avgDailyMilk: number;
   pregnantCount: number;
   pendingConfirmation: number;
@@ -26,6 +28,7 @@ export interface DashboardStatsTrends {
 export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
+    lactatingCount: 0,
     avgDailyMilk: 0,
     pregnantCount: 0,
     pendingConfirmation: 0,
@@ -42,6 +45,16 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
         .select("*", { count: "exact", head: true })
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
+
+      // Get lactating animals count
+      const { count: lactatingCount } = await supabase
+        .from("animals")
+        .select("*", { count: "exact", head: true })
+        .eq("farm_id", farmId)
+        .eq("gender", "Female")
+        .is("exit_date", null)
+        .eq("is_deleted", false)
+        .or(getLactatingAnimalsOrFilter());
 
       // Get average daily milk - prefer pre-aggregated stats
       const { data: dailyStats } = await supabase
@@ -93,6 +106,7 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
 
       setStats({
         totalAnimals: animalCount || 0,
+        lactatingCount: lactatingCount || 0,
         avgDailyMilk: avgMilk,
         pregnantCount: pregnancyData?.length || 0,
         pendingConfirmation: pendingAI?.length || 0,

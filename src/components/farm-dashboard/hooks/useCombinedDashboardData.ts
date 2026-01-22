@@ -44,6 +44,7 @@ export const useCombinedDashboardData = (
 ) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalAnimals: 0,
+    lactatingCount: 0,
     avgDailyMilk: 0,
     pregnantCount: 0,
     pendingConfirmation: 0,
@@ -133,9 +134,9 @@ export const useCombinedDashboardData = (
       if (data) {
         const result = data as unknown as CombinedDashboardData;
         
-        // Process server stats
-        const serverStats = result.stats || {
+        const serverStats: DashboardStats = result.stats || {
           totalAnimals: 0,
+          lactatingCount: 0,
           avgDailyMilk: 0,
           pregnantCount: 0,
           pendingConfirmation: 0,
