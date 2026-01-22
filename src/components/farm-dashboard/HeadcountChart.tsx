@@ -1,10 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer } from "@/components/ui/chart";
-import { 
-  ComposedChart, Bar, Line, CartesianGrid, XAxis, YAxis, 
-  Legend, Tooltip, ReferenceLine, Brush 
-} from "recharts";
+import { ChartTooltip } from "@/components/ui/chart";
+import { ComposedChart, Bar, Line, CartesianGrid, ReferenceLine } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TrendingUp, TrendingDown, Minus, Users, BarChart3, AlertCircle, RefreshCw } from "lucide-react";
@@ -13,7 +10,14 @@ import { HeadcountTooltip } from "./HeadcountTooltip";
 import { HeadcountMonthDialog } from "./HeadcountMonthDialog";
 import { Button } from "@/components/ui/button";
 import { Sprout } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { 
+  ResponsiveChartContainer, 
+  useResponsiveChartContext,
+  ResponsiveXAxis,
+  ResponsiveYAxis,
+  ResponsiveLegend,
+  ConditionalBrush 
+} from "@/components/charts";
 
 interface HeadcountChartProps {
   data: MonthlyHeadcount[];
@@ -136,6 +140,108 @@ const MALE_STAGES = [
   "Ram Lamb", "Young Ram", "Mature Ram"
 ];
 
+interface HeadcountChartContentProps {
+  enhancedData: any[];
+  filteredStageKeys: string[];
+  summaryStats: {
+    avg: number;
+    netGrowth: number;
+    growthPercent: string;
+    bestMonth: string;
+    maxTotal: number;
+  } | null;
+  getPreviousTotal: (month: string) => number | undefined;
+  onBarClick: (data: any) => void;
+}
+
+/**
+ * Inner chart content component that uses responsive context
+ */
+const HeadcountChartContent = ({ 
+  enhancedData, 
+  filteredStageKeys, 
+  summaryStats,
+  getPreviousTotal,
+  onBarClick 
+}: HeadcountChartContentProps) => {
+  const { isMobile, margin } = useResponsiveChartContext();
+
+  return (
+    <ComposedChart 
+      data={enhancedData} 
+      margin={{ ...margin, bottom: isMobile ? 100 : 70 }}
+      onClick={onBarClick}
+    >
+      <defs>
+        <linearGradient id="headcountGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+      <ResponsiveXAxis dataKey="month" />
+      <ResponsiveYAxis />
+      <ChartTooltip 
+        content={({ active, payload, label }) => (
+          <HeadcountTooltip
+            active={active}
+            payload={payload}
+            label={label}
+            previousTotal={getPreviousTotal(label as string)}
+            stageCategories={STAGE_CATEGORIES}
+          />
+        )}
+      />
+      
+      {/* Average reference line */}
+      {summaryStats && (
+        <ReferenceLine 
+          y={summaryStats.avg} 
+          stroke="hsl(var(--primary))" 
+          strokeDasharray="5 5"
+          strokeOpacity={0.6}
+          label={{ 
+            value: `Avg: ${summaryStats.avg}`, 
+            position: 'right',
+            fill: 'hsl(var(--muted-foreground))',
+            fontSize: isMobile ? 9 : 11
+          }}
+        />
+      )}
+
+      {/* Stacked bars */}
+      {filteredStageKeys.map((stage, index) => (
+        <Bar
+          key={stage}
+          dataKey={stage}
+          stackId="headcount"
+          fill={STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`}
+          radius={index === filteredStageKeys.length - 1 ? [4, 4, 0, 0] : undefined}
+        />
+      ))}
+
+      {/* Trend line */}
+      <Line
+        type="monotone"
+        dataKey="total"
+        stroke="hsl(var(--primary))"
+        strokeWidth={2}
+        dot={false}
+        strokeOpacity={0.7}
+        activeDot={{ r: 4 }}
+      />
+
+      <ResponsiveLegend />
+      
+      <ConditionalBrush 
+        dataKey="month" 
+        stroke="hsl(var(--primary))"
+        travellerWidth={10}
+      />
+    </ComposedChart>
+  );
+};
+
 export const HeadcountChart = ({
   data,
   stageKeys,
@@ -150,7 +256,6 @@ export const HeadcountChart = ({
   showFeedForecast = false,
   onToggleFeedForecast
 }: HeadcountChartProps) => {
-  const isMobile = useIsMobile();
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
   
@@ -255,6 +360,15 @@ export const HeadcountChart = ({
     const index = enhancedData.findIndex(d => d.month === month);
     return index > 0 ? enhancedData[index - 1].total : undefined;
   };
+
+  // Build chart config for all filtered stages
+  const chartConfig = filteredStageKeys.reduce((acc, stage, index) => ({
+    ...acc,
+    [stage]: {
+      label: stage,
+      color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
+    }
+  }), {});
 
   return (
     <>
@@ -392,118 +506,22 @@ export const HeadcountChart = ({
               )}
             </div>
           ) : (
-            <div className="w-full">
-              <ChartContainer
-                config={filteredStageKeys.reduce((acc, stage, index) => ({
-                  ...acc,
-                  [stage]: {
-                    label: stage,
-                    color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
-                  }
-                }), {})}
-                className="aspect-auto w-full h-[320px] sm:h-[360px] md:h-[380px]"
-              >
-                <ComposedChart 
-                  data={enhancedData} 
-                  margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 100 : 70 }}
-                  onClick={handleBarClick}
-                >
-                    <defs>
-                      <linearGradient id="headcountGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="month" 
-                      tick={{ fontSize: isMobile ? 9 : 11 }} 
-                      tickMargin={isMobile ? 15 : 8}
-                      angle={isMobile ? -45 : 0}
-                      textAnchor={isMobile ? 'end' : 'middle'}
-                      height={isMobile ? 60 : 30}
-                      interval={isMobile ? 0 : "preserveStartEnd"}
-                    />
-                    <YAxis width={40} />
-                    <Tooltip 
-                      content={({ active, payload, label }) => (
-                        <HeadcountTooltip
-                          active={active}
-                          payload={payload}
-                          label={label}
-                          previousTotal={getPreviousTotal(label as string)}
-                          stageCategories={STAGE_CATEGORIES}
-                        />
-                      )}
-                    />
-                    
-                    {/* Average reference line */}
-                    {summaryStats && (
-                      <ReferenceLine 
-                        y={summaryStats.avg} 
-                        stroke="hsl(var(--primary))" 
-                        strokeDasharray="5 5"
-                        strokeOpacity={0.6}
-                        label={{ 
-                          value: `Avg: ${summaryStats.avg}`, 
-                          position: 'right',
-                          fill: 'hsl(var(--muted-foreground))',
-                          fontSize: 11
-                        }}
-                      />
-                    )}
-
-                    <Legend 
-                      wrapperStyle={{ 
-                        fontSize: isMobile ? '9px' : '11px', 
-                        paddingTop: isMobile ? '16px' : '10px',
-                        paddingBottom: isMobile ? '8px' : '0px'
-                      }}
-                      iconSize={isMobile ? 8 : 10}
-                      layout="horizontal"
-                      align="center"
-                      verticalAlign="bottom"
-                    />
-                    
-                    {/* Stacked bars for each stage */}
-                    {filteredStageKeys.map((stage, index) => (
-                      <Bar
-                        key={stage}
-                        dataKey={stage}
-                        stackId="a"
-                        fill={STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`}
-                        name={stage}
-                        cursor="pointer"
-                        radius={index === filteredStageKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                      />
-                    ))}
-
-                    {/* Trend line overlay */}
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="hsl(var(--foreground))"
-                      strokeWidth={2}
-                      strokeDasharray="4 4"
-                      dot={false}
-                      name="Total Trend"
-                      legendType="none"
-                    />
-
-                    {/* Brush for zoom/pan */}
-                    {data.length > 6 && !isMobile && (
-                      <Brush 
-                        dataKey="month" 
-                        height={30} 
-                        stroke="hsl(var(--primary))"
-                        fill="hsl(var(--muted))"
-                        travellerWidth={10}
-                      />
-                    )}
-                  </ComposedChart>
-                </ChartContainer>
-              </div>
-            )}
+            <ResponsiveChartContainer
+              config={chartConfig}
+              size="medium"
+              dataLength={data.length}
+              brushThreshold={6}
+              className="h-[320px] sm:h-[360px] md:h-[380px]"
+            >
+              <HeadcountChartContent
+                enhancedData={enhancedData}
+                filteredStageKeys={filteredStageKeys}
+                summaryStats={summaryStats}
+                getPreviousTotal={getPreviousTotal}
+                onBarClick={handleBarClick}
+              />
+            </ResponsiveChartContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -514,10 +532,10 @@ export const HeadcountChart = ({
         farmId={farmId}
         month={selectedMonth || ""}
         stageData={selectedMonthData}
+        stageCategories={STAGE_CATEGORIES}
         onNavigate={handleNavigate}
         hasPrev={hasPrevMonth}
         hasNext={hasNextMonth}
-        stageCategories={STAGE_CATEGORIES}
       />
     </>
   );
