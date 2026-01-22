@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CHART_FONT_SIZE } from "@/lib/chartConfig";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface BreedingSuccessChartProps {
   cattleSuccessRate: number;
@@ -56,8 +55,7 @@ export const BreedingSuccessChart = ({
     );
   }
 
-  const isMobile = useIsMobile();
-  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
+  const { isMobile, fontSize } = useResponsiveChart({ size: 'medium' });
 
   return (
     <Card>

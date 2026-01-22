@@ -4,8 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, TrendingDown, Scale, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CHART_FONT_SIZE } from "@/lib/chartConfig";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface ProfitabilityThermometerProps {
   farmId: string;
@@ -13,8 +12,7 @@ interface ProfitabilityThermometerProps {
 
 export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerProps) {
   const { data, isLoading } = useProfitability(farmId);
-  const isMobile = useIsMobile();
-  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
+  const { isMobile, fontSize } = useResponsiveChart({ size: 'small' });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {

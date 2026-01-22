@@ -3,14 +3,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sprout, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { MonthlyFeedForecast, calculateTotalFeedNeeded } from "@/lib/feedForecast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface FeedForecastProps {
   forecasts: MonthlyFeedForecast[];
 }
 
 export function FeedForecast({ forecasts }: FeedForecastProps) {
-  const isMobile = useIsMobile();
+  const { isMobile, fontSize, xAxisProps, legendProps } = useResponsiveChart({ size: 'medium', dataLength: forecasts.length });
   const totals = calculateTotalFeedNeeded(forecasts);
 
   // Prepare chart data
@@ -90,23 +90,20 @@ export function FeedForecast({ forecasts }: FeedForecastProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="month" 
-                tick={{ fontSize: isMobile ? 9 : 11 }}
-                tickMargin={isMobile ? 15 : 8}
-                angle={isMobile ? -45 : 0}
-                textAnchor={isMobile ? 'end' : 'middle'}
-                height={isMobile ? 50 : 30}
+                tick={{ fontSize }}
+                tickMargin={xAxisProps.tickMargin}
+                angle={xAxisProps.angle}
+                textAnchor={xAxisProps.textAnchor}
+                height={xAxisProps.height}
               />
               <YAxis 
-                tick={{ fontSize: isMobile ? 9 : 11 }}
-                label={isMobile ? undefined : { value: 'kg/day', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} 
+                tick={{ fontSize }}
+                label={isMobile ? undefined : { value: 'kg/day', angle: -90, position: 'insideLeft', style: { fontSize } }} 
               />
               <Tooltip />
               <Legend 
-                wrapperStyle={{ 
-                  fontSize: isMobile ? '9px' : '11px',
-                  paddingTop: isMobile ? '12px' : '8px'
-                }}
-                iconSize={isMobile ? 8 : 10}
+                wrapperStyle={legendProps.wrapperStyle}
+                iconSize={legendProps.iconSize}
               />
               <Bar dataKey="dryMatter" fill="hsl(var(--foreground))" name="Dry Matter (kg/day)" />
               <Bar dataKey="freshForage" fill="hsl(var(--primary))" name="Fresh Forage (kg/day)" />

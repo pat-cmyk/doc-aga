@@ -19,6 +19,7 @@ import { LocalPriceInputDialog } from "./LocalPriceInputDialog";
 import { getSourceLabel } from "@/hooks/useMarketPrices";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface HerdValueChartProps {
   farmId: string;
@@ -28,6 +29,7 @@ interface HerdValueChartProps {
 export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueChartProps) {
   const [chartExpanded, setChartExpanded] = useState(false);
   const { data: valuation, isLoading } = useHerdValuationUnified(farmId, livestockType, 3);
+  const { fontSize } = useResponsiveChart({ size: 'small' });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -176,13 +178,13 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis
                         dataKey="month"
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize }}
                         tickLine={false}
                         axisLine={false}
                       />
                       <YAxis
                         tickFormatter={(value) => formatCompact(value)}
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize }}
                         tickLine={false}
                         axisLine={false}
                         width={45}
@@ -222,13 +224,13 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
                     tickFormatter={(value) => formatCompact(value)}
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize }}
                     tickLine={false}
                     axisLine={false}
                     width={50}

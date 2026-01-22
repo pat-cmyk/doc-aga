@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useBodyConditionScores } from "@/hooks/useBodyConditionScores";
 import { cn } from "@/lib/utils";
 import { RecordBCSDialog } from "./RecordBCSDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface BCSHistoryChartProps {
   animalId: string;
@@ -63,7 +63,7 @@ const CustomTooltip = ({ active, payload, getBCSStatus }: CustomTooltipProps) =>
 };
 
 export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChartProps) {
-  const isMobile = useIsMobile();
+  const { isMobile, fontSize, xAxisProps } = useResponsiveChart({ size: 'small' });
   const { bcsRecords, isLoading, latestBCS, getBCSStatus } = useBodyConditionScores(animalId);
 
   const chartData = useMemo(() => {
@@ -217,10 +217,10 @@ export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChart
 
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: isMobile ? 9 : 11 }}
-                  tickMargin={isMobile ? 10 : 5}
-                  angle={isMobile ? -45 : 0}
-                  textAnchor={isMobile ? 'end' : 'middle'}
+                  tick={{ fontSize }}
+                  tickMargin={xAxisProps.tickMargin}
+                  angle={xAxisProps.angle}
+                  textAnchor={xAxisProps.textAnchor}
                   height={isMobile ? 40 : 25}
                   tickLine={false}
                   axisLine={false}
@@ -228,7 +228,7 @@ export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChart
                 <YAxis
                   domain={[1, 5]}
                   ticks={[1, 2, 3, 4, 5]}
-                  tick={{ fontSize: isMobile ? 9 : 11 }}
+                  tick={{ fontSize }}
                   tickLine={false}
                   axisLine={false}
                 />
