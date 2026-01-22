@@ -254,6 +254,9 @@ interface FarmDataCache {
 
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
+// Bump this version when RPC logic changes to force cache invalidation
+const DASHBOARD_CACHE_VERSION = 2;
+
 export interface DashboardStatsCache {
   farmId: string;
   stats: {
@@ -272,6 +275,7 @@ export interface DashboardStatsCache {
   lastUpdated: number;
   lastServerSync: number;
   syncStatus: CacheSyncStatus;
+  cacheVersion?: number; // Track schema/logic version for invalidation
 }
 
 // ============= MILK INVENTORY CACHE (Offline-First) =============
@@ -1282,6 +1286,12 @@ export async function isDashboardCacheFresh(farmId: string): Promise<boolean> {
     
     if (!cached) return false;
     
+    // Invalidate if cache version doesn't match current (RPC logic changed)
+    if ((cached.cacheVersion ?? 1) !== DASHBOARD_CACHE_VERSION) {
+      console.log('[DataCache] Dashboard cache version mismatch, forcing refresh');
+      return false;
+    }
+    
     return Date.now() - cached.lastServerSync < CACHE_TTL.dashboardStats;
   } catch (error) {
     return false;
@@ -1323,6 +1333,7 @@ export async function updateDashboardStatsCache(
       lastUpdated: Date.now(),
       lastServerSync: Date.now(),
       syncStatus: 'synced',
+      cacheVersion: DASHBOARD_CACHE_VERSION,
     };
     
     await db.put('dashboardStats', updated);
