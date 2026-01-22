@@ -52,7 +52,7 @@ export const DashboardStats = ({ stats, trends, farmId }: DashboardStatsProps) =
 
         <Card 
           className="min-h-[100px] sm:min-h-[120px] cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => navigate('/?tab=operations')}
+          onClick={() => navigate('/?tab=operations&subtab=feed')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Feed Stock</CardTitle>
