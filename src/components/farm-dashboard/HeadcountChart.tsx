@@ -13,6 +13,7 @@ import { HeadcountTooltip } from "./HeadcountTooltip";
 import { HeadcountMonthDialog } from "./HeadcountMonthDialog";
 import { Button } from "@/components/ui/button";
 import { Sprout } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeadcountChartProps {
   data: MonthlyHeadcount[];
@@ -149,6 +150,7 @@ export const HeadcountChart = ({
   showFeedForecast = false,
   onToggleFeedForecast
 }: HeadcountChartProps) => {
+  const isMobile = useIsMobile();
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
   
@@ -390,23 +392,22 @@ export const HeadcountChart = ({
               )}
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <div className="min-w-[640px]">
-                <ChartContainer
-                  config={filteredStageKeys.reduce((acc, stage, index) => ({
-                    ...acc,
-                    [stage]: {
-                      label: stage,
-                      color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
-                    }
-                  }), {})}
-                  className="aspect-auto w-full h-[220px] sm:h-[280px] md:h-[320px]"
+            <div className="w-full">
+              <ChartContainer
+                config={filteredStageKeys.reduce((acc, stage, index) => ({
+                  ...acc,
+                  [stage]: {
+                    label: stage,
+                    color: STAGE_COLORS[stage] || `hsl(${(index * 30) % 360} 70% 50%)`,
+                  }
+                }), {})}
+                className="aspect-auto w-full h-[320px] sm:h-[360px] md:h-[380px]"
+              >
+                <ComposedChart 
+                  data={enhancedData} 
+                  margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 100 : 70 }}
+                  onClick={handleBarClick}
                 >
-                  <ComposedChart 
-                    data={enhancedData} 
-                    margin={{ top: 10, right: 10, left: 0, bottom: 60 }}
-                    onClick={handleBarClick}
-                  >
                     <defs>
                       <linearGradient id="headcountGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -416,10 +417,12 @@ export const HeadcountChart = ({
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis 
                       dataKey="month" 
-                      tick={{ fontSize: 11 }} 
-                      tickMargin={8}
-                      minTickGap={10}
-                      interval="preserveStartEnd"
+                      tick={{ fontSize: isMobile ? 9 : 11 }} 
+                      tickMargin={isMobile ? 15 : 8}
+                      angle={isMobile ? -45 : 0}
+                      textAnchor={isMobile ? 'end' : 'middle'}
+                      height={isMobile ? 60 : 30}
+                      interval={isMobile ? 0 : "preserveStartEnd"}
                     />
                     <YAxis width={40} />
                     <Tooltip 
@@ -451,8 +454,15 @@ export const HeadcountChart = ({
                     )}
 
                     <Legend 
-                      wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
-                      iconSize={10}
+                      wrapperStyle={{ 
+                        fontSize: isMobile ? '9px' : '11px', 
+                        paddingTop: isMobile ? '16px' : '10px',
+                        paddingBottom: isMobile ? '8px' : '0px'
+                      }}
+                      iconSize={isMobile ? 8 : 10}
+                      layout="horizontal"
+                      align="center"
+                      verticalAlign="bottom"
                     />
                     
                     {/* Stacked bars for each stage */}
@@ -481,7 +491,7 @@ export const HeadcountChart = ({
                     />
 
                     {/* Brush for zoom/pan */}
-                    {data.length > 6 && (
+                    {data.length > 6 && !isMobile && (
                       <Brush 
                         dataKey="month" 
                         height={30} 
@@ -493,8 +503,7 @@ export const HeadcountChart = ({
                   </ComposedChart>
                 </ChartContainer>
               </div>
-            </div>
-          )}
+            )}
         </CardContent>
       </Card>
 
