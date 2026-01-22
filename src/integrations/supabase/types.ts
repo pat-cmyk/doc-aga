@@ -1702,6 +1702,39 @@ export type Database = {
           },
         ]
       }
+      gov_analytics_access_audit_log: {
+        Row: {
+          access_type: string
+          accessed_at: string
+          id: string
+          metadata: Json | null
+          records_accessed: number
+          regions_accessed: string[] | null
+          user_id: string
+          user_role: string | null
+        }
+        Insert: {
+          access_type?: string
+          accessed_at?: string
+          id?: string
+          metadata?: Json | null
+          records_accessed?: number
+          regions_accessed?: string[] | null
+          user_id: string
+          user_role?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_at?: string
+          id?: string
+          metadata?: Json | null
+          records_accessed?: number
+          regions_accessed?: string[] | null
+          user_id?: string
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       health_records: {
         Row: {
           animal_id: string
@@ -3545,22 +3578,13 @@ export type Database = {
           lgu_code: string | null
           municipality: string | null
           name: string | null
-          owner_id: string | null
           program_group: string | null
           province: string | null
           region: string | null
           validated_at: string | null
           validation_status: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "farms_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -3750,31 +3774,24 @@ export type Database = {
       get_gov_farm_analytics_with_audit: {
         Args: { _access_type?: string; _metadata?: Json }
         Returns: {
-          active_animal_count: number | null
-          animal_count: number | null
-          ffedis_id: string | null
-          gps_lat: number | null
-          gps_lng: number | null
-          health_events_30d: number | null
-          health_events_7d: number | null
-          id: string | null
-          is_program_participant: boolean | null
-          lgu_code: string | null
-          municipality: string | null
-          name: string | null
-          owner_id: string | null
-          program_group: string | null
-          province: string | null
-          region: string | null
-          validated_at: string | null
-          validation_status: string | null
+          active_animal_count: number
+          animal_count: number
+          ffedis_id: string
+          gps_lat: number
+          gps_lng: number
+          health_events_30d: number
+          health_events_7d: number
+          id: string
+          is_program_participant: boolean
+          lgu_code: string
+          municipality: string
+          name: string
+          program_group: string
+          province: string
+          region: string
+          validated_at: string
+          validation_status: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "gov_farm_analytics"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       get_government_breeding_stats: {
         Args: {

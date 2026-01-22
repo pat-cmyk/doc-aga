@@ -2,92 +2,113 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
 
-interface RegionalStats {
+export interface RegionalStats {
   region: string;
   farm_count: number;
+  animal_count: number;
   active_animal_count: number;
   health_events_7d: number;
+  health_events_30d: number;
   avg_gps_lat: number;
   avg_gps_lng: number;
 }
 
 interface GovFarmAnalyticsRow {
-  region: string | null;
-  active_animal_count: number | null;
-  health_events_7d: number | null;
+  id: string;
+  name: string;
+  region: string;
+  province: string;
+  municipality: string;
   gps_lat: number | null;
   gps_lng: number | null;
+  lgu_code: string | null;
+  ffedis_id: string | null;
+  validation_status: string | null;
+  validated_at: string | null;
+  is_program_participant: boolean | null;
+  program_group: string | null;
+  animal_count: number;
+  active_animal_count: number;
+  health_events_7d: number;
+  health_events_30d: number;
 }
 
 export const useRegionalStats = () => {
   return useQuery({
     queryKey: ["regional-stats"],
     queryFn: async () => {
-      // Use RPC function with audit logging
-      const { data, error } = await supabase
-        .rpc("get_gov_farm_analytics_with_audit" as unknown as "get_gov_farm_analytics", {
-          _access_type: "view",
-          _metadata: { source: "regional_stats_dashboard" }
-        } as unknown as { p_region?: string; p_province?: string; p_municipality?: string });
+      // Use the audited RPC function for government analytics access
+      const { data, error } = await supabase.rpc("get_gov_farm_analytics_with_audit", {
+        _access_type: "view",
+        _metadata: { source: "regional_stats_dashboard" }
+      });
 
       if (error) throw error;
 
-      // Group by region and calculate stats with resilient coordinate handling
-      type InternalRegion = RegionalStats & { latSum: number; lngSum: number; coordCount: number };
-      const regionMap = new Map<string, InternalRegion>();
+      // Cast the data to our expected type
+      const farms = data as unknown as GovFarmAnalyticsRow[];
 
-      (data as unknown as GovFarmAnalyticsRow[])?.forEach((farm) => {
-        if (!farm.region) return;
+      // Aggregate by region
+      const regionMap = new Map<string, {
+        farmCount: number;
+        animalCount: number;
+        activeAnimalCount: number;
+        healthEvents7d: number;
+        healthEvents30d: number;
+        latSum: number;
+        lngSum: number;
+        coordCount: number;
+      }>();
 
-        const key = String(farm.region);
-        const existing = regionMap.get(key) || {
-          region: key,
-          farm_count: 0,
-          active_animal_count: 0,
-          health_events_7d: 0,
-          avg_gps_lat: 0,
-          avg_gps_lng: 0,
+      farms.forEach((farm) => {
+        const region = farm.region || "Unknown";
+        const existing = regionMap.get(region) || {
+          farmCount: 0,
+          animalCount: 0,
+          activeAnimalCount: 0,
+          healthEvents7d: 0,
+          healthEvents30d: 0,
           latSum: 0,
           lngSum: 0,
           coordCount: 0,
         };
 
-        existing.farm_count += 1;
-        existing.active_animal_count += Number(farm.active_animal_count || 0);
-        existing.health_events_7d += Number(farm.health_events_7d || 0);
+        existing.farmCount += 1;
+        existing.animalCount += farm.animal_count || 0;
+        existing.activeAnimalCount += farm.active_animal_count || 0;
+        existing.healthEvents7d += farm.health_events_7d || 0;
+        existing.healthEvents30d += farm.health_events_30d || 0;
 
-        const lat = Number(farm.gps_lat || 0);
-        const lng = Number(farm.gps_lng || 0);
-        if (lat !== 0 && lng !== 0) {
-          existing.latSum += lat;
-          existing.lngSum += lng;
+        if (farm.gps_lat && farm.gps_lng) {
+          existing.latSum += farm.gps_lat;
+          existing.lngSum += farm.gps_lng;
           existing.coordCount += 1;
         }
 
-        regionMap.set(key, existing);
+        regionMap.set(region, existing);
       });
 
-      const result: RegionalStats[] = Array.from(regionMap.values()).map((r) => {
-        const hasAvg = r.coordCount > 0;
-        const avgLat = hasAvg ? r.latSum / r.coordCount : 0;
-        const avgLng = hasAvg ? r.lngSum / r.coordCount : 0;
+      // Convert to array with calculated averages
+      const stats: RegionalStats[] = [];
+      regionMap.forEach((data, region) => {
+        // Use actual coordinates if available, otherwise fallback to predefined
+        const fallbackCoords = getRegionalCoordinates(region);
+        const avg_gps_lat = data.coordCount > 0 ? data.latSum / data.coordCount : (fallbackCoords?.lat ?? 12.8797);
+        const avg_gps_lng = data.coordCount > 0 ? data.lngSum / data.coordCount : (fallbackCoords?.lng ?? 121.7740);
 
-        if (hasAvg && avgLat !== 0 && avgLng !== 0) {
-          return { region: r.region, farm_count: r.farm_count, active_animal_count: r.active_animal_count, health_events_7d: r.health_events_7d, avg_gps_lat: avgLat, avg_gps_lng: avgLng };
-        }
-
-        const fallback = getRegionalCoordinates(r.region);
-        return {
-          region: r.region,
-          farm_count: r.farm_count,
-          active_animal_count: r.active_animal_count,
-          health_events_7d: r.health_events_7d,
-          avg_gps_lat: fallback?.lat ?? 0,
-          avg_gps_lng: fallback?.lng ?? 0,
-        };
+        stats.push({
+          region,
+          farm_count: data.farmCount,
+          animal_count: data.animalCount,
+          active_animal_count: data.activeAnimalCount,
+          health_events_7d: data.healthEvents7d,
+          health_events_30d: data.healthEvents30d,
+          avg_gps_lat,
+          avg_gps_lng,
+        });
       });
 
-      return result;
+      return stats;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
