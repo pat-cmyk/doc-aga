@@ -8,14 +8,15 @@ Welcome to the Doc Aga project! This guide will help you get started with develo
 3. [Code Style](#3-code-style)
 4. [Testing Guidelines](#4-testing-guidelines)
 5. [Component Guidelines](#5-component-guidelines)
-6. [Database Changes](#6-database-changes)
-7. [Edge Function Development](#7-edge-function-development)
-8. [Common Patterns](#8-common-patterns)
-9. [Debugging Tips](#9-debugging-tips)
-10. [Performance Guidelines](#10-performance-guidelines)
-11. [Security Guidelines](#11-security-guidelines)
-12. [Deployment](#12-deployment)
-13. [Resources](#13-resources)
+6. [Chart Guidelines](#6-chart-guidelines)
+7. [Database Changes](#7-database-changes)
+8. [Edge Function Development](#8-edge-function-development)
+9. [Common Patterns](#9-common-patterns)
+10. [Debugging Tips](#10-debugging-tips)
+11. [Performance Guidelines](#11-performance-guidelines)
+12. [Security Guidelines](#12-security-guidelines)
+13. [Deployment](#13-deployment)
+14. [Resources](#14-resources)
 
 ---
 
@@ -872,7 +873,162 @@ export const AnimalList = ({ farmId }: Props) => {
 
 ---
 
-## 6. Database Changes
+## 6. Chart Guidelines
+
+### Overview
+
+All charts in Doc Aga use a unified responsive architecture built on Recharts. This ensures consistent mobile behavior, touch-friendly interactions, and maintainable code across all 15+ chart components.
+
+### Architecture Components
+
+| File | Purpose |
+|------|---------|
+| `src/lib/chartConfig.ts` | Centralized responsive configuration constants |
+| `src/hooks/useResponsiveChart.ts` | Main hook providing responsive chart props |
+| `src/components/charts/` | Reusable chart wrapper components |
+
+### The useResponsiveChart Hook
+
+This is the primary API for responsive charts. Import and use it in every chart component:
+
+```typescript
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+
+const { isMobile, fontSize, xAxisProps, legendProps, margin, shouldShowBrush, heightClass } = useResponsiveChart({
+  size: 'medium',      // 'small' | 'medium' | 'large'
+  dataLength: data.length,
+  brushThreshold: 14,  // Show brush when data exceeds this (desktop only)
+});
+```
+
+### Available Sizes
+
+| Size | Mobile | Tablet | Desktop | Use Case |
+|------|--------|--------|---------|----------|
+| `small` | 200px | 240px | 280px | KPI cards, compact widgets |
+| `medium` | 280px | 320px | 360px | Dashboard charts (default) |
+| `large` | 320px | 380px | 420px | Full-page analytics |
+
+### Hook Return Values
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `isMobile` | boolean | True on screens < 768px |
+| `fontSize` | number | 9px (mobile) or 11px (desktop) |
+| `heightClass` | string | Tailwind height classes for responsive sizing |
+| `xAxisProps` | object | Spread onto XAxis: angle, height, tickMargin, interval |
+| `legendProps` | object | Spread onto Legend: wrapperStyle, iconSize |
+| `margin` | object | Chart margins: { top, right, bottom, left } |
+| `shouldShowBrush` | boolean | True when data > threshold AND on desktop |
+
+### Standard Chart Template
+
+```typescript
+import { ChartContainer } from "@/components/ui/chart";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+
+export const MyChart = ({ data }: { data: DataPoint[] }) => {
+  const { isMobile, fontSize, xAxisProps, legendProps, margin, heightClass } = useResponsiveChart({
+    size: 'medium',
+    dataLength: data.length,
+  });
+
+  const chartConfig = {
+    value: { label: "Value", color: "hsl(var(--chart-1))" },
+  };
+
+  return (
+    <ChartContainer config={chartConfig} className={`aspect-auto w-full ${heightClass}`}>
+      <AreaChart data={data} margin={margin}>
+        <XAxis dataKey="date" tick={{ fontSize }} {...xAxisProps} />
+        <YAxis tick={{ fontSize }} />
+        <Tooltip />
+        <Legend 
+          wrapperStyle={legendProps.wrapperStyle} 
+          iconSize={legendProps.iconSize} 
+        />
+        <Area dataKey="value" fill="var(--color-value)" />
+      </AreaChart>
+    </ChartContainer>
+  );
+};
+```
+
+### Mobile Optimizations Applied Automatically
+
+- **XAxis rotation**: Labels rotate -45 degrees on mobile for readability
+- **Increased bottom margin**: Accommodates rotated labels (100px vs 60px)
+- **Smaller fonts**: 9px on mobile vs 11px on desktop
+- **No Brush on mobile**: Touch-unfriendly brush component hidden
+- **Compact legends**: Smaller icons and font in legend
+
+### Adding Conditional Brush (Desktop Only)
+
+For charts with many data points, add a zoom/pan brush control:
+
+```typescript
+const { shouldShowBrush } = useResponsiveChart({
+  size: 'medium',
+  dataLength: data.length,
+  brushThreshold: 14, // Shows brush when data.length > 14 AND not mobile
+});
+
+// In render:
+{shouldShowBrush && (
+  <Brush 
+    dataKey="date" 
+    height={30} 
+    stroke="hsl(var(--border))" 
+    fill="hsl(var(--muted))"
+  />
+)}
+```
+
+### Important: Recharts Container Limitation
+
+**The Recharts chart component (AreaChart, BarChart, etc.) MUST be the direct child of ChartContainer.**
+
+Intermediate wrapper components break the responsive sizing:
+
+```typescript
+// ❌ WRONG - chart won't receive dimensions
+<ChartContainer>
+  <MyChartWrapper>   {/* Blocks cloneElement injection */}
+    <AreaChart>...</AreaChart>
+  </MyChartWrapper>
+</ChartContainer>
+
+// ✅ CORRECT - direct child
+<ChartContainer>
+  <AreaChart>...</AreaChart>  {/* Receives width/height */}
+</ChartContainer>
+```
+
+### Chart Type Quick Reference
+
+| Chart Type | Common Components | Notes |
+|------------|-------------------|-------|
+| Line/Area | XAxis, YAxis, Tooltip, Legend, Area/Line | Use gradient fills |
+| Bar | XAxis, YAxis, Tooltip, Legend, Bar | Use stackId for stacked |
+| Pie | Pie, Cell, Tooltip, Legend | No XAxis/YAxis needed |
+| Composed | XAxis, YAxis, Bar + Line | Combine multiple types |
+
+### Checklist for New Charts
+
+- [ ] Import `useResponsiveChart` hook
+- [ ] Set appropriate `size` ('small' for widgets, 'medium' for dashboards)
+- [ ] Pass `dataLength` for brush threshold calculation
+- [ ] Apply `heightClass` to ChartContainer
+- [ ] Spread `xAxisProps` onto XAxis component
+- [ ] Apply `fontSize` to XAxis and YAxis tick props
+- [ ] Spread `legendProps` onto Legend component
+- [ ] Apply `margin` to chart component
+- [ ] Conditionally render Brush using `shouldShowBrush`
+
+---
+
+## 7. Database Changes
 
 ### Migration Best Practices
 
@@ -1008,7 +1164,7 @@ CREATE POLICY "Bad policy"
 
 ---
 
-## 7. Edge Function Development
+## 8. Edge Function Development
 
 ### Creating Edge Functions
 
@@ -1162,7 +1318,7 @@ curl -X POST http://localhost:54321/functions/v1/my-function \
 
 ---
 
-## 8. Common Patterns
+## 9. Common Patterns
 
 ### Data Fetching with TanStack Query
 
@@ -1566,7 +1722,7 @@ if (response.error === 'NEEDS_CLARIFICATION') {
 
 ---
 
-## 9. Debugging Tips
+## 10. Debugging Tips
 
 ### Common Issues & Solutions
 
@@ -1684,7 +1840,7 @@ queryClient.invalidateQueries({ queryKey: ['animals', farmId] });
 
 ---
 
-## 10. Performance Guidelines
+## 11. Performance Guidelines
 
 ### Do's
 
@@ -1782,7 +1938,7 @@ const config = useMemo(() => ({ timeout: 5000 }), []);
 
 ---
 
-## 11. Security Guidelines
+## 12. Security Guidelines
 
 ### Frontend Security
 
@@ -1891,7 +2047,7 @@ const verifySignature = (payload: string, signature: string, secret: string) => 
 
 ---
 
-## 12. Deployment
+## 13. Deployment
 
 ### Lovable Deployment
 
@@ -1962,7 +2118,7 @@ npx cap open android
 
 ---
 
-## 13. Resources
+## 14. Resources
 
 ### Documentation
 
