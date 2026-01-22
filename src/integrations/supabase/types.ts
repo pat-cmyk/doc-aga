@@ -1460,8 +1460,10 @@ export type Database = {
       }
       farms: {
         Row: {
+          biosecurity_level: string | null
           client_generated_id: string | null
           created_at: string
+          distance_to_market_km: number | null
           ffedis_id: string | null
           gps_lat: number
           gps_lng: number
@@ -1474,16 +1476,20 @@ export type Database = {
           municipality: string | null
           name: string
           owner_id: string
+          pcic_enrolled: boolean | null
           program_group: string | null
           province: string | null
           region: string | null
           updated_at: string
           validated_at: string | null
           validation_status: string | null
+          water_source: string | null
         }
         Insert: {
+          biosecurity_level?: string | null
           client_generated_id?: string | null
           created_at?: string
+          distance_to_market_km?: number | null
           ffedis_id?: string | null
           gps_lat: number
           gps_lng: number
@@ -1496,16 +1502,20 @@ export type Database = {
           municipality?: string | null
           name: string
           owner_id: string
+          pcic_enrolled?: boolean | null
           program_group?: string | null
           province?: string | null
           region?: string | null
           updated_at?: string
           validated_at?: string | null
           validation_status?: string | null
+          water_source?: string | null
         }
         Update: {
+          biosecurity_level?: string | null
           client_generated_id?: string | null
           created_at?: string
+          distance_to_market_km?: number | null
           ffedis_id?: string | null
           gps_lat?: number
           gps_lng?: number
@@ -1518,12 +1528,14 @@ export type Database = {
           municipality?: string | null
           name?: string
           owner_id?: string
+          pcic_enrolled?: boolean | null
           program_group?: string | null
           province?: string | null
           region?: string | null
           updated_at?: string
           validated_at?: string | null
           validation_status?: string | null
+          water_source?: string | null
         }
         Relationships: [
           {

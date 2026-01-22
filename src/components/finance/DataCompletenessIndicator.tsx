@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/collapsible";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { AddRevenueDialog } from "./AddRevenueDialog";
+import { FarmBankInfoDialog } from "@/components/farm/FarmBankInfoDialog";
 import {
   CheckCircle2,
   AlertCircle,
@@ -23,6 +24,7 @@ import {
   ArrowRight,
   FileText,
   Building2,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +42,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   production: Milk,
   expenses: Receipt,
   revenues: DollarSign,
+  bankInfo: Shield,
 };
 
 export function DataCompletenessIndicator({
@@ -241,6 +244,31 @@ export function DataCompletenessIndicator({
                   if (item.action === "dialog" && item.actionTarget === "revenue") {
                     return (
                       <AddRevenueDialog
+                        key={item.key}
+                        farmId={farmId}
+                        trigger={
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium">{item.label}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-7 px-2">
+                              Add <ArrowRight className="h-3 w-3 ml-1" />
+                            </Button>
+                          </div>
+                        }
+                      />
+                    );
+                  }
+
+                  if (item.action === "dialog" && item.actionTarget === "bankInfo") {
+                    return (
+                      <FarmBankInfoDialog
                         key={item.key}
                         farmId={farmId}
                         trigger={

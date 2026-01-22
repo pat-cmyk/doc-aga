@@ -36,10 +36,10 @@ export function useDataCompleteness(farmId: string) {
         expensesResult,
         revenuesResult,
       ] = await Promise.all([
-        // Farm data
+        // Farm data including bank-required fields
         (supabase as any)
           .from("farms")
-          .select("gps_lat, gps_lng, region, province, municipality")
+          .select("gps_lat, gps_lng, region, province, municipality, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
           .eq("id", farmId)
           .single(),
         // Animals count
@@ -100,6 +100,16 @@ export function useDataCompleteness(farmId: string) {
         }
       });
       const totalAnimals = animalsWithWeightData.length;
+
+      // Calculate bank field completeness
+      const bankFieldsFilled = [
+        farm?.biosecurity_level,
+        farm?.water_source,
+        farm?.distance_to_market_km !== null && farm?.distance_to_market_km !== undefined,
+        farm?.pcic_enrolled !== null && farm?.pcic_enrolled !== undefined,
+      ].filter(Boolean).length;
+      const allBankFieldsComplete = bankFieldsFilled === 4;
+      const missingBankFields = 4 - bankFieldsFilled;
 
       // Build completeness items
       const items: DataCompletenessItem[] = [
@@ -170,6 +180,20 @@ export function useDataCompleteness(farmId: string) {
           action: "dialog",
           actionTarget: "revenue",
           priority: 7,
+        },
+        {
+          key: "bankInfo",
+          label: "Bank Requirements",
+          description: allBankFieldsComplete
+            ? "All bank fields complete"
+            : bankFieldsFilled > 0
+              ? `${missingBankFields} of 4 bank fields incomplete`
+              : "Biosecurity, water source, market distance, insurance",
+          isComplete: allBankFieldsComplete,
+          action: "dialog",
+          actionTarget: "bankInfo",
+          priority: 8,
+          metadata: { filledCount: bankFieldsFilled, totalFields: 4 },
         },
       ];
 
