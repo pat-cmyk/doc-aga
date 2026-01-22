@@ -134,13 +134,13 @@ export const useCombinedDashboardData = (
       if (data) {
         const result = data as unknown as CombinedDashboardData;
         
-        const serverStats: DashboardStats = result.stats || {
-          totalAnimals: 0,
-          feedStockDays: null,
-          avgDailyMilk: 0,
-          pregnantCount: 0,
-          pendingConfirmation: 0,
-          recentHealthEvents: 0
+        const serverStats: DashboardStats = {
+          totalAnimals: result.stats?.totalAnimals ?? 0,
+          feedStockDays: result.stats?.feedStockDays ?? null,
+          avgDailyMilk: result.stats?.avgDailyMilk ?? 0,
+          pregnantCount: result.stats?.pregnantCount ?? 0,
+          pendingConfirmation: result.stats?.pendingConfirmation ?? 0,
+          recentHealthEvents: result.stats?.recentHealthEvents ?? 0
         };
 
         // Process server daily data into dailyMilk map
