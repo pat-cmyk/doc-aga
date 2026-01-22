@@ -52,6 +52,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [operationsSubtab, setOperationsSubtab] = useState<string>("milk");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [showFarmSetup, setShowFarmSetup] = useState(false);
   const [forecastData, setForecastData] = useState<any[]>([]);
@@ -285,6 +286,13 @@ const Dashboard = () => {
     // Support legacy 'feed' tab param and new 'operations' tab
     if (tab === 'feed' || tab === 'operations') {
       setActiveTab('operations');
+      const subtab = params.get('subtab');
+      if (subtab === 'feed' || subtab === 'milk') {
+        setOperationsSubtab(subtab);
+      } else if (tab === 'feed') {
+        // Legacy 'feed' tab param should go to feed subtab
+        setOperationsSubtab('feed');
+      }
     } else if (tab === 'milk') {
       setActiveTab('operations');
     } else if (tab === 'approvals' || tab === 'government') {
@@ -531,7 +539,7 @@ const Dashboard = () => {
           {/* Operations Tab - Consolidated Milk + Feeds */}
           <TabsContent value="operations" className="space-y-4 sm:space-y-6">
             {farmId && (
-              <Tabs defaultValue="milk" className="space-y-4">
+              <Tabs value={operationsSubtab} onValueChange={setOperationsSubtab} className="space-y-4">
                 <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
                   <TabsTrigger value="milk">Milk Inventory</TabsTrigger>
                   <TabsTrigger value="feed">Feed Stock</TabsTrigger>
