@@ -113,6 +113,12 @@ src/
 - Background refetching for stale data
 - Optimistic updates for better UX
 
+**Charts & Data Visualization**
+- Recharts library for all charts
+- Unified responsive architecture via `useResponsiveChart` hook
+- Mobile-optimized axis labels, legends, and margins
+- See [Chart Guidelines in CONTRIBUTING.md](./CONTRIBUTING.md#6-chart-guidelines) for implementation details
+
 **Form Management**
 - React Hook Form for form state
 - Zod for runtime validation
