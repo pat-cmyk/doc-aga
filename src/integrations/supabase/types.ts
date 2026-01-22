@@ -3644,6 +3644,15 @@ export type Database = {
         Returns: Json
       }
       can_access_farm: { Args: { fid: string }; Returns: boolean }
+      check_data_consistency: {
+        Args: { p_date?: string; p_farm_id: string }
+        Returns: {
+          actual_value: number
+          check_name: string
+          expected_value: number
+          is_consistent: boolean
+        }[]
+      }
       create_default_farm:
         | {
             Args: {
