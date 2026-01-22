@@ -3,20 +3,10 @@ import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { TrendingUp } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CHART_FONT_SIZE, CHART_LEGEND, CHART_XAXIS, CHART_MARGIN } from "@/lib/chartConfig";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 export const SentimentTrendChart = () => {
   const { feedbackList, isLoading } = useGovernmentFeedback({});
-  const isMobile = useIsMobile();
-  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
-  const xAxisConfig = isMobile ? CHART_XAXIS.mobile : CHART_XAXIS.desktop;
-  const legendConfig = isMobile ? CHART_LEGEND.mobile : CHART_LEGEND.desktop;
-  const margin = isMobile ? CHART_MARGIN.mobile : CHART_MARGIN.desktop;
-
-  if (isLoading) {
-    return <div className="text-center py-8">Loading sentiment trends...</div>;
-  }
 
   // Group by date and sentiment
   const last14Days = Array.from({ length: 14 }, (_, i) => {
@@ -39,6 +29,15 @@ export const SentimentTrendChart = () => {
     };
   });
 
+  const { isMobile, fontSize, xAxisProps, legendProps, margin } = useResponsiveChart({
+    size: 'medium',
+    dataLength: trendData.length,
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-8">Loading sentiment trends...</div>;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -51,20 +50,12 @@ export const SentimentTrendChart = () => {
         <ResponsiveContainer width="100%" height={isMobile ? 280 : 320}>
           <BarChart data={trendData} margin={margin}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="date"
-              tick={{ fontSize }}
-              angle={xAxisConfig.angle}
-              textAnchor={xAxisConfig.textAnchor}
-              height={xAxisConfig.height}
-              tickMargin={xAxisConfig.tickMargin}
-              interval={xAxisConfig.interval}
-            />
+            <XAxis dataKey="date" tick={{ fontSize }} {...xAxisProps} />
             <YAxis tick={{ fontSize }} />
             <Tooltip />
             <Legend 
-              wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
-              iconSize={legendConfig.iconSize}
+              wrapperStyle={legendProps.wrapperStyle}
+              iconSize={legendProps.iconSize}
             />
             <Bar dataKey="urgent" fill="#ef4444" name="Urgent" stackId="a" />
             <Bar dataKey="negative" fill="#f97316" name="Negative" stackId="a" />
