@@ -19,6 +19,7 @@ import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { FarmLogoUpload } from "@/components/FarmLogoUpload";
 import { FarmTeamManagement } from "@/components/FarmTeamManagement";
 import { DevicePermissionHub } from "@/components/permissions/DevicePermissionHub";
+import { FarmBankInfoDialog, getBiosecurityLabel, getWaterSourceLabel } from "@/components/farm/FarmBankInfoDialog";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -386,6 +387,45 @@ const Profile = () => {
                     <div>
                       <p className="text-muted-foreground">Livestock Type</p>
                       <p className="font-medium capitalize">{farmData?.livestock_type || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Bank Requirements</h4>
+                    <FarmBankInfoDialog 
+                      farmId={farmId} 
+                      onSaveSuccess={() => {
+                        // Refresh farm data after save
+                        const loadFarmData = async () => {
+                          const { data } = await supabase
+                            .from("farms")
+                            .select("*")
+                            .eq("id", farmId)
+                            .single();
+                          if (data) setFarmData(data);
+                        };
+                        loadFarmData();
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Biosecurity Level</p>
+                      <p className="font-medium">{getBiosecurityLabel(farmData?.biosecurity_level)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Water Source</p>
+                      <p className="font-medium">{getWaterSourceLabel(farmData?.water_source)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Distance to Market</p>
+                      <p className="font-medium">{farmData?.distance_to_market_km ? `${farmData.distance_to_market_km} km` : 'Not set'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">PCIC Insurance</p>
+                      <p className="font-medium">{farmData?.pcic_enrolled ? 'Enrolled' : 'Not enrolled'}</p>
                     </div>
                   </div>
                 </div>

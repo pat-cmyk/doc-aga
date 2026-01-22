@@ -12,6 +12,11 @@ export interface FarmProfile {
   livestockType: string;
   totalActiveAnimals: number;
   farmCreatedAt: string;
+  // Bank-required fields
+  biosecurityLevel: string | null;
+  waterSource: string | null;
+  distanceToMarketKm: number | null;
+  pcicEnrolled: boolean;
 }
 
 export interface HerdComposition {
@@ -183,7 +188,11 @@ async function fetchFarmProfile(farmId: string) {
       municipality,
       livestock_type,
       created_at,
-      owner_id
+      owner_id,
+      biosecurity_level,
+      water_source,
+      distance_to_market_km,
+      pcic_enrolled
     `)
     .eq("id", farmId)
     .single();
@@ -297,7 +306,6 @@ function processFarmProfile(farm: any, animals: any[]): FarmProfile {
   return {
     farmName: farm?.name || "Unknown Farm",
     ownerName: farm?.ownerName || "Unknown Owner",
-    
     gpsLat: farm?.gps_lat,
     gpsLng: farm?.gps_lng,
     region: farm?.region,
@@ -306,6 +314,11 @@ function processFarmProfile(farm: any, animals: any[]): FarmProfile {
     livestockType: farm?.livestock_type || "Cattle",
     totalActiveAnimals: activeAnimals.length,
     farmCreatedAt: farm?.created_at,
+    // Bank-required fields
+    biosecurityLevel: farm?.biosecurity_level || null,
+    waterSource: farm?.water_source || null,
+    distanceToMarketKm: farm?.distance_to_market_km || null,
+    pcicEnrolled: farm?.pcic_enrolled || false,
   };
 }
 
