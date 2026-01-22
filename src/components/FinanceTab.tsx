@@ -8,6 +8,7 @@ import { ExpenseList } from "@/components/finance/ExpenseList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
 import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
 import { AnimalCostAnalysis } from "@/components/finance/AnimalCostAnalysis";
+import { DataCompletenessIndicator } from "@/components/finance/DataCompletenessIndicator";
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,9 +20,10 @@ import { cn } from "@/lib/utils";
 interface FinanceTabProps {
   farmId: string;
   canManage: boolean;
+  onNavigateToTab?: (tab: string) => void;
 }
 
-export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
+export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
 
@@ -42,6 +44,9 @@ export function FinanceTab({ farmId, canManage }: FinanceTabProps) {
 
       {/* HERO: Financial Health Summary - The 15-second answer */}
       <FinancialHealthSummary farmId={farmId} />
+
+      {/* Data Completeness Indicator - Shows missing data for financial reports */}
+      <DataCompletenessIndicator farmId={farmId} onNavigateToTab={onNavigateToTab} />
 
       {/* Contextual Insights - Smart tips based on data */}
       <ContextualInsights farmId={farmId} />
