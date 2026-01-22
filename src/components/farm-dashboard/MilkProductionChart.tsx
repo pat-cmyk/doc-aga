@@ -1,13 +1,19 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Brush } from "recharts";
+import { ChartTooltip } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, ReferenceLine } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MilkChartTooltip } from "./MilkChartTooltip";
 import { MilkDayDetailDialog } from "./MilkDayDetailDialog";
 import type { CombinedDailyData } from "./hooks/useMilkData";
-import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { 
+  ResponsiveChartContainer, 
+  useResponsiveChartContext,
+  ResponsiveXAxis,
+  ResponsiveYAxis,
+  ConditionalBrush 
+} from "@/components/charts";
 
 interface MilkProductionChartProps {
   data: CombinedDailyData[];
@@ -18,6 +24,136 @@ interface MilkProductionChartProps {
   farmId: string;
   averageMilk?: number;
 }
+
+interface MilkChartContentProps {
+  data: CombinedDailyData[];
+  averageMilk: number;
+  highestDay: CombinedDailyData | null;
+  lowestDay: CombinedDailyData | null;
+  onChartClick: (chartData: any) => void;
+}
+
+/**
+ * Inner chart content component that uses responsive context
+ */
+const MilkChartContent = ({ 
+  data, 
+  averageMilk, 
+  highestDay, 
+  lowestDay, 
+  onChartClick 
+}: MilkChartContentProps) => {
+  const { isMobile, margin } = useResponsiveChartContext();
+
+  // Custom active dot with animation
+  const renderActiveDot = (props: any) => {
+    const { cx, cy } = props;
+    return (
+      <g>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={8}
+          fill="hsl(var(--chart-1))"
+          fillOpacity={0.3}
+          className="animate-pulse"
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={5}
+          fill="hsl(var(--chart-1))"
+          stroke="hsl(var(--background))"
+          strokeWidth={2}
+        />
+      </g>
+    );
+  };
+
+  // Custom dot to highlight extremes
+  const renderDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    
+    if (highestDay && payload.rawDate === highestDay.rawDate) {
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={4}
+          fill="hsl(var(--chart-2))"
+          stroke="hsl(var(--background))"
+          strokeWidth={2}
+        />
+      );
+    }
+    
+    if (lowestDay && payload.rawDate === lowestDay.rawDate && payload.milkTotal > 0) {
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={4}
+          fill="hsl(var(--destructive))"
+          stroke="hsl(var(--background))"
+          strokeWidth={2}
+        />
+      );
+    }
+    
+    return null;
+  };
+
+  return (
+    <AreaChart 
+      data={data} 
+      margin={{ ...margin, bottom: isMobile ? 80 : 50 }}
+      onClick={onChartClick}
+      style={{ cursor: 'pointer' }}
+    >
+      <defs>
+        <linearGradient id="milkGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4} />
+          <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
+        </linearGradient>
+      </defs>
+      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+      <ResponsiveXAxis dataKey="date" />
+      <ResponsiveYAxis 
+        tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
+      />
+      <ChartTooltip content={<MilkChartTooltip />} />
+      
+      {/* Average reference line */}
+      {averageMilk > 0 && (
+        <ReferenceLine
+          y={averageMilk}
+          stroke="hsl(var(--muted-foreground))"
+          strokeDasharray="5 5"
+          strokeOpacity={0.5}
+          label={{
+            value: `Avg: ${averageMilk.toFixed(0)}L`,
+            position: 'right',
+            fontSize: isMobile ? 8 : 10,
+            fill: 'hsl(var(--muted-foreground))',
+          }}
+        />
+      )}
+      
+      <Area
+        type="monotone"
+        dataKey="milkTotal"
+        name="Milk (Liters)"
+        stroke="hsl(var(--chart-1))"
+        fill="url(#milkGradient)"
+        strokeWidth={2}
+        dot={renderDot}
+        activeDot={renderActiveDot}
+      />
+      
+      <ConditionalBrush dataKey="date" />
+    </AreaChart>
+  );
+};
 
 /**
  * Interactive chart component displaying daily milk production over time
@@ -37,13 +173,6 @@ export const MilkProductionChart = ({
   
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
-  // Use centralized responsive chart configuration
-  const { isMobile, xAxisProps, margin, shouldShowBrush } = useResponsiveChart({
-    size: 'medium',
-    dataLength: data?.length || 0,
-    brushThreshold: 14,
-  });
 
   // Find min/max dates for navigation
   const { minDate, maxDate, highestDay, lowestDay } = useMemo(() => {
@@ -80,64 +209,11 @@ export const MilkProductionChart = ({
     setSelectedDate(newDate);
   };
 
-  // Custom active dot with animation
-  const renderActiveDot = (props: any) => {
-    const { cx, cy } = props;
-    return (
-      <g>
-        <circle
-          cx={cx}
-          cy={cy}
-          r={8}
-          fill="hsl(var(--chart-1))"
-          fillOpacity={0.3}
-          className="animate-pulse"
-        />
-        <circle
-          cx={cx}
-          cy={cy}
-          r={5}
-          fill="hsl(var(--chart-1))"
-          stroke="hsl(var(--background))"
-          strokeWidth={2}
-        />
-      </g>
-    );
-  };
-
-  // Custom dot to highlight extremes
-  const renderDot = (props: any) => {
-    const { cx, cy, payload } = props;
-    
-    // Highlight highest production day
-    if (highestDay && payload.rawDate === highestDay.rawDate) {
-      return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={4}
-          fill="hsl(var(--chart-2))"
-          stroke="hsl(var(--background))"
-          strokeWidth={2}
-        />
-      );
-    }
-    
-    // Highlight lowest production day (if it has data)
-    if (lowestDay && payload.rawDate === lowestDay.rawDate && payload.milkTotal > 0) {
-      return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={4}
-          fill="hsl(var(--destructive))"
-          stroke="hsl(var(--background))"
-          strokeWidth={2}
-        />
-      );
-    }
-    
-    return null;
+  const chartConfig = {
+    milkTotal: {
+      label: "Milk (Liters)",
+      color: "hsl(var(--chart-1))",
+    },
   };
 
   return (
@@ -184,85 +260,21 @@ export const MilkProductionChart = ({
               No data for selected period
             </div>
           ) : (
-            <ChartContainer
-              config={{
-                milkTotal: {
-                  label: "Milk (Liters)",
-                  color: "hsl(var(--chart-1))",
-                },
-              }}
-              className="aspect-auto w-full h-[300px] sm:h-[340px] md:h-[360px]"
+            <ResponsiveChartContainer
+              config={chartConfig}
+              size="medium"
+              dataLength={data.length}
+              brushThreshold={14}
+              className="h-[300px] sm:h-[340px] md:h-[360px]"
             >
-              <AreaChart 
-                data={data} 
-                margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 80 : 50 }}
-                onClick={handleChartClick}
-                style={{ cursor: 'pointer' }}
-              >
-                <defs>
-                  <linearGradient id="milkGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: isMobile ? 9 : 11 }}
-                  tickMargin={isMobile ? 15 : 8}
-                  angle={isMobile ? -45 : 0}
-                  textAnchor={isMobile ? 'end' : 'middle'}
-                  height={isMobile ? 60 : 30}
-                  interval={isMobile ? 0 : "preserveStartEnd"}
-                  className="text-muted-foreground"
-                />
-                <YAxis 
-                  width={40}
-                  tick={{ fontSize: isMobile ? 9 : 11 }}
-                  tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
-                  className="text-muted-foreground"
-                />
-                <ChartTooltip content={<MilkChartTooltip />} />
-                
-                {/* Average reference line */}
-                {averageMilk > 0 && (
-                  <ReferenceLine
-                    y={averageMilk}
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeDasharray="5 5"
-                    strokeOpacity={0.5}
-                    label={{
-                      value: `Avg: ${averageMilk.toFixed(0)}L`,
-                      position: 'right',
-                      fontSize: isMobile ? 8 : 10,
-                      fill: 'hsl(var(--muted-foreground))',
-                    }}
-                  />
-                )}
-                
-                <Area
-                  type="monotone"
-                  dataKey="milkTotal"
-                  name="Milk (Liters)"
-                  stroke="hsl(var(--chart-1))"
-                  fill="url(#milkGradient)"
-                  strokeWidth={2}
-                  dot={renderDot}
-                  activeDot={renderActiveDot}
-                />
-                
-                {/* Brush for zoom/pan - hidden on mobile */}
-                {shouldShowBrush && (
-                  <Brush
-                    dataKey="date"
-                    height={30}
-                    stroke="hsl(var(--border))"
-                    fill="hsl(var(--muted))"
-                    tickFormatter={() => ''}
-                  />
-                )}
-              </AreaChart>
-            </ChartContainer>
+              <MilkChartContent
+                data={data}
+                averageMilk={averageMilk}
+                highestDay={highestDay}
+                lowestDay={lowestDay}
+                onChartClick={handleChartClick}
+              />
+            </ResponsiveChartContainer>
           )}
         </CardContent>
       </Card>

@@ -1,5 +1,14 @@
-import { Brush, BrushProps } from "recharts";
+import { Brush } from "recharts";
 import { useResponsiveChartContext } from "./ResponsiveChartContainer";
+
+interface ConditionalBrushProps {
+  dataKey: string;
+  height?: number;
+  stroke?: string;
+  fill?: string;
+  travellerWidth?: number;
+  tickFormatter?: (value: any, index: number) => string;
+}
 
 /**
  * A Brush component that automatically hides on mobile devices.
@@ -10,18 +19,26 @@ import { useResponsiveChartContext } from "./ResponsiveChartContainer";
  * @example
  * <ConditionalBrush dataKey="date" />
  */
-export function ConditionalBrush(props: Omit<BrushProps, 'ref'>) {
+export function ConditionalBrush({
+  dataKey,
+  height = 30,
+  stroke = "hsl(var(--border))",
+  fill = "hsl(var(--muted))",
+  travellerWidth,
+  tickFormatter = () => '',
+}: ConditionalBrushProps) {
   const { shouldShowBrush } = useResponsiveChartContext();
   
   if (!shouldShowBrush) return null;
   
   return (
     <Brush
-      height={30}
-      stroke="hsl(var(--border))"
-      fill="hsl(var(--muted))"
-      tickFormatter={() => ''}
-      {...props}
+      dataKey={dataKey}
+      height={height}
+      stroke={stroke}
+      fill={fill}
+      travellerWidth={travellerWidth}
+      tickFormatter={tickFormatter}
     />
   );
 }
