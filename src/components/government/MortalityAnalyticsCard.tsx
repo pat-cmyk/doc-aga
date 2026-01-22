@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Skull, ShoppingCart, Scissors, ArrowRightLeft, Beef, TrendingDown } from "lucide-react";
 import { GovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface MortalityAnalyticsCardProps {
   stats: GovernmentHealthStats | null;

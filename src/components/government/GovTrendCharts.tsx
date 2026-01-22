@@ -4,8 +4,7 @@ import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { format, parseISO } from "date-fns";
 import { TrendingUp, Activity, FileText, Droplets, Layers } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CHART_FONT_SIZE, CHART_LEGEND, CHART_XAXIS } from "@/lib/chartConfig";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface GovTrendChartsProps {
   data?: TimeseriesDataPoint[];
@@ -16,10 +15,10 @@ interface GovTrendChartsProps {
 }
 
 export const GovTrendCharts = ({ data, comparisonData, isLoading, error, comparisonMode }: GovTrendChartsProps) => {
-  const isMobile = useIsMobile();
-  const fontSize = isMobile ? CHART_FONT_SIZE.mobile : CHART_FONT_SIZE.desktop;
-  const xAxisConfig = isMobile ? CHART_XAXIS.mobile : CHART_XAXIS.desktop;
-  const legendConfig = isMobile ? CHART_LEGEND.mobile : CHART_LEGEND.desktop;
+  const { isMobile, fontSize, xAxisProps, legendProps } = useResponsiveChart({ 
+    size: 'medium', 
+    dataLength: data?.length || 0 
+  });
   
   if (isLoading) {
     return (
@@ -143,11 +142,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 dataKey="date" 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-                angle={xAxisConfig.angle}
-                textAnchor={xAxisConfig.textAnchor}
-                height={xAxisConfig.height}
-                tickMargin={xAxisConfig.tickMargin}
-                interval={xAxisConfig.interval}
+                angle={xAxisProps.angle}
+                textAnchor={xAxisProps.textAnchor}
+                height={xAxisProps.height}
+                tickMargin={xAxisProps.tickMargin}
+                interval={xAxisProps.interval}
               />
               <YAxis 
                 className="text-xs"
@@ -155,8 +154,8 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
-                iconSize={legendConfig.iconSize}
+                wrapperStyle={legendProps.wrapperStyle}
+                iconSize={legendProps.iconSize}
               />
               <Line 
                 type="monotone" 
@@ -199,11 +198,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 dataKey="date" 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-                angle={xAxisConfig.angle}
-                textAnchor={xAxisConfig.textAnchor}
-                height={xAxisConfig.height}
-                tickMargin={xAxisConfig.tickMargin}
-                interval={xAxisConfig.interval}
+                angle={xAxisProps.angle}
+                textAnchor={xAxisProps.textAnchor}
+                height={xAxisProps.height}
+                tickMargin={xAxisProps.tickMargin}
+                interval={xAxisProps.interval}
               />
               <YAxis 
                 className="text-xs"
@@ -232,8 +231,8 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 }}
               />
               <Legend 
-                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
-                iconSize={legendConfig.iconSize}
+                wrapperStyle={legendProps.wrapperStyle}
+                iconSize={legendProps.iconSize}
               />
               <Area 
                 type="monotone" 
@@ -293,11 +292,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 dataKey="date" 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-                angle={xAxisConfig.angle}
-                textAnchor={xAxisConfig.textAnchor}
-                height={xAxisConfig.height}
-                tickMargin={xAxisConfig.tickMargin}
-                interval={xAxisConfig.interval}
+                angle={xAxisProps.angle}
+                textAnchor={xAxisProps.textAnchor}
+                height={xAxisProps.height}
+                tickMargin={xAxisProps.tickMargin}
+                interval={xAxisProps.interval}
               />
               <YAxis 
                 className="text-xs"
@@ -305,11 +304,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
-                iconSize={legendConfig.iconSize}
+                wrapperStyle={legendProps.wrapperStyle}
+                iconSize={legendProps.iconSize}
               />
               <Line 
-                type="monotone" 
+                type="monotone"
                 dataKey="healthEvents" 
                 stroke="hsl(var(--chart-3))" 
                 strokeWidth={2}
@@ -368,11 +367,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 dataKey="date" 
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-                angle={xAxisConfig.angle}
-                textAnchor={xAxisConfig.textAnchor}
-                height={xAxisConfig.height}
-                tickMargin={xAxisConfig.tickMargin}
-                interval={xAxisConfig.interval}
+                angle={xAxisProps.angle}
+                textAnchor={xAxisProps.textAnchor}
+                height={xAxisProps.height}
+                tickMargin={xAxisProps.tickMargin}
+                interval={xAxisProps.interval}
               />
               <YAxis 
                 className="text-xs"
@@ -380,11 +379,11 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                wrapperStyle={{ fontSize: legendConfig.fontSize, paddingTop: legendConfig.paddingTop }}
-                iconSize={legendConfig.iconSize}
+                wrapperStyle={legendProps.wrapperStyle}
+                iconSize={legendProps.iconSize}
               />
               <Line 
-                type="monotone" 
+                type="monotone"
                 dataKey="totalMilk" 
                 stroke="hsl(var(--primary))" 
                 strokeWidth={2}

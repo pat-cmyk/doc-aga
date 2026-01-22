@@ -11,11 +11,13 @@ import {
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { format, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 export const SystemOverview = () => {
   const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
+  const { fontSize } = useResponsiveChart({ size: 'small' });
 
   const healthScore = calculateHealthScore(metrics);
   const healthStatus = getHealthStatus(healthScore);
@@ -233,9 +235,9 @@ export const SystemOverview = () => {
                   <XAxis 
                     dataKey="date" 
                     tickFormatter={(value) => format(parseISO(value), "MMM d")}
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize }}
                   />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize }} />
                   <Tooltip 
                     labelFormatter={(value) => format(parseISO(value as string), "MMM d, yyyy")}
                     formatter={(value) => [value, "Logins"]}

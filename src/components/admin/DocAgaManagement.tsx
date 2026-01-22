@@ -16,9 +16,11 @@ import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { STTAnalyticsDashboard } from "./STTAnalyticsDashboard";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 export const DocAgaManagement = () => {
   const queryClient = useQueryClient();
+  const { fontSize, xAxisProps } = useResponsiveChart({ size: 'medium' });
   const [activeTab, setActiveTab] = useState("analytics");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFaq, setEditingFaq] = useState<any>(null);
@@ -370,8 +372,8 @@ export const DocAgaManagement = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={queryTimeline}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
+                    <XAxis dataKey="date" tick={{ fontSize }} angle={xAxisProps.angle} textAnchor={xAxisProps.textAnchor} />
+                    <YAxis tick={{ fontSize }} />
                     <Tooltip />
                     <Line type="monotone" dataKey="queries" stroke="hsl(var(--primary))" strokeWidth={2} />
                   </LineChart>

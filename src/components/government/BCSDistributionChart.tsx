@@ -3,8 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Scale, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
 import { GovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CHART_LEGEND } from "@/lib/chartConfig";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface BCSDistributionChartProps {
   stats: GovernmentHealthStats | null;
@@ -51,8 +50,7 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
     return "Above Target";
   };
 
-  const isMobile = useIsMobile();
-  const legendConfig = isMobile ? CHART_LEGEND.mobile : CHART_LEGEND.desktop;
+  const { isMobile, legendProps } = useResponsiveChart({ size: 'small' });
 
   return (
     <Card>
@@ -109,8 +107,8 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
                 <Legend 
                   verticalAlign="bottom" 
                   height={isMobile ? 48 : 36}
-                  wrapperStyle={{ fontSize: legendConfig.fontSize }}
-                  iconSize={legendConfig.iconSize}
+                  wrapperStyle={legendProps.wrapperStyle}
+                  iconSize={legendProps.iconSize}
                   formatter={(value) => <span className="text-xs">{value}</span>}
                 />
               </PieChart>

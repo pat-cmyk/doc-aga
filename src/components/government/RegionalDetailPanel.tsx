@@ -27,6 +27,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface RegionalDetailPanelProps {
   region: string | null;
@@ -41,6 +42,7 @@ const RegionalDetailPanel = ({
   onClose,
   dateRange,
 }: RegionalDetailPanelProps) => {
+  const { fontSize, xAxisProps } = useResponsiveChart({ size: 'medium' });
   const daysDiff = Math.ceil(
     (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)
   );
@@ -217,11 +219,14 @@ const RegionalDetailPanel = ({
                       <XAxis
                         dataKey="date"
                         className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize }}
+                        angle={xAxisProps.angle}
+                        textAnchor={xAxisProps.textAnchor}
+                        tickMargin={xAxisProps.tickMargin}
                       />
                       <YAxis
                         className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -271,11 +276,14 @@ const RegionalDetailPanel = ({
                       <XAxis
                         dataKey="date"
                         className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize }}
+                        angle={xAxisProps.angle}
+                        textAnchor={xAxisProps.textAnchor}
+                        tickMargin={xAxisProps.tickMargin}
                       />
                       <YAxis
                         className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize }}
                       />
                       <Tooltip
                         contentStyle={{

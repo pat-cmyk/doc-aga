@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Scale, TrendingUp, Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
@@ -39,7 +39,7 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const isMobile = useIsMobile();
+  const { isMobile, fontSize, xAxisProps, margin } = useResponsiveChart({ size: 'small' });
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -247,18 +247,18 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
             <ResponsiveContainer width="100%" height={isMobile ? 240 : 280}>
               <LineChart 
                 data={chartData}
-                margin={{ top: 10, right: 10, left: 0, bottom: isMobile ? 50 : 30 }}
+                margin={{ ...margin, bottom: isMobile ? 50 : 30 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
-                  tick={{ fontSize: isMobile ? 9 : 11 }}
-                  tickMargin={isMobile ? 15 : 8}
-                  angle={isMobile ? -45 : 0}
-                  textAnchor={isMobile ? 'end' : 'middle'}
+                  tick={{ fontSize }}
+                  tickMargin={xAxisProps.tickMargin}
+                  angle={xAxisProps.angle}
+                  textAnchor={xAxisProps.textAnchor}
                   height={isMobile ? 50 : 40}
                 />
-                <YAxis tick={{ fontSize: isMobile ? 9 : 11 }} />
+                <YAxis tick={{ fontSize }} />
                 <Tooltip />
                 <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
