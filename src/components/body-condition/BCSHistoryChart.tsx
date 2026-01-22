@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useBodyConditionScores } from "@/hooks/useBodyConditionScores";
 import { cn } from "@/lib/utils";
 import { RecordBCSDialog } from "./RecordBCSDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface BCSHistoryChartProps {
   animalId: string;
@@ -62,6 +63,7 @@ const CustomTooltip = ({ active, payload, getBCSStatus }: CustomTooltipProps) =>
 };
 
 export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChartProps) {
+  const isMobile = useIsMobile();
   const { bcsRecords, isLoading, latestBCS, getBCSStatus } = useBodyConditionScores(animalId);
 
   const chartData = useMemo(() => {
@@ -196,11 +198,11 @@ export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChart
 
         {/* Chart */}
         {chartData.length > 1 && (
-          <div className="h-[200px] w-full">
+          <div className={cn("w-full", isMobile ? "h-[220px]" : "h-[240px]")}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 10, right: 10, left: -20, bottom: isMobile ? 30 : 10 }}
               >
                 {/* Color-coded zones */}
                 {zones.map((zone, index) => (
@@ -215,14 +217,18 @@ export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChart
 
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: isMobile ? 9 : 11 }}
+                  tickMargin={isMobile ? 10 : 5}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? 'end' : 'middle'}
+                  height={isMobile ? 40 : 25}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
                   domain={[1, 5]}
                   ticks={[1, 2, 3, 4, 5]}
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: isMobile ? 9 : 11 }}
                   tickLine={false}
                   axisLine={false}
                 />
@@ -232,8 +238,8 @@ export function BCSHistoryChart({ animalId, farmId, className }: BCSHistoryChart
                   dataKey="score"
                   stroke="hsl(270 60% 50%)"
                   strokeWidth={2}
-                  dot={{ fill: "hsl(270 60% 50%)", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: "hsl(270 60% 50%)" }}
+                  dot={{ fill: "hsl(270 60% 50%)", strokeWidth: 2, r: isMobile ? 3 : 4 }}
+                  activeDot={{ r: isMobile ? 5 : 6, fill: "hsl(270 60% 50%)" }}
                 />
               </LineChart>
             </ResponsiveContainer>
