@@ -17,7 +17,6 @@ verify_jwt = true
 [functions.log-auth-event]
 verify_jwt = false
 
-
 [functions.report-test-results]
 verify_jwt = false
 
@@ -79,4 +78,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.process-animal-voice]
+verify_jwt = true
+
+[functions.create-valuation-snapshot]
 verify_jwt = true
