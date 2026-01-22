@@ -73,6 +73,13 @@ export function DataCompletenessIndicator({
     if (item.action === "navigate") {
       if (item.actionTarget === "profile") {
         navigate("/profile");
+      } else if (item.actionTarget === "animals-weight") {
+        // Navigate to animals tab with weight filter
+        if (onNavigateToTab) {
+          onNavigateToTab("animals");
+        }
+        // Update URL to trigger weight filter
+        navigate("/?tab=animals&filter=missing-weight");
       } else if (onNavigateToTab && item.actionTarget) {
         onNavigateToTab(item.actionTarget);
       }

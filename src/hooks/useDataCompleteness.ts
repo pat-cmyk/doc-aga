@@ -10,6 +10,7 @@ export interface DataCompletenessItem {
   action: "navigate" | "dialog" | "info";
   actionTarget?: string;
   priority: number;
+  metadata?: Record<string, number | string>;
 }
 
 export interface DataCompletenessResult {
@@ -30,7 +31,7 @@ export function useDataCompleteness(farmId: string) {
       const [
         farmResult,
         animalsResult,
-        weightResult,
+        animalsWeightResult,
         milkingResult,
         expensesResult,
         revenuesResult,
@@ -48,11 +49,13 @@ export function useDataCompleteness(farmId: string) {
           .eq("farm_id", farmId)
           .eq("is_deleted", false)
           .is("exit_date", null),
-        // Weight records count
+        // Animals with weight data for completeness check
         (supabase as any)
-          .from("weight_records")
-          .select("id", { count: "exact", head: true })
-          .eq("farm_id", farmId),
+          .from("animals")
+          .select("id, entry_weight_kg, entry_weight_unknown, birth_weight_kg, birth_date, farm_entry_date")
+          .eq("farm_id", farmId)
+          .eq("is_deleted", false)
+          .is("exit_date", null),
         // Milking records count (last 3 months)
         (supabase as any)
           .from("milking_records")
@@ -75,10 +78,28 @@ export function useDataCompleteness(farmId: string) {
 
       const farm = farmResult.data;
       const animalsCount = animalsResult.count || 0;
-      const weightCount = weightResult.count || 0;
+      const animalsWithWeightData = animalsWeightResult.data || [];
       const milkingCount = milkingResult.count || 0;
       const expensesCount = expensesResult.count || 0;
       const revenuesCount = revenuesResult.count || 0;
+
+      // Calculate missing weight counts
+      let missingWeightCount = 0;
+      animalsWithWeightData.forEach((animal: any) => {
+        const isAcquired = animal.farm_entry_date !== null;
+        if (isAcquired) {
+          // Acquired animals need entry weight (unless marked unknown)
+          if (!animal.entry_weight_kg && !animal.entry_weight_unknown) {
+            missingWeightCount++;
+          }
+        } else {
+          // Farm-born animals need birth weight
+          if (animal.birth_date && !animal.birth_weight_kg) {
+            missingWeightCount++;
+          }
+        }
+      });
+      const totalAnimals = animalsWithWeightData.length;
 
       // Build completeness items
       const items: DataCompletenessItem[] = [
@@ -111,12 +132,17 @@ export function useDataCompleteness(farmId: string) {
         },
         {
           key: "weights",
-          label: "Weight Records",
-          description: "Weight data for asset valuation",
-          isComplete: weightCount > 0,
+          label: "Animal Weight Data",
+          description: totalAnimals === 0
+            ? "No animals to track"
+            : missingWeightCount > 0
+              ? `${missingWeightCount} animal${missingWeightCount > 1 ? "s" : ""} missing weight for valuation`
+              : "Weight data complete for asset valuation",
+          isComplete: totalAnimals === 0 || missingWeightCount === 0,
           action: "navigate",
-          actionTarget: "animals",
+          actionTarget: "animals-weight",
           priority: 4,
+          metadata: { missingCount: missingWeightCount, totalAnimals },
         },
         {
           key: "production",
