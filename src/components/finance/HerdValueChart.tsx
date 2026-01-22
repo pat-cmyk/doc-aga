@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useHerdValuation, useHerdValuationSummary } from "@/hooks/useHerdValuation";
+import { useHerdValuationUnified } from "@/hooks/useHerdValuationUnified";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Beef, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,8 +27,7 @@ interface HerdValueChartProps {
 
 export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueChartProps) {
   const [chartExpanded, setChartExpanded] = useState(false);
-  const { data: chartData, isLoading: chartLoading } = useHerdValuation(farmId, 3);
-  const { data: summary, isLoading: summaryLoading } = useHerdValuationSummary(farmId, livestockType);
+  const { data: valuation, isLoading } = useHerdValuationUnified(farmId, livestockType, 3);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -45,8 +44,6 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
     return `₱${value.toFixed(0)}`;
   };
 
-  const isLoading = chartLoading || summaryLoading;
-
   if (isLoading) {
     return (
       <Card>
@@ -62,11 +59,11 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
     );
   }
 
-  const hasData = chartData && chartData.some((d) => d.totalValue > 0);
-  const changePercent = summary?.changePercent ?? 0;
-  const changeAmount = summary && summary.previousMonthValue > 0 
-    ? summary.currentValue - summary.previousMonthValue 
-    : 0;
+  // Map unified hook data
+  const chartData = valuation?.monthlyTrend || [];
+  const hasData = chartData.length > 0 && chartData.some((d) => d.value > 0);
+  const changePercent = valuation?.changePercent ?? 0;
+  const changeAmount = valuation?.changeAmount ?? 0;
   
   // Determine status
   const getStatusInfo = () => {
@@ -110,11 +107,11 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
           {/* Current Value */}
           <div className="p-3 rounded-lg bg-muted/30">
             <p className="text-xs text-muted-foreground mb-1">Current Value</p>
-            <p className="text-2xl font-bold">{formatCompact(summary?.currentValue ?? 0)}</p>
+            <p className="text-2xl font-bold">{formatCompact(valuation?.currentValue ?? 0)}</p>
             <p className="text-xs text-muted-foreground">
-              {summary && summary.animalCount < summary.totalAnimalCount
-                ? `${summary.animalCount} of ${summary.totalAnimalCount} animals valued`
-                : `${summary?.animalCount ?? 0} animals`
+              {valuation && valuation.missingWeightCount > 0
+                ? `${valuation.animalsWithWeight} of ${valuation.animalCount} animals valued`
+                : `${valuation?.animalCount ?? 0} animals`
               }
             </p>
           </div>
@@ -143,14 +140,14 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
         </div>
 
         {/* Market Price - Simplified */}
-        {summary && (
+        {valuation && (
           <div className="flex items-center justify-between text-sm px-1">
             <span className="text-muted-foreground">
-              ₱{summary.marketPrice.toFixed(0)}/kg 
-              <span className="text-xs ml-1">({getSourceLabel(summary.priceSource)})</span>
+              ₱{valuation.marketPrice.toFixed(0)}/kg 
+              <span className="text-xs ml-1">({getSourceLabel(valuation.priceSource)})</span>
             </span>
             <span className="text-xs text-muted-foreground">
-              {format(new Date(summary.priceDate), "MMM d")}
+              {format(new Date(valuation.priceDate), "MMM d")}
             </span>
           </div>
         )}
@@ -201,7 +198,7 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                       />
                       <Area
                         type="monotone"
-                        dataKey="totalValue"
+                        dataKey="value"
                         stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         fill="url(#herdValueGradientMobile)"
@@ -246,7 +243,7 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                   />
                   <Area
                     type="monotone"
-                    dataKey="totalValue"
+                    dataKey="value"
                     stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     fill="url(#herdValueGradientDesktop)"
@@ -264,9 +261,9 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
         )}
 
         {/* Simple Insight */}
-        {hasData && summary && (
+        {hasData && valuation && (
           <p className="text-xs text-muted-foreground text-center px-2">
-            💡 Each kg gained = ₱{summary.marketPrice.toFixed(0)} more value!
+            💡 Each kg gained = ₱{valuation.marketPrice.toFixed(0)} more value!
           </p>
         )}
       </CardContent>
