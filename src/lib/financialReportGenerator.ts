@@ -230,7 +230,10 @@ async function fetchFarmProfile(farmId: string) {
 async function fetchAnimalsData(farmId: string) {
   const { data: animals, error } = await supabase
     .from("animals")
-    .select("id, name, life_stage, acquisition_type, purchase_price, exit_date, exit_reason")
+    .select(`
+      id, name, life_stage, acquisition_type, purchase_price, exit_date, exit_reason,
+      current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg
+    `)
     .eq("farm_id", farmId)
     .eq("is_deleted", false)
     .is("exit_date", null); // Only active animals
@@ -239,6 +242,41 @@ async function fetchAnimalsData(farmId: string) {
     console.error("[Financial Report] Failed to fetch animals:", error);
   }
   return animals || [];
+}
+
+/**
+ * Get effective weight for an animal, prioritizing sources:
+ * 1. Latest weight from weight_records table
+ * 2. current_weight_kg on animal record
+ * 3. entry_weight_kg (if known, not marked unknown)
+ * 4. birth_weight_kg
+ */
+function getAnimalEffectiveWeight(animal: any, weightRecords: any[]): number | null {
+  // Priority 1: Latest weight from weight_records table
+  const animalRecords = weightRecords
+    .filter(w => w.animal_id === animal.id)
+    .sort((a, b) => new Date(b.measurement_date).getTime() - new Date(a.measurement_date).getTime());
+  
+  if (animalRecords.length > 0 && animalRecords[0].weight_kg) {
+    return Number(animalRecords[0].weight_kg);
+  }
+  
+  // Priority 2: Current weight on animal record
+  if (animal.current_weight_kg) {
+    return Number(animal.current_weight_kg);
+  }
+  
+  // Priority 3: Entry weight (if known)
+  if (animal.entry_weight_kg && !animal.entry_weight_unknown) {
+    return Number(animal.entry_weight_kg);
+  }
+  
+  // Priority 4: Birth weight
+  if (animal.birth_weight_kg) {
+    return Number(animal.birth_weight_kg);
+  }
+  
+  return null;
 }
 
 async function fetchExpensesData(farmId: string, startDate: string, endDate: string) {
@@ -433,18 +471,20 @@ function processHerdSummary(
     estimatedValue: data.value,
   }));
 
-  // Calculate average weight from latest weight records (using correct column name: weight_kg)
-  const latestWeights: Record<string, number> = {};
-  weights.forEach((w) => {
-    if (activeAnimals.some((a) => a.id === w.animal_id)) {
-      latestWeights[w.animal_id] = Number(w.weight_kg);
-    }
-  });
+  // Calculate average weight using all available weight sources (weight_records + animal fields)
+  const weightsWithValues = activeAnimals
+    .map(a => getAnimalEffectiveWeight(a, weights))
+    .filter((w): w is number => w !== null && w > 0);
   
-  const weightValues = Object.values(latestWeights);
-  const averageWeight = weightValues.length > 0 
-    ? weightValues.reduce((sum, w) => sum + w, 0) / weightValues.length 
+  const averageWeight = weightsWithValues.length > 0 
+    ? weightsWithValues.reduce((sum, w) => sum + w, 0) / weightsWithValues.length 
     : null;
+  
+  console.log("[Financial Report] Weight calculation:", {
+    totalAnimals: activeAnimals.length,
+    animalsWithWeight: weightsWithValues.length,
+    averageWeight,
+  });
 
   const totalValue = composition.reduce((sum, c) => sum + c.estimatedValue, 0);
 
@@ -663,12 +703,14 @@ function assessDataCompleteness(
   const hasAnimalInventory = animals.length > 0;
   if (!hasAnimalInventory) missingItems.push("Animal inventory");
 
-  // 4. Weight records check (aligned with Dashboard: per-animal check)
-  const animalsWithWeights = new Set(weights.map(w => w.animal_id));
-  const hasWeightRecords = animals.length > 0 && animalsWithWeights.size > 0;
-  const weightCoverage = animals.length > 0 ? (animalsWithWeights.size / animals.length) * 100 : 0;
-  if (!hasWeightRecords || weightCoverage < 50) {
-    missingItems.push(`Animal weight records (${animalsWithWeights.size}/${animals.length} animals)`);
+  // 4. Weight records check - considers ALL weight sources (weight_records + animal fields)
+  const animalsWithWeight = animals.filter(a => 
+    getAnimalEffectiveWeight(a, weights) !== null
+  ).length;
+  const hasWeightRecords = animals.length > 0 && animalsWithWeight > 0;
+  const weightCoverage = animals.length > 0 ? (animalsWithWeight / animals.length) * 100 : 0;
+  if (!hasWeightRecords || weightCoverage < 80) {
+    missingItems.push(`Animal weight records (${animalsWithWeight}/${animals.length} animals)`);
   }
 
   // 5. Production records check (aligned with Dashboard: >= 10 records in period)
@@ -726,7 +768,7 @@ function assessDataCompleteness(
     hasGeoLocation,
     hasCompleteAddress,
     hasAnimalInventory,
-    hasWeightRecords && weightCoverage >= 50,
+    hasWeightRecords && weightCoverage >= 80,
     hasProductionRecords,
     hasExpenseTracking,
     hasRevenueDocumentation,
