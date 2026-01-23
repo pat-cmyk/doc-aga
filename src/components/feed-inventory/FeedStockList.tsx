@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AddFeedStockDialog } from "./AddFeedStockDialog";
 import { StockTransactionHistory } from "./StockTransactionHistory";
+import { ExpiryBadge } from "./ExpiryBadge";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { calculateStockoutDate, getStatusColor } from "@/lib/feedInventory";
 import { useToast } from "@/hooks/use-toast";
@@ -67,7 +68,8 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
         .order('feed_type');
 
       if (error) throw error;
-      setInventory(data || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setInventory((data || []) as any);
     } catch (error) {
       console.error('Error fetching inventory:', error);
       toast({
@@ -158,9 +160,12 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
                       {item.supplier && `Supplier: ${item.supplier}`}
                     </CardDescription>
                   </div>
-                  <Badge className={getStatusColor(stockout.status)}>
-                    {stockout.status}
-                  </Badge>
+                  <div className="flex flex-col gap-1 items-end">
+                    <Badge className={getStatusColor(stockout.status)}>
+                      {stockout.status}
+                    </Badge>
+                    <ExpiryBadge expiryDate={item.expiry_date || null} />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
