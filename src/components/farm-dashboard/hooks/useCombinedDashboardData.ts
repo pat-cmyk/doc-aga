@@ -129,7 +129,10 @@ export const useCombinedDashboardData = (
         p_monthly_end_date: monthlyEndDate.toISOString().split('T')[0]
       });
 
-      if (rpcError) throw rpcError;
+      if (rpcError) {
+        console.error('[Dashboard] RPC get_combined_dashboard_data failed - showing cached values:', rpcError.message);
+        throw rpcError;
+      }
 
       if (data) {
         const result = data as unknown as CombinedDashboardData;
