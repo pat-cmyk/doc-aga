@@ -1,8 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wrench, TestTube, Settings, RefreshCw } from "lucide-react";
+import { Wrench, TestTube, Settings, RefreshCw, ShieldCheck } from "lucide-react";
 import { SystemAdmin } from "../SystemAdmin";
 import { QADashboard } from "../QADashboard";
 import { SyncMonitoringDashboard } from "../SyncMonitoringDashboard";
+import { DataIntegrityDashboard } from "../DataIntegrityDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSearchParams } from "react-router-dom";
 
@@ -24,6 +25,10 @@ export const SystemTab = () => {
             <Wrench className="h-4 w-4" />
             Maintenance
           </TabsTrigger>
+          <TabsTrigger value="integrity" className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Data Integrity
+          </TabsTrigger>
           <TabsTrigger value="sync" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Sync Monitoring
@@ -40,6 +45,10 @@ export const SystemTab = () => {
 
         <TabsContent value="maintenance" className="mt-6">
           <SystemAdmin />
+        </TabsContent>
+
+        <TabsContent value="integrity" className="mt-6">
+          <DataIntegrityDashboard />
         </TabsContent>
 
         <TabsContent value="sync" className="mt-6">
