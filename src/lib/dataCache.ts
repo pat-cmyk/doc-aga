@@ -266,7 +266,7 @@ interface FarmDataCache {
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
 // Bump this version when RPC logic changes to force cache invalidation
-const DASHBOARD_CACHE_VERSION = 8; // v5: Unified weight-based feed consumption calculation
+const DASHBOARD_CACHE_VERSION = 9; // v5: Unified weight-based feed consumption calculation
 
 /**
  * Feed stock breakdown for dashboard tooltip
