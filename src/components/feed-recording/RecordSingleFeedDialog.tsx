@@ -76,7 +76,7 @@ export function RecordSingleFeedDialog({
       if (!farmId) return [];
       const { data, error } = await supabase
         .from('feed_inventory')
-        .select('id, feed_type, quantity_kg, cost_per_unit, unit, weight_per_unit')
+        .select('id, feed_type, quantity_kg, cost_per_unit, unit, weight_per_unit, category')
         .eq('farm_id', farmId)
         .gt('quantity_kg', 0)
         .order('feed_type');
@@ -240,12 +240,14 @@ export function RecordSingleFeedDialog({
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Insert feeding record
+      // Insert feeding record with inventory link and cost lock
       const { error: insertError } = await supabase.from("feeding_records").insert({
         animal_id: animalId,
         record_datetime: dateTime,
         kilograms: kg,
         feed_type: feedTypeName,
+        feed_inventory_id: feedType !== FRESH_CUT_OPTION ? selectedFeedInventory?.id : null,
+        cost_per_kg_at_time: costPerKg > 0 ? costPerKg : null,
         notes: notes.trim() || null,
         created_by: user?.id,
       });

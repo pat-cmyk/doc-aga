@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet } from "lucide-react";
+import { Wallet, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -30,18 +31,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { FeedTypeCombobox } from "./FeedTypeCombobox";
 import { normalizeFeedType } from "@/lib/feedTypeNormalization";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+
+const FEED_CATEGORIES = [
+  { value: 'concentrates', label: 'Concentrates (grains, pellets, dairy meal)' },
+  { value: 'roughage', label: 'Roughage (hay, silage, grass)' },
+  { value: 'minerals', label: 'Minerals & Vitamins' },
+  { value: 'supplements', label: 'Supplements & Additives' },
+] as const;
 
 const formSchema = z.object({
   feed_type: z.string().min(1, "Feed type is required"),
+  category: z.enum(['concentrates', 'roughage', 'minerals', 'supplements']),
   quantity_kg: z.coerce.number().positive("Quantity must be positive"),
   unit: z.string().min(1, "Unit is required"),
   weight_per_unit: z.coerce.number().positive("Weight per unit must be positive").optional(),
   cost_per_unit: z.coerce.number().nonnegative().optional(),
+  purchase_date: z.date().optional(),
+  expiry_date: z.date().optional(),
+  batch_number: z.string().optional(),
   reorder_threshold: z.coerce.number().nonnegative().optional(),
   supplier: z.string().optional(),
   notes: z.string().optional(),
@@ -71,10 +90,14 @@ export function AddFeedStockDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       feed_type: "",
+      category: "roughage",
       quantity_kg: 0,
       unit: "kg",
       weight_per_unit: undefined,
       cost_per_unit: undefined,
+      purchase_date: new Date(),
+      expiry_date: undefined,
+      batch_number: "",
       reorder_threshold: undefined,
       supplier: "",
       notes: "",
@@ -106,10 +129,14 @@ export function AddFeedStockDialog({
     if (editItem) {
       form.reset({
         feed_type: editItem.feed_type,
+        category: (editItem as any).category || "roughage",
         quantity_kg: Number(editItem.quantity_kg),
         unit: editItem.unit,
         weight_per_unit: undefined,
         cost_per_unit: editItem.cost_per_unit ? Number(editItem.cost_per_unit) : undefined,
+        purchase_date: (editItem as any).purchase_date ? new Date((editItem as any).purchase_date) : undefined,
+        expiry_date: (editItem as any).expiry_date ? new Date((editItem as any).expiry_date) : undefined,
+        batch_number: (editItem as any).batch_number || "",
         reorder_threshold: editItem.reorder_threshold ? Number(editItem.reorder_threshold) : undefined,
         supplier: editItem.supplier || "",
         notes: editItem.notes || "",
@@ -117,10 +144,14 @@ export function AddFeedStockDialog({
     } else if (prefillFeedType) {
       form.reset({
         feed_type: prefillFeedType,
+        category: "roughage",
         quantity_kg: 0,
         unit: "kg",
         weight_per_unit: undefined,
         cost_per_unit: undefined,
+        purchase_date: new Date(),
+        expiry_date: undefined,
+        batch_number: "",
         reorder_threshold: undefined,
         supplier: "",
         notes: "",
@@ -128,10 +159,14 @@ export function AddFeedStockDialog({
     } else {
       form.reset({
         feed_type: "",
+        category: "roughage",
         quantity_kg: 0,
         unit: "kg",
         weight_per_unit: undefined,
         cost_per_unit: undefined,
+        purchase_date: new Date(),
+        expiry_date: undefined,
+        batch_number: "",
         reorder_threshold: undefined,
         supplier: "",
         notes: "",
@@ -163,10 +198,14 @@ export function AddFeedStockDialog({
           .from('feed_inventory')
           .update({
             feed_type: normalizedFeedType,
+            category: data.category,
             quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
             cost_per_unit: data.cost_per_unit,
+            purchase_date: data.purchase_date ? format(data.purchase_date, 'yyyy-MM-dd') : null,
+            expiry_date: data.expiry_date ? format(data.expiry_date, 'yyyy-MM-dd') : null,
+            batch_number: data.batch_number || null,
             reorder_threshold: data.reorder_threshold,
             supplier: data.supplier,
             notes: data.notes,
@@ -202,10 +241,14 @@ export function AddFeedStockDialog({
           .from('feed_inventory')
           .insert([{
             feed_type: normalizedFeedType,
+            category: data.category,
             quantity_kg: actualQuantityKg,
             unit: data.unit,
             weight_per_unit: data.weight_per_unit,
             cost_per_unit: data.cost_per_unit,
+            purchase_date: data.purchase_date ? format(data.purchase_date, 'yyyy-MM-dd') : null,
+            expiry_date: data.expiry_date ? format(data.expiry_date, 'yyyy-MM-dd') : null,
+            batch_number: data.batch_number || null,
             reorder_threshold: data.reorder_threshold,
             supplier: data.supplier,
             notes: data.notes,
@@ -225,17 +268,37 @@ export function AddFeedStockDialog({
             transaction_type: 'addition',
             quantity_change_kg: actualQuantityKg,
             balance_after: actualQuantityKg,
-            notes: 'Initial stock',
+            notes: data.batch_number ? `Initial stock - Batch: ${data.batch_number}` : 'Initial stock',
             created_by: user.id,
           });
 
         if (transactionError) throw transactionError;
 
+        // Create purchase expense record if cost is provided
         const hasExpense = data.cost_per_unit && data.cost_per_unit > 0;
+        if (hasExpense && calculatedTotalCost && calculatedTotalCost > 0) {
+          const { error: expenseError } = await supabase
+            .from('farm_expenses')
+            .insert({
+              farm_id: farmId,
+              user_id: user.id,
+              category: 'Feed & Supplements',
+              amount: calculatedTotalCost,
+              description: `Feed purchase: ${normalizedFeedType}${data.batch_number ? ` (Batch: ${data.batch_number})` : ''}`,
+              expense_date: data.purchase_date ? format(data.purchase_date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+              allocation_type: 'Capital',
+              linked_feed_inventory_id: newItem.id,
+            });
+
+          if (expenseError) {
+            console.error('Failed to create purchase expense:', expenseError);
+          }
+        }
+
         toast({
           title: "Success",
           description: hasExpense 
-            ? "Feed stock added and expense recorded automatically" 
+            ? "Feed stock added and purchase expense recorded" 
             : "Feed stock added successfully",
         });
       }
@@ -277,6 +340,31 @@ export function AddFeedStockDialog({
                       placeholder="Select or type feed type..."
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {FEED_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -387,19 +475,122 @@ export function AddFeedStockDialog({
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="supplier"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supplier</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Supplier name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Purchase & Expiry Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="purchase_date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Purchase Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date > new Date()}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="expiry_date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Expiry Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Optional</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>For perishable feeds</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Batch & Supplier */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="batch_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Batch/Lot Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., LOT-2026-001" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="supplier"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Supplier</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Supplier name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

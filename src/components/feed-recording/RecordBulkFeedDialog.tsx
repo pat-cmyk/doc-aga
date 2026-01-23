@@ -76,7 +76,7 @@ export function RecordBulkFeedDialog({
       if (!farmId) return [];
       const { data, error } = await supabase
         .from('feed_inventory')
-        .select('id, feed_type, quantity_kg, cost_per_unit, unit, weight_per_unit')
+        .select('id, feed_type, quantity_kg, cost_per_unit, unit, weight_per_unit, category')
         .eq('farm_id', farmId)
         .gt('quantity_kg', 0)
         .order('feed_type');
@@ -236,12 +236,14 @@ export function RecordBulkFeedDialog({
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Create feeding records for each animal
+      // Create feeding records for each animal with inventory link and cost lock
       const records = splitPreview.map((split) => ({
         animal_id: split.animalId,
         record_datetime: dateTime,
         kilograms: split.kilograms,
         feed_type: feedTypeName,
+        feed_inventory_id: feedType !== FRESH_CUT_OPTION ? selectedFeedInventory?.id : null,
+        cost_per_kg_at_time: costPerKg > 0 ? costPerKg : null,
         created_by: user?.id,
       }));
 
