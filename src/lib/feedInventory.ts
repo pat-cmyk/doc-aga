@@ -7,7 +7,7 @@ export interface FeedInventoryItem {
   id: string;
   farm_id: string;
   feed_type: string;
-  category?: string | null;
+  category?: string | null; // Can be any string from DB, not strictly FeedCategory
   quantity_kg: number;
   unit: string;
   weight_per_unit?: number;

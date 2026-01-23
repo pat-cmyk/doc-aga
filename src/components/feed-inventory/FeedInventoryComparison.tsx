@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMemo } from "react";
+import { TrendingUp, TrendingDown, AlertTriangle, CloudOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,54 +10,49 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
-import type { FeedInventoryItem, ComparisonResult } from "@/lib/feedInventory";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import type { ComparisonResult } from "@/lib/feedInventory";
 import type { MonthlyFeedForecast } from "@/lib/feedForecast";
 import { compareInventoryToForecast, getStatusColor } from "@/lib/feedInventory";
-import { useToast } from "@/hooks/use-toast";
+import { useFeedInventory } from "@/hooks/useFeedInventory";
 
 interface FeedInventoryComparisonProps {
   farmId: string;
   forecasts: MonthlyFeedForecast[];
 }
 
+/**
+ * Feed Inventory vs Forecast Comparison
+ * Uses SSOT pattern via useFeedInventory hook
+ */
 export function FeedInventoryComparison({ farmId, forecasts }: FeedInventoryComparisonProps) {
-  const [inventory, setInventory] = useState<FeedInventoryItem[]>([]);
-  const [comparison, setComparison] = useState<ComparisonResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  // SSOT: Use unified feed inventory hook
+  const { inventory, loading, isCached } = useFeedInventory(farmId);
 
-  useEffect(() => {
-    fetchInventory();
-  }, [farmId]);
-
-  useEffect(() => {
-    if (inventory.length > 0 && forecasts.length > 0) {
-      const results = compareInventoryToForecast(inventory, forecasts);
-      setComparison(results);
-    }
+  // Compute comparison from inventory and forecasts
+  const comparison = useMemo<ComparisonResult[]>(() => {
+    if (inventory.length === 0 || forecasts.length === 0) return [];
+    return compareInventoryToForecast(inventory, forecasts);
   }, [inventory, forecasts]);
 
-  const fetchInventory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('feed_inventory')
-        .select('*')
-        .eq('farm_id', farmId);
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    return forecasts.map((forecast, index) => {
+      const totalStock = inventory.reduce((sum, item) => sum + item.quantity_kg, 0);
+      const cumulativeConsumption = forecasts
+        .slice(0, index + 1)
+        .reduce((sum, f) => sum + f.totalFeedKgPerMonth, 0);
+      const remainingStock = Math.max(0, totalStock - cumulativeConsumption);
 
-      if (error) throw error;
-      setInventory(data || []);
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load inventory comparison",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        month: forecast.month,
+        currentStock: totalStock,
+        remainingStock,
+        required: forecast.totalFeedKgPerMonth,
+        cumulative: cumulativeConsumption,
+      };
+    });
+  }, [inventory, forecasts]);
 
   if (loading) {
     return <div className="text-center py-8">Loading comparison...</div>;
@@ -78,25 +72,16 @@ export function FeedInventoryComparison({ farmId, forecasts }: FeedInventoryComp
     );
   }
 
-  // Prepare chart data
-  const chartData = forecasts.map((forecast, index) => {
-    const totalStock = inventory.reduce((sum, item) => sum + item.quantity_kg, 0);
-    const cumulativeConsumption = forecasts
-      .slice(0, index + 1)
-      .reduce((sum, f) => sum + f.totalFeedKgPerMonth, 0);
-    const remainingStock = Math.max(0, totalStock - cumulativeConsumption);
-
-    return {
-      month: forecast.month,
-      currentStock: totalStock,
-      remainingStock,
-      required: forecast.totalFeedKgPerMonth,
-      cumulative: cumulativeConsumption,
-    };
-  });
-
   return (
     <div className="space-y-6">
+      {/* Cached data indicator */}
+      {isCached && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+          <CloudOff className="h-4 w-4" />
+          <span>Showing cached data (offline)</span>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         {comparison.map((item) => (

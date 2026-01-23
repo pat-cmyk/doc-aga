@@ -56,18 +56,10 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
         .eq("farm_id", farmId)
         .eq("is_deleted", false);
 
-      // Get feed inventory for stock days calculation
-      const { data: feedInventory } = await supabase
-        .from("feed_inventory")
-        .select("quantity_kg")
-        .eq("farm_id", farmId);
-
-      const totalStockKg = feedInventory?.reduce((sum, item) => sum + (item.quantity_kg || 0), 0) || 0;
-      // Estimate ~15kg/day per animal average consumption
-      const estimatedDailyConsumption = (animalCount || 0) * 15;
-      const feedStockDays = estimatedDailyConsumption > 0 
-        ? Math.floor(totalStockKg / estimatedDailyConsumption)
-        : null;
+      // Feed stock days now comes from RPC (get_combined_dashboard_data)
+      // which computes it based on roughage only - see useCombinedDashboardData
+      // This hook is kept for backward compatibility but feedStockDays is set to null
+      // The main dashboard uses useCombinedDashboardData which gets the correct value from RPC
 
       // Get average daily milk - prefer pre-aggregated stats
       const { data: dailyStats } = await supabase
@@ -119,7 +111,7 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
 
       setStats({
         totalAnimals: animalCount || 0,
-        feedStockDays,
+        feedStockDays: null, // Now computed by RPC in useCombinedDashboardData
         avgDailyMilk: avgMilk,
         pregnantCount: pregnancyData?.length || 0,
         pendingConfirmation: pendingAI?.length || 0,

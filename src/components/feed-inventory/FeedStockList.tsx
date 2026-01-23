@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, TrendingDown, Package } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Plus, TrendingDown, Package, CloudOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { AddFeedStockDialog } from "./AddFeedStockDialog";
 import { StockTransactionHistory } from "./StockTransactionHistory";
 import { ExpiryBadge } from "./ExpiryBadge";
+import { useFeedInventory } from "@/hooks/useFeedInventory";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
 import { calculateStockoutDate, getStatusColor } from "@/lib/feedInventory";
-import { useToast } from "@/hooks/use-toast";
 
 interface FeedStockListProps {
   farmId: string;
@@ -19,38 +18,17 @@ interface FeedStockListProps {
   onPrefillUsed?: () => void;
 }
 
+/**
+ * Feed Stock List Component
+ * Uses SSOT pattern via useFeedInventory hook for consistent data access
+ */
 export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUsed }: FeedStockListProps) {
-  const [inventory, setInventory] = useState<FeedInventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // SSOT: Use unified feed inventory hook (handles cache, realtime, offline)
+  const { inventory, summary, loading, isCached, dailyConsumption } = useFeedInventory(farmId);
+  
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FeedInventoryItem | null>(null);
   const [viewingHistory, setViewingHistory] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    fetchInventory();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('feed-inventory-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'feed_inventory',
-          filter: `farm_id=eq.${farmId}`
-        },
-        () => {
-          fetchInventory();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [farmId]);
 
   // Auto-open dialog if prefillFeedType is provided
   useEffect(() => {
@@ -58,29 +36,6 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
       setIsAddDialogOpen(true);
     }
   }, [prefillFeedType, canManage]);
-
-  const fetchInventory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('feed_inventory')
-        .select('*')
-        .eq('farm_id', farmId)
-        .order('feed_type');
-
-      if (error) throw error;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setInventory((data || []) as any);
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load feeds",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEdit = (item: FeedInventoryItem) => {
     setEditingItem(item);
@@ -94,6 +49,11 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
       onPrefillUsed();
     }
   };
+
+  // Estimate per-item daily consumption (total consumption / number of items)
+  const estimatedDailyConsumptionPerItem = dailyConsumption > 0 && inventory.length > 0
+    ? dailyConsumption / inventory.length
+    : 50; // Fallback to 50kg/day
 
   if (loading) {
     return <div className="text-center py-8">Loading inventory...</div>;
@@ -129,9 +89,18 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Feeds</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Feeds</h3>
+            {isCached && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <CloudOff className="h-3 w-3" />
+                Cached
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             {inventory.length} feed type{inventory.length !== 1 ? 's' : ''} in stock
+            {summary.totalKg > 0 && ` • ${summary.totalKg.toLocaleString()} kg total`}
           </p>
         </div>
         {canManage && (
@@ -142,10 +111,47 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
         )}
       </div>
 
+      {/* Summary stats */}
+      {summary.totalKg > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground">Roughage</div>
+            <div className="text-lg font-semibold">{summary.roughageKg.toLocaleString()} kg</div>
+            {summary.roughageDays !== null && (
+              <div className="text-xs text-muted-foreground">{summary.roughageDays} days</div>
+            )}
+          </Card>
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground">Concentrates</div>
+            <div className="text-lg font-semibold">{summary.concentrateKg.toLocaleString()} kg</div>
+            {summary.concentrateDays !== null && (
+              <div className="text-xs text-muted-foreground">{summary.concentrateDays} days</div>
+            )}
+          </Card>
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground">Total Value</div>
+            <div className="text-lg font-semibold">₱{summary.totalValue.toLocaleString()}</div>
+          </Card>
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground">Alerts</div>
+            <div className="flex gap-2 text-lg font-semibold">
+              {summary.expiringCount > 0 && (
+                <span className="text-yellow-600">{summary.expiringCount} expiring</span>
+              )}
+              {summary.lowStockCount > 0 && (
+                <span className="text-destructive">{summary.lowStockCount} low</span>
+              )}
+              {summary.expiringCount === 0 && summary.lowStockCount === 0 && (
+                <span className="text-green-600">All good</span>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {inventory.map((item) => {
-          const dailyConsumption = 50; // Simplified - should come from forecast
-          const stockout = calculateStockoutDate(item.quantity_kg, dailyConsumption);
+          const stockout = calculateStockoutDate(item.quantity_kg, estimatedDailyConsumptionPerItem);
           const stockPercentage = item.reorder_threshold 
             ? Math.min((item.quantity_kg / item.reorder_threshold) * 100, 100)
             : 100;

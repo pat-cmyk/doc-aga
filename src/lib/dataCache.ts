@@ -241,6 +241,14 @@ interface FeedInventoryCache {
   lastUpdated: number;
   // Offline-first additions
   syncStatus: CacheSyncStatus;
+  // Computed summary for offline use
+  summary?: {
+    totalKg: number;
+    concentrateKg: number;
+    roughageKg: number;
+    mineralsKg: number;
+    supplementsKg: number;
+  };
 }
 
 interface FarmDataCache {
@@ -706,6 +714,7 @@ export async function getCachedFeedInventory(farmId: string): Promise<FeedInvent
 
 /**
  * Fetch and cache feed inventory for a farm from Supabase
+ * Now includes summary computation for offline use
  * 
  * @param farmId - UUID of the farm
  * @returns Promise resolving to array of cached feed items
@@ -719,9 +728,20 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
 
     if (error) throw error;
 
+    // Compute summary for offline use
+    const items = data || [];
+    const summary = {
+      totalKg: items.reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+      concentrateKg: items.filter(i => i.category === 'concentrates').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+      roughageKg: items.filter(i => i.category === 'roughage' || !i.category).reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+      mineralsKg: items.filter(i => i.category === 'minerals').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+      supplementsKg: items.filter(i => i.category === 'supplements').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+    };
+
     const cache: FeedInventoryCache = {
       farmId,
-      items: data || [],
+      items,
+      summary, // Store computed summary
       lastUpdated: Date.now(),
       syncStatus: 'synced',
     };
@@ -729,7 +749,7 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
     const db = await getDB();
     await db.put('feedInventory', cache);
 
-    return data || [];
+    return items;
   } catch (error) {
     console.error('Failed to update feed inventory cache:', error);
     return [];
