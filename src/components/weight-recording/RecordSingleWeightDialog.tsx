@@ -35,6 +35,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordSingleWeightDialogProps {
   open: boolean;
@@ -69,6 +70,7 @@ export function RecordSingleWeightDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Haptic on dialog open
   useEffect(() => {
@@ -277,7 +279,7 @@ export function RecordSingleWeightDialog({
                   selected={measurementDate}
                   onSelect={handleDateSelect}
                   disabled={(date) =>
-                    date > new Date() || date < subDays(new Date(), 7)
+                    date > new Date() || date < subDays(new Date(), maxBackdateDays)
                   }
                   initialFocus
                   className="pointer-events-auto"

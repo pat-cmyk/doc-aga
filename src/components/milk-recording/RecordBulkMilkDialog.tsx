@@ -36,6 +36,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkMilkDialogProps {
   open: boolean;
@@ -59,6 +60,7 @@ export function RecordBulkMilkDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   const { data: animals = [], isLoading } = useLactatingAnimals(farmId);
 
@@ -400,7 +402,7 @@ export function RecordBulkMilkDialog({
                     selected={recordDate}
                     onSelect={handleDateSelect}
                     disabled={(date) =>
-                      date > new Date() || date < subDays(new Date(), 7)
+                      date > new Date() || date < subDays(new Date(), maxBackdateDays)
                     }
                     initialFocus
                     className="pointer-events-auto"

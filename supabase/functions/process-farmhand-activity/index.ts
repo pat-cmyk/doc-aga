@@ -138,7 +138,7 @@ function validateActivityData(activity: any): { valid: boolean; error?: string }
 }
 
 // Parse and validate date with Filipino language support
-function parseAndValidateDate(dateReference: string | undefined): { 
+function parseAndValidateDate(dateReference: string | undefined, maxBackdateDays: number = 7): { 
   date: string, 
   datetime: string, 
   isValid: boolean, 
@@ -188,14 +188,14 @@ function parseAndValidateDate(dateReference: string | undefined): {
     targetDate.setDate(targetDate.getDate() - daysSinceMonday);
   }
   
-  // Validate not too old (30 days limit)
+  // Validate not too old (use farm-specific limit)
   const daysDiff = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff > 30) {
+  if (daysDiff > maxBackdateDays) {
     return {
       date: '',
       datetime: '',
       isValid: false,
-      error: 'Hindi pwedeng mag-record ng activities na mas luma sa 30 days. Makipag-ugnayan sa farm manager para sa lumang records. / Cannot record activities older than 30 days. Please contact your farm manager for historical records.'
+      error: `Hindi pwedeng mag-record ng activities na mas luma sa ${maxBackdateDays} days. Makipag-ugnayan sa farm manager para sa lumang records. / Cannot record activities older than ${maxBackdateDays} days. Please contact your farm manager for historical records.`
     };
   }
   

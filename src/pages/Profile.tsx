@@ -11,7 +11,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useRole, GlobalRole } from "@/hooks/useRole";
 import { useFarmRole } from "@/hooks/useFarmRole";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users, Calendar } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,9 @@ import { FarmLogoUpload } from "@/components/FarmLogoUpload";
 import { FarmTeamManagement } from "@/components/FarmTeamManagement";
 import { DevicePermissionHub } from "@/components/permissions/DevicePermissionHub";
 import { FarmBankInfoDialog, getBiosecurityLabel, getWaterSourceLabel } from "@/components/farm/FarmBankInfoDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useFarmSettings, useUpdateFarmSettings } from "@/hooks/useFarmSettings";
+import { toast } from "sonner";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -391,6 +394,8 @@ const Profile = () => {
                   </div>
                 </div>
                 <Separator />
+                <RecordBackdatingSettings farmId={farmId} />
+                <Separator />
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">Bank Requirements</h4>
@@ -515,5 +520,60 @@ const Profile = () => {
     </div>
   );
 };
+
+// Extracted component for backdating settings
+function RecordBackdatingSettings({ farmId }: { farmId: string }) {
+  const { data: settings, isLoading } = useFarmSettings(farmId);
+  const updateSettings = useUpdateFarmSettings(farmId);
+  
+  const handleChange = async (value: string) => {
+    const days = parseInt(value, 10);
+    try {
+      await updateSettings.mutateAsync({ maxBackdateDays: days });
+      toast.success("Backdating limit updated");
+    } catch (error) {
+      toast.error("Failed to update setting");
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+        <div className="h-10 w-full bg-muted animate-pulse rounded" />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Record Backdating
+        </h4>
+      </div>
+      <div className="space-y-2">
+        <Select
+          value={settings?.maxBackdateDays?.toString() || "7"}
+          onValueChange={handleChange}
+          disabled={updateSettings.isPending}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">7 days (Default)</SelectItem>
+            <SelectItem value="14">14 days</SelectItem>
+            <SelectItem value="30">30 days</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Team members can record activities up to this many days in the past
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default Profile;

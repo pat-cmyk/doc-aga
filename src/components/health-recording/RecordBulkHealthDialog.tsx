@@ -30,6 +30,7 @@ import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals } from "@/lib/dataCache";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkHealthDialogProps {
   open: boolean;
@@ -53,6 +54,7 @@ export function RecordBulkHealthDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   const { data: animals = [], isLoading } = useFarmAnimals(farmId);
 
@@ -294,7 +296,7 @@ export function RecordBulkHealthDialog({
                     selected={recordDate}
                     onSelect={handleDateSelect}
                     disabled={(date) =>
-                      date > new Date() || date < subDays(new Date(), 7)
+                      date > new Date() || date < subDays(new Date(), maxBackdateDays)
                     }
                     initialFocus
                     className="pointer-events-auto"

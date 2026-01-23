@@ -1473,6 +1473,7 @@ export type Database = {
           lgu_code: string | null
           livestock_type: string
           logo_url: string | null
+          max_backdate_days: number | null
           municipality: string | null
           name: string
           owner_id: string
@@ -1499,6 +1500,7 @@ export type Database = {
           lgu_code?: string | null
           livestock_type?: string
           logo_url?: string | null
+          max_backdate_days?: number | null
           municipality?: string | null
           name: string
           owner_id: string
@@ -1525,6 +1527,7 @@ export type Database = {
           lgu_code?: string | null
           livestock_type?: string
           logo_url?: string | null
+          max_backdate_days?: number | null
           municipality?: string | null
           name?: string
           owner_id?: string
