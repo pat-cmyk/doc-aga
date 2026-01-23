@@ -6,7 +6,6 @@ import { getCachedFeedInventory, updateFeedInventoryCache } from '@/lib/dataCach
 import type { FeedInventoryItem } from '@/lib/feedInventory';
 import { 
   calculateFarmDailyConsumption, 
-  calculateConsumptionFromCounts,
   DIET_RATIOS,
   type AnimalForConsumption 
 } from '@/lib/feedConsumption';
@@ -109,15 +108,14 @@ export function computeFeedSummary(
 }
 
 /**
- * Calculate total daily consumption based on animal counts
- * @deprecated Use calculateFarmDailyConsumption with full animal data for accurate results
+ * Calculate total daily consumption based on full animal data
+ * Uses the unified consumption formula (weight + stage based)
  */
 export function calculateTotalDailyConsumption(
-  animalCounts: { livestockType: string; count: number }[]
+  animals: AnimalForConsumption[]
 ): number {
-  return calculateConsumptionFromCounts(
-    animalCounts.map(({ livestockType, count }) => ({ livestockType, count }))
-  );
+  const farmConsumption = calculateFarmDailyConsumption(animals);
+  return farmConsumption.totalFreshForageKgPerDay;
 }
 
 interface UseFeedInventoryOptions {
@@ -166,25 +164,37 @@ export function useFeedInventory(
     if (!farmId || !isOnline) return;
 
     const loadConsumption = async () => {
+      // Query full animal data for accurate weight-based consumption calculation
       const { data: animals } = await supabase
         .from('animals')
-        .select('livestock_type')
+        .select(`
+          id,
+          livestock_type,
+          life_stage,
+          milking_stage,
+          current_weight_kg,
+          entry_weight_kg,
+          birth_weight_kg,
+          gender
+        `)
         .eq('farm_id', farmId)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .is('exit_date', null); // Only active animals
 
       if (animals) {
-        const counts = animals.reduce((acc, animal) => {
-          const type = animal.livestock_type || 'cattle';
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
+        // Map to consumption interface for unified calculation
+        const animalsForConsumption: AnimalForConsumption[] = animals.map(a => ({
+          id: a.id,
+          livestock_type: a.livestock_type,
+          life_stage: a.life_stage,
+          milking_stage: a.milking_stage,
+          current_weight_kg: a.current_weight_kg,
+          entry_weight_kg: a.entry_weight_kg,
+          birth_weight_kg: a.birth_weight_kg,
+          gender: a.gender,
+        }));
 
-        const consumption = calculateTotalDailyConsumption(
-          Object.entries(counts).map(([livestockType, count]) => ({ 
-            livestockType, 
-            count 
-          }))
-        );
+        const consumption = calculateTotalDailyConsumption(animalsForConsumption);
         setAnimalConsumption(consumption);
       }
     };

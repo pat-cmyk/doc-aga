@@ -4,6 +4,7 @@ import {
   calculateTotalDailyConsumption,
 } from "@/hooks/useFeedInventory";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
+import type { AnimalForConsumption } from "@/lib/feedConsumption";
 
 // Mock dependencies
 vi.mock("@/integrations/supabase/client", () => ({
@@ -257,61 +258,68 @@ describe("useFeedInventory Hook", () => {
   });
 
   describe("calculateTotalDailyConsumption", () => {
-    it("should apply cattle rate (12 kg/day)", () => {
-      const consumption = calculateTotalDailyConsumption([
-        { livestockType: "cattle", count: 1 },
-      ]);
-      expect(consumption).toBe(12);
+    // Helper to create a minimal animal for consumption testing
+    const makeAnimal = (overrides: Partial<AnimalForConsumption> = {}): AnimalForConsumption => ({
+      id: "test-animal",
+      livestock_type: "cattle",
+      life_stage: null,
+      milking_stage: null,
+      current_weight_kg: null,
+      entry_weight_kg: null,
+      birth_weight_kg: null,
+      gender: null,
+      ...overrides,
     });
 
-    it("should apply carabao rate (10 kg/day)", () => {
+    it("should calculate consumption for cattle with default weight", () => {
       const consumption = calculateTotalDailyConsumption([
-        { livestockType: "carabao", count: 1 },
+        makeAnimal({ livestock_type: "cattle" }),
       ]);
-      expect(consumption).toBe(10);
+      // Default cattle weight: 400kg, maintenance DM: 2.0%, fresh = DM / 0.30
+      // 400 * 0.02 = 8 kg DM, 8 / 0.30 = 26.67 kg fresh
+      expect(consumption).toBeCloseTo(26.67, 1);
     });
 
-    it("should apply goat rate (1.5 kg/day)", () => {
+    it("should calculate consumption for goat with default weight", () => {
       const consumption = calculateTotalDailyConsumption([
-        { livestockType: "goat", count: 1 },
+        makeAnimal({ livestock_type: "goat" }),
       ]);
-      expect(consumption).toBe(1.5);
+      // Default goat weight: 40kg, maintenance DM: 2.0%, fresh = DM / 0.30
+      // 40 * 0.02 = 0.8 kg DM, 0.8 / 0.30 = 2.67 kg fresh
+      expect(consumption).toBeCloseTo(2.67, 1);
     });
 
-    it("should apply sheep rate (2 kg/day)", () => {
+    it("should use higher DM% for lactating animals", () => {
       const consumption = calculateTotalDailyConsumption([
-        { livestockType: "sheep", count: 1 },
+        makeAnimal({ livestock_type: "cattle", milking_stage: "peak" }),
       ]);
-      expect(consumption).toBe(2);
+      // Default cattle weight: 400kg, lactating DM: 3.5%, fresh = DM / 0.30
+      // 400 * 0.035 = 14 kg DM, 14 / 0.30 = 46.67 kg fresh
+      expect(consumption).toBeCloseTo(46.67, 1);
     });
 
-    it("should use default rate (10 kg/day) for unknown types", () => {
+    it("should use actual weight when provided", () => {
       const consumption = calculateTotalDailyConsumption([
-        { livestockType: "unknown", count: 1 },
+        makeAnimal({ livestock_type: "cattle", current_weight_kg: 500 }),
       ]);
-      expect(consumption).toBe(10);
+      // 500kg, maintenance DM: 2.0%, fresh = DM / 0.30
+      // 500 * 0.02 = 10 kg DM, 10 / 0.30 = 33.33 kg fresh
+      expect(consumption).toBeCloseTo(33.33, 1);
     });
 
-    it("should sum across multiple livestock types", () => {
+    it("should sum across multiple animals", () => {
       const consumption = calculateTotalDailyConsumption([
-        { livestockType: "cattle", count: 2 }, // 24
-        { livestockType: "goat", count: 4 }, // 6
-        { livestockType: "carabao", count: 1 }, // 10
+        makeAnimal({ livestock_type: "cattle" }),
+        makeAnimal({ livestock_type: "cattle" }),
+        makeAnimal({ livestock_type: "goat" }),
       ]);
-      expect(consumption).toBe(40);
+      // 2 cattle (26.67 each) + 1 goat (2.67) = 56.01
+      expect(consumption).toBeCloseTo(56.01, 0);
     });
 
     it("should handle empty array", () => {
       const consumption = calculateTotalDailyConsumption([]);
       expect(consumption).toBe(0);
-    });
-
-    it("should handle case-insensitive livestock types", () => {
-      const consumption = calculateTotalDailyConsumption([
-        { livestockType: "CATTLE", count: 1 },
-        { livestockType: "Goat", count: 1 },
-      ]);
-      expect(consumption).toBe(13.5); // 12 + 1.5
     });
   });
 });
