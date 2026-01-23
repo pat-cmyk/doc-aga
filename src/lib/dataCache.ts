@@ -249,6 +249,8 @@ interface FeedInventoryCache {
     mineralsKg: number;
     supplementsKg: number;
   };
+  // Cached daily consumption for offline calculations
+  dailyConsumption?: number;
 }
 
 interface FarmDataCache {
@@ -263,13 +265,27 @@ interface FarmDataCache {
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
 // Bump this version when RPC logic changes to force cache invalidation
-const DASHBOARD_CACHE_VERSION = 2;
+const DASHBOARD_CACHE_VERSION = 3; // v3: Added feedStockBreakdown to cache
+
+/**
+ * Feed stock breakdown for dashboard tooltip
+ */
+export interface FeedStockBreakdown {
+  concentrateDays: number | null;
+  roughageDays: number | null;
+  concentrateKg: number;
+  roughageKg: number;
+  totalKg?: number;
+  dailyConcentrateConsumption?: number;
+  dailyRoughageConsumption?: number;
+}
 
 export interface DashboardStatsCache {
   farmId: string;
   stats: {
     totalAnimals: number;
     feedStockDays: number | null;
+    feedStockBreakdown?: FeedStockBreakdown; // NEW: Added for tooltip display
     avgDailyMilk: number;
     pregnantCount: number;
     pendingConfirmation: number;
@@ -713,23 +729,42 @@ export async function getCachedFeedInventory(farmId: string): Promise<FeedInvent
 }
 
 /**
+ * Consumption rates by livestock type (kg/day)
+ */
+const CONSUMPTION_RATES: Record<string, number> = {
+  cattle: 12,
+  carabao: 10,
+  goat: 1.5,
+  sheep: 2,
+  default: 10
+};
+
+/**
  * Fetch and cache feed inventory for a farm from Supabase
- * Now includes summary computation for offline use
+ * Now includes summary computation AND daily consumption for offline use
  * 
  * @param farmId - UUID of the farm
  * @returns Promise resolving to array of cached feed items
  */
 export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
   try {
-    const { data, error } = await supabase
-      .from('feed_inventory')
-      .select('*')
-      .eq('farm_id', farmId);
+    // Fetch feed inventory and animal counts in parallel
+    const [feedRes, animalsRes] = await Promise.all([
+      supabase
+        .from('feed_inventory')
+        .select('*')
+        .eq('farm_id', farmId),
+      supabase
+        .from('animals')
+        .select('livestock_type')
+        .eq('farm_id', farmId)
+        .eq('is_deleted', false)
+    ]);
 
-    if (error) throw error;
+    if (feedRes.error) throw feedRes.error;
 
     // Compute summary for offline use
-    const items = data || [];
+    const items = feedRes.data || [];
     const summary = {
       totalKg: items.reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
       concentrateKg: items.filter(i => i.category === 'concentrates').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
@@ -738,10 +773,26 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
       supplementsKg: items.filter(i => i.category === 'supplements').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
     };
 
+    // Calculate daily consumption from animal counts
+    let dailyConsumption = 0;
+    if (animalsRes.data) {
+      const counts = animalsRes.data.reduce((acc, animal) => {
+        const type = (animal.livestock_type || 'cattle').toLowerCase();
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      dailyConsumption = Object.entries(counts).reduce((total, [type, count]) => {
+        const rate = CONSUMPTION_RATES[type] || CONSUMPTION_RATES.default;
+        return total + (rate * count);
+      }, 0);
+    }
+
     const cache: FeedInventoryCache = {
       farmId,
       items,
-      summary, // Store computed summary
+      summary,
+      dailyConsumption, // Store for offline calculations
       lastUpdated: Date.now(),
       syncStatus: 'synced',
     };

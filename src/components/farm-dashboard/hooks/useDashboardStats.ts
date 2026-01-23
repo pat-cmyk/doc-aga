@@ -3,12 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Feed stock breakdown by category
+ * Includes daily consumption for calculating days remaining
  */
 export interface FeedStockBreakdown {
   concentrateDays: number | null;
   roughageDays: number | null;
   concentrateKg: number;
   roughageKg: number;
+  totalKg?: number;
+  dailyConcentrateConsumption?: number;
+  dailyRoughageConsumption?: number;
 }
 
 /**

@@ -134,10 +134,17 @@ export const useCombinedDashboardData = (
       if (data) {
         const result = data as unknown as CombinedDashboardData;
         
+        // Parse feedStockBreakdown from RPC result (may be nested JSON)
+        const feedStockBreakdown = result.stats?.feedStockBreakdown 
+          ? (typeof result.stats.feedStockBreakdown === 'string' 
+              ? JSON.parse(result.stats.feedStockBreakdown) 
+              : result.stats.feedStockBreakdown)
+          : undefined;
+
         const serverStats: DashboardStats = {
           totalAnimals: result.stats?.totalAnimals ?? 0,
           feedStockDays: result.stats?.feedStockDays ?? null,
-          feedStockBreakdown: result.stats?.feedStockBreakdown ?? undefined,
+          feedStockBreakdown,
           avgDailyMilk: result.stats?.avgDailyMilk ?? 0,
           pregnantCount: result.stats?.pregnantCount ?? 0,
           pendingConfirmation: result.stats?.pendingConfirmation ?? 0,
