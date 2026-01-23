@@ -2026,6 +2026,51 @@ export type Database = {
           },
         ]
       }
+      integrity_fix_log: {
+        Row: {
+          admin_id: string
+          created_at: string | null
+          details: Json | null
+          farm_id: string | null
+          fix_type: string
+          id: string
+          items_fixed: number | null
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string | null
+          details?: Json | null
+          farm_id?: string | null
+          fix_type: string
+          id?: string
+          items_fixed?: number | null
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string | null
+          details?: Json | null
+          farm_id?: string | null
+          fix_type?: string
+          id?: string
+          items_fixed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrity_fix_log_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integrity_fix_log_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -3744,10 +3789,25 @@ export type Database = {
         Args: { p_end_date: string; p_farm_id: string; p_start_date: string }
         Returns: Json
       }
+      fix_animal_weights: { Args: { p_farm_id: string }; Returns: Json }
+      fix_missing_milk_revenues: { Args: { p_farm_id: string }; Returns: Json }
+      fix_valuation_calculations: { Args: { p_farm_id: string }; Returns: Json }
       generate_animal_code: { Args: { animal_type: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      get_all_farms_for_integrity_check: {
+        Args: never
+        Returns: {
+          animal_count: number
+          farm_id: string
+          farm_name: string
+          last_activity: string
+          owner_email: string
+          owner_id: string
+          owner_name: string
+        }[]
+      }
       get_combined_dashboard_data: {
         Args: {
           p_end_date: string
