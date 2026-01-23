@@ -116,6 +116,9 @@ export async function generateFinancialReport(
   const periodStartStr = format(periodStart, "yyyy-MM-dd");
   const periodEndStr = format(periodEnd, "yyyy-MM-dd");
 
+  console.log("[Financial Report] Generating report for farm:", farmId);
+  console.log("[Financial Report] Date range:", periodStartStr, "to", periodEndStr);
+
   // Fetch all required data in parallel
   const [
     farmData,
@@ -136,6 +139,19 @@ export async function generateFinancialReport(
     fetchValuationsData(farmId),
     fetchMarketPrice(farmId),
   ]);
+
+  // Log fetch results for debugging
+  console.log("[Financial Report] Fetch results:", {
+    farm: !!farmData,
+    animalsCount: animalsData.length,
+    expensesCount: expensesData.length,
+    expensesTotal: expensesData.reduce((sum, e) => sum + Number(e.amount), 0),
+    revenuesCount: revenuesData.length,
+    revenuesTotal: revenuesData.reduce((sum, r) => sum + Number(r.amount), 0),
+    milkingCount: milkingData.length,
+    weightsCount: weightData.length,
+    valuationsCount: valuationsData.length,
+  });
 
   // Process data into report sections
   const farmProfile = processFarmProfile(farmData, animalsData);
@@ -212,29 +228,35 @@ async function fetchFarmProfile(farmId: string) {
 }
 
 async function fetchAnimalsData(farmId: string) {
-  const { data: animals } = await supabase
+  const { data: animals, error } = await supabase
     .from("animals")
     .select("id, name, life_stage, acquisition_type, purchase_price, status, exit_type, exit_date")
     .eq("farm_id", farmId)
     .eq("is_deleted", false);
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch animals:", error);
+  }
   return animals || [];
 }
 
 async function fetchExpensesData(farmId: string, startDate: string, endDate: string) {
-  const { data: expenses } = await supabase
+  const { data: expenses, error } = await supabase
     .from("farm_expenses")
-    .select("id, amount, category, allocation_type, expense_date, notes")
+    .select("id, amount, category, allocation_type, expense_date, description")
     .eq("farm_id", farmId)
     .eq("is_deleted", false)
     .gte("expense_date", startDate)
     .lte("expense_date", endDate);
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch expenses:", error);
+  }
   return expenses || [];
 }
 
 async function fetchRevenuesData(farmId: string, startDate: string, endDate: string) {
-  const { data: revenues } = await supabase
+  const { data: revenues, error } = await supabase
     .from("farm_revenues")
     .select("id, amount, source, transaction_date, notes")
     .eq("farm_id", farmId)
@@ -242,41 +264,53 @@ async function fetchRevenuesData(farmId: string, startDate: string, endDate: str
     .gte("transaction_date", startDate)
     .lte("transaction_date", endDate);
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch revenues:", error);
+  }
   return revenues || [];
 }
 
 async function fetchMilkingData(farmId: string, startDate: string, endDate: string): Promise<any[]> {
   // Use explicit type casting to avoid deep type instantiation
   const client = supabase as any;
-  const { data } = await client
+  const { data, error } = await client
     .from("milking_records")
     .select("id, milk_yield, is_sold, price_per_liter, sale_amount, milking_date, animal_id")
     .eq("farm_id", farmId)
     .gte("milking_date", startDate)
     .lte("milking_date", endDate);
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch milking records:", error);
+  }
   return data || [];
 }
 
 async function fetchWeightData(farmId: string): Promise<any[]> {
   // Use explicit type casting to avoid deep type instantiation
   const client = supabase as any;
-  const { data } = await client
+  const { data, error } = await client
     .from("weight_records")
     .select("id, animal_id, weight, recorded_date")
     .eq("farm_id", farmId)
     .order("recorded_date", { ascending: true });
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch weight records:", error);
+  }
   return data || [];
 }
 
 async function fetchValuationsData(farmId: string) {
-  const { data: valuations } = await supabase
+  const { data: valuations, error } = await supabase
     .from("biological_asset_valuations")
     .select("id, animal_id, fair_value, valuation_date")
     .eq("farm_id", farmId)
     .order("valuation_date", { ascending: false });
 
+  if (error) {
+    console.error("[Financial Report] Failed to fetch valuations:", error);
+  }
   return valuations || [];
 }
 
@@ -473,7 +507,7 @@ function processCostStructure(expenses: any[]): CostStructure {
     .sort((a, b) => b.amount - a.amount);
 
   const capitalExpenses = capital.map((e) => ({
-    item: e.notes || e.category || "Capital Expense",
+    item: e.description || e.category || "Capital Expense",
     amount: Number(e.amount),
     date: e.expense_date,
   }));
