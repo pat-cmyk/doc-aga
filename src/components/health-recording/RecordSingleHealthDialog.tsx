@@ -28,6 +28,7 @@ import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { validateRecordDate } from "@/lib/recordValidation";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordSingleHealthDialogProps {
   open: boolean;
@@ -62,6 +63,7 @@ export function RecordSingleHealthDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Haptic on dialog open
   useEffect(() => {
@@ -415,7 +417,7 @@ export function RecordSingleHealthDialog({
                   selected={recordDate}
                   onSelect={handleDateSelect}
                   disabled={(date) =>
-                    date > new Date() || date < subDays(new Date(), 7)
+                    date > new Date() || date < subDays(new Date(), maxBackdateDays)
                   }
                   initialFocus
                   className="pointer-events-auto"

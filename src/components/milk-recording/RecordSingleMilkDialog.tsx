@@ -29,6 +29,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordSingleMilkDialogProps {
   open: boolean;
@@ -58,6 +59,7 @@ export function RecordSingleMilkDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Haptic on dialog open
   useEffect(() => {
@@ -317,7 +319,7 @@ export function RecordSingleMilkDialog({
                   selected={recordDate}
                   onSelect={handleDateSelect}
                   disabled={(date) =>
-                    date > new Date() || date < subDays(new Date(), 7)
+                    date > new Date() || date < subDays(new Date(), maxBackdateDays)
                   }
                   initialFocus
                   className="pointer-events-auto"

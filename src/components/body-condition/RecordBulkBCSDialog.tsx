@@ -27,6 +27,7 @@ import { BCSReferenceGuide } from "./BCSReferenceGuide";
 import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ export function RecordBulkBCSDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Form state
   const [selectedOption, setSelectedOption] = useState("");
@@ -239,7 +241,7 @@ export function RecordBulkBCSDialog({
     }
   };
 
-  const minDate = subDays(new Date(), 7);
+  const minDate = subDays(new Date(), maxBackdateDays);
   const maxDate = new Date();
 
   const dialogTitle = (

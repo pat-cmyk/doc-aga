@@ -37,6 +37,7 @@ import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedFeedInventory } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { calculateCostPerKg } from "@/lib/feedSplitCalculation";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordSingleFeedDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ export function RecordSingleFeedDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Fetch feed inventory
   const { data: feedInventory = [], isLoading: isLoadingInventory } = useQuery({
@@ -410,7 +412,7 @@ export function RecordSingleFeedDialog({
                     selected={recordDate}
                     onSelect={handleDateSelect}
                     disabled={(date) =>
-                      date > new Date() || date < subDays(new Date(), 7)
+                      date > new Date() || date < subDays(new Date(), maxBackdateDays)
                     }
                     initialFocus
                     className="pointer-events-auto"

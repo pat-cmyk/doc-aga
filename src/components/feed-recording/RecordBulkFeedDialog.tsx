@@ -41,6 +41,7 @@ import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, getCachedFeedInventory } from "@/lib/dataCache";
+import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkFeedDialogProps {
   open: boolean;
@@ -65,6 +66,7 @@ export function RecordBulkFeedDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { maxBackdateDays } = useFarm();
 
   // Fetch animals
   const { data: animals = [], isLoading: isLoadingAnimals } = useFarmAnimals(farmId);
@@ -423,7 +425,7 @@ export function RecordBulkFeedDialog({
                     selected={recordDate}
                     onSelect={handleDateSelect}
                     disabled={(date) =>
-                      date > new Date() || date < subDays(new Date(), 7)
+                      date > new Date() || date < subDays(new Date(), maxBackdateDays)
                     }
                     initialFocus
                     className="pointer-events-auto"
