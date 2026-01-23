@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedFeedInventory, getCachedDashboardStats } from "@/lib/dataCache";
 
 /**
  * Data integrity check results
@@ -314,6 +315,141 @@ export async function checkValuationConsistency(farmId: string): Promise<Integri
 }
 
 /**
+ * Check feed inventory cache-server consistency
+ */
+export async function checkFeedInventorySync(farmId: string): Promise<IntegrityCheckResult> {
+  const result: IntegrityCheckResult = {
+    passed: true,
+    checkName: "feed_inventory_sync",
+    details: "",
+    discrepancies: [],
+  };
+
+  try {
+    // Get cached feed inventory
+    const cached = await getCachedFeedInventory(farmId);
+    
+    // Get server feed inventory
+    const { data: serverItems, error } = await supabase
+      .from("feed_inventory")
+      .select("*")
+      .eq("farm_id", farmId);
+
+    if (error) throw error;
+
+    const cacheItems = cached?.items || [];
+    const serverCount = serverItems?.length || 0;
+    const cacheCount = cacheItems.length;
+
+    // Check item count mismatch
+    if (cacheCount !== serverCount) {
+      result.passed = false;
+      result.discrepancies.push({
+        id: "item_count",
+        field: "count",
+        expected: serverCount,
+        actual: cacheCount,
+      });
+    }
+
+    // Compare totals by category
+    if (cached?.summary && serverItems) {
+      const serverConcentrate = serverItems
+        .filter((i: any) => i.category === "concentrates")
+        .reduce((sum: number, i: any) => sum + (i.quantity_kg || 0), 0);
+      const serverRoughage = serverItems
+        .filter((i: any) => i.category === "roughage" || !i.category)
+        .reduce((sum: number, i: any) => sum + (i.quantity_kg || 0), 0);
+
+      if (Math.abs(cached.summary.concentrateKg - serverConcentrate) > 0.1) {
+        result.passed = false;
+        result.discrepancies.push({
+          id: "concentrate_kg",
+          field: "concentrateKg",
+          expected: serverConcentrate,
+          actual: cached.summary.concentrateKg,
+        });
+      }
+
+      if (Math.abs(cached.summary.roughageKg - serverRoughage) > 0.1) {
+        result.passed = false;
+        result.discrepancies.push({
+          id: "roughage_kg",
+          field: "roughageKg",
+          expected: serverRoughage,
+          actual: cached.summary.roughageKg,
+        });
+      }
+    }
+
+    result.details = result.passed
+      ? `Feed inventory in sync: ${serverCount} items`
+      : `Found ${result.discrepancies.length} discrepancies`;
+
+  } catch (error) {
+    result.passed = false;
+    result.details = `Error: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  return result;
+}
+
+/**
+ * Check dashboard feedStockBreakdown consistency
+ */
+export async function checkFeedStockBreakdownSync(farmId: string): Promise<IntegrityCheckResult> {
+  const result: IntegrityCheckResult = {
+    passed: true,
+    checkName: "feed_stock_breakdown_sync",
+    details: "",
+    discrepancies: [],
+  };
+
+  try {
+    // Get cached dashboard stats
+    const cached = await getCachedDashboardStats(farmId);
+
+    if (!cached) {
+      result.details = "No dashboard cache found";
+      return result;
+    }
+
+    // Check if cache version is current
+    const EXPECTED_VERSION = 3;
+    if ((cached.cacheVersion || 0) < EXPECTED_VERSION) {
+      result.passed = false;
+      result.discrepancies.push({
+        id: "cache_version",
+        field: "cacheVersion",
+        expected: EXPECTED_VERSION,
+        actual: cached.cacheVersion || 0,
+      });
+    }
+
+    // Verify feedStockBreakdown exists if we have animals
+    if (cached.stats.totalAnimals > 0 && !cached.stats.feedStockBreakdown) {
+      result.passed = false;
+      result.discrepancies.push({
+        id: "missing_breakdown",
+        field: "feedStockBreakdown",
+        expected: "object",
+        actual: "undefined",
+      });
+    }
+
+    result.details = result.passed
+      ? "Dashboard feed stock breakdown in sync"
+      : `Found ${result.discrepancies.length} discrepancies`;
+
+  } catch (error) {
+    result.passed = false;
+    result.details = `Error: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  return result;
+}
+
+/**
  * Run all integrity checks for a farm
  */
 export async function runAllIntegrityChecks(
@@ -327,6 +463,8 @@ export async function runAllIntegrityChecks(
     checkWeightSync(farmId),
     checkStatsConsistency(farmId, checkDate),
     checkValuationConsistency(farmId),
+    checkFeedInventorySync(farmId),
+    checkFeedStockBreakdownSync(farmId),
   ]);
 
   return results;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Trash2, Settings, Database, Clock, Activity, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { RefreshCw, Trash2, Settings, Database, Clock, Activity, AlertTriangle, CheckCircle2, XCircle, Bug } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ import { getCacheStats, clearAllCaches, refreshAllCaches, type CacheStats } from
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getPendingCount, clearCompleted, getAllPending, resetForRetry } from '@/lib/offlineQueue';
 import { getSyncHealth, diagnoseSyncIssues, repairSyncState, type SyncHealthStatus, type SyncDiagnostic } from '@/lib/syncHealthCheck';
+import { CacheDebugPanel } from './CacheDebugPanel';
 
 export function CacheSettingsDialog() {
   const [open, setOpen] = useState(false);
@@ -261,7 +263,7 @@ export function CacheSettingsDialog() {
           Cache Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Offline & Sync Settings</DialogTitle>
           <DialogDescription>
@@ -269,7 +271,16 @@ export function CacheSettingsDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="debug" className="flex items-center gap-1">
+              <Bug className="h-3 w-3" />
+              Debug
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="settings" className="space-y-4 py-4">
           {/* Sync Health Status */}
           <Card>
             <CardHeader className="pb-3">
@@ -497,7 +508,12 @@ export function CacheSettingsDialog() {
               ⚠️ You're offline. Connect to sync and refresh cache.
             </p>
           )}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="debug" className="py-4">
+            <CacheDebugPanel farmId={localStorage.getItem('selectedFarmId') || ''} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
