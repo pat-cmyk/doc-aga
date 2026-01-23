@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  computeFeedSummary,
-  calculateTotalDailyConsumption,
-} from "@/hooks/useFeedInventory";
+import { computeFeedSummary } from "@/hooks/useFeedInventory";
 import type { FeedInventoryItem } from "@/lib/feedInventory";
-import type { AnimalForConsumption } from "@/lib/feedConsumption";
+import { calculateFarmDailyConsumption, type AnimalForConsumption } from "@/lib/feedConsumption";
 
 // Mock dependencies
 vi.mock("@/integrations/supabase/client", () => ({
@@ -257,7 +254,7 @@ describe("useFeedInventory Hook", () => {
     });
   });
 
-  describe("calculateTotalDailyConsumption", () => {
+  describe("calculateFarmDailyConsumption (from feedConsumption lib)", () => {
     // Helper to create a minimal animal for consumption testing
     const makeAnimal = (overrides: Partial<AnimalForConsumption> = {}): AnimalForConsumption => ({
       id: "test-animal",
@@ -272,54 +269,54 @@ describe("useFeedInventory Hook", () => {
     });
 
     it("should calculate consumption for cattle with default weight", () => {
-      const consumption = calculateTotalDailyConsumption([
+      const result = calculateFarmDailyConsumption([
         makeAnimal({ livestock_type: "cattle" }),
       ]);
       // Default cattle weight: 400kg, maintenance DM: 2.0%, fresh = DM / 0.30
       // 400 * 0.02 = 8 kg DM, 8 / 0.30 = 26.67 kg fresh
-      expect(consumption).toBeCloseTo(26.67, 1);
+      expect(result.totalFreshForageKgPerDay).toBeCloseTo(26.67, 1);
     });
 
     it("should calculate consumption for goat with default weight", () => {
-      const consumption = calculateTotalDailyConsumption([
+      const result = calculateFarmDailyConsumption([
         makeAnimal({ livestock_type: "goat" }),
       ]);
       // Default goat weight: 40kg, maintenance DM: 2.0%, fresh = DM / 0.30
       // 40 * 0.02 = 0.8 kg DM, 0.8 / 0.30 = 2.67 kg fresh
-      expect(consumption).toBeCloseTo(2.67, 1);
+      expect(result.totalFreshForageKgPerDay).toBeCloseTo(2.67, 1);
     });
 
     it("should use higher DM% for lactating animals", () => {
-      const consumption = calculateTotalDailyConsumption([
+      const result = calculateFarmDailyConsumption([
         makeAnimal({ livestock_type: "cattle", milking_stage: "peak" }),
       ]);
       // Default cattle weight: 400kg, lactating DM: 3.5%, fresh = DM / 0.30
       // 400 * 0.035 = 14 kg DM, 14 / 0.30 = 46.67 kg fresh
-      expect(consumption).toBeCloseTo(46.67, 1);
+      expect(result.totalFreshForageKgPerDay).toBeCloseTo(46.67, 1);
     });
 
     it("should use actual weight when provided", () => {
-      const consumption = calculateTotalDailyConsumption([
+      const result = calculateFarmDailyConsumption([
         makeAnimal({ livestock_type: "cattle", current_weight_kg: 500 }),
       ]);
       // 500kg, maintenance DM: 2.0%, fresh = DM / 0.30
       // 500 * 0.02 = 10 kg DM, 10 / 0.30 = 33.33 kg fresh
-      expect(consumption).toBeCloseTo(33.33, 1);
+      expect(result.totalFreshForageKgPerDay).toBeCloseTo(33.33, 1);
     });
 
     it("should sum across multiple animals", () => {
-      const consumption = calculateTotalDailyConsumption([
+      const result = calculateFarmDailyConsumption([
         makeAnimal({ livestock_type: "cattle" }),
         makeAnimal({ livestock_type: "cattle" }),
         makeAnimal({ livestock_type: "goat" }),
       ]);
       // 2 cattle (26.67 each) + 1 goat (2.67) = 56.01
-      expect(consumption).toBeCloseTo(56.01, 0);
+      expect(result.totalFreshForageKgPerDay).toBeCloseTo(56.01, 0);
     });
 
     it("should handle empty array", () => {
-      const consumption = calculateTotalDailyConsumption([]);
-      expect(consumption).toBe(0);
+      const result = calculateFarmDailyConsumption([]);
+      expect(result.totalFreshForageKgPerDay).toBe(0);
     });
   });
 });

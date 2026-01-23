@@ -4,11 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCachedFeedInventory, updateFeedInventoryCache } from '@/lib/dataCache';
 import type { FeedInventoryItem } from '@/lib/feedInventory';
-import { 
-  calculateFarmDailyConsumption, 
-  DIET_RATIOS,
-  type AnimalForConsumption 
-} from '@/lib/feedConsumption';
+import { DIET_RATIOS } from '@/lib/feedConsumption';
 
 /**
  * Summary of feed inventory with computed metrics
@@ -106,18 +102,6 @@ export function computeFeedSummary(
     lowStockCount
   };
 }
-
-/**
- * Calculate total daily consumption based on full animal data
- * Uses the unified consumption formula (weight + stage based)
- */
-export function calculateTotalDailyConsumption(
-  animals: AnimalForConsumption[]
-): number {
-  const farmConsumption = calculateFarmDailyConsumption(animals);
-  return farmConsumption.totalFreshForageKgPerDay;
-}
-
 interface UseFeedInventoryOptions {
   enableRealtime?: boolean;
 }
@@ -159,43 +143,33 @@ export function useFeedInventory(
     loadCache();
   }, [farmId]);
 
-  // Fetch animal consumption rates when online (updates cache for future offline use)
+  // Fetch consumption from RPC - SSOT with dashboard
   useEffect(() => {
     if (!farmId || !isOnline) return;
 
     const loadConsumption = async () => {
-      // Query full animal data for accurate weight-based consumption calculation
-      const { data: animals } = await supabase
-        .from('animals')
-        .select(`
-          id,
-          livestock_type,
-          life_stage,
-          milking_stage,
-          current_weight_kg,
-          entry_weight_kg,
-          birth_weight_kg,
-          gender
-        `)
-        .eq('farm_id', farmId)
-        .eq('is_deleted', false)
-        .is('exit_date', null); // Only active animals
+      // Use the same RPC as the dashboard to ensure identical values
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase.rpc('get_combined_dashboard_data', {
+        p_farm_id: farmId,
+        p_start_date: today,
+        p_end_date: today,
+        p_monthly_start_date: today,
+        p_monthly_end_date: today
+      });
 
-      if (animals) {
-        // Map to consumption interface for unified calculation
-        const animalsForConsumption: AnimalForConsumption[] = animals.map(a => ({
-          id: a.id,
-          livestock_type: a.livestock_type,
-          life_stage: a.life_stage,
-          milking_stage: a.milking_stage,
-          current_weight_kg: a.current_weight_kg,
-          entry_weight_kg: a.entry_weight_kg,
-          birth_weight_kg: a.birth_weight_kg,
-          gender: a.gender,
-        }));
-
-        const consumption = calculateTotalDailyConsumption(animalsForConsumption);
-        setAnimalConsumption(consumption);
+      if (data) {
+        const rpcData = data as { stats?: { feedStockBreakdown?: string | object } };
+        if (rpcData.stats?.feedStockBreakdown) {
+          const breakdown = typeof rpcData.stats.feedStockBreakdown === 'string'
+            ? JSON.parse(rpcData.stats.feedStockBreakdown)
+            : rpcData.stats.feedStockBreakdown;
+          
+          // Extract daily consumption from RPC (SSOT)
+          if (breakdown.dailyFreshForageKg) {
+            setAnimalConsumption(breakdown.dailyFreshForageKg);
+          }
+        }
       }
     };
     loadConsumption();
