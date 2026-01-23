@@ -1,5 +1,10 @@
 import { addMonths, format } from "date-fns";
 import { estimateFutureWeight } from "./weightEstimates";
+import { 
+  calculateDryMatterIntake, 
+  DRY_MATTER_CONTENT,
+  type AnimalForConsumption 
+} from "./feedConsumption";
 
 export interface Animal {
   id: string;
@@ -26,6 +31,7 @@ export interface MonthlyFeedForecast {
 
 /**
  * Calculate daily feed requirement based on weight and stage
+ * Uses unified feedConsumption service for consistency with dashboard
  */
 function calculateDailyFeedRequirement(
   weight: number,
@@ -33,35 +39,15 @@ function calculateDailyFeedRequirement(
   milkingStage: string | null,
   gender: string
 ): number {
-  // Base feed as percentage of body weight (dry matter)
-  const isMale = gender?.toLowerCase() === "male";
+  // Use the unified calculation from feedConsumption service
+  const animal: AnimalForConsumption = {
+    current_weight_kg: weight,
+    life_stage: lifeStage,
+    milking_stage: milkingStage,
+    gender
+  };
   
-  // Lactating cows need more feed
-  if (milkingStage && milkingStage !== "Dry Period") {
-    return weight * 0.035; // 3.5% of body weight for lactating
-  }
-  
-  // Growing animals need more feed
-  if (lifeStage === "Calf" || lifeStage === "Bull Calf") {
-    return weight * 0.03; // 3% for calves
-  }
-  
-  if (lifeStage === "Heifer Calf" || lifeStage === "Breeding Heifer" || lifeStage === "Young Bull") {
-    return weight * 0.025; // 2.5% for growing heifers/bulls
-  }
-  
-  // Mature animals
-  if (isMale) {
-    return weight * 0.025; // Bulls need more for maintenance
-  }
-  
-  // Dry/pregnant cows
-  if (lifeStage === "Pregnant Heifer" || lifeStage === "Mature Cow") {
-    return weight * 0.02; // 2% for dry/pregnant cows
-  }
-  
-  // Default maintenance
-  return weight * 0.02;
+  return calculateDryMatterIntake(animal);
 }
 
 /**
@@ -71,7 +57,7 @@ function calculateDailyFeedRequirement(
 export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
   const forecasts: MonthlyFeedForecast[] = [];
   const today = new Date();
-  const DRY_MATTER_PERCENTAGE = 0.30; // 30% dry matter in fresh forage
+  // Use unified DRY_MATTER_CONTENT from feedConsumption service
   
   // Generate forecast for next 6 months
   for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
@@ -110,13 +96,13 @@ export function generateFeedForecast(animals: Animal[]): MonthlyFeedForecast[] {
       }
       breakdownByStage[stageKey].count += 1;
       breakdownByStage[stageKey].feedKgPerDay += dailyFeed;
-      // Convert dry matter to fresh forage weight
-      breakdownByStage[stageKey].freshForageKgPerDay += dailyFeed / DRY_MATTER_PERCENTAGE;
+      // Convert dry matter to fresh forage weight using unified constant
+      breakdownByStage[stageKey].freshForageKgPerDay += dailyFeed / DRY_MATTER_CONTENT;
     });
     
     // Assume 30 days per month for simplicity
     const totalFeedKgPerMonth = totalFeedKgPerDay * 30;
-    const totalFreshForageKgPerDay = totalFeedKgPerDay / DRY_MATTER_PERCENTAGE;
+    const totalFreshForageKgPerDay = totalFeedKgPerDay / DRY_MATTER_CONTENT;
     const totalFreshForageKgPerMonth = totalFreshForageKgPerDay * 30;
     
     forecasts.push({

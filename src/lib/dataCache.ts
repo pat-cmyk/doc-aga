@@ -1,6 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLifeStage, calculateMilkingStage, calculateMaleStage } from './animalStages';
+import { calculateConsumptionFromCounts } from './feedConsumption';
 
 // Helper to create system notification in database
 async function createSystemNotification(title: string, body: string) {
@@ -265,7 +266,7 @@ interface FarmDataCache {
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
 // Bump this version when RPC logic changes to force cache invalidation
-const DASHBOARD_CACHE_VERSION = 4; // v4: Fixed RPC active_animal_count bug
+const DASHBOARD_CACHE_VERSION = 5; // v5: Unified weight-based feed consumption calculation
 
 /**
  * Feed stock breakdown for dashboard tooltip
@@ -728,16 +729,7 @@ export async function getCachedFeedInventory(farmId: string): Promise<FeedInvent
   }
 }
 
-/**
- * Consumption rates by livestock type (kg/day)
- */
-const CONSUMPTION_RATES: Record<string, number> = {
-  cattle: 12,
-  carabao: 10,
-  goat: 1.5,
-  sheep: 2,
-  default: 10
-};
+// Consumption calculation now uses unified feedConsumption service
 
 /**
  * Fetch and cache feed inventory for a farm from Supabase
@@ -773,7 +765,7 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
       supplementsKg: items.filter(i => i.category === 'supplements').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
     };
 
-    // Calculate daily consumption from animal counts
+    // Calculate daily consumption from animal counts using unified service
     let dailyConsumption = 0;
     if (animalsRes.data) {
       const counts = animalsRes.data.reduce((acc, animal) => {
@@ -782,10 +774,9 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
         return acc;
       }, {} as Record<string, number>);
 
-      dailyConsumption = Object.entries(counts).reduce((total, [type, count]) => {
-        const rate = CONSUMPTION_RATES[type] || CONSUMPTION_RATES.default;
-        return total + (rate * count);
-      }, 0);
+      dailyConsumption = calculateConsumptionFromCounts(
+        Object.entries(counts).map(([livestockType, count]) => ({ livestockType, count }))
+      );
     }
 
     const cache: FeedInventoryCache = {
