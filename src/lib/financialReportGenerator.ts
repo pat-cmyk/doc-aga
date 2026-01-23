@@ -230,9 +230,10 @@ async function fetchFarmProfile(farmId: string) {
 async function fetchAnimalsData(farmId: string) {
   const { data: animals, error } = await supabase
     .from("animals")
-    .select("id, name, life_stage, acquisition_type, purchase_price, status, exit_type, exit_date")
+    .select("id, name, life_stage, acquisition_type, purchase_price, exit_date, exit_reason")
     .eq("farm_id", farmId)
-    .eq("is_deleted", false);
+    .eq("is_deleted", false)
+    .is("exit_date", null); // Only active animals
 
   if (error) {
     console.error("[Financial Report] Failed to fetch animals:", error);
@@ -271,33 +272,73 @@ async function fetchRevenuesData(farmId: string, startDate: string, endDate: str
 }
 
 async function fetchMilkingData(farmId: string, startDate: string, endDate: string): Promise<any[]> {
+  // First get animal IDs for this farm (milking_records links via animal_id, not farm_id)
+  const { data: farmAnimals, error: animalsError } = await supabase
+    .from("animals")
+    .select("id")
+    .eq("farm_id", farmId)
+    .eq("is_deleted", false);
+  
+  if (animalsError) {
+    console.error("[Financial Report] Failed to fetch farm animals for milking:", animalsError);
+    return [];
+  }
+  
+  const animalIds = (farmAnimals || []).map(a => a.id);
+  
+  if (animalIds.length === 0) {
+    console.log("[Financial Report] No animals found for milking records");
+    return [];
+  }
+  
   // Use explicit type casting to avoid deep type instantiation
   const client = supabase as any;
   const { data, error } = await client
     .from("milking_records")
-    .select("id, milk_yield, is_sold, price_per_liter, sale_amount, milking_date, animal_id")
-    .eq("farm_id", farmId)
-    .gte("milking_date", startDate)
-    .lte("milking_date", endDate);
+    .select("id, liters, is_sold, price_per_liter, sale_amount, record_date, animal_id")
+    .in("animal_id", animalIds)
+    .gte("record_date", startDate)
+    .lte("record_date", endDate);
 
   if (error) {
     console.error("[Financial Report] Failed to fetch milking records:", error);
   }
+  console.log("[Financial Report] Fetched milking records:", data?.length || 0);
   return data || [];
 }
 
 async function fetchWeightData(farmId: string): Promise<any[]> {
+  // First get animal IDs for this farm (weight_records links via animal_id, not farm_id)
+  const { data: farmAnimals, error: animalsError } = await supabase
+    .from("animals")
+    .select("id")
+    .eq("farm_id", farmId)
+    .eq("is_deleted", false);
+  
+  if (animalsError) {
+    console.error("[Financial Report] Failed to fetch farm animals for weights:", animalsError);
+    return [];
+  }
+  
+  const animalIds = (farmAnimals || []).map(a => a.id);
+  
+  if (animalIds.length === 0) {
+    console.log("[Financial Report] No animals found for weight records");
+    return [];
+  }
+  
   // Use explicit type casting to avoid deep type instantiation
   const client = supabase as any;
   const { data, error } = await client
     .from("weight_records")
-    .select("id, animal_id, weight, recorded_date")
-    .eq("farm_id", farmId)
-    .order("recorded_date", { ascending: true });
+    .select("id, animal_id, weight_kg, measurement_date")
+    .in("animal_id", animalIds)
+    .order("measurement_date", { ascending: true });
 
   if (error) {
     console.error("[Financial Report] Failed to fetch weight records:", error);
   }
+  console.log("[Financial Report] Fetched weight records:", data?.length || 0);
   return data || [];
 }
 
@@ -335,7 +376,8 @@ async function fetchMarketPrice(farmId: string): Promise<number> {
 
 // Data processing functions
 function processFarmProfile(farm: any, animals: any[]): FarmProfile {
-  const activeAnimals = animals.filter((a) => a.status === "Active");
+  // Animals are now pre-filtered for active (exit_date IS NULL) in fetchAnimalsData
+  const activeAnimals = animals;
   
   return {
     farmName: farm?.name || "Unknown Farm",
@@ -362,7 +404,8 @@ function processHerdSummary(
   weights: any[],
   marketPrice: number
 ): HerdSummary {
-  const activeAnimals = animals.filter((a) => a.status === "Active");
+  // Animals are now pre-filtered for active (exit_date IS NULL) in fetchAnimalsData
+  const activeAnimals = animals;
   
   // Group by life_stage and acquisition_type
   const groupedAnimals: Record<string, { count: number; acquisitionType: string; value: number }> = {};
@@ -390,11 +433,11 @@ function processHerdSummary(
     estimatedValue: data.value,
   }));
 
-  // Calculate average weight from latest weight records
+  // Calculate average weight from latest weight records (using correct column name: weight_kg)
   const latestWeights: Record<string, number> = {};
   weights.forEach((w) => {
     if (activeAnimals.some((a) => a.id === w.animal_id)) {
-      latestWeights[w.animal_id] = Number(w.weight);
+      latestWeights[w.animal_id] = Number(w.weight_kg);
     }
   });
   
@@ -420,8 +463,8 @@ function processProductionMetrics(
   animals: any[],
   periodMonths: number
 ): ProductionMetrics {
-  // Total milk production
-  const totalMilkProduction = milkingRecords.reduce((sum, r) => sum + Number(r.milk_yield || 0), 0);
+  // Total milk production (using correct column name: liters)
+  const totalMilkProduction = milkingRecords.reduce((sum, r) => sum + Number(r.liters || 0), 0);
   
   // Unique milking animals
   const milkingAnimalIds = new Set(milkingRecords.map((r) => r.animal_id));
@@ -437,12 +480,13 @@ function processProductionMetrics(
   let avgDailyGain: number | null = null;
   const animalWeightGains: number[] = [];
   
+  // Using correct column names: weight_kg and measurement_date
   const weightsByAnimal: Record<string, { weight: number; date: string }[]> = {};
   weightRecords.forEach((w) => {
     if (!weightsByAnimal[w.animal_id]) {
       weightsByAnimal[w.animal_id] = [];
     }
-    weightsByAnimal[w.animal_id].push({ weight: Number(w.weight), date: w.recorded_date });
+    weightsByAnimal[w.animal_id].push({ weight: Number(w.weight_kg), date: w.measurement_date });
   });
 
   Object.values(weightsByAnimal).forEach((records) => {
@@ -607,25 +651,61 @@ function assessDataCompleteness(
 ): DataCompleteness {
   const missingItems: string[] = [];
 
+  // 1. GPS Location check
   const hasGeoLocation = !!(farm?.gps_lat && farm?.gps_lng);
   if (!hasGeoLocation) missingItems.push("Farm GPS coordinates");
 
+  // 2. Complete address check (aligned with Dashboard)
+  const hasCompleteAddress = !!(farm?.region && farm?.province && farm?.municipality);
+  if (!hasCompleteAddress) missingItems.push("Complete address (region/province/municipality)");
+
+  // 3. Animal inventory check
   const hasAnimalInventory = animals.length > 0;
   if (!hasAnimalInventory) missingItems.push("Animal inventory");
 
-  const hasWeightRecords = weights.length > 0;
-  if (!hasWeightRecords) missingItems.push("Animal weight records");
+  // 4. Weight records check (aligned with Dashboard: per-animal check)
+  const animalsWithWeights = new Set(weights.map(w => w.animal_id));
+  const hasWeightRecords = animals.length > 0 && animalsWithWeights.size > 0;
+  const weightCoverage = animals.length > 0 ? (animalsWithWeights.size / animals.length) * 100 : 0;
+  if (!hasWeightRecords || weightCoverage < 50) {
+    missingItems.push(`Animal weight records (${animalsWithWeights.size}/${animals.length} animals)`);
+  }
 
-  const hasProductionRecords = milking.length > 0;
-  if (!hasProductionRecords) missingItems.push("Milk production records");
+  // 5. Production records check (aligned with Dashboard: >= 10 records in period)
+  const PRODUCTION_THRESHOLD = 10;
+  const hasProductionRecords = milking.length >= PRODUCTION_THRESHOLD;
+  if (!hasProductionRecords) {
+    missingItems.push(`Milk production records (${milking.length}/${PRODUCTION_THRESHOLD} minimum)`);
+  }
 
-  const hasExpenseTracking = expenses.length > 0;
-  if (!hasExpenseTracking) missingItems.push("Expense records");
+  // 6. Expense tracking check (aligned with Dashboard: >= 5 records in period)
+  const EXPENSE_THRESHOLD = 5;
+  const hasExpenseTracking = expenses.length >= EXPENSE_THRESHOLD;
+  if (!hasExpenseTracking) {
+    missingItems.push(`Expense records (${expenses.length}/${EXPENSE_THRESHOLD} minimum)`);
+  }
 
-  const hasRevenueDocumentation = revenues.length > 0;
-  if (!hasRevenueDocumentation) missingItems.push("Revenue records");
+  // 7. Revenue documentation check (aligned with Dashboard: >= 3 records in period)
+  const REVENUE_THRESHOLD = 3;
+  const hasRevenueDocumentation = revenues.length >= REVENUE_THRESHOLD;
+  if (!hasRevenueDocumentation) {
+    missingItems.push(`Revenue records (${revenues.length}/${REVENUE_THRESHOLD} minimum)`);
+  }
 
-  // Calculate months of data
+  // 8. Bank info fields check (aligned with Dashboard: 4 required fields)
+  const bankFields = [
+    farm?.biosecurity_level,
+    farm?.water_source,
+    farm?.distance_to_market_km,
+    farm?.pcic_enrolled !== undefined && farm?.pcic_enrolled !== null
+  ];
+  const bankFieldsComplete = bankFields.filter(Boolean).length;
+  const hasBankInfo = bankFieldsComplete >= 3; // At least 3 of 4 fields
+  if (!hasBankInfo) {
+    missingItems.push(`Bank info fields (${bankFieldsComplete}/4 complete)`);
+  }
+
+  // Calculate months of data for display
   const expenseDates = expenses.map((e) => new Date(e.expense_date));
   const revenueDates = revenues.map((r) => new Date(r.transaction_date));
   
@@ -641,22 +721,33 @@ function assessDataCompleteness(
     differenceInMonths(new Date(), new Date(oldestRevenue)) + 1
   );
 
-  // Additional recommendations
-  if (!farm?.region) missingItems.push("Complete address (region/province)");
-  
-  // Calculate completeness score
+  // Calculate completeness score (8 criteria aligned with Dashboard)
   const checks = [
     hasGeoLocation,
+    hasCompleteAddress,
     hasAnimalInventory,
-    hasWeightRecords,
+    hasWeightRecords && weightCoverage >= 50,
     hasProductionRecords,
     hasExpenseTracking,
     hasRevenueDocumentation,
-    monthsOfExpenseData >= 3,
-    monthsOfRevenueData >= 3,
+    hasBankInfo,
   ];
   
   const completenessScore = (checks.filter(Boolean).length / checks.length) * 100;
+
+  console.log("[Financial Report] Data completeness assessment:", {
+    hasGeoLocation,
+    hasCompleteAddress,
+    hasAnimalInventory,
+    hasWeightRecords,
+    weightCoverage: `${weightCoverage.toFixed(0)}%`,
+    hasProductionRecords: `${milking.length} records`,
+    hasExpenseTracking: `${expenses.length} records`,
+    hasRevenueDocumentation: `${revenues.length} records`,
+    hasBankInfo: `${bankFieldsComplete}/4`,
+    completenessScore: `${completenessScore.toFixed(0)}%`,
+    missingItems,
+  });
 
   return {
     hasGeoLocation,
