@@ -17,7 +17,7 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'feed-record': ['feeding-records', 'feed-inventory', 'dashboard'],
   'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals'],
   'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records'],
-  'weight-record': ['weight-records', 'dashboard'],
+  'weight-record': ['weight-records', 'dashboard', 'animals', 'feed-inventory', 'lactating-animals'],
   'bcs-record': ['bcs-records', 'dashboard'],
   'heat-record': ['heat-records', 'dashboard', 'breeding-stats'],
   'expense': ['expenses', 'expense-summary', 'dashboard', 'profitability'],
