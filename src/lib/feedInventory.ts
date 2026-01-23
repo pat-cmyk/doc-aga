@@ -1,14 +1,20 @@
 import { addDays, format } from "date-fns";
 import type { MonthlyFeedForecast } from "./feedForecast";
 
+export type FeedCategory = 'concentrates' | 'roughage' | 'minerals' | 'supplements';
+
 export interface FeedInventoryItem {
   id: string;
   farm_id: string;
   feed_type: string;
+  category?: string | null;
   quantity_kg: number;
   unit: string;
   weight_per_unit?: number;
   cost_per_unit?: number;
+  purchase_date?: string | null;
+  expiry_date?: string | null;
+  batch_number?: string | null;
   reorder_threshold?: number;
   supplier?: string;
   notes?: string;

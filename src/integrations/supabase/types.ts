@@ -1549,14 +1549,18 @@ export type Database = {
       }
       feed_inventory: {
         Row: {
+          batch_number: string | null
+          category: string | null
           cost_per_unit: number | null
           created_at: string
           created_by: string | null
+          expiry_date: string | null
           farm_id: string
           feed_type: string
           id: string
           last_updated: string
           notes: string | null
+          purchase_date: string | null
           quantity_kg: number
           reorder_threshold: number | null
           supplier: string | null
@@ -1564,14 +1568,18 @@ export type Database = {
           weight_per_unit: number | null
         }
         Insert: {
+          batch_number?: string | null
+          category?: string | null
           cost_per_unit?: number | null
           created_at?: string
           created_by?: string | null
+          expiry_date?: string | null
           farm_id: string
           feed_type: string
           id?: string
           last_updated?: string
           notes?: string | null
+          purchase_date?: string | null
           quantity_kg?: number
           reorder_threshold?: number | null
           supplier?: string | null
@@ -1579,14 +1587,18 @@ export type Database = {
           weight_per_unit?: number | null
         }
         Update: {
+          batch_number?: string | null
+          category?: string | null
           cost_per_unit?: number | null
           created_at?: string
           created_by?: string | null
+          expiry_date?: string | null
           farm_id?: string
           feed_type?: string
           id?: string
           last_updated?: string
           notes?: string | null
+          purchase_date?: string | null
           quantity_kg?: number
           reorder_threshold?: number | null
           supplier?: string | null
@@ -1655,8 +1667,10 @@ export type Database = {
         Row: {
           animal_id: string
           client_generated_id: string | null
+          cost_per_kg_at_time: number | null
           created_at: string
           created_by: string | null
+          feed_inventory_id: string | null
           feed_type: string | null
           id: string
           kilograms: number | null
@@ -1666,8 +1680,10 @@ export type Database = {
         Insert: {
           animal_id: string
           client_generated_id?: string | null
+          cost_per_kg_at_time?: number | null
           created_at?: string
           created_by?: string | null
+          feed_inventory_id?: string | null
           feed_type?: string | null
           id?: string
           kilograms?: number | null
@@ -1677,8 +1693,10 @@ export type Database = {
         Update: {
           animal_id?: string
           client_generated_id?: string | null
+          cost_per_kg_at_time?: number | null
           created_at?: string
           created_by?: string | null
+          feed_inventory_id?: string | null
           feed_type?: string | null
           id?: string
           kilograms?: number | null
@@ -1698,6 +1716,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feeding_records_feed_inventory_id_fkey"
+            columns: ["feed_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "feed_inventory"
             referencedColumns: ["id"]
           },
         ]
