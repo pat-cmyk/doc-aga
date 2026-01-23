@@ -490,10 +490,13 @@ export function RecordBulkFeedDialog({
                 className="min-h-[48px]"
               />
               {isOverStock && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  Exceeds available stock ({selectedFeedInventory?.quantity_kg.toFixed(1)} kg)
-                </p>
+                <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
+                  <span className="text-sm text-destructive">
+                    Amount exceeds available stock ({selectedFeedInventory?.quantity_kg.toFixed(1)} kg). 
+                    Reduce quantity or add more stock first.
+                  </span>
+                </div>
               )}
             </div>
 

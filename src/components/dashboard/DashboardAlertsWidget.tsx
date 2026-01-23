@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
-  AlertTriangle, 
   Syringe, 
   Bug, 
   Baby, 
@@ -19,7 +18,8 @@ import {
   Pencil,
   Milk,
   Wheat,
-  CalendarX2
+  CalendarX2,
+  Package
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUpcomingAlerts, groupAlertsByType, getUrgencyColor, getUrgencyLabel, UpcomingAlert } from '@/hooks/useUpcomingAlerts';
@@ -27,6 +27,7 @@ import { useMarkScheduleComplete } from '@/hooks/usePreventiveHealth';
 import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
 import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
+import { useFeedExpiryAlerts, getExpiryUrgencyColor } from '@/hooks/useFeedExpiryAlerts';
 import { useNavigate } from 'react-router-dom';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
@@ -41,6 +42,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: weightData } = useWeightDataCompleteness(farmId);
   const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
   const { data: gapData } = useDataGapAlerts(farmId);
+  const { data: feedExpiryAlerts = [] } = useFeedExpiryAlerts(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
   const {
@@ -97,8 +99,10 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count: scheduled alerts + weight warnings + data gaps
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + dataGapAlerts.length;
+  // Total alert count: scheduled alerts + weight warnings + data gaps + feed expiry
+  const feedExpiryCount = feedExpiryAlerts.length;
+  const hasCriticalExpiry = feedExpiryAlerts.some(f => f.urgency === 'expired' || f.urgency === 'critical');
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + dataGapAlerts.length + (feedExpiryCount > 0 ? 1 : 0);
   const hasDataGaps = dataGapAlerts.some(a => a.urgency === 'critical');
 
   if (totalAlertCount === 0) {
@@ -106,7 +110,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   }
 
   return (
-    <Card className={`mb-4 ${hasDataGaps ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+    <Card className={`mb-4 ${hasDataGaps || hasCriticalExpiry ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
@@ -173,6 +177,54 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Feed Expiry Alerts */}
+            {feedExpiryAlerts.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`p-1.5 rounded-full ${hasCriticalExpiry ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium">Expiring Feed Stock</span>
+                  <Badge variant={hasCriticalExpiry ? 'destructive' : 'outline'} className="text-xs">
+                    {feedExpiryAlerts.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2 ml-8">
+                  {feedExpiryAlerts.slice(0, 3).map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${getExpiryUrgencyColor(alert.urgency)}`}
+                    >
+                      <button
+                        onClick={() => navigate('/?tab=operations&subtab=feed')}
+                        className="flex-1 text-left min-h-[44px] active:opacity-70 transition-opacity"
+                      >
+                        <p className="text-sm font-medium truncate max-w-[180px]">
+                          {alert.feed_type}
+                        </p>
+                        <p className="text-xs opacity-75 mt-0.5">
+                          {alert.daysUntilExpiry < 0 
+                            ? `Expired ${Math.abs(alert.daysUntilExpiry)} days ago`
+                            : alert.daysUntilExpiry === 0 
+                              ? 'Expires today'
+                              : `Expires in ${alert.daysUntilExpiry} days`
+                          } • {alert.quantity_kg.toFixed(1)} kg
+                        </p>
+                      </button>
+                    </div>
+                  ))}
+                  {feedExpiryAlerts.length > 3 && (
+                    <button
+                      onClick={() => navigate('/?tab=operations&subtab=feed')}
+                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      +{feedExpiryAlerts.length - 3} more items
+                    </button>
+                  )}
                 </div>
               </div>
             )}

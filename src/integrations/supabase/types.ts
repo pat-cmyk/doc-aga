@@ -3748,16 +3748,27 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
-      get_combined_dashboard_data: {
-        Args: {
-          p_end_date: string
-          p_farm_id: string
-          p_monthly_end_date: string
-          p_monthly_start_date: string
-          p_start_date: string
-        }
-        Returns: Json
-      }
+      get_combined_dashboard_data:
+        | {
+            Args: {
+              p_end_date: string
+              p_farm_id: string
+              p_monthly_end_date: string
+              p_monthly_start_date: string
+              p_start_date: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end_date: string
+              p_farm_id: string
+              p_monthly_end_date: string
+              p_monthly_start_date: string
+              p_start_date: string
+            }
+            Returns: Json
+          }
       get_farm_invitation_public: {
         Args: { p_token: string }
         Returns: {
