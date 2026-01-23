@@ -265,7 +265,7 @@ interface FarmDataCache {
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
 // Bump this version when RPC logic changes to force cache invalidation
-const DASHBOARD_CACHE_VERSION = 3; // v3: Added feedStockBreakdown to cache
+const DASHBOARD_CACHE_VERSION = 4; // v4: Fixed RPC active_animal_count bug
 
 /**
  * Feed stock breakdown for dashboard tooltip
