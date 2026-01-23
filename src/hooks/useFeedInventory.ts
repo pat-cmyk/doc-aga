@@ -4,6 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCachedFeedInventory, updateFeedInventoryCache } from '@/lib/dataCache';
 import type { FeedInventoryItem } from '@/lib/feedInventory';
+import { 
+  calculateFarmDailyConsumption, 
+  calculateConsumptionFromCounts,
+  DIET_RATIOS,
+  type AnimalForConsumption 
+} from '@/lib/feedConsumption';
 
 /**
  * Summary of feed inventory with computed metrics
@@ -22,25 +28,6 @@ export interface FeedInventorySummary {
   expiringCount: number;
   lowStockCount: number;
 }
-
-/**
- * Consumption rates by livestock type (kg/day)
- */
-const CONSUMPTION_RATES: Record<string, number> = {
-  cattle: 12,
-  carabao: 10,
-  goat: 1.5,
-  sheep: 2,
-  default: 10
-};
-
-/**
- * Diet composition ratios
- */
-const DIET_RATIOS = {
-  roughage: 0.7,   // 70% roughage
-  concentrate: 0.3 // 30% concentrates
-};
 
 /**
  * Compute feed inventory summary from items
@@ -123,14 +110,14 @@ export function computeFeedSummary(
 
 /**
  * Calculate total daily consumption based on animal counts
+ * @deprecated Use calculateFarmDailyConsumption with full animal data for accurate results
  */
 export function calculateTotalDailyConsumption(
   animalCounts: { livestockType: string; count: number }[]
 ): number {
-  return animalCounts.reduce((total, { livestockType, count }) => {
-    const rate = CONSUMPTION_RATES[livestockType.toLowerCase()] || CONSUMPTION_RATES.default;
-    return total + (rate * count);
-  }, 0);
+  return calculateConsumptionFromCounts(
+    animalCounts.map(({ livestockType, count }) => ({ livestockType, count }))
+  );
 }
 
 interface UseFeedInventoryOptions {
