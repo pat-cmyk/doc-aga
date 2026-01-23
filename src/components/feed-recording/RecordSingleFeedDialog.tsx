@@ -312,6 +312,7 @@ export function RecordSingleFeedDialog({
       queryClient.invalidateQueries({ queryKey: ["feeding-records"] });
       queryClient.invalidateQueries({ queryKey: ["feed-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["feed-inventory-types"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-activity-compliance", farmId] });
       queryClient.invalidateQueries({ queryKey: ["animal-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
 

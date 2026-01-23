@@ -315,6 +315,7 @@ export function RecordBulkFeedDialog({
       queryClient.invalidateQueries({ queryKey: ["feed-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["feed-inventory-types"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-activity-compliance", farmId] });
       queryClient.invalidateQueries({ queryKey: ["animal-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["animal-expense-summary"] });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
