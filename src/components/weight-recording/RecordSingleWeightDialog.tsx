@@ -34,6 +34,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 interface RecordSingleWeightDialogProps {
   open: boolean;
@@ -193,8 +194,17 @@ export function RecordSingleWeightDialog({
 
       if (insertError) throw insertError;
 
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ["weight-records"] });
+      // Invalidate all weight-dependent caches using CacheManager
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('weight-record', farmId);
+      } else {
+        // Fallback: manual invalidation
+        queryClient.invalidateQueries({ queryKey: ["weight-records"] });
+        queryClient.invalidateQueries({ queryKey: ["animals"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["feed-inventory", farmId] });
+        queryClient.invalidateQueries({ queryKey: ["lactating-animals", farmId] });
+      }
 
       hapticNotification('success');
       toast({

@@ -9,6 +9,7 @@ import { BulkFeedingTable } from './activity-confirmation/BulkFeedingTable';
 import { ActivitySummary } from './activity-confirmation/ActivitySummary';
 import { useInventoryDeduction } from './activity-confirmation/hooks/useInventoryDeduction';
 import { hapticNotification } from '@/lib/haptics';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Feed {
   feed_type: string;
@@ -79,6 +80,7 @@ interface ActivityConfirmationProps {
 
 const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmationProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [editableFeeds, setEditableFeeds] = useState(data.feeds || []);
   const [availableInventory, setAvailableInventory] = useState<Array<{id: string, feed_type: string, unit: string, weight_per_unit: number | null}>>([]);
@@ -445,6 +447,14 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             notes: data.notes,
             recorded_by: user.id
           });
+          // Invalidate weight-dependent caches
+          queryClient.invalidateQueries({ queryKey: ["weight-records"] });
+          queryClient.invalidateQueries({ queryKey: ["animals"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          if (farmId) {
+            queryClient.invalidateQueries({ queryKey: ["feed-inventory", farmId] });
+            queryClient.invalidateQueries({ queryKey: ["lactating-animals", farmId] });
+          }
           break;
 
         case 'injection':
