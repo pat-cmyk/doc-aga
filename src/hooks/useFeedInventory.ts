@@ -157,7 +157,7 @@ export function useFeedInventory(
   const [cachedData, setCachedData] = useState<FeedInventoryItem[] | null>(null);
   const [animalConsumption, setAnimalConsumption] = useState<number>(0);
 
-  // Load cached data immediately on mount
+  // Load cached data AND cached consumption immediately on mount
   useEffect(() => {
     if (!farmId) return;
     
@@ -166,11 +166,15 @@ export function useFeedInventory(
       if (cached?.items) {
         setCachedData(cached.items as FeedInventoryItem[]);
       }
+      // Load cached daily consumption for offline calculations
+      if (cached?.dailyConsumption) {
+        setAnimalConsumption(cached.dailyConsumption);
+      }
     };
     loadCache();
   }, [farmId]);
 
-  // Fetch animal consumption rates
+  // Fetch animal consumption rates when online (updates cache for future offline use)
   useEffect(() => {
     if (!farmId || !isOnline) return;
 
