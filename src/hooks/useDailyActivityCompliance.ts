@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfDay, endOfDay, format } from "date-fns";
+import { format } from "date-fns";
 
 export interface AnimalMissingMilking {
   animalId: string;
@@ -78,12 +78,13 @@ export function useDailyActivityCompliance(farmId: string | null) {
           .gte("record_date", todayStr)
           .lte("record_date", todayStr),
         
-        // Get today's feeding records
+        // Get today's feeding records - use date casting to avoid timezone issues
         supabase
           .from("feeding_records")
-          .select("id, animal_id, created_by, created_at")
-          .gte("record_datetime", startOfDay(today).toISOString())
-          .lte("record_datetime", endOfDay(today).toISOString()),
+          .select("id, animal_id, created_by, created_at, animals!inner(farm_id)")
+          .eq("animals.farm_id", farmId)
+          .gte("record_datetime", `${todayStr}T00:00:00`)
+          .lt("record_datetime", `${todayStr}T23:59:59.999`),
         
         // Get farm memberships with profiles
         supabase
