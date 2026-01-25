@@ -14,11 +14,14 @@ import { GenderSymbol } from "@/components/ui/gender-indicator";
 import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { AnimalCard } from "./animal-list/AnimalCard";
+import { StatusDot } from "./animal-list/StatusDot";
+import { OVRIndicator } from "./animal-list/OVRIndicator";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor, displayStageForSpecies } from "@/lib/animalStages";
 import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { hapticNotification } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useBatchOVRSummary } from "@/hooks/useBatchOVRSummary";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -163,6 +166,12 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
+
+  // Batch OVR summary for all animals
+  const { summaries: ovrSummaries, isLoading: ovrLoading } = useBatchOVRSummary(
+    farmId,
+    animals.map(a => ({ id: a.id, livestock_type: a.livestock_type }))
+  );
 
   // Helper to create notification in database
   const createCacheNotification = async (
@@ -648,6 +657,9 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               }
             };
 
+            // Get OVR summary for this animal
+            const ovrData = ovrSummaries.get(animal.id);
+
             // Use AnimalCard component on mobile for swipe gestures
             if (isMobile) {
               return (
@@ -667,6 +679,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   onClick={handleViewAnimal}
                   onCacheOffline={() => handleCacheAnimal(animal.id)}
                   onViewDetails={handleViewAnimal}
+                  ovrScore={ovrData?.ovr}
+                  ovrTier={ovrData?.tier}
+                  ovrTrend={ovrData?.trend}
+                  statusDot={ovrData?.status}
+                  alertCount={ovrData?.alertCount}
                 />
               );
             }
@@ -681,16 +698,24 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               >
                 <CardHeader>
                   <div className="flex items-start gap-3">
-                    <Avatar className="h-12 w-12 flex-shrink-0">
-                      <AvatarImage 
-                        src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
-                        alt={animal.name || animal.ear_tag || "Animal"}
-                        loading="lazy"
-                      />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                        {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    {/* Avatar with status dot */}
+                    <div className="relative flex-shrink-0">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage 
+                          src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
+                          alt={animal.name || animal.ear_tag || "Animal"}
+                          loading="lazy"
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                          {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {ovrData?.status && (
+                        <div className="absolute -bottom-0.5 -right-0.5">
+                          <StatusDot status={ovrData.status} size="md" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg flex items-center gap-1.5">
                         {animal.name || "Unnamed"}
@@ -715,24 +740,31 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                       </span>
                     )}
                   </div>
-                  {(animal.lifeStage || animal.milkingStage) && (
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      {animal.lifeStage && (
-                        <StageBadge 
-                          stage={displayedLifeStage}
-                          definition={lifeStageDefinition}
-                          colorClass={lifeStageBadgeColor}
-                        />
-                      )}
-                      {animal.milkingStage && (
-                        <StageBadge 
-                          stage={animal.milkingStage}
-                          definition={milkingStageDefinition}
-                          colorClass={milkingStageBadgeColor}
-                        />
-                      )}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    {/* OVR Indicator */}
+                    {ovrData && (
+                      <OVRIndicator
+                        score={ovrData.ovr}
+                        tier={ovrData.tier}
+                        trend={ovrData.trend}
+                        size="sm"
+                      />
+                    )}
+                    {animal.lifeStage && (
+                      <StageBadge 
+                        stage={displayedLifeStage}
+                        definition={lifeStageDefinition}
+                        colorClass={lifeStageBadgeColor}
+                      />
+                    )}
+                    {animal.milkingStage && (
+                      <StageBadge 
+                        stage={animal.milkingStage}
+                        definition={milkingStageDefinition}
+                        colorClass={milkingStageBadgeColor}
+                      />
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
