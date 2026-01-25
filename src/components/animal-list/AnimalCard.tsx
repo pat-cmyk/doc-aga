@@ -139,8 +139,8 @@ export const AnimalCard = ({
           {/* Right side: OVR + Stage badges stacked + weight chip */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex flex-col gap-1 items-end">
-              {/* OVR Indicator */}
-              {ovrScore !== undefined && ovrTier && (
+              {/* OVR Indicator - only show if cached (score > 0) */}
+              {ovrScore !== undefined && ovrScore > 0 && ovrTier && (
                 <OVRIndicator
                   score={ovrScore}
                   tier={ovrTier}
@@ -218,8 +218,8 @@ export const AnimalCard = ({
               {animal.breed} • {animal.ear_tag}
             </p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              {/* OVR Indicator for desktop */}
-              {ovrScore !== undefined && ovrTier && (
+              {/* OVR Indicator for desktop - only show if cached (score > 0) */}
+              {ovrScore !== undefined && ovrScore > 0 && ovrTier && (
                 <OVRIndicator
                   score={ovrScore}
                   tier={ovrTier}

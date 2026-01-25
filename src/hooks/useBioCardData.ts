@@ -3,10 +3,13 @@
  * 
  * Aggregates all animal performance data from existing SSOT hooks
  * to provide a complete picture for the Bio-Card visualization.
+ * 
+ * SSOT: This hook is the ONLY place OVR is calculated and cached.
+ * The list view reads from the cache written by this hook.
  */
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useGrowthBenchmark, GrowthBenchmark } from './useGrowthBenchmark';
 import { useBodyConditionScores, BodyConditionScore } from './useBodyConditionScores';
@@ -21,6 +24,14 @@ import {
   StatusAura 
 } from '@/lib/ovrScoreCalculator';
 import { differenceInDays } from 'date-fns';
+
+// Milk production benchmarks by livestock type (liters/day) - SSOT
+const MILK_BENCHMARKS: Record<string, number> = {
+  cattle: 15,
+  carabao: 4,
+  goat: 2,
+  sheep: 1.5
+};
 
 export interface BioCardAnimalData {
   id: string;
@@ -368,7 +379,7 @@ export function useBioCardData(
     
     const ovrInputs: OVRInputs = {
       avgDailyMilk,
-      milkBenchmark: 8, // Typical Philippine dairy benchmark
+      milkBenchmark: MILK_BENCHMARKS[animal.livestock_type] || 10, // Use type-specific benchmarks
       adgGrams: growthBenchmark?.adgActual || null,
       adgBenchmark: growthBenchmark?.adgExpected || 500,
       vaccinationCompliance: compliancePercent,
@@ -481,6 +492,41 @@ export function useBioCardData(
     weightLoading, 
     aiLoading,
   ]);
+  
+  // ========== WRITE TO OVR CACHE (SSOT) ==========
+  const queryClient = useQueryClient();
+  
+  useEffect(() => {
+    // Only write to cache when data is fully loaded and we have an animal
+    if (!animal?.id || bioCardData.isLoading || bioCardData.ovr.score === 0) {
+      return;
+    }
+    
+    const writeCache = async () => {
+      try {
+        // Cast needed until types regenerate for new animal_ovr_cache table
+        await (supabase
+          .from('animal_ovr_cache' as any)
+          .upsert({
+            animal_id: animal.id,
+            score: bioCardData.ovr.score,
+            tier: bioCardData.ovr.tier,
+            trend: bioCardData.ovr.trend,
+            breakdown: bioCardData.ovr.breakdown as any,
+            computed_at: new Date().toISOString(),
+          }, { 
+            onConflict: 'animal_id' 
+          }) as any);
+        
+        // Invalidate batch OVR query so list picks up new cache
+        queryClient.invalidateQueries({ queryKey: ['batch-ovr-cache'] });
+      } catch (error) {
+        console.error('Failed to write OVR cache:', error);
+      }
+    };
+    
+    writeCache();
+  }, [animal?.id, bioCardData.ovr.score, bioCardData.ovr.tier, bioCardData.isLoading, queryClient]);
   
   return bioCardData;
 }
