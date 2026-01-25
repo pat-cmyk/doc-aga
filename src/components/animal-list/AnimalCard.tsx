@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
 import { OVRIndicator, type OVRTier, type OVRTrend } from "./OVRIndicator";
-import { StatusDot, type StatusDotType } from "./StatusDot";
+import { StatusDot, type StatusDotType, type StatusReason } from "./StatusDot";
 import type { Animal } from "./hooks/useAnimalList";
 import { getEffectiveWeight } from "@/lib/animalWeightUtils";
 
@@ -29,6 +29,7 @@ interface AnimalCardProps {
   ovrTier?: OVRTier;
   ovrTrend?: OVRTrend;
   statusDot?: StatusDotType;
+  statusReason?: StatusReason;
   alertCount?: number;
 }
 
@@ -48,6 +49,7 @@ export const AnimalCard = ({
   ovrTier,
   ovrTrend,
   statusDot,
+  statusReason,
   alertCount,
 }: AnimalCardProps) => {
   const isMobile = useIsMobile();
@@ -111,7 +113,7 @@ export const AnimalCard = ({
             </Avatar>
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
-                <StatusDot status={statusDot} size="sm" />
+                <StatusDot status={statusDot} reason={statusReason} size="sm" />
               </div>
             )}
           </div>
@@ -201,7 +203,7 @@ export const AnimalCard = ({
             </Avatar>
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
-                <StatusDot status={statusDot} size="md" />
+                <StatusDot status={statusDot} reason={statusReason} size="md" />
               </div>
             )}
           </div>

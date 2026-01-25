@@ -711,6 +711,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   ovrTier={ovrData?.tier}
                   ovrTrend={ovrData?.trend}
                   statusDot={ovrData?.status}
+                  statusReason={ovrData?.statusReason}
                   alertCount={ovrData?.alertCount}
                 />
               );
@@ -740,7 +741,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                       </Avatar>
                       {ovrData?.status && (
                         <div className="absolute -bottom-0.5 -right-0.5">
-                          <StatusDot status={ovrData.status} size="md" />
+                          <StatusDot status={ovrData.status} reason={ovrData.statusReason} size="md" />
                         </div>
                       )}
                     </div>
