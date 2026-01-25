@@ -79,14 +79,14 @@ function calculateProductionScore(inputs: OVRInputs): number {
   const { avgDailyMilk, milkBenchmark, adgGrams, adgBenchmark, isMilking, gender } = inputs;
   
   // For milking females, use milk production
-  if (isMilking && gender?.toLowerCase() === 'female' && avgDailyMilk != null && milkBenchmark) {
+  if (isMilking && gender?.toLowerCase() === 'female' && avgDailyMilk != null && milkBenchmark && milkBenchmark > 0) {
     const ratio = avgDailyMilk / milkBenchmark;
     // Score: 50 at 50% benchmark, 100 at 120% benchmark
     return Math.min(100, Math.max(0, ratio * 83));
   }
   
   // For others, use ADG
-  if (adgGrams != null && adgBenchmark) {
+  if (adgGrams != null && adgBenchmark && adgBenchmark > 0) {
     const ratio = adgGrams / adgBenchmark;
     return Math.min(100, Math.max(0, ratio * 83));
   }
