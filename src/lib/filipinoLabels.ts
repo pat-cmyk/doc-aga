@@ -81,6 +81,36 @@ export const labels = {
   recordWeight: { english: "Record Weight", filipino: "Itala ang Timbang" },
   addPhoto: { english: "Add Photo", filipino: "Magdagdag ng Larawan" },
   
+  // Phase 3 - Reproductive Cycle
+  reproductiveCycle: { english: "Reproductive Cycle", filipino: "Siklo ng Pagpaparami" },
+  breedingWindow: { english: "Breeding Window", filipino: "Oras ng Pagpapakasal" },
+  cycleDay: { english: "Cycle Day", filipino: "Araw sa Siklo" },
+  nextHeat: { english: "Next Heat", filipino: "Susunod na Pag-init" },
+  pregnant: { english: "Pregnant", filipino: "Buntis" },
+  daysToDelivery: { english: "Days to Delivery", filipino: "Araw Bago Manganak" },
+  
+  // Phase 3 - Immunity Shield
+  immunityShield: { english: "Immunity Shield", filipino: "Kalasag ng Kalusugan" },
+  fullyProtected: { english: "Fully Protected", filipino: "Ganap na Protektado" },
+  boosterDue: { english: "Booster Due", filipino: "Kailangan ng Booster" },
+  vulnerable: { english: "Vulnerable", filipino: "Nanganganib" },
+  overdueVaccines: { english: "Overdue Vaccines", filipino: "Nahuling Bakuna" },
+  
+  // Phase 3 - Medical Timeline
+  medicalHistory: { english: "Medical History", filipino: "Kasaysayan ng Kalusugan" },
+  vaccination: { english: "Vaccination", filipino: "Bakuna" },
+  deworming: { english: "Deworming", filipino: "Pagpapurga" },
+  treatment: { english: "Treatment", filipino: "Gamot" },
+  injection: { english: "Injection", filipino: "Iniksyon" },
+  
+  // Phase 3 - Lactation Timeline
+  lactationPhase: { english: "Lactation Phase", filipino: "Yugto ng Paggagatas" },
+  earlyLactation: { english: "Early Lactation", filipino: "Unang Yugto" },
+  midLactation: { english: "Mid Lactation", filipino: "Gitnang Yugto" },
+  lateLactation: { english: "Late Lactation", filipino: "Huling Yugto" },
+  dryPeriod: { english: "Dry Period", filipino: "Pahinga" },
+  daysInMilkLabel: { english: "Days in Milk", filipino: "Araw ng Gatas" },
+  
   // Livestock Emoji Icons
   livestockEmojis: {
     cattle: "🐄",

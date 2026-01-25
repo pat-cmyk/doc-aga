@@ -71,6 +71,13 @@ export interface ImmunityStatus {
   nextDueDate: string | null;
 }
 
+export interface LactationInfo {
+  stage: string | null;
+  daysInMilk: number | null;
+  daysToNextPhase: number | null;
+  progressPercent: number;
+}
+
 export interface BioCardData {
   // Core OVR
   ovr: OVRResult;
@@ -103,6 +110,9 @@ export interface BioCardData {
   
   // Latest BCS
   latestBCS: BodyConditionScore | null;
+  
+  // Lactation info (Phase 3)
+  lactationInfo: LactationInfo | null;
   
   // Loading states
   isLoading: boolean;
@@ -405,6 +415,33 @@ export function useBioCardData(
     // ===== FILTER ALERTS FOR THIS ANIMAL =====
     const activeAlerts = alerts.filter(a => a.animal_id === animalId);
     
+    // ===== LACTATION INFO =====
+    const lactationInfo: LactationInfo | null = animal.milking_stage ? (() => {
+      const stage = animal.milking_stage;
+      const daysInMilk = animal.current_weight_kg ? null : null; // Would need milking_start_date
+      
+      // Calculate progress based on stage (estimate)
+      const stageProgress: Record<string, number> = {
+        'Early Lactation': 20,
+        'early': 20,
+        'Peak Lactation': 30,
+        'peak': 30,
+        'Mid Lactation': 50,
+        'mid': 50,
+        'Late Lactation': 75,
+        'late': 75,
+        'Dry': 95,
+        'dry': 95,
+      };
+      
+      return {
+        stage,
+        daysInMilk: null, // Would calculate from milking_start_date
+        daysToNextPhase: null,
+        progressPercent: stageProgress[stage] || 0,
+      };
+    })() : null;
+    
     return {
       ovr,
       statusAura,
@@ -420,6 +457,7 @@ export function useBioCardData(
       priceSource,
       growthBenchmark,
       latestBCS,
+      lactationInfo,
       isLoading,
     };
   }, [
@@ -489,6 +527,7 @@ function getEmptyBioCardData(isLoading: boolean): BioCardData {
     priceSource: 'system_default',
     growthBenchmark: null,
     latestBCS: null,
+    lactationInfo: null,
     isLoading,
   };
 }

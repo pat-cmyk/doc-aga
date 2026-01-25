@@ -11,6 +11,10 @@ import { StatusAura, StatusBadge } from "./StatusAura";
 import { PerformanceRadar } from "./PerformanceRadar";
 import { TrendSparkline } from "./TrendSparkline";
 import { AlertsTicker } from "./AlertsTicker";
+import { ReproClock } from "./ReproClock";
+import { ImmunityShield } from "./ImmunityShield";
+import { MedicalTimeline } from "./MedicalTimeline";
+import { LactationTimeline } from "./LactationTimeline";
 import type { BioCardData, BioCardAnimalData } from "@/hooks/useBioCardData";
 import { getLivestockEmoji } from "@/lib/filipinoLabels";
 
@@ -217,71 +221,67 @@ export function BioCard({
               <StatusBadge status={bioData.statusAura} />
             </div>
 
-            {/* Placeholder for Phase 4 components */}
-            <div className="space-y-3">
-              {/* Repro Status */}
-              <div className="p-3 rounded-lg bg-muted/50">
-                <h4 className="text-sm font-medium mb-2">Reproductive Status</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Cycle Day:</span>
-                    <span className="ml-1 font-medium">
-                      {bioData.reproStatus.cycleDay ?? 'N/A'}
-                    </span>
+            {/* Phase 3 Components - Vet View */}
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+              {/* ReproClock - Female animals only */}
+              {animal.gender?.toLowerCase() === 'female' && (
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                    🔄 Reproductive Cycle
+                    <span className="text-xs text-muted-foreground">(Siklo)</span>
+                  </h4>
+                  <div className="flex justify-center">
+                    <ReproClock
+                      reproStatus={bioData.reproStatus}
+                      livestockType={animal.livestock_type}
+                      size="md"
+                    />
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Pregnant:</span>
-                    <span className="ml-1 font-medium">
-                      {bioData.reproStatus.isPregnant ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  {bioData.reproStatus.daysToNextHeat !== null && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Next Heat:</span>
-                      <span className="ml-1 font-medium">
-                        {bioData.reproStatus.daysToNextHeat} days
-                      </span>
-                    </div>
-                  )}
                 </div>
+              )}
+
+              {/* LactationTimeline - Lactating females only */}
+              {bioData.lactationInfo?.stage && animal.gender?.toLowerCase() === 'female' && (
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <LactationTimeline
+                    milkingStage={bioData.lactationInfo.stage}
+                    daysInMilk={bioData.lactationInfo.daysInMilk}
+                    milkSparkline={bioData.milkSparkline}
+                    livestockType={animal.livestock_type}
+                    size="full"
+                  />
+                </div>
+              )}
+
+              {/* ImmunityShield */}
+              <div className="p-3 rounded-lg bg-muted/50">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  🛡️ Immunity Shield
+                  <span className="text-xs text-muted-foreground">(Kalasag)</span>
+                </h4>
+                <ImmunityShield
+                  immunityStatus={bioData.immunityStatus}
+                  size="md"
+                  showDetails
+                />
               </div>
 
-              {/* Immunity Status */}
+              {/* MedicalTimeline */}
               <div className="p-3 rounded-lg bg-muted/50">
-                <h4 className="text-sm font-medium mb-2">Immunity Shield</h4>
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-12 h-12 rounded-lg flex items-center justify-center text-2xl",
-                    bioData.immunityStatus.level === 100 && "bg-green-100 dark:bg-green-900/30",
-                    bioData.immunityStatus.level === 50 && "bg-yellow-100 dark:bg-yellow-900/30",
-                    bioData.immunityStatus.level === 0 && "bg-red-100 dark:bg-red-900/30"
-                  )}>
-                    {bioData.immunityStatus.level === 100 ? '🛡️' : 
-                     bioData.immunityStatus.level === 50 ? '⚠️' : '🔴'}
-                  </div>
-                  <div>
-                    <p className="font-medium">
-                      {bioData.immunityStatus.level === 100 ? 'Fully Protected' :
-                       bioData.immunityStatus.level === 50 ? 'Booster Due' : 'Overdue'}
-                    </p>
-                    {bioData.immunityStatus.overdueVaccines.length > 0 && (
-                      <p className="text-sm text-destructive">
-                        {bioData.immunityStatus.overdueVaccines.length} overdue
-                      </p>
-                    )}
-                    {bioData.immunityStatus.nextDueDate && (
-                      <p className="text-xs text-muted-foreground">
-                        Next: {bioData.immunityStatus.nextDueDate}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <MedicalTimeline
+                  animalId={animal.id}
+                  farmId={animal.farm_id}
+                  maxItems={5}
+                />
               </div>
 
               {/* Growth Benchmark Summary */}
               {bioData.growthBenchmark && (
                 <div className="p-3 rounded-lg bg-muted/50">
-                  <h4 className="text-sm font-medium mb-2">Growth Status</h4>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                    📈 Growth Status
+                    <span className="text-xs text-muted-foreground">(Paglaki)</span>
+                  </h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">ADG:</span>
@@ -309,7 +309,7 @@ export function BioCard({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full"
+              className="w-full mt-2"
               onClick={handleFlip}
             >
               <RotateCcw className="w-4 h-4 mr-2" />
