@@ -420,6 +420,7 @@ export type Database = {
           animal_id: string
           breakdown: Json | null
           computed_at: string
+          is_stale: boolean | null
           score: number
           tier: string
           trend: string
@@ -429,6 +430,7 @@ export type Database = {
           animal_id: string
           breakdown?: Json | null
           computed_at?: string
+          is_stale?: boolean | null
           score?: number
           tier?: string
           trend?: string
@@ -438,6 +440,7 @@ export type Database = {
           animal_id?: string
           breakdown?: Json | null
           computed_at?: string
+          is_stale?: boolean | null
           score?: number
           tier?: string
           trend?: string
@@ -3770,6 +3773,11 @@ export type Database = {
         Args: { _approved_by: string; _is_auto?: boolean; _pending_id: string }
         Returns: Json
       }
+      batch_calculate_ovr_scores: {
+        Args: { p_farm_id?: string }
+        Returns: Json
+      }
+      calculate_animal_ovr: { Args: { p_animal_id: string }; Returns: Json }
       calculate_auto_approve_time: {
         Args: { _farm_id: string }
         Returns: string

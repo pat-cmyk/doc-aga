@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Database, FileText, AlertCircle, RefreshCw, ArrowRight } from "lucide-react";
+import { Database, FileText, AlertCircle, RefreshCw, ArrowRight, Zap } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { RecalculateStatsButton } from "./RecalculateStatsButton";
 import { RecalculateHistoricalStatsButton } from "./RecalculateHistoricalStatsButton";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ChangeRecord {
   animal_id: string;
@@ -26,10 +27,19 @@ interface MigrationResult {
   errors?: string[];
 }
 
+interface OVRResult {
+  processed: number;
+  errors: number;
+  farm_id: string | null;
+  completed_at: string;
+}
+
 export const SystemAdmin = () => {
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isCalculatingOVR, setIsCalculatingOVR] = useState(false);
   const [showResultsDialog, setShowResultsDialog] = useState(false);
   const [migrationResults, setMigrationResults] = useState<MigrationResult | null>(null);
+  const queryClient = useQueryClient();
 
   const handleDatabaseMaintenance = () => {
     toast({
@@ -43,6 +53,36 @@ export const SystemAdmin = () => {
       title: "Cache Cleared",
       description: "System cache has been successfully cleared.",
     });
+  };
+
+  const handleRecalculateOVR = async () => {
+    setIsCalculatingOVR(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('calculate-ovr-scores', {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      const result = data?.result as OVRResult;
+      
+      // Invalidate the batch OVR cache query to refresh list views
+      queryClient.invalidateQueries({ queryKey: ['batch-ovr-cache'] });
+
+      toast({
+        title: "OVR Scores Recalculated",
+        description: `Successfully processed ${result?.processed || 0} animals with ${result?.errors || 0} errors.`,
+      });
+    } catch (error) {
+      console.error('OVR calculation error:', error);
+      toast({
+        title: "OVR Calculation Failed",
+        description: error instanceof Error ? error.message : "Failed to recalculate OVR scores",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCalculatingOVR(false);
+    }
   };
 
   const handleMigrateCarabaoTerms = async () => {
@@ -98,6 +138,25 @@ export const SystemAdmin = () => {
                 Recalculate daily farm statistics for a custom date range. Updates existing records with corrected data based on animal registration dates.
               </p>
               <RecalculateHistoricalStatsButton />
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 pt-4 border-t">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <p className="font-medium">Recalculate OVR Scores</p>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Pre-compute OVR (Overall Performance Rating) scores for all animals. This populates the cache so Animal List shows scores immediately without opening Bio-Cards first.
+              </p>
+              <Button 
+                onClick={handleRecalculateOVR} 
+                disabled={isCalculatingOVR}
+                variant="outline"
+              >
+                {isCalculatingOVR ? "Calculating..." : "Recalculate All OVR Scores"}
+              </Button>
             </div>
           </div>
 
