@@ -36,6 +36,7 @@ import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
+import { BioCardSummary } from "./animal-details/BioCardSummary";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -1042,6 +1043,28 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         </CardContent>
       </Card>
 
+      {/* BioCard Summary - Collapsible Performance Overview */}
+      {animal && !readOnly && (
+        <BioCardSummary
+          animal={{
+            id: animal.id,
+            name: animal.name,
+            ear_tag: animal.ear_tag,
+            gender: animal.gender,
+            life_stage: displayLifeStage,
+            milking_stage: computedMilkingStage,
+            livestock_type: animal.livestock_type || 'cattle',
+            birth_date: animal.birth_date,
+            avatar_url: animal.avatar_url,
+            current_weight_kg: null,
+            farm_id: farmId,
+            breed: animal.breed,
+          }}
+          farmId={farmId}
+          isOnline={isOnline}
+        />
+      )}
+
       {/* Growth Benchmark Card */}
       <GrowthBenchmarkCard 
         animalId={animalId} 
@@ -1049,7 +1072,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           birth_date: animal.birth_date,
           gender: animal.gender,
           life_stage: animal.life_stage,
-          current_weight_kg: null, // Will be fetched by hook
+          current_weight_kg: null,
           livestock_type: animal.livestock_type || 'cattle',
         } : null}
       />
