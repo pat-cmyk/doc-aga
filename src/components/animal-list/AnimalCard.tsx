@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { GenderSymbol } from "@/components/ui/gender-indicator";
 import { Scale, Database, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
 import { OVRIndicator, type OVRTier, type OVRTrend } from "./OVRIndicator";
@@ -76,10 +77,28 @@ export const AnimalCard = ({
     );
   };
 
+  // Get triage border color based on status
+  const getTriageBorderClass = () => {
+    if (!statusDot) return "";
+    switch (statusDot) {
+      case 'red':
+        return "border-l-4 border-l-red-500 dark:border-l-red-400";
+      case 'yellow':
+        return "border-l-4 border-l-yellow-500 dark:border-l-yellow-400";
+      default:
+        return "";
+    }
+  };
+
+  const triageBorderClass = getTriageBorderClass();
+
   // Mobile card content (extracted for reuse)
   const mobileCardContent = (
     <Card
-      className="cursor-pointer active:scale-[0.98] transition-transform"
+      className={cn(
+        "cursor-pointer active:scale-[0.98] transition-transform",
+        triageBorderClass
+      )}
       onClick={onClick}
     >
       <CardContent className="p-3">
@@ -166,7 +185,10 @@ export const AnimalCard = ({
   // Desktop variant (original)
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className={cn(
+        "cursor-pointer hover:shadow-md transition-shadow",
+        triageBorderClass
+      )}
       onClick={onClick}
     >
       <CardContent className="p-4">

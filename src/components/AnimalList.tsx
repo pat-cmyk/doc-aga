@@ -16,12 +16,14 @@ import AnimalDetails from "./AnimalDetails";
 import { AnimalCard } from "./animal-list/AnimalCard";
 import { StatusDot } from "./animal-list/StatusDot";
 import { OVRIndicator } from "./animal-list/OVRIndicator";
+import { BioCardSheet } from "./animals/BioCardSheet";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor, displayStageForSpecies } from "@/lib/animalStages";
 import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { hapticNotification } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBatchOVRSummary } from "@/hooks/useBatchOVRSummary";
+import type { BioCardAnimalData } from "@/hooks/useBioCardData";
 
 // Helper function to get stage definitions
 const getLifeStageDefinition = (stage: string | null): string => {
@@ -163,6 +165,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [weightDataFilter, setWeightDataFilter] = useState<string>(weightFilter === 'missing' ? 'missing' : 'all');
   const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
   const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
+  
+  // Bio-Card Quick View Sheet state
+  const [bioCardSheetOpen, setBioCardSheetOpen] = useState(false);
+  const [bioCardAnimal, setBioCardAnimal] = useState<BioCardAnimalData | null>(null);
+  
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
@@ -622,9 +629,24 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
             const milkingStageBadgeColor = getMilkingStageBadgeColor(animal.milkingStage || null);
             const livestockIcon = getLivestockIcon(animal.livestock_type);
 
-            const handleViewAnimal = () => {
-              setSelectedAnimalId(animal.id);
-              onAnimalSelect?.(animal.id);
+            // Handler to open Bio-Card Quick View Sheet
+            const handleOpenBioCardSheet = () => {
+              const bioCardData: BioCardAnimalData = {
+                id: animal.id,
+                farm_id: farmId,
+                name: animal.name,
+                ear_tag: animal.ear_tag,
+                breed: animal.breed,
+                gender: animal.gender,
+                birth_date: animal.birth_date,
+                livestock_type: animal.livestock_type,
+                life_stage: displayedLifeStage,
+                milking_stage: animal.milkingStage,
+                avatar_url: animal.avatar_url,
+                current_weight_kg: animal.current_weight_kg,
+              };
+              setBioCardAnimal(bioCardData);
+              setBioCardSheetOpen(true);
               
               // Pre-cache this animal's records in background
               if (isOnline && !cachedAnimalIds.has(animal.id)) {
@@ -657,6 +679,12 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               }
             };
 
+            // Handler to navigate to full details (from sheet or directly)
+            const handleViewFullDetails = () => {
+              setSelectedAnimalId(animal.id);
+              onAnimalSelect?.(animal.id);
+            };
+
             // Get OVR summary for this animal
             const ovrData = ovrSummaries.get(animal.id);
 
@@ -676,9 +704,9 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   lifeStageBadgeColor={lifeStageBadgeColor}
                   milkingStageBadgeColor={milkingStageBadgeColor}
                   livestockIcon={livestockIcon}
-                  onClick={handleViewAnimal}
+                  onClick={handleOpenBioCardSheet}
                   onCacheOffline={() => handleCacheAnimal(animal.id)}
-                  onViewDetails={handleViewAnimal}
+                  onViewDetails={handleViewFullDetails}
                   ovrScore={ovrData?.ovr}
                   ovrTier={ovrData?.tier}
                   ovrTrend={ovrData?.trend}
@@ -694,7 +722,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                 key={animal.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
                 style={{ contentVisibility: 'auto' }}
-                onClick={handleViewAnimal}
+                onClick={handleOpenBioCardSheet}
               >
                 <CardHeader>
                   <div className="flex items-start gap-3">
@@ -771,6 +799,20 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
           })}
         </div>
       )}
+
+      {/* Bio-Card Quick View Sheet */}
+      <BioCardSheet
+        animal={bioCardAnimal}
+        farmId={farmId}
+        isOpen={bioCardSheetOpen}
+        onOpenChange={setBioCardSheetOpen}
+        onViewFullDetails={() => {
+          if (bioCardAnimal) {
+            setSelectedAnimalId(bioCardAnimal.id);
+            onAnimalSelect?.(bioCardAnimal.id);
+          }
+        }}
+      />
     </div>
   );
 };
