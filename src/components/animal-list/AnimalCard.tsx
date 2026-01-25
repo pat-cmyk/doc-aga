@@ -6,6 +6,8 @@ import { GenderSymbol } from "@/components/ui/gender-indicator";
 import { Scale, Database, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
+import { OVRIndicator, type OVRTier, type OVRTrend } from "./OVRIndicator";
+import { StatusDot, type StatusDotType } from "./StatusDot";
 import type { Animal } from "./hooks/useAnimalList";
 import { getEffectiveWeight } from "@/lib/animalWeightUtils";
 
@@ -21,6 +23,12 @@ interface AnimalCardProps {
   onClick: () => void;
   onCacheOffline?: () => void;
   onViewDetails?: () => void;
+  // OVR quick stats (optional - graceful degradation)
+  ovrScore?: number;
+  ovrTier?: OVRTier;
+  ovrTrend?: OVRTrend;
+  statusDot?: StatusDotType;
+  alertCount?: number;
 }
 
 export const AnimalCard = ({
@@ -35,6 +43,11 @@ export const AnimalCard = ({
   onClick,
   onCacheOffline,
   onViewDetails,
+  ovrScore,
+  ovrTier,
+  ovrTrend,
+  statusDot,
+  alertCount,
 }: AnimalCardProps) => {
   const isMobile = useIsMobile();
   const effectiveWeight = getEffectiveWeight(animal);
@@ -71,17 +84,24 @@ export const AnimalCard = ({
     >
       <CardContent className="p-3">
         <div className="flex items-center gap-2.5">
-          {/* Smaller avatar on mobile */}
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
-            <AvatarFallback className="text-sm">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-          </Avatar>
+          {/* Avatar with status dot overlay */}
+          <div className="relative shrink-0">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
+              <AvatarFallback className="text-sm">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+            </Avatar>
+            {statusDot && (
+              <div className="absolute -bottom-0.5 -right-0.5">
+                <StatusDot status={statusDot} size="sm" />
+              </div>
+            )}
+          </div>
           
           {/* Info section - compact layout */}
           <div className="flex-1 min-w-0">
             {/* Name row with gender, livestock icon and cache status */}
             <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-sm truncate max-w-[140px]">
+              <h3 className="font-semibold text-sm truncate max-w-[120px]">
                 {animal.name || "Unnamed"}
               </h3>
               <GenderSymbol gender={animal.gender} />
@@ -95,9 +115,18 @@ export const AnimalCard = ({
             </p>
           </div>
           
-          {/* Right side: Stage badges stacked + weight chip */}
+          {/* Right side: OVR + Stage badges stacked + weight chip */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex flex-col gap-1 items-end">
+              {/* OVR Indicator */}
+              {ovrScore !== undefined && ovrTier && (
+                <OVRIndicator
+                  score={ovrScore}
+                  tier={ovrTier}
+                  trend={ovrTrend}
+                  size="xs"
+                />
+              )}
               {animal.lifeStage && (
                 <Badge 
                   variant="secondary" 
@@ -142,10 +171,18 @@ export const AnimalCard = ({
     >
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-14 w-14">
-            <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
-            <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-          </Avatar>
+          {/* Avatar with status dot overlay */}
+          <div className="relative shrink-0">
+            <Avatar className="h-14 w-14">
+              <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
+              <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+            </Avatar>
+            {statusDot && (
+              <div className="absolute -bottom-0.5 -right-0.5">
+                <StatusDot status={statusDot} size="md" />
+              </div>
+            )}
+          </div>
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center gap-1.5 flex-wrap">
               <h3 className="font-semibold text-base truncate">{animal.name || "Unnamed"}</h3>
@@ -157,6 +194,15 @@ export const AnimalCard = ({
               {animal.breed} • {animal.ear_tag}
             </p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              {/* OVR Indicator for desktop */}
+              {ovrScore !== undefined && ovrTier && (
+                <OVRIndicator
+                  score={ovrScore}
+                  tier={ovrTier}
+                  trend={ovrTrend}
+                  size="sm"
+                />
+              )}
               {animal.lifeStage && (
                 <StageBadge 
                   stage={animal.lifeStage}
