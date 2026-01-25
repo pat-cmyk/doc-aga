@@ -225,7 +225,7 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
               Total Cost (6mo)
             </div>
             <p className="text-2xl font-bold mt-1">
-              KES {summary.totalCost.toLocaleString()}
+              ₱{summary.totalCost.toLocaleString()}
             </p>
             {trend && (
               <div className={`flex items-center gap-1 text-xs mt-1 ${trend.direction === 'up' ? 'text-destructive' : 'text-green-600'}`}>
@@ -243,7 +243,7 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
               Avg Cost/kg
             </div>
             <p className="text-2xl font-bold mt-1">
-              KES {summary.avgCostPerKg.toFixed(2)}
+              ₱{summary.avgCostPerKg.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -294,7 +294,7 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
                   fontSize={12}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`KES ${value.toLocaleString()}`, 'Cost']}
+                  formatter={(value: number) => [`₱${value.toLocaleString()}`, 'Cost']}
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
                 />
                 <Bar 
@@ -335,7 +335,7 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: number) => [`KES ${value.toLocaleString()}`, 'Cost']}
+                    formatter={(value: number) => [`₱${value.toLocaleString()}`, 'Cost']}
                     contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
                   />
                   <Legend {...legendProps} />
@@ -363,7 +363,7 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
                   fontSize={12}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`KES ${value.toFixed(2)}`, 'Cost/kg']}
+                  formatter={(value: number) => [`₱${value.toFixed(2)}`, 'Cost/kg']}
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
                 />
                 <Line 

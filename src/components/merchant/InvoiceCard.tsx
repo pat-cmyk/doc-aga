@@ -70,11 +70,11 @@ export const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
           )}
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tax (12%)</span>
-            <span>PHP {invoice.tax_amount.toLocaleString()}</span>
+            <span>₱{invoice.tax_amount.toLocaleString()}</span>
           </div>
           <div className="flex justify-between font-semibold">
             <span>Total Amount</span>
-            <span>PHP {invoice.amount.toLocaleString()}</span>
+            <span>₱{invoice.amount.toLocaleString()}</span>
           </div>
         </div>
         {!invoice.is_paid && (

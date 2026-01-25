@@ -20,11 +20,11 @@ export const CartSummary = ({ onClose }: CartSummaryProps) => {
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span>Subtotal ({cart.length} items)</span>
-          <span>PHP {getTotalPrice().toLocaleString()}</span>
+          <span>₱{getTotalPrice().toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold text-lg">
           <span>Total</span>
-          <span>PHP {getTotalPrice().toLocaleString()}</span>
+          <span>₱{getTotalPrice().toLocaleString()}</span>
         </div>
       </div>
       <Button

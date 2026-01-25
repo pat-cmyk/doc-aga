@@ -25,7 +25,7 @@ export const CartItem = ({ item }: CartItemProps) => {
           {item.merchant.business_name}
         </p>
         <p className="text-sm font-medium mt-1">
-          PHP {item.price.toLocaleString()} / {item.unit}
+          ₱{item.price.toLocaleString()} / {item.unit}
         </p>
       </div>
       <div className="flex flex-col items-end gap-2">
@@ -58,7 +58,7 @@ export const CartItem = ({ item }: CartItemProps) => {
           </Button>
         </div>
         <p className="font-semibold">
-          PHP {(item.price * item.quantity).toLocaleString()}
+          ₱{(item.price * item.quantity).toLocaleString()}
         </p>
       </div>
     </div>
