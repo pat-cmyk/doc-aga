@@ -174,10 +174,16 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
 
-  // Batch OVR summary for all animals
+  // Batch OVR summary for all animals - pass full context for SSOT calculation
   const { summaries: ovrSummaries, isLoading: ovrLoading } = useBatchOVRSummary(
     farmId,
-    animals.map(a => ({ id: a.id, livestock_type: a.livestock_type }))
+    animals.map(a => ({ 
+      id: a.id, 
+      livestock_type: a.livestock_type,
+      gender: a.gender,
+      life_stage: a.lifeStage,
+      milking_stage: a.milkingStage
+    }))
   );
 
   // Helper to create notification in database
