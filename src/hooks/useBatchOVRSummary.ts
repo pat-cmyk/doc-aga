@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getOVRTier } from "@/lib/ovrScoreCalculator";
-import type { StatusReason } from "@/components/animal-list/StatusDot";
+import type { StatusReason } from "@/types/status";
 
 export interface AnimalOVRSummary {
   animalId: string;
