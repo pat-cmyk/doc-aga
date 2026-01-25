@@ -84,6 +84,20 @@ export default {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.08)" },
         },
+        "shield-pulse": {
+          "0%, 100%": { filter: "drop-shadow(0 0 4px rgba(34, 197, 94, 0.6))" },
+          "50%": { filter: "drop-shadow(0 0 12px rgba(34, 197, 94, 0.8))" },
+        },
+        "shield-shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "25%": { transform: "translateX(-2px)" },
+          "75%": { transform: "translateX(2px)" },
+        },
+        "cycle-tick": {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.2)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -91,6 +105,9 @@ export default {
         "scale-in": "scale-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
         "slide-up": "slide-up 0.15s ease-out",
         "bounce-subtle": "bounce-subtle 0.3s ease-out",
+        "shield-pulse": "shield-pulse 2s ease-in-out infinite",
+        "shield-shake": "shield-shake 0.5s ease-in-out infinite",
+        "cycle-tick": "cycle-tick 1s ease-in-out",
       },
     },
   },
