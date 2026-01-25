@@ -34,6 +34,7 @@ export interface BioCardAnimalData {
   avatar_url: string | null;
   current_weight_kg: number | null;
   farm_id: string;
+  breed: string | null;
 }
 
 export interface RadarChartData {
@@ -58,6 +59,7 @@ export interface ReproStatus {
   breedingWindowEnd: string | null;
   lastHeatDate: string | null;
   averageCycleLength: number | null;
+  daysToNextHeat: number | null;
 }
 
 export interface ImmunityStatus {
@@ -66,6 +68,7 @@ export interface ImmunityStatus {
   overdueVaccines: string[];
   upcomingVaccines: Array<{ name: string; dueDate: string; daysUntil: number }>;
   compliancePercent: number;
+  nextDueDate: string | null;
 }
 
 export interface BioCardData {
@@ -260,6 +263,11 @@ export function useBioCardData(
         new Date() <= new Date(latestHeat.optimal_breeding_end)
       : false;
     
+    // Calculate days to next heat based on average cycle length
+    const daysToNextHeat = (daysSinceLastHeat != null && averageCycleLength != null)
+      ? Math.max(0, averageCycleLength - daysSinceLastHeat)
+      : null;
+
     const reproStatus: ReproStatus = {
       isPregnant,
       expectedDeliveryDate: latestPregnancy?.expected_delivery_date || null,
@@ -270,6 +278,7 @@ export function useBioCardData(
       breedingWindowEnd: latestHeat?.optimal_breeding_end || null,
       lastHeatDate: latestHeat?.detected_at || null,
       averageCycleLength: averageCycleLength || null,
+      daysToNextHeat,
     };
     
     // ===== IMMUNITY STATUS =====
@@ -308,6 +317,7 @@ export function useBioCardData(
       overdueVaccines,
       upcomingVaccines,
       compliancePercent,
+      nextDueDate: upcomingVaccines.length > 0 ? upcomingVaccines[0].dueDate : null,
     };
     
     // ===== SPARKLINES =====
@@ -463,6 +473,7 @@ function getEmptyBioCardData(isLoading: boolean): BioCardData {
       breedingWindowEnd: null,
       lastHeatDate: null,
       averageCycleLength: null,
+      daysToNextHeat: null,
     },
     immunityStatus: {
       level: 100,
@@ -470,6 +481,7 @@ function getEmptyBioCardData(isLoading: boolean): BioCardData {
       overdueVaccines: [],
       upcomingVaccines: [],
       compliancePercent: 100,
+      nextDueDate: null,
     },
     activeAlerts: [],
     estimatedValue: null,
