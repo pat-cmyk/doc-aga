@@ -103,7 +103,7 @@ export const exportToCSV = (data: ExportData) => {
     csv += `Total Purchased,${ga.totalPurchasedAnimals}\n`;
     csv += `Total Born on Farm,${ga.totalBornOnFarm}\n`;
     csv += `Grant Percentage,${ga.grantPercentage.toFixed(1)}%\n`;
-    csv += `Average Purchase Price,${ga.avgPurchasePrice.toFixed(2)}\n`;
+    csv += `Average Purchase Price,₱${ga.avgPurchasePrice.toFixed(2)}\n`;
     
     if (ga.grantSourceBreakdown.length > 0) {
       csv += "\nGrant Source Breakdown\n";
@@ -119,10 +119,10 @@ export const exportToCSV = (data: ExportData) => {
     const ri = data.regionalInvestment;
     csv += "\n\nRegional Investment Summary\n";
     csv += "Metric,Value\n";
-    csv += `Total Herd Investment,${ri.totalHerdInvestment.toFixed(2)}\n`;
-    csv += `Total Animal Expenses,${ri.totalAnimalExpenses.toFixed(2)}\n`;
-    csv += `Average Investment Per Farm,${ri.averageInvestmentPerFarm.toFixed(2)}\n`;
-    csv += `Average Investment Per Animal,${ri.averageInvestmentPerAnimal.toFixed(2)}\n`;
+    csv += `Total Herd Investment,₱${ri.totalHerdInvestment.toFixed(2)}\n`;
+    csv += `Total Animal Expenses,₱${ri.totalAnimalExpenses.toFixed(2)}\n`;
+    csv += `Average Investment Per Farm,₱${ri.averageInvestmentPerFarm.toFixed(2)}\n`;
+    csv += `Average Investment Per Animal,₱${ri.averageInvestmentPerAnimal.toFixed(2)}\n`;
     csv += `Total Farms,${ri.farmCount}\n`;
     csv += `Total Animals,${ri.animalCount}\n`;
   }
@@ -132,10 +132,10 @@ export const exportToCSV = (data: ExportData) => {
     const ve = data.veterinaryExpenses;
     csv += "\n\nVeterinary Expense Summary\n";
     csv += "Metric,Value\n";
-    csv += `Total Veterinary Services,${ve.totalVetExpenses.toFixed(2)}\n`;
-    csv += `Total Medicine & Vaccines,${ve.totalMedicineExpenses.toFixed(2)}\n`;
-    csv += `Combined Total,${ve.totalCombined.toFixed(2)}\n`;
-    csv += `Average Cost Per Animal,${ve.avgCostPerAnimal.toFixed(2)}\n`;
+    csv += `Total Veterinary Services,₱${ve.totalVetExpenses.toFixed(2)}\n`;
+    csv += `Total Medicine & Vaccines,₱${ve.totalMedicineExpenses.toFixed(2)}\n`;
+    csv += `Combined Total,₱${ve.totalCombined.toFixed(2)}\n`;
+    csv += `Average Cost Per Animal,₱${ve.avgCostPerAnimal.toFixed(2)}\n`;
     csv += `Total Animals,${ve.totalAnimals}\n`;
     csv += `Total Farms,${ve.totalFarms}\n`;
     
@@ -143,7 +143,7 @@ export const exportToCSV = (data: ExportData) => {
       csv += "\nVeterinary Expense Hotspots (Top 10)\n";
       csv += "Municipality,Province,Total Expenses,Animals,Cost Per Animal\n";
       ve.byLocation.slice(0, 10).forEach(loc => {
-        csv += `"${loc.municipality}","${loc.province}",${loc.combinedTotal.toFixed(2)},${loc.animalCount},${loc.costPerAnimal.toFixed(2)}\n`;
+        csv += `"${loc.municipality}","${loc.province}",₱${loc.combinedTotal.toFixed(2)},${loc.animalCount},₱${loc.costPerAnimal.toFixed(2)}\n`;
       });
     }
   }

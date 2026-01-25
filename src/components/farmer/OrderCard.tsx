@@ -57,7 +57,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
             </div>
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span>PHP {order.total_amount.toLocaleString()}</span>
+              <span>₱{order.total_amount.toLocaleString()}</span>
             </div>
           </div>
           <Button variant="outline" className="w-full mt-4" onClick={(e) => {

@@ -74,7 +74,7 @@ export const ProductCard = ({
         )}
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold">
-            PHP {price.toLocaleString()}
+            ₱{price.toLocaleString()}
           </span>
           <span className="text-sm text-muted-foreground">per {unit}</span>
         </div>

@@ -67,7 +67,7 @@ export const OrderTable = ({ orders }: OrderTableProps) => {
                 <TableCell className="whitespace-nowrap">{order.farmer.full_name || "Customer"}</TableCell>
                 <TableCell className="whitespace-nowrap">{format(new Date(order.created_at), "MMM dd, yyyy")}</TableCell>
                 <TableCell>{order.order_items.length}</TableCell>
-                <TableCell className="whitespace-nowrap">PHP {order.total_amount.toLocaleString()}</TableCell>
+                <TableCell className="whitespace-nowrap">₱{order.total_amount.toLocaleString()}</TableCell>
                 <TableCell>
                   <Badge className={statusColors[order.status] || "bg-gray-500"}>
                     {statusLabels[order.status] || order.status}
