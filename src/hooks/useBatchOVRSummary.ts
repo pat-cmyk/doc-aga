@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getOVRTier } from "@/lib/ovrScoreCalculator";
+import { calculateOVRScore, type OVRInputs } from "@/lib/ovrScoreCalculator";
 import type { StatusReason } from "@/types/status";
 
 export interface AnimalOVRSummary {
@@ -26,6 +26,9 @@ interface BatchQueryData {
   inHeatWindow: Set<string>;
   criticalBCS: Set<string>;
   withdrawalWithMilkSold: Set<string>;
+  // Additional data for full OVR calculation
+  latestBCS: Map<string, number>;
+  isPregnant: Set<string>;
 }
 
 /**
@@ -79,37 +82,13 @@ function calculateStatus(
   return { status: 'green', reason: 'healthy' };
 }
 
-function calculateSimplifiedOVR(
-  vaccinationCompliance: number,
-  hasActiveHealthIssue: boolean,
-  avgMilkLiters: number | null,
-  livestockType: string
-): number {
-  // Simplified OVR calculation based on available batch data
-  // Health score (40%) - adjusted penalties
-  const healthScore = hasActiveHealthIssue ? 60 : 100;  // -40 for active issues
-  
-  // Vaccination compliance score (30%)
-  const vaccinationScore = vaccinationCompliance;
-  
-  // Production score (30%) - simplified
-  let productionScore = 70; // Default baseline
-  if (avgMilkLiters !== null && avgMilkLiters > 0) {
-    // Compare to basic benchmarks
-    const benchmarks: Record<string, number> = {
-      cattle: 15,
-      carabao: 4,
-      goat: 2,
-      sheep: 1.5
-    };
-    const benchmark = benchmarks[livestockType] || 10;
-    productionScore = Math.min(100, (avgMilkLiters / benchmark) * 100);
-  }
-  
-  // Weighted average
-  const ovr = (healthScore * 0.4) + (vaccinationScore * 0.3) + (productionScore * 0.3);
-  return Math.round(Math.max(0, Math.min(100, ovr)));
-}
+// Milk production benchmarks by livestock type (liters/day)
+const MILK_BENCHMARKS: Record<string, number> = {
+  cattle: 15,
+  carabao: 4,
+  goat: 2,
+  sheep: 1.5
+};
 
 async function fetchBatchData(farmId: string, animalIds: string[]): Promise<BatchQueryData> {
   if (animalIds.length === 0) {
@@ -125,6 +104,8 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
       inHeatWindow: new Set(),
       criticalBCS: new Set(),
       withdrawalWithMilkSold: new Set(),
+      latestBCS: new Map(),
+      isPregnant: new Set(),
     };
   }
 
@@ -298,16 +279,28 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
 
   // Process BCS - get latest per animal and check for critical values
   const criticalBCS = new Set<string>();
+  const latestBCS = new Map<string, number>();
   const seenAnimals = new Set<string>();
   if (bcsResult.data) {
     for (const record of bcsResult.data) {
       // Only consider first (most recent) record per animal
       if (!seenAnimals.has(record.animal_id)) {
         seenAnimals.add(record.animal_id);
+        latestBCS.set(record.animal_id, record.score);
         // Critical: BCS ≤ 2.0 or ≥ 4.5
         if (record.score <= 2.0 || record.score >= 4.5) {
           criticalBCS.add(record.animal_id);
         }
+      }
+    }
+  }
+  
+  // Process pregnancy status from AI records
+  const isPregnant = new Set<string>();
+  if (aiRecordsResult.data) {
+    for (const record of aiRecordsResult.data) {
+      if (record.expected_delivery_date) {
+        isPregnant.add(record.animal_id);
       }
     }
   }
@@ -338,12 +331,17 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
     inHeatWindow,
     criticalBCS,
     withdrawalWithMilkSold,
+    latestBCS,
+    isPregnant,
   };
 }
 
 interface AnimalInput {
   id: string;
   livestock_type: string;
+  gender?: string | null;
+  life_stage?: string | null;
+  milking_stage?: string | null;
 }
 
 export function useBatchOVRSummary(
@@ -386,15 +384,42 @@ export function useBatchOVRSummary(
           ? (completedCount / totalSchedules) * 100 
           : 80; // Default if no schedules
 
-        const ovr = calculateSimplifiedOVR(
-          vaccinationCompliance,
-          healthIssueCount > 0,
-          avgMilk,
-          animal.livestock_type
-        );
+        // Get additional data for SSOT OVR calculation
+        const animalBCS = batchData.latestBCS.get(animal.id) ?? null;
+        const animalIsPregnant = batchData.isPregnant.has(animal.id);
+        const isMilking = animal.milking_stage != null && animal.gender?.toLowerCase() === 'female';
 
-        // Use SSOT tier calculation
-        const tier = getOVRTier(ovr);
+        // Build OVRInputs for SSOT calculator
+        const ovrInputs: OVRInputs = {
+          // Production
+          avgDailyMilk: avgMilk,
+          milkBenchmark: MILK_BENCHMARKS[animal.livestock_type] || 10,
+          
+          // Health
+          vaccinationCompliance,
+          hasActiveHealthIssues: healthIssueCount > 0,
+          hasWithdrawalPeriod: hasWithdrawal,
+          overdueVaccineCount: overdueCount,
+          
+          // Fertility
+          isPregnant: animalIsPregnant,
+          
+          // Body Condition
+          latestBCS: animalBCS,
+          bcsOptimalMin: 2.5,
+          bcsOptimalMax: 4.0,
+          
+          // Context
+          livestockType: animal.livestock_type,
+          lifeStage: animal.life_stage,
+          gender: animal.gender,
+          isMilking,
+        };
+
+        // Use SSOT OVR calculation
+        const ovrResult = calculateOVRScore(ovrInputs);
+        const ovr = ovrResult.score;
+        const tier = ovrResult.tier;
         
         // Calculate veterinary-priority triage status
         const { status, reason } = calculateStatus(
