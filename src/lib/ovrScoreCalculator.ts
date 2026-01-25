@@ -98,6 +98,10 @@ function calculateProductionScore(inputs: OVRInputs): number {
 /**
  * Calculate health score based on vaccination and active issues
  */
+/**
+ * Calculate health score based on vaccination and active issues
+ * Adjusted penalties to reflect veterinary triage priorities
+ */
 function calculateHealthScore(inputs: OVRInputs): number {
   const { 
     vaccinationCompliance, 
@@ -108,10 +112,10 @@ function calculateHealthScore(inputs: OVRInputs): number {
   
   let score = vaccinationCompliance;
   
-  // Penalties
-  if (hasActiveHealthIssues) score -= 30;
-  if (hasWithdrawalPeriod) score -= 20;
-  score -= overdueVaccineCount * 10;
+  // Penalties - adjusted for veterinary priorities
+  if (hasActiveHealthIssues) score -= 40;  // Increased: active illness is serious
+  if (hasWithdrawalPeriod) score -= 15;    // Reduced: just monitoring period
+  score -= overdueVaccineCount * 15;        // Increased: compliance gaps matter
   
   return Math.min(100, Math.max(0, score));
 }
@@ -214,12 +218,13 @@ function calculateBCSScore(inputs: OVRInputs): number {
 
 /**
  * Determine OVR tier based on score
+ * Thresholds aligned with veterinary livestock performance standards
  */
-function getOVRTier(score: number): OVRResult['tier'] {
-  if (score >= 90) return 'diamond';
-  if (score >= 80) return 'gold';
-  if (score >= 60) return 'silver';
-  return 'bronze';
+export function getOVRTier(score: number): OVRResult['tier'] {
+  if (score >= 85) return 'diamond';  // Elite performers - top 15%
+  if (score >= 70) return 'gold';     // Above average - meeting benchmarks
+  if (score >= 50) return 'silver';   // Average - room for improvement
+  return 'bronze';                     // Below average - needs attention
 }
 
 /**
