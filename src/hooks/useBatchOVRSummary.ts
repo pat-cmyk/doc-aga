@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateOVRScore, type OVRInputs } from "@/lib/ovrScoreCalculator";
 import type { StatusReason } from "@/types/status";
 
 export interface AnimalOVRSummary {
@@ -13,22 +12,23 @@ export interface AnimalOVRSummary {
   alertCount: number;
 }
 
-interface BatchQueryData {
+interface TriageData {
   healthIssues: Map<string, number>;
   overdueVaccines: Map<string, number>;
-  completedVaccines: Map<string, number>;
-  avgMilkProduction: Map<string, number>;
   activeAlerts: Map<string, number>;
   hasWithdrawal: Set<string>;
-  // Enhanced triage data
   overdueDelivery: Set<string>;
   nearDelivery: Set<string>;
   inHeatWindow: Set<string>;
   criticalBCS: Set<string>;
   withdrawalWithMilkSold: Set<string>;
-  // Additional data for full OVR calculation
-  latestBCS: Map<string, number>;
-  isPregnant: Set<string>;
+}
+
+interface CachedOVR {
+  animal_id: string;
+  score: number;
+  tier: string;
+  trend: string;
 }
 
 /**
@@ -49,30 +49,30 @@ function calculateStatus(
 ): { status: AnimalOVRSummary['status']; reason: StatusReason } {
   // RED: Critical - immediate action required
   if (isMilkSoldDuringWithdrawal) {
-    return { status: 'red', reason: 'withdrawal_milk_sold' };  // Food safety!
+    return { status: 'red', reason: 'withdrawal_milk_sold' };
   }
   if (isOverdueDelivery) {
-    return { status: 'red', reason: 'overdue_delivery' };      // Calving emergency risk
+    return { status: 'red', reason: 'overdue_delivery' };
   }
   if (overdueVaccineCount >= 2) {
-    return { status: 'red', reason: 'multiple_overdue_vaccines' };  // Significant compliance gap
+    return { status: 'red', reason: 'multiple_overdue_vaccines' };
   }
   if (healthIssueCount > 0) {
-    return { status: 'red', reason: 'active_health_issue' };   // Active health concern
+    return { status: 'red', reason: 'active_health_issue' };
   }
   
   // YELLOW: Attention needed soon
   if (hasWithdrawal) {
-    return { status: 'yellow', reason: 'active_withdrawal' };  // Monitor, but milk not sold
+    return { status: 'yellow', reason: 'active_withdrawal' };
   }
   if (isNearDelivery) {
-    return { status: 'yellow', reason: 'near_delivery' };      // Prepare for calving
+    return { status: 'yellow', reason: 'near_delivery' };
   }
   if (overdueVaccineCount === 1) {
     return { status: 'yellow', reason: 'single_overdue_vaccine' };
   }
   if (isInHeatWindow) {
-    return { status: 'yellow', reason: 'in_heat_window' };     // Time-sensitive breeding
+    return { status: 'yellow', reason: 'in_heat_window' };
   }
   if (isBCSCritical) {
     return { status: 'yellow', reason: 'critical_bcs' };
@@ -82,21 +82,14 @@ function calculateStatus(
   return { status: 'green', reason: 'healthy' };
 }
 
-// Milk production benchmarks by livestock type (liters/day)
-const MILK_BENCHMARKS: Record<string, number> = {
-  cattle: 15,
-  carabao: 4,
-  goat: 2,
-  sheep: 1.5
-};
-
-async function fetchBatchData(farmId: string, animalIds: string[]): Promise<BatchQueryData> {
+/**
+ * Fetch triage-related data only (not OVR - that comes from cache)
+ */
+async function fetchTriageData(farmId: string, animalIds: string[]): Promise<TriageData> {
   if (animalIds.length === 0) {
     return {
       healthIssues: new Map(),
       overdueVaccines: new Map(),
-      completedVaccines: new Map(),
-      avgMilkProduction: new Map(),
       activeAlerts: new Map(),
       hasWithdrawal: new Set(),
       overdueDelivery: new Set(),
@@ -104,8 +97,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
       inHeatWindow: new Set(),
       criticalBCS: new Set(),
       withdrawalWithMilkSold: new Set(),
-      latestBCS: new Map(),
-      isPregnant: new Set(),
     };
   }
 
@@ -118,46 +109,33 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
   const sevenDaysFromNow = new Date();
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-  // Run all queries in parallel - enhanced for veterinary triage
   const [
     healthResult,
     schedulesResult,
-    milkResult,
     withdrawalResult,
     aiRecordsResult,
     heatRecordsResult,
     bcsResult,
     milkSoldDuringWithdrawalResult
   ] = await Promise.all([
-    // Active health issues (last 30 days)
     supabase
       .from('health_records')
       .select('animal_id')
       .in('animal_id', animalIds)
       .gte('visit_date', thirtyDaysAgo.toISOString().split('T')[0]),
     
-    // Preventive health schedules
     supabase
       .from('preventive_health_schedules')
       .select('animal_id, status, scheduled_date')
       .eq('farm_id', farmId)
       .in('animal_id', animalIds),
     
-    // Recent milk production (last 7 days)
-    supabase
-      .from('milking_records')
-      .select('animal_id, liters')
-      .in('animal_id', animalIds)
-      .gte('record_date', sevenDaysAgo.toISOString().split('T')[0]),
-    
-    // Animals with active withdrawal periods (from injection records)
     supabase
       .from('injection_records')
       .select('animal_id, record_datetime')
       .in('animal_id', animalIds)
       .gte('record_datetime', sevenDaysAgo.toISOString()),
     
-    // Expected deliveries - for overdue and near delivery detection
     supabase
       .from('ai_records')
       .select('animal_id, expected_delivery_date')
@@ -165,7 +143,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
       .eq('pregnancy_confirmed', true)
       .not('expected_delivery_date', 'is', null),
     
-    // Heat records - for breeding window detection
     supabase
       .from('heat_records')
       .select('animal_id, optimal_breeding_start, optimal_breeding_end')
@@ -173,7 +150,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
       .lte('optimal_breeding_start', today.toISOString())
       .gte('optimal_breeding_end', today.toISOString()),
     
-    // Body condition scores - for critical BCS detection
     supabase
       .from('body_condition_scores')
       .select('animal_id, score')
@@ -181,7 +157,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
       .in('animal_id', animalIds)
       .order('assessment_date', { ascending: false }),
     
-    // Check for milk sold during withdrawal (food safety critical)
     supabase
       .from('milking_records')
       .select('animal_id')
@@ -201,35 +176,12 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
 
   // Process vaccination schedules
   const overdueVaccines = new Map<string, number>();
-  const completedVaccines = new Map<string, number>();
-  
   if (schedulesResult.data) {
     for (const schedule of schedulesResult.data) {
-      if (schedule.status === 'completed') {
-        const current = completedVaccines.get(schedule.animal_id) || 0;
-        completedVaccines.set(schedule.animal_id, current + 1);
-      } else if (schedule.status === 'scheduled' && schedule.scheduled_date < todayStr) {
+      if (schedule.status === 'scheduled' && schedule.scheduled_date < todayStr) {
         const current = overdueVaccines.get(schedule.animal_id) || 0;
         overdueVaccines.set(schedule.animal_id, current + 1);
       }
-    }
-  }
-
-  // Process milk production (calculate average per animal)
-  const milkTotals = new Map<string, { total: number; count: number }>();
-  if (milkResult.data) {
-    for (const record of milkResult.data) {
-      const current = milkTotals.get(record.animal_id) || { total: 0, count: 0 };
-      milkTotals.set(record.animal_id, {
-        total: current.total + (record.liters || 0),
-        count: current.count + 1
-      });
-    }
-  }
-  const avgMilkProduction = new Map<string, number>();
-  for (const [animalId, data] of milkTotals) {
-    if (data.count > 0) {
-      avgMilkProduction.set(animalId, data.total / data.count);
     }
   }
 
@@ -243,7 +195,7 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
     }
   }
 
-  // Check for milk sold during withdrawal (food safety critical)
+  // Check for milk sold during withdrawal
   const withdrawalWithMilkSold = new Set<string>();
   if (milkSoldDuringWithdrawalResult.data) {
     for (const record of milkSoldDuringWithdrawalResult.data) {
@@ -269,7 +221,7 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
     }
   }
 
-  // Process heat records - animals currently in breeding window
+  // Process heat records
   const inHeatWindow = new Set<string>();
   if (heatRecordsResult.data) {
     for (const record of heatRecordsResult.data) {
@@ -277,30 +229,16 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
     }
   }
 
-  // Process BCS - get latest per animal and check for critical values
+  // Process BCS
   const criticalBCS = new Set<string>();
-  const latestBCS = new Map<string, number>();
   const seenAnimals = new Set<string>();
   if (bcsResult.data) {
     for (const record of bcsResult.data) {
-      // Only consider first (most recent) record per animal
       if (!seenAnimals.has(record.animal_id)) {
         seenAnimals.add(record.animal_id);
-        latestBCS.set(record.animal_id, record.score);
-        // Critical: BCS ≤ 2.0 or ≥ 4.5
         if (record.score <= 2.0 || record.score >= 4.5) {
           criticalBCS.add(record.animal_id);
         }
-      }
-    }
-  }
-  
-  // Process pregnancy status from AI records
-  const isPregnant = new Set<string>();
-  if (aiRecordsResult.data) {
-    for (const record of aiRecordsResult.data) {
-      if (record.expected_delivery_date) {
-        isPregnant.add(record.animal_id);
       }
     }
   }
@@ -322,8 +260,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
   return {
     healthIssues,
     overdueVaccines,
-    completedVaccines,
-    avgMilkProduction,
     activeAlerts,
     hasWithdrawal,
     overdueDelivery,
@@ -331,8 +267,6 @@ async function fetchBatchData(farmId: string, animalIds: string[]): Promise<Batc
     inHeatWindow,
     criticalBCS,
     withdrawalWithMilkSold,
-    latestBCS,
-    isPregnant,
   };
 }
 
@@ -344,6 +278,14 @@ interface AnimalInput {
   milking_stage?: string | null;
 }
 
+/**
+ * Batch OVR Summary Hook
+ * 
+ * SSOT: This hook READS from the animal_ovr_cache table.
+ * The cache is WRITTEN by useBioCardData when Bio-Card is opened.
+ * 
+ * For animals without cache (never opened Bio-Card), shows placeholder.
+ */
 export function useBatchOVRSummary(
   farmId: string | undefined,
   animals: AnimalInput[]
@@ -354,72 +296,49 @@ export function useBatchOVRSummary(
   const animalIds = animals.map(a => a.id);
   
   const { data, isLoading } = useQuery({
-    queryKey: ['batch-ovr-summary', farmId, animalIds.join(',')],
+    queryKey: ['batch-ovr-cache', farmId, animalIds.join(',')],
     queryFn: async () => {
       if (!farmId || animalIds.length === 0) {
         return new Map<string, AnimalOVRSummary>();
       }
 
-      const batchData = await fetchBatchData(farmId, animalIds);
+      // Fetch OVR from cache and triage data in parallel
+      const [ovrCacheResult, triageData] = await Promise.all([
+        // Read OVR from cache (cast needed until types regenerate)
+        (supabase
+          .from('animal_ovr_cache' as any)
+          .select('animal_id, score, tier, trend')
+          .in('animal_id', animalIds) as any),
+        fetchTriageData(farmId, animalIds)
+      ]);
+
+      // Build OVR cache lookup
+      const ovrCache = new Map<string, CachedOVR>();
+      if (ovrCacheResult.data) {
+        for (const row of ovrCacheResult.data as CachedOVR[]) {
+          ovrCache.set(row.animal_id, row);
+        }
+      }
+
       const summaries = new Map<string, AnimalOVRSummary>();
 
       for (const animal of animals) {
-        const healthIssueCount = batchData.healthIssues.get(animal.id) || 0;
-        const overdueCount = batchData.overdueVaccines.get(animal.id) || 0;
-        const completedCount = batchData.completedVaccines.get(animal.id) || 0;
-        const avgMilk = batchData.avgMilkProduction.get(animal.id) || null;
-        const hasWithdrawal = batchData.hasWithdrawal.has(animal.id);
-        const alertCount = batchData.activeAlerts.get(animal.id) || 0;
+        const healthIssueCount = triageData.healthIssues.get(animal.id) || 0;
+        const overdueCount = triageData.overdueVaccines.get(animal.id) || 0;
+        const hasWithdrawal = triageData.hasWithdrawal.has(animal.id);
+        const alertCount = triageData.activeAlerts.get(animal.id) || 0;
         
-        // Enhanced triage data
-        const isOverdueDelivery = batchData.overdueDelivery.has(animal.id);
-        const isNearDelivery = batchData.nearDelivery.has(animal.id);
-        const isInHeatWindow = batchData.inHeatWindow.has(animal.id);
-        const isBCSCritical = batchData.criticalBCS.has(animal.id);
-        const isMilkSoldDuringWithdrawal = batchData.withdrawalWithMilkSold.has(animal.id);
+        const isOverdueDelivery = triageData.overdueDelivery.has(animal.id);
+        const isNearDelivery = triageData.nearDelivery.has(animal.id);
+        const isInHeatWindow = triageData.inHeatWindow.has(animal.id);
+        const isBCSCritical = triageData.criticalBCS.has(animal.id);
+        const isMilkSoldDuringWithdrawal = triageData.withdrawalWithMilkSold.has(animal.id);
 
-        // Calculate vaccination compliance
-        const totalSchedules = overdueCount + completedCount;
-        const vaccinationCompliance = totalSchedules > 0 
-          ? (completedCount / totalSchedules) * 100 
-          : 80; // Default if no schedules
-
-        // Get additional data for SSOT OVR calculation
-        const animalBCS = batchData.latestBCS.get(animal.id) ?? null;
-        const animalIsPregnant = batchData.isPregnant.has(animal.id);
-        const isMilking = animal.milking_stage != null && animal.gender?.toLowerCase() === 'female';
-
-        // Build OVRInputs for SSOT calculator
-        const ovrInputs: OVRInputs = {
-          // Production
-          avgDailyMilk: avgMilk,
-          milkBenchmark: MILK_BENCHMARKS[animal.livestock_type] || 10,
-          
-          // Health
-          vaccinationCompliance,
-          hasActiveHealthIssues: healthIssueCount > 0,
-          hasWithdrawalPeriod: hasWithdrawal,
-          overdueVaccineCount: overdueCount,
-          
-          // Fertility
-          isPregnant: animalIsPregnant,
-          
-          // Body Condition
-          latestBCS: animalBCS,
-          bcsOptimalMin: 2.5,
-          bcsOptimalMax: 4.0,
-          
-          // Context
-          livestockType: animal.livestock_type,
-          lifeStage: animal.life_stage,
-          gender: animal.gender,
-          isMilking,
-        };
-
-        // Use SSOT OVR calculation
-        const ovrResult = calculateOVRScore(ovrInputs);
-        const ovr = ovrResult.score;
-        const tier = ovrResult.tier;
+        // Get cached OVR or use placeholder
+        const cached = ovrCache.get(animal.id);
+        const ovr = cached?.score ?? 0; // 0 = not cached yet
+        const tier = (cached?.tier as AnimalOVRSummary['tier']) ?? 'silver';
+        const trend = (cached?.trend as AnimalOVRSummary['trend']) ?? 'stable';
         
         // Calculate veterinary-priority triage status
         const { status, reason } = calculateStatus(
@@ -437,7 +356,7 @@ export function useBatchOVRSummary(
           animalId: animal.id,
           ovr,
           tier,
-          trend: 'stable', // Simplified - would need historical data for real trend
+          trend,
           status,
           statusReason: reason,
           alertCount
@@ -447,8 +366,8 @@ export function useBatchOVRSummary(
       return summaries;
     },
     enabled: !!farmId && animalIds.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 1000, // 30 seconds - cache refreshes frequently
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   return {

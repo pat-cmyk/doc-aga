@@ -415,6 +415,44 @@ export type Database = {
           },
         ]
       }
+      animal_ovr_cache: {
+        Row: {
+          animal_id: string
+          breakdown: Json | null
+          computed_at: string
+          score: number
+          tier: string
+          trend: string
+          updated_at: string
+        }
+        Insert: {
+          animal_id: string
+          breakdown?: Json | null
+          computed_at?: string
+          score?: number
+          tier?: string
+          trend?: string
+          updated_at?: string
+        }
+        Update: {
+          animal_id?: string
+          breakdown?: Json | null
+          computed_at?: string
+          score?: number
+          tier?: string
+          trend?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_ovr_cache_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: true
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       animal_photos: {
         Row: {
           animal_id: string
