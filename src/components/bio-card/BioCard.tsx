@@ -48,32 +48,10 @@ export function BioCard({
   }
 
   return (
-    <div
-      className={cn(
-        "relative w-full perspective-1000",
-        className
-      )}
-      style={{ perspective: "1000px" }}
-    >
-      <div
-        className={cn(
-          "relative w-full transition-transform duration-600 transform-style-3d",
-          isFlipped && "rotate-y-180"
-        )}
-        style={{
-          transformStyle: "preserve-3d",
-          transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-          transition: "transform 0.6s ease-in-out",
-        }}
-      >
-        {/* Front Face - Farmer View */}
-        <Card
-          className={cn(
-            "absolute inset-0 w-full backface-hidden",
-            "border-2 shadow-lg"
-          )}
-          style={{ backfaceVisibility: "hidden" }}
-        >
+    <div className={cn("relative w-full", className)}>
+      {/* Farmer View (Front) */}
+      {!isFlipped && (
+        <Card className="w-full border-2 shadow-lg animate-in fade-in duration-200">
           <CardContent className="p-4 space-y-4">
             {/* Header: Identity */}
             <div className="flex items-start justify-between gap-3">
@@ -194,18 +172,11 @@ export function BioCard({
             </Button>
           </CardContent>
         </Card>
+      )}
 
-        {/* Back Face - Vet View */}
-        <Card
-          className={cn(
-            "absolute inset-0 w-full backface-hidden rotate-y-180",
-            "border-2 shadow-lg"
-          )}
-          style={{ 
-            backfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
-          }}
-        >
+      {/* Vet View (Back) */}
+      {isFlipped && (
+        <Card className="w-full border-2 shadow-lg animate-in fade-in duration-200">
           <CardContent className="p-4 space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -318,7 +289,7 @@ export function BioCard({
             </Button>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }

@@ -39,6 +39,8 @@ export function BioCardSheet({
 
   if (!animal) return null;
 
+  const descriptionId = `biocard-sheet-description-${animal.id}`;
+
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent 
@@ -46,7 +48,11 @@ export function BioCardSheet({
           "max-h-[92vh] overflow-hidden",
           isMobile ? "rounded-t-[20px]" : "rounded-t-xl"
         )}
+        aria-describedby={descriptionId}
       >
+        <span id={descriptionId} className="sr-only">
+          Quick view of animal performance and health metrics
+        </span>
         {/* Custom header with close button */}
         <DrawerHeader className="border-b pb-3 pt-2">
           <div className="flex items-center justify-between">
