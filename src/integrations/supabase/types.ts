@@ -1813,6 +1813,7 @@ export type Database = {
           diagnosis: string | null
           id: string
           notes: string | null
+          resolution_notes: string | null
           treatment: string | null
           visit_date: string
         }
@@ -1824,6 +1825,7 @@ export type Database = {
           diagnosis?: string | null
           id?: string
           notes?: string | null
+          resolution_notes?: string | null
           treatment?: string | null
           visit_date: string
         }
@@ -1835,6 +1837,7 @@ export type Database = {
           diagnosis?: string | null
           id?: string
           notes?: string | null
+          resolution_notes?: string | null
           treatment?: string | null
           visit_date?: string
         }
