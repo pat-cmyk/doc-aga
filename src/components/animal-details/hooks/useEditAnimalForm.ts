@@ -114,6 +114,7 @@ export const useEditAnimalForm = (
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const [loadingParents, setLoadingParents] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -232,6 +233,51 @@ export const useEditAnimalForm = (
     const changed = JSON.stringify(formData) !== JSON.stringify(originalFormData);
     setHasChanges(changed);
   }, [formData, originalFormData]);
+
+  // Validate form in real-time
+  const validateForm = (data: EditAnimalFormData, isNewEntrant: boolean): Record<string, string> => {
+    const newErrors: Record<string, string> = {};
+
+    // Always required
+    if (!data.ear_tag.trim()) {
+      newErrors.ear_tag = "Ear tag is required";
+    }
+    if (!data.gender) {
+      newErrors.gender = "Gender is required";
+    }
+
+    // Conditional: Mix Breed requires both breeds
+    if (data.breed === "Mix Breed") {
+      if (!data.breed1) {
+        newErrors.breed1 = "First breed is required for mix breed";
+      }
+      if (!data.breed2) {
+        newErrors.breed2 = "Second breed is required for mix breed";
+      }
+    }
+
+    // Conditional: Grant source required if acquisition type is grant
+    if (isNewEntrant && data.acquisition_type === "grant" && !data.grant_source) {
+      newErrors.grant_source = "Grant source is required";
+    }
+
+    // Conditional: Grant source other required if grant source is "other"
+    if (isNewEntrant && data.acquisition_type === "grant" && data.grant_source === "other" && !data.grant_source_other.trim()) {
+      newErrors.grant_source_other = "Please specify the grant source";
+    }
+
+    return newErrors;
+  };
+
+  // Real-time validation effect
+  useEffect(() => {
+    const currentIsNewEntrant = animal ? isNewEntrant(animal) : false;
+    const newErrors = validateForm(formData, currentIsNewEntrant);
+    setErrors(newErrors);
+  }, [formData, animal]);
+
+  // Computed validity
+  const isFormValid = Object.keys(errors).length === 0;
 
   const resetForm = () => {
     setFormData(originalFormData);
@@ -362,6 +408,8 @@ export const useEditAnimalForm = (
     setFormData,
     saving,
     hasChanges,
+    errors,
+    isFormValid,
     mothers,
     fathers,
     loadingParents,
