@@ -155,9 +155,32 @@ export function RecordBulkMilkDialog({
     
     if (data.totalLiters) {
       setTotalLiters(data.totalLiters.toString());
+      
+      // Warn about potentially misheard volumes
+      if (data.totalLiters > 200) {
+        toast({
+          title: "High Volume Detected",
+          description: `${data.totalLiters}L seems high. Please verify the transcription is correct.`,
+          variant: "default",
+        });
+      }
     }
     if (data.session) {
       setSession(data.session);
+    }
+    
+    // Apply extracted date if present
+    if (data.recordDate) {
+      const extractedDate = new Date(data.recordDate);
+      const today = new Date();
+      const minDate = subDays(today, maxBackdateDays);
+      
+      // Only apply if within allowed backdate range
+      if (extractedDate <= today && extractedDate >= minDate) {
+        setRecordDate(extractedDate);
+      } else {
+        console.warn(`[VoiceExtractor] Extracted date ${extractedDate.toDateString()} is outside allowed range`);
+      }
     }
     
     // Handle individual animal selection (e.g., "Bessie 8 liters")
