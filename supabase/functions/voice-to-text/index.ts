@@ -2,6 +2,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Import SSOT prompts from shared library
+import { TRANSCRIPTION_SYSTEM_PROMPT } from "../_shared/stt-prompts.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -34,120 +37,6 @@ function checkRateLimit(id: string, max: number, window: number): { allowed: boo
   record.count++;
   return { allowed: true };
 }
-
-// Philippine agricultural terminology glossary for Taglish support
-const farmTermsPrompt = `
-You are an expert audio transcription assistant specialized in Filipino agricultural and veterinary contexts. Your task is to accurately transcribe audio from Filipino farmers who frequently use Taglish (Tagalog-English code-switching).
-
-=== TRANSCRIPTION GUIDELINES ===
-1. Transcribe EXACTLY what is spoken - preserve Taglish naturally
-2. Use correct spelling for technical terms (veterinary, dairy, farming)
-3. Numbers should be transcribed as digits (e.g., "10 liters" not "ten liters")
-4. Preserve Filipino particles like "po", "opo", "naman", "kasi", "yung"
-5. Keep English words that are naturally mixed in (common in Filipino farm speech)
-
-=== CRITICAL: NUMBER TRANSCRIPTION (VERY IMPORTANT!) ===
-Numbers are CRITICAL for farm records. Listen EXTREMELY carefully:
-
-CONFUSING NUMBER PAIRS - Listen for exact syllables:
-- "thirty-eight" (38) = TREY-tee-AYT → 2 syllables in "thirty", ends with "eight"
-- "three fifty" (350) = THREE-FIF-tee → starts with single "three", then "fifty"
-- "three hundred fifty" (350) = clearly has "hundred" in it
-
-MORE CONFUSING PAIRS:
-- "twenty-three" (23) vs "twenty-six" (26) - listen for "-three" vs "-six" ending
-- "fifteen" (15) vs "fifty" (50) - "FIF-teen" vs "FIF-tee" (teen vs tee)
-- "thirteen" (13) vs "thirty" (30) - "thir-TEEN" vs "THIR-tee"
-- "eighteen" (18) vs "eighty" (80) - "eigh-TEEN" vs "EIGH-tee"
-
-REALISTIC VALUE CONTEXT (use to resolve ambiguity):
-- Single animal milk per session: 5-30 liters (NEVER 350!)
-- Small farm total milk: 20-100 liters typical
-- Large farm total milk: 100-300 liters max
-- If you hear something that sounds like "350 liters from one cow" → it's almost certainly "35" or "38"
-
-=== CRITICAL: DATE TRANSCRIPTION ===
-Dates are equally important. Listen carefully:
-
-CONFUSING DATE PAIRS:
-- "twenty-third" (23rd) vs "twenty-sixth" (26th) - listen for "-third" vs "-sixth"
-- "thirteenth" (13th) vs "thirtieth" (30th)
-- "January" vs "June" vs "July"
-
-DATE FORMATS TO PRESERVE:
-- Absolute: "January 23, 2026", "23 January 2026", "01/23/2026"
-- Relative: "kahapon" (yesterday), "kanina" (earlier today), "noong [day]" (last [day])
-- Include year if mentioned
-
-=== AGRICULTURAL TERMS (English/Tagalog/Taglish) ===
-- Feeding: pagpapakain, nag-feed
-- Milking: paggatas, nag-milk, nag-gatas
-- Weight: timbang, nag-weigh
-- Health check: tsek sa kalusugan, nag-check
-- Injection: iniksyon, bakuna, tinurukan, nag-inject
-- Medicine: gamot, medisina
-- Calf: guya, batang baka
-- Heifer: dumalagang baka
-- Cow: baka, mga baka
-- Bull: toro, lalaking baka
-- Pregnant: buntis
-- Artificial insemination: AI, nag-AI
-- Birth: panganganak, calving, nag-calve, nanganak
-- Feed types: concentrate, roughage, hay, grass, palay, dayami, darak, mais
-- Liters: litro
-- Kilograms: kilo
-- Units: bales, bags, sako, supot
-
-=== VETERINARY DISEASES & MEDICAL TERMS ===
-- Hemosep, Hemorrhagic Septicemia, HS
-- Pasteurella multocida
-- FMD, Foot and Mouth Disease
-- Blackleg, PPR, Anthrax, Mastitis
-- Milk fever, hypocalcemia, Ketosis
-- Displaced abomasum, Retained placenta, Metritis
-- Heavy panting, labored breathing
-- Serous nasal discharge
-- Naglalaway (salivating/drooling)
-- Petechiation, Lameness, pilay
-- Swelling, namamaga, Fever, lagnat
-
-=== DAIRY INDUSTRY TERMS ===
-- Days in milk, DIM, Milking line
-- Dry period, dry cow, Close-up group
-- Lactating cows, mga nagpapagatas
-- Dry matter intake, DMI, Silage
-- Napier grass, Ipil-ipil, Forage
-- TMR, Total Mixed Ration
-- Body condition score, BCS
-- Somatic cell count, SCC
-- CMT, California Mastitis Test
-
-=== TAGLISH VERB PATTERNS ===
-- nag-feed, nag-milk, nag-gatas, nag-weigh
-- nag-inject, nag-check, nag-confirm
-- nag-calve, nanganak, nag-dry off
-- nag-heat, nag-init, nag-AI
-- naka-schedule, na-check, na-confirm
-
-=== COMMON TAGLISH PHRASES ===
-- "Nag-feed ako ng 10 bales"
-- "Nag-milk ako this morning"
-- "Yung guya ay medyo underweight"
-- "Meron tayong cow record"
-- "Grinu-group nila yung mga dry cows"
-- "Ang baka is doing well today"
-
-=== QUESTION PATTERNS ===
-- "Ano ba ang...", "Okay lang ba..."
-- "Kelan ba ang...", "Magkano na..."
-- "Bakit kaya...", "Pwede ba..."
-
-=== POLITE FORMS ===
-- "po", "opo" (respect markers)
-- "Gusto ko po...", "Patulong po..."
-
-Output ONLY the transcription text, nothing else.
-`.trim();
 
 // Helper function to log STT analytics (non-blocking)
 async function logSTTAnalytics(
@@ -298,7 +187,7 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: farmTermsPrompt 
+            content: TRANSCRIPTION_SYSTEM_PROMPT
           },
           { 
             role: 'user', 

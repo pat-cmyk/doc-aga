@@ -1,6 +1,14 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Import SSOT prompts from shared library
+import { 
+  ANIMAL_EXTRACTION_PROMPT,
+  REGISTRATION_KEYWORDS,
+  NON_REGISTRATION_KEYWORDS,
+  isLikelyAnimalRegistration 
+} from "../_shared/stt-prompts.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -16,78 +24,6 @@ interface ExtractedAnimalData {
   acquisition_type: 'purchased' | 'grant' | null;
   breed: string | null;
   confidence: 'high' | 'medium' | 'low';
-}
-
-const systemPrompt = `You are an AI assistant helping Filipino farmers register new animals on their farm using voice input.
-
-TASK: Extract structured animal registration data from the transcription. Return ONLY valid JSON.
-
-VOCABULARY (Filipino/Taglish to English):
-- Livestock: baka/cow/cattle=cattle, kalabaw/carabao/buffalo=carabao, kambing/goat=goat, tupa/sheep=sheep
-- Gender: babae/female=Female, lalaki/male=Male
-- Status: nagpapagatas/nagsususo/may gatas/milking/lactating=is_lactating:true, buntis/pregnant=pregnant
-- Acquisition: binili/purchased/bought=purchased, bigay/donasyon/grant/donated=grant
-- Breeds: Holstein, Jersey, Brahman, Sahiwal, Red Sindhi, murrah, nili-ravi, crossbreed, native
-
-EXTRACTION RULES:
-1. Extract ONLY what is explicitly mentioned in the transcription
-2. Set null for fields not mentioned
-3. ear_tag: Look for patterns like "A005", "ear tag A005", "tag A005", "tatak A005", "numero A005"
-4. weight: Convert all weights to kg. If pounds mentioned, multiply by 0.453592
-5. is_lactating: true if mentions "milking", "lactating", "nagpapagatas", "nagsususo", "may gatas", "currently milking"
-6. For confidence: "high" if 3+ clear fields extracted, "medium" if 2 fields, "low" if only 1 field
-7. name: Only extract if explicitly mentioned as animal name (e.g., "named Bessie", "pangalan Mura")
-
-OUTPUT FORMAT (JSON only, no markdown):
-{
-  "livestock_type": "cattle" | "goat" | "sheep" | "carabao" | null,
-  "gender": "Male" | "Female" | null,
-  "ear_tag": string | null,
-  "name": string | null,
-  "is_lactating": boolean,
-  "entry_weight_kg": number | null,
-  "acquisition_type": "purchased" | "grant" | null,
-  "breed": string | null,
-  "confidence": "high" | "medium" | "low"
-}`;
-
-// Keywords that indicate animal registration context
-const registrationKeywords = [
-  // English
-  'new', 'add', 'register', 'bought', 'purchased', 'grant', 'donated',
-  'ear tag', 'tag number', 'entry weight', 'birth weight',
-  // Tagalog/Taglish
-  'bago', 'bagong', 'binili', 'bigay', 'donasyon', 'tatak', 'numero',
-  'timbang pagpasok', 'peso', 'acquisition'
-];
-
-// Keywords that indicate this is NOT animal registration
-const nonRegistrationKeywords = [
-  // Milk recording
-  'milk', 'liters', 'litro', 'gatas', 'nag-milk', 'yield', 'production',
-  'morning session', 'evening session', 'AM', 'PM',
-  // Health updates
-  'sick', 'sakit', 'injection', 'vaccine', 'treatment', 'mastitis',
-  'namamaga', 'lagnat', 'fever', 'diagnosis',
-  // General updates
-  'update', 'report', 'total', 'kabuuan', 'herd', 'all animals'
-];
-
-function isLikelyAnimalRegistration(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  
-  // Check for registration keywords
-  const hasRegistrationKeyword = registrationKeywords.some(kw => lowerText.includes(kw.toLowerCase()));
-  
-  // Check for non-registration keywords
-  const hasNonRegistrationKeyword = nonRegistrationKeywords.some(kw => lowerText.includes(kw.toLowerCase()));
-  
-  // If it has non-registration keywords and no registration keywords, it's probably not registration
-  if (hasNonRegistrationKeyword && !hasRegistrationKeyword) {
-    return false;
-  }
-  
-  return true;
 }
 
 serve(async (req) => {
@@ -145,7 +81,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: ANIMAL_EXTRACTION_PROMPT },
           { role: 'user', content: `Extract animal data from this voice transcription:\n\n"${transcription}"` }
         ],
         temperature: 0.1, // Low temperature for consistent extraction

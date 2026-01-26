@@ -2,7 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-console.log('[process-farmhand-activity] v2025-10-20-INV-ALL');
+// Import SSOT prompts from shared library
+import { getActivityExtractionPrompt } from "../_shared/stt-prompts.ts";
+
+console.log('[process-farmhand-activity] v2025-10-20-SSOT');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

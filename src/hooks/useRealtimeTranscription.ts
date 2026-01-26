@@ -40,7 +40,13 @@ export interface UseRealtimeTranscriptionOptions {
   
   /** Enable echo cancellation (default: true) */
   echoCancellation?: boolean;
+  
+  /** Farm-specific keyterms to boost recognition */
+  keyterms?: string[];
 }
+
+// Re-export for convenience
+export type RealtimeTranscriptionOptions = UseRealtimeTranscriptionOptions;
 
 export interface UseRealtimeTranscriptionReturn {
   /** Whether the transcription session is active */
