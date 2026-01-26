@@ -349,6 +349,8 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
                   handleSendMessage(text);
                 }} 
                 disabled={isUploadingImage || loading}
+                useRealtime={true}
+                enableCorrection={true}
               />
         <form
           onSubmit={(e) => {
