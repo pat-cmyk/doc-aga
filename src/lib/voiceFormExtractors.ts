@@ -12,6 +12,8 @@ export interface ExtractedMilkData {
   session?: 'AM' | 'PM';
   animalSelection?: string; // 'all-lactating' | 'individual:<id>' | 'species:<type>'
   matchedAnimalName?: string; // For toast feedback
+  recordDate?: Date; // Extracted date from voice input
+  rawTranscription?: string; // For debugging/display
 }
 
 export interface ExtractedFeedData {
@@ -43,20 +45,103 @@ export type ExtractorContext = {
   [key: string]: any;
 };
 
+// ==================== DATE EXTRACTION HELPERS ====================
+
+const MONTH_MAP: Record<string, number> = {
+  'january': 0, 'jan': 0,
+  'february': 1, 'feb': 1,
+  'march': 2, 'mar': 2,
+  'april': 3, 'apr': 3,
+  'may': 4,
+  'june': 5, 'jun': 5,
+  'july': 6, 'jul': 6,
+  'august': 7, 'aug': 7,
+  'september': 8, 'sep': 8, 'sept': 8,
+  'october': 9, 'oct': 9,
+  'november': 10, 'nov': 10,
+  'december': 11, 'dec': 11,
+};
+
+/**
+ * Extract date from transcription
+ * Supports: "January 23, 2026", "23 January 2026", "01/23/2026", "kahapon", etc.
+ */
+function extractDateFromText(text: string): Date | undefined {
+  const lowerText = text.toLowerCase();
+  const today = new Date();
+  
+  // Check for relative dates first
+  if (lowerText.includes('kahapon') || lowerText.includes('yesterday')) {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  }
+  
+  if (lowerText.includes('kanina') || lowerText.includes('earlier today') || lowerText.includes('this morning') || lowerText.includes('today')) {
+    return today;
+  }
+  
+  // Pattern 1: "January 23, 2026" or "January 23 2026" or "Jan 23, 2026"
+  const monthFirstPattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})\b/i;
+  const monthFirstMatch = text.match(monthFirstPattern);
+  if (monthFirstMatch) {
+    const month = MONTH_MAP[monthFirstMatch[1].toLowerCase()];
+    const day = parseInt(monthFirstMatch[2], 10);
+    const year = parseInt(monthFirstMatch[3], 10);
+    if (month !== undefined && day >= 1 && day <= 31 && year >= 2020 && year <= 2030) {
+      return new Date(year, month, day);
+    }
+  }
+  
+  // Pattern 2: "23 January 2026" or "23rd of January 2026"
+  const dayFirstPattern = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s*,?\s*(\d{4})\b/i;
+  const dayFirstMatch = text.match(dayFirstPattern);
+  if (dayFirstMatch) {
+    const day = parseInt(dayFirstMatch[1], 10);
+    const month = MONTH_MAP[dayFirstMatch[2].toLowerCase()];
+    const year = parseInt(dayFirstMatch[3], 10);
+    if (month !== undefined && day >= 1 && day <= 31 && year >= 2020 && year <= 2030) {
+      return new Date(year, month, day);
+    }
+  }
+  
+  // Pattern 3: "01/23/2026" or "1-23-2026" (US format MM/DD/YYYY)
+  const slashPattern = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/;
+  const slashMatch = text.match(slashPattern);
+  if (slashMatch) {
+    const month = parseInt(slashMatch[1], 10) - 1; // 0-indexed
+    const day = parseInt(slashMatch[2], 10);
+    const year = parseInt(slashMatch[3], 10);
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31 && year >= 2020 && year <= 2030) {
+      return new Date(year, month, day);
+    }
+  }
+  
+  return undefined;
+}
+
 // ==================== MILK EXTRACTOR ====================
 
 /**
  * Extract milk recording data from transcription
  * 
- * Parses: liters/litro, morning/umaga, evening/gabi
+ * Parses: liters/litro, morning/umaga, evening/gabi, dates
  * Supports individual animal matching by name or ear tag
  */
 export function extractMilkData(
   transcription: string,
   context?: ExtractorContext
 ): ExtractedMilkData {
-  const result: ExtractedMilkData = {};
+  const result: ExtractedMilkData = {
+    rawTranscription: transcription,
+  };
   const lowerText = transcription.toLowerCase();
+
+  // Extract date first
+  const extractedDate = extractDateFromText(transcription);
+  if (extractedDate) {
+    result.recordDate = extractedDate;
+  }
 
   // Extract liters - look for numbers followed by liters/litro/L
   const literPatterns = [
@@ -82,6 +167,14 @@ export function extractMilkData(
       if (num >= 0.1 && num <= 500) {
         result.totalLiters = num;
       }
+    }
+  }
+
+  // Validate extracted liters - warn about unrealistic values
+  if (result.totalLiters) {
+    // For individual animals, 1-50L is realistic; for farm totals, 10-300L
+    if (result.totalLiters > 200) {
+      console.warn(`[VoiceExtractor] Unusually high milk volume: ${result.totalLiters}L - possible transcription error (heard "${transcription.substring(0, 50)}...")`);
     }
   }
 
