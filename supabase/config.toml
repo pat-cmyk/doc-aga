@@ -85,3 +85,6 @@ verify_jwt = true
 
 [functions.calculate-ovr-scores]
 verify_jwt = true
+
+[functions.elevenlabs-scribe-token]
+verify_jwt = true
