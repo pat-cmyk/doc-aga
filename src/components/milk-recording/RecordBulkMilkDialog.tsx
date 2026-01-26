@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,6 +142,8 @@ export function RecordBulkMilkDialog({
   };
 
   const handleVoiceDataExtracted = (data: ExtractedMilkData) => {
+    let updatedOption = selectedOption;
+    
     if (data.totalLiters) {
       setTotalLiters(data.totalLiters.toString());
     }
@@ -155,9 +157,23 @@ export function RecordBulkMilkDialog({
       );
       if (allOption) {
         setSelectedOption(allOption.value);
+        updatedOption = allOption.value;
       }
     }
+    
+    // Return whether form is complete for auto-submit check
+    return updatedOption && data.totalLiters && data.totalLiters > 0;
   };
+
+  // Check if form is complete based on extracted data
+  const isFormCompleteForAutoSubmit = useCallback((data: ExtractedMilkData): boolean => {
+    // For auto-submit, we need: liters > 0 AND animals selected (via 'all-lactating' in voice)
+    const hasLiters = !!data.totalLiters && data.totalLiters > 0;
+    const hasAnimalHint = data.animalSelection === 'all-lactating';
+    const hasAnimalsAlreadySelected = selectedOption.length > 0;
+    
+    return hasLiters && (hasAnimalHint || hasAnimalsAlreadySelected);
+  }, [selectedOption]);
 
   const handleSubmit = async () => {
     if (!farmId || splitPreview.length === 0) return;
@@ -352,6 +368,10 @@ export function RecordBulkMilkDialog({
                 offlineMode="queue"
                 formType="milk"
                 size="sm"
+                autoSubmit={displayAnimals.length > 0}
+                onAutoSubmit={handleSubmit}
+                isFormComplete={isFormCompleteForAutoSubmit}
+                autoSubmitDelay={2500}
               />
               {!isOnline && (
                 <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
