@@ -120,6 +120,15 @@ export function RecordBulkMilkDialog({
     return calculateMilkSplit(selectedAnimals, liters);
   }, [selectedAnimals, totalLiters]);
 
+  // Prepare animal context for voice extractor
+  const animalContext = useMemo(() => ({
+    animals: displayAnimals.map(a => ({
+      id: a.id,
+      name: a.name,
+      ear_tag: a.ear_tag,
+    })),
+  }), [displayAnimals]);
+
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
       hapticSelection();
@@ -150,10 +159,21 @@ export function RecordBulkMilkDialog({
     if (data.session) {
       setSession(data.session);
     }
-    if (data.animalSelection === 'all-lactating' && dropdownOptions.length > 0) {
-      // Find the "all lactating" option
+    
+    // Handle individual animal selection (e.g., "Bessie 8 liters")
+    if (data.animalSelection?.startsWith('individual:')) {
+      const animalId = data.animalSelection.replace('individual:', '');
+      // Verify the animal exists in dropdown options
+      const animalOption = dropdownOptions.find(opt => opt.value === animalId);
+      if (animalOption) {
+        setSelectedOption(animalId);
+        updatedOption = animalId;
+      }
+    }
+    // Handle "all" selection
+    else if (data.animalSelection === 'all-lactating' && dropdownOptions.length > 0) {
       const allOption = dropdownOptions.find(opt => 
-        opt.value.startsWith('all-') || opt.label.toLowerCase().includes('all')
+        opt.value === 'all' || opt.value.startsWith('all-') || opt.label.toLowerCase().includes('all')
       );
       if (allOption) {
         setSelectedOption(allOption.value);
@@ -167,9 +187,10 @@ export function RecordBulkMilkDialog({
 
   // Check if form is complete based on extracted data
   const isFormCompleteForAutoSubmit = useCallback((data: ExtractedMilkData): boolean => {
-    // For auto-submit, we need: liters > 0 AND animals selected (via 'all-lactating' in voice)
+    // For auto-submit, we need: liters > 0 AND animals selected
     const hasLiters = !!data.totalLiters && data.totalLiters > 0;
-    const hasAnimalHint = data.animalSelection === 'all-lactating';
+    const hasAnimalHint = data.animalSelection === 'all-lactating' || 
+                          data.animalSelection?.startsWith('individual:');
     const hasAnimalsAlreadySelected = selectedOption.length > 0;
     
     return hasLiters && (hasAnimalHint || hasAnimalsAlreadySelected);
@@ -363,6 +384,7 @@ export function RecordBulkMilkDialog({
             <div className="ml-auto flex items-center gap-2">
               <VoiceFormInput
                 extractorType="milk"
+                extractorContext={animalContext}
                 onDataExtracted={handleVoiceDataExtracted}
                 disabled={isLoading || displayAnimals.length === 0}
                 offlineMode="queue"

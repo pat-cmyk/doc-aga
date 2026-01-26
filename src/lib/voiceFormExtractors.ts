@@ -10,7 +10,8 @@
 export interface ExtractedMilkData {
   totalLiters?: number;
   session?: 'AM' | 'PM';
-  animalSelection?: string;
+  animalSelection?: string; // 'all-lactating' | 'individual:<id>' | 'species:<type>'
+  matchedAnimalName?: string; // For toast feedback
 }
 
 export interface ExtractedFeedData {
@@ -28,10 +29,17 @@ export interface FeedInventoryItem {
   feed_type: string;
 }
 
+export interface AnimalItem {
+  id: string;
+  name: string | null;
+  ear_tag: string | null;
+}
+
 export type ExtractorType = 'milk' | 'feed' | 'text' | 'custom';
 
 export type ExtractorContext = {
   feedInventory?: FeedInventoryItem[];
+  animals?: AnimalItem[];
   [key: string]: any;
 };
 
@@ -41,8 +49,12 @@ export type ExtractorContext = {
  * Extract milk recording data from transcription
  * 
  * Parses: liters/litro, morning/umaga, evening/gabi
+ * Supports individual animal matching by name or ear tag
  */
-export function extractMilkData(transcription: string): ExtractedMilkData {
+export function extractMilkData(
+  transcription: string,
+  context?: ExtractorContext
+): ExtractedMilkData {
   const result: ExtractedMilkData = {};
   const lowerText = transcription.toLowerCase();
 
@@ -83,10 +95,41 @@ export function extractMilkData(transcription: string): ExtractedMilkData {
     result.session = 'PM';
   }
 
-  // Extract animal selection hints
-  const allKeywords = ['lahat', 'all', 'everyone', 'everybody', 'all lactating'];
-  if (allKeywords.some(kw => lowerText.includes(kw))) {
-    result.animalSelection = 'all-lactating';
+  // Try to match individual animal by name or ear tag
+  const animals = context?.animals || [];
+  
+  for (const animal of animals) {
+    // Match by name (e.g., "Bessie", "Brownie")
+    if (animal.name) {
+      const nameLower = animal.name.toLowerCase();
+      if (lowerText.includes(nameLower)) {
+        result.animalSelection = `individual:${animal.id}`;
+        result.matchedAnimalName = animal.name;
+        break;
+      }
+    }
+    
+    // Match by ear tag (e.g., "G001", "C-42")
+    if (animal.ear_tag) {
+      // Handle different ear tag formats: "G001", "G-001", "G 001"
+      const tagLower = animal.ear_tag.toLowerCase();
+      const tagNormalized = tagLower.replace(/[-\s]/g, '');
+      const textNormalized = lowerText.replace(/[-\s]/g, '');
+      
+      if (textNormalized.includes(tagNormalized)) {
+        result.animalSelection = `individual:${animal.id}`;
+        result.matchedAnimalName = animal.name || animal.ear_tag;
+        break;
+      }
+    }
+  }
+
+  // Check for explicit "all" keywords only if no individual animal was matched
+  if (!result.animalSelection) {
+    const allKeywords = ['lahat', 'all', 'everyone', 'everybody', 'all lactating'];
+    if (allKeywords.some(kw => lowerText.includes(kw))) {
+      result.animalSelection = 'all-lactating';
+    }
   }
 
   // Default to 'all-lactating' when liters are extracted but no specific animal mentioned
@@ -224,7 +267,7 @@ export function runExtractor(
 ): ExtractedData {
   switch (extractorType) {
     case 'milk':
-      return extractMilkData(transcription);
+      return extractMilkData(transcription, context);
     case 'feed':
       return extractFeedData(transcription, context);
     case 'text':
