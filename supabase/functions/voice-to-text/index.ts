@@ -252,6 +252,7 @@ serve(async (req) => {
     const audioDataUri = `data:audio/webm;base64,${audio}`;
 
     // Send to Lovable AI Gateway with Gemini 3 Pro
+    // IMPORTANT: Use inline_data format for Gemini multimodal audio input
     console.log('[voice-to-text] Sending to Lovable AI Gateway (Gemini 3 Pro)...');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -274,9 +275,10 @@ serve(async (req) => {
                 text: 'Please transcribe this audio recording from a Filipino farmer. Preserve the natural Taglish speech patterns.'
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: `data:audio/webm;base64,${audio}`
+                type: 'inline_data',
+                inline_data: {
+                  mime_type: 'audio/webm',
+                  data: audio
                 }
               }
             ]
