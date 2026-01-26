@@ -24,8 +24,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, ChevronDown, RotateCcw, AlertTriangle } from "lucide-react";
+import { Loader2, ChevronDown, RotateCcw, AlertTriangle, AlertCircle } from "lucide-react";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
+import { FieldError } from "@/components/ui/field-error";
+import { cn } from "@/lib/utils";
 import { GenderSelector } from "@/components/animal-form/GenderSelector";
 import { LactatingToggle } from "@/components/animal-form/LactatingToggle";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
@@ -78,6 +80,8 @@ export function EditAnimalDialog({
     setFormData,
     saving,
     hasChanges,
+    errors,
+    isFormValid,
     mothers,
     fathers,
     loadingParents,
@@ -88,6 +92,11 @@ export function EditAnimalDialog({
     onSaved();
     onOpenChange(false);
   });
+
+  // Helper to check if a section has errors
+  const sectionHasErrors = (fields: string[]) => {
+    return fields.some(field => errors[field]);
+  };
 
   const availableBreeds = getBreedsByLivestockType(formData.livestock_type as LivestockType);
 
@@ -132,7 +141,12 @@ export function EditAnimalDialog({
               {/* Basic Information Section */}
               <Collapsible open={openSections.basic} onOpenChange={() => toggleSection("basic")}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                  <span className="font-medium">Basic Information / Pangunahing Impormasyon</span>
+                  <span className="font-medium flex items-center gap-2">
+                    Basic Information / Pangunahing Impormasyon
+                    {sectionHasErrors(["ear_tag", "gender", "breed1", "breed2"]) && (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    )}
+                  </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${openSections.basic ? "rotate-180" : ""}`} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 pt-4">
@@ -156,7 +170,9 @@ export function EditAnimalDialog({
                       onChange={(e) => setFormData(prev => ({ ...prev, ear_tag: e.target.value }))}
                       placeholder="e.g., A001"
                       required
+                      className={cn(errors.ear_tag && "border-destructive focus-visible:ring-destructive")}
                     />
+                    <FieldError message={errors.ear_tag} />
                   </div>
 
                   {/* Livestock Type */}
@@ -192,6 +208,7 @@ export function EditAnimalDialog({
                       gender: value,
                       is_currently_lactating: value === "Female" ? prev.is_currently_lactating : false,
                     }))}
+                    error={!!errors.gender}
                   />
 
                   {/* Breed */}
@@ -223,12 +240,12 @@ export function EditAnimalDialog({
                   {formData.breed === "Mix Breed" && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <BilingualLabel english="First Breed" filipino="Unang Lahi" />
+                        <BilingualLabel english="First Breed" filipino="Unang Lahi" required />
                         <Select
                           value={formData.breed1}
                           onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={cn(errors.breed1 && "border-destructive focus-visible:ring-destructive")}>
                             <SelectValue placeholder="Select first breed" />
                           </SelectTrigger>
                           <SelectContent>
@@ -237,14 +254,15 @@ export function EditAnimalDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                        <FieldError message={errors.breed1} />
                       </div>
                       <div className="space-y-2">
-                        <BilingualLabel english="Second Breed" filipino="Ikalawang Lahi" />
+                        <BilingualLabel english="Second Breed" filipino="Ikalawang Lahi" required />
                         <Select
                           value={formData.breed2}
                           onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={cn(errors.breed2 && "border-destructive focus-visible:ring-destructive")}>
                             <SelectValue placeholder="Select second breed" />
                           </SelectTrigger>
                           <SelectContent>
@@ -253,6 +271,7 @@ export function EditAnimalDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                        <FieldError message={errors.breed2} />
                       </div>
                     </div>
                   )}
@@ -508,7 +527,12 @@ export function EditAnimalDialog({
               {isAnimalNewEntrant && (
                 <Collapsible open={openSections.acquisition} onOpenChange={() => toggleSection("acquisition")}>
                   <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                    <span className="font-medium">Acquisition / Pagkuha</span>
+                    <span className="font-medium flex items-center gap-2">
+                      Acquisition / Pagkuha
+                      {sectionHasErrors(["grant_source", "grant_source_other"]) && (
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                      )}
+                    </span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${openSections.acquisition ? "rotate-180" : ""}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-4 pt-4">
@@ -553,7 +577,7 @@ export function EditAnimalDialog({
                       {formData.acquisition_type === "grant" && (
                         <>
                           <div className="space-y-2">
-                            <BilingualLabel english="Grant Source" filipino="Pinagmulan ng Bigay" htmlFor="edit-grant-source" />
+                            <BilingualLabel english="Grant Source" filipino="Pinagmulan ng Bigay" required htmlFor="edit-grant-source" />
                             <Select
                               value={formData.grant_source}
                               onValueChange={(value) => setFormData(prev => ({ 
@@ -562,7 +586,7 @@ export function EditAnimalDialog({
                                 grant_source_other: value !== "other" ? "" : prev.grant_source_other
                               }))}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className={cn(errors.grant_source && "border-destructive focus-visible:ring-destructive")}>
                                 <SelectValue placeholder="Select grant source" />
                               </SelectTrigger>
                               <SelectContent>
@@ -571,17 +595,20 @@ export function EditAnimalDialog({
                                 <SelectItem value="other">Other / Iba pa</SelectItem>
                               </SelectContent>
                             </Select>
+                            <FieldError message={errors.grant_source} />
                           </div>
 
                           {formData.grant_source === "other" && (
                             <div className="space-y-2">
-                              <BilingualLabel english="Specify Source" filipino="Tukuyin ang Pinagmulan" htmlFor="edit-grant-source-other" />
+                              <BilingualLabel english="Specify Source" filipino="Tukuyin ang Pinagmulan" required htmlFor="edit-grant-source-other" />
                               <Input
                                 id="edit-grant-source-other"
                                 value={formData.grant_source_other}
                                 onChange={(e) => setFormData(prev => ({ ...prev, grant_source_other: e.target.value }))}
                                 placeholder="Enter grant source"
+                                className={cn(errors.grant_source_other && "border-destructive focus-visible:ring-destructive")}
                               />
+                              <FieldError message={errors.grant_source_other} />
                             </div>
                           )}
                         </>
@@ -618,39 +645,52 @@ export function EditAnimalDialog({
           </ScrollArea>
 
           <DialogFooter className="px-6 py-4 border-t">
-            <div className="flex items-center justify-between w-full">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={resetForm}
-                disabled={!hasChanges || saving}
-                className="gap-1"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset
-              </Button>
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-3 w-full">
+              {/* Validation summary */}
+              {!isFormValid && hasChanges && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {Object.keys(errors).length === 1
+                      ? "Please fill in the required field above"
+                      : `Please fill in ${Object.keys(errors).length} required fields above`}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between w-full">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={saving}
+                  variant="ghost"
+                  onClick={resetForm}
+                  disabled={!hasChanges || saving}
+                  className="gap-1"
                 >
-                  Cancel
+                  <RotateCcw className="h-4 w-4" />
+                  Reset
                 </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={saving || !hasChanges}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={saving || !hasChanges || !isFormValid}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogFooter>
