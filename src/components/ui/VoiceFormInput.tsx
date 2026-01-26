@@ -286,18 +286,37 @@ export function VoiceFormInput<T = Record<string, any>>({
         onDataExtracted(extractedData);
         hapticNotification('success');
         
-        // Show extraction feedback
+        // Show extraction feedback with transcription preview
         const parts: string[] = [];
         const data = extractedData as Record<string, any>;
         if (data.totalLiters) parts.push(`${data.totalLiters}L`);
         if (data.totalKg) parts.push(`${data.totalKg}kg`);
         if (data.session) parts.push(data.session === 'AM' ? 'Morning' : 'Evening');
         if (data.feedType) parts.push(data.feedType);
+        if (data.recordDate) {
+          const dateStr = data.recordDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+          parts.push(dateStr);
+        }
         if (data.text) parts.push(data.text.substring(0, 30) + (data.text.length > 30 ? '...' : ''));
+        
+        // Show validation warnings if any
+        const warnings = data.warnings as string[] | undefined;
+        if (warnings && warnings.length > 0) {
+          toast.warning(warnings[0], { 
+            duration: 6000,
+            description: 'Please verify this value is correct.',
+          });
+        }
+        
+        // Show transcription preview for verification
+        const transcriptionPreview = transcription.length > 60 
+          ? transcription.substring(0, 60) + '...' 
+          : transcription;
         
         // Check if auto-submit is enabled and form is complete
         const shouldAutoSubmit = autoSubmit && onAutoSubmit && 
-          (isFormComplete ? isFormComplete(extractedData) : true);
+          (isFormComplete ? isFormComplete(extractedData) : true) &&
+          (!warnings || warnings.length === 0); // Don't auto-submit if there are warnings
         
         if (shouldAutoSubmit) {
           // Start countdown for auto-submit
@@ -324,7 +343,7 @@ export function VoiceFormInput<T = Record<string, any>>({
             toast.success(`Auto-saved: ${parts.join(', ')}`);
           }, autoSubmitDelay);
           
-          toast.info(`Will save in ${countdownSeconds}s: ${parts.join(', ')}. Tap to cancel.`, {
+          toast.info(`Heard: "${transcriptionPreview}"\nWill save ${parts.join(', ')} in ${countdownSeconds}s`, {
             duration: autoSubmitDelay,
             action: {
               label: 'Cancel',
@@ -335,7 +354,10 @@ export function VoiceFormInput<T = Record<string, any>>({
             },
           });
         } else if (parts.length > 0) {
-          toast.success(`Extracted: ${parts.join(', ')}`);
+          // Show what was heard and extracted (no auto-submit)
+          toast.success(`Heard: "${transcriptionPreview}"\nExtracted: ${parts.join(', ')}`, {
+            duration: 4000,
+          });
         } else {
           toast.success('Voice input processed');
         }
