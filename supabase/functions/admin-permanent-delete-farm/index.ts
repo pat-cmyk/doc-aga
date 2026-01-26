@@ -110,21 +110,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for associated animals
+    // Check for ACTIVE (non-deleted) animals only
+    console.log(`Checking active animals for farm ${farm_id} (${farm.name})`);
     const { count: animalCount, error: animalCountError } = await supabaseClient
       .from('animals')
       .select('id', { count: 'exact', head: true })
-      .eq('farm_id', farm_id);
+      .eq('farm_id', farm_id)
+      .eq('is_deleted', false);
 
     if (animalCountError) {
       console.error('Error checking animals:', animalCountError);
       throw animalCountError;
     }
 
+    console.log(`Farm has ${animalCount || 0} active animals`);
+
     if (animalCount && animalCount > 0) {
       return new Response(
         JSON.stringify({ 
-          error: `Cannot delete farm with ${animalCount} animals. Please remove or transfer animals first.`,
+          error: `Cannot delete farm with ${animalCount} active animals. Please remove, transfer, or soft-delete all animals first.`,
           animal_count: animalCount 
         }),
         { 
