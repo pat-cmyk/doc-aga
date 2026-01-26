@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
+import { playSound } from "@/lib/audioFeedback";
 import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -316,6 +317,10 @@ export function VoiceFormInput<T = Record<string, any>>({
           autoSubmitTimerRef.current = setTimeout(() => {
             clearAutoSubmitTimers();
             onAutoSubmit();
+            
+            // Play success sound for voice confirmation
+            playSound('success');
+            
             toast.success(`Auto-saved: ${parts.join(', ')}`);
           }, autoSubmitDelay);
           
