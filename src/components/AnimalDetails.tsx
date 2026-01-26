@@ -34,6 +34,7 @@ import { DryOffAnimalButton } from "./animal-details/DryOffAnimalButton";
 import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
+import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
@@ -195,10 +196,13 @@ interface Animal {
   entry_weight_kg: number | null;
   entry_weight_unknown: boolean | null;
   birth_weight_kg: number | null;
+  current_weight_kg: number | null;
   acquisition_type: string | null;
   purchase_price: number | null;
   grant_source: string | null;
   grant_source_other: string | null;
+  is_currently_lactating: boolean | null;
+  estimated_days_in_milk: number | null;
 }
 
 interface ParentAnimal {
@@ -240,6 +244,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [isCached, setIsCached] = useState(false);
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
+  const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
@@ -826,11 +831,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setEditWeightDialogOpen(true)}
+                    onClick={() => setEditAnimalDialogOpen(true)}
                     disabled={!isOnline}
                   >
                     <Pencil className="h-4 w-4 mr-1" />
-                    Edit Details
+                    Edit All Details
                   </Button>
                   <RecordAnimalExitDialog 
                     animalId={animalId}
@@ -1256,6 +1261,43 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Animal Dialog */}
+      {animal && (
+        <EditAnimalDialog
+          animalId={animalId}
+          animal={{
+            id: animal.id,
+            name: animal.name,
+            ear_tag: animal.ear_tag,
+            gender: animal.gender,
+            breed: animal.breed,
+            livestock_type: animal.livestock_type || 'cattle',
+            birth_date: animal.birth_date,
+            birth_date_unknown: animal.birth_date_unknown,
+            farm_entry_date: animal.farm_entry_date,
+            milking_start_date: animal.milking_start_date,
+            mother_id: animal.mother_id,
+            mother_unknown: animal.mother_unknown,
+            father_id: animal.father_id,
+            father_unknown: animal.father_unknown,
+            entry_weight_kg: animal.entry_weight_kg,
+            entry_weight_unknown: animal.entry_weight_unknown,
+            birth_weight_kg: animal.birth_weight_kg,
+            current_weight_kg: animal.current_weight_kg,
+            acquisition_type: animal.acquisition_type,
+            purchase_price: animal.purchase_price,
+            grant_source: animal.grant_source,
+            grant_source_other: animal.grant_source_other,
+            is_currently_lactating: animal.is_currently_lactating,
+            estimated_days_in_milk: animal.estimated_days_in_milk,
+          }}
+          farmId={farmId}
+          open={editAnimalDialogOpen}
+          onOpenChange={setEditAnimalDialogOpen}
+          onSaved={loadAnimal}
+        />
+      )}
     </div>
   );
 };
