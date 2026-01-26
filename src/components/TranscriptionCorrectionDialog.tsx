@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,8 @@ interface TranscriptionCorrectionDialogProps {
   farmId?: string;
   context?: string;
   audioDuration?: number;
-  onCorrectionSubmitted?: () => void;
+  /** Called when correction is submitted - optionally receives corrected text */
+  onCorrectionSubmitted?: (correctedText?: string) => void;
 }
 
 export function TranscriptionCorrectionDialog({
@@ -28,6 +29,11 @@ export function TranscriptionCorrectionDialog({
   const [correctedText, setCorrectedText] = useState(originalText);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Reset corrected text when original changes
+  useEffect(() => {
+    setCorrectedText(originalText);
+  }, [originalText]);
 
   const handleSubmit = async () => {
     if (!correctedText.trim()) {
@@ -68,7 +74,7 @@ export function TranscriptionCorrectionDialog({
         description: "Thank you! Your correction helps improve our voice recognition.",
       });
 
-      onCorrectionSubmitted?.();
+      onCorrectionSubmitted?.(correctedText);
       onOpenChange(false);
     } catch (error) {
       console.error('Error submitting correction:', error);
@@ -80,6 +86,11 @@ export function TranscriptionCorrectionDialog({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleUseOriginal = () => {
+    onCorrectionSubmitted?.(originalText);
+    onOpenChange(false);
   };
 
   return (
@@ -112,13 +123,13 @@ export function TranscriptionCorrectionDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleUseOriginal}
             disabled={isSubmitting}
           >
-            Cancel
+            Use Original
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
