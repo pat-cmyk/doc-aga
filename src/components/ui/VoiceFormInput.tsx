@@ -8,8 +8,8 @@
  * - Processes recordings automatically when online
  */
 
-import { useState, useRef, useCallback } from "react";
-import { Mic, Square, Loader2, Clock } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Mic, Square, Loader2, Clock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +74,18 @@ export interface VoiceFormInputProps<T = Record<string, any>> {
   
   /** Number of queued voice inputs */
   queuedCount?: number;
+  
+  /** Enable auto-submit when all required fields are extracted */
+  autoSubmit?: boolean;
+  
+  /** Callback to trigger form submission (used with autoSubmit) */
+  onAutoSubmit?: () => void;
+  
+  /** Function to check if form is complete for auto-submit */
+  isFormComplete?: (data: T) => boolean;
+  
+  /** Delay in ms before auto-submit (default: 2000) */
+  autoSubmitDelay?: number;
 }
 
 // ==================== COMPONENT ====================
@@ -94,15 +106,41 @@ export function VoiceFormInput<T = Record<string, any>>({
   onOfflineQueued,
   showQueuedCount = false,
   queuedCount = 0,
+  autoSubmit = false,
+  onAutoSubmit,
+  isFormComplete,
+  autoSubmitDelay = 2000,
 }: VoiceFormInputProps<T>) {
   const [state, setState] = useState<RecordingState>('idle');
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isOnline = useOnlineStatus();
 
-  // Size classes
+  // Cleanup auto-submit timers
+  const clearAutoSubmitTimers = useCallback(() => {
+    if (autoSubmitTimerRef.current) {
+      clearTimeout(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setAutoSubmitCountdown(null);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearAutoSubmitTimers();
+    };
+  }, [clearAutoSubmitTimers]);
+
   const sizeClasses = {
     sm: 'h-8 w-8',
     md: 'min-h-[48px] min-w-[48px]',
@@ -256,7 +294,42 @@ export function VoiceFormInput<T = Record<string, any>>({
         if (data.feedType) parts.push(data.feedType);
         if (data.text) parts.push(data.text.substring(0, 30) + (data.text.length > 30 ? '...' : ''));
         
-        if (parts.length > 0) {
+        // Check if auto-submit is enabled and form is complete
+        const shouldAutoSubmit = autoSubmit && onAutoSubmit && 
+          (isFormComplete ? isFormComplete(extractedData) : true);
+        
+        if (shouldAutoSubmit) {
+          // Start countdown for auto-submit
+          const countdownSeconds = Math.ceil(autoSubmitDelay / 1000);
+          setAutoSubmitCountdown(countdownSeconds);
+          
+          // Countdown timer
+          let remaining = countdownSeconds;
+          countdownTimerRef.current = setInterval(() => {
+            remaining -= 1;
+            if (remaining > 0) {
+              setAutoSubmitCountdown(remaining);
+            }
+          }, 1000);
+          
+          // Auto-submit timer
+          autoSubmitTimerRef.current = setTimeout(() => {
+            clearAutoSubmitTimers();
+            onAutoSubmit();
+            toast.success(`Auto-saved: ${parts.join(', ')}`);
+          }, autoSubmitDelay);
+          
+          toast.info(`Will save in ${countdownSeconds}s: ${parts.join(', ')}. Tap to cancel.`, {
+            duration: autoSubmitDelay,
+            action: {
+              label: 'Cancel',
+              onClick: () => {
+                clearAutoSubmitTimers();
+                toast.info('Auto-save cancelled');
+              },
+            },
+          });
+        } else if (parts.length > 0) {
           toast.success(`Extracted: ${parts.join(', ')}`);
         } else {
           toast.success('Voice input processed');
