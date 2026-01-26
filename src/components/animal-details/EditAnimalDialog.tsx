@@ -357,15 +357,15 @@ export function EditAnimalDialog({
                           </div>
                         </div>
                         <Select
-                          value={formData.mother_id}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value }))}
+                          value={formData.mother_id || "none"}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }))}
                           disabled={formData.mother_unknown}
                         >
                           <SelectTrigger className={formData.mother_unknown ? "opacity-50" : ""}>
                             <SelectValue placeholder="Select mother / Pumili ng ina" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None / Wala</SelectItem>
+                            <SelectItem value="none">None / Wala</SelectItem>
                             {mothers.map((mother) => (
                               <SelectItem key={mother.id} value={mother.id}>
                                 {getParentDisplayName(mother)}
@@ -395,15 +395,15 @@ export function EditAnimalDialog({
                           </div>
                         </div>
                         <Select
-                          value={formData.father_id}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, father_id: value }))}
+                          value={formData.father_id || "none"}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, father_id: value === "none" ? "" : value }))}
                           disabled={formData.father_unknown}
                         >
                           <SelectTrigger className={formData.father_unknown ? "opacity-50" : ""}>
                             <SelectValue placeholder="Select father / Pumili ng ama" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None / Wala</SelectItem>
+                            <SelectItem value="none">None / Wala</SelectItem>
                             {fathers.map((father) => (
                               <SelectItem key={father.id} value={father.id}>
                                 {getParentDisplayName(father)}
