@@ -235,6 +235,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncSingleWeight(item);
         } else if (item.type === 'voice_form_input') {
           await processVoiceFormInput(item);
+        } else if (item.type === 'bulk_bcs') {
+          await syncBulkBCS(item);
         }
         
         await updateStatus(item.id, 'completed');
@@ -873,5 +875,48 @@ async function syncSingleWeight(item: QueueItem): Promise<void> {
   if (item.optimisticId && insertedRecord) {
     await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
     await updateItem(item.id, { serverResponse: insertedRecord });
+  }
+}
+
+/**
+ * Sync bulk BCS records from offline queue to Supabase
+ */
+async function syncBulkBCS(item: QueueItem): Promise<void> {
+  const { bcsRecords, farmId } = item.payload;
+  
+  if (!bcsRecords || bcsRecords.length === 0 || !farmId) {
+    throw new Error('No BCS records in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const records = bcsRecords.map((record, index) => ({
+    animal_id: record.animalId,
+    farm_id: farmId,
+    score: record.score,
+    assessment_date: record.assessmentDate,
+    assessor_id: user?.id,
+    notes: record.notes || null,
+    client_generated_id: `${item.optimisticId}_bcs_${index}`,
+  }));
+
+  const { data: insertedRecords, error } = await supabase
+    .from('body_condition_scores')
+    .insert(records)
+    .select();
+
+  if (error) {
+    // Check if it's a duplicate (already synced)
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] BCS records already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  // Confirm optimistic records with server data
+  if (item.optimisticId && insertedRecords) {
+    await confirmOptimisticRecords(item.optimisticId, insertedRecords);
+    await updateItem(item.id, { serverResponse: insertedRecords });
   }
 }

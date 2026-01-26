@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
-import { Stethoscope, X, Milk, Heart, PawPrint, Wheat, Scale } from "lucide-react";
+import { Stethoscope, X, Milk, Heart, PawPrint, Wheat, Scale, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { hapticImpact } from "@/lib/haptics";
+import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
 import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
 import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
@@ -13,6 +14,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import AnimalForm from "@/components/AnimalForm";
 import { useFarm } from "@/contexts/FarmContext";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
+import { useQueueStatus } from "@/hooks/useQueueStatus";
+import { useToast } from "@/hooks/use-toast";
+import { onQueueCapacityWarning } from "@/lib/offlineQueue";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
@@ -54,9 +58,26 @@ export function UnifiedActionsFab({
   
   // Get current farm ID from context
   const { farmId } = useFarm();
+  const { toast } = useToast();
+  
+  // Get queue status for failed sync indicator
+  const { counts: queueCounts, hasIssues: hasQueueIssues } = useQueueStatus();
   
   // Get permissions from unified context
   const { canAddAnimals, canCreateRecords, hasFarmAccess, isLoading: permissionsLoading } = useUnifiedPermissions();
+  
+  // Subscribe to queue capacity warnings
+  useEffect(() => {
+    const unsubscribe = onQueueCapacityWarning((current, max) => {
+      hapticNotification('warning');
+      toast({
+        title: "Offline Queue Nearing Capacity",
+        description: `${current}/${max} items queued. Oldest entries will be removed to make room for new ones.`,
+        variant: "destructive",
+      });
+    });
+    return unsubscribe;
+  }, [toast]);
 
   // Filter quick actions based on permissions
   const filteredQuickActions = useMemo(() => {
@@ -118,13 +139,27 @@ export function UnifiedActionsFab({
     hapticImpact('medium');
     setIsExpanded(false);
     
+    // Doc Aga doesn't require farmId
+    if (actionId === 'doc-aga') {
+      setIsDocAgaOpen(true);
+      if (showOnboarding) {
+        setOnboardingStep(0);
+      }
+      return;
+    }
+    
+    // All other actions require a farm to be selected
+    if (!farmId) {
+      hapticNotification('error');
+      toast({
+        title: "No Farm Selected",
+        description: "Please select a farm first before recording data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     switch (actionId) {
-      case 'doc-aga':
-        setIsDocAgaOpen(true);
-        if (showOnboarding) {
-          setOnboardingStep(0);
-        }
-        break;
       case 'milk':
         if (onRecordMilk) {
           onRecordMilk();
@@ -224,26 +259,48 @@ export function UnifiedActionsFab({
         )}
 
         {/* Main FAB button */}
-        <Button
-          onClick={handleToggle}
-          size="lg"
-          className={cn(
-            "h-16 w-16 rounded-full shadow-lg",
-            "bg-primary hover:bg-primary/90",
-            "transition-transform duration-200",
-            isExpanded ? "rotate-45" : "rotate-0",
-            (isDocAgaOpen) && "scale-0 opacity-0"
+        <div className="relative">
+          <Button
+            onClick={handleToggle}
+            size="lg"
+            className={cn(
+              "h-16 w-16 rounded-full shadow-lg",
+              "bg-primary hover:bg-primary/90",
+              "transition-transform duration-200",
+              isExpanded ? "rotate-45" : "rotate-0",
+              (isDocAgaOpen) && "scale-0 opacity-0"
+            )}
+            aria-label={isExpanded ? 'Close quick actions' : 'Open quick actions'}
+            aria-expanded={isExpanded}
+            data-doc-aga-trigger
+          >
+            {isExpanded ? (
+              <X className="h-7 w-7" />
+            ) : (
+              <Stethoscope className="h-7 w-7" />
+            )}
+          </Button>
+          
+          {/* Failed sync indicator badge */}
+          {!isExpanded && !isDocAgaOpen && queueCounts.failed > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs animate-pulse"
+            >
+              {queueCounts.failed}
+            </Badge>
           )}
-          aria-label={isExpanded ? 'Close quick actions' : 'Open quick actions'}
-          aria-expanded={isExpanded}
-          data-doc-aga-trigger
-        >
-          {isExpanded ? (
-            <X className="h-7 w-7" />
-          ) : (
-            <Stethoscope className="h-7 w-7" />
+          
+          {/* Awaiting confirmation indicator */}
+          {!isExpanded && !isDocAgaOpen && queueCounts.failed === 0 && queueCounts.awaiting > 0 && (
+            <Badge 
+              variant="outline" 
+              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-yellow-500 text-white border-yellow-600"
+            >
+              {queueCounts.awaiting}
+            </Badge>
           )}
-        </Button>
+        </div>
       </div>
 
       {/* Backdrop when expanded */}

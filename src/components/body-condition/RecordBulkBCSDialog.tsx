@@ -28,6 +28,7 @@ import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
 import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
+import { addToQueue } from "@/lib/offlineQueue";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -83,10 +84,10 @@ export function RecordBulkBCSDialog({
   // Fetch animals
   const { data: animals = [], isLoading: animalsLoading } = useFarmAnimals(farmId);
 
-  // Local storage key for cached animals
+  // Local storage key for cached animals (for offline animal list display only)
   const cacheKey = `bcs-animals-${farmId}`;
 
-  // Cache animals for offline use
+  // Cache animals for offline use (display only)
   useEffect(() => {
     if (animals.length > 0 && farmId) {
       try {
@@ -183,6 +184,36 @@ export function RecordBulkBCSDialog({
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
 
+      if (!isOnline) {
+        // Queue for offline sync using standardized queue system
+        const bcsRecords = selectedAnimals.map((animal) => ({
+          animalId: animal.id,
+          animalName: animal.name || animal.ear_tag || "Unknown",
+          score,
+          assessmentDate,
+          notes: notes || undefined,
+        }));
+
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'bulk_bcs',
+          payload: {
+            farmId,
+            bcsRecords,
+          },
+          createdAt: Date.now(),
+        });
+
+        hapticNotification("success");
+        toast({
+          title: "Queued for Sync",
+          description: `${selectedAnimals.length} BCS record(s) will sync when online.`,
+        });
+        handleClose();
+        return;
+      }
+
+      // Online submission
       const bcsRecords = selectedAnimals.map((animal) => ({
         animal_id: animal.id,
         farm_id: farmId,
@@ -192,24 +223,6 @@ export function RecordBulkBCSDialog({
         notes: notes || null,
       }));
 
-      if (!isOnline) {
-        // Store offline records in local storage for later sync
-        const offlineKey = `offline-bcs-${Date.now()}`;
-        localStorage.setItem(offlineKey, JSON.stringify({
-          records: bcsRecords,
-          createdAt: new Date().toISOString(),
-        }));
-
-        hapticNotification("success");
-        toast({
-          title: "Saved Offline",
-          description: `${selectedAnimals.length} BCS record(s) saved. Will sync when online.`,
-        });
-        handleClose();
-        return;
-      }
-
-      // Online submission
       const { error } = await supabase.from("body_condition_scores").insert(bcsRecords);
 
       if (error) throw error;
