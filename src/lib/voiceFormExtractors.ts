@@ -3,7 +3,11 @@
  * 
  * Configurable extraction functions for parsing transcriptions
  * into structured form data for different use cases.
+ * 
+ * SSOT: This is the single source of truth for all voice data extraction logic.
  */
+
+import { findBestMatch, normalizeEarTag } from './fuzzyMatch';
 
 // ==================== TYPES ====================
 
@@ -14,12 +18,14 @@ export interface ExtractedMilkData {
   matchedAnimalName?: string; // For toast feedback
   recordDate?: Date; // Extracted date from voice input
   rawTranscription?: string; // For debugging/display
+  warnings?: string[]; // Validation warnings for user review
 }
 
 export interface ExtractedFeedData {
   totalKg?: number;
   feedType?: string;
   animalSelection?: string;
+  warnings?: string[];
 }
 
 export interface ExtractedTextData {
@@ -43,6 +49,15 @@ export type ExtractorContext = {
   feedInventory?: FeedInventoryItem[];
   animals?: AnimalItem[];
   [key: string]: any;
+};
+
+// ==================== VALIDATION THRESHOLDS ====================
+
+const MILK_VOLUME_THRESHOLDS = {
+  singleAnimalMax: 50,      // Max realistic liters from one animal per session
+  singleAnimalWarning: 35,  // Show warning above this
+  farmTotalMax: 500,        // Max realistic farm total
+  farmTotalWarning: 150,    // Show warning above this (was 200, lowered for safety)
 };
 
 // ==================== DATE EXTRACTION HELPERS ====================
@@ -170,12 +185,23 @@ export function extractMilkData(
     }
   }
 
-  // Validate extracted liters - warn about unrealistic values
+  // Validate extracted liters - add warnings about unrealistic values
+  const warnings: string[] = [];
   if (result.totalLiters) {
-    // For individual animals, 1-50L is realistic; for farm totals, 10-300L
-    if (result.totalLiters > 200) {
-      console.warn(`[VoiceExtractor] Unusually high milk volume: ${result.totalLiters}L - possible transcription error (heard "${transcription.substring(0, 50)}...")`);
+    // Check if this is for individual animal (based on context hints)
+    const hasIndividualKeywords = /\b(si|ni|kay|from|galing|kay|yung)\s+\w+/i.test(transcription);
+    
+    if (hasIndividualKeywords && result.totalLiters > MILK_VOLUME_THRESHOLDS.singleAnimalWarning) {
+      warnings.push(`${result.totalLiters}L seems high for one animal. Please verify.`);
+      console.warn(`[VoiceExtractor] High individual milk: ${result.totalLiters}L from "${transcription.substring(0, 60)}..."`);
+    } else if (result.totalLiters > MILK_VOLUME_THRESHOLDS.farmTotalWarning) {
+      warnings.push(`${result.totalLiters}L seems unusually high. Did you mean ${Math.round(result.totalLiters / 10)}L?`);
+      console.warn(`[VoiceExtractor] High farm total milk: ${result.totalLiters}L from "${transcription.substring(0, 60)}..."`);
     }
+  }
+  
+  if (warnings.length > 0) {
+    result.warnings = warnings;
   }
 
   // Extract session (AM/PM)
@@ -188,38 +214,77 @@ export function extractMilkData(
     result.session = 'PM';
   }
 
-  // Try to match individual animal by name or ear tag
+  // Try to match individual animal by name or ear tag using fuzzy matching
   const animals = context?.animals || [];
+  const animalNames = animals.filter(a => a.name).map(a => a.name as string);
   
-  for (const animal of animals) {
-    // Match by name (e.g., "Bessie", "Brownie")
-    if (animal.name) {
-      const nameLower = animal.name.toLowerCase();
-      if (lowerText.includes(nameLower)) {
-        result.animalSelection = `individual:${animal.id}`;
-        result.matchedAnimalName = animal.name;
-        break;
+  // First, try fuzzy matching on animal names
+  // Look for animal name patterns in transcription
+  const namePatterns = [
+    /(?:si|ni|kay|from|galing)\s+(\w+)/i,
+    /(\w+)\s+(?:gave|gave|nagbigay|pumitas)/i,
+    /(?:baka|cow|animal)\s+(?:na\s+)?(?:si\s+)?(\w+)/i,
+  ];
+  
+  for (const pattern of namePatterns) {
+    const match = transcription.match(pattern);
+    if (match && match[1]) {
+      const spokenName = match[1];
+      const fuzzyResult = findBestMatch(spokenName, animalNames, 0.7);
+      
+      if (fuzzyResult.match) {
+        const matchedAnimal = animals.find(a => a.name === fuzzyResult.match);
+        if (matchedAnimal) {
+          result.animalSelection = `individual:${matchedAnimal.id}`;
+          result.matchedAnimalName = matchedAnimal.name || matchedAnimal.ear_tag || undefined;
+          console.log(`[VoiceExtractor] Fuzzy matched "${spokenName}" → "${fuzzyResult.match}" (score: ${fuzzyResult.score.toFixed(2)})`);
+          break;
+        }
       }
     }
-    
-    // Match by ear tag (e.g., "G001", "C-42")
-    if (animal.ear_tag) {
-      // Handle different ear tag formats: "G001", "G-001", "G 001"
-      const tagLower = animal.ear_tag.toLowerCase();
-      const tagNormalized = tagLower.replace(/[-\s]/g, '');
-      const textNormalized = lowerText.replace(/[-\s]/g, '');
+  }
+  
+  // If no fuzzy match, try exact matching (original logic)
+  if (!result.animalSelection) {
+    for (const animal of animals) {
+      // Match by name (exact substring)
+      if (animal.name) {
+        const nameLower = animal.name.toLowerCase();
+        if (lowerText.includes(nameLower)) {
+          result.animalSelection = `individual:${animal.id}`;
+          result.matchedAnimalName = animal.name;
+          break;
+        }
+      }
       
-      if (textNormalized.includes(tagNormalized)) {
-        result.animalSelection = `individual:${animal.id}`;
-        result.matchedAnimalName = animal.name || animal.ear_tag;
-        break;
+      // Match by ear tag (normalized)
+      if (animal.ear_tag) {
+        const tagNormalized = normalizeEarTag(animal.ear_tag);
+        // Look for ear tag patterns in text
+        const earTagPatterns = [
+          /(?:ear\s*tag|tag|tatak|numero|no\.?|#)\s*([a-z0-9]+)/i,
+          /\b([a-z]\d{2,4})\b/i, // Common format like G001, C42
+        ];
+        
+        for (const pattern of earTagPatterns) {
+          const tagMatch = transcription.match(pattern);
+          if (tagMatch) {
+            const spokenTag = normalizeEarTag(tagMatch[1]);
+            if (spokenTag === tagNormalized) {
+              result.animalSelection = `individual:${animal.id}`;
+              result.matchedAnimalName = animal.name || animal.ear_tag;
+              break;
+            }
+          }
+        }
+        if (result.animalSelection) break;
       }
     }
   }
 
   // Check for explicit "all" keywords only if no individual animal was matched
   if (!result.animalSelection) {
-    const allKeywords = ['lahat', 'all', 'everyone', 'everybody', 'all lactating'];
+    const allKeywords = ['lahat', 'all', 'everyone', 'everybody', 'all lactating', 'total', 'kabuuan'];
     if (allKeywords.some(kw => lowerText.includes(kw))) {
       result.animalSelection = 'all-lactating';
     }

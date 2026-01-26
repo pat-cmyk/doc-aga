@@ -51,6 +51,45 @@ OUTPUT FORMAT (JSON only, no markdown):
   "confidence": "high" | "medium" | "low"
 }`;
 
+// Keywords that indicate animal registration context
+const registrationKeywords = [
+  // English
+  'new', 'add', 'register', 'bought', 'purchased', 'grant', 'donated',
+  'ear tag', 'tag number', 'entry weight', 'birth weight',
+  // Tagalog/Taglish
+  'bago', 'bagong', 'binili', 'bigay', 'donasyon', 'tatak', 'numero',
+  'timbang pagpasok', 'peso', 'acquisition'
+];
+
+// Keywords that indicate this is NOT animal registration
+const nonRegistrationKeywords = [
+  // Milk recording
+  'milk', 'liters', 'litro', 'gatas', 'nag-milk', 'yield', 'production',
+  'morning session', 'evening session', 'AM', 'PM',
+  // Health updates
+  'sick', 'sakit', 'injection', 'vaccine', 'treatment', 'mastitis',
+  'namamaga', 'lagnat', 'fever', 'diagnosis',
+  // General updates
+  'update', 'report', 'total', 'kabuuan', 'herd', 'all animals'
+];
+
+function isLikelyAnimalRegistration(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  
+  // Check for registration keywords
+  const hasRegistrationKeyword = registrationKeywords.some(kw => lowerText.includes(kw.toLowerCase()));
+  
+  // Check for non-registration keywords
+  const hasNonRegistrationKeyword = nonRegistrationKeywords.some(kw => lowerText.includes(kw.toLowerCase()));
+  
+  // If it has non-registration keywords and no registration keywords, it's probably not registration
+  if (hasNonRegistrationKeyword && !hasRegistrationKeyword) {
+    return false;
+  }
+  
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -67,6 +106,30 @@ serve(async (req) => {
     }
 
     console.log('Processing animal voice transcription:', transcription);
+
+    // Context validation: Check if this looks like animal registration
+    if (!isLikelyAnimalRegistration(transcription)) {
+      console.warn('[process-animal-voice] Input does not appear to be animal registration:', transcription.substring(0, 100));
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'INPUT_NOT_REGISTRATION',
+          message: 'This appears to be a general farm update or milk recording. Please use the appropriate feature.',
+          data: {
+            livestock_type: null,
+            gender: null,
+            ear_tag: null,
+            name: null,
+            is_lactating: false,
+            entry_weight_kg: null,
+            acquisition_type: null,
+            breed: null,
+            confidence: 'low'
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {

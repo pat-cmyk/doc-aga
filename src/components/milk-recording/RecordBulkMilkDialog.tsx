@@ -155,15 +155,15 @@ export function RecordBulkMilkDialog({
     
     if (data.totalLiters) {
       setTotalLiters(data.totalLiters.toString());
-      
-      // Warn about potentially misheard volumes
-      if (data.totalLiters > 200) {
-        toast({
-          title: "High Volume Detected",
-          description: `${data.totalLiters}L seems high. Please verify the transcription is correct.`,
-          variant: "default",
-        });
-      }
+    }
+    
+    // Show warnings from the extractor (handles unrealistic volume detection)
+    if (data.warnings && data.warnings.length > 0) {
+      toast({
+        title: "Please Verify",
+        description: data.warnings[0],
+        variant: "default",
+      });
     }
     if (data.session) {
       setSession(data.session);
