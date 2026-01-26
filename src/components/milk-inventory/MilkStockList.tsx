@@ -154,7 +154,11 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
                           <Badge variant={recordAge.variant} className="text-xs">
                             {recordAge.label}
                           </Badge>
-                          <span className="font-medium">{record.liters_remaining.toFixed(1)} L</span>
+                          <span className="font-medium">
+                            {record.liters_remaining < 0.05 
+                              ? "< 0.1 L" 
+                              : `${record.liters_remaining.toFixed(1)} L`}
+                          </span>
                           
                           {canManage && (
                             <div className="flex items-center gap-1 ml-1">

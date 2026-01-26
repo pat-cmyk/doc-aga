@@ -25,15 +25,23 @@ export function DeleteMilkRecordDialog({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
+      console.log('[DeleteMilk] Deleting milking_record_id:', record.milking_record_id);
+      
       // Delete from milking_records (which cascades to milk_inventory via FK)
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("milking_records")
         .delete()
-        .eq("id", record.milking_record_id);
+        .eq("id", record.milking_record_id)
+        .select();
       
       if (error) throw error;
       
-      // Refetch to sync
+      if (!data || data.length === 0) {
+        throw new Error("Record not found or you don't have permission to delete it");
+      }
+      
+      // Clear and refetch to sync
+      queryClient.removeQueries({ queryKey: ['milk-inventory', farmId] });
       await queryClient.refetchQueries({ 
         queryKey: ['milk-inventory', farmId],
         type: 'active',
@@ -41,9 +49,9 @@ export function DeleteMilkRecordDialog({
       
       toast.success("Milk record deleted");
       onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to delete milk record:", error);
-      toast.error("Failed to delete record");
+    } catch (error: any) {
+      console.error("[DeleteMilk] Failed:", error);
+      toast.error(error.message || "Failed to delete record");
     } finally {
       setIsDeleting(false);
     }

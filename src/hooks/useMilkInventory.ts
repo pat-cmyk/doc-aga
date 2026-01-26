@@ -75,7 +75,7 @@ export function useMilkInventory(farmId: string) {
         `)
         .eq("farm_id", farmId)
         .eq("is_available", true)
-        .gt("liters_remaining", 0)
+        .gte("liters_remaining", 0.05) // Filter out < 0.05L which rounds to 0.0
         .order("record_date", { ascending: true });
 
       if (error) throw error;
