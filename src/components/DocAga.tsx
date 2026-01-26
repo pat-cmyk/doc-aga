@@ -584,6 +584,8 @@ const DocAga = () => {
             disabled={isUploadingImage || loading}
             compact={false}
             className="border-t-0"
+            useRealtime={true}
+            enableCorrection={true}
           />
         ) : (
           <form
