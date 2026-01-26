@@ -89,6 +89,12 @@ export function extractMilkData(transcription: string): ExtractedMilkData {
     result.animalSelection = 'all-lactating';
   }
 
+  // Default to 'all-lactating' when liters are extracted but no specific animal mentioned
+  // This enables auto-submit for simple inputs like "40 liters morning"
+  if (result.totalLiters && !result.animalSelection) {
+    result.animalSelection = 'all-lactating';
+  }
+
   return result;
 }
 
