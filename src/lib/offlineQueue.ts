@@ -9,6 +9,52 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 const MAX_QUEUE_SIZE = 50;
 
 /**
+ * Threshold percentage for capacity warning (80%)
+ */
+const CAPACITY_WARNING_THRESHOLD = 0.8;
+
+/**
+ * Event listeners for queue capacity warnings
+ */
+type CapacityWarningCallback = (currentCount: number, maxSize: number) => void;
+const capacityWarningListeners: Set<CapacityWarningCallback> = new Set();
+
+/**
+ * Subscribe to queue capacity warnings
+ * Called when queue reaches 80% capacity
+ */
+export function onQueueCapacityWarning(callback: CapacityWarningCallback): () => void {
+  capacityWarningListeners.add(callback);
+  return () => capacityWarningListeners.delete(callback);
+}
+
+/**
+ * Check current queue capacity and notify listeners if above threshold
+ */
+async function checkCapacityWarning(): Promise<void> {
+  const db = await getDB();
+  const count = await db.count('queue');
+  const threshold = Math.floor(MAX_QUEUE_SIZE * CAPACITY_WARNING_THRESHOLD);
+  
+  if (count >= threshold) {
+    capacityWarningListeners.forEach(cb => cb(count, MAX_QUEUE_SIZE));
+  }
+}
+
+/**
+ * Get current queue capacity info
+ */
+export async function getQueueCapacity(): Promise<{ current: number; max: number; percentage: number }> {
+  const db = await getDB();
+  const current = await db.count('queue');
+  return {
+    current,
+    max: MAX_QUEUE_SIZE,
+    percentage: Math.round((current / MAX_QUEUE_SIZE) * 100),
+  };
+}
+
+/**
  * Queue item representing an offline operation waiting to be synced
  * 
  * Stores all data needed to process voice recordings and animal form submissions
@@ -24,7 +70,7 @@ const MAX_QUEUE_SIZE = 50;
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -127,6 +173,14 @@ interface QueueItem {
       formType: string;
       dialogId?: string;
     };
+    // Bulk BCS recording
+    bcsRecords?: Array<{
+      animalId: string;
+      animalName: string;
+      score: number;
+      assessmentDate: string;
+      notes?: string;
+    }>;
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
@@ -198,6 +252,7 @@ export async function addToQueue(
     const oldest = await tx.store.index('by-createdAt').openCursor();
     if (oldest) {
       await oldest.delete();
+      console.warn('[OfflineQueue] Queue at capacity, removed oldest item to make room');
     }
   }
   
@@ -212,6 +267,9 @@ export async function addToQueue(
   } as QueueItem);
   
   await tx.done;
+  
+  // Check capacity and notify if needed
+  await checkCapacityWarning();
   
   // Trigger background sync if online
   if (navigator.onLine) {
