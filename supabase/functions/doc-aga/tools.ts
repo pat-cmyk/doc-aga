@@ -57,6 +57,24 @@ export async function executeToolCall(
     case "add_health_resolution":
       return await addHealthResolution(args, supabase, farmId);
     
+    case "add_weight_record":
+      return await addWeightRecord(args, supabase, farmId);
+    
+    case "update_weight_record":
+      return await updateWeightRecord(args, supabase, farmId);
+    
+    case "update_milking_record":
+      return await updateMilkingRecord(args, supabase, farmId);
+    
+    case "update_ai_record":
+      return await updateAIRecord(args, supabase, farmId);
+    
+    case "update_feeding_record":
+      return await updateFeedingRecord(args, supabase, farmId);
+    
+    case "update_injection_record":
+      return await updateInjectionRecord(args, supabase, farmId);
+    
     case "add_smart_milking_record":
       return await addSmartMilkingRecord(args, supabase, farmId);
     
@@ -1041,6 +1059,408 @@ async function addInjectionRecord(args: any, supabase: SupabaseClient, farmId: s
     success: true,
     message: `Injection record created for ${animal.name || animal.ear_tag}`,
     record: data,
+  };
+}
+
+// ============= NEW SSOT-ALIGNED UPDATE TOOLS =============
+
+async function addWeightRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+  const phDate = new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('weight_records')
+    .insert({
+      animal_id: animal.id,
+      measurement_date: phDate,
+      weight_kg: args.weight_kg,
+      measurement_method: args.measurement_method || null,
+      notes: args.notes || null,
+    })
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  // Also update current_weight_kg on animal
+  await supabase
+    .from('animals')
+    .update({ current_weight_kg: args.weight_kg })
+    .eq('id', animal.id);
+
+  return {
+    success: true,
+    message: `Weight recorded: ${args.weight_kg}kg for ${animal.name || animal.ear_tag}`,
+    record: data,
+  };
+}
+
+async function updateWeightRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the most recent weight record (or by date if specified)
+  let query = supabase
+    .from('weight_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('measurement_date', { ascending: false });
+
+  if (args.record_date) {
+    query = query.eq('measurement_date', args.record_date);
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No weight record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.new_weight_kg) updateData.weight_kg = args.new_weight_kg;
+  if (args.notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nCorrection: ${args.notes}` 
+    : args.notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('weight_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  // Update current_weight_kg if this was the most recent record
+  if (args.new_weight_kg) {
+    await supabase
+      .from('animals')
+      .update({ current_weight_kg: args.new_weight_kg })
+      .eq('id', animal.id);
+  }
+
+  return {
+    success: true,
+    message: `Weight record updated for ${animal.name || animal.ear_tag}`,
+    previous: { weight_kg: record.weight_kg, notes: record.notes },
+    updated: { weight_kg: data.weight_kg, notes: data.notes },
+    record_date: record.measurement_date
+  };
+}
+
+async function updateMilkingRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the milking record
+  let query = supabase
+    .from('milking_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('record_date', { ascending: false });
+
+  if (args.record_date) {
+    query = query.eq('record_date', args.record_date);
+  }
+  
+  if (args.session) {
+    query = query.eq('session', args.session);
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No milking record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.new_liters !== undefined) updateData.liters = args.new_liters;
+  if (args.notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nCorrection: ${args.notes}` 
+    : args.notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('milking_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  return {
+    success: true,
+    message: `Milking record updated for ${animal.name || animal.ear_tag}`,
+    previous: { liters: record.liters, session: record.session },
+    updated: { liters: data.liters, session: data.session },
+    record_date: record.record_date
+  };
+}
+
+async function updateAIRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the most recent AI record
+  const { data: records, error: fetchError } = await supabase
+    .from('ai_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('performed_date', { ascending: false })
+    .limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No AI/breeding record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.pregnancy_confirmed !== undefined) {
+    updateData.pregnancy_confirmed = args.pregnancy_confirmed;
+    if (args.pregnancy_confirmed === true) {
+      updateData.confirmed_at = new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString();
+    }
+  }
+  if (args.expected_delivery_date) updateData.expected_delivery_date = args.expected_delivery_date;
+  if (args.notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nUpdate: ${args.notes}` 
+    : args.notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('ai_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  return {
+    success: true,
+    message: args.pregnancy_confirmed === true 
+      ? `Pregnancy CONFIRMED for ${animal.name || animal.ear_tag}! 🎉`
+      : `AI record updated for ${animal.name || animal.ear_tag}`,
+    previous: { 
+      pregnancy_confirmed: record.pregnancy_confirmed, 
+      expected_delivery_date: record.expected_delivery_date 
+    },
+    updated: { 
+      pregnancy_confirmed: data.pregnancy_confirmed, 
+      expected_delivery_date: data.expected_delivery_date 
+    },
+    ai_date: record.performed_date || record.scheduled_date
+  };
+}
+
+async function updateFeedingRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the feeding record
+  let query = supabase
+    .from('feeding_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('record_datetime', { ascending: false });
+
+  if (args.record_date) {
+    query = query.gte('record_datetime', args.record_date)
+                 .lt('record_datetime', args.record_date + 'T23:59:59');
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No feeding record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.new_kilograms !== undefined) updateData.kilograms = args.new_kilograms;
+  if (args.new_feed_type) updateData.feed_type = args.new_feed_type;
+  if (args.notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nCorrection: ${args.notes}` 
+    : args.notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('feeding_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  return {
+    success: true,
+    message: `Feeding record updated for ${animal.name || animal.ear_tag}`,
+    previous: { kilograms: record.kilograms, feed_type: record.feed_type },
+    updated: { kilograms: data.kilograms, feed_type: data.feed_type },
+    record_datetime: record.record_datetime
+  };
+}
+
+async function updateInjectionRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the injection record
+  let query = supabase
+    .from('injection_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('record_datetime', { ascending: false });
+
+  if (args.record_date) {
+    query = query.gte('record_datetime', args.record_date)
+                 .lt('record_datetime', args.record_date + 'T23:59:59');
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No injection record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.new_medicine_name) updateData.medicine_name = args.new_medicine_name;
+  if (args.new_dosage) updateData.dosage = args.new_dosage;
+  if (args.notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nCorrection: ${args.notes}` 
+    : args.notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('injection_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  return {
+    success: true,
+    message: `Injection record updated for ${animal.name || animal.ear_tag}`,
+    previous: { medicine_name: record.medicine_name, dosage: record.dosage },
+    updated: { medicine_name: data.medicine_name, dosage: data.dosage },
+    record_datetime: record.record_datetime
   };
 }
 
