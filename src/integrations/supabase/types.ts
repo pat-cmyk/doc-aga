@@ -528,12 +528,18 @@ export type Database = {
           farm_id: string
           father_id: string | null
           father_unknown: boolean | null
+          fertility_status:
+            | Database["public"]["Enums"]["fertility_status"]
+            | null
           gender: string | null
           grant_source: string | null
           grant_source_other: string | null
           id: string
           is_currently_lactating: boolean | null
           is_deleted: boolean
+          last_ai_date: string | null
+          last_calving_date: string | null
+          last_heat_date: string | null
           life_stage: string | null
           livestock_type: string
           milking_stage: string | null
@@ -541,10 +547,13 @@ export type Database = {
           mother_id: string | null
           mother_unknown: boolean | null
           name: string | null
+          parity: number | null
           purchase_price: number | null
           sale_price: number | null
+          services_this_cycle: number | null
           unique_code: string
           updated_at: string
+          voluntary_waiting_end_date: string | null
         }
         Insert: {
           acquisition_type?: string | null
@@ -569,12 +578,18 @@ export type Database = {
           farm_id: string
           father_id?: string | null
           father_unknown?: boolean | null
+          fertility_status?:
+            | Database["public"]["Enums"]["fertility_status"]
+            | null
           gender?: string | null
           grant_source?: string | null
           grant_source_other?: string | null
           id?: string
           is_currently_lactating?: boolean | null
           is_deleted?: boolean
+          last_ai_date?: string | null
+          last_calving_date?: string | null
+          last_heat_date?: string | null
           life_stage?: string | null
           livestock_type?: string
           milking_stage?: string | null
@@ -582,10 +597,13 @@ export type Database = {
           mother_id?: string | null
           mother_unknown?: boolean | null
           name?: string | null
+          parity?: number | null
           purchase_price?: number | null
           sale_price?: number | null
+          services_this_cycle?: number | null
           unique_code: string
           updated_at?: string
+          voluntary_waiting_end_date?: string | null
         }
         Update: {
           acquisition_type?: string | null
@@ -610,12 +628,18 @@ export type Database = {
           farm_id?: string
           father_id?: string | null
           father_unknown?: boolean | null
+          fertility_status?:
+            | Database["public"]["Enums"]["fertility_status"]
+            | null
           gender?: string | null
           grant_source?: string | null
           grant_source_other?: string | null
           id?: string
           is_currently_lactating?: boolean | null
           is_deleted?: boolean
+          last_ai_date?: string | null
+          last_calving_date?: string | null
+          last_heat_date?: string | null
           life_stage?: string | null
           livestock_type?: string
           milking_stage?: string | null
@@ -623,10 +647,13 @@ export type Database = {
           mother_id?: string | null
           mother_unknown?: boolean | null
           name?: string | null
+          parity?: number | null
           purchase_price?: number | null
           sale_price?: number | null
+          services_this_cycle?: number | null
           unique_code?: string
           updated_at?: string
+          voluntary_waiting_end_date?: string | null
         }
         Relationships: [
           {
@@ -788,6 +815,91 @@ export type Database = {
             columns: ["photo_id"]
             isOneToOne: false
             referencedRelation: "animal_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      breeding_events: {
+        Row: {
+          animal_id: string
+          created_at: string
+          created_by: string | null
+          event_date: string
+          event_type: string
+          farm_id: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          related_ai_record_id: string | null
+          related_heat_record_id: string | null
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          event_type: string
+          farm_id: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          related_ai_record_id?: string | null
+          related_heat_record_id?: string | null
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          event_type?: string
+          farm_id?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          related_ai_record_id?: string | null
+          related_heat_record_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breeding_events_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_events_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_events_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_events_related_ai_record_id_fkey"
+            columns: ["related_ai_record_id"]
+            isOneToOne: false
+            referencedRelation: "ai_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_events_related_heat_record_id_fkey"
+            columns: ["related_heat_record_id"]
+            isOneToOne: false
+            referencedRelation: "heat_records"
             referencedColumns: ["id"]
           },
         ]
@@ -4110,6 +4222,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      initialize_animal_fertility_status: {
+        Args: { p_animal_id: string }
+        Returns: Database["public"]["Enums"]["fertility_status"]
+      }
       is_farm_manager: {
         Args: { _farm_id: string; _user_id: string }
         Returns: boolean
@@ -4187,6 +4303,14 @@ export type Database = {
         | "action_taken"
         | "resolved"
         | "closed"
+      fertility_status:
+        | "not_eligible"
+        | "open_cycling"
+        | "in_heat"
+        | "bred_waiting"
+        | "suspected_pregnant"
+        | "confirmed_pregnant"
+        | "fresh_postpartum"
       message_party: "farmer" | "merchant" | "vet" | "admin"
       notification_type:
         | "order_update"
@@ -4386,6 +4510,15 @@ export const Constants = {
         "action_taken",
         "resolved",
         "closed",
+      ],
+      fertility_status: [
+        "not_eligible",
+        "open_cycling",
+        "in_heat",
+        "bred_waiting",
+        "suspected_pregnant",
+        "confirmed_pregnant",
+        "fresh_postpartum",
       ],
       message_party: ["farmer", "merchant", "vet", "admin"],
       notification_type: [
