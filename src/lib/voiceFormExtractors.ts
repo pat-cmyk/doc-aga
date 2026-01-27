@@ -65,6 +65,93 @@ const MILK_VOLUME_THRESHOLDS = {
   farmTotalWarning: 150,    // Show warning above this (was 200, lowered for safety)
 };
 
+// ==================== TAGALOG PARTICLE PREPROCESSING ====================
+
+/**
+ * Particles that should be STRIPPED during data extraction (don't affect values)
+ */
+const NOISE_PARTICLES = ['po', 'opo', 'ho', 'eh', 'ah', 'ay'];
+
+/**
+ * Particles that indicate APPROXIMATION (lower confidence)
+ */
+const APPROXIMATION_MARKERS = ['mga', 'halos', 'parang', 'siguro', 'yata'];
+
+/**
+ * Particles that indicate EMPHASIS (higher confidence)
+ */
+const EMPHASIS_MARKERS = ['talaga', 'mismo', 'exactly', 'talagang'];
+
+/**
+ * Particles that indicate ADDITION (may mean multiple items/quantities)
+ */
+const ADDITION_MARKERS = ['din', 'rin', 'pa', 'pati', 'kasama'];
+
+/**
+ * Particles that indicate CORRECTION (previous statement may be wrong)
+ */
+const CORRECTION_MARKERS = ['pala', 'este', 'ay pala'];
+
+/**
+ * Particles that indicate COMPLETION (action already done)
+ */
+const COMPLETION_MARKERS = ['tapos na', 'done na', 'finish na'];
+
+/**
+ * Result of Tagalog particle preprocessing
+ */
+export interface TagalogParticleInfo {
+  cleanedText: string;
+  isApproximate: boolean;
+  isEmphatic: boolean;
+  hasAddition: boolean;
+  hasCorrection: boolean;
+  isCompleted: boolean;
+  particleConfidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Preprocess transcription by analyzing Tagalog particles
+ * Returns the cleaned text and context flags
+ */
+export function preprocessTagalogParticles(text: string): TagalogParticleInfo {
+  const lowerText = text.toLowerCase();
+  let cleanedText = text;
+  
+  // Strip noise particles (preserve word boundaries)
+  for (const particle of NOISE_PARTICLES) {
+    cleanedText = cleanedText.replace(new RegExp(`\\b${particle}\\b`, 'gi'), '');
+  }
+  
+  // Detect context markers
+  const isApproximate = APPROXIMATION_MARKERS.some(p => 
+    new RegExp(`\\b${p}\\b`).test(lowerText)
+  );
+  const isEmphatic = EMPHASIS_MARKERS.some(p => 
+    new RegExp(`\\b${p}\\b`).test(lowerText)
+  );
+  const hasAddition = ADDITION_MARKERS.some(p => 
+    new RegExp(`\\b${p}\\b`).test(lowerText)
+  );
+  const hasCorrection = CORRECTION_MARKERS.some(p => lowerText.includes(p));
+  const isCompleted = COMPLETION_MARKERS.some(p => lowerText.includes(p));
+  
+  // Determine confidence based on markers
+  let particleConfidence: 'high' | 'medium' | 'low' = 'medium';
+  if (isEmphatic) particleConfidence = 'high';
+  if (isApproximate || hasCorrection) particleConfidence = 'low';
+  
+  return {
+    cleanedText: cleanedText.replace(/\s+/g, ' ').trim(),
+    isApproximate,
+    isEmphatic,
+    hasAddition,
+    hasCorrection,
+    isCompleted,
+    particleConfidence
+  };
+}
+
 // ==================== DATE EXTRACTION HELPERS ====================
 
 const MONTH_MAP: Record<string, number> = {
@@ -152,13 +239,17 @@ export function extractMilkData(
   transcription: string,
   context?: ExtractorContext
 ): ExtractedMilkData {
+  // Preprocess Tagalog particles first
+  const particleInfo = preprocessTagalogParticles(transcription);
+  const cleanedText = particleInfo.cleanedText;
+  
   const result: ExtractedMilkData = {
     rawTranscription: transcription,
   };
-  const lowerText = transcription.toLowerCase();
+  const lowerText = cleanedText.toLowerCase();
 
   // Extract date first
-  const extractedDate = extractDateFromText(transcription);
+  const extractedDate = extractDateFromText(cleanedText);
   if (extractedDate) {
     result.recordDate = extractedDate;
   }
@@ -171,7 +262,7 @@ export function extractMilkData(
   ];
 
   for (const pattern of literPatterns) {
-    const match = transcription.match(pattern);
+    const match = cleanedText.match(pattern);
     if (match) {
       result.totalLiters = parseFloat(match[1]);
       break;
@@ -180,7 +271,7 @@ export function extractMilkData(
 
   // If no pattern matched, try to find any standalone number that could be liters
   if (!result.totalLiters) {
-    const numberMatch = transcription.match(/\b(\d+(?:\.\d+)?)\b/);
+    const numberMatch = cleanedText.match(/\b(\d+(?:\.\d+)?)\b/);
     if (numberMatch) {
       const num = parseFloat(numberMatch[1]);
       // Only use if it's a reasonable liter amount (0.1 - 500)
@@ -194,7 +285,7 @@ export function extractMilkData(
   const warnings: string[] = [];
   if (result.totalLiters) {
     // Check if this is for individual animal (based on context hints)
-    const hasIndividualKeywords = /\b(si|ni|kay|from|galing|kay|yung)\s+\w+/i.test(transcription);
+    const hasIndividualKeywords = /\b(si|ni|kay|from|galing|kay|yung)\s+\w+/i.test(cleanedText);
     
     if (hasIndividualKeywords && result.totalLiters > MILK_VOLUME_THRESHOLDS.singleAnimalWarning) {
       warnings.push(`${result.totalLiters}L seems high for one animal. Please verify.`);
@@ -203,6 +294,15 @@ export function extractMilkData(
       warnings.push(`${result.totalLiters}L seems unusually high. Did you mean ${Math.round(result.totalLiters / 10)}L?`);
       console.warn(`[VoiceExtractor] High farm total milk: ${result.totalLiters}L from "${transcription.substring(0, 60)}..."`);
     }
+  }
+  
+  // Add warnings from particle analysis
+  if (particleInfo.isApproximate && result.totalLiters) {
+    warnings.push(`Value is approximate ("mga/halos"). Actual: ~${result.totalLiters}L`);
+  }
+  
+  if (particleInfo.hasCorrection) {
+    warnings.push('Correction detected ("pala"). Please verify the values.');
   }
   
   if (warnings.length > 0) {
@@ -504,11 +604,16 @@ export function extractFeedData(
   transcription: string, 
   context?: ExtractorContext
 ): ExtractedFeedData {
+  // Preprocess Tagalog particles first
+  const particleInfo = preprocessTagalogParticles(transcription);
+  const cleanedText = particleInfo.cleanedText;
+  
   const result: ExtractedFeedData = {};
-  const lowerText = transcription.toLowerCase();
+  const lowerText = cleanedText.toLowerCase();
+  const warnings: string[] = [];
 
   // Extract date (same logic as milk extractor)
-  const extractedDate = extractDateFromText(transcription);
+  const extractedDate = extractDateFromText(cleanedText);
   if (extractedDate) {
     result.recordDate = extractedDate;
   }
@@ -647,6 +752,24 @@ export function extractFeedData(
     result.animalSelection = 'all';
   } else if (lowerText.includes('lactating') || lowerText.includes('milking')) {
     result.animalSelection = 'lactating';
+  }
+  
+  // Handle "din/rin" for additional animals
+  if (particleInfo.hasAddition) {
+    warnings.push('Addition detected ("din/rin"). Multiple animals/items may be referenced.');
+  }
+  
+  // Add warnings from particle analysis
+  if (particleInfo.isApproximate && result.totalKg) {
+    warnings.push(`Value is approximate ("mga/halos"). Actual: ~${result.totalKg}kg`);
+  }
+  
+  if (particleInfo.hasCorrection) {
+    warnings.push('Correction detected ("pala"). Please verify the values.');
+  }
+  
+  if (warnings.length > 0) {
+    result.warnings = [...(result.warnings || []), ...warnings];
   }
 
   return result;
