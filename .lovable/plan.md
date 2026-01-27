@@ -1,140 +1,159 @@
 
-# Switch Doc Aga to Batch Mode (Offline-First)
+
+# Add ElevenLabs Scribe v2 (Batch) as Primary STT with Gemini Fallback
 
 ## Overview
 
-This change switches Doc Aga's voice input from realtime streaming (ElevenLabs Scribe) to batch mode (Gemini). This provides true "record first" behavior that works offline and eliminates the "Connecting..." state.
+This change updates the `voice-to-text` edge function to use ElevenLabs Scribe v2 (batch API) as the primary transcription provider, with automatic fallback to Gemini 3 Pro if ElevenLabs fails.
 
 ---
 
-## Current vs. New Flow
+## Current vs. New Architecture
 
-| Step | Realtime Mode (Current) | Batch Mode (New) |
-|------|-------------------------|------------------|
-| 1 | Click → Request Mic | Click → Request Mic |
-| 2 | **"Connecting..."** (WebSocket handshake) | - |
-| 3 | Live streaming audio | Local recording |
-| 4 | Real-time partial transcripts | No live feedback |
-| 5 | Stop → Already processed | **Stop → Send to Gemini** |
-| 6 | - | "Processing..." |
-| 7 | Show transcription | Show transcription |
+| Provider | Role | API Type | Strengths |
+|----------|------|----------|-----------|
+| **ElevenLabs** `scribe_v2` | Primary | REST (batch) | Optimized for speech, 99+ languages, speaker diarization |
+| **Gemini** `gemini-3-pro-preview` | Fallback | REST (multimodal) | Already configured, good Taglish support |
 
-**Key Benefit**: No network required during recording. Audio is captured locally, then sent after stop button is clicked.
+---
+
+## Fallback Chain Flow
+
+```text
+Audio Blob
+    │
+    ▼
+┌─────────────────────────┐
+│  ElevenLabs scribe_v2   │──── Success ────▶ Return transcription
+│  (Primary)              │
+└────────────┬────────────┘
+             │ Fail (error/timeout)
+             ▼
+┌─────────────────────────┐
+│  Gemini 3 Pro           │──── Success ────▶ Return transcription
+│  (Fallback)             │
+└────────────┬────────────┘
+             │ Fail
+             ▼
+        Return error
+```
 
 ---
 
 ## Implementation
 
-### File 1: `src/components/DocAga.tsx`
+### File: `supabase/functions/voice-to-text/index.ts`
 
-**Change**: Line 583
+**Changes:**
 
+1. Add ElevenLabs transcription function
+2. Add fallback logic (try ElevenLabs first, then Gemini)
+3. Update analytics to track which provider succeeded
+
+**New Function - ElevenLabs Batch Transcription:**
 ```typescript
-// Before
-preferRealtime={true}
+async function transcribeWithElevenLabs(audioBase64: string): Promise<string> {
+  const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+  if (!ELEVENLABS_API_KEY) {
+    throw new Error('ELEVENLABS_API_KEY not configured');
+  }
 
-// After
-preferRealtime={false}
-```
+  // Decode base64 to binary
+  const binaryString = atob(audioBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
 
-**Full Context** (lines 577-591):
-```typescript
-<VoiceRecordButton 
-  onTranscription={(text) => {
-    setIsVoiceInput(true);
-    handleSendMessage(text);
-  }} 
-  disabled={isUploadingImage || loading}
-  preferRealtime={false}  // Changed from true
-  showLabel={true}
-  showLiveTranscript={false}  // Also change - no live transcripts in batch mode
-  showPreview={false}
-  size="md"
-  variant="secondary"
-  idleLabel="Speak to Doc Aga"
-  recordingLabel="Stop & Send"
-/>
-```
+  // Create form data with audio file
+  const formData = new FormData();
+  const audioBlob = new Blob([bytes], { type: 'audio/webm' });
+  formData.append('file', audioBlob, 'recording.webm');
+  formData.append('model_id', 'scribe_v2');
+  // Auto-detect language for Taglish support
+  // formData.append('language_code', 'tgl'); // Optional: can force Tagalog
 
----
+  const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': ELEVENLABS_API_KEY,
+    },
+    body: formData,
+  });
 
-### File 2: `src/components/farmhand/DocAgaConsultation.tsx`
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ElevenLabs error: ${response.status} - ${errorText}`);
+  }
 
-**Change**: Lines 346-349
-
-```typescript
-// Before
-<VoiceRecordButton
-  preferRealtime={true}
-  showLabel
-  showLiveTranscript
-
-// After
-<VoiceRecordButton
-  preferRealtime={false}
-  showLabel
-  showLiveTranscript={false}  // No live transcripts in batch mode
-```
-
----
-
-## How Batch Mode Works (Existing Code)
-
-The `useVoiceRecording` hook already supports batch mode - we're just enabling it:
-
-```typescript
-// In startRecording() - line 176-198:
-if (preferRealtime) {
-  // ... WebSocket path (skipped when false)
-} else {
-  // Use batch mode directly - NO connecting state
-  streamRef.current = stream;
-  await startBatchRecording();  // Goes straight to recording
+  const result = await response.json();
+  return result.text;
 }
 ```
 
-The `startBatchRecording()` function:
-1. Sets provider to 'gemini'
-2. Creates MediaRecorder (local, no network)
-3. Dispatches `RECORDING_START` immediately (no "connecting")
-4. On stop: sends blob to `voice-to-text` edge function
-
----
-
-## State Flow Comparison
-
-### Realtime Mode (Current)
-```text
-idle → requesting_mic → connecting → recording → stopping → preview → idle
-                           ↑
-                      "Connecting..." shown here
-```
-
-### Batch Mode (New)
-```text
-idle → requesting_mic → recording → stopping → processing → preview → idle
-           ↑                                       ↑
-      Instant start                         "Processing..." shown here
-```
-
----
-
-## Offline Behavior
-
-With batch mode, the existing offline queue kicks in automatically:
-
+**Updated Main Logic - Fallback Chain:**
 ```typescript
-// In processBatchAudio() - line 283-308:
-if (!navigator.onLine) {
-  // Queue audio for later transcription
-  const queueId = await queueOfflineAudio(blob, metadata);
-  dispatch({ type: 'OFFLINE_QUEUED', queueId });
-  toast.info('Recording saved offline');
-  return;
+// Try ElevenLabs first
+let transcription: string | null = null;
+let provider = 'elevenlabs';
+
+try {
+  console.log('[voice-to-text] Trying ElevenLabs Scribe v2...');
+  transcription = await transcribeWithElevenLabs(audio);
+  console.log('[voice-to-text] ElevenLabs success');
+} catch (elevenLabsError) {
+  console.warn('[voice-to-text] ElevenLabs failed, falling back to Gemini:', elevenLabsError);
+  provider = 'gemini';
+  
+  // Fallback to Gemini
+  const geminiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // ... existing Gemini logic
+  });
+  
+  // ... process Gemini response
+  transcription = result.choices?.[0]?.message?.content?.trim();
 }
 ```
 
-When the user is back online, the `useOfflineAudioSync` hook processes queued recordings automatically.
+---
+
+## Analytics Tracking
+
+The `stt_analytics` table will now capture which provider was used:
+
+| model_provider | model_version | status |
+|----------------|---------------|--------|
+| `elevenlabs` | `scribe_v2` | `success` |
+| `gemini` | `gemini-3-pro-preview` | `success` (fallback) |
+
+This allows you to monitor:
+- ElevenLabs success rate
+- How often Gemini fallback is triggered
+- Latency comparison between providers
+
+---
+
+## ElevenLabs Batch API Details
+
+**Endpoint:** `POST https://api.elevenlabs.io/v1/speech-to-text`
+
+**Request:**
+- `file`: Audio file (webm, mp3, wav, etc.)
+- `model_id`: `scribe_v2`
+- `language_code`: Optional (auto-detect if omitted)
+- `tag_audio_events`: Optional (detect laughter, music, etc.)
+- `diarize`: Optional (identify speakers)
+
+**Response:**
+```json
+{
+  "text": "The transcribed text",
+  "words": [
+    { "text": "The", "start": 0.0, "end": 0.1 },
+    { "text": "transcribed", "start": 0.12, "end": 0.5 }
+  ]
+}
+```
 
 ---
 
@@ -142,47 +161,37 @@ When the user is back online, the `useOfflineAudioSync` hook processes queued re
 
 | File | Change |
 |------|--------|
-| `src/components/DocAga.tsx` | Set `preferRealtime={false}`, `showLiveTranscript={false}` |
-| `src/components/farmhand/DocAgaConsultation.tsx` | Set `preferRealtime={false}`, `showLiveTranscript={false}` |
+| `supabase/functions/voice-to-text/index.ts` | Add ElevenLabs function, implement fallback chain |
+
+---
+
+## Benefits
+
+1. **Better Speech Recognition**: ElevenLabs is purpose-built for speech (vs Gemini which is general-purpose multimodal)
+2. **Automatic Redundancy**: If ElevenLabs is down or rate-limited, Gemini takes over seamlessly
+3. **Filipino Support**: ElevenLabs supports Tagalog (`tgl`) and English, handles code-switching
+4. **Offline-First Still Works**: Recording is local, only transcription needs network (after stop)
+5. **Analytics Visibility**: Track provider performance to optimize over time
 
 ---
 
 ## Trade-offs
 
-| Feature | Realtime | Batch |
-|---------|----------|-------|
-| Live partial transcripts | Yes | No |
-| Offline recording | Yes | Yes |
-| Offline transcription | No | **Queued** |
-| Network during recording | Required | Not required |
-| Latency to start | ~500ms-2s | Instant |
-| Processing time | During recording | After stop |
-
----
-
-## Expected User Experience
-
-1. **Farmer clicks "Speak to Doc Aga"**
-2. **Recording starts immediately** (red pulsing indicator)
-3. Farmer speaks their question
-4. **Farmer clicks "Stop & Send"**
-5. **"Processing..."** shown briefly (1-2 seconds)
-6. Transcription appears and Doc Aga responds
-
-If offline:
-- Recording still works
-- "Saved offline" message shown
-- Queued for processing when connectivity returns
+| Aspect | ElevenLabs Primary | Gemini Only |
+|--------|-------------------|-------------|
+| Latency | ~1-3s | ~2-4s |
+| Cost | Uses ElevenLabs credits | Uses Lovable AI credits |
+| Taglish accuracy | Excellent | Good |
+| Fallback | Gemini backup | None |
 
 ---
 
 ## Testing Checklist
 
 After implementation:
-- [ ] No "Connecting..." state shown
-- [ ] Recording starts immediately on button click
-- [ ] "Processing..." shows after stop button
-- [ ] Transcription appears correctly
-- [ ] Offline recording queues properly
-- [ ] Doc Aga responds to transcribed text
-- [ ] TTS audio plays response
+- [ ] ElevenLabs transcription works for Filipino speech
+- [ ] Fallback to Gemini triggers when ElevenLabs fails
+- [ ] Analytics show correct provider attribution
+- [ ] Error messages are user-friendly
+- [ ] Offline queue still works (audio saved, transcribed on reconnect)
+
