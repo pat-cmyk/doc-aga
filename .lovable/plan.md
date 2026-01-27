@@ -1,365 +1,179 @@
 
-# Consolidate Taglish SSOT + Add Preprocessing Tests
+# Fix Taglish Voice Parsing: Feed Name + Spoken Numbers
 
 ## Problem Summary
 
-The `process-farmhand-activity` edge function contains ~200 lines of inline Taglish content (lines 530-700) that duplicates definitions already in the SSOT file (`stt-prompts.ts`). This violates the Single Source of Truth principle and creates maintenance risk.
+The voice input **"nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat"** has TWO extraction issues:
 
-**Current State:**
-| File | Status |
-|------|--------|
-| `stt-prompts.ts` | ✅ SSOT - Contains `AGRICULTURAL_GLOSSARY`, `TAGALOG_DISCOURSE_MARKERS`, `TAGLISH_PATTERNS` |
-| `process-farmhand-activity/index.ts` | ❌ Has inline duplicates (lines 530-700) |
-| `voiceFormExtractors.ts` | ✅ Uses `preprocessTagalogParticles()` |
+| Issue | Current Behavior | Expected |
+|-------|------------------|----------|
+| **Feed Name** | Not extracted (regex fails due to "ngayon araw" between feed and "na") | "Rumsol Feeds Cattle Grower" |
+| **Quantity** | "two kilos" may not be extracted | 2 kg |
 
 ---
 
-## Part 1: Consolidate Edge Function to Use SSOT
+## Root Cause Analysis
 
-### File: `supabase/functions/process-farmhand-activity/index.ts`
+### Issue 1: Feed Name Extraction Fails
 
-**Current (Duplicated - Lines 512-701):**
-```typescript
-content: animalId && animalInfo
-  ? `You are an assistant helping farmhands...
-     
-     **FILIPINO LANGUAGE SUPPORT**:
-     You MUST recognize Filipino/Tagalog and Bisaya...
-     
-     Common Filipino/Tagalog Terms:
-     - Feed Types: "dayami"=rice straw...
-     [~180 lines of inline content]
+**Current Pattern (line ~533):**
+```javascript
+/(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:na|that|ng)/i
 ```
 
-**After (Using SSOT):**
-```typescript
-import { 
-  getActivityExtractionPrompt,
-  AGRICULTURAL_GLOSSARY,
-  TAGALOG_DISCOURSE_MARKERS,
-  TAGLISH_PATTERNS,
-  NUMBER_DISAMBIGUATION_RULES
-} from "../_shared/stt-prompts.ts";
+**Input:** `"ng rumsol feeds ngayon araw na two kilos"`
 
-// In the AI request:
-content: animalId && animalInfo
-  ? getActivityExtractionPrompt(animalInfo, animalId)
-  : animalId
-  ? getActivityExtractionPrompt(undefined, animalId)
-  : getActivityExtractionPrompt()
+**Problem:** Pattern expects `(feed name) + (na|that|ng)` immediately adjacent. But there's **"ngayon araw"** between "feeds" and "na".
+
+### Issue 2: "two kilos" Should Work But May Not
+
+**Pattern 2 in extractSpokenKilograms:**
+```javascript
+/(?:na|ng|of)\s+(two)\s*(?:kilos)\b/i
 ```
 
-### Changes Required
-
-1. **Update imports** (line 6): Add all SSOT exports
-2. **Replace inline prompts** (lines 512-701): Use `getActivityExtractionPrompt()` function
-3. **Enhance `getActivityExtractionPrompt()`** in `stt-prompts.ts`: Add missing content that exists in the edge function but not in SSOT:
-   - Bisaya/Cebuano terms ("gabie", "karon", "ugma")
-   - Livestock type detection for milking
-   - Feed type vs unit distinction rules
-   - Tool call parameters specification
+This SHOULD match "na two kilos" - but I suspect either:
+- The function isn't being reached, OR
+- There's a word boundary issue with the generated regex pattern
 
 ---
 
-## Part 2: Enhance stt-prompts.ts with Missing Content
+## Solution: Dual Fix
 
-### File: `supabase/functions/_shared/stt-prompts.ts`
+### Part 1: Enhanced Feed Name Extraction Patterns
 
-Add missing content to `getActivityExtractionPrompt()` that currently only exists inline:
+Add new patterns to handle Taglish sentence structures where time words appear between feed name and quantity:
 
 ```typescript
-export function getActivityExtractionPrompt(
-  animalInfo?: { name?: string; ear_tag?: string }, 
-  animalId?: string
-): string {
-  const animalContext = animalInfo 
-    ? `The farmhand is recording an activity for animal: ${animalInfo.name || 'Unknown'} (Ear Tag: ${animalInfo.ear_tag || 'N/A'}, ID: ${animalId}).
-       IMPORTANT: The animal is already identified. DO NOT need to extract animal_identifier unless a DIFFERENT animal is mentioned.`
-    : animalId
-    ? `The farmhand is recording an activity for a SPECIFIC ANIMAL (ID: ${animalId}). The animal is already identified.`
-    : 'Extract animal identifier if mentioned (ear tag, name, or description).';
+// In extractFeedNameFromText() - add these patterns:
 
-  return `
-You are an assistant helping farmhands log their daily activities. Extract structured information from voice transcriptions.
+// NEW Pattern: "ng [brand feeds] ngayon/today/kanina/kahapon" 
+// Handles time words after feed name
+/(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:ngayon|today|kanina|kahapon|araw)/i,
 
-${animalContext}
+// NEW Pattern: "nagpakain (tayo/ako) ng [brand]"
+// Direct feeding verb pattern
+/(?:nagpakain|nagfeed|pinakain)\s+(?:tayo|ako|sila|kami)?\s*(?:ng|of)?\s*([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)/i,
 
-${AGRICULTURAL_GLOSSARY}
+// NEW Pattern: Standalone "[brand] feeds" anywhere
+/\b([A-Za-z]+\s+feeds?)\b/i,
+```
 
-${TAGALOG_DISCOURSE_MARKERS}
+### Part 2: Brand Name Normalization (STT Error Handling)
 
-${TAGLISH_PATTERNS}
+Add mapping for common STT transcription errors:
 
-${NUMBER_DISAMBIGUATION_RULES}
+```typescript
+const FEED_BRAND_ALIASES: Record<string, string[]> = {
+  'rumsol': ['rumsol', 'rum sol', 'rum sulfid', 'rum sulfids', 'rumsole', 'rum sole'],
+  'vitarich': ['vitarich', 'vita rich', 'vita-rich'],
+  'bmeg': ['bmeg', 'b-meg', 'b meg'],
+};
 
-**BISAYA/CEBUANO SUPPORT**:
-- Time: "gabie"=yesterday, "karon"=now, "ugma"=tomorrow (FUTURE - reject!)
-- Activities: "papakaon"=feeding, "pagatas"=milking
+function normalizeFeedBrand(spoken: string): string {
+  const lower = spoken.toLowerCase();
+  for (const [canonical, aliases] of Object.entries(FEED_BRAND_ALIASES)) {
+    if (aliases.some(alias => lower.includes(alias))) {
+      return canonical;
+    }
+  }
+  return spoken;
+}
+```
 
-**LIVESTOCK TYPE DETECTION FOR MILKING**:
-Detect livestock type from milk-related keywords:
-- "goat milk"/"gatas ng kambing" → livestock_type: 'goat'
-- "cow milk"/"gatas ng baka" → livestock_type: 'cattle'
-- "carabao milk"/"gatas ng kalabaw" → livestock_type: 'carabao'
-- "sheep milk"/"gatas ng tupa" → livestock_type: 'sheep'
-- No type mentioned → livestock_type: null
+### Part 3: Prefix-Aware Fuzzy Matching
 
-**CRITICAL - Feed Type vs Unit Distinction**:
-FEED_TYPE = WHAT the feed is (material name): "corn silage", "hay", "concentrates"
-UNIT = HOW it's measured: "bales", "bags", "barrels", "kg"
+When user says "rumsol feeds", match against "Rumsol Feeds Cattle Grower" with high confidence:
 
-EXTRACTION RULES:
-1. "5 bales" alone → feed_type: null, unit: "bales", quantity: 5
-2. "5 bales of corn silage" → feed_type: "corn silage", unit: "bales", quantity: 5
-3. "8 bales of baled corn silage" → feed_type: "baled corn silage", unit: "bales", quantity: 8
+```typescript
+// In fuzzyMatchFeedType() - add prefix check BEFORE Levenshtein:
 
-**NEVER use the unit name as the feed_type!**
+// Check if spoken feed is a prefix/beginning of any inventory item
+for (const item of inventory) {
+  const itemLower = item.feed_type.toLowerCase();
+  const spokenLower = spokenFeed.toLowerCase();
+  
+  // "rumsol feeds" is prefix of "rumsol feeds cattle grower"
+  if (itemLower.startsWith(spokenLower)) {
+    return { 
+      bestMatch: item, 
+      confidence: 'high', 
+      suggestions: [] 
+    };
+  }
+}
+```
 
-**ACTIVITY TYPES**:
-- feeding: Recording feed given to animals (requires quantity, feed_type, unit)
-- milking: Recording milk production (requires quantity in liters)
-- health_observation: General health checks (requires notes)
-- weight_measurement: Recording animal weight (requires quantity in kg)
-- injection: Medicine or vaccine administration (requires medicine_name)
-- cleaning: General cleaning tasks
+### Part 4: Robust Spoken Number Pattern
 
-**OUTPUT FORMAT** (JSON only):
+Add explicit pattern for "X kilos para sa" structure:
+
+```typescript
+// In extractSpokenKilograms() - add Pattern 4:
+
+// Pattern 4: "X kilos para sa" - spoken number before "para"
+const paraPattern = new RegExp(
+  `\\b(${NUMBER_WORD_PATTERN})\\s*(?:kilo|kg|kilos)\\s+(?:para|for)\\b`,
+  'i'
+);
+const paraMatch = lowerText.match(paraPattern);
+if (paraMatch) {
+  const parsed = parseSpokenNumber(paraMatch[1]);
+  if (parsed && parsed >= 0.5 && parsed <= 500) {
+    console.log(`[VoiceExtractor] Para pattern match: "${paraMatch[1]}" → ${parsed}`);
+    return parsed;
+  }
+}
+```
+
+---
+
+## File Changes
+
+### `src/lib/voiceFormExtractors.ts`
+
+| Location | Change |
+|----------|--------|
+| ~Line 60 | Add `FEED_BRAND_ALIASES` constant |
+| ~Line 75 | Add `normalizeFeedBrand()` helper function |
+| ~Line 505 | Add Pattern 4 (para pattern) in `extractSpokenKilograms()` |
+| ~Line 533 | Add 3 new patterns in `extractFeedNameFromText()` |
+| ~Line 555 | Add prefix matching in `fuzzyMatchFeedType()` |
+| ~Line 680 | Call `normalizeFeedBrand()` before matching |
+
+---
+
+## Expected Flow After Fix
+
+**Input:** `"nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat"`
+
+1. **Feed Extraction:**
+   - New pattern matches: `"ng rumsol feeds ngayon"` → extracts "rumsol feeds"
+   - Brand normalization: "rumsol feeds" stays as-is (correct spelling)
+   - Prefix match: "rumsol feeds" matches "Rumsol Feeds Cattle Grower" ✅
+
+2. **Quantity Extraction:**
+   - Pattern 2: `"na two kilos"` → extracts "two" → parses to 2
+   - OR Pattern 4: `"two kilos para"` → extracts "two" → parses to 2 ✅
+
+**Result:**
+```json
 {
-  "activity_type": "feeding" | "milking" | "health_observation" | "weight_measurement" | "injection",
-  "quantity": number | null,
-  "unit": "bales" | "bags" | "barrels" | "kg" | "liters" | null,
-  "feed_type": string | null,
-  "livestock_type": "cattle" | "goat" | "carabao" | "sheep" | null,
-  "animal_identifier": string | null,
-  "date_reference": string | null,
-  "notes": string | null,
-  "medicine_name": string | null,
-  "dosage": string | null,
-  "session": "AM" | "PM" | null
-}
-`.trim();
+  "feedType": "Rumsol Feeds Cattle Grower",
+  "feedInventoryId": "inventory-uuid",
+  "totalKg": 2,
+  "matchConfidence": "high"
 }
 ```
 
 ---
 
-## Part 3: Add Tagalog Preprocessing Unit Tests
+## Testing Matrix
 
-### File: `src/__tests__/lib/tagalogPreprocessing.test.ts` (NEW)
-
-Create comprehensive tests for `preprocessTagalogParticles()`:
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { 
-  preprocessTagalogParticles, 
-  type TagalogParticleInfo 
-} from '@/lib/voiceFormExtractors';
-
-describe('preprocessTagalogParticles', () => {
-  
-  describe('Noise Particle Stripping', () => {
-    it('strips "po" polite markers', () => {
-      const result = preprocessTagalogParticles('30 liters po');
-      expect(result.cleanedText).toBe('30 liters');
-    });
-    
-    it('strips "opo" polite markers', () => {
-      const result = preprocessTagalogParticles('Oo opo nagfeed na');
-      expect(result.cleanedText).not.toContain('opo');
-    });
-    
-    it('strips "eh" filler', () => {
-      const result = preprocessTagalogParticles('Eh mga 20 kilos');
-      expect(result.cleanedText).not.toContain('Eh');
-    });
-    
-    it('strips multiple noise particles', () => {
-      const result = preprocessTagalogParticles('50 liters po eh');
-      expect(result.cleanedText).toBe('50 liters');
-    });
-  });
-  
-  describe('Approximation Detection', () => {
-    it('detects "mga" as approximate', () => {
-      const result = preprocessTagalogParticles('Mga 40 liters');
-      expect(result.isApproximate).toBe(true);
-      expect(result.particleConfidence).toBe('low');
-    });
-    
-    it('detects "halos" as approximate', () => {
-      const result = preprocessTagalogParticles('Halos 50 kilos');
-      expect(result.isApproximate).toBe(true);
-    });
-    
-    it('detects "yata" as uncertain', () => {
-      const result = preprocessTagalogParticles('20 liters yata');
-      expect(result.isApproximate).toBe(true);
-      expect(result.particleConfidence).toBe('low');
-    });
-  });
-  
-  describe('Emphasis Detection', () => {
-    it('detects "talaga" as emphatic', () => {
-      const result = preprocessTagalogParticles('50 kilos talaga');
-      expect(result.isEmphatic).toBe(true);
-      expect(result.particleConfidence).toBe('high');
-    });
-    
-    it('detects "mismo" as emphatic', () => {
-      const result = preprocessTagalogParticles('100 liters mismo');
-      expect(result.isEmphatic).toBe(true);
-    });
-  });
-  
-  describe('Correction Detection', () => {
-    it('detects "pala" as correction', () => {
-      const result = preprocessTagalogParticles('Ay pala kahapon yung feeding');
-      expect(result.hasCorrection).toBe(true);
-      expect(result.particleConfidence).toBe('low');
-    });
-    
-    it('detects "ay pala" compound', () => {
-      const result = preprocessTagalogParticles('Ay pala 30 liters');
-      expect(result.hasCorrection).toBe(true);
-    });
-  });
-  
-  describe('Addition Detection', () => {
-    it('detects "din" as addition', () => {
-      const result = preprocessTagalogParticles('Yung kambing din');
-      expect(result.hasAddition).toBe(true);
-    });
-    
-    it('detects "rin" as addition', () => {
-      const result = preprocessTagalogParticles('Yung baka rin');
-      expect(result.hasAddition).toBe(true);
-    });
-    
-    it('detects "pa" as addition', () => {
-      const result = preprocessTagalogParticles('Nagmilk pa ako');
-      expect(result.hasAddition).toBe(true);
-    });
-  });
-  
-  describe('Completion Detection', () => {
-    it('detects "tapos na" as completed', () => {
-      const result = preprocessTagalogParticles('Feeding tapos na');
-      expect(result.isCompleted).toBe(true);
-    });
-    
-    it('detects "done na" as completed', () => {
-      const result = preprocessTagalogParticles('Milking done na');
-      expect(result.isCompleted).toBe(true);
-    });
-  });
-  
-  describe('Confidence Scoring', () => {
-    it('returns medium confidence by default', () => {
-      const result = preprocessTagalogParticles('40 liters');
-      expect(result.particleConfidence).toBe('medium');
-    });
-    
-    it('returns high confidence with emphasis', () => {
-      const result = preprocessTagalogParticles('40 liters talaga');
-      expect(result.particleConfidence).toBe('high');
-    });
-    
-    it('returns low confidence with approximation', () => {
-      const result = preprocessTagalogParticles('mga 40 liters');
-      expect(result.particleConfidence).toBe('low');
-    });
-    
-    it('approximation overrides emphasis for confidence', () => {
-      const result = preprocessTagalogParticles('mga 40 liters talaga');
-      expect(result.particleConfidence).toBe('low');
-    });
-  });
-  
-  describe('Edge Cases', () => {
-    it('handles empty string', () => {
-      const result = preprocessTagalogParticles('');
-      expect(result.cleanedText).toBe('');
-    });
-    
-    it('handles string with only noise particles', () => {
-      const result = preprocessTagalogParticles('po opo eh');
-      expect(result.cleanedText).toBe('');
-    });
-    
-    it('normalizes multiple spaces', () => {
-      const result = preprocessTagalogParticles('40  liters   po');
-      expect(result.cleanedText).toBe('40 liters');
-    });
-    
-    it('preserves case for non-particles', () => {
-      const result = preprocessTagalogParticles('Rumsol Feeds po');
-      expect(result.cleanedText).toBe('Rumsol Feeds');
-    });
-  });
-  
-  describe('Real-World Scenarios', () => {
-    it('processes "Mga 40 liters po ng gatas"', () => {
-      const result = preprocessTagalogParticles('Mga 40 liters po ng gatas');
-      expect(result.cleanedText).toBe('Mga 40 liters ng gatas');
-      expect(result.isApproximate).toBe(true);
-    });
-    
-    it('processes "Ay pala, kahapon yung feeding"', () => {
-      const result = preprocessTagalogParticles('Ay pala, kahapon yung feeding');
-      expect(result.hasCorrection).toBe(true);
-    });
-    
-    it('processes "10 liters lang po"', () => {
-      const result = preprocessTagalogParticles('10 liters lang po');
-      expect(result.cleanedText).toBe('10 liters lang');
-    });
-  });
-});
-```
-
----
-
-## Files to Create/Modify
-
-| File | Action | Changes |
-|------|--------|---------|
-| `supabase/functions/_shared/stt-prompts.ts` | Modify | Enhance `getActivityExtractionPrompt()` with missing Bisaya terms, livestock detection, feed type rules |
-| `supabase/functions/process-farmhand-activity/index.ts` | Modify | Replace inline prompts (lines 512-701) with SSOT imports |
-| `src/__tests__/lib/tagalogPreprocessing.test.ts` | Create | Unit tests for `preprocessTagalogParticles()` |
-
----
-
-## SSOT Verification After Implementation
-
-After changes, all Taglish content will flow from **one source**:
-
-```text
-stt-prompts.ts (SSOT)
-├── AGRICULTURAL_GLOSSARY
-├── TAGALOG_DISCOURSE_MARKERS  
-├── TAGLISH_PATTERNS
-├── NUMBER_DISAMBIGUATION_RULES
-└── getActivityExtractionPrompt()
-    │
-    ├──> process-farmhand-activity (imports SSOT)
-    ├──> process-animal-voice (imports SSOT)  
-    └──> voice-to-text (imports SSOT)
-
-voiceFormExtractors.ts (Client-side)
-└── preprocessTagalogParticles()
-    │
-    └──> extractMilkData(), extractFeedData()
-```
-
----
-
-## Testing After Implementation
-
-| Test | Expected Result |
-|------|-----------------|
-| Run `tagalogPreprocessing.test.ts` | All particle tests pass |
-| Test voice: "Mga 40 liters po" | Approximate warning shown |
-| Test voice: "50 kilos talaga" | High confidence extraction |
-| Test voice: "Ay pala kahapon" | Correction warning shown |
-| Edge function logs | SSOT imports used, no inline content |
+| Voice Input | Expected feedType | Expected totalKg |
+|-------------|-------------------|------------------|
+| "nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat" | Rumsol Feeds Cattle Grower | 2 |
+| "rum sulfids two kilos" | Rumsol Feeds Cattle Grower | 2 |
+| "rumsol feeds 10 kilos" | Rumsol Feeds Cattle Grower | 10 |
+| "dalawang kilo ng rumsol" | Rumsol Feeds Cattle Grower | 2 |
+| "twenty kilos of napier" | Napier | 20 |
