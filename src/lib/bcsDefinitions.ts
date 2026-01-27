@@ -100,6 +100,7 @@ export const EXIT_REASONS = [
   { value: 'culled', label: 'Culled', labelTagalog: 'Tinanggal sa Kawan' },
   { value: 'transferred', label: 'Transferred', labelTagalog: 'Inilipat' },
   { value: 'slaughtered', label: 'Slaughtered', labelTagalog: 'Kinatay' },
+  { value: 'data_error', label: 'Data Entry Error', labelTagalog: 'Mali sa Pagpasok ng Datos' },
 ];
 
 export const EXIT_DETAILS: Record<string, { value: string; label: string; labelTagalog: string }[]> = {
