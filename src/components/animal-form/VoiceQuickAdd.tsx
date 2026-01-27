@@ -1,12 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+/**
+ * VoiceQuickAdd - Voice-enabled animal registration component
+ * 
+ * Uses the unified useVoiceRecording hook for consistent voice handling,
+ * but maintains custom preview UI for animal data review.
+ */
+
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, Square, Loader2, Check, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
-import { hapticImpact, hapticNotification } from '@/lib/haptics';
+import { hapticNotification } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 export interface ExtractedAnimalData {
   livestock_type: 'cattle' | 'goat' | 'sheep' | 'carabao' | null;
@@ -25,8 +33,6 @@ interface VoiceQuickAddProps {
   disabled?: boolean;
 }
 
-type VoiceState = 'idle' | 'recording' | 'transcribing' | 'processing' | 'preview' | 'error';
-
 const livestockEmojis: Record<string, string> = {
   cattle: '🐄',
   carabao: '🐃',
@@ -34,107 +40,23 @@ const livestockEmojis: Record<string, string> = {
   sheep: '🐑',
 };
 
+type ComponentState = 'idle' | 'recording' | 'processing' | 'preview' | 'error';
+
 const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled = false }) => {
   const { toast } = useToast();
-  const [state, setState] = useState<VoiceState>('idle');
+  const [componentState, setComponentState] = useState<ComponentState>('idle');
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
   const [extractedData, setExtractedData] = useState<ExtractedAnimalData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  const startRecording = async () => {
+  // Process transcription to extract animal data
+  const processTranscription = useCallback(async (text: string) => {
+    setTranscription(text);
+    setComponentState('processing');
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      
-      const mimeType = /samsung/i.test(navigator.userAgent) 
-        ? 'audio/webm;codecs=opus' 
-        : 'audio/webm';
-      
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        stream.getTracks().forEach(track => track.stop());
-        await processAudio(audioBlob);
-      };
-
-      mediaRecorder.onerror = () => {
-        setState('error');
-        setErrorMessage('Recording failed. Please try again.');
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setState('recording');
-      hapticImpact('medium');
-      
-    } catch (error) {
-      console.error('Microphone access error:', error);
-      setShowPermissionDialog(true);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && state === 'recording') {
-      mediaRecorderRef.current.stop();
-      setState('transcribing');
-      hapticImpact('light');
-    }
-  };
-
-  const processAudio = async (blob: Blob) => {
-    try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Audio = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      // Step 1: Transcribe audio
-      const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('voice-to-text', {
-        body: { audio: base64Audio }
-      });
-
-      if (transcribeError || transcribeData?.error) {
-        throw new Error(transcribeData?.error || 'Transcription failed');
-      }
-
-      const text = transcribeData.text;
-      if (!text) {
-        throw new Error('No speech detected. Please try again.');
-      }
-
-      setTranscription(text);
-      setState('processing');
-
-      // Step 2: Extract animal data from transcription
+      // Call edge function to extract animal data
       const { data: extractData, error: extractError } = await supabase.functions.invoke('process-animal-voice', {
         body: { transcription: text }
       });
@@ -145,18 +67,59 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
 
       if (extractData?.data) {
         setExtractedData(extractData.data);
-        setState('preview');
+        setComponentState('preview');
         hapticNotification('success');
       } else {
         throw new Error('Could not understand the voice command');
       }
-
     } catch (error) {
       console.error('Voice processing error:', error);
-      setState('error');
+      setComponentState('error');
       setErrorMessage(error instanceof Error ? error.message : 'Processing failed');
       hapticNotification('error');
     }
+  }, []);
+
+  // Use the unified voice recording hook
+  const {
+    state: voiceState,
+    startRecording,
+    stopRecording,
+    reset: resetVoice,
+    isRecording,
+    isProcessingAudio,
+    stateLabel,
+  } = useVoiceRecording({
+    preferRealtime: false, // Use batch mode for animal registration
+    onTranscription: processTranscription,
+    onError: (error) => {
+      if (error.message.includes('denied') || error.message.includes('permission')) {
+        setShowPermissionDialog(true);
+      } else {
+        setComponentState('error');
+        setErrorMessage(error.message);
+      }
+    },
+  });
+
+  // Sync component state with voice recording state
+  React.useEffect(() => {
+    if (voiceState === 'recording' || voiceState === 'connecting') {
+      setComponentState('recording');
+    } else if (voiceState === 'processing' || voiceState === 'stopping') {
+      setComponentState('processing');
+    }
+  }, [voiceState]);
+
+  const handleStartRecording = () => {
+    setErrorMessage('');
+    setExtractedData(null);
+    setTranscription('');
+    startRecording();
+  };
+
+  const handleStopRecording = () => {
+    stopRecording();
   };
 
   const handleApply = () => {
@@ -172,10 +135,11 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
   };
 
   const resetState = () => {
-    setState('idle');
+    setComponentState('idle');
     setTranscription('');
     setExtractedData(null);
     setErrorMessage('');
+    resetVoice();
   };
 
   const getConfidenceBadgeColor = (confidence: string) => {
@@ -235,14 +199,17 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
       <MicrophonePermissionDialog
         open={showPermissionDialog}
         onOpenChange={setShowPermissionDialog}
-        onRetry={startRecording}
+        onRetry={() => {
+          setShowPermissionDialog(false);
+          handleStartRecording();
+        }}
       />
 
       <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
         <CardContent className="p-4">
-          {state === 'idle' && (
+          {componentState === 'idle' && (
             <Button
-              onClick={startRecording}
+              onClick={handleStartRecording}
               disabled={disabled}
               variant="outline"
               className="w-full h-14 gap-3 text-base font-medium border-primary/30 hover:bg-primary/10 hover:border-primary"
@@ -255,12 +222,12 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
             </Button>
           )}
 
-          {state === 'recording' && (
+          {componentState === 'recording' && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-4 w-4 rounded-full bg-destructive animate-pulse" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-destructive">Listening...</span>
+                  <span className="text-sm font-medium text-destructive">{stateLabel}</span>
                   <span className="text-xs text-muted-foreground">Nakikinig...</span>
                 </div>
               </div>
@@ -268,7 +235,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
                 Example: "Add female cow, ear tag A005, currently milking"
               </p>
               <Button
-                onClick={stopRecording}
+                onClick={handleStopRecording}
                 variant="destructive"
                 className="w-full h-12 gap-2"
               >
@@ -278,21 +245,17 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
             </div>
           )}
 
-          {(state === 'transcribing' || state === 'processing') && (
+          {componentState === 'processing' && (
             <div className="flex items-center justify-center gap-3 py-4">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div className="flex flex-col">
-                <span className="text-sm font-medium">
-                  {state === 'transcribing' ? 'Transcribing...' : 'Understanding...'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {state === 'transcribing' ? 'Isina-salita...' : 'Pinoproseso...'}
-                </span>
+                <span className="text-sm font-medium">Understanding...</span>
+                <span className="text-xs text-muted-foreground">Pinoproseso...</span>
               </div>
             </div>
           )}
 
-          {state === 'preview' && extractedData && (
+          {componentState === 'preview' && extractedData && (
             <div className="space-y-4">
               {renderPreviewContent()}
               <div className="flex gap-2">
@@ -315,7 +278,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
             </div>
           )}
 
-          {state === 'error' && (
+          {componentState === 'error' && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />

@@ -30,7 +30,7 @@ import {
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
 import { AnimalCombobox } from "./AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
-import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
@@ -405,18 +405,18 @@ export function RecordBulkMilkDialog({
             <Milk className="h-5 w-5 text-blue-500" />
             Record Milk Production
             <div className="ml-auto flex items-center gap-2">
-              <VoiceFormInput
+              <VoiceRecordWithExtraction
                 extractorType="milk"
                 extractorContext={animalContext}
                 onDataExtracted={handleVoiceDataExtracted}
                 disabled={isLoading || displayAnimals.length === 0}
-                offlineMode="queue"
-                formType="milk"
                 size="sm"
-                autoSubmit={displayAnimals.length > 0}
-                onAutoSubmit={handleSubmit}
-                isFormComplete={isFormCompleteForAutoSubmit}
-                autoSubmitDelay={2500}
+                autoSubmit={{
+                  enabled: displayAnimals.length > 0,
+                  onSubmit: handleSubmit,
+                  isComplete: isFormCompleteForAutoSubmit,
+                  delayMs: 2500,
+                }}
               />
               {!isOnline && (
                 <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">

@@ -1,103 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Mic, Send, Loader2, Volume2 } from "lucide-react";
+import { Send, Loader2, Volume2 } from "lucide-react";
 import { useFarmerFeedback } from "@/hooks/useFarmerFeedback";
 import { useFeedbackNotifications } from "@/hooks/useFeedbackNotifications";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
+import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 
 interface GovernmentConnectTabProps {
   farmId: string;
 }
 
 export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
   const { submitFeedback, isSubmitting } = useFarmerFeedback(farmId);
   
   // Enable real-time notifications
   useFeedbackNotifications(farmId);
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-        await processAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setAudioChunks(chunks);
-      setIsRecording(true);
-      toast.info("Nagsisimula nang mag-record...");
-    } catch (error: any) {
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        setShowPermissionDialog(true);
-      } else {
-        toast.error("Hindi ma-access ang microphone");
-      }
-      console.error(error);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      setIsProcessing(true);
-    }
-  };
-
-  const processAudio = async (audioBlob: Blob) => {
-    try {
-      // Convert to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      reader.onloadend = async () => {
-        const base64Audio = reader.result?.toString().split(',')[1];
-        
-        if (!base64Audio) {
-          throw new Error('Failed to process audio');
-        }
-
-        // Call voice-to-text function
-        const { data, error } = await supabase.functions.invoke('voice-to-text', {
-          body: { audio: base64Audio }
-        });
-
-        if (error) throw error;
-
-        setTranscription(data.text);
-        toast.success("Na-transcribe na ang iyong mensahe");
-      };
-    } catch (error) {
-      toast.error("Hindi ma-process ang audio");
-      console.error(error);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleVoiceTranscription = (text: string) => {
+    // Append to existing transcription
+    setTranscription(prev => prev ? `${prev} ${text}` : text);
   };
 
   const handleSubmit = () => {
@@ -133,36 +61,21 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
       <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center justify-center py-8">
-            {isRecording || isProcessing ? (
-              <Button
-                size="lg"
-                variant={isRecording ? "destructive" : "secondary"}
-                className="h-24 w-24 rounded-full"
-                onClick={stopRecording}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                ) : (
-                  <Mic className="h-8 w-8" />
-                )}
-              </Button>
-            ) : (
-              <Button
-                size="lg"
-                variant="default"
-                className="h-24 w-24 rounded-full"
-                onClick={startRecording}
-              >
-                <Mic className="h-8 w-8" />
-              </Button>
-            )}
+            <VoiceRecordButton
+              size="lg"
+              variant="default"
+              preferRealtime={false}
+              showLabel
+              showLiveTranscript
+              onTranscription={handleVoiceTranscription}
+              idleLabel="Magsalita"
+              recordingLabel="Ihinto"
+              className="flex-col"
+            />
           </div>
 
           <div className="text-center text-sm text-muted-foreground">
-            {isRecording && "Nag-rerecord... Pindutin ulit para ihinto"}
-            {isProcessing && "Pinoproseso ang audio..."}
-            {!isRecording && !isProcessing && "Pindutin ang mikropono para magsimula"}
+            Pindutin ang mikropono para magsimula ng pag-record
           </div>
 
           <div className="relative">
@@ -213,12 +126,6 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
           Makikita ninyo ang status ng inyong submission sa "My Submissions" tab.
         </p>
       </Card>
-
-      <MicrophonePermissionDialog
-        open={showPermissionDialog}
-        onOpenChange={setShowPermissionDialog}
-        onRetry={startRecording}
-      />
     </div>
   );
 };

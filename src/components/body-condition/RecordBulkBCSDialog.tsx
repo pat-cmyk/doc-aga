@@ -25,7 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { hapticSelection, hapticNotification } from "@/lib/haptics";
 import { BCSReferenceGuide } from "./BCSReferenceGuide";
 import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
-import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -494,13 +494,10 @@ export function RecordBulkBCSDialog({
               rows={2}
               className="resize-none flex-1"
             />
-            <VoiceFormInput
-              extractorType="text"
-              onDataExtracted={(data: any) => setNotes(prev => prev ? `${prev} ${data.text}` : data.text)}
-              offlineMode="queue"
-              formType="bcs-notes"
+            <VoiceRecordButton
               size="md"
               variant="outline"
+              onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
               className="self-start"
             />
           </div>
