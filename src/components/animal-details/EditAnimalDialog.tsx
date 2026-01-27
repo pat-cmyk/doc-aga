@@ -24,7 +24,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, ChevronDown, RotateCcw, AlertTriangle, AlertCircle } from "lucide-react";
+import { Loader2, ChevronDown, RotateCcw, AlertTriangle, AlertCircle, Trash2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
 import { FieldError } from "@/components/ui/field-error";
 import { cn } from "@/lib/utils";
@@ -66,6 +69,8 @@ export function EditAnimalDialog({
   onSaved,
 }: EditAnimalDialogProps) {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [openSections, setOpenSections] = useState({
     basic: true,
     dates: false,
@@ -74,11 +79,13 @@ export function EditAnimalDialog({
     acquisition: false,
     lactation: false,
   });
+  const { toast } = useToast();
 
   const {
     formData,
     setFormData,
     saving,
+    deleting,
     hasChanges,
     errors,
     isFormValid,
@@ -86,12 +93,25 @@ export function EditAnimalDialog({
     fathers,
     loadingParents,
     handleSubmit,
+    handleDelete,
     resetForm,
     isAnimalNewEntrant,
   } = useEditAnimalForm(animal, farmId, () => {
     onSaved();
     onOpenChange(false);
   });
+
+  const confirmDelete = () => {
+    if (!deleteReason.trim()) {
+      toast({
+        title: "Reason required",
+        description: "Please provide a reason for deleting this animal record.",
+        variant: "destructive",
+      });
+      return;
+    }
+    handleDelete(deleteReason);
+  };
 
   // Helper to check if a section has errors
   const sectionHasErrors = (fields: string[]) => {
@@ -658,28 +678,39 @@ export function EditAnimalDialog({
                 </div>
               )}
               <div className="flex items-center justify-between w-full">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={resetForm}
-                  disabled={!hasChanges || saving}
-                  className="gap-1"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={saving || deleting}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={resetForm}
+                    disabled={!hasChanges || saving || deleting}
+                    className="gap-1"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reset
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleClose}
-                    disabled={saving}
+                    disabled={saving || deleting}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={saving || !hasChanges || !isFormValid}
+                    disabled={saving || deleting || !hasChanges || !isFormValid}
                   >
                     {saving ? (
                       <>
@@ -713,6 +744,65 @@ export function EditAnimalDialog({
             <AlertDialogCancel>Continue Editing</AlertDialogCancel>
             <AlertDialogAction onClick={confirmClose} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Discard Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => {
+        setShowDeleteConfirm(open);
+        if (!open) setDeleteReason("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Animal Record
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  This will permanently remove <strong>{animal.name || animal.ear_tag}</strong> from your farm records.
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Use this only for records that were added in error (e.g., duplicates, test data).
+                  For animals that left the farm, use "Record Exit" instead.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-2 py-2">
+            <Label htmlFor="delete-reason">
+              Reason for deletion / Dahilan ng pag-delete <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="e.g., Duplicate entry, Wrong farm, Test data..."
+              rows={2}
+            />
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteReason("")}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={!deleteReason.trim() || deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Animal"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

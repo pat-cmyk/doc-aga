@@ -110,6 +110,7 @@ export const useEditAnimalForm = (
   onSuccess: () => void
 ) => {
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const [loadingParents, setLoadingParents] = useState(true);
@@ -403,10 +404,51 @@ export const useEditAnimalForm = (
     }
   };
 
+  const handleDelete = async (reason: string) => {
+    if (!animal) return;
+    
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("animals")
+        .update({
+          is_deleted: true,
+          exit_date: new Date().toISOString().split('T')[0],
+          exit_reason: 'data_error',
+          exit_notes: reason,
+        })
+        .eq("id", animal.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["animal", animal.id] });
+      queryClient.invalidateQueries({ queryKey: ["animals", farmId] });
+      if (animal.gender === "Female") {
+        queryClient.invalidateQueries({ queryKey: ["lactating-animals"] });
+      }
+
+      toast({
+        title: "Animal Deleted",
+        description: "The animal record has been removed from your farm.",
+      });
+
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Error deleting animal",
+        description: translateError(error),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return {
     formData,
     setFormData,
     saving,
+    deleting,
     hasChanges,
     errors,
     isFormValid,
@@ -414,6 +456,7 @@ export const useEditAnimalForm = (
     fathers,
     loadingParents,
     handleSubmit,
+    handleDelete,
     resetForm,
     isAnimalNewEntrant: animal ? isNewEntrant(animal) : false,
   };
