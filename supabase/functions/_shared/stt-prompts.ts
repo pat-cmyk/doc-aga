@@ -70,6 +70,105 @@ DAIRY TERMS:
 - CMT (California Mastitis Test)
 `.trim();
 
+// ==================== TAGALOG DISCOURSE MARKERS ====================
+
+export const TAGALOG_DISCOURSE_MARKERS = `
+=== TAGALOG DISCOURSE MARKERS & PARTICLES ===
+
+CRITICAL: These particles affect meaning and should be PRESERVED in transcription
+but may be STRIPPED during extraction depending on context.
+
+=== EPISTEMIC/EVIDENTIAL MARKERS (Knowledge & Certainty) ===
+- "pala" = realization/correction ("so it turns out", "I just realized")
+  Example: "Ay pala, kahapon yung feeding" → "Oh wait, the feeding was yesterday"
+  EXTRACTION IMPACT: May indicate a CORRECTION to previous statement
+
+- "talaga" = emphasis/certainty ("really", "truly", "definitely")
+  Example: "Talaga bang 50 liters?" → "Is it really 50 liters?"
+  EXTRACTION IMPACT: Strengthens confidence in the number
+
+- "daw/raw" = hearsay/reported speech ("they said", "apparently")
+  Example: "30 kilos daw ang feed" → "They said the feed is 30 kilos"
+  EXTRACTION IMPACT: May indicate secondhand information
+
+- "yata" = uncertainty ("I think", "probably", "maybe")
+  Example: "20 liters yata" → "I think it's 20 liters"
+  EXTRACTION IMPACT: Lower confidence in extracted value
+
+=== TEMPORAL MARKERS (Time & Sequence) ===
+- "muna" = priority/first ("first", "for now")
+  Example: "I-record muna ang milk" → "Record the milk first"
+  EXTRACTION IMPACT: Indicates task prioritization
+
+- "na" = already/now (completion or urging)
+  Example: "Nag-feed na" → "Already fed" / "Fed now"
+  EXTRACTION IMPACT: Confirms action is COMPLETED
+
+- "pa" = still/yet (ongoing or addition)
+  Example: "Nag-milk pa" → "Still milking" / "Milked more"
+  EXTRACTION IMPACT: May indicate ADDITIONAL quantity
+
+- "ulit" = again/repeat
+  Example: "Pakibasa ulit" → "Please read again"
+  EXTRACTION IMPACT: User wants repetition
+
+- "agad" = immediately/right away
+  Example: "Nag-inject agad" → "Injected immediately"
+  EXTRACTION IMPACT: Indicates urgency
+
+=== ADDITIVE/CONTRASTIVE MARKERS ===
+- "din/rin" = also/too
+  Example: "Yung kambing din" → "The goat too"
+  EXTRACTION IMPACT: Indicates ADDITIONAL animals/items
+
+- "lang" = only/just (limiter)
+  Example: "10 liters lang" → "Only 10 liters"
+  EXTRACTION IMPACT: Confirms exact amount, no more
+
+- "naman" = on the other hand / for one's part / also
+  Example: "Okay naman ang baka" → "The cow is fine though"
+  EXTRACTION IMPACT: Often filler, may indicate contrast
+
+- "kaya" = perhaps/that's why/can
+  Example: "Kaya mababa ang milk" → "That's why the milk is low"
+  EXTRACTION IMPACT: Indicates reasoning/cause
+
+=== POLITENESS & RESPECT MARKERS ===
+- "po/opo" = polite/respect markers
+  Example: "30 liters po" → "30 liters (respectful)"
+  EXTRACTION IMPACT: STRIP during extraction, doesn't affect data
+
+- "ho" = informal polite marker
+  Example: "Opo ho" → "Yes (polite)"
+  EXTRACTION IMPACT: STRIP during extraction
+
+=== QUESTION & FILLER PARTICLES ===
+- "ba" = question marker
+  Example: "Okay ba ang record?" → "Is the record okay?"
+  EXTRACTION IMPACT: Indicates question, not statement
+
+- "eh" = filler/hesitation
+  Example: "Eh, mga 20 kilos" → "Uh, about 20 kilos"
+  EXTRACTION IMPACT: STRIP during extraction
+
+- "kasi" = because/you see
+  Example: "Kasi maulan" → "Because it's rainy"
+  EXTRACTION IMPACT: Indicates reason/explanation
+
+=== APPROXIMATION MARKERS ===
+- "mga" = approximately ("around", "about")
+  Example: "Mga 40 liters" → "Around 40 liters"
+  EXTRACTION IMPACT: Value is APPROXIMATE, not exact
+
+- "halos" = almost/nearly
+  Example: "Halos 50 liters" → "Almost 50 liters"
+  EXTRACTION IMPACT: Value is slightly LESS than stated
+
+- "mahigit" = more than/over
+  Example: "Mahigit 30 kilos" → "Over 30 kilos"
+  EXTRACTION IMPACT: Value is AT LEAST the stated amount
+`.trim();
+
 // ==================== TAGLISH PATTERNS ====================
 
 export const TAGLISH_PATTERNS = `
@@ -77,12 +176,35 @@ export const TAGLISH_PATTERNS = `
 
 VERB PATTERNS (Tagalog prefix + English verb):
 - nag-feed, nag-milk, nag-gatas, nag-weigh
-- nag-inject, nag-check, nag-confirm
+- nag-inject, nag-check, nag-confirm, nag-record
 - nag-calve, nanganak, nag-dry off
 - nag-heat, nag-init, nag-AI
-- naka-schedule, na-check, na-confirm
+- naka-schedule, na-check, na-confirm, na-record
+- mag-save, mag-submit, mag-cancel
 
-MARKER WORDS:
+MARKER WORD COMBINATIONS (often appear together):
+- "na po" = already (polite)
+- "pa po" = still/more (polite)
+- "din po" = also (polite)
+- "lang po" = only (polite)
+- "daw po" = they said (polite hearsay)
+
+COMMON SENTENCE STARTERS:
+- "Nag-[verb] ako..." = I [verb]ed...
+- "Yung [noun]..." = The [noun]...
+- "Meron [noun]..." = There is [noun]...
+- "Gusto ko [verb]..." = I want to [verb]...
+- "Pwede ba..." = Can I/we...
+- "Paano ba..." = How do I...
+
+CONFIRMATION PATTERNS:
+- "Oo" / "Opo" / "Oo nga" = Yes
+- "Hindi" / "Hindi po" = No
+- "Sige" / "Sige po" = Okay/Go ahead
+- "Tama" / "Tama po" = Correct
+- "Mali" = Wrong/Incorrect
+
+MARKER WORDS (single particles):
 - "yung" / "ang" = the
 - "ng" = of/the (linker)
 - "naman", "po", "daw", "kasi", "eh", "ba", "na", "pa", "lang"
@@ -104,7 +226,7 @@ QUESTION PATTERNS:
 - "Pwede ba..." = Can I/we...
 
 POLITE FORMS:
-- "po", "opo" = respect markers
+- "po", "opo" = respect markers (STRIP during extraction)
 - "Gusto ko po..." = I would like... (polite)
 - "Patulong po..." = Please help... (polite)
 `.trim();
