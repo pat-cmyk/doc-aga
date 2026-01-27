@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Clock, CheckCircle, XCircle, User, Calendar, Eye } from "lucide-react";
+import { Clock, CheckCircle, XCircle, User, Calendar, Eye, Pencil } from "lucide-react";
 import { usePendingActivities, PendingActivity } from "@/hooks/usePendingActivities";
 import { ActivityDetailsDialog } from "./ActivityDetailsDialog";
+import { EditSubmissionDialog } from "./EditSubmissionDialog";
 import { formatDistanceToNow } from "date-fns";
 
 interface PendingActivitiesQueueProps {
@@ -13,11 +14,12 @@ interface PendingActivitiesQueueProps {
 }
 
 export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) => {
-  const { activities, pendingCount, approveActivity, rejectActivity, isReviewing } = 
+  const { activities, pendingCount, approveActivity, rejectActivity, isReviewing, updateActivity, isUpdating } = 
     usePendingActivities(farmId);
   
   const [selectedActivity, setSelectedActivity] = useState<PendingActivity | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<PendingActivity | null>(null);
 
   const pendingActivities = activities.filter(a => a.status === 'pending');
 
@@ -33,6 +35,13 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
   const handleReject = (reason: string) => {
     if (selectedActivity) {
       rejectActivity(selectedActivity.id, reason);
+    }
+  };
+
+  const handleEditSave = (activityData: any, animalIds: string[]) => {
+    if (editingActivity) {
+      updateActivity(editingActivity.id, activityData, animalIds);
+      setEditingActivity(null);
     }
   };
 
@@ -190,7 +199,18 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                           className="flex-1"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Quick Approve
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingActivity(activity);
+                          }}
+                          disabled={isUpdating}
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -199,10 +219,8 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                             e.stopPropagation();
                             handleViewDetails(activity);
                           }}
-                          className="flex-1"
                         >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
+                          <Eye className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -222,6 +240,17 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
         onApprove={() => selectedActivity && handleApprove(selectedActivity)}
         onReject={handleReject}
         isReviewing={isReviewing}
+      />
+
+      {/* Edit Submission Dialog */}
+      <EditSubmissionDialog
+        activity={editingActivity}
+        mode="edit"
+        farmId={farmId}
+        open={!!editingActivity}
+        onOpenChange={(open) => !open && setEditingActivity(null)}
+        onSave={handleEditSave}
+        isSaving={isUpdating}
       />
     </>
   );

@@ -53,13 +53,13 @@ export const MySubmissions = ({ userId }: MySubmissionsProps) => {
     setDialogMode('resubmit');
   };
 
-  const handleSave = (activityData: any) => {
+  const handleSave = (activityData: any, animalIds: string[]) => {
     if (!editingActivity) return;
     
     if (dialogMode === 'edit') {
-      updateActivity(editingActivity.id, activityData);
+      updateActivity(editingActivity.id, activityData, animalIds);
     } else {
-      resubmitActivity(editingActivity.id, activityData);
+      resubmitActivity(editingActivity.id, activityData, animalIds);
     }
     setEditingActivity(null);
   };
@@ -313,6 +313,7 @@ export const MySubmissions = ({ userId }: MySubmissionsProps) => {
         <EditSubmissionDialog
           activity={editingActivity}
           mode={dialogMode}
+          farmId={editingActivity?.farm_id || ''}
           open={!!editingActivity}
           onOpenChange={(open) => !open && setEditingActivity(null)}
           onSave={handleSave}

@@ -12,39 +12,76 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw, Save } from "lucide-react";
+import { AlertCircle, RefreshCw, Save, Users } from "lucide-react";
 import { PendingActivity } from "@/hooks/usePendingActivities";
+import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
+import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 
 interface EditSubmissionDialogProps {
   activity: PendingActivity | null;
   mode: 'edit' | 'resubmit';
+  farmId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (activityData: any) => void;
+  onSave: (activityData: any, animalIds: string[]) => void;
   isSaving: boolean;
 }
 
 export const EditSubmissionDialog = ({
   activity,
   mode,
+  farmId,
   open,
   onOpenChange,
   onSave,
   isSaving,
 }: EditSubmissionDialogProps) => {
   const [formData, setFormData] = useState<any>({});
+  const [selectedAnimalOption, setSelectedAnimalOption] = useState<string>('');
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([]);
+
+  const { data: animals = [] } = useFarmAnimals(farmId);
+  const animalOptions = getAnimalDropdownOptions(animals);
 
   // Reset form when activity changes
   useEffect(() => {
     if (activity) {
       setFormData(activity.activity_data || {});
+      // Set initial animal selection based on current animal_ids
+      if (activity.animal_ids.length === animals.length && animals.length > 0) {
+        setSelectedAnimalOption('all');
+      } else if (activity.animal_ids.length === 1) {
+        setSelectedAnimalOption(activity.animal_ids[0]);
+      } else {
+        // Check if it's a species selection
+        const selectedAnimals = animals.filter(a => activity.animal_ids.includes(a.id));
+        const species = [...new Set(selectedAnimals.map(a => a.livestock_type))];
+        if (species.length === 1) {
+          const speciesAnimals = animals.filter(a => a.livestock_type === species[0]);
+          if (speciesAnimals.length === selectedAnimals.length) {
+            setSelectedAnimalOption(`species:${species[0]}`);
+          } else {
+            setSelectedAnimalOption(activity.animal_ids[0] || '');
+          }
+        } else {
+          setSelectedAnimalOption(activity.animal_ids[0] || '');
+        }
+      }
+      setSelectedAnimalIds(activity.animal_ids);
     }
-  }, [activity]);
+  }, [activity, animals]);
+
+  // Update selected animal IDs when option changes
+  const handleAnimalSelectionChange = (optionValue: string) => {
+    setSelectedAnimalOption(optionValue);
+    const selected = getSelectedAnimals(animals, optionValue);
+    setSelectedAnimalIds(selected.map(a => a.id));
+  };
 
   if (!activity) return null;
 
   const handleSubmit = () => {
-    onSave(formData);
+    onSave(formData, selectedAnimalIds);
   };
 
   const updateField = (field: string, value: any) => {
@@ -253,11 +290,21 @@ export const EditSubmissionDialog = ({
           </Alert>
         )}
 
-        <div className="py-4">
-          {/* Animal count info */}
-          <div className="mb-4 p-3 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground">
-              <strong>Animals:</strong> {activity.animal_ids.length} animal(s) selected
+        <div className="py-4 space-y-4">
+          {/* Animal selection */}
+          <div className="space-y-2">
+            <Label htmlFor="animals" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Animals ({selectedAnimalIds.length} selected)
+            </Label>
+            <AnimalCombobox
+              options={animalOptions}
+              value={selectedAnimalOption}
+              onChange={handleAnimalSelectionChange}
+              placeholder="Select animals..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Choose individual animals, all animals, or all of a specific species
             </p>
           </div>
 
