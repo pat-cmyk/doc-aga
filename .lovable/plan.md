@@ -1,220 +1,143 @@
 
-# Offline Audio Caching - Implementation Plan
+# Voice Activity Detection Visualization - Implementation Plan
 
 ## Overview
 
-This feature extends the unified voice system to automatically cache audio recordings when offline, then transcribe them when connectivity is restored. The current flow sends audio directly to the `voice-to-text` edge function; when offline, this fails silently. This plan integrates with the existing offline queue infrastructure to provide seamless offline voice recording.
+Add real-time audio visualization to give users visual feedback that the microphone is picking up their voice during recording. The visualization will appear when recording and provide immediate feedback through animated bars or a level meter.
 
 ---
 
-## Current Architecture Analysis
+## Current Architecture
 
-### What Already Exists
+### What We Have
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| `src/lib/offlineQueue.ts` | IndexedDB-based queue with 50-item limit | Has `audioBlob` field, supports `voice_form_input` type |
-| `src/lib/audioCompression.ts` | Compresses audio to <500KB for IndexedDB | Ready to use |
-| `src/lib/syncService.ts` | Processes queue items when online | Handles `voice_form_input` type |
-| `src/lib/voiceFormQueueProcessor.ts` | Transcribes queued audio and runs extractors | Ready to use |
-| `src/hooks/useOnlineStatus.ts` | Real-time online/offline detection | Ready to use |
-| `src/hooks/useVoiceRecording.ts` | Unified voice recording hook | Needs offline-aware integration |
-| `src/components/ui/VoiceRecordButton.tsx` | Unified UI component | Needs offline mode UI |
-| Service Worker (`sw.ts`) | Background sync queue | Already has voice queue messaging |
+| `useVoiceRecording` | Unified recording hook with state machine | Has access to MediaStream |
+| `VoiceRecordButton` | UI component for voice input | Needs visualization slot |
+| `voiceStateMachine` | FSM for recording lifecycle | Defines when to show visualization |
+| `audioFeedback.ts` | AudioContext utility | Can be extended for analyser |
 
-### Current Gap
+### Key Insight
 
-When offline, the `useVoiceRecording` hook calls `supabase.functions.invoke('voice-to-text')` which fails. There's no fallback to queue the audio for later transcription.
+The `useVoiceRecording` hook already captures the `MediaStream` from `getUserMedia()`. We need to:
+1. Pass this stream to an AnalyserNode
+2. Extract frequency/amplitude data in an animation loop
+3. Render visualization during `recording` and `connecting` states
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Create Audio Queue Storage
+### Phase 1: Create Audio Analyser Hook
 
-**New File: `src/lib/offlineAudioQueue.ts`**
+**New File: `src/hooks/useAudioLevelMeter.ts`**
 
-Dedicated IndexedDB store for audio blobs (separate from sync queue to handle larger files):
+A dedicated hook that wraps the Web Audio API AnalyserNode:
 
 ```text
 Interface:
-- queueAudio(audioBlob, metadata): string  // Returns queue ID
-- getPendingAudio(): AudioQueueItem[]
-- markTranscribed(id, transcript): void
-- removeAudio(id): void
-- getQueueCount(): number
-- getStorageUsage(): Promise<{used: number, limit: number}>
-
-AudioQueueItem:
-- id: string
-- audioBlob: Blob (compressed)
-- createdAt: number
-- status: 'pending' | 'transcribing' | 'transcribed' | 'failed'
-- transcript?: string
-- retries: number
-- metadata: {
-    source: 'doc-aga' | 'milk-form' | 'feed-form' | 'health-form' | 'general'
-    extractorType?: ExtractorType
-    extractorContext?: any
-    farmId?: string
-  }
+- audioLevel: number (0-100, normalized amplitude)
+- frequencyData: Uint8Array (for waveform/bars)
+- isActive: boolean
+- startAnalysis(stream: MediaStream): void
+- stopAnalysis(): void
 ```
 
-### Phase 2: Modify useVoiceRecording Hook
+Implementation approach:
+- Create AudioContext and AnalyserNode on demand
+- Connect MediaStream via MediaStreamAudioSourceNode
+- Use requestAnimationFrame for smooth 60fps updates
+- Calculate RMS (root mean square) for overall level
+- Cleanup properly on stop to prevent memory leaks
+
+### Phase 2: Create Visualization Component
+
+**New File: `src/components/ui/AudioLevelMeter.tsx`**
+
+A reusable visualization component with two display modes:
+
+```text
+Props:
+- audioLevel: number (0-100)
+- frequencyData?: Uint8Array
+- variant: 'bars' | 'waveform' | 'circle' | 'simple'
+- size: 'sm' | 'md' | 'lg'
+- className?: string
+```
+
+**Variant Descriptions:**
+
+1. **`bars`** (default) - 5-7 vertical bars that animate based on audio level
+   - Clean, minimal design
+   - Works well at small sizes
+   - Each bar responds to different frequency bands
+
+2. **`waveform`** - Horizontal waveform visualization
+   - Uses Canvas for smooth rendering
+   - Shows full frequency spectrum
+   - More visual but requires more space
+
+3. **`circle`** - Pulsing ring around the mic button
+   - Integrates directly with button design
+   - Scale/opacity based on audio level
+   - Minimal footprint
+
+4. **`simple`** - Single progress bar style
+   - Most compact option
+   - Just shows overall level
+   - Good for small UI contexts
+
+### Phase 3: Integrate with useVoiceRecording
 
 **File: `src/hooks/useVoiceRecording.ts`**
 
-Add offline-aware processing:
+Expose the MediaStream for visualization:
 
 ```typescript
-// New state
-offlineQueued: boolean;
+// Add to UseVoiceRecordingReturn interface:
+mediaStream: MediaStream | null;
 
-// Modified processBatchAudio():
-if (!navigator.onLine) {
-  // Compress and queue audio
-  const compressed = await compressAudio(blob);
-  const queueId = await queueOfflineAudio(compressed, {
-    source: 'general',
-  });
-  
-  // Update state to show queued
-  dispatch({ type: 'OFFLINE_QUEUED', queueId });
-  
-  // Show toast with pending indicator
-  toast.info('Recording saved. Will transcribe when online.', {
-    icon: <WifiOff />,
-  });
-  return;
-}
+// Modify startBatchRecording to store stream reference
+// The streamRef is already there, just expose it
 
-// Online: proceed with normal transcription
+// Return:
+return {
+  // ... existing
+  mediaStream: streamRef.current,
+};
 ```
 
-### Phase 3: Add Offline State to State Machine
-
-**File: `src/lib/voiceStateMachine.ts`**
-
-New states and transitions:
-
-```typescript
-type VoiceState = 
-  | 'idle'
-  | 'requesting_mic'
-  | 'connecting'
-  | 'recording'
-  | 'stopping'
-  | 'processing'
-  | 'offline_queued'  // NEW: Audio saved, waiting for connectivity
-  | 'preview'
-  | 'error';
-
-// New action
-| { type: 'OFFLINE_QUEUED'; queueId: string }
-```
-
-### Phase 4: Update VoiceRecordButton UI
+### Phase 4: Add to VoiceRecordButton
 
 **File: `src/components/ui/VoiceRecordButton.tsx`**
 
-Add offline-mode visual feedback:
+Add visualization display during recording:
 
 ```typescript
-// Show offline indicator when recording while offline
-{!isOnline && (
-  <WifiOff className="h-3 w-3 text-yellow-500 absolute -top-1 -right-1" />
-)}
+// New props:
+showAudioLevel?: boolean;         // Default: true
+audioLevelVariant?: 'bars' | 'circle' | 'simple';
 
-// Show pending queue badge
-{pendingAudioCount > 0 && (
-  <Badge variant="secondary" className="absolute -bottom-2">
-    {pendingAudioCount} pending
-  </Badge>
-)}
+// In component:
+const { audioLevel, frequencyData, startAnalysis, stopAnalysis } = useAudioLevelMeter();
 
-// State-specific messages
-case 'offline_queued':
-  return 'Saved offline';
-```
-
-### Phase 5: Create Offline Audio Sync Processor
-
-**New File: `src/lib/offlineAudioSyncProcessor.ts`**
-
-Handles transcription when connectivity is restored:
-
-```typescript
-export async function syncOfflineAudio(): Promise<void> {
-  const pending = await getPendingAudio();
-  
-  for (const item of pending) {
-    try {
-      // 1. Transcribe
-      const transcript = await transcribe(item.audioBlob);
-      
-      // 2. If form-specific, run extractor
-      if (item.metadata.extractorType) {
-        const extracted = runExtractor(transcript, item.metadata.extractorType);
-        // Emit to listening forms
-        emitVoiceFormResult({ ... });
-      }
-      
-      // 3. Mark complete
-      await markTranscribed(item.id, transcript);
-      
-      // 4. Notify user
-      toast.success(`Transcribed: "${transcript.slice(0, 40)}..."`);
-      
-    } catch (error) {
-      // Increment retries, mark failed after 3 attempts
-    }
+// Start analysis when recording begins
+useEffect(() => {
+  if (isRecording && mediaStream) {
+    startAnalysis(mediaStream);
+  } else {
+    stopAnalysis();
   }
-}
-```
+}, [isRecording, mediaStream]);
 
-### Phase 6: Integrate with App Lifecycle
-
-**File: `src/App.tsx` or `src/hooks/useOfflineAudioSync.ts`**
-
-Auto-trigger sync when coming online:
-
-```typescript
-export function useOfflineAudioSync() {
-  const isOnline = useOnlineStatus();
-  const wasOfflineRef = useRef(false);
-  
-  useEffect(() => {
-    if (isOnline && wasOfflineRef.current) {
-      // Just came online - sync queued audio
-      syncOfflineAudio();
-    }
-    wasOfflineRef.current = !isOnline;
-  }, [isOnline]);
-  
-  // Also listen for SW sync trigger
-  useEffect(() => {
-    initServiceWorkerBridge(() => {
-      syncOfflineAudio();
-    });
-  }, []);
-}
-```
-
-### Phase 7: Add UI Indicators
-
-**Files to Modify:**
-- `src/components/NetworkStatusBanner.tsx` - Show pending audio count
-- `src/components/UnifiedActionsFab.tsx` - Add badge for pending voice recordings
-
-```typescript
-// NetworkStatusBanner enhancement
-const pendingAudioCount = usePendingAudioCount();
-
-{!isOnline && pendingAudioCount > 0 && (
-  <div className="text-sm text-muted-foreground">
-    {pendingAudioCount} voice recording{pendingAudioCount > 1 ? 's' : ''} will 
-    transcribe when online
-  </div>
+// Render visualization
+{isRecording && showAudioLevel && (
+  <AudioLevelMeter 
+    audioLevel={audioLevel}
+    variant={audioLevelVariant}
+    size={size}
+  />
 )}
 ```
 
@@ -222,39 +145,98 @@ const pendingAudioCount = usePendingAudioCount();
 
 ## Technical Details
 
-### Storage Limits
-
-```typescript
-const MAX_AUDIO_QUEUE_SIZE = 10;  // Max 10 recordings queued
-const MAX_AUDIO_SIZE_MB = 5;      // Reject if compressed audio > 5MB
-const AUDIO_RETENTION_HOURS = 48; // Auto-delete after 48 hours
-```
-
-### Compression Strategy
+### Web Audio API Pipeline
 
 ```text
-1. Record as webm/opus (browser native)
-2. On queue: compress to mono WAV at 22kHz (uses audioCompression.ts)
-3. Target: <500KB per recording
-4. Typical 30-second recording: ~300-400KB after compression
+MediaStream
+    ↓
+MediaStreamAudioSourceNode
+    ↓
+AnalyserNode (fftSize: 256, smoothingTimeConstant: 0.8)
+    ↓
+getByteTimeDomainData() / getByteFrequencyData()
+    ↓
+requestAnimationFrame loop
+    ↓
+Calculate RMS / frequency bands
+    ↓
+Update state (throttled to 30fps for performance)
 ```
 
-### Queue Deduplication
+### RMS Calculation for Level Meter
 
 ```typescript
-// Prevent duplicate processing
-const queueId = crypto.randomUUID();
-const clientGeneratedId = `offline_audio_${Date.now()}_${queueId}`;
+function calculateRMS(dataArray: Uint8Array): number {
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    // Convert from 0-255 to -1 to 1
+    const value = (dataArray[i] - 128) / 128;
+    sum += value * value;
+  }
+  const rms = Math.sqrt(sum / dataArray.length);
+  // Normalize to 0-100 with some amplification
+  return Math.min(100, rms * 200);
+}
 ```
 
-### Error Recovery
+### Frequency Bands for Bar Visualization
+
+```typescript
+const BAND_RANGES = [
+  { start: 0, end: 4 },    // Sub-bass (20-60Hz)
+  { start: 4, end: 8 },    // Bass (60-250Hz)
+  { start: 8, end: 20 },   // Low-mid (250-500Hz)
+  { start: 20, end: 40 },  // Mid (500-2kHz)
+  { start: 40, end: 80 },  // High-mid (2-4kHz)
+  { start: 80, end: 128 }, // Highs (4-20kHz)
+];
+```
+
+### Performance Considerations
+
+1. **Throttle updates** - Only update React state at 30fps, not 60fps
+2. **Use refs for animation** - Avoid re-renders in animation loop
+3. **Cleanup on unmount** - Disconnect AudioContext nodes properly
+4. **Single AudioContext** - Reuse existing context from audioFeedback.ts
+
+---
+
+## UI Design Specifications
+
+### Bar Visualization (Default)
 
 ```text
-1. First failure: Retry immediately
-2. Second failure: Wait 30 seconds
-3. Third failure: Mark as failed, show in queue review UI
-4. User can manually retry failed items from CacheSettingsDialog
+ ▃ ▅ █ ▅ ▂   ← 5 bars, varying heights based on audio level
 ```
+
+- Height: 16px (sm), 24px (md), 32px (lg)
+- Width: 40px (sm), 60px (md), 80px (lg)
+- Bar width: 3-4px with 2px gap
+- Colors: Primary color with opacity based on level
+- Animation: Spring-like transitions (ease-out)
+
+### Circle Variant
+
+```text
+    ╭───╮
+   │ 🎤 │  ← Ring pulses with audio level
+    ╰───╯
+```
+
+- Ring width scales from 2px to 6px
+- Opacity: 0.3 (quiet) to 1.0 (loud)
+- Color: Destructive red (matches recording state)
+
+### Simple Variant
+
+```text
+ ├████████░░░░░░░░░░░│
+```
+
+- Single horizontal bar
+- Width: Same as button
+- Height: 4px
+- Gradient from green to yellow to red based on level
 
 ---
 
@@ -262,56 +244,69 @@ const clientGeneratedId = `offline_audio_${Date.now()}_${queueId}`;
 
 | File | Purpose |
 |------|---------|
-| `src/lib/offlineAudioQueue.ts` | IndexedDB store for audio blobs |
-| `src/lib/offlineAudioSyncProcessor.ts` | Transcription sync logic |
-| `src/hooks/useOfflineAudioSync.ts` | Auto-sync when coming online |
-| `src/hooks/usePendingAudioCount.ts` | Real-time pending audio count |
+| `src/hooks/useAudioLevelMeter.ts` | Web Audio API analyser hook |
+| `src/components/ui/AudioLevelMeter.tsx` | Visualization UI component |
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/lib/voiceStateMachine.ts` | Add `offline_queued` state |
-| `src/hooks/useVoiceRecording.ts` | Add offline fallback logic |
-| `src/components/ui/VoiceRecordButton.tsx` | Add offline UI indicators |
-| `src/components/ui/VoiceRecordWithExtraction.tsx` | Pass source context for queue |
-| `src/components/NetworkStatusBanner.tsx` | Show pending audio count |
-| `src/App.tsx` | Initialize offline audio sync |
+| `src/hooks/useVoiceRecording.ts` | Expose mediaStream in return value |
+| `src/components/ui/VoiceRecordButton.tsx` | Add visualization, new props |
+| `src/components/ui/VoiceRecordWithExtraction.tsx` | Pass through visualization props |
 
 ---
 
 ## User Experience Flow
 
-### Recording While Offline
+### Recording with Visualization
 
 ```text
 1. User taps mic button
-2. Recording starts (same as online)
-3. User taps stop
-4. [OFFLINE] Audio compressed and queued
-5. Toast: "Recording saved. Will transcribe when online." (with offline icon)
-6. UI shows pending indicator (yellow dot)
+2. Recording starts → visualization appears
+3. Audio levels show bars bouncing in real-time
+4. User sees immediate feedback that mic is working
+5. Silence → bars stay low
+6. Speech → bars animate actively
+7. User stops → visualization fades, processing indicator shows
 ```
 
-### Coming Back Online
+### Edge Cases
 
-```text
-1. App detects connectivity restored
-2. Automatic sync triggered
-3. Each queued recording transcribed
-4. For form-specific recordings: extracted data emitted to open dialogs
-5. Toast per recording: "Transcribed: [preview text]"
-6. Pending indicator clears
+| Scenario | Behavior |
+|----------|----------|
+| No audio detected | Bars stay flat (near zero) |
+| Very loud audio | Bars cap at max height (no clipping visual) |
+| Mic muted in OS | Bars stay flat, no special warning |
+| Connecting state | Show subtle pulse animation |
+| Offline recording | Same visualization (works locally) |
+
+---
+
+## Styling with Tailwind
+
+### Bar Animation Classes
+
+```css
+/* Smooth height transitions */
+.audio-bar {
+  transition: height 50ms ease-out;
+}
+
+/* Optional glow effect when active */
+.audio-bar-active {
+  box-shadow: 0 0 8px rgba(var(--destructive), 0.5);
+}
 ```
 
-### Queue Review (Optional Enhancement)
+### Responsive Sizing
 
-```text
-In CacheSettingsDialog > Queue tab:
-- List of pending/failed audio recordings
-- Preview (play audio)
-- Manual retry
-- Delete
+```typescript
+const barConfig = {
+  sm: { height: 16, barWidth: 3, gap: 2, count: 4 },
+  md: { height: 24, barWidth: 4, gap: 2, count: 5 },
+  lg: { height: 32, barWidth: 5, gap: 3, count: 6 },
+};
 ```
 
 ---
@@ -319,25 +314,26 @@ In CacheSettingsDialog > Queue tab:
 ## Testing Checklist
 
 After implementation:
-- [ ] Record while online → instant transcription (no change)
-- [ ] Record while offline → audio queued, toast shown
-- [ ] Go offline mid-recording → completes recording, queues audio
-- [ ] Come online with pending audio → auto-transcribes
-- [ ] Form-specific recording offline → re-emits data when transcribed
-- [ ] Multiple offline recordings → all process in order
-- [ ] Storage limit reached → oldest removed, warning shown
-- [ ] Failed transcription → retries, eventually marked failed
-- [ ] Manual retry from queue → reprocesses
-- [ ] Delete from queue → removes audio blob
+- [ ] Visualization appears when recording starts
+- [ ] Bars animate in response to speech
+- [ ] Bars stay low during silence
+- [ ] Visualization stops when recording stops
+- [ ] No memory leaks (AudioContext cleanup)
+- [ ] Works in realtime mode (ElevenLabs)
+- [ ] Works in batch mode (Gemini)
+- [ ] Works during offline recording
+- [ ] Circle variant integrates with button
+- [ ] Performance stays smooth (no jank)
+- [ ] VoiceQuickAdd shows visualization
+- [ ] Form voice inputs show visualization
 
 ---
 
 ## Expected Outcomes
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| Record offline | Silent failure | Audio queued, syncs later |
-| Network drops mid-record | Lost recording | Completes and queues |
-| Multiple offline recordings | Each fails | All queue and sync |
-| Form voice input offline | Can't use voice | Records, extracts when online |
-| Storage visibility | None | Pending count shown |
+| Issue | Before | After |
+|-------|--------|-------|
+| No mic feedback | User unsure if mic is working | Immediate visual confirmation |
+| Silent recording anxiety | "Is it picking up my voice?" | Real-time level display |
+| Connecting state | Just shows "Connecting..." | Shows subtle animation |
+| Professional feel | Basic recording UI | Polished, responsive visualization |
