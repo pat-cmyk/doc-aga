@@ -65,6 +65,40 @@ const MILK_VOLUME_THRESHOLDS = {
   farmTotalWarning: 150,    // Show warning above this (was 200, lowered for safety)
 };
 
+// ==================== FEED BRAND ALIASES (STT Error Handling) ====================
+
+/**
+ * Map common STT transcription errors to canonical brand names
+ * This helps normalize phonetic variations like "rum sulfids" → "rumsol"
+ */
+const FEED_BRAND_ALIASES: Record<string, string[]> = {
+  'rumsol': ['rumsol', 'rum sol', 'rum sulfid', 'rum sulfids', 'rumsole', 'rum sole', 'ramsol', 'ram sol'],
+  'vitarich': ['vitarich', 'vita rich', 'vita-rich', 'viterich', 'vite rich'],
+  'bmeg': ['bmeg', 'b-meg', 'b meg', 'be meg', 'bi meg'],
+  'unahco': ['unahco', 'una co', 'unaco', 'unacho'],
+  'san miguel': ['san miguel', 'sanmiguel', 'san miquel'],
+};
+
+/**
+ * Normalize a spoken feed brand to its canonical form
+ * Returns the canonical brand name if an alias matches, otherwise the original
+ */
+function normalizeFeedBrand(spoken: string): string {
+  const lower = spoken.toLowerCase();
+  for (const [canonical, aliases] of Object.entries(FEED_BRAND_ALIASES)) {
+    if (aliases.some(alias => lower.includes(alias))) {
+      // Replace the alias with the canonical form in the spoken text
+      for (const alias of aliases) {
+        if (lower.includes(alias)) {
+          return spoken.toLowerCase().replace(alias, canonical);
+        }
+      }
+      return canonical;
+    }
+  }
+  return spoken;
+}
+
 // ==================== TAGALOG PARTICLE PREPROCESSING ====================
 
 /**
@@ -504,6 +538,20 @@ function extractSpokenKilograms(text: string): number | undefined {
     }
   }
   
+  // Pattern 4: "X kilos para sa" - spoken number before "para/for" (Taglish structure)
+  const paraPattern = new RegExp(
+    `\\b(${NUMBER_WORD_PATTERN})\\s*(?:kilo|kg|kilos)\\s+(?:para|for)\\b`,
+    'i'
+  );
+  const paraMatch = lowerText.match(paraPattern);
+  if (paraMatch) {
+    const parsed = parseSpokenNumber(paraMatch[1]);
+    if (parsed && parsed >= 0.5 && parsed <= 500) {
+      console.log(`[VoiceExtractor] Para pattern match: "${paraMatch[1]}" → ${parsed}`);
+      return parsed;
+    }
+  }
+  
   return undefined;
 }
 
@@ -530,19 +578,35 @@ function matchFeedFromInventory(
  */
 function extractFeedNameFromText(text: string): string | null {
   const patterns = [
-    // "ng RumSol Feeds na" -> "RumSol Feeds"
+    // NEW: "ng [brand feeds] ngayon/today/kanina/kahapon/araw" - handles time words after feed name
+    /(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:ngayon|today|kanina|kahapon|araw)/i,
+    
+    // NEW: "nagpakain (tayo/ako/sila/kami) ng [brand]" - direct feeding verb pattern
+    /(?:nagpakain|nagfeed|pinakain|pakain)\s+(?:tayo|ako|sila|kami)?\s*(?:ng|of)?\s*([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)/i,
+    
+    // "ng RumSol Feeds na" -> "RumSol Feeds" (original pattern)
     /(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:na|that|ng)/i,
+    
     // "[Brand] Feeds" standalone
     /\b([A-Za-z]+\s+(?:feeds?|pellets?|grower|concentrate|bran))\b/i,
+    
     // "[Something] Silage"
     /\b([A-Za-z]+\s+silage)\b/i,
+    
     // Generic brand + product pattern: "Rumsol Feeds Cattle"
     /\b([A-Za-z]+\s+feeds?\s+[A-Za-z]+)\b/i,
+    
+    // NEW: Standalone "[brand] feeds" anywhere in text (fallback)
+    /\b([A-Za-z]+\s+feeds?)\b/i,
   ];
   
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    if (match) return match[1].trim();
+    if (match) {
+      const extracted = match[1].trim();
+      // Normalize brand name to handle STT errors
+      return normalizeFeedBrand(extracted);
+    }
   }
   return null;
 }
@@ -562,6 +626,46 @@ function fuzzyMatchFeedType(
     return { bestMatch: null, confidence: 'none', suggestions: [] };
   }
 
+  const spokenLower = spokenFeed.toLowerCase().trim();
+  
+  // PRIORITY 1: Check if spoken feed is a prefix/beginning of any inventory item
+  // e.g., "rumsol feeds" matches "Rumsol Feeds Cattle Grower" with high confidence
+  for (const item of inventory) {
+    const itemLower = item.feed_type.toLowerCase();
+    if (itemLower.startsWith(spokenLower)) {
+      console.log(`[VoiceExtractor] Prefix match: "${spokenFeed}" → "${item.feed_type}" (prefix match)`);
+      return {
+        bestMatch: { id: item.id, name: item.feed_type },
+        confidence: 'high',
+        suggestions: [{ id: item.id, name: item.feed_type, score: 1.0 }]
+      };
+    }
+  }
+  
+  // PRIORITY 2: Check if spoken feed contains the beginning of any inventory item
+  // e.g., "rumsol" substring exists in "Rumsol Feeds Cattle Grower"
+  for (const item of inventory) {
+    const itemLower = item.feed_type.toLowerCase();
+    // Check if the inventory item starts with the spoken words
+    const spokenWords = spokenLower.split(/\s+/);
+    const itemWords = itemLower.split(/\s+/);
+    
+    if (spokenWords.length <= itemWords.length) {
+      const prefixWordsMatch = spokenWords.every((word, idx) => 
+        itemWords[idx]?.startsWith(word) || itemWords[idx] === word
+      );
+      if (prefixWordsMatch) {
+        console.log(`[VoiceExtractor] Word prefix match: "${spokenFeed}" → "${item.feed_type}"`);
+        return {
+          bestMatch: { id: item.id, name: item.feed_type },
+          confidence: 'high',
+          suggestions: [{ id: item.id, name: item.feed_type, score: 0.95 }]
+        };
+      }
+    }
+  }
+
+  // PRIORITY 3: Standard Levenshtein fuzzy matching
   const inventoryNames = inventory.map(i => i.feed_type);
   const allMatches = findAllMatches(spokenFeed, inventoryNames, 0.35);
   
