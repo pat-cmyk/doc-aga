@@ -10,3 +10,12 @@ export { BreedingActionCard } from './BreedingActionCard';
 export { BreedingHubStatCard } from './BreedingHubStatCard';
 export { FertilityStateBadge } from './FertilityStateBadge';
 export { BreedingAlertsSection } from './BreedingAlertsSection';
+
+// Analytics components
+export { 
+  BreedingAnalyticsSection,
+  ServicesPerConceptionCard,
+  CalvingIntervalCard,
+  HeatDetectionRateCard,
+  BreedingSeasonCard,
+} from './analytics';
