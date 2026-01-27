@@ -108,6 +108,7 @@ export function VoiceRecordButton({
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const config = sizeConfig[size];
 
@@ -180,11 +181,6 @@ export function VoiceRecordButton({
     setAutoSubmitCountdown(null);
   }, []);
 
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => clearAutoSubmitTimers();
-  }, [clearAutoSubmitTimers]);
-
   // Voice recording hook
   const {
     state,
@@ -215,6 +211,30 @@ export function VoiceRecordButton({
     offlineMetadata,
   });
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      clearAutoSubmitTimers();
+      if (autoResetTimerRef.current) {
+        clearTimeout(autoResetTimerRef.current);
+      }
+    };
+  }, [clearAutoSubmitTimers]);
+
+  // Auto-reset from preview state when showPreview is false (Doc Aga mode)
+  useEffect(() => {
+    if (state === 'preview' && !showPreview) {
+      autoResetTimerRef.current = setTimeout(() => {
+        reset();
+      }, 300);
+      return () => {
+        if (autoResetTimerRef.current) {
+          clearTimeout(autoResetTimerRef.current);
+        }
+      };
+    }
+  }, [state, showPreview, reset]);
+
   // Start/stop audio analysis when recording state changes
   useEffect(() => {
     if (isRecording && mediaStream && showAudioLevel) {
@@ -227,10 +247,14 @@ export function VoiceRecordButton({
   const handleClick = useCallback(() => {
     if (state === 'idle' || state === 'error') {
       startRecording();
+    } else if (state === 'preview') {
+      // Allow follow-up recordings from preview state
+      reset();
+      setTimeout(() => startRecording(), 50);
     } else if (canStopRecording) {
       stopRecording();
     }
-  }, [state, canStopRecording, startRecording, stopRecording]);
+  }, [state, canStopRecording, startRecording, stopRecording, reset]);
 
   const handleRetry = useCallback(() => {
     setShowPermissionDialog(false);
