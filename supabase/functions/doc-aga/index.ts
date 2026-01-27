@@ -56,7 +56,8 @@ const docAgaRequestSchema = z.object({
     imageUrl: z.string().url().nullish() // Allow null, undefined, or string
   })).min(1, 'At least one message required'),
   farmId: z.string().uuid().optional(),
-  context: z.enum(['farmer', 'government']).optional().default('farmer')
+  context: z.enum(['farmer', 'government']).optional().default('farmer'),
+  conversationId: z.string().uuid().optional() // For persistent memory
 });
 
 // Helper: Find matching FAQ based on user question
@@ -115,7 +116,7 @@ function findMatchingFaq(question: string, faqs: any[]): string | null {
   return (bestMatch && bestMatch.score >= 4) ? bestMatch.faq.id : null;
 }
 
-// Helper: Log query to database
+// Helper: Log query to database with conversation tracking
 async function logQuery(
   supabase: any,
   userId: string,
@@ -123,9 +124,21 @@ async function logQuery(
   question: string,
   answer: string,
   imageUrl: string | null,
-  matchedFaqId: string | null
+  matchedFaqId: string | null,
+  conversationId?: string
 ) {
   try {
+    // Get the current message index for this conversation
+    let messageIndex = 0;
+    if (conversationId) {
+      const { count } = await supabase
+        .from('doc_aga_queries')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('conversation_id', conversationId);
+      messageIndex = (count || 0);
+    }
+
     const { error } = await supabase
       .from('doc_aga_queries')
       .insert({
@@ -135,12 +148,14 @@ async function logQuery(
         answer,
         image_url: imageUrl,
         matched_faq_id: matchedFaqId,
+        conversation_id: conversationId || null,
+        message_index: messageIndex,
       });
     
     if (error) {
       console.error('Failed to log query:', error);
     } else {
-      console.log('✅ Query logged successfully');
+      console.log('✅ Query logged successfully', { conversationId, messageIndex });
     }
   } catch (error) {
     console.error('Error in logQuery:', error);
@@ -187,26 +202,75 @@ function getGovernmentTools(): any[] {
 }
 
 // Farmer System Prompt
-function getFarmerSystemPrompt(faqContext: string): string {
-  return `You are Doc Aga, a trusted and experienced local veterinarian (parang kilalang beterinaryo sa barangay) specializing in Philippine dairy farming. You help farmers manage their cattle operations.
+function getFarmerSystemPrompt(faqContext: string, recentContext?: string): string {
+  return `You are Doc Aga, a trusted and experienced local veterinarian (parang kilalang beterinaryo sa barangay) specializing in Philippine dairy farming. You help farmers manage their cattle and goat operations.
+
+PERSONALITY:
+- Warm, friendly, and practical - like a trusted friend in the barangay
+- Use Taglish naturally (mix of Tagalog and English)
+- Keep responses SHORT (2-4 sentences for simple queries, more for detailed data)
+
+CORE BEHAVIOR - DATA-FIRST RESPONSES:
+When farmers ask about their farm data (milk production, health, breeding, etc.):
+1. ALWAYS use tools to fetch actual data - NEVER guess or make up numbers
+2. Provide specific numbers first (total liters, counts, dates)
+3. Break down by category when relevant (by animal type, by session, by period)
+4. Compare to averages or previous periods when helpful
+5. THEN offer a helpful follow-up question or suggestion
+
+FOLLOW-UP PATTERN:
+After answering with data, offer to drill deeper:
+- "Gusto mo bang malaman kung aling hayop ang pinaka-productive?"
+- "Kung gusto mo ng specific animal, sabihin mo lang ang pangalan o ear tag."
+- "Kailangan mo ba ng breakdown per session (umaga/hapon)?"
+- "May gusto ka bang i-compare sa last week?"
+
+CONTEXT AWARENESS:
+- Remember animals and topics discussed earlier in this conversation
+- If user says "yung baka kanina" or "the cow we talked about", refer to previous context
+- Use get_conversation_context tool when user references past discussions
+
+RELATIVE DATE HANDLING:
+- "kahapon" / "yesterday" = use date='yesterday'
+- "ngayon" / "today" = current date
+- "last week" / "noong nakaraang linggo" = 7 days back
+- "this month" / "nitong buwan" = current month
+
+AVAILABLE FARM DATA:
+You have access to complete farm records including:
+- Milk production (any date, by animal, by session) - use get_milk_production
+- Health records and diagnoses - use get_health_history
+- Breeding/AI records and pregnancy status - use get_breeding_status
+- Weight measurements and growth tracking - use get_weight_history
+- Feeding records and consumption - use get_feeding_summary
+- Animal profiles and events - use get_animal_complete_profile
 
 Your knowledge base includes:
 ${faqContext}
 
-CRITICAL: Keep responses SHORT (2-4 sentences). Use Taglish naturally. Be warm and practical like a trusted friend.`;
+${recentContext ? `RECENT CONVERSATION CONTEXT:\n${recentContext}` : ''}
+
+Remember: Be helpful, be accurate with numbers, and always offer to help more!`;
 }
 
 // Farmer Tools
 function getFarmerTools(): any[] {
   return [
     { type: "function", function: { name: "get_animal_profile", description: "Get basic profile of a specific animal", parameters: { type: "object", properties: { ear_tag: { type: "string" }, name: { type: "string" } } } } },
-    { type: "function", function: { name: "get_animal_complete_profile", description: "Get comprehensive profile with ALL record types", parameters: { type: "object", properties: { ear_tag: { type: "string" }, name: { type: "string" } } } } },
+    { type: "function", function: { name: "get_animal_complete_profile", description: "Get comprehensive profile with ALL record types including health, milk, breeding, weight, and feeding history", parameters: { type: "object", properties: { ear_tag: { type: "string" }, name: { type: "string" } } } } },
     { type: "function", function: { name: "search_animals", description: "Search animals by criteria", parameters: { type: "object", properties: { livestock_type: { type: "string" }, breed: { type: "string" }, life_stage: { type: "string" }, gender: { type: "string" } } } } },
     { type: "function", function: { name: "add_health_record", description: "Create health record", parameters: { type: "object", properties: { animal_identifier: { type: "string" }, diagnosis: { type: "string" }, treatment: { type: "string" }, notes: { type: "string" } }, required: ["animal_identifier"] } } },
     { type: "function", function: { name: "add_smart_milking_record", description: "Smart milking record with auto-selection", parameters: { type: "object", properties: { liters: { type: "number" }, livestock_type: { type: "string" }, animal_identifier: { type: "string" } }, required: ["liters"] } } },
-    { type: "function", function: { name: "get_farm_overview", description: "Get basic farm statistics", parameters: { type: "object", properties: {} } } },
-    { type: "function", function: { name: "get_farm_analytics", description: "Get detailed farm analytics", parameters: { type: "object", properties: { days: { type: "number" } } } } },
-    { type: "function", function: { name: "get_pregnant_animals", description: "Get pregnant animals list", parameters: { type: "object", properties: {} } } }
+    { type: "function", function: { name: "get_farm_overview", description: "Get basic farm statistics for today", parameters: { type: "object", properties: {} } } },
+    { type: "function", function: { name: "get_farm_analytics", description: "Get detailed farm analytics over time", parameters: { type: "object", properties: { days: { type: "number" } } } } },
+    { type: "function", function: { name: "get_pregnant_animals", description: "Get pregnant animals list with expected due dates", parameters: { type: "object", properties: {} } } },
+    // NEW: Comprehensive farm data query tools
+    { type: "function", function: { name: "get_milk_production", description: "Get milk production for a specific date or date range. Supports 'yesterday'/'kahapon', 'last week', or date ranges. Returns total liters, breakdown by animal type, and top producing animals.", parameters: { type: "object", properties: { date: { type: "string", description: "Date keyword ('yesterday'/'kahapon'/'today'/'ngayon') or YYYY-MM-DD format" }, start_date: { type: "string", description: "Start date for range query (YYYY-MM-DD)" }, end_date: { type: "string", description: "End date for range query (YYYY-MM-DD)" }, animal_identifier: { type: "string", description: "Optional: specific animal name or ear tag" } } } } },
+    { type: "function", function: { name: "get_health_history", description: "Get health records for the farm or a specific animal. Can filter by date range or diagnosis type.", parameters: { type: "object", properties: { animal_identifier: { type: "string", description: "Optional: animal name or ear tag" }, days: { type: "number", description: "Number of days to look back (default: 30)" }, diagnosis: { type: "string", description: "Optional: filter by diagnosis keyword" } } } } },
+    { type: "function", function: { name: "get_breeding_status", description: "Get breeding analytics: AI procedures, pregnancy status, expected calving dates.", parameters: { type: "object", properties: { status: { type: "string", description: "Filter: 'pregnant', 'due_soon', 'recent_ai', or 'all'" }, days: { type: "number", description: "Lookback period for AI procedures (default: 90)" } } } } },
+    { type: "function", function: { name: "get_weight_history", description: "Get weight measurements for an animal or herd. Track growth over time.", parameters: { type: "object", properties: { animal_identifier: { type: "string", description: "Optional: specific animal name or ear tag" }, days: { type: "number", description: "Lookback period (default: 90)" } } } } },
+    { type: "function", function: { name: "get_feeding_summary", description: "Get feeding records and feed consumption summary.", parameters: { type: "object", properties: { days: { type: "number", description: "Lookback period (default: 7)" }, feed_type: { type: "string", description: "Optional: filter by feed type" } } } } },
+    { type: "function", function: { name: "get_conversation_context", description: "Get recent conversation history to understand context from previous discussions. Use when user references something discussed earlier like 'yung baka kanina' or 'like we discussed'.", parameters: { type: "object", properties: { hours: { type: "number", description: "How far back to look (default: 24)" }, topic_keywords: { type: "string", description: "Optional: keywords to filter relevant conversations" } } } } }
   ];
 }
 
@@ -243,10 +307,10 @@ serve(async (req) => {
       );
     }
 
-    const { messages, context } = validatedData;
+    const { messages, context, conversationId } = validatedData;
     const isGovernmentContext = context === 'government';
     
-    console.log(`Doc Aga request - context: ${context}`);
+    console.log(`Doc Aga request - context: ${context}, conversationId: ${conversationId || 'none'}`);
     
     // Transform messages to support vision (images)
     const transformedMessages = messages.map((msg: any) => {
@@ -468,7 +532,7 @@ serve(async (req) => {
         const toolArgs = JSON.parse(toolCall.function.arguments);
         
         console.log(`Executing tool: ${toolName}`, toolArgs);
-        const result = await executeToolCall(toolName, toolArgs, supabase, farmId, context);
+        const result = await executeToolCall(toolName, toolArgs, supabase, farmId, context, user.id, conversationId);
         console.log(`Tool result:`, result);
         
         toolResults.push({
@@ -538,7 +602,8 @@ serve(async (req) => {
               userQuestion,
               accumulatedResponse,
               userImageUrl,
-              matchedFaqId
+              matchedFaqId,
+              conversationId
             ).catch(err => console.error('Query logging failed:', err));
           }
         }
@@ -563,7 +628,8 @@ serve(async (req) => {
       userQuestion,
       aiResponseText,
       userImageUrl,
-      matchedFaqId
+      matchedFaqId,
+      conversationId
     ).catch(err => console.error('Query logging failed:', err));
     
     const stream = new ReadableStream({

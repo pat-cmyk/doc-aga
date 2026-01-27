@@ -33,10 +33,13 @@ type QuickAction = {
 };
 
 const DocAga = () => {
+  // Generate stable conversation ID for this session
+  const [conversationId] = useState(() => crypto.randomUUID());
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• Provide farm management advice\n\nYou can type your question, attach an image, or use voice recording. How can I help you today?"
+      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• **Query historical data** (milk production, weights, health - any date!)\n• Provide farm management advice\n\nYou can type your question, attach an image, or use voice recording. How can I help you today?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -233,7 +236,11 @@ const DocAga = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: messagesToSend, context: isGovernmentContext ? 'government' : 'farmer' }),
+        body: JSON.stringify({ 
+          messages: messagesToSend, 
+          context: isGovernmentContext ? 'government' : 'farmer',
+          conversationId 
+        }),
       });
 
       if (!resp.ok) {

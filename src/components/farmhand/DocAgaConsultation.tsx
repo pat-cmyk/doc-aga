@@ -24,6 +24,9 @@ interface DocAgaConsultationProps {
 }
 
 const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultationProps) => {
+  // Generate stable conversation ID for this session
+  const [conversationId] = useState(() => crypto.randomUUID());
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -105,7 +108,8 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           messages: [
             ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Kumusta! Ako si Dok Aga")),
             { role: "user", content: textToSend }
-          ]
+          ],
+          conversationId
         }),
       });
 
