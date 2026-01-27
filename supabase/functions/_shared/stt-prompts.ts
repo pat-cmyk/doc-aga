@@ -354,6 +354,101 @@ OUTPUT FORMAT (JSON only, no markdown):
 }
 `.trim();
 
+// ==================== BISAYA/CEBUANO SUPPORT ====================
+
+export const BISAYA_CEBUANO_TERMS = `
+=== BISAYA/CEBUANO SUPPORT ===
+
+CRITICAL: Recognize Bisaya/Cebuano terms commonly used in Visayas farms:
+
+TIME REFERENCES:
+- "gabie" = yesterday (NOT "yesterday evening")
+- "karon" = now/today
+- "ugma" = tomorrow (FUTURE - reject for activity recording!)
+- "kagahapon" = yesterday
+- "sunod adlaw" = next day (FUTURE)
+
+ACTIVITIES:
+- "papakaon" / "pagpakaon" = feeding
+- "pagatas" / "pag-gatas" = milking
+- "pagtimbang" = weighing
+- "pagbakuna" = vaccination
+- "pagturuk" = injection
+
+ANIMALS:
+- "baka" = cow/cattle
+- "kanding" = goat
+- "karnero" = sheep
+- "kalabaw" = carabao
+
+QUANTITIES:
+- "usa" = 1, "duha" = 2, "tulo" = 3, "upat" = 4, "lima" = 5
+- "unom" = 6, "pito" = 7, "walo" = 8, "siyam" = 9, "napulo" = 10
+`.trim();
+
+// ==================== LIVESTOCK TYPE DETECTION ====================
+
+export const LIVESTOCK_TYPE_DETECTION = `
+=== LIVESTOCK TYPE DETECTION FOR MILKING ===
+
+Detect livestock type from milk-related keywords in the transcription:
+
+CATTLE:
+- "cow milk" / "gatas ng baka" / "baka" / "cattle" → livestock_type: 'cattle'
+
+GOAT:
+- "goat milk" / "gatas ng kambing" / "kambing" / "kanding" → livestock_type: 'goat'
+
+CARABAO:
+- "carabao milk" / "gatas ng kalabaw" / "kalabaw" → livestock_type: 'carabao'
+
+SHEEP:
+- "sheep milk" / "gatas ng tupa" / "tupa" / "karnero" → livestock_type: 'sheep'
+
+DEFAULT:
+- No type mentioned → livestock_type: null (system will show all types for selection)
+
+Examples:
+- "Nag-gatas ako ng 20 liters ng goat milk" → livestock_type: 'goat'
+- "I milked 20 liters" → livestock_type: null
+- "Nakakuha ng 15 liters gatas ng baka" → livestock_type: 'cattle'
+- "Gatas ng kambing, mga 10 liters" → livestock_type: 'goat'
+`.trim();
+
+// ==================== FEED TYPE VS UNIT RULES ====================
+
+export const FEED_TYPE_UNIT_RULES = `
+=== CRITICAL - Feed Type vs Unit Distinction ===
+
+For feeding activities, you MUST correctly distinguish between feed_type and unit:
+
+FEED_TYPE = WHAT the feed is (the actual material/product name):
+- Examples: "corn silage", "hay", "concentrates", "alfalfa", "barley", "grain"
+- Common variations: "baled corn silage", "chopped hay", "dairy concentrates"
+- Filipino: "dayami"=rice straw, "mais"=corn, "darak"=rice bran, "pulot"=molasses
+- If user explicitly mentions feed type, extract it exactly
+- If user only mentions unit WITHOUT specifying content, set feed_type to null
+
+UNIT = HOW it's packaged/measured:
+- Examples: "bales", "bags", "barrels", "buckets", "kg", "drums"
+- Filipino: "supot"/"sako"=bag, "bigkis"/"pakete"=bale, "balde"=bucket, "drum"/"bariles"=barrel
+- This describes the container or measurement, NOT the feed itself
+
+EXTRACTION RULES:
+1. "5 bales" alone → feed_type: null, unit: "bales", quantity: 5
+2. "5 bales of corn silage" → feed_type: "corn silage", unit: "bales", quantity: 5
+3. "2 bags of concentrates" → feed_type: "concentrates", unit: "bags", quantity: 2
+4. "8 bales of baled corn silage" → feed_type: "baled corn silage", unit: "bales", quantity: 8
+5. "3 bags" alone → feed_type: null, unit: "bags", quantity: 3
+6. "Lima sako ng darak" → feed_type: "rice bran", unit: "bags", quantity: 5
+7. "10 bigkis ng mais" → feed_type: "corn", unit: "bales", quantity: 10
+
+**CRITICAL**: System will check inventory to resolve null feed types automatically.
+**NEVER use the unit name as the feed_type!**
+**NEVER assume or default feed types - extract only what user explicitly says!**
+**NEVER use "unknown" string - use null instead!**
+`.trim();
+
 // ==================== ACTIVITY EXTRACTION PROMPT ====================
 
 export function getActivityExtractionPrompt(animalInfo?: { name?: string; ear_tag?: string }, animalId?: string): string {
@@ -371,9 +466,17 @@ ${animalContext}
 
 ${AGRICULTURAL_GLOSSARY}
 
+${TAGALOG_DISCOURSE_MARKERS}
+
 ${TAGLISH_PATTERNS}
 
 ${NUMBER_DISAMBIGUATION_RULES}
+
+${BISAYA_CEBUANO_TERMS}
+
+${LIVESTOCK_TYPE_DETECTION}
+
+${FEED_TYPE_UNIT_RULES}
 
 **ACTIVITY TYPES**:
 - feeding: Recording feed given to animals (requires quantity, feed_type, unit)
@@ -386,12 +489,17 @@ ${NUMBER_DISAMBIGUATION_RULES}
 **FEEDING LOGIC**:
 - Extract: quantity (count), unit (bales/bags/barrels/kg), feed_type (what the feed is)
 - DO NOT multiply by weight - system will look up from inventory
-- If only unit mentioned without type, set feed_type to "unknown"
+- If only unit mentioned without type, set feed_type to null (NOT "unknown")
 
 **MILKING LOGIC**:
 - Extract livestock_type if mentioned: 'cattle', 'goat', 'carabao', 'sheep'
 - Extract quantity in liters
 - Detect session: AM (morning/umaga) or PM (afternoon/gabi/hapon)
+
+**ANIMAL IDENTIFICATION**:
+- If farmhand mentions SPECIFIC animals (ear tag, name), extract animal_identifier
+- If says "lahat"/"all"/"everyone"/"herd", NO animal_identifier (proportional distribution)
+- DO NOT extract "cat" (likely mishearing "cattle")
 
 **OUTPUT FORMAT** (JSON only):
 {
