@@ -1,197 +1,356 @@
 
+# Enhance Doc Aga with Comprehensive Farm Data Access and Persistent Memory
 
-# Add ElevenLabs Scribe v2 (Batch) as Primary STT with Gemini Fallback
+## Problem Statement
 
-## Overview
+Currently, Doc Aga has limited capabilities:
+1. **Narrow Data Access**: Only has `get_farm_overview` (today's stats) - cannot query historical milk production, health records by date, weight trends, or feeding history
+2. **No Persistent Memory**: Conversation history is session-only (React state). When the user returns, Doc Aga has no memory of previous discussions
+3. **Missing Follow-up Context**: Cannot understand "the cow I asked about earlier" or "like we discussed yesterday"
 
-This change updates the `voice-to-text` edge function to use ElevenLabs Scribe v2 (batch API) as the primary transcription provider, with automatic fallback to Gemini 3 Pro if ElevenLabs fails.
+## Solution Overview
+
+Three enhancements to make Doc Aga a truly contextual farm assistant:
+
+### 1. Comprehensive Farm Data Tools
+### 2. Persistent Conversation Memory
+### 3. Enhanced System Prompt for Data-First Responses
 
 ---
 
-## Current vs. New Architecture
+## Part 1: New Farm Data Query Tools
 
-| Provider | Role | API Type | Strengths |
-|----------|------|----------|-----------|
-| **ElevenLabs** `scribe_v2` | Primary | REST (batch) | Optimized for speech, 99+ languages, speaker diarization |
-| **Gemini** `gemini-3-pro-preview` | Fallback | REST (multimodal) | Already configured, good Taglish support |
+### Tool: `get_milk_production`
+Query milk production for any date or date range with animal breakdown.
+
+```typescript
+{
+  name: "get_milk_production",
+  description: "Get milk production for a specific date or date range. Supports 'yesterday'/'kahapon', 'last week', or date ranges. Returns total liters, breakdown by animal type, and top producing animals.",
+  parameters: {
+    date: { type: "string", description: "Date keyword ('yesterday'/'kahapon'/'today'/'ngayon') or YYYY-MM-DD format" },
+    start_date: { type: "string", description: "Start date for range query (YYYY-MM-DD)" },
+    end_date: { type: "string", description: "End date for range query (YYYY-MM-DD)" },
+    animal_identifier: { type: "string", description: "Optional: specific animal name or ear tag" }
+  }
+}
+```
+
+**Returns:**
+- Total liters for the period
+- Breakdown by livestock type (Cattle: 45L, Goat: 12L)
+- Top 10 producing animals with individual totals
+- Session breakdown (AM/PM) if applicable
+- Comparison to previous period average
+
+### Tool: `get_health_history`
+Query health records for the farm or specific animal.
+
+```typescript
+{
+  name: "get_health_history",
+  description: "Get health records for the farm or a specific animal. Can filter by date range, diagnosis type, or treatment status.",
+  parameters: {
+    animal_identifier: { type: "string", description: "Optional: animal name or ear tag" },
+    days: { type: "number", description: "Number of days to look back (default: 30)" },
+    diagnosis: { type: "string", description: "Optional: filter by diagnosis keyword" }
+  }
+}
+```
+
+**Returns:**
+- Health events in the period
+- Breakdown by diagnosis type
+- Animals with most health issues
+- Recent treatments and follow-up status
+
+### Tool: `get_breeding_status`
+Query breeding and pregnancy information.
+
+```typescript
+{
+  name: "get_breeding_status",
+  description: "Get breeding analytics: AI procedures, pregnancy status, expected calving dates.",
+  parameters: {
+    status: { type: "string", description: "Filter: 'pregnant', 'due_soon', 'recent_ai', or 'all'" },
+    days: { type: "number", description: "Lookback period for AI procedures (default: 90)" }
+  }
+}
+```
+
+**Returns:**
+- Currently pregnant animals with expected due dates
+- Animals due within 30 days (with alerts)
+- Recent AI procedures and success rates
+- Animals ready for breeding (in heat soon)
+
+### Tool: `get_weight_history`
+Query weight measurements and growth tracking.
+
+```typescript
+{
+  name: "get_weight_history",
+  description: "Get weight measurements for an animal or herd. Track growth over time.",
+  parameters: {
+    animal_identifier: { type: "string", description: "Optional: specific animal" },
+    days: { type: "number", description: "Lookback period (default: 90)" }
+  }
+}
+```
+
+**Returns:**
+- Latest weight per animal
+- Weight gain/loss over period
+- Comparison to breed standards
+- Animals needing attention (underweight/overweight)
+
+### Tool: `get_feeding_summary`
+Query feeding records and consumption patterns.
+
+```typescript
+{
+  name: "get_feeding_summary",
+  description: "Get feeding records and feed consumption summary.",
+  parameters: {
+    days: { type: "number", description: "Lookback period (default: 7)" },
+    feed_type: { type: "string", description: "Optional: filter by feed type" }
+  }
+}
+```
+
+**Returns:**
+- Total feed consumed by type
+- Cost summary for the period
+- Per-animal consumption rates
+- Feed inventory status (days remaining)
 
 ---
 
-## Fallback Chain Flow
+## Part 2: Persistent Conversation Memory
+
+### Database Enhancement
+Add `conversation_id` to `doc_aga_queries` table to link related messages:
+
+```sql
+ALTER TABLE doc_aga_queries 
+ADD COLUMN conversation_id uuid DEFAULT gen_random_uuid(),
+ADD COLUMN message_index integer DEFAULT 0;
+
+CREATE INDEX idx_doc_aga_queries_conversation ON doc_aga_queries(user_id, conversation_id, created_at);
+```
+
+### New Tool: `get_conversation_context`
+Fetch recent conversation history for context.
+
+```typescript
+{
+  name: "get_conversation_context",
+  description: "Get recent conversation history to understand context from previous discussions. Use when user references something discussed earlier.",
+  parameters: {
+    hours: { type: "number", description: "How far back to look (default: 24)" },
+    topic_keywords: { type: "string", description: "Optional: keywords to filter relevant conversations" }
+  }
+}
+```
+
+**Returns:**
+- Recent questions and answers from this user
+- Animals mentioned in recent conversations
+- Topics discussed (breeding, health, production)
+- Last conversation timestamp
+
+### Frontend Enhancement
+Pass `conversationId` to edge function to maintain session context:
+
+```typescript
+// Generate conversation ID on mount or after 30min idle
+const [conversationId] = useState(() => crypto.randomUUID());
+
+// Include in API call
+body: JSON.stringify({ 
+  messages: messagesToSend, 
+  conversationId,
+  context: isGovernmentContext ? 'government' : 'farmer' 
+})
+```
+
+---
+
+## Part 3: Enhanced System Prompt
+
+Update `getFarmerSystemPrompt()` to enforce data-first, contextual responses:
+
+```typescript
+function getFarmerSystemPrompt(faqContext: string, recentContext?: any): string {
+  return `You are Doc Aga, a trusted and experienced local veterinarian (parang kilalang beterinaryo sa barangay) specializing in Philippine dairy farming.
+
+PERSONALITY:
+- Warm, friendly, and practical - like a trusted friend in the barangay
+- Use Taglish naturally (mix of Tagalog and English)
+- Keep responses SHORT (2-4 sentences for simple queries, more for detailed data)
+
+CORE BEHAVIOR - DATA-FIRST RESPONSES:
+When farmers ask about their farm data:
+1. ALWAYS use tools to fetch actual data - NEVER guess or make up numbers
+2. Provide specific numbers first (total liters, counts, dates)
+3. Break down by category when relevant (by animal type, by session, by period)
+4. Compare to averages or previous periods when helpful
+5. THEN offer a helpful follow-up question or suggestion
+
+FOLLOW-UP PATTERN:
+After answering with data, offer to drill deeper:
+- "Gusto mo bang malaman kung aling hayop ang pinaka-productive?"
+- "Kung gusto mo ng specific animal, sabihin mo lang ang pangalan o ear tag."
+- "Kailangan mo ba ng breakdown per session (umaga/hapon)?"
+- "May gusto ka bang i-compare sa last week?"
+
+CONTEXT AWARENESS:
+- Remember animals and topics discussed earlier in this conversation
+- If user says "yung baka kanina" or "the cow we talked about", refer to previous context
+- Use get_conversation_context tool when user references past discussions
+
+RELATIVE DATE HANDLING:
+- "kahapon" / "yesterday" = use date='yesterday'
+- "ngayon" / "today" = current date
+- "last week" / "noong nakaraang linggo" = 7 days back
+- "this month" / "nitong buwan" = current month
+
+AVAILABLE FARM DATA:
+You have access to complete farm records including:
+- Milk production (any date, by animal, by session)
+- Health records and diagnoses
+- Breeding/AI records and pregnancy status
+- Weight measurements and growth tracking
+- Feeding records and consumption
+- Animal events (births, exits, transfers)
+
+Your knowledge base includes:
+${faqContext}
+
+${recentContext ? `RECENT CONVERSATION CONTEXT:\n${recentContext}` : ''}
+
+Remember: Be helpful, be accurate with numbers, and always offer to help more!`;
+}
+```
+
+---
+
+## Implementation Files
+
+| File | Changes |
+|------|---------|
+| `supabase/functions/doc-aga/tools.ts` | Add 6 new tool functions: `getMilkProduction`, `getHealthHistory`, `getBreedingStatus`, `getWeightHistory`, `getFeedingSummary`, `getConversationContext` |
+| `supabase/functions/doc-aga/index.ts` | Add tool definitions to `getFarmerTools()`, update system prompt, handle `conversationId` in request, pass recent context to prompt |
+| `src/components/DocAga.tsx` | Add `conversationId` state, pass to API, handle session timeout for new conversations |
+| `src/components/farmhand/DocAgaConsultation.tsx` | Same conversation ID changes |
+| Database migration | Add `conversation_id` and `message_index` columns to `doc_aga_queries` |
+
+---
+
+## Example Conversations
+
+### Example 1: Milk Production Query
+
+**Farmer**: "Hi Doc! Ilang litro ulit ng gatas yung na-collecta natin kahapon?"
+
+**Doc Aga** (uses `get_milk_production` with `date='yesterday'`):
+> "Magandang araw! Kahapon, naka-collect tayo ng **45.5 liters** ng gatas sa farm mo:
+> - Cattle: 32L (3 na baka)
+> - Goat: 13.5L (5 na kambing)
+>
+> Top producer si **Bessie** with 12L! Kung gusto mo malaman ang production ng specific na hayop, sabihin mo lang ang pangalan o ear tag. 🐄"
+
+### Example 2: Follow-up with Context
+
+**Farmer**: "Si Bessie nga, kamusta siya overall?"
+
+**Doc Aga** (uses `get_animal_complete_profile` with context from previous message):
+> "Si Bessie (ear tag: C-001) ay nasa good condition! Here's her summary:
+> - **Production**: 12L kahapon, average 10.5L/day this week
+> - **Health**: Last checkup 2 weeks ago, walang issue
+> - **Weight**: 485kg, gained 8kg since last month
+> - **Status**: Lactating, Day 120 in milk
+>
+> Kailangan mo ba ng detailed health history niya?"
+
+### Example 3: Contextual Memory
+
+**Farmer** (next day): "Doc, yung baka na tinanong ko kahapon, kailangan na ba ng booster shot?"
+
+**Doc Aga** (uses `get_conversation_context` to find Bessie, then `get_animal_complete_profile`):
+> "Ah, si Bessie! Checking her records... Her last vaccination was 8 months ago for FMD. According to the schedule, she's due for a booster within the next 2 months.
+>
+> Gusto mo ba i-schedule ko na ang reminder?"
+
+---
+
+## Data Flow Summary
 
 ```text
-Audio Blob
-    │
-    ▼
-┌─────────────────────────┐
-│  ElevenLabs scribe_v2   │──── Success ────▶ Return transcription
-│  (Primary)              │
-└────────────┬────────────┘
-             │ Fail (error/timeout)
+User Question
+     │
+     ▼
+┌──────────────────────────┐
+│   Parse Date/Context     │
+│   (kahapon, specific     │
+│    animal, etc.)         │
+└────────────┬─────────────┘
+             │
              ▼
-┌─────────────────────────┐
-│  Gemini 3 Pro           │──── Success ────▶ Return transcription
-│  (Fallback)             │
-└────────────┬────────────┘
-             │ Fail
+┌──────────────────────────┐
+│   Select Appropriate     │
+│   Tool(s)                │
+│   - get_milk_production  │
+│   - get_animal_profile   │
+│   - get_health_history   │
+│   - etc.                 │
+└────────────┬─────────────┘
+             │
              ▼
-        Return error
+┌──────────────────────────┐
+│   Execute Tool(s)        │
+│   Query actual farm data │
+│   from database          │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│   Format Response        │
+│   - Show totals first    │
+│   - Break down by type   │
+│   - Offer follow-up      │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│   Save to History        │
+│   (for future context)   │
+└──────────────────────────┘
 ```
-
----
-
-## Implementation
-
-### File: `supabase/functions/voice-to-text/index.ts`
-
-**Changes:**
-
-1. Add ElevenLabs transcription function
-2. Add fallback logic (try ElevenLabs first, then Gemini)
-3. Update analytics to track which provider succeeded
-
-**New Function - ElevenLabs Batch Transcription:**
-```typescript
-async function transcribeWithElevenLabs(audioBase64: string): Promise<string> {
-  const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY not configured');
-  }
-
-  // Decode base64 to binary
-  const binaryString = atob(audioBase64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Create form data with audio file
-  const formData = new FormData();
-  const audioBlob = new Blob([bytes], { type: 'audio/webm' });
-  formData.append('file', audioBlob, 'recording.webm');
-  formData.append('model_id', 'scribe_v2');
-  // Auto-detect language for Taglish support
-  // formData.append('language_code', 'tgl'); // Optional: can force Tagalog
-
-  const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
-    method: 'POST',
-    headers: {
-      'xi-api-key': ELEVENLABS_API_KEY,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`ElevenLabs error: ${response.status} - ${errorText}`);
-  }
-
-  const result = await response.json();
-  return result.text;
-}
-```
-
-**Updated Main Logic - Fallback Chain:**
-```typescript
-// Try ElevenLabs first
-let transcription: string | null = null;
-let provider = 'elevenlabs';
-
-try {
-  console.log('[voice-to-text] Trying ElevenLabs Scribe v2...');
-  transcription = await transcribeWithElevenLabs(audio);
-  console.log('[voice-to-text] ElevenLabs success');
-} catch (elevenLabsError) {
-  console.warn('[voice-to-text] ElevenLabs failed, falling back to Gemini:', elevenLabsError);
-  provider = 'gemini';
-  
-  // Fallback to Gemini
-  const geminiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    // ... existing Gemini logic
-  });
-  
-  // ... process Gemini response
-  transcription = result.choices?.[0]?.message?.content?.trim();
-}
-```
-
----
-
-## Analytics Tracking
-
-The `stt_analytics` table will now capture which provider was used:
-
-| model_provider | model_version | status |
-|----------------|---------------|--------|
-| `elevenlabs` | `scribe_v2` | `success` |
-| `gemini` | `gemini-3-pro-preview` | `success` (fallback) |
-
-This allows you to monitor:
-- ElevenLabs success rate
-- How often Gemini fallback is triggered
-- Latency comparison between providers
-
----
-
-## ElevenLabs Batch API Details
-
-**Endpoint:** `POST https://api.elevenlabs.io/v1/speech-to-text`
-
-**Request:**
-- `file`: Audio file (webm, mp3, wav, etc.)
-- `model_id`: `scribe_v2`
-- `language_code`: Optional (auto-detect if omitted)
-- `tag_audio_events`: Optional (detect laughter, music, etc.)
-- `diarize`: Optional (identify speakers)
-
-**Response:**
-```json
-{
-  "text": "The transcribed text",
-  "words": [
-    { "text": "The", "start": 0.0, "end": 0.1 },
-    { "text": "transcribed", "start": 0.12, "end": 0.5 }
-  ]
-}
-```
-
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/voice-to-text/index.ts` | Add ElevenLabs function, implement fallback chain |
 
 ---
 
 ## Benefits
 
-1. **Better Speech Recognition**: ElevenLabs is purpose-built for speech (vs Gemini which is general-purpose multimodal)
-2. **Automatic Redundancy**: If ElevenLabs is down or rate-limited, Gemini takes over seamlessly
-3. **Filipino Support**: ElevenLabs supports Tagalog (`tgl`) and English, handles code-switching
-4. **Offline-First Still Works**: Recording is local, only transcription needs network (after stop)
-5. **Analytics Visibility**: Track provider performance to optimize over time
-
----
-
-## Trade-offs
-
-| Aspect | ElevenLabs Primary | Gemini Only |
-|--------|-------------------|-------------|
-| Latency | ~1-3s | ~2-4s |
-| Cost | Uses ElevenLabs credits | Uses Lovable AI credits |
-| Taglish accuracy | Excellent | Good |
-| Fallback | Gemini backup | None |
+1. **Complete Farm Data Access**: Doc Aga can answer ANY question about the farm's historical data
+2. **Persistent Memory**: Conversations are linked and can be referenced later
+3. **Contextual Understanding**: "Yung baka kanina" or "like we discussed" works correctly
+4. **Data-First Accuracy**: Always queries real data, never guesses numbers
+5. **Helpful Follow-ups**: Proactively offers to drill deeper into data
+6. **Taglish Support**: Understands Filipino date/time references naturally
 
 ---
 
 ## Testing Checklist
 
 After implementation:
-- [ ] ElevenLabs transcription works for Filipino speech
-- [ ] Fallback to Gemini triggers when ElevenLabs fails
-- [ ] Analytics show correct provider attribution
-- [ ] Error messages are user-friendly
-- [ ] Offline queue still works (audio saved, transcribed on reconnect)
-
+- [ ] Milk production query for yesterday works
+- [ ] Milk production for specific animal works
+- [ ] Health history query returns actual records
+- [ ] Breeding status shows pregnant animals correctly
+- [ ] Context from earlier in conversation is remembered
+- [ ] Context from previous day's conversation can be retrieved
+- [ ] Follow-up suggestions are offered consistently
+- [ ] Taglish date keywords (kahapon, ngayon, etc.) are parsed correctly
+- [ ] TTS audio still plays for responses
+- [ ] Government context still works separately
