@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send, Bot, User, Volume2, FileText, Square, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import VoiceInterface from "./VoiceInterface";
+import { VoiceRecordButton } from "./ui/VoiceRecordButton";
 import { useRole } from "@/hooks/useRole";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
@@ -576,17 +576,23 @@ const DocAga = () => {
 
         {/* Conditional input based on selected method */}
         {inputMethod === "voice" ? (
-          <VoiceInterface 
-            onTranscription={(text) => {
-              setIsVoiceInput(true);
-              handleSendMessage(text);
-            }} 
-            disabled={isUploadingImage || loading}
-            compact={false}
-            className="border-t-0"
-            useRealtime={true}
-            enableCorrection={true}
-          />
+          <div className="flex items-center justify-center p-4 border-t-0 bg-muted/30">
+            <VoiceRecordButton 
+              onTranscription={(text) => {
+                setIsVoiceInput(true);
+                handleSendMessage(text);
+              }} 
+              disabled={isUploadingImage || loading}
+              preferRealtime={true}
+              showLabel={true}
+              showLiveTranscript={true}
+              showPreview={false}
+              size="md"
+              variant="secondary"
+              idleLabel="Speak to Doc Aga"
+              recordingLabel="Stop & Send"
+            />
+          </div>
         ) : (
           <form
             onSubmit={(e) => {
