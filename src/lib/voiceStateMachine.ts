@@ -12,6 +12,7 @@ export type VoiceState =
   | 'recording'         // Actively recording/streaming audio
   | 'stopping'          // User pressed stop, waiting for cleanup
   | 'processing'        // Transcription in progress
+  | 'offline_queued'    // Audio saved offline, waiting for connectivity
   | 'preview'           // Showing transcription for verification
   | 'error';            // Error state with retry option
 
@@ -21,6 +22,8 @@ export interface VoiceStateData {
   finalTranscript: string;
   error: Error | null;
   provider: 'elevenlabs' | 'gemini' | null;
+  /** Queue ID when audio is saved offline */
+  offlineQueueId: string | null;
 }
 
 export type VoiceAction =
@@ -40,7 +43,8 @@ export type VoiceAction =
   | { type: 'RETRY' }
   | { type: 'RESET' }
   | { type: 'ERROR'; error: Error }
-  | { type: 'SET_PROVIDER'; provider: 'elevenlabs' | 'gemini' };
+  | { type: 'SET_PROVIDER'; provider: 'elevenlabs' | 'gemini' }
+  | { type: 'OFFLINE_QUEUED'; queueId: string };
 
 // Valid state transitions
 const validTransitions: Record<VoiceState, VoiceState[]> = {
@@ -48,8 +52,9 @@ const validTransitions: Record<VoiceState, VoiceState[]> = {
   requesting_mic: ['connecting', 'recording', 'error', 'idle'],
   connecting: ['recording', 'error', 'idle', 'stopping'],
   recording: ['stopping', 'error', 'idle'],
-  stopping: ['processing', 'preview', 'error', 'idle'],
+  stopping: ['processing', 'preview', 'offline_queued', 'error', 'idle'],
   processing: ['preview', 'error', 'idle'],
+  offline_queued: ['idle', 'error'],
   preview: ['idle', 'error'],
   error: ['idle', 'requesting_mic'],
 };
@@ -61,6 +66,7 @@ export function createInitialState(): VoiceStateData {
     finalTranscript: '',
     error: null,
     provider: null,
+    offlineQueueId: null,
   };
 }
 
@@ -202,6 +208,20 @@ export function voiceReducer(state: VoiceStateData, action: VoiceAction): VoiceS
       return { ...state, provider: action.provider };
     }
 
+    case 'OFFLINE_QUEUED': {
+      if (!canTransition(state.state, 'offline_queued')) {
+        console.warn(`[VoiceStateMachine] Invalid transition: ${state.state} → offline_queued`);
+        return state;
+      }
+      log('Audio queued offline', 'offline_queued');
+      return { 
+        ...state, 
+        state: 'offline_queued', 
+        offlineQueueId: action.queueId,
+        partialTranscript: '',
+      };
+    }
+
     default:
       return state;
   }
@@ -239,6 +259,7 @@ export function getStateLabel(state: VoiceState, isRealtime: boolean = false): s
     case 'recording': return isRealtime ? 'Listening...' : 'Recording...';
     case 'stopping': return 'Stopping...';
     case 'processing': return 'Processing...';
+    case 'offline_queued': return 'Saved offline';
     case 'preview': return 'Preview';
     case 'error': return 'Error';
     default: return 'Unknown';
@@ -254,6 +275,7 @@ export function getStateColor(state: VoiceState): string {
     case 'recording': return 'bg-destructive';
     case 'processing':
     case 'stopping': return 'bg-blue-500';
+    case 'offline_queued': return 'bg-amber-500';
     case 'error': return 'bg-red-500';
     default: return 'bg-muted';
   }
