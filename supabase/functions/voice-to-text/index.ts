@@ -63,6 +63,115 @@ async function logSTTAnalytics(
   }
 }
 
+// ElevenLabs Scribe v2 Batch Transcription (Primary)
+async function transcribeWithElevenLabs(audioBase64: string): Promise<string> {
+  const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+  if (!ELEVENLABS_API_KEY) {
+    throw new Error('ELEVENLABS_API_KEY not configured');
+  }
+
+  // Decode base64 to binary
+  const binaryString = atob(audioBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Create form data with audio file
+  const formData = new FormData();
+  const audioBlob = new Blob([bytes], { type: 'audio/webm' });
+  formData.append('file', audioBlob, 'recording.webm');
+  formData.append('model_id', 'scribe_v2');
+  // Auto-detect language for Taglish support (omit language_code)
+
+  console.log('[voice-to-text] Sending to ElevenLabs Scribe v2...');
+  const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': ELEVENLABS_API_KEY,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[voice-to-text] ElevenLabs error:', response.status, errorText);
+    throw new Error(`ElevenLabs error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  
+  if (!result.text || typeof result.text !== 'string') {
+    throw new Error('Invalid response from ElevenLabs: no text field');
+  }
+
+  return result.text.trim();
+}
+
+// Gemini 3 Pro Transcription (Fallback)
+async function transcribeWithGemini(audioBase64: string): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY not configured');
+  }
+
+  console.log('[voice-to-text] Sending to Lovable AI Gateway (Gemini 3 Pro)...');
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-3-pro-preview',
+      messages: [
+        { 
+          role: 'system', 
+          content: TRANSCRIPTION_SYSTEM_PROMPT
+        },
+        { 
+          role: 'user', 
+          content: [
+            {
+              type: 'text',
+              text: 'Please transcribe this audio recording from a Filipino farmer. Preserve the natural Taglish speech patterns.'
+            },
+            {
+              type: 'inline_data',
+              inline_data: {
+                mime_type: 'audio/webm',
+                data: audioBase64
+              }
+            }
+          ]
+        }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[voice-to-text] Gemini error:', response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error('Rate limits exceeded');
+    }
+    if (response.status === 402) {
+      throw new Error('Service credits exhausted');
+    }
+    throw new Error(`Gemini error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const transcription = result.choices?.[0]?.message?.content?.trim();
+  
+  if (!transcription || typeof transcription !== 'string') {
+    throw new Error('Invalid response from Gemini: no transcription');
+  }
+
+  return transcription;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -71,6 +180,8 @@ serve(async (req) => {
   const startTime = Date.now();
   let userId: string | null = null;
   let audioSizeBytes = 0;
+  let provider = 'elevenlabs';
+  let modelVersion = 'scribe_v2';
 
   try {
     // Authenticate user
@@ -107,11 +218,10 @@ serve(async (req) => {
     if (!rateCheck.allowed) {
       console.warn(`[voice-to-text] Rate limit exceeded for user: ${user.id}`)
       
-      // Log rate limit event
       logSTTAnalytics(supabaseUrl, serviceKey, {
         user_id: user.id,
-        model_provider: 'gemini',
-        model_version: 'gemini-3-pro-preview',
+        model_provider: 'rate_limited',
+        model_version: 'n/a',
         latency_ms: Date.now() - startTime,
         audio_size_bytes: 0,
         status: 'rate_limited',
@@ -159,127 +269,74 @@ serve(async (req) => {
       )
     }
 
-    console.log(`[voice-to-text] Processing audio (${(audioSizeBytes / 1024).toFixed(2)}KB) with Gemini 3 Pro`)
+    console.log(`[voice-to-text] Processing audio (${(audioSizeBytes / 1024).toFixed(2)}KB)`)
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('[voice-to-text] LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Transcription service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // === FALLBACK CHAIN: ElevenLabs Primary → Gemini Fallback ===
+    let transcription: string | null = null;
 
-    // Prepare audio as base64 data URI for Gemini multimodal input
-    const audioDataUri = `data:audio/webm;base64,${audio}`;
+    try {
+      // Try ElevenLabs Scribe v2 first (Primary)
+      console.log('[voice-to-text] Trying ElevenLabs Scribe v2 (Primary)...');
+      transcription = await transcribeWithElevenLabs(audio);
+      provider = 'elevenlabs';
+      modelVersion = 'scribe_v2';
+      console.log('[voice-to-text] ElevenLabs success');
+    } catch (elevenLabsError) {
+      // ElevenLabs failed, fall back to Gemini
+      console.warn('[voice-to-text] ElevenLabs failed, falling back to Gemini:', elevenLabsError);
+      
+      try {
+        console.log('[voice-to-text] Trying Gemini 3 Pro (Fallback)...');
+        transcription = await transcribeWithGemini(audio);
+        provider = 'gemini';
+        modelVersion = 'gemini-3-pro-preview';
+        console.log('[voice-to-text] Gemini fallback success');
+      } catch (geminiError) {
+        // Both providers failed
+        console.error('[voice-to-text] Both providers failed:', geminiError);
+        
+        const latencyMs = Date.now() - startTime;
+        logSTTAnalytics(supabaseUrl, serviceKey, {
+          user_id: user.id,
+          model_provider: 'both_failed',
+          model_version: 'n/a',
+          latency_ms: latencyMs,
+          audio_size_bytes: audioSizeBytes,
+          status: 'error',
+          error_message: `ElevenLabs: ${elevenLabsError}; Gemini: ${geminiError}`
+        });
 
-    // Send to Lovable AI Gateway with Gemini 3 Pro
-    // IMPORTANT: Use inline_data format for Gemini multimodal audio input
-    console.log('[voice-to-text] Sending to Lovable AI Gateway (Gemini 3 Pro)...');
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-pro-preview',
-        messages: [
-          { 
-            role: 'system', 
-            content: TRANSCRIPTION_SYSTEM_PROMPT
-          },
-          { 
-            role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: 'Please transcribe this audio recording from a Filipino farmer. Preserve the natural Taglish speech patterns.'
-              },
-              {
-                type: 'inline_data',
-                inline_data: {
-                  mime_type: 'audio/webm',
-                  data: audio
-                }
-              }
-            ]
+        // Handle specific Gemini errors for user-friendly messages
+        if (geminiError instanceof Error) {
+          if (geminiError.message.includes('Rate limits')) {
+            return new Response(
+              JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
-        ],
-      }),
-    });
+          if (geminiError.message.includes('credits exhausted')) {
+            return new Response(
+              JSON.stringify({ error: 'Service credits exhausted. Please contact support.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Transcription service error. Please try again.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     const latencyMs = Date.now() - startTime;
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[voice-to-text] Lovable AI error:', response.status, errorText)
-      
-      // Log error analytics
-      logSTTAnalytics(supabaseUrl, serviceKey, {
-        user_id: user.id,
-        model_provider: 'gemini',
-        model_version: 'gemini-3-pro-preview',
-        latency_ms: latencyMs,
-        audio_size_bytes: audioSizeBytes,
-        status: 'error',
-        error_message: `API error: ${response.status}`
-      });
-      
-      // Handle rate limits
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      // Handle payment required
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Service credits exhausted. Please contact support.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      return new Response(
-        JSON.stringify({ error: 'Transcription service error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const result = await response.json();
-    
-    // Extract transcription from Gemini response
-    const transcription = result.choices?.[0]?.message?.content?.trim();
-    
-    if (!transcription || typeof transcription !== 'string') {
-      console.error('[voice-to-text] Invalid response from Gemini:', result)
-      
-      // Log invalid response analytics
-      logSTTAnalytics(supabaseUrl, serviceKey, {
-        user_id: user.id,
-        model_provider: 'gemini',
-        model_version: 'gemini-3-pro-preview',
-        latency_ms: latencyMs,
-        audio_size_bytes: audioSizeBytes,
-        status: 'error',
-        error_message: 'Invalid response from model'
-      });
-      
-      return new Response(
-        JSON.stringify({ error: 'Transcription failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log(`[voice-to-text] Success for user ${user.id}: ${transcription.substring(0, 50)}...`)
+    console.log(`[voice-to-text] Success for user ${user.id} via ${provider}: ${transcription.substring(0, 50)}...`)
 
     // Log successful transcription analytics
     logSTTAnalytics(supabaseUrl, serviceKey, {
       user_id: user.id,
-      model_provider: 'gemini',
-      model_version: 'gemini-3-pro-preview',
+      model_provider: provider,
+      model_version: modelVersion,
       latency_ms: latencyMs,
       audio_size_bytes: audioSizeBytes,
       status: 'success',
@@ -287,7 +344,7 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ text: transcription }),
+      JSON.stringify({ text: transcription, provider }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -302,8 +359,8 @@ serve(async (req) => {
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       logSTTAnalytics(supabaseUrl, serviceKey, {
         user_id: userId,
-        model_provider: 'gemini',
-        model_version: 'gemini-3-pro-preview',
+        model_provider: provider,
+        model_version: modelVersion,
         latency_ms: latencyMs,
         audio_size_bytes: audioSizeBytes,
         status: 'error',
