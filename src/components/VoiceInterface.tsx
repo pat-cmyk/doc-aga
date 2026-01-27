@@ -156,15 +156,29 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   };
 
   const stopRecording = useCallback(() => {
-    if (useRealtime && isRealtimeConnected) {
-      console.log('[VoiceInterface] Stopping realtime transcription...');
-      endSession();
+    console.log('[VoiceInterface] Stop requested. State:', { 
+      useRealtime, 
+      isRealtimeConnected, 
+      isRealtimeConnecting,
+      isRecording 
+    });
+    
+    if (useRealtime) {
+      // Handle both connected and connecting states
+      if (isRealtimeConnected) {
+        console.log('[VoiceInterface] Stopping active realtime session...');
+        endSession();
+      } else if (isRealtimeConnecting) {
+        console.log('[VoiceInterface] Cancelling realtime connection...');
+        // Connection in progress - just reset state, the hook will cleanup
+      }
       setIsRecording(false);
     } else if (mediaRecorderRef.current && isRecording) {
+      console.log('[VoiceInterface] Stopping batch recording...');
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
-  }, [useRealtime, isRealtimeConnected, isRecording, endSession]);
+  }, [useRealtime, isRealtimeConnected, isRealtimeConnecting, isRecording, endSession]);
 
   const processAndSendAudio = async (blob: Blob) => {
     setIsProcessing(true);
@@ -296,17 +310,20 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-destructive">
-                <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
-                {useRealtime ? 'Listening...' : 'Recording...'}
+                <div className={`h-3 w-3 rounded-full ${isRealtimeConnecting ? 'bg-yellow-500' : 'bg-destructive'} animate-pulse`} />
+                {useRealtime 
+                  ? (isRealtimeConnecting ? 'Connecting...' : 'Listening...') 
+                  : 'Recording...'}
               </div>
               <Button 
                 onClick={stopRecording}
                 variant="destructive"
                 size="sm"
                 className="gap-2"
+                disabled={useRealtime && !isRealtimeConnected && !isRealtimeConnecting}
               >
                 <Square className="h-4 w-4" />
-                Stop & Send
+                {isRealtimeConnecting ? 'Cancel' : 'Stop & Send'}
               </Button>
             </div>
           </div>
