@@ -1,435 +1,258 @@
 
-# Comprehensive Voice System Audit & Unified Architecture Plan
+# Session 2: Complete Voice System Migration
 
-## Executive Summary
+## Overview
 
-After a thorough audit, I've identified that the current voice system is **fragmented across 7+ different implementations** with inconsistent patterns for recording, transcription, extraction, and playback. This has led to recurring bugs like the unresponsive stop button and the issue where the wrong STT provider is used.
+This session completes the unified voice architecture by migrating all remaining voice input components to use the new `VoiceRecordButton` and `useVoiceRecording` infrastructure. We'll also delete deprecated files.
 
-This plan proposes a **unified voice service architecture** that centralizes all voice functionality into a single, testable, and maintainable system.
+## Current State
+
+**Already Completed (Session 1):**
+- `src/lib/voiceStateMachine.ts` - Finite state machine
+- `src/hooks/useVoiceRecording.ts` - Unified recording hook
+- `src/components/ui/VoiceRecordButton.tsx` - Unified UI component
+- `DocAga.tsx` - Migrated to new component
+
+**Still Using Old Pattern:**
+| Component | Current Implementation | Voice Used For |
+|-----------|----------------------|----------------|
+| `RecordBulkMilkDialog.tsx` | `VoiceFormInput` | Milk volume extraction with auto-submit |
+| `RecordBulkFeedDialog.tsx` | `VoiceFormInput` | Feed amount extraction |
+| `RecordSingleFeedDialog.tsx` | `VoiceFormInput` | Single animal feed entry |
+| `RecordBulkBCSDialog.tsx` | `VoiceFormInput` | Notes dictation |
+| `AddHealthRecordDialog.tsx` | `VoiceFormInput` (x3) | Diagnosis, treatment, notes |
+| `GovernmentConnectTab.tsx` | Custom MediaRecorder | Farmer feedback |
+| `VoiceQuickAdd.tsx` | Custom MediaRecorder | Animal registration |
+| `DocAgaConsultation.tsx` | Needs update to VoiceRecordButton |
 
 ---
 
-## Current State Audit Findings
+## Implementation Plan
 
-### 1. Fragmented Voice Input Components
+### Step 1: Create Data Extraction Wrapper
 
-| Component | Location | STT Provider | Recording Method | Issues |
-|-----------|----------|--------------|------------------|--------|
-| `VoiceInterface.tsx` | DocAga chat | ElevenLabs Scribe (realtime) OR Gemini (batch) | MediaRecorder + `useRealtimeTranscription` | Stop button fails during connecting state; dual-path complexity |
-| `VoiceFormInput.tsx` | Milk/Feed/Health dialogs | Gemini only (voice-to-text) | MediaRecorder | No realtime option; no live feedback |
-| `VoiceQuickAdd.tsx` | Animal registration | Gemini only (voice-to-text) | MediaRecorder | Separate implementation; no shared logic |
-| `GovernmentConnectTab.tsx` | Farmer feedback | Gemini only (voice-to-text) | MediaRecorder | Yet another separate implementation |
+The current `VoiceFormInput` combines recording AND data extraction. The new `VoiceRecordButton` only handles recording. We need a thin wrapper that adds extraction capability.
 
-### 2. State Management Issues
-
-**VoiceInterface.tsx** has **5 different state variables** for recording state:
-- `isRecording` (local state)
-- `isRealtimeConnected` (from hook)
-- `isRealtimeConnecting` (from hook)
-- `isProcessing` (local state)
-- MediaRecorder internal state
-
-**Problem**: These states can become out of sync, causing the stop button to fail.
-
-### 3. Dual-Path Transcription Flow
+**File:** `src/components/ui/VoiceRecordWithExtraction.tsx`
 
 ```text
-Current Flow (VoiceInterface):
-
-[User Speaks]
-    │
-    ├──► useRealtime=true ──► useRealtimeTranscription hook
-    │                              │
-    │                              ├──► elevenlabs-scribe-token (Edge Function)
-    │                              │
-    │                              └──► ElevenLabs Scribe WebSocket
-    │
-    └──► useRealtime=false ──► MediaRecorder + base64
-                                    │
-                                    └──► voice-to-text (Edge Function) ──► Gemini 3 Pro
+This component wraps VoiceRecordButton and adds:
+- Runs extractors on transcription (milk, feed, text, custom)
+- Handles auto-submit logic for form completion
+- Shows extraction preview feedback
+- Maintains backward compatibility with VoiceFormInput props
 ```
 
-**Problem**: Two completely different code paths with different error handling, making bugs hard to track.
+### Step 2: Migrate Milk Recording Dialog
 
-### 4. Inconsistent Form Extraction
+**File:** `src/components/milk-recording/RecordBulkMilkDialog.tsx`
 
-| Extractor | Used By | Auto-Submit | Verification Preview |
-|-----------|---------|-------------|----------------------|
-| `extractMilkData()` | RecordBulkMilkDialog | Yes (2.5s delay) | Toast only |
-| `extractFeedData()` | RecordBulkFeedDialog | No | None |
-| `extractTextData()` | Health records | No | None |
-| Custom (animal) | VoiceQuickAdd | No | Full preview card |
-
-### 5. TTS (Text-to-Speech) Integration
-
-- Only used in DocAga and DocAgaConsultation
-- Calls `text-to-speech` edge function → ElevenLabs API
-- Returns base64 audio, played via HTML Audio element
-- No shared audio playback utility
-
----
-
-## Root Causes of Recurring Issues
-
-### Issue 1: Stop Button Not Working
-**Root Cause**: `stopRecording()` only handles `isRealtimeConnected=true`, but user can click stop during `isRealtimeConnecting=true` (already partially fixed, but state machine is still fragile).
-
-### Issue 2: Wrong STT Provider Used
-**Root Cause**: `useRealtime` prop was not passed to VoiceInterface in DocAga, defaulting to batch mode (Gemini).
-
-### Issue 3: Hallucination in Transcription
-**Root Cause**: Gemini's transcription prompt was too suggestive, leading to content invention when audio was unclear.
-
-### Issue 4: Inconsistent Recording UX Across App
-**Root Cause**: Multiple implementations with different recording logic, state management, and feedback.
-
----
-
-## Proposed Unified Architecture
-
-### Core Principle: Single Responsibility Components
-
-```text
-Proposed Architecture:
-
-┌─────────────────────────────────────────────────────────────────┐
-│                     Unified Voice Service                        │
-│                  (src/lib/voiceService.ts)                       │
-├─────────────────────────────────────────────────────────────────┤
-│  • Single state machine for recording lifecycle                  │
-│  • Provider abstraction (ElevenLabs Scribe, Gemini fallback)    │
-│  • Automatic fallback chain                                      │
-│  • Centralized error handling                                    │
-│  • Analytics logging                                             │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-┌─────────────────────┐     ┌─────────────────────┐
-│  useVoiceRecording  │     │   useVoiceSynth     │
-│       (Hook)        │     │      (Hook)         │
-├─────────────────────┤     ├─────────────────────┤
-│ • Recording state   │     │ • Play TTS audio    │
-│ • Transcription     │     │ • Queue management  │
-│ • Auto-submit       │     │ • Voice selection   │
-│ • Preview toast     │     │ • Playback state    │
-└─────────┬───────────┘     └─────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              VoiceRecordButton (Single UI Component)             │
-├─────────────────────────────────────────────────────────────────┤
-│  Props:                                                          │
-│  • mode: 'realtime' | 'batch'                                    │
-│  • extractorType: 'milk' | 'feed' | 'text' | 'animal' | 'custom'│
-│  • onTranscription: (text: string) => void                       │
-│  • onDataExtracted?: (data: T) => void                          │
-│  • autoSubmit?: { enabled: boolean, delay: number, onSubmit }   │
-│  • showPreview?: boolean                                         │
-│  • size: 'sm' | 'md' | 'lg'                                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Phase 1: Unified Recording State Machine
-
-Create a finite state machine to eliminate state inconsistencies:
-
-**File**: `src/lib/voiceStateMachine.ts`
+**Changes:**
+- Replace `VoiceFormInput` import with `VoiceRecordWithExtraction`
+- Update props to match new interface
+- Keep auto-submit functionality working
 
 ```typescript
-// States: idle → requesting_mic → connecting → recording → stopping → processing → preview → idle
-// Transitions are explicit and validated
+// Before (line 33):
+import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
 
-type VoiceState = 
-  | 'idle'
-  | 'requesting_mic'      // Waiting for microphone permission
-  | 'connecting'          // Connecting to realtime provider (WebSocket handshake)
-  | 'recording'           // Actively recording/streaming
-  | 'stopping'            // User pressed stop, waiting for cleanup
-  | 'processing'          // Transcription in progress (batch mode)
-  | 'preview'             // Showing transcription for verification
-  | 'error';              // Error state with retry option
+// After:
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
 
-interface VoiceStateMachine {
-  state: VoiceState;
-  partialTranscript: string;
-  finalTranscript: string;
-  error: Error | null;
-  
-  // Actions
-  requestMicrophone(): void;
-  cancelMicrophone(): void;
-  startRecording(): void;
-  stopRecording(): void;
-  confirmTranscription(): void;
-  retryRecording(): void;
-  reset(): void;
-}
+// Before (lines 408-420):
+<VoiceFormInput
+  extractorType="milk"
+  extractorContext={animalContext}
+  onDataExtracted={handleVoiceDataExtracted}
+  ...
+/>
+
+// After:
+<VoiceRecordWithExtraction
+  extractorType="milk"
+  extractorContext={animalContext}
+  onDataExtracted={handleVoiceDataExtracted}
+  autoSubmit={{
+    enabled: displayAnimals.length > 0,
+    onSubmit: handleSubmit,
+    isComplete: isFormCompleteForAutoSubmit,
+  }}
+  size="sm"
+/>
 ```
 
-### Phase 2: Unified Voice Recording Hook
+### Step 3: Migrate Feed Recording Dialogs
 
-**File**: `src/hooks/useVoiceRecording.ts`
+**Files:**
+- `src/components/feed-recording/RecordBulkFeedDialog.tsx`
+- `src/components/feed-recording/RecordSingleFeedDialog.tsx`
+
+**Changes:** Same pattern as milk - replace `VoiceFormInput` with `VoiceRecordWithExtraction`
+
+### Step 4: Migrate BCS Recording Dialog
+
+**File:** `src/components/body-condition/RecordBulkBCSDialog.tsx`
+
+**Changes:** Replace text extractor usage for notes dictation
+
+### Step 5: Migrate Health Records Dialog
+
+**File:** `src/components/health-records/AddHealthRecordDialog.tsx`
+
+This dialog has 3 voice inputs for different fields. We'll use the simpler approach:
 
 ```typescript
-interface UseVoiceRecordingOptions {
-  // Provider selection
-  preferRealtime?: boolean;  // Default: true (uses ElevenLabs Scribe)
-  
-  // Callbacks
-  onTranscription?: (text: string) => void;
-  onPartialTranscript?: (text: string) => void;
-  onError?: (error: Error) => void;
-  
-  // Extraction (optional)
-  extractorType?: ExtractorType;
-  extractorContext?: ExtractorContext;
-  onDataExtracted?: (data: any) => void;
-  
-  // Auto-submit
-  autoSubmit?: {
-    enabled: boolean;
-    delayMs: number;
-    isFormComplete: (data: any) => boolean;
-    onSubmit: () => void;
-  };
-  
-  // Preview/verification
-  showPreview?: boolean;
-  previewDurationMs?: number;
-}
-
-interface UseVoiceRecordingReturn {
-  // State
-  state: VoiceState;
-  partialTranscript: string;
-  finalTranscript: string;
-  extractedData: any | null;
-  error: Error | null;
-  
-  // Actions
-  startRecording: () => Promise<void>;
-  stopRecording: () => void;
-  cancelRecording: () => void;
-  confirmTranscription: () => void;
-  retryRecording: () => void;
-  
-  // Helpers
-  isRecording: boolean;  // state === 'recording' || state === 'connecting'
-  isProcessing: boolean; // state === 'processing' || state === 'stopping'
-  canStop: boolean;      // state in ['connecting', 'recording']
-}
+// For each field (diagnosis, treatment, notes):
+<VoiceRecordButton
+  size="sm"
+  variant="outline"
+  onTranscription={(text) => 
+    setFormData(prev => ({ 
+      ...prev, 
+      diagnosis: prev.diagnosis ? `${prev.diagnosis} ${text}` : text 
+    }))
+  }
+/>
 ```
 
-### Phase 3: Single Voice Record Button Component
+### Step 6: Migrate Government Feedback Tab
 
-**File**: `src/components/ui/VoiceRecordButton.tsx`
+**File:** `src/components/farmer/GovernmentConnectTab.tsx`
 
-Replace `VoiceInterface`, `VoiceFormInput`, and `VoiceQuickAdd` with a single component:
+Replace custom MediaRecorder implementation with VoiceRecordButton:
 
 ```typescript
-interface VoiceRecordButtonProps<T = any> {
-  // Core
-  onTranscription?: (text: string) => void;
-  onDataExtracted?: (data: T) => void;
-  
-  // Mode
-  mode?: 'realtime' | 'batch';  // Default: 'realtime'
-  
-  // Extraction
-  extractorType?: ExtractorType;
-  extractorContext?: ExtractorContext;
-  
-  // Auto-submit
-  autoSubmit?: boolean;
-  autoSubmitDelay?: number;
-  isFormComplete?: (data: T) => boolean;
-  onAutoSubmit?: () => void;
-  
-  // UI
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'ghost' | 'outline';
-  showLabel?: boolean;
-  showLiveTranscript?: boolean;
-  showPreview?: boolean;
-  
-  // State
-  disabled?: boolean;
-  className?: string;
-}
+// Before: Custom state management (isRecording, isProcessing, mediaRecorder, etc.)
+// After:
+<VoiceRecordButton
+  size="lg"
+  variant="default"
+  onTranscription={setTranscription}
+  showLabel
+  showLiveTranscript
+/>
 ```
 
-### Phase 4: Implementation Roadmap
+### Step 7: Update VoiceQuickAdd for Animal Registration
 
-#### Step 1: Create Core Infrastructure (1 session)
-- Create `src/lib/voiceStateMachine.ts` with explicit state transitions
-- Create `src/hooks/useVoiceRecording.ts` that wraps `useRealtimeTranscription` and batch mode
-- Add comprehensive logging for debugging
+**File:** `src/components/animal-form/VoiceQuickAdd.tsx`
 
-#### Step 2: Create Unified Component (1 session)
-- Create `src/components/ui/VoiceRecordButton.tsx`
-- Implement all UI states (idle, connecting, recording, processing, preview, error)
-- Add transcription preview with confirm/cancel
-- Add auto-submit countdown UI
+This one is more complex - it has a preview state. Options:
+1. Keep as-is (it works correctly with its own state machine)
+2. Migrate to use `useVoiceRecording` hook directly
 
-#### Step 3: Migrate Existing Components (2-3 sessions)
-- Replace `VoiceInterface` in DocAga with `VoiceRecordButton`
-- Replace `VoiceFormInput` in milk/feed/health dialogs
-- Replace `VoiceQuickAdd` in animal registration
-- Replace custom voice logic in GovernmentConnectTab
+**Recommendation:** Migrate to use `useVoiceRecording` for consistency, but keep the custom preview UI.
 
-#### Step 4: Add Missing Features (1 session)
-- Transcription verification toast before data extraction
-- Audio playback for success/error feedback
-- Offline queue integration for all voice inputs
+### Step 8: Update DocAgaConsultation
 
-#### Step 5: Testing & Documentation (1 session)
-- Add integration tests for state machine
-- Add E2E tests for voice recording flow
-- Update ARCHITECTURE.md with voice system documentation
+**File:** `src/components/farmhand/DocAgaConsultation.tsx`
 
----
+Replace old VoiceInterface with VoiceRecordButton (same as DocAga.tsx was updated).
 
-## Files to Create/Modify
+### Step 9: Delete Deprecated Files
 
-### New Files
-| File | Purpose |
-|------|---------|
-| `src/lib/voiceStateMachine.ts` | Finite state machine for recording lifecycle |
-| `src/hooks/useVoiceRecording.ts` | Unified recording hook |
-| `src/components/ui/VoiceRecordButton.tsx` | Single UI component for all voice input |
-| `src/__tests__/voice/voiceStateMachine.test.ts` | State machine tests |
+After all migrations are complete:
 
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/components/DocAga.tsx` | Replace VoiceInterface with VoiceRecordButton |
-| `src/components/farmhand/DocAgaConsultation.tsx` | Replace VoiceInterface with VoiceRecordButton |
-| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | Replace VoiceFormInput with VoiceRecordButton |
-| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Replace VoiceFormInput with VoiceRecordButton |
-| `src/components/feed-recording/RecordSingleFeedDialog.tsx` | Replace VoiceFormInput with VoiceRecordButton |
-| `src/components/health-records/AddHealthRecordDialog.tsx` | Replace VoiceFormInput with VoiceRecordButton |
-| `src/components/body-condition/RecordBulkBCSDialog.tsx` | Replace VoiceFormInput with VoiceRecordButton |
-| `src/components/farmer/GovernmentConnectTab.tsx` | Replace custom voice logic with VoiceRecordButton |
+| File to Delete | Replaced By |
+|----------------|-------------|
+| `src/components/VoiceInterface.tsx` | `VoiceRecordButton` |
+| `src/components/ui/VoiceFormInput.tsx` | `VoiceRecordWithExtraction` |
 
-### Files to Deprecate (delete after migration)
-| File | Reason |
-|------|--------|
-| `src/components/VoiceInterface.tsx` | Replaced by VoiceRecordButton |
-| `src/components/ui/VoiceFormInput.tsx` | Replaced by VoiceRecordButton |
-| `src/components/animal-form/VoiceQuickAdd.tsx` | Replaced by VoiceRecordButton |
+**Note:** Keep `VoiceQuickAdd.tsx` if we decide not to fully migrate it.
 
 ---
 
 ## Technical Details
 
-### State Machine Transitions
-
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│                                                                      │
-│  ┌─────────┐  requestMic  ┌───────────────┐  granted  ┌───────────┐ │
-│  │  idle   │────────────►│ requesting_mic │──────────►│connecting │ │
-│  └─────────┘              └───────────────┘           └─────┬─────┘ │
-│       ▲                         │ denied                    │       │
-│       │                         ▼                           │       │
-│       │                   ┌─────────┐                       │       │
-│       │◄──────reset───────│  error  │◄────────error─────────┤       │
-│       │                   └─────────┘                       │       │
-│       │                         ▲                           ▼       │
-│       │                         │ error              ┌───────────┐  │
-│       │                         └────────────────────│ recording │  │
-│       │                                              └─────┬─────┘  │
-│       │                                                    │        │
-│       │                                              stop  │        │
-│       │                                                    ▼        │
-│       │                   ┌───────────┐             ┌───────────┐   │
-│       │◄────confirm───────│  preview  │◄────done────│ stopping  │   │
-│       │                   └───────────┘             └───────────┘   │
-│       │                         │                                   │
-│       └─────────retry───────────┘                                   │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-### Provider Fallback Chain
+### VoiceRecordWithExtraction Component
 
 ```typescript
-async function transcribe(audioBlob: Blob): Promise<string> {
-  // 1. Try ElevenLabs Scribe (realtime mode)
-  if (preferRealtime && canUseRealtimeSTT()) {
-    try {
-      return await transcribeWithElevenLabsScribe();
-    } catch (error) {
-      console.warn('[Voice] ElevenLabs failed, falling back:', error);
-    }
-  }
+interface VoiceRecordWithExtractionProps<T = any> {
+  // Extraction
+  extractorType: ExtractorType;
+  extractorContext?: ExtractorContext;
+  customExtractor?: (transcription: string, context?: ExtractorContext) => T;
+  onDataExtracted: (data: T) => void;
   
-  // 2. Fallback to Gemini (batch mode)
-  try {
-    return await transcribeWithGemini(audioBlob);
-  } catch (error) {
-    console.error('[Voice] All providers failed:', error);
-    throw new Error('Transcription unavailable. Please try again.');
-  }
+  // Auto-submit
+  autoSubmit?: {
+    enabled: boolean;
+    delayMs?: number;
+    onSubmit: () => void;
+    isComplete?: (data: T) => boolean;
+  };
+  
+  // Passthrough to VoiceRecordButton
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'ghost' | 'outline';
+  disabled?: boolean;
+  className?: string;
+  
+  // Offline handling
+  offlineMode?: 'queue' | 'block';
 }
 ```
 
-### Transcription Preview Flow
+### Migration Checklist Per Component
 
-```typescript
-// Show preview toast with countdown
-toast.info(`Heard: "${transcription}"`, {
-  duration: 3000,
-  action: {
-    label: 'Cancel',
-    onClick: () => {
-      cancelAutoSubmit();
-      toast.info('Cancelled. Tap mic to try again.');
-    },
-  },
-});
+For each dialog:
+1. Update import statement
+2. Replace component usage
+3. Verify auto-submit still works (if applicable)
+4. Test recording start/stop/cancel
+5. Test transcription extraction
+6. Test offline behavior
 
-// After delay, extract data and auto-submit
-setTimeout(() => {
-  const extracted = runExtractor(transcription, extractorType, context);
-  onDataExtracted(extracted);
-  
-  if (autoSubmit.enabled && autoSubmit.isFormComplete(extracted)) {
-    playSound('success');
-    autoSubmit.onSubmit();
-  }
-}, previewDurationMs);
-```
+---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/ui/VoiceRecordWithExtraction.tsx` | Wrapper adding extraction to VoiceRecordButton |
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | Migrate to VoiceRecordWithExtraction |
+| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Migrate to VoiceRecordWithExtraction |
+| `src/components/feed-recording/RecordSingleFeedDialog.tsx` | Migrate to VoiceRecordWithExtraction |
+| `src/components/body-condition/RecordBulkBCSDialog.tsx` | Migrate to VoiceRecordWithExtraction |
+| `src/components/health-records/AddHealthRecordDialog.tsx` | Migrate to VoiceRecordButton |
+| `src/components/farmer/GovernmentConnectTab.tsx` | Migrate to VoiceRecordButton |
+| `src/components/farmhand/DocAgaConsultation.tsx` | Migrate to VoiceRecordButton |
+
+## Files to Delete
+
+| File | Reason |
+|------|--------|
+| `src/components/VoiceInterface.tsx` | Replaced by VoiceRecordButton |
+| `src/components/ui/VoiceFormInput.tsx` | Replaced by VoiceRecordWithExtraction |
 
 ---
 
 ## Expected Outcomes
 
-| Issue | Current | After Implementation |
-|-------|---------|---------------------|
-| Stop button unresponsive | Fails during connecting | Works in all states (state machine) |
-| Wrong STT provider | Defaults to Gemini | Always uses ElevenLabs Scribe first |
-| Hallucinated transcriptions | Gemini invents content | Strict prompt + preview verification |
-| Inconsistent UX | 4+ different implementations | Single unified component |
-| Hard to debug | Multiple code paths | Single state machine with logging |
-| No transcription preview | Auto-submits without verification | Preview toast with cancel option |
+| Issue | Before | After |
+|-------|--------|-------|
+| Stop button bugs | Multiple state variables can desync | Single FSM, guaranteed valid transitions |
+| Provider confusion | Different components use different STT | All use same hook with fallback chain |
+| Inconsistent UX | 5+ different voice UI patterns | Single unified component |
+| Maintenance burden | 400+ lines duplicated across files | Shared infrastructure |
 
 ---
 
-## Implementation Priority
+## Testing Checklist
 
-**Immediate (this session):**
-1. Create `voiceStateMachine.ts` and `useVoiceRecording.ts`
-2. Create `VoiceRecordButton.tsx` with all states
-3. Migrate DocAga to use new component
-
-**Next session:**
-4. Migrate milk/feed/health dialogs
-5. Migrate animal registration
-6. Delete deprecated files
-
-**Future:**
-7. Add comprehensive tests
-8. Add TTS queue management
-9. Document in ARCHITECTURE.md
+After implementation:
+- [ ] Milk dialog: Voice extraction works, auto-submit triggers
+- [ ] Feed dialog: Bulk and single both work
+- [ ] BCS dialog: Notes dictation works
+- [ ] Health dialog: All 3 fields can be dictated
+- [ ] Government feedback: Full recording flow
+- [ ] DocAga: Realtime transcription works
+- [ ] DocAga Consultation: Same as DocAga
+- [ ] Offline mode: Recording queued correctly
+- [ ] Stop button: Works in all states
+- [ ] Cancel button: Aborts cleanly
