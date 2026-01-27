@@ -1,144 +1,140 @@
 
-# Fix TTS Queue Infinite Re-render Loop
+# Switch Doc Aga to Batch Mode (Offline-First)
 
-## Problem
+## Overview
 
-The `useTTSQueue` hook has an infinite re-render loop caused by unstable callback function references in its `useEffect` dependencies.
+This change switches Doc Aga's voice input from realtime streaming (ElevenLabs Scribe) to batch mode (Gemini). This provides true "record first" behavior that works offline and eliminates the "Connecting..." state.
 
-**Console Evidence**: Repeated `[TTSQueue] Stop - clearing queue` logs (50+ times in 30 seconds)
+---
 
-**Root Cause** (lines 44-74 in `useTTSQueue.ts`):
-```typescript
-useEffect(() => {
-  const queue = new TTSAudioQueue({...}, autoPlay);
-  queueRef.current = queue;
-  return () => {
-    queue.destroy();  // Logs "Stop - clearing queue"
-  };
-}, [autoPlay, onQueueEmpty, onStart, onEnd, onError]); // BUG: callbacks change every render
-```
+## Current vs. New Flow
 
-In `DocAga.tsx`, the callbacks are inline functions:
-```typescript
-const ttsQueue = useTTSQueue({
-  autoPlay: true,
-  onError: (error) => { // NEW function reference every render
-    console.error('[DocAga] TTS Queue error:', error);
-  },
-});
-```
+| Step | Realtime Mode (Current) | Batch Mode (New) |
+|------|-------------------------|------------------|
+| 1 | Click → Request Mic | Click → Request Mic |
+| 2 | **"Connecting..."** (WebSocket handshake) | - |
+| 3 | Live streaming audio | Local recording |
+| 4 | Real-time partial transcripts | No live feedback |
+| 5 | Stop → Already processed | **Stop → Send to Gemini** |
+| 6 | - | "Processing..." |
+| 7 | Show transcription | Show transcription |
 
-## Solution
-
-Use the **callback ref pattern** to stabilize the useEffect dependencies while still allowing callback updates.
+**Key Benefit**: No network required during recording. Audio is captured locally, then sent after stop button is clicked.
 
 ---
 
 ## Implementation
 
-### File: `src/hooks/useTTSQueue.ts`
+### File 1: `src/components/DocAga.tsx`
 
-**Changes:**
-1. Add a `callbacksRef` to store the latest callbacks
-2. Use a separate effect to keep the ref updated (no cleanup, no dependencies)
-3. Modify the main effect to only depend on `autoPlay`
-4. Proxy callbacks through the ref so they always call the latest version
+**Change**: Line 583
 
-**Before (buggy):**
 ```typescript
-useEffect(() => {
-  const queue = new TTSAudioQueue({
-    onStart: (item) => { onStart?.(item); },
-    onEnd: (item) => { onEnd?.(item); },
-    onQueueEmpty: () => { onQueueEmpty?.(); },
-    onError: (error) => { onError?.(error); },
-    // ...
-  }, autoPlay);
-  // ...
-}, [autoPlay, onQueueEmpty, onStart, onEnd, onError]);
+// Before
+preferRealtime={true}
+
+// After
+preferRealtime={false}
 ```
 
-**After (fixed):**
+**Full Context** (lines 577-591):
 ```typescript
-// Store callbacks in ref to avoid effect re-runs
-const callbacksRef = useRef({ onQueueEmpty, onStart, onEnd, onError });
-
-// Keep ref updated with latest callbacks (no deps = runs every render)
-useEffect(() => {
-  callbacksRef.current = { onQueueEmpty, onStart, onEnd, onError };
-});
-
-// Initialize queue once (only depends on autoPlay)
-useEffect(() => {
-  const queue = new TTSAudioQueue({
-    onStart: (item) => {
-      setCurrentMessageId(item.messageId || null);
-      callbacksRef.current.onStart?.(item);
-    },
-    onEnd: (item) => {
-      callbacksRef.current.onEnd?.(item);
-    },
-    onQueueEmpty: () => {
-      setCurrentMessageId(null);
-      callbacksRef.current.onQueueEmpty?.();
-    },
-    onError: (error) => {
-      callbacksRef.current.onError?.(error);
-    },
-    onStateChange: (state) => {
-      setIsPlaying(state.isPlaying);
-      setIsPaused(state.isPaused);
-      setQueueLength(state.queueLength);
-    },
-  }, autoPlay);
-
-  queueRef.current = queue;
-
-  return () => {
-    queue.destroy();
-    queueRef.current = null;
-  };
-}, [autoPlay]); // Only autoPlay as dependency
+<VoiceRecordButton 
+  onTranscription={(text) => {
+    setIsVoiceInput(true);
+    handleSendMessage(text);
+  }} 
+  disabled={isUploadingImage || loading}
+  preferRealtime={false}  // Changed from true
+  showLabel={true}
+  showLiveTranscript={false}  // Also change - no live transcripts in batch mode
+  showPreview={false}
+  size="md"
+  variant="secondary"
+  idleLabel="Speak to Doc Aga"
+  recordingLabel="Stop & Send"
+/>
 ```
 
 ---
 
-## Secondary Fix: Reset Voice Input State
+### File 2: `src/components/farmhand/DocAgaConsultation.tsx`
 
-### File: `src/components/DocAga.tsx`
-
-Add reset for `isVoiceInput` in the finally block to ensure button returns to normal state:
-
-**Location**: Line 401-403 (finally block of `handleSendMessage`)
+**Change**: Lines 346-349
 
 ```typescript
-} finally {
-  setLoading(false);
-  setIsVoiceInput(false); // Add this line
+// Before
+<VoiceRecordButton
+  preferRealtime={true}
+  showLabel
+  showLiveTranscript
+
+// After
+<VoiceRecordButton
+  preferRealtime={false}
+  showLabel
+  showLiveTranscript={false}  // No live transcripts in batch mode
+```
+
+---
+
+## How Batch Mode Works (Existing Code)
+
+The `useVoiceRecording` hook already supports batch mode - we're just enabling it:
+
+```typescript
+// In startRecording() - line 176-198:
+if (preferRealtime) {
+  // ... WebSocket path (skipped when false)
+} else {
+  // Use batch mode directly - NO connecting state
+  streamRef.current = stream;
+  await startBatchRecording();  // Goes straight to recording
 }
 ```
 
+The `startBatchRecording()` function:
+1. Sets provider to 'gemini'
+2. Creates MediaRecorder (local, no network)
+3. Dispatches `RECORDING_START` immediately (no "connecting")
+4. On stop: sends blob to `voice-to-text` edge function
+
 ---
 
-## Technical Explanation
+## State Flow Comparison
 
-### Why the Ref Pattern Works
+### Realtime Mode (Current)
+```text
+idle → requesting_mic → connecting → recording → stopping → preview → idle
+                           ↑
+                      "Connecting..." shown here
+```
 
-| Pattern | Behavior |
-|---------|----------|
-| Callbacks in deps | New function = new reference = effect re-runs = destroy + recreate queue |
-| Callbacks in ref | New function updates ref value, effect doesn't see the change, queue persists |
+### Batch Mode (New)
+```text
+idle → requesting_mic → recording → stopping → processing → preview → idle
+           ↑                                       ↑
+      Instant start                         "Processing..." shown here
+```
 
-The ref acts as a "stable pointer" to the latest callbacks. The effect only runs when `autoPlay` changes, but when callbacks fire, they read the current value from the ref.
+---
 
-### Why This Fixes the STT Issue
+## Offline Behavior
 
-The infinite loop was causing:
-1. Rapid state changes during recording
-2. Potential WebSocket disruption to ElevenLabs Scribe
-3. Voice state machine getting stuck due to timing conflicts
+With batch mode, the existing offline queue kicks in automatically:
 
-Stopping the loop restores stable component lifecycle, allowing STT and button states to work normally.
+```typescript
+// In processBatchAudio() - line 283-308:
+if (!navigator.onLine) {
+  // Queue audio for later transcription
+  const queueId = await queueOfflineAudio(blob, metadata);
+  dispatch({ type: 'OFFLINE_QUEUED', queueId });
+  toast.info('Recording saved offline');
+  return;
+}
+```
+
+When the user is back online, the `useOfflineAudioSync` hook processes queued recordings automatically.
 
 ---
 
@@ -146,28 +142,47 @@ Stopping the loop restores stable component lifecycle, allowing STT and button s
 
 | File | Change |
 |------|--------|
-| `src/hooks/useTTSQueue.ts` | Add callbacksRef pattern, remove callbacks from useEffect deps |
-| `src/components/DocAga.tsx` | Add `setIsVoiceInput(false)` in finally block |
-| `src/components/farmhand/DocAgaConsultation.tsx` | Same isVoiceInput reset (if applicable) |
+| `src/components/DocAga.tsx` | Set `preferRealtime={false}`, `showLiveTranscript={false}` |
+| `src/components/farmhand/DocAgaConsultation.tsx` | Set `preferRealtime={false}`, `showLiveTranscript={false}` |
 
 ---
 
-## Expected Results
+## Trade-offs
 
-After implementation:
-- No more repeated "Stop - clearing queue" logs
-- STT transcription returns clean text (not garbled)
-- "Speak to Doc Aga" button becomes clickable after response
-- TTS queue operates normally with sequential playback
-- Voice state machine properly resets to idle
+| Feature | Realtime | Batch |
+|---------|----------|-------|
+| Live partial transcripts | Yes | No |
+| Offline recording | Yes | Yes |
+| Offline transcription | No | **Queued** |
+| Network during recording | Required | Not required |
+| Latency to start | ~500ms-2s | Instant |
+| Processing time | During recording | After stop |
+
+---
+
+## Expected User Experience
+
+1. **Farmer clicks "Speak to Doc Aga"**
+2. **Recording starts immediately** (red pulsing indicator)
+3. Farmer speaks their question
+4. **Farmer clicks "Stop & Send"**
+5. **"Processing..."** shown briefly (1-2 seconds)
+6. Transcription appears and Doc Aga responds
+
+If offline:
+- Recording still works
+- "Saved offline" message shown
+- Queued for processing when connectivity returns
 
 ---
 
 ## Testing Checklist
 
-- [ ] Console shows single queue initialization (not repeated)
-- [ ] Voice button returns to ready state after AI response
-- [ ] Transcribed Filipino/Taglish text displays correctly
-- [ ] Multiple voice interactions work sequentially
-- [ ] TTS audio plays without interruption
-- [ ] Pause/Skip/Stop controls function properly
+After implementation:
+- [ ] No "Connecting..." state shown
+- [ ] Recording starts immediately on button click
+- [ ] "Processing..." shows after stop button
+- [ ] Transcription appears correctly
+- [ ] Offline recording queues properly
+- [ ] Doc Aga responds to transcribed text
+- [ ] TTS audio plays response
