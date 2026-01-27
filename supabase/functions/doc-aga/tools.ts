@@ -51,6 +51,12 @@ export async function executeToolCall(
     case "add_health_record":
       return await addHealthRecord(args, supabase, farmId);
     
+    case "update_health_record":
+      return await updateHealthRecord(args, supabase, farmId);
+    
+    case "add_health_resolution":
+      return await addHealthResolution(args, supabase, farmId);
+    
     case "add_smart_milking_record":
       return await addSmartMilkingRecord(args, supabase, farmId);
     
@@ -546,6 +552,139 @@ async function addHealthRecord(args: any, supabase: SupabaseClient, farmId: stri
     success: true,
     message: `Health record created for ${animal.name || animal.ear_tag}`,
     record: data,
+  };
+}
+
+async function updateHealthRecord(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  // Find animal
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find the most recent health record (or by date if specified)
+  let query = supabase
+    .from('health_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .order('visit_date', { ascending: false });
+
+  if (args.record_date) {
+    query = query.eq('visit_date', args.record_date);
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No health record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+  
+  // Build update object
+  const updateData: any = {};
+  if (args.new_diagnosis) updateData.diagnosis = args.new_diagnosis;
+  if (args.new_treatment) updateData.treatment = args.new_treatment;
+  if (args.additional_notes) updateData.notes = record.notes 
+    ? `${record.notes}\n\nUpdate: ${args.additional_notes}` 
+    : args.additional_notes;
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  // Update the record
+  const { data, error } = await supabase
+    .from('health_records')
+    .update(updateData)
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  
+  return {
+    success: true,
+    message: `Health record updated for ${animal.name || animal.ear_tag}`,
+    previous: {
+      diagnosis: record.diagnosis,
+      treatment: record.treatment,
+      notes: record.notes
+    },
+    updated: {
+      diagnosis: data.diagnosis,
+      treatment: data.treatment,
+      notes: data.notes
+    },
+    record_date: record.visit_date
+  };
+}
+
+async function addHealthResolution(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  // Find animal
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag')
+    .eq('farm_id', farmId)
+    .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+    .eq('is_deleted', false)
+    .limit(1);
+
+  if (!animals || animals.length === 0) {
+    return { error: `Animal "${args.animal_identifier}" not found` };
+  }
+
+  const animal = animals[0];
+
+  // Find health record to resolve
+  let query = supabase
+    .from('health_records')
+    .select('*')
+    .eq('animal_id', animal.id)
+    .is('resolution_notes', null) // Only unresolved records
+    .order('visit_date', { ascending: false });
+
+  if (args.diagnosis) {
+    query = query.ilike('diagnosis', `%${args.diagnosis}%`);
+  }
+
+  const { data: records, error: fetchError } = await query.limit(1);
+  
+  if (fetchError || !records || records.length === 0) {
+    return { error: `No unresolved health record found for ${animal.name || animal.ear_tag}` };
+  }
+
+  const record = records[0];
+
+  // Add resolution notes
+  const { data, error } = await supabase
+    .from('health_records')
+    .update({ resolution_notes: args.resolution_notes })
+    .eq('id', record.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  
+  return {
+    success: true,
+    message: `Resolved health issue for ${animal.name || animal.ear_tag}`,
+    original_diagnosis: record.diagnosis,
+    resolution: args.resolution_notes,
+    visit_date: record.visit_date
   };
 }
 
