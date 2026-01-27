@@ -38,6 +38,7 @@ import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useFarm } from "@/contexts/FarmContext";
+import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -389,6 +390,7 @@ const Dashboard = () => {
                   )}
                   <div className="min-w-0 flex-1">
                     <h1 className="text-base font-bold truncate">{farmName}</h1>
+                    <PhilippineTimeBanner compact />
                   </div>
                 </div>
                 <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
@@ -419,7 +421,7 @@ const Dashboard = () => {
                 )}
                 <div>
                   <h1 className="text-xl font-bold">{farmName}</h1>
-                  <p className="text-xs text-muted-foreground">Welcome back!</p>
+                  <PhilippineTimeBanner />
                 </div>
                 <FarmSwitcher currentFarmId={farmId} onFarmChange={handleFarmChange} />
               </div>

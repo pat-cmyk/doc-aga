@@ -100,6 +100,9 @@ export async function executeToolCall(
     case "get_conversation_context":
       return await getConversationContext(args, supabase, userId);
     
+    case "get_farm_context":
+      return await getFarmContext(supabase, farmId);
+    
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -1688,5 +1691,132 @@ async function getConversationContext(args: any, supabase: SupabaseClient, userI
       answer_preview: q.answer?.slice(0, 200),
       time: q.created_at
     }))
+  };
+}
+
+// ============= FARM CONTEXT TOOL =============
+
+async function getFarmContext(supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  // Get farm details
+  const { data: farm, error: farmError } = await supabase
+    .from('farms')
+    .select('name, created_at')
+    .eq('id', farmId)
+    .single();
+
+  if (farmError || !farm) {
+    return { error: "Farm not found" };
+  }
+
+  // Get farm's animal IDs for multi-tenant isolation
+  const { data: farmAnimals } = await supabase
+    .from('animals')
+    .select('id')
+    .eq('farm_id', farmId)
+    .eq('is_deleted', false);
+  
+  const farmAnimalIds = farmAnimals?.map(a => a.id) || [];
+  
+  if (farmAnimalIds.length === 0) {
+    return {
+      farm_name: farm.name,
+      farm_created: farm.created_at ? new Date(farm.created_at).toLocaleDateString('en-PH', { 
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) : null,
+      current_date: new Date().toLocaleDateString('en-PH', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      current_time_pht: new Date().toLocaleString('en-PH', {
+        timeZone: 'Asia/Manila',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }),
+      total_animals: 0,
+      data_coverage: {
+        milk_records: { earliest: null, latest: null, total_records: 0 },
+        health_records: { earliest: null, latest: null, total_records: 0 },
+        breeding_records: { earliest: null, latest: null, total_records: 0 }
+      },
+      message: `This farm was created on ${farm.created_at ? new Date(farm.created_at).toLocaleDateString() : 'unknown date'} but has no animals or records yet.`
+    };
+  }
+
+  // Fetch data ranges in parallel
+  const [milkResult, healthResult, aiResult] = await Promise.all([
+    supabase
+      .from('milking_records')
+      .select('record_date')
+      .in('animal_id', farmAnimalIds)
+      .order('record_date', { ascending: true }),
+    supabase
+      .from('health_records')
+      .select('visit_date')
+      .in('animal_id', farmAnimalIds)
+      .order('visit_date', { ascending: true }),
+    supabase
+      .from('ai_records')
+      .select('performed_date')
+      .in('animal_id', farmAnimalIds)
+      .not('performed_date', 'is', null)
+      .order('performed_date', { ascending: true })
+  ]);
+
+  const milkDates = milkResult.data?.map(r => r.record_date) || [];
+  const healthDates = healthResult.data?.map(r => r.visit_date) || [];
+  const aiDates = aiResult.data?.map(r => r.performed_date) || [];
+
+  // Find overall earliest date
+  const allDates = [...milkDates, ...healthDates, ...aiDates].filter(Boolean);
+  const earliestOverall = allDates.length > 0 
+    ? new Date(Math.min(...allDates.map(d => new Date(d!).getTime())))
+    : null;
+  const latestOverall = allDates.length > 0
+    ? new Date(Math.max(...allDates.map(d => new Date(d!).getTime())))
+    : null;
+
+  const formatDate = (date: Date | null) => date 
+    ? date.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+
+  return {
+    farm_name: farm.name,
+    farm_created: formatDate(farm.created_at ? new Date(farm.created_at) : null),
+    current_date: formatDate(new Date()),
+    current_time_pht: new Date().toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }),
+    total_animals: farmAnimalIds.length,
+    data_coverage: {
+      milk_records: {
+        earliest: milkDates[0] || null,
+        latest: milkDates[milkDates.length - 1] || null,
+        total_records: milkDates.length
+      },
+      health_records: {
+        earliest: healthDates[0] || null,
+        latest: healthDates[healthDates.length - 1] || null,
+        total_records: healthDates.length
+      },
+      breeding_records: {
+        earliest: aiDates[0] || null,
+        latest: aiDates[aiDates.length - 1] || null,
+        total_records: aiDates.length
+      }
+    },
+    earliest_record_overall: formatDate(earliestOverall),
+    latest_record_overall: formatDate(latestOverall),
+    message: `This farm "${farm.name}" was created on ${formatDate(farm.created_at ? new Date(farm.created_at) : null) || 'unknown date'}. It has ${farmAnimalIds.length} animals. Data records exist from ${formatDate(earliestOverall) || 'no records'} to ${formatDate(latestOverall) || 'no records'}. Milk records: ${milkDates.length}, Health records: ${healthDates.length}, AI/Breeding records: ${aiDates.length}.`
   };
 }

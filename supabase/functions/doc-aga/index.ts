@@ -201,9 +201,27 @@ function getGovernmentTools(): any[] {
   ];
 }
 
-// Farmer System Prompt
-function getFarmerSystemPrompt(faqContext: string, recentContext?: string): string {
+// Date context interface
+interface DateContext {
+  currentDate: string;
+  farmCreatedAt: string | null;
+  earliestRecordDate: string | null;
+}
+
+// Farmer System Prompt with Date Context
+function getFarmerSystemPrompt(faqContext: string, dateContext: DateContext, recentContext?: string): string {
   return `You are Doc Aga, a trusted and experienced local veterinarian (parang kilalang beterinaryo sa barangay) specializing in Philippine dairy farming. You help farmers manage their cattle and goat operations.
+
+CRITICAL DATE CONTEXT:
+- Current date and time: ${dateContext.currentDate} (Philippine Standard Time, UTC+8)
+- Farm creation date: ${dateContext.farmCreatedAt || 'Unknown'}
+- Earliest data record: ${dateContext.earliestRecordDate || 'No records yet'}
+
+IMPORTANT DATE RULES:
+1. When a user says a date without a year (e.g., "January 25"), ALWAYS assume the CURRENT year unless explicitly stated otherwise
+2. If the requested date is BEFORE the earliest data record, politely inform the user: "Wala pa tayong records noon kasi ang farm ay na-register lang noong ${dateContext.farmCreatedAt || 'recently'}. Ang earliest na data natin ay ${dateContext.earliestRecordDate || 'wala pa'}."
+3. If the date is in the future, clarify: "Hindi pa dumadating ang date na 'yan. Today is ${dateContext.currentDate}"
+4. Always use Philippine Standard Time (UTC+8) for all date calculations
 
 PERSONALITY:
 - Warm, friendly, and practical - like a trusted friend in the barangay
@@ -244,6 +262,7 @@ You have access to complete farm records including:
 - Weight measurements and growth tracking - use get_weight_history
 - Feeding records and consumption - use get_feeding_summary
 - Animal profiles and events - use get_animal_complete_profile
+- Farm context and data boundaries - use get_farm_context
 
 Your knowledge base includes:
 ${faqContext}
@@ -270,7 +289,8 @@ function getFarmerTools(): any[] {
     { type: "function", function: { name: "get_breeding_status", description: "Get breeding analytics: AI procedures, pregnancy status, expected calving dates.", parameters: { type: "object", properties: { status: { type: "string", description: "Filter: 'pregnant', 'due_soon', 'recent_ai', or 'all'" }, days: { type: "number", description: "Lookback period for AI procedures (default: 90)" } } } } },
     { type: "function", function: { name: "get_weight_history", description: "Get weight measurements for an animal or herd. Track growth over time.", parameters: { type: "object", properties: { animal_identifier: { type: "string", description: "Optional: specific animal name or ear tag" }, days: { type: "number", description: "Lookback period (default: 90)" } } } } },
     { type: "function", function: { name: "get_feeding_summary", description: "Get feeding records and feed consumption summary.", parameters: { type: "object", properties: { days: { type: "number", description: "Lookback period (default: 7)" }, feed_type: { type: "string", description: "Optional: filter by feed type" } } } } },
-    { type: "function", function: { name: "get_conversation_context", description: "Get recent conversation history to understand context from previous discussions. Use when user references something discussed earlier like 'yung baka kanina' or 'like we discussed'.", parameters: { type: "object", properties: { hours: { type: "number", description: "How far back to look (default: 24)" }, topic_keywords: { type: "string", description: "Optional: keywords to filter relevant conversations" } } } } }
+    { type: "function", function: { name: "get_conversation_context", description: "Get recent conversation history to understand context from previous discussions. Use when user references something discussed earlier like 'yung baka kanina' or 'like we discussed'.", parameters: { type: "object", properties: { hours: { type: "number", description: "How far back to look (default: 24)" }, topic_keywords: { type: "string", description: "Optional: keywords to filter relevant conversations" } } } } },
+    { type: "function", function: { name: "get_farm_context", description: "Get farm metadata including creation date, earliest data records, and data coverage summary. Use when user asks about dates that might be before the farm existed or when clarifying date context.", parameters: { type: "object", properties: {} } } }
   ];
 }
 
@@ -468,10 +488,84 @@ serve(async (req) => {
       console.log(`📚 Matched FAQ: ${matchedFaqId}`);
     }
     
+    // Build date context for farmer context
+    let dateContext: DateContext = {
+      currentDate: new Date().toLocaleString('en-PH', {
+        timeZone: 'Asia/Manila',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) + ' PHT',
+      farmCreatedAt: null,
+      earliestRecordDate: null
+    };
+    
+    if (farmId && !isGovernmentContext) {
+      try {
+        // Fetch farm creation date and earliest records in parallel
+        const [farmResult, milkResult, healthResult] = await Promise.all([
+          supabase
+            .from('farms')
+            .select('created_at')
+            .eq('id', farmId)
+            .single(),
+          supabase
+            .from('milking_records')
+            .select('record_date, animals!inner(farm_id)')
+            .eq('animals.farm_id', farmId)
+            .order('record_date', { ascending: true })
+            .limit(1),
+          supabase
+            .from('health_records')
+            .select('visit_date, animals!inner(farm_id)')
+            .eq('animals.farm_id', farmId)
+            .order('visit_date', { ascending: true })
+            .limit(1)
+        ]);
+        
+        if (farmResult.data?.created_at) {
+          dateContext.farmCreatedAt = new Date(farmResult.data.created_at)
+            .toLocaleDateString('en-PH', {
+              timeZone: 'Asia/Manila',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+        }
+        
+        // Find earliest record across all types
+        const dates: Date[] = [];
+        if (milkResult.data?.[0]?.record_date) {
+          dates.push(new Date(milkResult.data[0].record_date));
+        }
+        if (healthResult.data?.[0]?.visit_date) {
+          dates.push(new Date(healthResult.data[0].visit_date));
+        }
+        
+        if (dates.length > 0) {
+          const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+          dateContext.earliestRecordDate = earliest.toLocaleDateString('en-PH', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        }
+        
+        console.log('📅 Date context built:', dateContext);
+      } catch (err) {
+        console.error('Error fetching date context:', err);
+      }
+    }
+    
     // Select system prompt and tools based on context
     const systemPrompt = isGovernmentContext 
       ? getGovernmentAnalystPrompt() 
-      : getFarmerSystemPrompt(faqContext);
+      : getFarmerSystemPrompt(faqContext, dateContext);
     
     const tools = isGovernmentContext 
       ? getGovernmentTools() 

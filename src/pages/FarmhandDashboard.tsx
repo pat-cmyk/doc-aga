@@ -22,6 +22,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { syncQueue } from "@/lib/syncService";
 import { useFarm } from "@/contexts/FarmContext";
 import { SyncStatusSheet, SyncConflictResolution } from "@/components/sync";
+import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -175,7 +176,7 @@ const FarmhandDashboard = () => {
             <DocAgaLogo size={40} />
             <div>
               <h1 className="text-xl font-bold">Doc Aga</h1>
-              <p className="text-xs text-muted-foreground">Farmhand Dashboard</p>
+              <PhilippineTimeBanner compact />
             </div>
           </div>
           <div className="flex items-center gap-2">
