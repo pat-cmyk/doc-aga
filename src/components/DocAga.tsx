@@ -400,6 +400,7 @@ const DocAga = () => {
       });
     } finally {
       setLoading(false);
+      setIsVoiceInput(false); // Reset voice input state to ensure button returns to normal
     }
   };
 

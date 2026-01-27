@@ -40,23 +40,31 @@ export function useTTSQueue(options: UseTTSQueueOptions = {}): UseTTSQueueReturn
   const [volume, setVolumeState] = useState(1);
   
   const queueRef = useRef<TTSAudioQueue | null>(null);
+  
+  // Store callbacks in ref to avoid effect re-runs (callback ref pattern)
+  const callbacksRef = useRef({ onQueueEmpty, onStart, onEnd, onError });
+  
+  // Keep ref updated with latest callbacks (no deps = runs every render, no cleanup needed)
+  useEffect(() => {
+    callbacksRef.current = { onQueueEmpty, onStart, onEnd, onError };
+  });
 
-  // Initialize queue on mount
+  // Initialize queue on mount - only depends on autoPlay
   useEffect(() => {
     const queue = new TTSAudioQueue({
       onStart: (item) => {
         setCurrentMessageId(item.messageId || null);
-        onStart?.(item);
+        callbacksRef.current.onStart?.(item);
       },
       onEnd: (item) => {
-        onEnd?.(item);
+        callbacksRef.current.onEnd?.(item);
       },
       onQueueEmpty: () => {
         setCurrentMessageId(null);
-        onQueueEmpty?.();
+        callbacksRef.current.onQueueEmpty?.();
       },
       onError: (error) => {
-        onError?.(error);
+        callbacksRef.current.onError?.(error);
       },
       onStateChange: (state) => {
         setIsPlaying(state.isPlaying);
@@ -71,7 +79,7 @@ export function useTTSQueue(options: UseTTSQueueOptions = {}): UseTTSQueueReturn
       queue.destroy();
       queueRef.current = null;
     };
-  }, [autoPlay, onQueueEmpty, onStart, onEnd, onError]);
+  }, [autoPlay]); // Only autoPlay as dependency - callbacks accessed via ref
 
   const enqueue = useCallback((audioUrl: string, meta?: { messageId?: string }) => {
     queueRef.current?.enqueue(audioUrl, meta);
