@@ -77,6 +77,9 @@ export interface UseVoiceRecordingReturn {
   isOffline: boolean;
   stateLabel: string;
   stateColor: string;
+  
+  // Audio visualization
+  mediaStream: MediaStream | null;
 }
 
 export function useVoiceRecording(
@@ -437,5 +440,8 @@ export function useVoiceRecording(
     isOffline: !isOnline,
     stateLabel: getStateLabel(stateData.state, isUsingRealtimeRef.current),
     stateColor: getStateColor(stateData.state),
+    
+    // Audio visualization
+    mediaStream: streamRef.current,
   };
 }
