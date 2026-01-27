@@ -24,7 +24,9 @@ export interface ExtractedMilkData {
 export interface ExtractedFeedData {
   totalKg?: number;
   feedType?: string;
+  feedInventoryId?: string; // For matching to inventory
   animalSelection?: string;
+  recordDate?: Date; // For backdating
   warnings?: string[];
 }
 
@@ -299,12 +301,75 @@ export function extractMilkData(
   return result;
 }
 
+// ==================== SPOKEN NUMBER PARSER ====================
+
+/**
+ * Number word mappings for English and Filipino
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  // English
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+  // Filipino
+  isa: 1, dalawa: 2, tatlo: 3, apat: 4, lima: 5, anim: 6, pito: 7, walo: 8, siyam: 9,
+  sampu: 10, dalawampu: 20, tatlumpu: 30, apatnapu: 40, limampu: 50,
+  animnapu: 60, pitumpu: 70, walumpu: 80, siyamnapu: 90,
+  // Filipino compound prefixes (labing- = 10+)
+  labingisa: 11, labingdalawa: 12, labingtatlo: 13, labingapat: 14, labing: 10,
+};
+
+/**
+ * Parse spoken numbers (English or Filipino) to digits
+ * Examples: "forty-seven" → 47, "apatnapu't pito" → 47
+ */
+function parseSpokenNumber(text: string): number | undefined {
+  // First try to find digits directly
+  const digitMatch = text.match(/\b(\d+(?:\.\d+)?)\b/);
+  if (digitMatch) return parseFloat(digitMatch[1]);
+  
+  // Parse compound spoken numbers: "forty-seven", "forty seven", "apatnapu't pito"
+  const lowerText = text.toLowerCase().replace(/['\-t]/g, ' ');
+  let total = 0;
+  
+  const words = lowerText.split(/\s+/);
+  for (const word of words) {
+    const value = NUMBER_WORDS[word];
+    if (value !== undefined) {
+      if (value >= 100) {
+        // Handle "hundred" as multiplier
+        total = (total || 1) * value;
+      } else {
+        total += value;
+      }
+    }
+  }
+  
+  return total > 0 ? total : undefined;
+}
+
 // ==================== FEED EXTRACTOR ====================
+
+/**
+ * Match a feed type keyword against inventory items
+ * Returns both ID and name for proper form population
+ */
+function matchFeedFromInventory(
+  keyword: string, 
+  inventory: FeedInventoryItem[]
+): { id: string; name: string } | undefined {
+  const keywordLower = keyword.toLowerCase();
+  const match = inventory.find(item => 
+    item.feed_type.toLowerCase().includes(keywordLower)
+  );
+  return match ? { id: match.id, name: match.feed_type } : undefined;
+}
 
 /**
  * Extract feed recording data from transcription
  * 
- * Parses: kg/kilo, feed types, animal selections
+ * Parses: kg/kilo (digits or spoken), feed types, animal selections, dates
  */
 export function extractFeedData(
   transcription: string, 
@@ -313,10 +378,17 @@ export function extractFeedData(
   const result: ExtractedFeedData = {};
   const lowerText = transcription.toLowerCase();
 
-  // Extract kilograms
+  // Extract date (same logic as milk extractor)
+  const extractedDate = extractDateFromText(transcription);
+  if (extractedDate) {
+    result.recordDate = extractedDate;
+  }
+
+  // Extract kilograms - check digit patterns first
   const kgPatterns = [
     /(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
     /(\d+(?:\.\d+)?)\s*(?:na\s+)?(?:kilo|kg)/i,
+    /(?:ng|of)\s*(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
   ];
 
   for (const pattern of kgPatterns) {
@@ -327,19 +399,38 @@ export function extractFeedData(
     }
   }
 
-  // If no kg pattern matched, look for standalone numbers
+  // If no digit pattern, try spoken numbers near kg/kilo keywords
+  if (!result.totalKg) {
+    const spokenPatterns = [
+      /(\w+(?:[\s'\-t]+\w+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
+      /(\w+(?:[\s'\-t]+\w+)?)\s*(?:na\s+)?(?:kilo|kg)/i,
+      /(?:ng|of)\s*(\w+(?:[\s'\-t]+\w+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
+    ];
+    
+    for (const pattern of spokenPatterns) {
+      const match = transcription.match(pattern);
+      if (match) {
+        const parsed = parseSpokenNumber(match[1]);
+        if (parsed && parsed >= 0.5 && parsed <= 500) {
+          result.totalKg = parsed;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Fallback: any standalone number in text
   if (!result.totalKg) {
     const numberMatch = transcription.match(/\b(\d+(?:\.\d+)?)\b/);
     if (numberMatch) {
       const num = parseFloat(numberMatch[1]);
-      // Reasonable kg amount (0.5 - 500)
       if (num >= 0.5 && num <= 500) {
         result.totalKg = num;
       }
     }
   }
 
-  // Extract feed type
+  // Extract feed type with inventory ID matching
   const feedInventory = context?.feedInventory || [];
   
   // Check for Fresh Cut first
@@ -349,26 +440,57 @@ export function extractFeedData(
   }
   // Check for common feed types
   else if (lowerText.includes('napier') || lowerText.includes('elephant grass')) {
-    result.feedType = matchFeedFromInventory('Napier', feedInventory) || 'Napier Grass';
+    const matched = matchFeedFromInventory('Napier', feedInventory);
+    if (matched) {
+      result.feedType = matched.name;
+      result.feedInventoryId = matched.id;
+    } else {
+      result.feedType = 'Napier Grass';
+    }
   }
   else if (lowerText.includes('hay') || lowerText.includes('dayami')) {
-    result.feedType = matchFeedFromInventory('Hay', feedInventory) || 'Hay';
+    const matched = matchFeedFromInventory('Hay', feedInventory);
+    if (matched) {
+      result.feedType = matched.name;
+      result.feedInventoryId = matched.id;
+    } else {
+      result.feedType = 'Hay';
+    }
   }
   else if (lowerText.includes('concentrate') || lowerText.includes('feeds') || lowerText.includes('pellet')) {
-    result.feedType = matchFeedFromInventory('Concentrate', feedInventory) || 'Concentrate Feed';
+    const matched = matchFeedFromInventory('Concentrate', feedInventory);
+    if (matched) {
+      result.feedType = matched.name;
+      result.feedInventoryId = matched.id;
+    } else {
+      result.feedType = 'Concentrate Feed';
+    }
   }
-  else if (lowerText.includes('corn') || lowerText.includes('mais')) {
-    result.feedType = matchFeedFromInventory('Corn', feedInventory) || 'Corn Silage';
+  else if (lowerText.includes('corn') || lowerText.includes('mais') || lowerText.includes('silage')) {
+    const matched = matchFeedFromInventory('Corn', feedInventory);
+    if (matched) {
+      result.feedType = matched.name;
+      result.feedInventoryId = matched.id;
+    } else {
+      result.feedType = 'Corn Silage';
+    }
   }
   else if (lowerText.includes('rice bran') || lowerText.includes('darak')) {
-    result.feedType = matchFeedFromInventory('Rice Bran', feedInventory) || 'Rice Bran';
+    const matched = matchFeedFromInventory('Rice Bran', feedInventory);
+    if (matched) {
+      result.feedType = matched.name;
+      result.feedInventoryId = matched.id;
+    } else {
+      result.feedType = 'Rice Bran';
+    }
   }
-  // Try to match against inventory
+  // Try to match against inventory by name
   else if (feedInventory.length > 0) {
     for (const item of feedInventory) {
       const feedTypeLower = item.feed_type.toLowerCase();
       if (lowerText.includes(feedTypeLower)) {
         result.feedType = item.feed_type;
+        result.feedInventoryId = item.id;
         break;
       }
     }
@@ -388,17 +510,6 @@ export function extractFeedData(
   }
 
   return result;
-}
-
-/**
- * Match a feed type keyword against inventory items
- */
-function matchFeedFromInventory(keyword: string, inventory: FeedInventoryItem[]): string | undefined {
-  const keywordLower = keyword.toLowerCase();
-  const match = inventory.find(item => 
-    item.feed_type.toLowerCase().includes(keywordLower)
-  );
-  return match?.feed_type;
 }
 
 // ==================== TEXT EXTRACTOR ====================

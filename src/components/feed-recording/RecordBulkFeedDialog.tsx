@@ -354,8 +354,30 @@ export function RecordBulkFeedDialog({
 
   const handleVoiceDataExtracted = (data: ExtractedFeedData) => {
     if (data.totalKg) setTotalKg(data.totalKg.toString());
-    if (data.feedType) setFeedType(data.feedType);
+    
+    // Use feedInventoryId if available (direct ID match), otherwise match by name
+    if (data.feedInventoryId) {
+      setFeedType(data.feedInventoryId);
+    } else if (data.feedType) {
+      if (data.feedType === FRESH_CUT_OPTION) {
+        setFeedType(FRESH_CUT_OPTION);
+      } else {
+        // Try to find matching inventory item by name
+        const matchedItem = displayFeedInventory.find(
+          f => f.feed_type.toLowerCase().includes(data.feedType!.toLowerCase())
+        );
+        if (matchedItem) {
+          setFeedType(matchedItem.id);
+        }
+      }
+    }
+    
     if (data.animalSelection) setSelectedOption(data.animalSelection);
+    
+    // Set date if extracted from voice
+    if (data.recordDate) {
+      setRecordDate(data.recordDate);
+    }
   };
 
   return (
