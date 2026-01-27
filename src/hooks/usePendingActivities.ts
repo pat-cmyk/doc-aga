@@ -165,17 +165,26 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
   const updateMutation = useMutation({
     mutationFn: async ({ 
       pendingId, 
-      activityData 
+      activityData,
+      animalIds
     }: { 
       pendingId: string; 
       activityData: any;
+      animalIds?: string[];
     }) => {
+      const updatePayload: any = { 
+        activity_data: activityData,
+        submitted_at: new Date().toISOString()
+      };
+      
+      // Include animal_ids if provided
+      if (animalIds && animalIds.length > 0) {
+        updatePayload.animal_ids = animalIds;
+      }
+      
       const { error } = await supabase
         .from('pending_activities')
-        .update({ 
-          activity_data: activityData,
-          submitted_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', pendingId)
         .eq('status', 'pending');
       
@@ -195,10 +204,12 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
   const resubmitMutation = useMutation({
     mutationFn: async ({ 
       pendingId, 
-      activityData 
+      activityData,
+      animalIds
     }: { 
       pendingId: string; 
       activityData: any;
+      animalIds?: string[];
     }) => {
       // Get current pending activity for farm_id
       const { data: current, error: fetchError } = await supabase
@@ -214,18 +225,26 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
         _farm_id: current.farm_id
       });
 
+      // Build update payload
+      const updatePayload: any = { 
+        activity_data: activityData,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        auto_approve_at: autoApproveTime,
+        reviewed_by: null,
+        reviewed_at: null,
+        rejection_reason: null
+      };
+      
+      // Include animal_ids if provided
+      if (animalIds && animalIds.length > 0) {
+        updatePayload.animal_ids = animalIds;
+      }
+
       // Update the rejected activity back to pending with new data
       const { error } = await supabase
         .from('pending_activities')
-        .update({ 
-          activity_data: activityData,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-          auto_approve_at: autoApproveTime,
-          reviewed_by: null,
-          reviewed_at: null,
-          rejection_reason: null
-        })
+        .update(updatePayload)
         .eq('id', pendingId)
         .eq('status', 'rejected');
       
@@ -245,12 +264,12 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
   const approvedCount = activities?.filter(a => ['approved', 'auto_approved'].includes(a.status)).length || 0;
   const rejectedCount = activities?.filter(a => a.status === 'rejected').length || 0;
 
-  const updateActivity = useCallback((pendingId: string, activityData: any) => {
-    updateMutation.mutate({ pendingId, activityData });
+  const updateActivity = useCallback((pendingId: string, activityData: any, animalIds?: string[]) => {
+    updateMutation.mutate({ pendingId, activityData, animalIds });
   }, [updateMutation]);
 
-  const resubmitActivity = useCallback((pendingId: string, activityData: any) => {
-    resubmitMutation.mutate({ pendingId, activityData });
+  const resubmitActivity = useCallback((pendingId: string, activityData: any, animalIds?: string[]) => {
+    resubmitMutation.mutate({ pendingId, activityData, animalIds });
   }, [resubmitMutation]);
 
   return {
