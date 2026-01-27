@@ -1,242 +1,348 @@
 
-# Voice Activity Detection Visualization - Implementation Plan
+# TTS Queue Management for Doc Aga - Implementation Plan
 
 ## Overview
 
-Add real-time audio visualization to give users visual feedback that the microphone is picking up their voice during recording. The visualization will appear when recording and provide immediate feedback through animated bars or a level meter.
+This feature adds a robust audio playback queue system to Doc Aga, ensuring multiple TTS responses play sequentially without overlap. It provides users with controls to skip the current audio, pause/resume playback, and see the queue status.
 
 ---
 
-## Current Architecture
+## Current Architecture Analysis
 
 ### What We Have
 
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| `useVoiceRecording` | Unified recording hook with state machine | Has access to MediaStream |
-| `VoiceRecordButton` | UI component for voice input | Needs visualization slot |
-| `voiceStateMachine` | FSM for recording lifecycle | Defines when to show visualization |
-| `audioFeedback.ts` | AudioContext utility | Can be extended for analyser |
+| Component | Purpose | Current Status |
+|-----------|---------|----------------|
+| `DocAga.tsx` | Main Doc Aga chat component | Stores single `playingAudio: HTMLAudioElement` |
+| `DocAgaConsultation.tsx` | Farmhand version of Doc Aga | Same single audio state |
+| `text-to-speech` edge function | ElevenLabs TTS via Supabase | Returns base64 audio |
+| `audioFeedback.ts` | Web Audio API synth sounds | No queue logic |
 
-### Key Insight
+### Current Problem
 
-The `useVoiceRecording` hook already captures the `MediaStream` from `getUserMedia()`. We need to:
-1. Pass this stream to an AnalyserNode
-2. Extract frequency/amplitude data in an animation loop
-3. Render visualization during `recording` and `connecting` states
+```typescript
+// Current implementation (DocAga.tsx lines 366-378):
+if (isVoiceInput) {
+  if (playingAudio) {
+    playingAudio.pause();           // Just stops current audio
+    playingAudio.currentTime = 0;
+  }
+  const audio = new Audio(audioUrl);
+  audio.addEventListener('ended', () => setPlayingAudio(null));
+  setPlayingAudio(audio);
+  audio.play();
+}
+```
+
+**Issues:**
+- New audio interrupts current playback
+- No queue for multiple responses
+- Only "Stop" button - no pause/skip
+- No visibility into pending audio
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Create Audio Analyser Hook
+### Phase 1: Create TTS Audio Queue Manager
 
-**New File: `src/hooks/useAudioLevelMeter.ts`**
+**New File: `src/lib/ttsAudioQueue.ts`**
 
-A dedicated hook that wraps the Web Audio API AnalyserNode:
-
-```text
-Interface:
-- audioLevel: number (0-100, normalized amplitude)
-- frequencyData: Uint8Array (for waveform/bars)
-- isActive: boolean
-- startAnalysis(stream: MediaStream): void
-- stopAnalysis(): void
-```
-
-Implementation approach:
-- Create AudioContext and AnalyserNode on demand
-- Connect MediaStream via MediaStreamAudioSourceNode
-- Use requestAnimationFrame for smooth 60fps updates
-- Calculate RMS (root mean square) for overall level
-- Cleanup properly on stop to prevent memory leaks
-
-### Phase 2: Create Visualization Component
-
-**New File: `src/components/ui/AudioLevelMeter.tsx`**
-
-A reusable visualization component with two display modes:
+A dedicated class to manage sequential audio playback:
 
 ```text
-Props:
-- audioLevel: number (0-100)
-- frequencyData?: Uint8Array
-- variant: 'bars' | 'waveform' | 'circle' | 'simple'
-- size: 'sm' | 'md' | 'lg'
-- className?: string
+Class: TTSAudioQueue
+- queue: AudioQueueItem[]
+- currentAudio: HTMLAudioElement | null
+- isPaused: boolean
+- volume: number (0-1)
+
+Methods:
+- enqueue(audioUrl: string, meta?: { messageId: string }): void
+- play(): void           // Start queue if paused/stopped
+- pause(): void          // Pause current audio
+- resume(): void         // Resume from pause
+- skip(): void           // Skip current, play next
+- stop(): void           // Stop and clear queue
+- setVolume(v: number): void
+- getQueueLength(): number
+- isPlaying(): boolean
+- isPaused(): boolean
+
+Events (via callbacks):
+- onStart(item): void
+- onEnd(item): void
+- onQueueEmpty(): void
+- onError(error): void
 ```
 
-**Variant Descriptions:**
+**Key Implementation Details:**
 
-1. **`bars`** (default) - 5-7 vertical bars that animate based on audio level
-   - Clean, minimal design
-   - Works well at small sizes
-   - Each bar responds to different frequency bands
+- Uses `HTMLAudioElement` for compatibility
+- Automatic `onended` listener to advance queue
+- Handles audio loading errors gracefully
+- Cleans up blob URLs after playback
 
-2. **`waveform`** - Horizontal waveform visualization
-   - Uses Canvas for smooth rendering
-   - Shows full frequency spectrum
-   - More visual but requires more space
+### Phase 2: Create React Hook for Queue
 
-3. **`circle`** - Pulsing ring around the mic button
-   - Integrates directly with button design
-   - Scale/opacity based on audio level
-   - Minimal footprint
+**New File: `src/hooks/useTTSQueue.ts`**
 
-4. **`simple`** - Single progress bar style
-   - Most compact option
-   - Just shows overall level
-   - Good for small UI contexts
-
-### Phase 3: Integrate with useVoiceRecording
-
-**File: `src/hooks/useVoiceRecording.ts`**
-
-Expose the MediaStream for visualization:
+A React hook wrapping the queue manager with state:
 
 ```typescript
-// Add to UseVoiceRecordingReturn interface:
-mediaStream: MediaStream | null;
+interface UseTTSQueueReturn {
+  // Actions
+  enqueue: (audioUrl: string, meta?: { messageId: string }) => void;
+  play: () => void;
+  pause: () => void;
+  resume: () => void;
+  skip: () => void;
+  stop: () => void;
+  setVolume: (v: number) => void;
+  
+  // State
+  isPlaying: boolean;
+  isPaused: boolean;
+  queueLength: number;
+  currentMessageId: string | null;
+  volume: number;
+}
 
-// Modify startBatchRecording to store stream reference
-// The streamRef is already there, just expose it
-
-// Return:
-return {
-  // ... existing
-  mediaStream: streamRef.current,
-};
+function useTTSQueue(options?: {
+  autoPlay?: boolean;  // Default: true
+  onQueueEmpty?: () => void;
+}): UseTTSQueueReturn;
 ```
 
-### Phase 4: Add to VoiceRecordButton
+### Phase 3: Create Audio Controls Component
 
-**File: `src/components/ui/VoiceRecordButton.tsx`**
+**New File: `src/components/ui/TTSAudioControls.tsx`**
 
-Add visualization display during recording:
+A compact control bar for audio playback:
+
+```text
+Visual Layout:
+┌────────────────────────────────────────────────┐
+│  ⏸/▶  │  ⏭ Skip  │  ⏹ Stop  │  🔊 ▁▂▃  │  (2)  │
+└────────────────────────────────────────────────┘
+         Pause/Play   Skip Next   Stop All  Volume  Queue Count
+```
+
+**Props:**
+```typescript
+interface TTSAudioControlsProps {
+  isPlaying: boolean;
+  isPaused: boolean;
+  queueLength: number;
+  volume: number;
+  onPause: () => void;
+  onResume: () => void;
+  onSkip: () => void;
+  onStop: () => void;
+  onVolumeChange: (v: number) => void;
+  className?: string;
+}
+```
+
+**Features:**
+- Compact mobile-friendly design
+- Volume slider (optional, can hide on mobile)
+- Queue count badge
+- Pulse animation when playing
+- Disabled state when queue empty
+
+### Phase 4: Integrate with DocAga Component
+
+**File: `src/components/DocAga.tsx`**
+
+Replace single audio state with queue:
 
 ```typescript
-// New props:
-showAudioLevel?: boolean;         // Default: true
-audioLevelVariant?: 'bars' | 'circle' | 'simple';
+// Remove:
+const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
 
-// In component:
-const { audioLevel, frequencyData, startAnalysis, stopAnalysis } = useAudioLevelMeter();
+// Add:
+const ttsQueue = useTTSQueue({
+  autoPlay: true, // Auto-play when voice input
+  onQueueEmpty: () => console.log('TTS queue empty'),
+});
 
-// Start analysis when recording begins
-useEffect(() => {
-  if (isRecording && mediaStream) {
-    startAnalysis(mediaStream);
-  } else {
-    stopAnalysis();
+// Modify audio generation (line 340-379):
+if (!audioError && audioData?.audioContent) {
+  const audioBlob = new Blob(...);
+  const audioUrl = URL.createObjectURL(audioBlob);
+  
+  // Update message with audio URL
+  setMessages(prev => {
+    const newMessages = [...prev];
+    const messageId = `msg-${Date.now()}`;
+    newMessages[newMessages.length - 1] = {
+      ...newMessages[newMessages.length - 1],
+      audioUrl,
+      messageId, // Track for highlighting
+    };
+    return newMessages;
+  });
+  
+  // Enqueue for playback (voice input = auto-play)
+  if (isVoiceInput) {
+    ttsQueue.enqueue(audioUrl, { messageId });
   }
-}, [isRecording, mediaStream]);
+}
 
-// Render visualization
-{isRecording && showAudioLevel && (
-  <AudioLevelMeter 
-    audioLevel={audioLevel}
-    variant={audioLevelVariant}
-    size={size}
+// Replace Stop button with TTSAudioControls:
+{(ttsQueue.isPlaying || ttsQueue.isPaused || ttsQueue.queueLength > 0) && (
+  <TTSAudioControls
+    isPlaying={ttsQueue.isPlaying}
+    isPaused={ttsQueue.isPaused}
+    queueLength={ttsQueue.queueLength}
+    volume={ttsQueue.volume}
+    onPause={ttsQueue.pause}
+    onResume={ttsQueue.resume}
+    onSkip={ttsQueue.skip}
+    onStop={ttsQueue.stop}
+    onVolumeChange={ttsQueue.setVolume}
   />
 )}
 ```
+
+### Phase 5: Update DocAgaConsultation
+
+**File: `src/components/farmhand/DocAgaConsultation.tsx`**
+
+Apply the same integration pattern as DocAga.tsx.
 
 ---
 
 ## Technical Details
 
-### Web Audio API Pipeline
-
-```text
-MediaStream
-    ↓
-MediaStreamAudioSourceNode
-    ↓
-AnalyserNode (fftSize: 256, smoothingTimeConstant: 0.8)
-    ↓
-getByteTimeDomainData() / getByteFrequencyData()
-    ↓
-requestAnimationFrame loop
-    ↓
-Calculate RMS / frequency bands
-    ↓
-Update state (throttled to 30fps for performance)
-```
-
-### RMS Calculation for Level Meter
+### Queue Item Structure
 
 ```typescript
-function calculateRMS(dataArray: Uint8Array): number {
-  let sum = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    // Convert from 0-255 to -1 to 1
-    const value = (dataArray[i] - 128) / 128;
-    sum += value * value;
-  }
-  const rms = Math.sqrt(sum / dataArray.length);
-  // Normalize to 0-100 with some amplification
-  return Math.min(100, rms * 200);
+interface AudioQueueItem {
+  id: string;           // Unique identifier
+  audioUrl: string;     // Blob URL or data URL
+  messageId?: string;   // Links to chat message for highlighting
+  createdAt: number;    // For ordering
+  duration?: number;    // Estimated duration (optional)
 }
 ```
 
-### Frequency Bands for Bar Visualization
+### Playback State Machine
 
-```typescript
-const BAND_RANGES = [
-  { start: 0, end: 4 },    // Sub-bass (20-60Hz)
-  { start: 4, end: 8 },    // Bass (60-250Hz)
-  { start: 8, end: 20 },   // Low-mid (250-500Hz)
-  { start: 20, end: 40 },  // Mid (500-2kHz)
-  { start: 40, end: 80 },  // High-mid (2-4kHz)
-  { start: 80, end: 128 }, // Highs (4-20kHz)
-];
+```text
+      ┌─────────────┐
+      │    IDLE     │ ◄── stop() / queue empty
+      └──────┬──────┘
+             │ enqueue() + autoPlay
+             ▼
+      ┌─────────────┐
+      │   PLAYING   │ ◄── resume()
+      └──────┬──────┘
+        │    │ ended
+        │    ▼
+        │  [next in queue?]
+        │    │ yes → loop to PLAYING
+        │    │ no  → IDLE
+        │
+        │ pause()
+        ▼
+      ┌─────────────┐
+      │   PAUSED    │
+      └──────┬──────┘
+             │ skip()
+             ▼
+      ┌─────────────┐
+      │   PLAYING   │ (next item)
+      └─────────────┘
 ```
 
-### Performance Considerations
+### Memory Management
 
-1. **Throttle updates** - Only update React state at 30fps, not 60fps
-2. **Use refs for animation** - Avoid re-renders in animation loop
-3. **Cleanup on unmount** - Disconnect AudioContext nodes properly
-4. **Single AudioContext** - Reuse existing context from audioFeedback.ts
+- Revoke blob URLs after playback completes
+- Limit queue size to 10 items (oldest dropped if exceeded)
+- Clean up on component unmount
+
+### Error Handling
+
+```typescript
+audio.onerror = (e) => {
+  console.error('[TTSQueue] Audio error:', e);
+  // Remove failed item and try next
+  advanceQueue();
+  onError?.(new Error('Audio playback failed'));
+};
+
+audio.onloadedmetadata = () => {
+  // Audio ready to play
+  audio.play().catch(e => {
+    // Browser autoplay policy blocked
+    setPaused(true);
+    toast.info('Tap play to hear the response');
+  });
+};
+```
+
+### Browser Autoplay Policy
+
+Modern browsers block autoplay. Handle this gracefully:
+
+```typescript
+const playNext = async () => {
+  if (queue.length === 0) return;
+  
+  currentAudio = new Audio(queue[0].audioUrl);
+  
+  try {
+    await currentAudio.play();
+    setIsPlaying(true);
+  } catch (e) {
+    // Autoplay blocked - show manual play button
+    setIsPaused(true);
+    console.warn('[TTSQueue] Autoplay blocked, waiting for user interaction');
+  }
+};
+```
 
 ---
 
 ## UI Design Specifications
 
-### Bar Visualization (Default)
+### Audio Controls Bar
 
 ```text
- ▃ ▅ █ ▅ ▂   ← 5 bars, varying heights based on audio level
+Compact Mode (Mobile):
+┌──────────────────────────────────┐
+│  ⏸  │  ⏭  │  ⏹  │  (2 pending)  │
+└──────────────────────────────────┘
+
+Expanded Mode (Desktop):
+┌─────────────────────────────────────────────────────┐
+│  ⏸ Pause  │  ⏭ Skip  │  ⏹ Stop All  │  🔊━━━━○━  │
+└─────────────────────────────────────────────────────┘
 ```
 
-- Height: 16px (sm), 24px (md), 32px (lg)
-- Width: 40px (sm), 60px (md), 80px (lg)
-- Bar width: 3-4px with 2px gap
-- Colors: Primary color with opacity based on level
-- Animation: Spring-like transitions (ease-out)
+### Visual States
 
-### Circle Variant
+| State | Controls Shown | Badge |
+|-------|----------------|-------|
+| Idle (empty queue) | Hidden | - |
+| Playing | Pause, Skip, Stop, Volume | Queue count if > 1 |
+| Paused | Play, Skip, Stop, Volume | Queue count |
+| Error | Retry, Skip, Stop | Error indicator |
 
-```text
-    ╭───╮
-   │ 🎤 │  ← Ring pulses with audio level
-    ╰───╯
-```
+### Colors
 
-- Ring width scales from 2px to 6px
-- Opacity: 0.3 (quiet) to 1.0 (loud)
-- Color: Destructive red (matches recording state)
+- Playing: Primary color pulse
+- Paused: Muted/gray
+- Queue badge: Secondary color
+- Stop: Destructive red
 
-### Simple Variant
+### Accessibility
 
-```text
- ├████████░░░░░░░░░░░│
-```
-
-- Single horizontal bar
-- Width: Same as button
-- Height: 4px
-- Gradient from green to yellow to red based on level
+- All buttons have `aria-label`
+- Announce queue changes to screen readers
+- Keyboard navigation (Space = pause/play)
 
 ---
 
@@ -244,88 +350,91 @@ const BAND_RANGES = [
 
 | File | Purpose |
 |------|---------|
-| `src/hooks/useAudioLevelMeter.ts` | Web Audio API analyser hook |
-| `src/components/ui/AudioLevelMeter.tsx` | Visualization UI component |
+| `src/lib/ttsAudioQueue.ts` | Core queue manager class |
+| `src/hooks/useTTSQueue.ts` | React hook wrapper |
+| `src/components/ui/TTSAudioControls.tsx` | Control bar UI component |
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useVoiceRecording.ts` | Expose mediaStream in return value |
-| `src/components/ui/VoiceRecordButton.tsx` | Add visualization, new props |
-| `src/components/ui/VoiceRecordWithExtraction.tsx` | Pass through visualization props |
+| `src/components/DocAga.tsx` | Replace single audio with queue |
+| `src/components/farmhand/DocAgaConsultation.tsx` | Same queue integration |
 
 ---
 
 ## User Experience Flow
 
-### Recording with Visualization
+### Voice Conversation with Queue
 
 ```text
-1. User taps mic button
-2. Recording starts → visualization appears
-3. Audio levels show bars bouncing in real-time
-4. User sees immediate feedback that mic is working
-5. Silence → bars stay low
-6. Speech → bars animate actively
-7. User stops → visualization fades, processing indicator shows
+1. User asks question via voice
+2. Doc Aga streams text response
+3. TTS generates audio → enqueued
+4. Audio starts playing automatically
+5. User asks follow-up (audio still playing)
+6. New response streams, TTS generates → enqueued
+7. First audio finishes → second starts
+8. User can:
+   - Pause to read text
+   - Skip to next response
+   - Stop all audio
+   - Adjust volume
 ```
 
-### Edge Cases
+### Rapid-Fire Questions
 
-| Scenario | Behavior |
-|----------|----------|
-| No audio detected | Bars stay flat (near zero) |
-| Very loud audio | Bars cap at max height (no clipping visual) |
-| Mic muted in OS | Bars stay flat, no special warning |
-| Connecting state | Show subtle pulse animation |
-| Offline recording | Same visualization (works locally) |
+```text
+1. User asks 3 questions quickly (voice/text mix)
+2. All 3 responses stream and generate TTS
+3. Queue shows (3 pending)
+4. Audio plays sequentially: 1 → 2 → 3
+5. User can skip through or stop all
+```
+
+### Manual Playback
+
+```text
+1. User types question (no auto-play)
+2. Response shows with audio player
+3. User clicks play on message → enqueues that audio
+4. Control bar appears
+5. Audio plays
+```
 
 ---
 
-## Styling with Tailwind
+## Edge Cases
 
-### Bar Animation Classes
-
-```css
-/* Smooth height transitions */
-.audio-bar {
-  transition: height 50ms ease-out;
-}
-
-/* Optional glow effect when active */
-.audio-bar-active {
-  box-shadow: 0 0 8px rgba(var(--destructive), 0.5);
-}
-```
-
-### Responsive Sizing
-
-```typescript
-const barConfig = {
-  sm: { height: 16, barWidth: 3, gap: 2, count: 4 },
-  md: { height: 24, barWidth: 4, gap: 2, count: 5 },
-  lg: { height: 32, barWidth: 5, gap: 3, count: 6 },
-};
-```
+| Scenario | Behavior |
+|----------|----------|
+| TTS fails for one message | Skip that item, play next |
+| User closes Doc Aga mid-playback | Stop audio, cleanup |
+| Offline when TTS requested | Skip TTS, show text only |
+| Very long response (>5000 chars) | TTS truncated by edge function, still plays |
+| Browser blocks autoplay | Show play button, toast hint |
+| Rapid queue additions | Queue up to 10, oldest dropped |
 
 ---
 
 ## Testing Checklist
 
 After implementation:
-- [ ] Visualization appears when recording starts
-- [ ] Bars animate in response to speech
-- [ ] Bars stay low during silence
-- [ ] Visualization stops when recording stops
-- [ ] No memory leaks (AudioContext cleanup)
-- [ ] Works in realtime mode (ElevenLabs)
-- [ ] Works in batch mode (Gemini)
-- [ ] Works during offline recording
-- [ ] Circle variant integrates with button
-- [ ] Performance stays smooth (no jank)
-- [ ] VoiceQuickAdd shows visualization
-- [ ] Form voice inputs show visualization
+- [ ] Single message plays audio correctly
+- [ ] Multiple messages queue and play in order
+- [ ] Pause stops current audio
+- [ ] Resume continues from pause point
+- [ ] Skip advances to next queued item
+- [ ] Stop clears queue and stops playback
+- [ ] Volume slider adjusts audio level
+- [ ] Queue count badge shows correct number
+- [ ] Blob URLs are cleaned up after playback
+- [ ] Error in one audio doesn't break queue
+- [ ] Works on mobile browsers
+- [ ] Works when voice input triggers auto-play
+- [ ] Works when text input (manual play from message)
+- [ ] Controls hide when queue is empty
+- [ ] Autoplay policy handled gracefully
 
 ---
 
@@ -333,7 +442,9 @@ After implementation:
 
 | Issue | Before | After |
 |-------|--------|-------|
-| No mic feedback | User unsure if mic is working | Immediate visual confirmation |
-| Silent recording anxiety | "Is it picking up my voice?" | Real-time level display |
-| Connecting state | Just shows "Connecting..." | Shows subtle animation |
-| Professional feel | Basic recording UI | Polished, responsive visualization |
+| Audio overlap | New audio interrupts current | Sequential playback |
+| No queue visibility | Unknown if more audio pending | Badge shows count |
+| Only stop button | Can't pause/resume | Full transport controls |
+| No skip option | Must wait for audio to end | Skip to next |
+| Audio interrupts reading | Must stop to read | Pause while reading |
+| Volume control | Browser default only | In-app slider |
