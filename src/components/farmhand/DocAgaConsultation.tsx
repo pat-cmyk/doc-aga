@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, Square } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
+import { useTTSQueue } from "@/hooks/useTTSQueue";
+import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 
 interface Message {
   role: "user" | "assistant";
@@ -35,8 +37,16 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
   const [isVoiceInput, setIsVoiceInput] = useState(false);
+  
+  // TTS Queue for sequential audio playback
+  const ttsQueue = useTTSQueue({
+    autoPlay: true,
+    onError: (error) => {
+      console.error('[DocAgaConsultation] TTS Queue error:', error);
+    },
+  });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const hasAutoSent = useRef(false);
@@ -212,19 +222,10 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
             return newMessages;
           });
 
-          // Only auto-play if input was voice
+          // Only auto-enqueue for voice input
           if (isVoiceInput) {
-            // Stop any currently playing audio
-            if (playingAudio) {
-              playingAudio.pause();
-              playingAudio.currentTime = 0;
-            }
-
-            const audio = new Audio(audioUrl);
-            audio.addEventListener('ended', () => setPlayingAudio(null));
-            audio.addEventListener('pause', () => setPlayingAudio(null));
-            setPlayingAudio(audio);
-            audio.play().catch(err => console.error('Audio playback error:', err));
+            const messageId = `msg-${Date.now()}`;
+            ttsQueue.enqueue(audioUrl, { messageId });
           }
         }
       } catch (audioError) {
@@ -326,22 +327,19 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
       </ScrollArea>
 
       <div className="border-t p-2 sm:p-4 space-y-2 sm:space-y-3">
-        {playingAudio && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              if (playingAudio) {
-                playingAudio.pause();
-                playingAudio.currentTime = 0;
-                setPlayingAudio(null);
-              }
-            }}
-            className="w-full gap-2"
-          >
-            <Square className="h-4 w-4" />
-            Stop Audio
-          </Button>
+        {/* TTS Audio Controls */}
+        {(ttsQueue.isPlaying || ttsQueue.isPaused || ttsQueue.queueLength > 0) && (
+          <TTSAudioControls
+            isPlaying={ttsQueue.isPlaying}
+            isPaused={ttsQueue.isPaused}
+            queueLength={ttsQueue.queueLength}
+            volume={ttsQueue.volume}
+            onPause={ttsQueue.pause}
+            onResume={ttsQueue.resume}
+            onSkip={ttsQueue.skip}
+            onStop={ttsQueue.stop}
+            onVolumeChange={ttsQueue.setVolume}
+          />
         )}
         <VoiceRecordButton
           preferRealtime={true}

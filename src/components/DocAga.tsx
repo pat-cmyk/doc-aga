@@ -6,9 +6,11 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, Bot, User, Volume2, FileText, Square, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceRecordButton } from "./ui/VoiceRecordButton";
+import { useTTSQueue } from "@/hooks/useTTSQueue";
+import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { useRole } from "@/hooks/useRole";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
@@ -42,8 +44,15 @@ const DocAga = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
   const [isVoiceInput, setIsVoiceInput] = useState(false);
+  
+  // TTS Queue for sequential audio playback
+  const ttsQueue = useTTSQueue({
+    autoPlay: true,
+    onError: (error) => {
+      console.error('[DocAga] TTS Queue error:', error);
+    },
+  });
   const [currentIntent, setCurrentIntent] = useState<string>("query");
   const [inputMethod, setInputMethod] = useState<InputMethod>(() => {
     return getDocAgaPreferences().preferredInputMethod;
@@ -362,20 +371,10 @@ const DocAga = () => {
             return newMessages;
           });
 
-          // Only auto-play if input was voice
+          // Only auto-enqueue for voice input
           if (isVoiceInput) {
-            // Stop any currently playing audio
-            if (playingAudio) {
-              playingAudio.pause();
-              playingAudio.currentTime = 0;
-            }
-
-            // Auto-play the audio for voice inputs
-            const audio = new Audio(audioUrl);
-            audio.addEventListener('ended', () => setPlayingAudio(null));
-            audio.addEventListener('pause', () => setPlayingAudio(null));
-            setPlayingAudio(audio);
-            audio.play().catch(err => console.error('Audio playback error:', err));
+            const messageId = `msg-${Date.now()}`;
+            ttsQueue.enqueue(audioUrl, { messageId });
           }
         }
       } catch (audioError) {
@@ -540,22 +539,19 @@ const DocAga = () => {
       </ScrollArea>
 
       <div className="border-t p-2 sm:p-3 space-y-2">
-        {playingAudio && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              if (playingAudio) {
-                playingAudio.pause();
-                playingAudio.currentTime = 0;
-                setPlayingAudio(null);
-              }
-            }}
-            className="w-full gap-2"
-          >
-            <Square className="h-4 w-4" />
-            Stop Audio
-          </Button>
+        {/* TTS Audio Controls */}
+        {(ttsQueue.isPlaying || ttsQueue.isPaused || ttsQueue.queueLength > 0) && (
+          <TTSAudioControls
+            isPlaying={ttsQueue.isPlaying}
+            isPaused={ttsQueue.isPaused}
+            queueLength={ttsQueue.queueLength}
+            volume={ttsQueue.volume}
+            onPause={ttsQueue.pause}
+            onResume={ttsQueue.resume}
+            onSkip={ttsQueue.skip}
+            onStop={ttsQueue.stop}
+            onVolumeChange={ttsQueue.setVolume}
+          />
         )}
         {imagePreview && (
           <div className="relative inline-block">
