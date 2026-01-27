@@ -5,7 +5,9 @@ export async function executeToolCall(
   args: any,
   supabase: SupabaseClient,
   farmId: string | undefined,
-  context: 'farmer' | 'government' = 'farmer'
+  context: 'farmer' | 'government' = 'farmer',
+  userId?: string,
+  conversationId?: string
 ) {
   console.log(`Executing tool: ${toolName} (context: ${context})`, args);
 
@@ -78,6 +80,25 @@ export async function executeToolCall(
     
     case "get_recent_events":
       return await getRecentEvents(args, supabase, farmId);
+    
+    // NEW: Comprehensive farm data query tools
+    case "get_milk_production":
+      return await getMilkProduction(args, supabase, farmId);
+    
+    case "get_health_history":
+      return await getHealthHistory(args, supabase, farmId);
+    
+    case "get_breeding_status":
+      return await getBreedingStatus(args, supabase, farmId);
+    
+    case "get_weight_history":
+      return await getWeightHistory(args, supabase, farmId);
+    
+    case "get_feeding_summary":
+      return await getFeedingSummary(args, supabase, farmId);
+    
+    case "get_conversation_context":
+      return await getConversationContext(args, supabase, userId);
     
     default:
       return { error: `Unknown tool: ${toolName}` };
@@ -1054,5 +1075,618 @@ async function getRecentEvents(args: any, supabase: SupabaseClient, farmId: stri
       notes: e.notes,
     })) || [],
     count: events?.length || 0,
+  };
+}
+
+// ============= NEW: COMPREHENSIVE FARM DATA QUERY TOOLS =============
+
+// Helper: Parse relative date keywords
+function parseRelativeDate(dateStr: string | undefined): { startDate: string; endDate: string } {
+  const today = new Date();
+  const phOffset = 8 * 60 * 60 * 1000; // UTC+8
+  const phToday = new Date(Date.now() + phOffset);
+  const todayStr = phToday.toISOString().split('T')[0];
+  
+  if (!dateStr) {
+    return { startDate: todayStr, endDate: todayStr };
+  }
+  
+  const normalized = dateStr.toLowerCase().trim();
+  
+  // Yesterday / Kahapon
+  if (normalized === 'yesterday' || normalized === 'kahapon') {
+    const yesterday = new Date(phToday);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    return { startDate: yesterdayStr, endDate: yesterdayStr };
+  }
+  
+  // Today / Ngayon
+  if (normalized === 'today' || normalized === 'ngayon') {
+    return { startDate: todayStr, endDate: todayStr };
+  }
+  
+  // Last week / Noong nakaraang linggo
+  if (normalized.includes('last week') || normalized.includes('nakaraang linggo') || normalized === 'last week') {
+    const weekAgo = new Date(phToday);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return { startDate: weekAgo.toISOString().split('T')[0], endDate: todayStr };
+  }
+  
+  // This week
+  if (normalized.includes('this week') || normalized === 'nitong linggo') {
+    const startOfWeek = new Date(phToday);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    return { startDate: startOfWeek.toISOString().split('T')[0], endDate: todayStr };
+  }
+  
+  // This month / Nitong buwan
+  if (normalized.includes('this month') || normalized.includes('nitong buwan')) {
+    const startOfMonth = new Date(phToday.getFullYear(), phToday.getMonth(), 1);
+    return { startDate: startOfMonth.toISOString().split('T')[0], endDate: todayStr };
+  }
+  
+  // If it looks like a date (YYYY-MM-DD), use it directly
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return { startDate: dateStr, endDate: dateStr };
+  }
+  
+  // Default to today
+  return { startDate: todayStr, endDate: todayStr };
+}
+
+async function getMilkProduction(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  // Parse date arguments
+  let startDate: string, endDate: string;
+  
+  if (args.start_date && args.end_date) {
+    startDate = args.start_date;
+    endDate = args.end_date;
+  } else {
+    const parsed = parseRelativeDate(args.date);
+    startDate = parsed.startDate;
+    endDate = parsed.endDate;
+  }
+
+  // Build base query - filter by farm animals first
+  let query = supabase
+    .from('milking_records')
+    .select(`
+      liters,
+      record_date,
+      milking_session,
+      animals!inner(id, name, ear_tag, livestock_type, farm_id)
+    `)
+    .eq('animals.farm_id', farmId)
+    .gte('record_date', startDate)
+    .lte('record_date', endDate)
+    .order('record_date', { ascending: false });
+
+  // If specific animal requested
+  if (args.animal_identifier) {
+    const { data: animal } = await supabase
+      .from('animals')
+      .select('id, name, ear_tag')
+      .eq('farm_id', farmId)
+      .eq('is_deleted', false)
+      .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+      .limit(1)
+      .single();
+
+    if (animal) {
+      query = query.eq('animal_id', animal.id);
+    } else {
+      return { error: `Animal "${args.animal_identifier}" not found` };
+    }
+  }
+
+  const { data: milkRecords, error } = await query;
+  if (error) return { error: error.message };
+
+  // Calculate totals
+  const totalLiters = milkRecords?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
+  
+  // Breakdown by livestock type
+  const byLivestockType: Record<string, number> = {};
+  const bySession: Record<string, number> = {};
+  const animalTotals: Record<string, { name: string; ear_tag: string; liters: number; type: string }> = {};
+
+  milkRecords?.forEach((r: any) => {
+    const type = r.animals?.livestock_type || 'Unknown';
+    const animalId = r.animals?.id;
+    const session = r.milking_session || 'Not specified';
+    
+    // By type
+    byLivestockType[type] = (byLivestockType[type] || 0) + Number(r.liters);
+    
+    // By session
+    bySession[session] = (bySession[session] || 0) + Number(r.liters);
+    
+    // By animal (aggregate)
+    if (animalId && !animalTotals[animalId]) {
+      animalTotals[animalId] = {
+        name: r.animals?.name || 'Unknown',
+        ear_tag: r.animals?.ear_tag || 'N/A',
+        liters: 0,
+        type: type
+      };
+    }
+    if (animalId) {
+      animalTotals[animalId].liters += Number(r.liters);
+    }
+  });
+
+  // Convert to sorted array (top producers first)
+  const topAnimals = Object.values(animalTotals)
+    .sort((a, b) => b.liters - a.liters)
+    .slice(0, 10);
+
+  // Get previous period for comparison
+  const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const prevEndDate = new Date(startDate);
+  prevEndDate.setDate(prevEndDate.getDate() - 1);
+  const prevStartDate = new Date(prevEndDate);
+  prevStartDate.setDate(prevStartDate.getDate() - daysDiff + 1);
+  
+  const { data: prevRecords } = await supabase
+    .from('milking_records')
+    .select('liters, animals!inner(farm_id)')
+    .eq('animals.farm_id', farmId)
+    .gte('record_date', prevStartDate.toISOString().split('T')[0])
+    .lte('record_date', prevEndDate.toISOString().split('T')[0]);
+
+  const prevTotal = prevRecords?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
+  const comparison = prevTotal > 0 ? Math.round(((totalLiters - prevTotal) / prevTotal) * 100) : null;
+
+  return {
+    query_date: startDate === endDate ? startDate : null,
+    date_range: startDate !== endDate ? { start: startDate, end: endDate } : null,
+    total_liters: Math.round(totalLiters * 100) / 100,
+    by_livestock_type: byLivestockType,
+    by_session: bySession,
+    top_animals: topAnimals,
+    total_records: milkRecords?.length || 0,
+    total_animals_milked: Object.keys(animalTotals).length,
+    comparison_to_previous_period: comparison !== null ? `${comparison >= 0 ? '+' : ''}${comparison}%` : null
+  };
+}
+
+async function getHealthHistory(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const days = args.days || 30;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  let query = supabase
+    .from('health_records')
+    .select(`
+      id,
+      visit_date,
+      diagnosis,
+      treatment,
+      notes,
+      resolution_notes,
+      animals!inner(id, name, ear_tag, farm_id)
+    `)
+    .eq('animals.farm_id', farmId)
+    .gte('visit_date', startDate)
+    .order('visit_date', { ascending: false });
+
+  // If specific animal requested
+  if (args.animal_identifier) {
+    const { data: animal } = await supabase
+      .from('animals')
+      .select('id')
+      .eq('farm_id', farmId)
+      .eq('is_deleted', false)
+      .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+      .limit(1)
+      .single();
+
+    if (animal) {
+      query = query.eq('animal_id', animal.id);
+    }
+  }
+
+  // If diagnosis filter
+  if (args.diagnosis) {
+    query = query.ilike('diagnosis', `%${args.diagnosis}%`);
+  }
+
+  const { data: healthRecords, error } = await query.limit(50);
+  if (error) return { error: error.message };
+
+  // Breakdown by diagnosis
+  const diagnosisCount: Record<string, number> = {};
+  const animalsWithIssues: Record<string, number> = {};
+  let unresolvedCount = 0;
+
+  healthRecords?.forEach((r: any) => {
+    const diagnosis = r.diagnosis || 'Unspecified';
+    diagnosisCount[diagnosis] = (diagnosisCount[diagnosis] || 0) + 1;
+    
+    const animalName = r.animals?.name || r.animals?.ear_tag || 'Unknown';
+    animalsWithIssues[animalName] = (animalsWithIssues[animalName] || 0) + 1;
+    
+    if (!r.resolution_notes) unresolvedCount++;
+  });
+
+  // Sort animals by issue count
+  const topAnimalsWithIssues = Object.entries(animalsWithIssues)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ animal: name, issue_count: count }));
+
+  return {
+    period_days: days,
+    total_health_records: healthRecords?.length || 0,
+    unresolved_issues: unresolvedCount,
+    diagnosis_breakdown: diagnosisCount,
+    animals_with_most_issues: topAnimalsWithIssues,
+    recent_records: healthRecords?.slice(0, 10).map((r: any) => ({
+      date: r.visit_date,
+      animal: r.animals?.name || r.animals?.ear_tag,
+      diagnosis: r.diagnosis,
+      treatment: r.treatment,
+      resolved: !!r.resolution_notes
+    })) || []
+  };
+}
+
+async function getBreedingStatus(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const days = args.days || 90;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Get all AI records for the farm
+  const { data: aiRecords, error } = await supabase
+    .from('ai_records')
+    .select(`
+      id,
+      scheduled_date,
+      performed_date,
+      pregnancy_confirmed,
+      expected_delivery_date,
+      semen_code,
+      technician,
+      animals!inner(id, name, ear_tag, farm_id, livestock_type)
+    `)
+    .eq('animals.farm_id', farmId)
+    .eq('animals.is_deleted', false)
+    .order('performed_date', { ascending: false });
+
+  if (error) return { error: error.message };
+
+  const statusFilter = args.status?.toLowerCase();
+
+  // Categorize records
+  const pregnant: any[] = [];
+  const dueSoon: any[] = [];
+  const recentAI: any[] = [];
+  const pendingConfirmation: any[] = [];
+
+  aiRecords?.forEach((r: any) => {
+    const animal = r.animals;
+    const record = {
+      animal_name: animal?.name || 'Unknown',
+      animal_ear_tag: animal?.ear_tag || 'N/A',
+      livestock_type: animal?.livestock_type,
+      performed_date: r.performed_date,
+      expected_delivery_date: r.expected_delivery_date,
+      semen_code: r.semen_code
+    };
+
+    if (r.pregnancy_confirmed) {
+      pregnant.push(record);
+      
+      if (r.expected_delivery_date && r.expected_delivery_date <= thirtyDaysFromNow && r.expected_delivery_date >= today) {
+        dueSoon.push(record);
+      }
+    }
+
+    if (r.performed_date && r.performed_date >= startDate) {
+      recentAI.push(record);
+      
+      if (r.pregnancy_confirmed === null) {
+        pendingConfirmation.push(record);
+      }
+    }
+  });
+
+  // Calculate success rate
+  const performedRecords = aiRecords?.filter(r => r.performed_date) || [];
+  const confirmedCount = performedRecords.filter(r => r.pregnancy_confirmed === true).length;
+  const successRate = performedRecords.length > 0 
+    ? Math.round((confirmedCount / performedRecords.length) * 100) 
+    : 0;
+
+  // Filter based on status parameter
+  let result: any = {
+    period_days: days,
+    total_ai_procedures: recentAI.length,
+    success_rate: `${successRate}%`,
+    currently_pregnant: pregnant.length,
+    due_within_30_days: dueSoon.length,
+    pending_confirmation: pendingConfirmation.length
+  };
+
+  if (!statusFilter || statusFilter === 'all') {
+    result.pregnant_animals = pregnant.slice(0, 10);
+    result.due_soon = dueSoon;
+    result.recent_ai = recentAI.slice(0, 10);
+  } else if (statusFilter === 'pregnant') {
+    result.pregnant_animals = pregnant;
+  } else if (statusFilter === 'due_soon') {
+    result.due_soon = dueSoon;
+  } else if (statusFilter === 'recent_ai') {
+    result.recent_ai = recentAI;
+  }
+
+  return result;
+}
+
+async function getWeightHistory(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const days = args.days || 90;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  let query = supabase
+    .from('weight_records')
+    .select(`
+      id,
+      weight_kg,
+      measurement_date,
+      notes,
+      animals!inner(id, name, ear_tag, farm_id, livestock_type, current_weight_kg)
+    `)
+    .eq('animals.farm_id', farmId)
+    .eq('animals.is_deleted', false)
+    .gte('measurement_date', startDate)
+    .order('measurement_date', { ascending: false });
+
+  // If specific animal requested
+  if (args.animal_identifier) {
+    const { data: animal } = await supabase
+      .from('animals')
+      .select('id')
+      .eq('farm_id', farmId)
+      .eq('is_deleted', false)
+      .or(`ear_tag.eq.${args.animal_identifier},name.ilike.%${args.animal_identifier}%`)
+      .limit(1)
+      .single();
+
+    if (animal) {
+      query = query.eq('animal_id', animal.id);
+    }
+  }
+
+  const { data: weightRecords, error } = await query.limit(100);
+  if (error) return { error: error.message };
+
+  // Group by animal and calculate growth
+  const animalWeights: Record<string, { 
+    name: string; 
+    ear_tag: string;
+    type: string;
+    current: number | null;
+    oldest: number | null;
+    newest: number | null;
+    gain: number | null;
+    records: number;
+  }> = {};
+
+  weightRecords?.forEach((r: any) => {
+    const animalId = r.animals?.id;
+    const name = r.animals?.name || 'Unknown';
+    const ear_tag = r.animals?.ear_tag || 'N/A';
+    const type = r.animals?.livestock_type || 'Unknown';
+
+    if (!animalWeights[animalId]) {
+      animalWeights[animalId] = {
+        name,
+        ear_tag,
+        type,
+        current: r.animals?.current_weight_kg,
+        oldest: null,
+        newest: null,
+        gain: null,
+        records: 0
+      };
+    }
+
+    animalWeights[animalId].records++;
+    
+    if (!animalWeights[animalId].newest) {
+      animalWeights[animalId].newest = r.weight_kg;
+    }
+    animalWeights[animalId].oldest = r.weight_kg;
+  });
+
+  // Calculate gain for each animal
+  Object.values(animalWeights).forEach(a => {
+    if (a.newest && a.oldest) {
+      a.gain = Math.round((a.newest - a.oldest) * 10) / 10;
+    }
+  });
+
+  // Sort by gain (top gainers)
+  const animalList = Object.values(animalWeights).sort((a, b) => (b.gain || 0) - (a.gain || 0));
+
+  return {
+    period_days: days,
+    total_measurements: weightRecords?.length || 0,
+    animals_measured: Object.keys(animalWeights).length,
+    animal_weights: animalList.slice(0, 15),
+    top_gainers: animalList.filter(a => (a.gain || 0) > 0).slice(0, 5),
+    needing_attention: animalList.filter(a => (a.gain || 0) < 0).slice(0, 5)
+  };
+}
+
+async function getFeedingSummary(args: any, supabase: SupabaseClient, farmId: string | undefined) {
+  if (!farmId) return { error: "No farm found for user" };
+
+  const days = args.days || 7;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
+    .from('feeding_records')
+    .select(`
+      id,
+      record_datetime,
+      feed_type,
+      kilograms,
+      cost_per_kg_at_time,
+      animals!inner(id, name, ear_tag, farm_id)
+    `)
+    .eq('animals.farm_id', farmId)
+    .eq('animals.is_deleted', false)
+    .gte('record_datetime', startDate)
+    .order('record_datetime', { ascending: false });
+
+  if (args.feed_type) {
+    query = query.ilike('feed_type', `%${args.feed_type}%`);
+  }
+
+  const { data: feedingRecords, error } = await query.limit(200);
+  if (error) return { error: error.message };
+
+  // Aggregate by feed type
+  const byFeedType: Record<string, { kg: number; cost: number }> = {};
+  const byAnimal: Record<string, number> = {};
+  let totalKg = 0;
+  let totalCost = 0;
+
+  feedingRecords?.forEach((r: any) => {
+    const type = r.feed_type || 'Unknown';
+    const kg = Number(r.kilograms) || 0;
+    const costPerKg = Number(r.cost_per_kg_at_time) || 0;
+    const cost = kg * costPerKg;
+
+    if (!byFeedType[type]) {
+      byFeedType[type] = { kg: 0, cost: 0 };
+    }
+    byFeedType[type].kg += kg;
+    byFeedType[type].cost += cost;
+
+    const animalName = r.animals?.name || r.animals?.ear_tag || 'Unknown';
+    byAnimal[animalName] = (byAnimal[animalName] || 0) + kg;
+
+    totalKg += kg;
+    totalCost += cost;
+  });
+
+  // Get current feed inventory
+  const { data: inventory } = await supabase
+    .from('feed_inventory')
+    .select('feed_type, quantity_kg, category')
+    .eq('farm_id', farmId);
+
+  const inventorySummary = inventory?.map(i => ({
+    type: i.feed_type,
+    category: i.category,
+    remaining_kg: i.quantity_kg
+  })) || [];
+
+  return {
+    period_days: days,
+    total_feed_consumed_kg: Math.round(totalKg * 10) / 10,
+    total_cost: Math.round(totalCost * 100) / 100,
+    by_feed_type: Object.entries(byFeedType).map(([type, data]) => ({
+      feed_type: type,
+      kg: Math.round(data.kg * 10) / 10,
+      cost: Math.round(data.cost * 100) / 100
+    })),
+    top_consumers: Object.entries(byAnimal)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([animal, kg]) => ({ animal, kg: Math.round(kg * 10) / 10 })),
+    current_inventory: inventorySummary,
+    total_records: feedingRecords?.length || 0
+  };
+}
+
+async function getConversationContext(args: any, supabase: SupabaseClient, userId?: string) {
+  if (!userId) return { error: "User not authenticated" };
+
+  const hours = args.hours || 24;
+  const sinceTime = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  // Get recent queries for this user
+  const { data: recentQueries, error } = await supabase
+    .from('doc_aga_queries')
+    .select('question, answer, created_at')
+    .eq('user_id', userId)
+    .gte('created_at', sinceTime)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) return { error: error.message };
+
+  if (!recentQueries || recentQueries.length === 0) {
+    return {
+      has_recent_context: false,
+      message: "No recent conversations found"
+    };
+  }
+
+  // Extract animal mentions from questions/answers
+  const animalPattern = /(?:si\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)|(?:ear\s*tag[:\s]*)?([A-Z]-?\d{3})/gi;
+  const mentionedAnimals = new Set<string>();
+  
+  recentQueries.forEach(q => {
+    const text = `${q.question} ${q.answer || ''}`;
+    const matches = text.matchAll(animalPattern);
+    for (const match of matches) {
+      if (match[1]) mentionedAnimals.add(match[1]);
+      if (match[2]) mentionedAnimals.add(match[2]);
+    }
+  });
+
+  // Extract topics
+  const topics: string[] = [];
+  const topicKeywords = {
+    milk: ['gatas', 'milk', 'liters', 'litro'],
+    health: ['health', 'sakit', 'sick', 'diagnosis', 'treatment'],
+    breeding: ['pregnant', 'buntis', 'AI', 'breeding', 'calving'],
+    feeding: ['feed', 'kain', 'feeding', 'pakain'],
+    weight: ['weight', 'timbang', 'kg', 'kilos']
+  };
+
+  recentQueries.forEach(q => {
+    const text = (q.question + ' ' + (q.answer || '')).toLowerCase();
+    Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+      if (keywords.some(kw => text.includes(kw)) && !topics.includes(topic)) {
+        topics.push(topic);
+      }
+    });
+  });
+
+  // Filter by keywords if provided
+  let filteredQueries = recentQueries;
+  if (args.topic_keywords) {
+    const keywords = args.topic_keywords.toLowerCase().split(/[,\s]+/);
+    filteredQueries = recentQueries.filter(q => {
+      const text = (q.question + ' ' + (q.answer || '')).toLowerCase();
+      return keywords.some((kw: string) => text.includes(kw));
+    });
+  }
+
+  return {
+    has_recent_context: true,
+    hours_covered: hours,
+    total_recent_queries: recentQueries.length,
+    animals_mentioned: Array.from(mentionedAnimals).slice(0, 10),
+    topics_discussed: topics,
+    recent_conversations: filteredQueries.slice(0, 5).map(q => ({
+      question: q.question.slice(0, 200),
+      answer_preview: q.answer?.slice(0, 200),
+      time: q.created_at
+    }))
   };
 }

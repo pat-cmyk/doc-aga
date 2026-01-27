@@ -1021,31 +1021,37 @@ export type Database = {
       doc_aga_queries: {
         Row: {
           answer: string | null
+          conversation_id: string | null
           created_at: string
           farm_id: string | null
           id: string
           image_url: string | null
           matched_faq_id: string | null
+          message_index: number | null
           question: string
           user_id: string | null
         }
         Insert: {
           answer?: string | null
+          conversation_id?: string | null
           created_at?: string
           farm_id?: string | null
           id?: string
           image_url?: string | null
           matched_faq_id?: string | null
+          message_index?: number | null
           question: string
           user_id?: string | null
         }
         Update: {
           answer?: string | null
+          conversation_id?: string | null
           created_at?: string
           farm_id?: string | null
           id?: string
           image_url?: string | null
           matched_faq_id?: string | null
+          message_index?: number | null
           question?: string
           user_id?: string | null
         }
