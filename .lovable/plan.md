@@ -1,179 +1,216 @@
 
-# Fix Taglish Voice Parsing: Feed Name + Spoken Numbers
+# Enable Animal Editing in Pending Approval Phase + ALL Species Voice Selection
 
-## Problem Summary
+## Overview
 
-The voice input **"nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat"** has TWO extraction issues:
+This plan enables both farmhands and farm managers/owners to edit pending activity submissions including animal selection, and ensures voice input supports "ALL Animals" and "ALL + specific species" options.
 
-| Issue | Current Behavior | Expected |
-|-------|------------------|----------|
-| **Feed Name** | Not extracted (regex fails due to "ngayon araw" between feed and "na") | "Rumsol Feeds Cattle Grower" |
-| **Quantity** | "two kilos" may not be extracted | 2 kg |
+## Current Gaps
 
----
-
-## Root Cause Analysis
-
-### Issue 1: Feed Name Extraction Fails
-
-**Current Pattern (line ~533):**
-```javascript
-/(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:na|that|ng)/i
-```
-
-**Input:** `"ng rumsol feeds ngayon araw na two kilos"`
-
-**Problem:** Pattern expects `(feed name) + (na|that|ng)` immediately adjacent. But there's **"ngayon araw"** between "feeds" and "na".
-
-### Issue 2: "two kilos" Should Work But May Not
-
-**Pattern 2 in extractSpokenKilograms:**
-```javascript
-/(?:na|ng|of)\s+(two)\s*(?:kilos)\b/i
-```
-
-This SHOULD match "na two kilos" - but I suspect either:
-- The function isn't being reached, OR
-- There's a word boundary issue with the generated regex pattern
+| Area | Current State | Target State |
+|------|---------------|--------------|
+| EditSubmissionDialog | Only edits activity_data fields | Also allows animal selection changes |
+| PendingActivitiesQueue | No edit option for managers | Add Edit button for managers |
+| usePendingActivities hook | Update doesn't include animal_ids | Include animal_ids in update |
+| Animal selection in dialog | Not available | Full combobox with ALL/species options |
 
 ---
 
-## Solution: Dual Fix
+## Part 1: Enhance EditSubmissionDialog with Animal Selection
 
-### Part 1: Enhanced Feed Name Extraction Patterns
+### File: `src/components/approval/EditSubmissionDialog.tsx`
 
-Add new patterns to handle Taglish sentence structures where time words appear between feed name and quantity:
-
-```typescript
-// In extractFeedNameFromText() - add these patterns:
-
-// NEW Pattern: "ng [brand feeds] ngayon/today/kanina/kahapon" 
-// Handles time words after feed name
-/(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:ngayon|today|kanina|kahapon|araw)/i,
-
-// NEW Pattern: "nagpakain (tayo/ako) ng [brand]"
-// Direct feeding verb pattern
-/(?:nagpakain|nagfeed|pinakain)\s+(?:tayo|ako|sila|kami)?\s*(?:ng|of)?\s*([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)/i,
-
-// NEW Pattern: Standalone "[brand] feeds" anywhere
-/\b([A-Za-z]+\s+feeds?)\b/i,
-```
-
-### Part 2: Brand Name Normalization (STT Error Handling)
-
-Add mapping for common STT transcription errors:
+**Changes:**
+1. Add `farmId` prop to fetch farm animals
+2. Import and use `useFarmAnimals` hook and `AnimalCombobox` component
+3. Add animal selection field with ALL/species options
+4. Store selected animal IDs and pass them in onSave callback
+5. Support multi-animal display and selection
 
 ```typescript
-const FEED_BRAND_ALIASES: Record<string, string[]> = {
-  'rumsol': ['rumsol', 'rum sol', 'rum sulfid', 'rum sulfids', 'rumsole', 'rum sole'],
-  'vitarich': ['vitarich', 'vita rich', 'vita-rich'],
-  'bmeg': ['bmeg', 'b-meg', 'b meg'],
-};
-
-function normalizeFeedBrand(spoken: string): string {
-  const lower = spoken.toLowerCase();
-  for (const [canonical, aliases] of Object.entries(FEED_BRAND_ALIASES)) {
-    if (aliases.some(alias => lower.includes(alias))) {
-      return canonical;
-    }
-  }
-  return spoken;
+// New props interface
+interface EditSubmissionDialogProps {
+  activity: PendingActivity | null;
+  mode: 'edit' | 'resubmit';
+  farmId: string;  // NEW
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (activityData: any, animalIds: string[]) => void;  // UPDATED
+  isSaving: boolean;
 }
 ```
 
-### Part 3: Prefix-Aware Fuzzy Matching
+**New animal selection section:**
+- Show current animal count
+- AnimalCombobox with "All Animals", "All Cattle", "All Goat", etc. options
+- Individual animal selection
+- Update selected animals in local state
 
-When user says "rumsol feeds", match against "Rumsol Feeds Cattle Grower" with high confidence:
+---
 
+## Part 2: Update usePendingActivities Hook
+
+### File: `src/hooks/usePendingActivities.ts`
+
+**Changes to updateMutation:**
 ```typescript
-// In fuzzyMatchFeedType() - add prefix check BEFORE Levenshtein:
-
-// Check if spoken feed is a prefix/beginning of any inventory item
-for (const item of inventory) {
-  const itemLower = item.feed_type.toLowerCase();
-  const spokenLower = spokenFeed.toLowerCase();
-  
-  // "rumsol feeds" is prefix of "rumsol feeds cattle grower"
-  if (itemLower.startsWith(spokenLower)) {
-    return { 
-      bestMatch: item, 
-      confidence: 'high', 
-      suggestions: [] 
+const updateMutation = useMutation({
+  mutationFn: async ({ 
+    pendingId, 
+    activityData,
+    animalIds  // NEW
+  }: { 
+    pendingId: string; 
+    activityData: any;
+    animalIds?: string[];  // NEW
+  }) => {
+    const updatePayload: any = { 
+      activity_data: activityData,
+      submitted_at: new Date().toISOString()
     };
-  }
-}
+    
+    // Include animal_ids if provided
+    if (animalIds && animalIds.length > 0) {
+      updatePayload.animal_ids = animalIds;
+    }
+    
+    const { error } = await supabase
+      .from('pending_activities')
+      .update(updatePayload)
+      .eq('id', pendingId)
+      .eq('status', 'pending');
+    
+    if (error) throw error;
+  },
+  // ...
+});
 ```
 
-### Part 4: Robust Spoken Number Pattern
+**Similar changes to resubmitMutation** for rejected activity resubmission.
 
-Add explicit pattern for "X kilos para sa" structure:
+**Update function signatures:**
+```typescript
+updateActivity: (pendingId: string, activityData: any, animalIds?: string[]) => void;
+resubmitActivity: (pendingId: string, activityData: any, animalIds?: string[]) => void;
+```
+
+---
+
+## Part 3: Add Edit Button to Manager's PendingActivitiesQueue
+
+### File: `src/components/approval/PendingActivitiesQueue.tsx`
+
+**Changes:**
+1. Import EditSubmissionDialog
+2. Add state for editing activity
+3. Add edit mutation functions from hook
+4. Add "Edit" button alongside "Quick Approve" and "View Details"
+5. Render EditSubmissionDialog with farmId prop
 
 ```typescript
-// In extractSpokenKilograms() - add Pattern 4:
+// Add to imports
+import { EditSubmissionDialog } from "./EditSubmissionDialog";
 
-// Pattern 4: "X kilos para sa" - spoken number before "para"
-const paraPattern = new RegExp(
-  `\\b(${NUMBER_WORD_PATTERN})\\s*(?:kilo|kg|kilos)\\s+(?:para|for)\\b`,
-  'i'
-);
-const paraMatch = lowerText.match(paraPattern);
-if (paraMatch) {
-  const parsed = parseSpokenNumber(paraMatch[1]);
-  if (parsed && parsed >= 0.5 && parsed <= 500) {
-    console.log(`[VoiceExtractor] Para pattern match: "${paraMatch[1]}" → ${parsed}`);
-    return parsed;
+// Add state
+const [editingActivity, setEditingActivity] = useState<PendingActivity | null>(null);
+
+// Add to usePendingActivities destructuring
+const { updateActivity, isUpdating } = usePendingActivities(farmId);
+
+// Add Edit button in card actions
+<Button
+  size="sm"
+  variant="outline"
+  onClick={(e) => {
+    e.stopPropagation();
+    setEditingActivity(activity);
+  }}
+>
+  <Pencil className="h-4 w-4 mr-1" />
+  Edit
+</Button>
+```
+
+---
+
+## Part 4: Update MySubmissions to Pass Animal IDs
+
+### File: `src/components/approval/MySubmissions.tsx`
+
+**Changes:**
+1. Update handleSave to include animalIds parameter
+2. Pass farmId to EditSubmissionDialog (need to get from activity)
+
+```typescript
+const handleSave = (activityData: any, animalIds: string[]) => {
+  if (!editingActivity) return;
+  
+  if (dialogMode === 'edit') {
+    updateActivity(editingActivity.id, activityData, animalIds);
+  } else {
+    resubmitActivity(editingActivity.id, activityData, animalIds);
   }
-}
+  setEditingActivity(null);
+};
 ```
 
 ---
 
-## File Changes
+## Part 5: Voice Selection for ALL Species
 
-### `src/lib/voiceFormExtractors.ts`
+The AnimalSelectionStep already supports "All {species}" selection through:
+- `handleTypeSelectAll()` function
+- Grouped display by livestock type
+- `selection: 'ALL'` in the callback
 
-| Location | Change |
-|----------|--------|
-| ~Line 60 | Add `FEED_BRAND_ALIASES` constant |
-| ~Line 75 | Add `normalizeFeedBrand()` helper function |
-| ~Line 505 | Add Pattern 4 (para pattern) in `extractSpokenKilograms()` |
-| ~Line 533 | Add 3 new patterns in `extractFeedNameFromText()` |
-| ~Line 555 | Add prefix matching in `fuzzyMatchFeedType()` |
-| ~Line 680 | Call `normalizeFeedBrand()` before matching |
-
----
-
-## Expected Flow After Fix
-
-**Input:** `"nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat"`
-
-1. **Feed Extraction:**
-   - New pattern matches: `"ng rumsol feeds ngayon"` → extracts "rumsol feeds"
-   - Brand normalization: "rumsol feeds" stays as-is (correct spelling)
-   - Prefix match: "rumsol feeds" matches "Rumsol Feeds Cattle Grower" ✅
-
-2. **Quantity Extraction:**
-   - Pattern 2: `"na two kilos"` → extracts "two" → parses to 2
-   - OR Pattern 4: `"two kilos para"` → extracts "two" → parses to 2 ✅
-
-**Result:**
-```json
-{
-  "feedType": "Rumsol Feeds Cattle Grower",
-  "feedInventoryId": "inventory-uuid",
-  "totalKg": 2,
-  "matchConfidence": "high"
-}
+The `useFarmAnimals.ts` already provides species-based quick options:
+```typescript
+// Already exists in getAnimalDropdownOptions():
+options.push({
+  value: `species:${species}`,
+  label: `All ${species.charAt(0).toUpperCase() + species.slice(1)} (${count})`,
+  group: 'quick',
+});
 ```
 
+**No changes needed** - voice animal selection already supports ALL and ALL Species through AnimalSelectionStep.
+
 ---
 
-## Testing Matrix
+## Files to Modify
 
-| Voice Input | Expected feedType | Expected totalKg |
-|-------------|-------------------|------------------|
-| "nagpakain tayo ng rumsol feeds ngayon araw na two kilos para sa lahat" | Rumsol Feeds Cattle Grower | 2 |
-| "rum sulfids two kilos" | Rumsol Feeds Cattle Grower | 2 |
-| "rumsol feeds 10 kilos" | Rumsol Feeds Cattle Grower | 10 |
-| "dalawang kilo ng rumsol" | Rumsol Feeds Cattle Grower | 2 |
-| "twenty kilos of napier" | Napier | 20 |
+| File | Changes |
+|------|---------|
+| `src/components/approval/EditSubmissionDialog.tsx` | Add farmId prop, animal selection with combobox, update onSave signature |
+| `src/hooks/usePendingActivities.ts` | Add animalIds to update/resubmit mutations |
+| `src/components/approval/PendingActivitiesQueue.tsx` | Add Edit button and EditSubmissionDialog for managers |
+| `src/components/approval/MySubmissions.tsx` | Pass animalIds in handleSave, get farmId from activity |
+
+---
+
+## User Flow After Implementation
+
+### Farmhand Flow:
+1. Submit voice activity → Goes to pending queue
+2. View "My Submissions" → See pending activities
+3. Click Edit → Opens dialog with animal selector
+4. Change animals using combobox (All Animals, All Cattle, individual, etc.)
+5. Save → Updates pending_activities.animal_ids
+
+### Manager/Owner Flow:
+1. View "Pending Approvals" queue
+2. Click "Edit" button on any pending activity
+3. Opens same dialog with animal selector
+4. Modify animals or activity data
+5. Save → Updates pending activity
+6. Can then Approve or continue reviewing
+
+---
+
+## Technical Notes
+
+- RLS policies already allow:
+  - Farmhands: UPDATE own pending/rejected
+  - Managers/Owners: UPDATE any farm pending
+- The `animal_ids` column is an array type (ARRAY) that can be updated directly
+- Voice "ALL Animals" and "ALL Cattle/Goat/Carabao" already works via AnimalSelectionStep component
