@@ -580,9 +580,9 @@ const DocAga = () => {
                 handleSendMessage(text);
               }} 
               disabled={isUploadingImage || loading}
-              preferRealtime={true}
+              preferRealtime={false}
               showLabel={true}
-              showLiveTranscript={true}
+              showLiveTranscript={false}
               showPreview={false}
               size="md"
               variant="secondary"

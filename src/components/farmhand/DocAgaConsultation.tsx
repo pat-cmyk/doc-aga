@@ -343,9 +343,9 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           />
         )}
         <VoiceRecordButton
-          preferRealtime={true}
+          preferRealtime={false}
           showLabel
-          showLiveTranscript
+          showLiveTranscript={false}
           disabled={isUploadingImage || loading}
           onTranscription={(text) => {
             setIsVoiceInput(true);
