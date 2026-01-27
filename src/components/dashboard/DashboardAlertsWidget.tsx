@@ -28,6 +28,8 @@ import { useWeightDataCompleteness } from '@/hooks/useWeightDataCompleteness';
 import { useAnimalsMissingEntryWeight } from '@/hooks/useAnimalsMissingEntryWeight';
 import { useDataGapAlerts, getGapUrgencyColor } from '@/hooks/useDataGapAlerts';
 import { useFeedExpiryAlerts, getExpiryUrgencyColor } from '@/hooks/useFeedExpiryAlerts';
+import { useBreedingAlerts } from '@/hooks/useBreedingAlerts';
+import { BreedingAlertsSection } from '@/components/breeding/BreedingAlertsSection';
 import { useNavigate } from 'react-router-dom';
 import { useOperationDialogs } from '@/hooks/useOperationDialogs';
 import { OperationDialogs } from '@/components/operations/OperationDialogs';
@@ -43,6 +45,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: animalsMissingWeight = [] } = useAnimalsMissingEntryWeight(farmId, 3);
   const { data: gapData } = useDataGapAlerts(farmId);
   const { data: feedExpiryAlerts = [] } = useFeedExpiryAlerts(farmId);
+  const { data: breedingAlerts = [] } = useBreedingAlerts(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
   const {
@@ -99,10 +102,11 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
     );
   }
 
-  // Total alert count: scheduled alerts + weight warnings + data gaps + feed expiry
+  // Total alert count: scheduled alerts + weight warnings + data gaps + feed expiry + breeding alerts
   const feedExpiryCount = feedExpiryAlerts.length;
   const hasCriticalExpiry = feedExpiryAlerts.some(f => f.urgency === 'expired' || f.urgency === 'critical');
-  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + dataGapAlerts.length + (feedExpiryCount > 0 ? 1 : 0);
+  const breedingCriticalCount = breedingAlerts.filter(a => a.urgency === 'critical').length;
+  const totalAlertCount = alerts.length + (missingWeightCount > 0 ? 1 : 0) + dataGapAlerts.length + (feedExpiryCount > 0 ? 1 : 0) + (breedingAlerts.length > 0 ? 1 : 0);
   const hasDataGaps = dataGapAlerts.some(a => a.urgency === 'critical');
 
   if (totalAlertCount === 0) {
@@ -110,7 +114,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   }
 
   return (
-    <Card className={`mb-4 ${hasDataGaps || hasCriticalExpiry ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+    <Card className={`mb-4 ${hasDataGaps || hasCriticalExpiry || breedingCriticalCount > 0 ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
@@ -227,6 +231,11 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Breeding Alerts */}
+            {breedingAlerts.length > 0 && (
+              <BreedingAlertsSection farmId={farmId} maxAlertsPerType={3} />
             )}
 
             {/* Vaccinations */}
