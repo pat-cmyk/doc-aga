@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Loader2, Plus, Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { validateRecordDate } from "@/lib/recordValidation";
-import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 
 interface AddHealthRecordDialogProps {
@@ -320,14 +320,11 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Diagnosis"
                 className="flex-1"
               />
-              <VoiceFormInput
-                extractorType="text"
-                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${data.text}` : data.text }))}
-                disabled={!isOnline}
-                offlineMode="block"
-                formType="health-diagnosis"
-                size="md"
+              <VoiceRecordButton
+                size="sm"
                 variant="outline"
+                onTranscription={(text) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${text}` : text }))}
+                disabled={!isOnline}
                 className="self-start"
               />
             </div>
@@ -342,14 +339,11 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Treatment provided"
                 className="flex-1"
               />
-              <VoiceFormInput
-                extractorType="text"
-                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${data.text}` : data.text }))}
-                disabled={!isOnline}
-                offlineMode="block"
-                formType="health-treatment"
-                size="md"
+              <VoiceRecordButton
+                size="sm"
                 variant="outline"
+                onTranscription={(text) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${text}` : text }))}
+                disabled={!isOnline}
                 className="self-start"
               />
             </div>
@@ -364,14 +358,11 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
                 placeholder="Additional notes"
                 className="flex-1"
               />
-              <VoiceFormInput
-                extractorType="text"
-                onDataExtracted={(data: any) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${data.text}` : data.text }))}
-                disabled={!isOnline}
-                offlineMode="block"
-                formType="health-notes"
-                size="md"
+              <VoiceRecordButton
+                size="sm"
                 variant="outline"
+                onTranscription={(text) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${text}` : text }))}
+                disabled={!isOnline}
                 className="self-start"
               />
             </div>

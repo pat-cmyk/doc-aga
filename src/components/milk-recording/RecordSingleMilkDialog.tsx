@@ -23,7 +23,7 @@ import { Loader2, Milk, CalendarIcon, Sun, Moon, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
-import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
@@ -267,11 +267,9 @@ export function RecordSingleMilkDialog({
             <Milk className="h-5 w-5 text-blue-500" />
             Record Milk Production
             <div className="ml-auto flex items-center gap-2">
-              <VoiceFormInput
+              <VoiceRecordWithExtraction
                 extractorType="milk"
                 onDataExtracted={handleVoiceDataExtracted}
-                offlineMode="queue"
-                formType="milk"
                 size="sm"
               />
               {!isOnline && (

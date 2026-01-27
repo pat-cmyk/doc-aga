@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import VoiceInterface from "@/components/VoiceInterface";
+import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 
 interface Message {
   role: "user" | "assistant";
@@ -343,15 +343,16 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
             Stop Audio
           </Button>
         )}
-        <VoiceInterface
-                onTranscription={(text) => {
-                  setIsVoiceInput(true);
-                  handleSendMessage(text);
-                }} 
-                disabled={isUploadingImage || loading}
-                useRealtime={true}
-                enableCorrection={true}
-              />
+        <VoiceRecordButton
+          preferRealtime={true}
+          showLabel
+          showLiveTranscript
+          disabled={isUploadingImage || loading}
+          onTranscription={(text) => {
+            setIsVoiceInput(true);
+            handleSendMessage(text);
+          }}
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault();

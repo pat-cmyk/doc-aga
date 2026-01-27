@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Wheat, CalendarIcon, AlertCircle, WifiOff } from "lucide-react";
-import { VoiceFormInput } from "@/components/ui/VoiceFormInput";
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
 import { ExtractedFeedData } from "@/lib/voiceFormExtractors";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -367,13 +367,11 @@ export function RecordSingleFeedDialog({
               </span>
             )}
             {isOnline && (
-              <VoiceFormInput
+              <VoiceRecordWithExtraction
                 extractorType="feed"
                 extractorContext={{ feedInventory: displayFeedInventory }}
                 onDataExtracted={handleVoiceDataExtracted}
                 disabled={isLoading}
-                offlineMode="queue"
-                formType="feed"
                 size="sm"
                 className="ml-auto"
               />
