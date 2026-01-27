@@ -358,6 +358,14 @@ export function RecordBulkFeedDialog({
     // Use feedInventoryId if available (direct ID match), otherwise match by name
     if (data.feedInventoryId) {
       setFeedType(data.feedInventoryId);
+      
+      // Show confirmation toast for high confidence matches
+      if (data.matchConfidence === 'high' && data.feedType) {
+        toast({
+          title: "Feed Type Selected",
+          description: `Auto-selected: ${data.feedType}`,
+        });
+      }
     } else if (data.feedType) {
       if (data.feedType === FRESH_CUT_OPTION) {
         setFeedType(FRESH_CUT_OPTION);
@@ -370,6 +378,38 @@ export function RecordBulkFeedDialog({
           setFeedType(matchedItem.id);
         }
       }
+    }
+    
+    // Handle low confidence matches with suggestions
+    if (data.matchConfidence === 'low' && data.suggestedFeeds?.length) {
+      const topSuggestion = data.suggestedFeeds[0];
+      toast({
+        title: "Did you mean?",
+        description: `Heard "${data.rawSpokenFeed || 'feed name'}". Suggested: ${topSuggestion.name}`,
+        action: (
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => {
+              setFeedType(topSuggestion.id);
+              toast({
+                title: "Feed Selected",
+                description: topSuggestion.name,
+              });
+            }}
+          >
+            Use This
+          </Button>
+        ),
+        duration: 8000,
+      });
+    } else if (data.matchConfidence === 'none' && data.suggestedFeeds?.length) {
+      toast({
+        title: "Feed Type Not Recognized",
+        description: "Please select from the dropdown",
+        variant: "destructive",
+        duration: 5000,
+      });
     }
     
     if (data.animalSelection) setSelectedOption(data.animalSelection);
