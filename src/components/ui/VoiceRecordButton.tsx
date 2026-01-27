@@ -15,13 +15,17 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Loader2, X, Check, AlertCircle, Radio } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Mic, Square, Loader2, X, Check, AlertCircle, Radio, WifiOff, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useVoiceRecording, type UseVoiceRecordingOptions } from '@/hooks/useVoiceRecording';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { usePendingAudioCount } from '@/hooks/usePendingAudioCount';
 import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
 import { playSound } from '@/lib/audioFeedback';
 import { hapticNotification } from '@/lib/haptics';
+import type { AudioQueueMetadata } from '@/lib/offlineAudioQueue';
 
 export interface VoiceRecordButtonProps {
   /** Callback when transcription is complete */
@@ -51,6 +55,8 @@ export interface VoiceRecordButtonProps {
   variant?: 'default' | 'ghost' | 'outline' | 'secondary';
   showLabel?: boolean;
   showLiveTranscript?: boolean;
+  showOfflineIndicator?: boolean;
+  showPendingBadge?: boolean;
   disabled?: boolean;
   className?: string;
   
@@ -59,6 +65,9 @@ export interface VoiceRecordButtonProps {
   
   /** Label text when recording */
   recordingLabel?: string;
+  
+  /** Offline queue metadata for form-specific recordings */
+  offlineMetadata?: Partial<AudioQueueMetadata>;
 }
 
 const sizeConfig = {
@@ -78,11 +87,16 @@ export function VoiceRecordButton({
   variant = 'secondary',
   showLabel = false,
   showLiveTranscript = false,
+  showOfflineIndicator = true,
+  showPendingBadge = false,
   disabled = false,
   className = '',
   idleLabel = 'Voice',
   recordingLabel = 'Stop',
+  offlineMetadata,
 }: VoiceRecordButtonProps) {
+  const isOnline = useOnlineStatus();
+  const { stats: pendingStats } = usePendingAudioCount();
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -177,8 +191,9 @@ export function VoiceRecordButton({
     isProcessingAudio,
     canStopRecording,
     stateLabel,
+    isOffline,
   } = useVoiceRecording({
-    preferRealtime,
+    preferRealtime: preferRealtime && isOnline, // Force batch mode when offline
     onTranscription: handleTranscription,
     onPartialTranscript,
     onError: (err) => {
@@ -189,6 +204,7 @@ export function VoiceRecordButton({
         toast.error(err.message || 'Voice recording failed');
       }
     },
+    offlineMetadata,
   });
 
   const handleClick = useCallback(() => {
@@ -229,6 +245,8 @@ export function VoiceRecordButton({
         );
       case 'recording':
         return <Square className={cn(config.icon, 'animate-pulse')} />;
+      case 'offline_queued':
+        return <CloudUpload className={cn(config.icon, 'text-amber-500')} />;
       case 'error':
         return <AlertCircle className={config.icon} />;
       case 'preview':
@@ -249,6 +267,8 @@ export function VoiceRecordButton({
       case 'stopping':
       case 'processing':
         return 'Processing...';
+      case 'offline_queued':
+        return 'Saved offline';
       case 'error':
         return 'Retry';
       default:
@@ -256,7 +276,10 @@ export function VoiceRecordButton({
     }
   };
 
-  const isDisabled = disabled || state === 'processing' || state === 'stopping';
+  const isDisabled = disabled || state === 'processing' || state === 'stopping' || state === 'offline_queued';
+
+  // Calculate total pending count for badge
+  const totalPendingCount = pendingStats.pendingCount + pendingStats.failedCount;
 
   return (
     <>
@@ -267,6 +290,14 @@ export function VoiceRecordButton({
       />
 
       <div className={cn('flex flex-col items-center gap-2', className)}>
+        {/* Offline indicator */}
+        {showOfflineIndicator && !isOnline && state === 'idle' && (
+          <div className="flex items-center gap-1 text-amber-600 text-xs">
+            <WifiOff className="h-3 w-3" />
+            <span>Will save offline</span>
+          </div>
+        )}
+
         {/* Live transcript display */}
         {showLiveTranscript && isRecording && partialTranscript && (
           <div className={cn(
@@ -282,7 +313,8 @@ export function VoiceRecordButton({
           <div className="flex items-center gap-2">
             <div className={cn(
               'h-2 w-2 rounded-full animate-pulse',
-              state === 'connecting' ? 'bg-yellow-500' : 'bg-destructive'
+              state === 'connecting' ? 'bg-yellow-500' : 
+              state === 'offline_queued' ? 'bg-amber-500' : 'bg-destructive'
             )} />
             <span className={cn('text-muted-foreground', config.text)}>
               {stateLabel}
@@ -291,7 +323,7 @@ export function VoiceRecordButton({
         )}
 
         {/* Main button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           <Button
             type="button"
             variant={getButtonVariant()}
@@ -301,12 +333,28 @@ export function VoiceRecordButton({
             className={cn(
               !showLabel && config.button,
               showLabel && 'gap-2',
-              isRecording && 'ring-2 ring-destructive/50 ring-offset-2'
+              isRecording && 'ring-2 ring-destructive/50 ring-offset-2',
+              !isOnline && state === 'idle' && 'ring-2 ring-amber-500/30'
             )}
           >
             {getIcon()}
             {showLabel && <span>{getLabel()}</span>}
           </Button>
+
+          {/* Offline indicator on button */}
+          {showOfflineIndicator && !isOnline && !showLabel && state === 'idle' && (
+            <WifiOff className="h-3 w-3 text-amber-500 absolute -top-1 -right-1" />
+          )}
+
+          {/* Pending badge */}
+          {showPendingBadge && totalPendingCount > 0 && (
+            <Badge 
+              variant="secondary" 
+              className="absolute -bottom-2 -right-2 h-5 min-w-5 text-xs bg-amber-100 text-amber-800 border-amber-300"
+            >
+              {totalPendingCount}
+            </Badge>
+          )}
 
           {/* Cancel button when recording */}
           {canStopRecording && (

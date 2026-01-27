@@ -3,13 +3,18 @@
  * 
  * Unified voice recording hook that abstracts provider selection
  * (ElevenLabs Scribe vs Gemini) and manages the recording lifecycle.
+ * 
+ * Supports offline mode: queues audio for later transcription when offline.
  */
 
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { useRealtimeTranscription } from './useRealtimeTranscription';
+import { useOnlineStatus } from './useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
+import { queueOfflineAudio, type AudioQueueMetadata } from '@/lib/offlineAudioQueue';
+import { compressAudio } from '@/lib/audioCompression';
 import {
   voiceReducer,
   createInitialState,
@@ -35,11 +40,17 @@ export interface UseVoiceRecordingOptions {
   /** Callback on error */
   onError?: (error: Error) => void;
   
+  /** Callback when audio is queued offline */
+  onOfflineQueued?: (queueId: string) => void;
+  
   /** Enable echo cancellation. Default: true */
   echoCancellation?: boolean;
   
   /** Enable noise suppression. Default: true */
   noiseSuppression?: boolean;
+  
+  /** Offline queue metadata for form-specific recordings */
+  offlineMetadata?: Partial<AudioQueueMetadata>;
 }
 
 export interface UseVoiceRecordingReturn {
@@ -49,6 +60,7 @@ export interface UseVoiceRecordingReturn {
   partialTranscript: string;
   finalTranscript: string;
   error: Error | null;
+  offlineQueueId: string | null;
   
   // Actions
   startRecording: () => Promise<void>;
@@ -62,6 +74,7 @@ export interface UseVoiceRecordingReturn {
   isRecording: boolean;
   isProcessingAudio: boolean;
   canStopRecording: boolean;
+  isOffline: boolean;
   stateLabel: string;
   stateColor: string;
 }
@@ -74,9 +87,13 @@ export function useVoiceRecording(
     onTranscription,
     onPartialTranscript,
     onError,
+    onOfflineQueued,
     echoCancellation = true,
     noiseSuppression = true,
+    offlineMetadata,
   } = options;
+
+  const isOnline = useOnlineStatus();
 
   const [stateData, dispatch] = useReducer(voiceReducer, createInitialState());
   
@@ -244,8 +261,43 @@ export function useVoiceRecording(
 
   /**
    * Process batch audio using Gemini voice-to-text
+   * Falls back to offline queue if not connected
    */
   const processBatchAudio = useCallback(async (blob: Blob) => {
+    // Check if offline - queue audio for later
+    if (!navigator.onLine) {
+      console.log('[useVoiceRecording] Offline - queueing audio for later transcription');
+      
+      try {
+        const metadata: AudioQueueMetadata = {
+          source: offlineMetadata?.source || 'general',
+          extractorType: offlineMetadata?.extractorType,
+          extractorContext: offlineMetadata?.extractorContext,
+          farmId: offlineMetadata?.farmId,
+        };
+        
+        const queueId = await queueOfflineAudio(blob, metadata);
+        
+        dispatch({ type: 'OFFLINE_QUEUED', queueId });
+        onOfflineQueued?.(queueId);
+        
+        toast.info('Recording saved offline', {
+          description: 'Will transcribe when you\'re back online.',
+          duration: 4000,
+        });
+        
+        hapticNotification('success');
+        return;
+      } catch (error: any) {
+        console.error('[useVoiceRecording] Failed to queue audio:', error);
+        dispatch({ type: 'ERROR', error: new Error(error.message || 'Failed to save recording') });
+        onError?.(error);
+        hapticNotification('error');
+        return;
+      }
+    }
+    
+    // Online - proceed with transcription
     dispatch({ type: 'PROCESSING_START' });
     
     try {
@@ -286,7 +338,7 @@ export function useVoiceRecording(
       onError?.(processingError);
       hapticNotification('error');
     }
-  }, [onTranscription, onError]);
+  }, [onTranscription, onError, onOfflineQueued, offlineMetadata]);
 
   /**
    * Stop recording - works for both realtime and batch modes
@@ -368,6 +420,7 @@ export function useVoiceRecording(
     partialTranscript: stateData.partialTranscript || realtime.partialTranscript,
     finalTranscript: stateData.finalTranscript,
     error: stateData.error,
+    offlineQueueId: stateData.offlineQueueId,
     
     // Actions
     startRecording,
@@ -381,6 +434,7 @@ export function useVoiceRecording(
     isRecording: isActiveSession(stateData.state),
     isProcessingAudio: isProcessing(stateData.state),
     canStopRecording: canStop(stateData.state),
+    isOffline: !isOnline,
     stateLabel: getStateLabel(stateData.state, isUsingRealtimeRef.current),
     stateColor: getStateColor(stateData.state),
   };

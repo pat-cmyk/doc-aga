@@ -21,6 +21,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
 import { initCacheManager } from "./lib/cacheManager";
+import { useOfflineAudioSync } from "./hooks/useOfflineAudioSync";
 
 // Lazy load page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -89,6 +90,9 @@ initCacheManager(queryClient);
 const SyncHandler = () => {
   const isOnline = useOnlineStatus();
   const navigate = useNavigate();
+
+  // Initialize offline audio sync
+  useOfflineAudioSync();
 
   // Initialize service worker bridge on mount
   useEffect(() => {
