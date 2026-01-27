@@ -7,7 +7,7 @@
  * SSOT: This is the single source of truth for all voice data extraction logic.
  */
 
-import { findBestMatch, normalizeEarTag } from './fuzzyMatch';
+import { findBestMatch, findAllMatches, normalizeEarTag } from './fuzzyMatch';
 
 // ==================== TYPES ====================
 
@@ -28,6 +28,9 @@ export interface ExtractedFeedData {
   animalSelection?: string;
   recordDate?: Date; // For backdating
   warnings?: string[];
+  suggestedFeeds?: Array<{ id: string; name: string; score: number }>; // Fuzzy match suggestions
+  matchConfidence?: 'high' | 'low' | 'none'; // Confidence level for auto-pick
+  rawSpokenFeed?: string; // Original spoken feed name for toast display
 }
 
 export interface ExtractedTextData {
@@ -320,9 +323,12 @@ const NUMBER_WORDS: Record<string, number> = {
   labingisa: 11, labingdalawa: 12, labingtatlo: 13, labingapat: 14, labing: 10,
 };
 
+// Create regex pattern from number words for direct matching
+const NUMBER_WORD_PATTERN = Object.keys(NUMBER_WORDS).join('|');
+
 /**
  * Parse spoken numbers (English or Filipino) to digits
- * Examples: "forty-seven" → 47, "apatnapu't pito" → 47
+ * Examples: "forty-seven" → 47, "apatnapu't pito" → 47, "ten" → 10
  */
 function parseSpokenNumber(text: string): number | undefined {
   // First try to find digits directly
@@ -349,6 +355,58 @@ function parseSpokenNumber(text: string): number | undefined {
   return total > 0 ? total : undefined;
 }
 
+/**
+ * Extract spoken number directly before kilo/kg units
+ * Handles: "ten kilos", "na ten kilos", "ng twenty kilo"
+ */
+function extractSpokenKilograms(text: string): number | undefined {
+  const lowerText = text.toLowerCase();
+  
+  // Pattern 1: Direct number word before kilo/kg (e.g., "ten kilos")
+  const directPattern = new RegExp(
+    `\\b(${NUMBER_WORD_PATTERN})\\s*(?:kilo|kg|kilos|kilograms?)\\b`,
+    'i'
+  );
+  const directMatch = lowerText.match(directPattern);
+  if (directMatch) {
+    const parsed = parseSpokenNumber(directMatch[1]);
+    if (parsed && parsed >= 0.5 && parsed <= 500) {
+      console.log(`[VoiceExtractor] Direct number word match: "${directMatch[1]}" → ${parsed}`);
+      return parsed;
+    }
+  }
+  
+  // Pattern 2: Tagalog article before number (e.g., "na ten kilos", "ng twenty kilo")
+  const tagalogPattern = new RegExp(
+    `(?:na|ng|of)\\s+(${NUMBER_WORD_PATTERN})\\s*(?:kilo|kg|kilos|kilograms?)\\b`,
+    'i'
+  );
+  const tagalogMatch = lowerText.match(tagalogPattern);
+  if (tagalogMatch) {
+    const parsed = parseSpokenNumber(tagalogMatch[1]);
+    if (parsed && parsed >= 0.5 && parsed <= 500) {
+      console.log(`[VoiceExtractor] Tagalog article number match: "${tagalogMatch[1]}" → ${parsed}`);
+      return parsed;
+    }
+  }
+  
+  // Pattern 3: Compound numbers like "forty-seven kilos" or "twenty five kg"
+  const compoundPattern = new RegExp(
+    `((?:${NUMBER_WORD_PATTERN})(?:[\\s\\-'t]+(?:${NUMBER_WORD_PATTERN}))?)\\s*(?:kilo|kg|kilos|kilograms?)\\b`,
+    'i'
+  );
+  const compoundMatch = lowerText.match(compoundPattern);
+  if (compoundMatch) {
+    const parsed = parseSpokenNumber(compoundMatch[1]);
+    if (parsed && parsed >= 0.5 && parsed <= 500) {
+      console.log(`[VoiceExtractor] Compound number match: "${compoundMatch[1]}" → ${parsed}`);
+      return parsed;
+    }
+  }
+  
+  return undefined;
+}
+
 // ==================== FEED EXTRACTOR ====================
 
 /**
@@ -367,9 +425,80 @@ function matchFeedFromInventory(
 }
 
 /**
+ * Extract potential feed name from transcription
+ * Looks for patterns like "ng [feedname] na" or "[feedname] feeds/feed"
+ */
+function extractFeedNameFromText(text: string): string | null {
+  const patterns = [
+    // "ng RumSol Feeds na" -> "RumSol Feeds"
+    /(?:ng|of)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\s+feeds?)?)\s+(?:na|that|ng)/i,
+    // "[Brand] Feeds" standalone
+    /\b([A-Za-z]+\s+(?:feeds?|pellets?|grower|concentrate|bran))\b/i,
+    // "[Something] Silage"
+    /\b([A-Za-z]+\s+silage)\b/i,
+    // Generic brand + product pattern: "Rumsol Feeds Cattle"
+    /\b([A-Za-z]+\s+feeds?\s+[A-Za-z]+)\b/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+/**
+ * Fuzzy match feed name against inventory with confidence scoring
+ */
+function fuzzyMatchFeedType(
+  spokenFeed: string,
+  inventory: FeedInventoryItem[]
+): { 
+  bestMatch: { id: string; name: string } | null;
+  confidence: 'high' | 'low' | 'none';
+  suggestions: Array<{ id: string; name: string; score: number }>;
+} {
+  if (!spokenFeed || inventory.length === 0) {
+    return { bestMatch: null, confidence: 'none', suggestions: [] };
+  }
+
+  const inventoryNames = inventory.map(i => i.feed_type);
+  const allMatches = findAllMatches(spokenFeed, inventoryNames, 0.35);
+  
+  if (allMatches.length === 0) {
+    return { bestMatch: null, confidence: 'none', suggestions: [] };
+  }
+  
+  const best = allMatches[0];
+  const matchedInventory = inventory.find(i => i.feed_type === best.match);
+  
+  const suggestions = allMatches.slice(0, 3).map(m => ({
+    id: inventory.find(i => i.feed_type === m.match)?.id || '',
+    name: m.match,
+    score: m.score
+  }));
+  
+  if (best.score >= 0.65) {
+    console.log(`[VoiceExtractor] High confidence match: "${spokenFeed}" → "${best.match}" (score: ${best.score.toFixed(2)})`);
+    return {
+      bestMatch: matchedInventory ? { id: matchedInventory.id, name: matchedInventory.feed_type } : null,
+      confidence: 'high',
+      suggestions
+    };
+  }
+  
+  console.log(`[VoiceExtractor] Low confidence match: "${spokenFeed}" → suggestions: ${suggestions.map(s => s.name).join(', ')}`);
+  return {
+    bestMatch: matchedInventory ? { id: matchedInventory.id, name: matchedInventory.feed_type } : null,
+    confidence: 'low',
+    suggestions
+  };
+}
+
+/**
  * Extract feed recording data from transcription
  * 
- * Parses: kg/kilo (digits or spoken), feed types, animal selections, dates
+ * Parses: kg/kilo (digits or spoken), feed types with fuzzy matching, animal selections, dates
  */
 export function extractFeedData(
   transcription: string, 
@@ -399,27 +528,15 @@ export function extractFeedData(
     }
   }
 
-  // If no digit pattern, try spoken numbers near kg/kilo keywords
+  // If no digit pattern, try spoken numbers with improved extraction
   if (!result.totalKg) {
-    const spokenPatterns = [
-      /(\w+(?:[\s'\-t]+\w+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
-      /(\w+(?:[\s'\-t]+\w+)?)\s*(?:na\s+)?(?:kilo|kg)/i,
-      /(?:ng|of)\s*(\w+(?:[\s'\-t]+\w+)?)\s*(?:kg|kilo|kilograms?|kilos)/i,
-    ];
-    
-    for (const pattern of spokenPatterns) {
-      const match = transcription.match(pattern);
-      if (match) {
-        const parsed = parseSpokenNumber(match[1]);
-        if (parsed && parsed >= 0.5 && parsed <= 500) {
-          result.totalKg = parsed;
-          break;
-        }
-      }
+    const spokenKg = extractSpokenKilograms(transcription);
+    if (spokenKg) {
+      result.totalKg = spokenKg;
     }
   }
   
-  // Fallback: any standalone number in text
+  // Fallback: any standalone number in text (likely the kg amount)
   if (!result.totalKg) {
     const numberMatch = transcription.match(/\b(\d+(?:\.\d+)?)\b/);
     if (numberMatch) {
@@ -437,13 +554,15 @@ export function extractFeedData(
   if (lowerText.includes('fresh') || lowerText.includes('cut and carry') || 
       lowerText.includes('fresh cut') || lowerText.includes('sariwang damo')) {
     result.feedType = 'Fresh Cut and Carry';
+    result.matchConfidence = 'high';
   }
-  // Check for common feed types
+  // Check for common feed types (hardcoded keywords)
   else if (lowerText.includes('napier') || lowerText.includes('elephant grass')) {
     const matched = matchFeedFromInventory('Napier', feedInventory);
     if (matched) {
       result.feedType = matched.name;
       result.feedInventoryId = matched.id;
+      result.matchConfidence = 'high';
     } else {
       result.feedType = 'Napier Grass';
     }
@@ -453,17 +572,9 @@ export function extractFeedData(
     if (matched) {
       result.feedType = matched.name;
       result.feedInventoryId = matched.id;
+      result.matchConfidence = 'high';
     } else {
       result.feedType = 'Hay';
-    }
-  }
-  else if (lowerText.includes('concentrate') || lowerText.includes('feeds') || lowerText.includes('pellet')) {
-    const matched = matchFeedFromInventory('Concentrate', feedInventory);
-    if (matched) {
-      result.feedType = matched.name;
-      result.feedInventoryId = matched.id;
-    } else {
-      result.feedType = 'Concentrate Feed';
     }
   }
   else if (lowerText.includes('corn') || lowerText.includes('mais') || lowerText.includes('silage')) {
@@ -471,6 +582,7 @@ export function extractFeedData(
     if (matched) {
       result.feedType = matched.name;
       result.feedInventoryId = matched.id;
+      result.matchConfidence = 'high';
     } else {
       result.feedType = 'Corn Silage';
     }
@@ -480,18 +592,46 @@ export function extractFeedData(
     if (matched) {
       result.feedType = matched.name;
       result.feedInventoryId = matched.id;
+      result.matchConfidence = 'high';
     } else {
       result.feedType = 'Rice Bran';
     }
   }
-  // Try to match against inventory by name
+  // Try exact substring match against inventory
   else if (feedInventory.length > 0) {
+    let exactMatch = false;
     for (const item of feedInventory) {
       const feedTypeLower = item.feed_type.toLowerCase();
       if (lowerText.includes(feedTypeLower)) {
         result.feedType = item.feed_type;
         result.feedInventoryId = item.id;
+        result.matchConfidence = 'high';
+        exactMatch = true;
         break;
+      }
+    }
+    
+    // No exact match - try fuzzy matching
+    if (!exactMatch) {
+      const spokenFeed = extractFeedNameFromText(transcription);
+      if (spokenFeed) {
+        result.rawSpokenFeed = spokenFeed;
+        const fuzzyResult = fuzzyMatchFeedType(spokenFeed, feedInventory);
+        
+        if (fuzzyResult.bestMatch) {
+          result.feedType = fuzzyResult.bestMatch.name;
+          result.feedInventoryId = fuzzyResult.bestMatch.id;
+        }
+        result.matchConfidence = fuzzyResult.confidence;
+        result.suggestedFeeds = fuzzyResult.suggestions;
+      } else {
+        // No feed name extracted - provide all inventory as suggestions
+        result.matchConfidence = 'none';
+        result.suggestedFeeds = feedInventory.slice(0, 5).map(f => ({
+          id: f.id,
+          name: f.feed_type,
+          score: 0
+        }));
       }
     }
   }
