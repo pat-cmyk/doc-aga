@@ -22,7 +22,9 @@ import { cn } from '@/lib/utils';
 import { useVoiceRecording, type UseVoiceRecordingOptions } from '@/hooks/useVoiceRecording';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePendingAudioCount } from '@/hooks/usePendingAudioCount';
+import { useAudioLevelMeter } from '@/hooks/useAudioLevelMeter';
 import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
+import { AudioLevelMeter } from '@/components/ui/AudioLevelMeter';
 import { playSound } from '@/lib/audioFeedback';
 import { hapticNotification } from '@/lib/haptics';
 import type { AudioQueueMetadata } from '@/lib/offlineAudioQueue';
@@ -57,6 +59,8 @@ export interface VoiceRecordButtonProps {
   showLiveTranscript?: boolean;
   showOfflineIndicator?: boolean;
   showPendingBadge?: boolean;
+  showAudioLevel?: boolean;
+  audioLevelVariant?: 'bars' | 'simple' | 'circle';
   disabled?: boolean;
   className?: string;
   
@@ -89,6 +93,8 @@ export function VoiceRecordButton({
   showLiveTranscript = false,
   showOfflineIndicator = true,
   showPendingBadge = false,
+  showAudioLevel = true,
+  audioLevelVariant = 'bars',
   disabled = false,
   className = '',
   idleLabel = 'Voice',
@@ -97,6 +103,7 @@ export function VoiceRecordButton({
 }: VoiceRecordButtonProps) {
   const isOnline = useOnlineStatus();
   const { stats: pendingStats } = usePendingAudioCount();
+  const { audioLevel, frequencyData, isActive: isAnalyzing, startAnalysis, stopAnalysis } = useAudioLevelMeter();
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -192,6 +199,7 @@ export function VoiceRecordButton({
     canStopRecording,
     stateLabel,
     isOffline,
+    mediaStream,
   } = useVoiceRecording({
     preferRealtime: preferRealtime && isOnline, // Force batch mode when offline
     onTranscription: handleTranscription,
@@ -206,6 +214,15 @@ export function VoiceRecordButton({
     },
     offlineMetadata,
   });
+
+  // Start/stop audio analysis when recording state changes
+  useEffect(() => {
+    if (isRecording && mediaStream && showAudioLevel) {
+      startAnalysis(mediaStream);
+    } else {
+      stopAnalysis();
+    }
+  }, [isRecording, mediaStream, showAudioLevel, startAnalysis, stopAnalysis]);
 
   const handleClick = useCallback(() => {
     if (state === 'idle' || state === 'error') {
@@ -306,6 +323,17 @@ export function VoiceRecordButton({
           )}>
             "{partialTranscript}..."
           </div>
+        )}
+
+        {/* Audio level visualization */}
+        {showAudioLevel && isRecording && (
+          <AudioLevelMeter
+            audioLevel={audioLevel}
+            frequencyData={frequencyData}
+            variant={audioLevelVariant}
+            size={size}
+            isActive={isAnalyzing}
+          />
         )}
 
         {/* Recording status indicator */}
