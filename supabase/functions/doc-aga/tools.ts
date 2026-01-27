@@ -1156,7 +1156,7 @@ async function getMilkProduction(args: any, supabase: SupabaseClient, farmId: st
     .select(`
       liters,
       record_date,
-      milking_session,
+      session,
       animals!inner(id, name, ear_tag, livestock_type, farm_id)
     `)
     .eq('animals.farm_id', farmId)
@@ -1196,7 +1196,7 @@ async function getMilkProduction(args: any, supabase: SupabaseClient, farmId: st
   milkRecords?.forEach((r: any) => {
     const type = r.animals?.livestock_type || 'Unknown';
     const animalId = r.animals?.id;
-    const session = r.milking_session || 'Not specified';
+    const session = r.session || 'Not specified';
     
     // By type
     byLivestockType[type] = (byLivestockType[type] || 0) + Number(r.liters);

@@ -350,6 +350,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           preferRealtime={false}
           showLabel
           showLiveTranscript={false}
+          showPreview={false}
           disabled={isUploadingImage || loading}
           onTranscription={(text) => {
             setIsVoiceInput(true);
