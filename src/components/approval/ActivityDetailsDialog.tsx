@@ -512,7 +512,7 @@ export const ActivityDetailsDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -532,7 +532,7 @@ export const ActivityDetailsDialog = ({
 
           <Separator />
 
-          <ScrollArea className="max-h-[50vh] pr-4">
+          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
             <div className="space-y-6">
               {/* Submitter Information */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
