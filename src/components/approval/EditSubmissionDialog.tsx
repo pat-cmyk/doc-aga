@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, RefreshCw, Save, Users } from "lucide-react";
 import { PendingActivity } from "@/hooks/usePendingActivities";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
@@ -268,7 +269,7 @@ export const EditSubmissionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {mode === 'edit' ? 'Edit Submission' : 'Resubmit Activity'}
@@ -290,26 +291,28 @@ export const EditSubmissionDialog = ({
           </Alert>
         )}
 
-        <div className="py-4 space-y-4">
-          {/* Animal selection */}
-          <div className="space-y-2">
-            <Label htmlFor="animals" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Animals ({selectedAnimalIds.length} selected)
-            </Label>
-            <AnimalCombobox
-              options={animalOptions}
-              value={selectedAnimalOption}
-              onChange={handleAnimalSelectionChange}
-              placeholder="Select animals..."
-            />
-            <p className="text-xs text-muted-foreground">
-              Choose individual animals, all animals, or all of a specific species
-            </p>
-          </div>
+        <ScrollArea className="flex-1 max-h-[60vh]">
+          <div className="py-4 space-y-4 pr-4">
+            {/* Animal selection */}
+            <div className="space-y-2">
+              <Label htmlFor="animals" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Animals ({selectedAnimalIds.length} selected)
+              </Label>
+              <AnimalCombobox
+                options={animalOptions}
+                value={selectedAnimalOption}
+                onChange={handleAnimalSelectionChange}
+                placeholder="Select animals..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Choose individual animals, all animals, or all of a specific species
+              </p>
+            </div>
 
-          {renderFields()}
-        </div>
+            {renderFields()}
+          </div>
+        </ScrollArea>
 
         <DialogFooter>
           <Button
