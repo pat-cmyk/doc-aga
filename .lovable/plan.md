@@ -1,83 +1,86 @@
 
+# Fix: Farm Manager Cannot See Approvals Tab
 
-# Fix `is_farm_manager()` SQL Function
+## Problem Summary
 
-## Problem Confirmed
+`pat.ebuna@gmail.com` (farm manager for Estehanon Farm) cannot see the "For Approval" entries despite:
+1. Having `role_in_farm: 'farmer_owner'` in the database
+2. The `is_farm_manager()` SQL function now returning `true` correctly
 
-The `is_farm_manager()` function is broken and returns incorrect results:
-
-| Function | Current Result | Expected |
-|----------|---------------|----------|
-| `is_farm_manager(pat.ebuna, estehanon_farm)` | `false` | `true` |
-| `is_farm_manager_only(pat.ebuna, estehanon_farm)` | `true` | `true` |
+The Approvals tab is completely hidden from their view.
 
 ## Root Cause
 
-Current broken implementation:
-```sql
-SELECT EXISTS (
-  SELECT 1 FROM public.farm_memberships fm
-  JOIN public.user_roles ur ON ur.user_id = fm.user_id  -- WRONG!
-  WHERE fm.farm_id = _farm_id 
-    AND fm.user_id = _user_id 
-    AND ur.role = 'farmer_owner'  -- 'farmer_owner' is NOT in user_roles!
-    ...
-)
+The Dashboard component uses `canManageFarm` from the wrong context:
+
+**Current Code (Dashboard.tsx line 51):**
+```typescript
+const { farmId, farmName, farmLogoUrl, canManageFarm, ... } = useFarm();
 ```
 
-The function incorrectly joins the `user_roles` table (which stores global roles like `admin`, `merchant`) and looks for `'farmer_owner'` there. But `'farmer_owner'` is a farm-specific role stored in `farm_memberships.role_in_farm`.
-
-## Solution
-
-Replace the function to match the correct implementation already used by `is_farm_manager_only()`:
-
-```sql
-CREATE OR REPLACE FUNCTION public.is_farm_manager(_user_id uuid, _farm_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.farm_memberships fm
-    WHERE fm.farm_id = _farm_id 
-      AND fm.user_id = _user_id 
-      AND fm.role_in_farm = 'farmer_owner'
-      AND fm.invitation_status = 'accepted'
-      AND NOT EXISTS (
-        SELECT 1 FROM public.farms f 
-        WHERE f.id = _farm_id AND f.owner_id = _user_id
-      )
-  )
-$$;
+**FarmContext.tsx (line 59) - WRONG:**
+```typescript
+setCanManageFarm(farmResult.data.owner_id === userResult.data.user?.id);
+// Only checks if user is the OWNER, ignores managers!
 ```
 
-**Key changes:**
-- Remove incorrect `JOIN public.user_roles`
-- Check `fm.role_in_farm = 'farmer_owner'` instead of `ur.role`
+**PermissionsContext.tsx (line 261) - CORRECT:**
+```typescript
+canManageFarm: isOwner || isManager || isAdmin,
+// Correctly includes owners, managers, AND admins
+```
 
 ## Impact
 
-This fix will restore proper access for farm managers across 32+ RLS policies including:
-- `pending_activities` - managers can view/approve submissions
-- `animals` - managers can add/edit animals
-- `milking_records`, `health_records`, `feeding_records`
-- `heat_records`, `body_condition_scores`
-- And more
+The Approvals tab is shown/hidden based on `canManageFarm`:
+- Line 587: `{canManageFarm && <TabsTrigger value="approvals">...`
+- Line 603: `{canManageFarm && <TabsContent value="approvals">...`
 
-## Implementation
+Since `FarmContext.canManageFarm` is `false` for managers, they cannot see:
+- The Approvals tab
+- The Settings tab
+- Pending count badge
 
-A single database migration with the corrected function definition.
+## Solution
 
-## Verification
+Update Dashboard.tsx to use `canManageFarm` from `useUnifiedPermissions()` instead of `useFarm()`.
 
-After applying:
-```sql
-SELECT is_farm_manager(
-  '9297ba26-7a0b-4109-b087-c655d19b44e3'::uuid, 
-  '0ffc89c8-152d-42a3-a0f5-67cf772860cc'::uuid
-);
--- Should return: true
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/pages/Dashboard.tsx` | Import `useUnifiedPermissions` and use its `canManageFarm` instead of FarmContext's version |
+
+## Implementation Details
+
+**Step 1: Update imports in Dashboard.tsx**
+```typescript
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 ```
 
+**Step 2: Get canManageFarm from PermissionsContext**
+```typescript
+// Current:
+const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();
+
+// Changed to:
+const { farmId, farmName, farmLogoUrl, setFarmId, setFarmDetails } = useFarm();
+const { canManageFarm } = useUnifiedPermissions();
+```
+
+## Expected Result After Fix
+
+| User | Before | After |
+|------|--------|-------|
+| Farm Owner | Can see Approvals tab | Can see Approvals tab |
+| Farm Manager (`pat.ebuna`) | Cannot see Approvals tab | Can see Approvals tab |
+| Farmhand | Cannot see Approvals tab | Cannot see Approvals tab |
+
+## Testing
+
+1. Log in as `pat.ebuna@gmail.com`
+2. Navigate to Estehanon Farm dashboard
+3. Go to "More" tab
+4. Verify "Approvals" sub-tab is now visible
+5. Verify pending farmhand entries are displayed
+6. Test approve/reject functionality
