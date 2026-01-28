@@ -1,145 +1,192 @@
 
-# Fix: Doc Aga AI Animal Selection Defaulting to G002
+# Fix: QR Code Farm Join Flow Stuck in Loading State
 
-## Problem Summary
+## Problem Analysis
 
-When users record voice activities mentioning an animal name (e.g., "Tita Bessie"), the system incorrectly matches **G002** (an animal with `name: null`) instead of finding the correct animal or prompting for selection.
+When users scan the QR code to join a farm, the UI gets stuck showing "Loading profile..." or "joining farm..." even though the invitation was successfully accepted.
 
-## Root Cause Analysis
+**Root Cause Identified:**
 
-The bug is in `supabase/functions/process-farmhand-activity/index.ts` at lines 760-765:
+The `FarmhandDashboard.tsx` page ignores the `farmId` already set in `FarmContext` by `InviteAccept.tsx` and re-queries the database for `farm_memberships`. This creates two issues:
 
-```javascript
-const animal = animals?.find(a => 
-  a.ear_tag?.toLowerCase().includes(identifier) ||
-  a.name?.toLowerCase().includes(identifier) ||
-  identifier.includes(a.ear_tag?.toLowerCase() || '') ||
-  identifier.includes(a.name?.toLowerCase() || '')  // BUG HERE!
-);
+1. **Race Condition**: The navigation happens immediately after the RPC call, but `FarmhandDashboard` queries the database before the transaction is fully visible (eventual consistency)
+2. **Unnecessary Re-query**: Even when `farmId` is already set via context, the dashboard overwrites it with its own database query that uses `.single()` which throws an error if no rows found
+
+### Current Flow (Broken):
+```
+InviteAccept → setFarmId(result.farm_id) → navigate("/farmhand")
+                                                    ↓
+                                         FarmhandDashboard loads
+                                                    ↓
+                               Ignores FarmContext, queries farm_memberships
+                                                    ↓
+                             Query may fail (timing) or find no "accepted" membership
+                                                    ↓
+                                         Shows "No Farm Assigned" 
+                                             or stuck loading
 ```
 
-**The Problem:**
-When `a.name` is `null`, the expression `a.name?.toLowerCase() || ''` evaluates to an **empty string** (`''`). 
+### Fixed Flow:
+```
+InviteAccept → setFarmId(result.farm_id) → navigate("/farmhand")
+                                                    ↓
+                                         FarmhandDashboard loads
+                                                    ↓
+                             Checks: Is farmId already set in context?
+                                          ↓ YES               ↓ NO
+                               Trust it, skip query    Query farm_memberships
+                                          ↓
+                                   Show dashboard
+```
 
-Then `identifier.includes('')` is **always `true`** because every string contains the empty string!
-
-**Example:**
-- User says: "Tita Bessie" → `identifier = "tita bessie"`
-- Animal G002 has `name: null`
-- `"tita bessie".includes('')` → `true` (BUG!)
-- G002 is matched incorrectly
+---
 
 ## Solution
 
-Replace the loose `includes()` matching with a stricter matching algorithm:
+### File 1: `src/pages/FarmhandDashboard.tsx`
 
-1. **Remove empty string fallback** - Only match when the field actually has a value
-2. **Prioritize exact matches** - Score-based matching to prefer better matches
-3. **Add minimum length check** - Don't match on very short strings that could cause false positives
-4. **Return null if no confident match** - Let the UI prompt for animal selection
+**Changes Required:**
 
-## Technical Implementation
+1. **Trust FarmContext when farmId is already set** (lines 75-130)
+   - If `farmId` is already present in context, skip the database query
+   - Only query `farm_memberships` if context is empty
 
-### File: `supabase/functions/process-farmhand-activity/index.ts`
+2. **Add error handling for the `.single()` query** (line 102)
+   - Use `.maybeSingle()` instead of `.single()` to prevent throwing errors when no row found
 
-**Lines 750-773 - Replace the animal matching logic:**
+**Updated `initializeUser` function:**
 
 ```typescript
-if (!animalId && extractedData.animal_identifier) {
-  const identifier = extractedData.animal_identifier.toLowerCase().trim();
-  
-  // Skip if identifier is too short to be reliable
-  if (identifier.length < 2) {
-    console.log('Animal identifier too short for reliable matching:', identifier);
-  } else {
-    // Try to find by ear tag or name with strict matching
-    const { data: animals } = await supabase
-      .from('animals')
-      .select('id, ear_tag, name')
-      .eq('farm_id', farmId)
-      .eq('is_deleted', false);
+useEffect(() => {
+  const initializeUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      navigate("/auth");
+      return;
+    }
+    
+    setUser(session.user);
+    
+    // SSOT: If farmId is already set in context (e.g., from InviteAccept), trust it
+    if (farmId) {
+      console.log('[FarmhandDashboard] Using farmId from context:', farmId);
+      setLoading(false);
+      return;
+    }
+    
+    // Only query database if no farmId in context
+    const { data: membership, error: membershipError } = await supabase
+      .from("farm_memberships")
+      .select(`
+        farm_id,
+        role_in_farm,
+        farms!inner (
+          id,
+          name,
+          owner_id
+        )
+      `)
+      .eq("user_id", session.user.id)
+      .eq("invitation_status", "accepted")
+      .limit(1)
+      .maybeSingle();  // Changed from .single() to prevent errors
+    
+    if (membershipError) {
+      console.error('[FarmhandDashboard] Membership query error:', membershipError);
+      setLoading(false);
+      return;
+    }
+    
+    if (!membership) {
+      // User has no farm membership - show no farm assigned state
+      setLoading(false);
+      return;
+    }
+    
+    const farm = membership.farms as unknown as { id: string; name: string; owner_id: string };
+    const isOwner = farm.owner_id === session.user.id;
+    const isFarmOwnerRole = membership.role_in_farm === 'farmer_owner';
+    
+    // If user owns the farm or has farmer_owner role, redirect to main dashboard
+    if (isOwner || isFarmOwnerRole) {
+      navigate("/");
+      return;
+    }
+    
+    // Only farmhand role should access this dashboard
+    if (membership.role_in_farm !== 'farmhand') {
+      navigate("/");
+      return;
+    }
+    
+    setFarmId(membership.farm_id);
+    setLoading(false);
+  };
 
-    // Score-based matching: prioritize exact matches, then partial matches
-    let bestMatch: { animal: any; score: number } | null = null;
-    
-    for (const animal of animals || []) {
-      const earTag = animal.ear_tag?.toLowerCase() || '';
-      const name = animal.name?.toLowerCase() || '';
-      
-      // Skip animals with no identifiable fields
-      if (!earTag && !name) continue;
-      
-      let score = 0;
-      
-      // Exact match scores highest
-      if (earTag === identifier || name === identifier) {
-        score = 100;
-      }
-      // Ear tag is contained in identifier (e.g., "A002 Bessie" contains "A002")
-      else if (earTag && identifier.includes(earTag) && earTag.length >= 2) {
-        score = 80;
-      }
-      // Name is contained in identifier (e.g., "Tita Bessie" contains "Bessie")
-      else if (name && identifier.includes(name) && name.length >= 2) {
-        score = 70;
-      }
-      // Identifier is contained in ear tag (partial ear tag match)
-      else if (earTag && earTag.includes(identifier) && identifier.length >= 2) {
-        score = 60;
-      }
-      // Identifier is contained in name (partial name match)
-      else if (name && name.includes(identifier) && identifier.length >= 2) {
-        score = 50;
-      }
-      
-      if (score > 0 && (!bestMatch || score > bestMatch.score)) {
-        bestMatch = { animal, score };
-      }
-    }
-    
-    if (bestMatch && bestMatch.score >= 50) {
-      finalAnimalId = bestMatch.animal.id;
-      console.log('Found animal match:', {
-        animal: bestMatch.animal,
-        score: bestMatch.score,
-        searchTerm: identifier
-      });
-    } else {
-      console.log('No confident animal match for identifier:', identifier);
-    }
-  }
-}
+  initializeUser();
+  // ... rest of useEffect
+}, [navigate, toast, farmId]);  // Add farmId to dependencies
 ```
+
+---
+
+### File 2: `src/pages/Dashboard.tsx`
+
+**Similar changes required** (lines 82-200):
+
+1. **Trust FarmContext when farmId is already set**
+   - Skip re-querying owned/member farms if context already has a valid farmId
+
+```typescript
+// Inside initializeUser, after role-based redirects:
+
+// SSOT: If farmId is already set in context (e.g., from InviteAccept), trust it
+if (farmId) {
+  console.log('[Dashboard] Using farmId from context:', farmId);
+  setLoading(false);
+  return;
+}
+
+// Only query database if no farmId in context
+// ... existing parallel queries for owned/member farms
+```
+
+---
+
+## Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/pages/FarmhandDashboard.tsx` | Trust context farmId, use `.maybeSingle()`, add farmId to useEffect deps |
+| `src/pages/Dashboard.tsx` | Trust context farmId, skip re-query when already set |
+
+---
 
 ## Expected Behavior After Fix
 
 | Scenario | Before (Bug) | After (Fixed) |
 |----------|-------------|---------------|
-| User says "Tita Bessie" | Matches G002 (null name) | Matches A002 (Bessie) with score 70 |
-| User says "Bessie" | Matches G002 (null name) | Matches A002 (Bessie) with score 100 |
-| User says "A002" | May match incorrectly | Matches A002 with score 100 |
-| User says "unknown animal" | Matches G002 (null name) | No match, prompts for selection |
-| Animal has no name or ear tag | Could match anything | Skipped in matching |
+| Farmhand scans QR, accepts invitation | Stuck loading or "No Farm Assigned" | Immediately shows farmhand dashboard |
+| Owner scans QR, accepts invitation | May get stuck | Immediately shows main dashboard |
+| User refreshes page after joining | Works (membership visible in DB) | Works (same behavior) |
+| User visits dashboard without context | Queries DB for farm | Queries DB for farm (same) |
 
-## Files Modified
-
-| File | Change |
-|------|--------|
-| `supabase/functions/process-farmhand-activity/index.ts` | Replace loose `includes()` matching with score-based strict matching algorithm |
+---
 
 ## Testing Scenarios
 
-After implementation, test these voice inputs:
+1. **New farmhand accepts invitation via QR**
+   - Should navigate to `/farmhand` immediately
+   - Should show farmhand dashboard with correct farm
 
-1. **"Nagpakain ako kay Bessie ng 2 kilos"** → Should match animal with name "Bessie" (A002)
-2. **"Feeding A002 with 5 bales"** → Should match ear tag A002
-3. **"Gatas ng G001"** → Should match ear tag G001 (Tsibato)
-4. **"Nagpakain kay unknown animal"** → Should NOT match, prompt for selection
-5. **"Nagpakain kay Tita Bessie"** → Should match "Bessie" (A002), not G002
+2. **New farmer_owner accepts invitation via QR**
+   - Should navigate to `/` immediately
+   - Should show main dashboard with correct farm
 
-## Additional Improvements (Optional)
+3. **Existing user refreshes `/farmhand` page**
+   - farmId is loaded from localStorage
+   - Should show dashboard (no change in behavior)
 
-Consider also adding:
-1. **Levenshtein distance matching** for typos/transcription errors (import from existing `src/lib/fuzzyMatch.ts`)
-2. **Logging of all match attempts** for easier debugging
-3. **Confidence threshold configuration** per farm
+4. **User with no farm visits `/farmhand` directly**
+   - Should show "No Farm Assigned" (no change in behavior)
