@@ -8,9 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
-import { useRole, GlobalRole } from "@/hooks/useRole";
+import { useRole } from "@/hooks/useRole";
 import { useFarmRole } from "@/hooks/useFarmRole";
-import { usePermissions } from "@/hooks/usePermissions";
 import { ArrowLeft, Loader2, User, Mail, Phone, Shield, Mic, CheckCircle, AlertCircle, Building2, Users, Calendar } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
@@ -23,12 +22,28 @@ import { FarmBankInfoDialog, getBiosecurityLabel, getWaterSourceLabel } from "@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFarmSettings, useUpdateFarmSettings } from "@/hooks/useFarmSettings";
 import { toast } from "sonner";
+import { useFarm } from "@/contexts/FarmContext";
+import { FarmSwitcher } from "@/components/FarmSwitcher";
+
+// Extended farm data not stored in FarmContext (local to Profile page)
+interface ExtendedFarmData {
+  region?: string;
+  livestock_type?: string;
+  biosecurity_level?: string;
+  water_source?: string;
+  distance_to_market_km?: number;
+  pcic_enrolled?: boolean;
+}
 
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile, updatePassword } = useProfile();
   const { globalRoles, isLoading: rolesLoading } = useRole();
   const { primaryFarmRole, isLoading: farmRoleLoading } = useFarmRole();
+  
+  // Use FarmContext for SSOT - farm state shared across the app
+  const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();
+  
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -38,9 +53,9 @@ const Profile = () => {
   const [voiceTrainingCompleted, setVoiceTrainingCompleted] = useState(false);
   const [voiceTrainingSkipped, setVoiceTrainingSkipped] = useState(false);
   const [samplesCount, setSamplesCount] = useState(0);
-  const [farmId, setFarmId] = useState<string | null>(null);
-  const [farmData, setFarmData] = useState<any>(null);
-  const { canManageFarm } = usePermissions(farmId || undefined);
+  
+  // Extended farm data for Profile-specific fields (not in FarmContext)
+  const [extendedFarmData, setExtendedFarmData] = useState<ExtendedFarmData | null>(null);
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -73,48 +88,35 @@ const Profile = () => {
     loadVoiceTrainingSamples();
   }, []);
 
+  // Fetch extended farm data when farmId changes (SSOT: FarmContext handles core fields)
   useEffect(() => {
-    const loadFarmData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Check if user owns a farm
-      const { data: ownedFarms } = await supabase
-        .from("farms")
-        .select("*")
-        .eq("owner_id", user.id)
-        .eq("is_deleted", false)
-        .limit(1);
-
-      if (ownedFarms && ownedFarms.length > 0) {
-        setFarmId(ownedFarms[0].id);
-        setFarmData(ownedFarms[0]);
+    const loadExtendedFarmData = async () => {
+      if (!farmId) {
+        setExtendedFarmData(null);
         return;
       }
-
-      // Check if user is a manager of a farm
-      const { data: memberFarms } = await supabase
-        .from("farm_memberships")
-        .select("farm_id, role_in_farm")
-        .eq("user_id", user.id)
-        .eq("invitation_status", "accepted")
-        .limit(1);
-
-      if (memberFarms && memberFarms.length > 0) {
-        const { data: farm } = await supabase
-          .from("farms")
-          .select("*")
-          .eq("id", memberFarms[0].farm_id)
-          .single();
-
-        if (farm) {
-          setFarmId(farm.id);
-          setFarmData(farm);
-        }
-      }
+      const { data } = await supabase
+        .from("farms")
+        .select("region, livestock_type, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
+        .eq("id", farmId)
+        .single();
+      if (data) setExtendedFarmData(data);
     };
-    loadFarmData();
-  }, []);
+    loadExtendedFarmData();
+  }, [farmId]);
+
+  // Handle farm change from FarmSwitcher - updates SSOT and fetches extended data
+  const handleFarmChange = async (newFarmId: string) => {
+    setFarmId(newFarmId);
+    // FarmContext will auto-fetch name, logo, canManage
+    // We only need to fetch extended data for Profile page
+    const { data } = await supabase
+      .from("farms")
+      .select("region, livestock_type, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
+      .eq("id", newFarmId)
+      .single();
+    if (data) setExtendedFarmData(data);
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +204,22 @@ const Profile = () => {
                 </Avatar>
               </div>
               <CardTitle className="text-2xl">{profile?.full_name || "User Profile"}</CardTitle>
-              <CardDescription className="flex items-center justify-center gap-2 flex-wrap">
+              
+              {/* Farm Switcher Section - shows current farm and allows switching */}
+              <div className="flex items-center justify-center gap-2 mt-2">
+                {farmName && farmName !== 'My Farm' && (
+                  <Badge variant="outline" className="gap-1">
+                    <Building2 className="h-3 w-3" />
+                    {farmName}
+                  </Badge>
+                )}
+                <FarmSwitcher 
+                  currentFarmId={farmId} 
+                  onFarmChange={handleFarmChange} 
+                />
+              </div>
+              
+              <CardDescription className="flex items-center justify-center gap-2 flex-wrap mt-2">
                 <Shield className="h-4 w-4" />
                 {displayRoles.length > 0 ? (
                   <div className="flex gap-1 flex-wrap justify-center">
@@ -369,11 +386,12 @@ const Profile = () => {
                 <CardDescription>Manage your farm branding and information</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <FarmLogoUpload
+              <FarmLogoUpload
                   farmId={farmId}
-                  currentLogoUrl={farmData?.logo_url || null}
+                  currentLogoUrl={farmLogoUrl}
                   onUploadSuccess={(newLogoUrl) => {
-                    setFarmData({ ...farmData, logo_url: newLogoUrl });
+                    // Update FarmContext (SSOT) so logo updates across the app
+                    setFarmDetails({ logoUrl: newLogoUrl || null });
                   }}
                 />
                 <Separator />
@@ -381,15 +399,15 @@ const Profile = () => {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Farm Name</p>
-                      <p className="font-medium">{farmData?.name || 'N/A'}</p>
+                      <p className="font-medium">{farmName || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Region</p>
-                      <p className="font-medium">{farmData?.region || 'N/A'}</p>
+                      <p className="font-medium">{extendedFarmData?.region || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Livestock Type</p>
-                      <p className="font-medium capitalize">{farmData?.livestock_type || 'N/A'}</p>
+                      <p className="font-medium capitalize">{extendedFarmData?.livestock_type || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -401,36 +419,33 @@ const Profile = () => {
                     <h4 className="text-sm font-medium">Bank Requirements</h4>
                     <FarmBankInfoDialog 
                       farmId={farmId} 
-                      onSaveSuccess={() => {
-                        // Refresh farm data after save
-                        const loadFarmData = async () => {
-                          const { data } = await supabase
-                            .from("farms")
-                            .select("*")
-                            .eq("id", farmId)
-                            .single();
-                          if (data) setFarmData(data);
-                        };
-                        loadFarmData();
+                      onSaveSuccess={async () => {
+                        // Refresh extended farm data after save
+                        const { data } = await supabase
+                          .from("farms")
+                          .select("region, livestock_type, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
+                          .eq("id", farmId)
+                          .single();
+                        if (data) setExtendedFarmData(data);
                       }}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Biosecurity Level</p>
-                      <p className="font-medium">{getBiosecurityLabel(farmData?.biosecurity_level)}</p>
+                      <p className="font-medium">{getBiosecurityLabel(extendedFarmData?.biosecurity_level)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Water Source</p>
-                      <p className="font-medium">{getWaterSourceLabel(farmData?.water_source)}</p>
+                      <p className="font-medium">{getWaterSourceLabel(extendedFarmData?.water_source)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Distance to Market</p>
-                      <p className="font-medium">{farmData?.distance_to_market_km ? `${farmData.distance_to_market_km} km` : 'Not set'}</p>
+                      <p className="font-medium">{extendedFarmData?.distance_to_market_km ? `${extendedFarmData.distance_to_market_km} km` : 'Not set'}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">PCIC Insurance</p>
-                      <p className="font-medium">{farmData?.pcic_enrolled ? 'Enrolled' : 'Not enrolled'}</p>
+                      <p className="font-medium">{extendedFarmData?.pcic_enrolled ? 'Enrolled' : 'Not enrolled'}</p>
                     </div>
                   </div>
                 </div>
