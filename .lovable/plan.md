@@ -1,86 +1,157 @@
 
-# Fix: Farm Manager Cannot See Approvals Tab
 
-## Problem Summary
+# Improve Dialog Scrolling for Edit/View Voice Entries
 
-`pat.ebuna@gmail.com` (farm manager for Estehanon Farm) cannot see the "For Approval" entries despite:
-1. Having `role_in_farm: 'farmer_owner'` in the database
-2. The `is_farm_manager()` SQL function now returning `true` correctly
+## Current State Analysis
 
-The Approvals tab is completely hidden from their view.
+I found **two dialog components** used for voice entry management:
 
-## Root Cause
+### 1. EditSubmissionDialog (`src/components/approval/EditSubmissionDialog.tsx`)
+- Used by **farmhands** to edit their pending submissions before manager review
+- Used by **farmhands** to resubmit rejected activities
+- **Issue**: Has a fixed width (`sm:max-w-[425px]`) but **NO scrolling mechanism**
+- The dialog content grows indefinitely without scroll constraints
 
-The Dashboard component uses `canManageFarm` from the wrong context:
+### 2. ActivityDetailsDialog (`src/components/approval/ActivityDetailsDialog.tsx`)  
+- Used by **farm managers/owners** to view and approve/reject submissions
+- **Partially addressed**: Has `max-h-[90vh]` on DialogContent and `ScrollArea` with `max-h-[50vh]`
+- **Issue**: The 50vh scroll area may be too restrictive on mobile devices, cutting off content
 
-**Current Code (Dashboard.tsx line 51):**
-```typescript
-const { farmId, farmName, farmLogoUrl, canManageFarm, ... } = useFarm();
-```
+## Identified Problems
 
-**FarmContext.tsx (line 59) - WRONG:**
-```typescript
-setCanManageFarm(farmResult.data.owner_id === userResult.data.user?.id);
-// Only checks if user is the OWNER, ignores managers!
-```
-
-**PermissionsContext.tsx (line 261) - CORRECT:**
-```typescript
-canManageFarm: isOwner || isManager || isAdmin,
-// Correctly includes owners, managers, AND admins
-```
-
-## Impact
-
-The Approvals tab is shown/hidden based on `canManageFarm`:
-- Line 587: `{canManageFarm && <TabsTrigger value="approvals">...`
-- Line 603: `{canManageFarm && <TabsContent value="approvals">...`
-
-Since `FarmContext.canManageFarm` is `false` for managers, they cannot see:
-- The Approvals tab
-- The Settings tab
-- Pending count badge
+| Dialog | Problem | Impact |
+|--------|---------|--------|
+| EditSubmissionDialog | No max-height constraint | On long forms (injection with many fields), content can overflow screen |
+| EditSubmissionDialog | No ScrollArea wrapper | Users cannot scroll to see all form fields |
+| ActivityDetailsDialog | Fixed 50vh for content | On mobile, this may only show ~300-350px of scrollable area |
+| Both | No mobile-specific handling | No responsive adjustments for smaller screens |
 
 ## Solution
 
-Update Dashboard.tsx to use `canManageFarm` from `useUnifiedPermissions()` instead of `useFarm()`.
+### EditSubmissionDialog Fixes
 
-## Files to Modify
+1. **Add max-height constraint** to DialogContent:
+   ```tsx
+   <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
+   ```
+
+2. **Wrap form content in ScrollArea** with responsive height:
+   ```tsx
+   <ScrollArea className="max-h-[60vh] flex-1 pr-4">
+     <div className="py-4 space-y-4">
+       {/* Animal selection */}
+       {/* Form fields */}
+     </div>
+   </ScrollArea>
+   ```
+
+3. **Keep DialogHeader and DialogFooter outside ScrollArea** so they remain fixed and visible
+
+### ActivityDetailsDialog Fixes
+
+1. **Increase scroll area height** for better mobile experience:
+   ```tsx
+   <ScrollArea className="max-h-[60vh] pr-4">
+   ```
+
+2. **Add flex layout** to ensure footer stays at bottom:
+   ```tsx
+   <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+   ```
+
+## Technical Details
+
+### File Changes
 
 | File | Change |
 |------|--------|
-| `src/pages/Dashboard.tsx` | Import `useUnifiedPermissions` and use its `canManageFarm` instead of FarmContext's version |
+| `src/components/approval/EditSubmissionDialog.tsx` | Add ScrollArea, max-height, flex layout |
+| `src/components/approval/ActivityDetailsDialog.tsx` | Adjust scroll area height, add flex layout |
 
-## Implementation Details
+### EditSubmissionDialog Changes
 
-**Step 1: Update imports in Dashboard.tsx**
-```typescript
-import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
+**Lines 269-313** - Current structure:
+```tsx
+<DialogContent className="sm:max-w-[425px]">
+  <DialogHeader>...</DialogHeader>
+  {/* Rejection alert */}
+  <div className="py-4 space-y-4">
+    {/* Animal selection */}
+    {renderFields()}
+  </div>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
 ```
 
-**Step 2: Get canManageFarm from PermissionsContext**
-```typescript
-// Current:
-const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();
-
-// Changed to:
-const { farmId, farmName, farmLogoUrl, setFarmId, setFarmDetails } = useFarm();
-const { canManageFarm } = useUnifiedPermissions();
+**Proposed structure**:
+```tsx
+<DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
+  <DialogHeader>...</DialogHeader>
+  {/* Rejection alert - stays outside scroll */}
+  <ScrollArea className="max-h-[60vh] flex-1">
+    <div className="py-4 space-y-4 pr-4">
+      {/* Animal selection */}
+      {renderFields()}
+    </div>
+  </ScrollArea>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
 ```
 
-## Expected Result After Fix
+### ActivityDetailsDialog Changes
 
-| User | Before | After |
-|------|--------|-------|
-| Farm Owner | Can see Approvals tab | Can see Approvals tab |
-| Farm Manager (`pat.ebuna`) | Cannot see Approvals tab | Can see Approvals tab |
-| Farmhand | Cannot see Approvals tab | Cannot see Approvals tab |
+**Line 515** - Current:
+```tsx
+<DialogContent className="max-w-3xl max-h-[90vh]">
+```
 
-## Testing
+**Line 535** - Current scroll area:
+```tsx
+<ScrollArea className="max-h-[50vh] pr-4">
+```
 
-1. Log in as `pat.ebuna@gmail.com`
-2. Navigate to Estehanon Farm dashboard
-3. Go to "More" tab
-4. Verify "Approvals" sub-tab is now visible
-5. Verify pending farmhand entries are displayed
-6. Test approve/reject functionality
+**Proposed changes**:
+```tsx
+<DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+...
+<ScrollArea className="flex-1 max-h-[60vh] pr-4">
+```
+
+## Visual Behavior After Fix
+
+```text
+┌─────────────────────────────────────────┐
+│  DialogHeader (Fixed - always visible)  │
+├─────────────────────────────────────────┤
+│  ┌───────────────────────────────────┐  │
+│  │                                   │  │
+│  │     ScrollArea (60vh max)         │  │
+│  │     - Shows scrollbar when        │  │
+│  │       content exceeds height      │  │
+│  │     - Smooth scroll on touch      │  │
+│  │                                   │  │
+│  └───────────────────────────────────┘  │
+├─────────────────────────────────────────┤
+│  DialogFooter (Fixed - always visible)  │
+│  [Cancel] [Save Changes]                │
+└─────────────────────────────────────────┘
+```
+
+## Import Addition
+
+EditSubmissionDialog needs to import ScrollArea:
+```tsx
+import { ScrollArea } from "@/components/ui/scroll-area";
+```
+
+## Testing Checklist
+
+After implementation:
+1. Open EditSubmissionDialog with an injection record (has most fields)
+2. Verify scrollbar appears when content exceeds viewport
+3. Verify header and footer remain fixed while scrolling
+4. Test on mobile viewport (390px width)
+5. Open ActivityDetailsDialog with milking record showing multiple animals
+6. Verify all animal cards are accessible via scroll
+7. Confirm approve/reject buttons remain visible
+
