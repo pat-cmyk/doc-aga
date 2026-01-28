@@ -119,11 +119,11 @@ Best practice:
    - No infinite loading; farm context is set; dashboard renders.
 
 ## Deliverables checklist
-- [ ] Refactor `InviteAccept.tsx` into a simple, deterministic state machine
-- [ ] Remove auto-accept background effect (or harden it if you insist on keeping it)
-- [ ] Add timeout + retry UI
-- [ ] Add optional post-accept membership verification/poll
-- [ ] Harden `Dashboard.tsx` profile fetch (maybeSingle + error handling)
+- [x] Refactor `InviteAccept.tsx` into a simple, deterministic state machine
+- [x] Remove auto-accept background effect (or harden it if you insist on keeping it)
+- [x] Add timeout + retry UI
+- [x] Add optional post-accept membership verification/poll
+- [x] Harden `Dashboard.tsx` profile fetch (maybeSingle + error handling)
 
 ## Notes / assumptions
 - This plan focuses on “least friction” while maximizing reliability. One extra tap (“Join farm”) is typically acceptable and avoids silent failures.
