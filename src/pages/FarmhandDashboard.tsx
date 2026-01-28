@@ -83,6 +83,14 @@ const FarmhandDashboard = () => {
       
       setUser(session.user);
       
+      // SSOT: If farmId is already set in context (e.g., from InviteAccept), trust it
+      if (farmId) {
+        console.log('[FarmhandDashboard] Using farmId from context:', farmId);
+        setLoading(false);
+        return;
+      }
+      
+      // Only query database if no farmId in context
       // Check farm membership with role_in_farm instead of user_roles
       // This is the source of truth for farm-specific access
       const { data: membership, error: membershipError } = await supabase
@@ -99,9 +107,15 @@ const FarmhandDashboard = () => {
         .eq("user_id", session.user.id)
         .eq("invitation_status", "accepted")
         .limit(1)
-        .single();
+        .maybeSingle();  // Changed from .single() to prevent errors when no row found
       
-      if (membershipError || !membership) {
+      if (membershipError) {
+        console.error('[FarmhandDashboard] Membership query error:', membershipError);
+        setLoading(false);
+        return;
+      }
+      
+      if (!membership) {
         // User has no farm membership - show no farm assigned state
         setLoading(false);
         return;
@@ -138,7 +152,7 @@ const FarmhandDashboard = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, [navigate, toast, farmId]);
 
   // Generate feed forecast when farmId is available
   useEffect(() => {

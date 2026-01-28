@@ -90,6 +90,15 @@ const Dashboard = () => {
       
       setUser(session.user);
       
+      // SSOT: If farmId is already set in context (e.g., from InviteAccept), trust it
+      // This prevents race conditions when navigating from invitation acceptance
+      if (farmId) {
+        console.log('[Dashboard] Using farmId from context:', farmId);
+        setLoading(false);
+        return;
+      }
+      
+      // Only query database if no farmId in context
       // Parallelize queries to reduce waterfall - fetch profile, roles, and farms concurrently
       const [profileResult, rolesResult, ownedFarmsResult, memberFarmsResult] = await Promise.all([
         supabase
@@ -211,7 +220,7 @@ const Dashboard = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, [navigate, toast, farmId]);
 
   // Re-check farm ownership when page becomes visible (prevents duplicate farm creation)
   useEffect(() => {
