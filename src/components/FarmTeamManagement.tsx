@@ -143,6 +143,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
             inviterName: inviterProfile?.full_name || "A team member",
             role: role,
             invitationToken: membershipData.invitation_token,
+            appUrl: window.location.origin,
           },
         }
       );
@@ -209,6 +210,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
             inviterName: inviterProfile?.full_name || "A team member",
             role: member.role_in_farm,
             invitationToken: membershipData.invitation_token,
+            appUrl: window.location.origin,
           },
         }
       );
