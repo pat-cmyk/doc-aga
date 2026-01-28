@@ -105,7 +105,7 @@ const Dashboard = () => {
           .from('profiles')
           .select('voice_training_completed')
           .eq('id', session.user.id)
-          .single(),
+          .maybeSingle(),  // Changed from .single() to prevent errors if profile not accessible
         supabase
           .from("user_roles")
           .select("role")
