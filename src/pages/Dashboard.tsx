@@ -38,6 +38,7 @@ import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useFarm } from "@/contexts/FarmContext";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 
 const Dashboard = () => {
@@ -48,7 +49,8 @@ const Dashboard = () => {
   const isMobile = useIsMobile();
   
   // Farm context for shared state
-  const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();
+  const { farmId, farmName, farmLogoUrl, setFarmId, setFarmDetails } = useFarm();
+  const { canManageFarm } = useUnifiedPermissions();
   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
