@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useFarm } from "@/contexts/FarmContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
@@ -19,15 +20,36 @@ export default function InviteAccept() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setFarmId, setFarmDetails } = useFarm();
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [autoAccepting, setAutoAccepting] = useState(false);
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const autoAcceptTriggered = useRef(false);
 
   useEffect(() => {
     checkAuthAndInvitation();
   }, [token]);
+
+  // Auto-accept for logged-in users with matching email
+  useEffect(() => {
+    if (loading || !invitation || !user || autoAccepting || accepting || autoAcceptTriggered.current) return;
+    
+    const userEmail = user.email?.toLowerCase();
+    const invitedEmail = invitation.invited_email?.toLowerCase();
+    
+    if (userEmail === invitedEmail) {
+      autoAcceptTriggered.current = true;
+      setAutoAccepting(true);
+      // Brief delay for UX feedback
+      const timer = setTimeout(() => {
+        acceptInvitation();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, invitation, user, autoAccepting, accepting]);
 
   const checkAuthAndInvitation = async () => {
     try {
@@ -65,9 +87,10 @@ export default function InviteAccept() {
 
   const acceptInvitation = async () => {
     if (!user) {
-      // Redirect to auth with return URL
+      // Redirect to auth with return URL and pre-fill email
       const returnUrl = encodeURIComponent(window.location.pathname);
-      navigate(`/auth?redirect=${returnUrl}`);
+      const inviteEmail = encodeURIComponent(invitation?.invited_email || '');
+      navigate(`/auth?redirect=${returnUrl}&email=${inviteEmail}`);
       return;
     }
 
@@ -98,17 +121,28 @@ export default function InviteAccept() {
           variant: "destructive",
         });
         setAccepting(false);
+        setAutoAccepting(false);
         return;
       }
 
+      // Set farm context immediately (SSOT pattern)
+      setFarmId(result.farm_id);
+      setFarmDetails({ 
+        name: result.farm_name || 'My Farm',
+        canManage: invitation?.role_in_farm === 'farmer_owner'
+      });
+
       toast({
-        title: "Success!",
+        title: "Welcome!",
         description: `You've joined ${result.farm_name}!`,
       });
 
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1500);
+      // Role-based navigation
+      if (invitation?.role_in_farm === 'farmhand') {
+        navigate("/farmhand");
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       console.error("Error accepting invitation:", err);
       toast({
@@ -120,13 +154,19 @@ export default function InviteAccept() {
     }
   };
 
-  if (loading) {
+  if (loading || autoAccepting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          {autoAccepting && <p className="text-muted-foreground">Joining farm...</p>}
+        </div>
       </div>
     );
   }
+
+  const isEmailMismatch = user && invitation && 
+    user.email?.toLowerCase() !== invitation.invited_email?.toLowerCase();
 
   if (error) {
     return (
@@ -168,24 +208,54 @@ export default function InviteAccept() {
               invitation.
             </p>
           )}
-        </div>
-        <Button 
-          onClick={acceptInvitation} 
-          className="w-full" 
-          size="lg"
-          disabled={accepting}
-        >
-          {accepting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Accepting...
-            </>
-          ) : user ? (
-            "Accept Invitation"
-          ) : (
-            "Sign In to Accept"
+          
+          {isEmailMismatch && (
+            <div className="bg-destructive/10 border border-destructive/30 p-3 rounded-lg text-sm">
+              <p className="text-destructive font-medium">Email Mismatch</p>
+              <p className="text-muted-foreground mt-1">
+                This invitation was sent to <strong>{invitation.invited_email}</strong>,
+                but you're signed in as <strong>{user.email}</strong>.
+              </p>
+              <p className="text-muted-foreground mt-1">
+                Please sign out and use the correct email, or contact the farm owner.
+              </p>
+            </div>
           )}
-        </Button>
+        </div>
+        
+        {isEmailMismatch ? (
+          <Button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              const returnUrl = encodeURIComponent(window.location.pathname);
+              const inviteEmail = encodeURIComponent(invitation?.invited_email || '');
+              navigate(`/auth?redirect=${returnUrl}&email=${inviteEmail}`);
+            }} 
+            className="w-full" 
+            size="lg"
+            variant="outline"
+          >
+            Sign Out & Use Different Account
+          </Button>
+        ) : (
+          <Button 
+            onClick={acceptInvitation} 
+            className="w-full" 
+            size="lg"
+            disabled={accepting}
+          >
+            {accepting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Accepting...
+              </>
+            ) : user ? (
+              "Accept Invitation"
+            ) : (
+              "Sign In to Accept"
+            )}
+          </Button>
+        )}
       </Card>
     </div>
   );

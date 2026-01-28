@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ const VoiceTrainingOnboarding = lazy(() => import("@/components/voice-training/V
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const pendingRedirect = searchParams.get('redirect');
+  const prefillEmail = searchParams.get('email');
+  
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,11 +35,24 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
 
+  // Pre-fill email from invitation flow
+  useEffect(() => {
+    if (prefillEmail && !email) {
+      setEmail(decodeURIComponent(prefillEmail));
+    }
+  }, [prefillEmail]);
+
   useEffect(() => {
     // Check if user is already authenticated
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // If there's a pending redirect (e.g., from invitation flow), go there first
+        if (pendingRedirect?.startsWith('/invite/accept/')) {
+          navigate(pendingRedirect);
+          return;
+        }
+        
         // Check user roles and redirect accordingly
         const { data: roles } = await supabase
           .from("user_roles")
@@ -54,7 +71,7 @@ const Auth = () => {
       }
     };
     checkAuth();
-  }, [navigate]);
+  }, [navigate, pendingRedirect]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,10 +139,15 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    // Preserve redirect URL for invitation flow
+    const redirectTo = pendingRedirect?.startsWith('/invite/accept/')
+      ? `${window.location.origin}${pendingRedirect}`
+      : `${window.location.origin}/`;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`
+        redirectTo
       }
     });
     
@@ -174,6 +196,12 @@ const Auth = () => {
         eventType: "login",
         metadata: { roles: userRoles }
       });
+
+      // If there's a pending redirect (e.g., from invitation flow), go there first
+      if (pendingRedirect?.startsWith('/invite/accept/')) {
+        navigate(pendingRedirect);
+        return;
+      }
 
       // Redirect based on role
       if (userRoles.includes("admin")) {
@@ -252,7 +280,12 @@ const Auth = () => {
               console.error('Error skipping voice training:', error);
             }
             setShowVoiceTrainingOnboarding(false);
-            navigate("/");
+            // Navigate to pending redirect (invitation) or home
+            if (pendingRedirect?.startsWith('/invite/accept/')) {
+              navigate(pendingRedirect);
+            } else {
+              navigate("/");
+            }
           }}
         />
       </Suspense>
@@ -353,6 +386,12 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                {prefillEmail && (
+                  <div className="bg-muted p-3 rounded-md text-sm text-center">
+                    <p className="text-muted-foreground">You're signing up to accept a farm invitation sent to:</p>
+                    <p className="font-semibold">{decodeURIComponent(prefillEmail)}</p>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
                   <Input
@@ -374,6 +413,11 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
+                  {prefillEmail && email && email.toLowerCase() !== decodeURIComponent(prefillEmail).toLowerCase() && (
+                    <p className="text-xs text-amber-600">
+                      ⚠️ This email differs from the invitation. You may not be able to accept it.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
