@@ -1,274 +1,183 @@
 
 
-# Phase 4: Breeding Analytics & Reporting - Implementation Plan
+# Farm Switcher on Profile Page - SSOT Implementation Plan
 
-## Overview
+## Problem Analysis
 
-This phase adds farm-level breeding analytics to complement the existing Breeding Hub. We will implement four key metrics modules that help farmers track and optimize their herd's reproductive performance.
+The Profile page currently maintains its own local state for farm information, which violates the Single Source of Truth (SSOT) principle established in your architecture:
 
----
+**Current Issue in `Profile.tsx`:**
+- Lines 41-42: `const [farmId, setFarmId] = useState<string | null>(null);` and `const [farmData, setFarmData] = useState<any>(null);`
+- Lines 76-117: Custom `loadFarmData()` function that duplicates logic from FarmContext
+- This creates data inconsistency when users switch farms in other parts of the app
 
-## 1. Services per Conception (SPC) Metric
-
-### Purpose
-Track the average number of AI services required to achieve a confirmed pregnancy - a critical indicator of herd fertility efficiency.
-
-### Data Sources
-- `ai_records` table: `performed_date`, `pregnancy_confirmed`, `animal_id`
-- `animals` table: `services_this_cycle`, `parity`
-
-### Calculation Logic
-```
-SPC = Total AI Services Performed / Total Pregnancies Confirmed
-
-Per-animal SPC calculated from historical breeding cycles:
-- Count AI attempts per conception using breeding_events or ai_records
-- Track across multiple calvings for lifetime SPC
-```
-
-### Target Benchmarks (industry standard)
-| Livestock | Excellent | Good | Needs Improvement |
-|-----------|-----------|------|-------------------|
-| Cattle | <1.5 | 1.5-2.0 | >2.0 |
-| Goat | <1.8 | 1.8-2.5 | >2.5 |
-
-### UI Component: `ServicesPerConceptionCard.tsx`
-- Display farm average SPC as primary metric
-- Color-coded status indicator (green/yellow/red)
-- Trend arrow showing improvement/decline vs previous period
-- Breakdown by livestock type
-- List of "repeat breeders" (3+ services)
+**Existing SSOT Pattern:**
+- `FarmContext.tsx` already provides global farm state with localStorage persistence
+- `Dashboard.tsx` correctly uses `useFarm()` hook for shared state
+- `FarmSwitcher.tsx` component already exists and handles multi-farm switching
 
 ---
 
-## 2. Calving Interval Tracking
+## Solution Overview
 
-### Purpose
-Measure the days between successive calvings - affects farm profitability directly.
-
-### Data Sources
-- `animals` table: `last_calving_date`, `parity`
-- `breeding_events` table: `event_type = 'calving'`
-- Historical offspring birth dates
-
-### Calculation Logic
-```
-Calving Interval = Days between current calving and previous calving
-
-For animals with parity >= 2:
-- Query two most recent calving events
-- Calculate difference in days
-- Average across herd for farm-level metric
-```
-
-### Target Benchmarks
-| Livestock | Optimal | Acceptable | Too Long |
-|-----------|---------|------------|----------|
-| Cattle | 365-400 days | 400-450 days | >450 days |
-| Goat | 240-270 days | 270-300 days | >300 days |
-
-### UI Component: `CalvingIntervalCard.tsx`
-- Farm average calving interval (days)
-- Distribution chart (histogram of intervals)
-- Animals with longest intervals flagged
-- Comparison to optimal target line
+Refactor the Profile page to use the global FarmContext and add a FarmSwitcher dropdown for users with multiple farm associations.
 
 ---
 
-## 3. Heat Detection Rate (HDR)
+## Implementation Details
 
-### Purpose
-Measure how effectively the farm detects heat events - the foundation of successful breeding.
+### File 1: `src/pages/Profile.tsx`
 
-### Data Sources
-- `heat_records` table: all detected heat events
-- `animals` table: female breeding-eligible count
-- `ai_records` table: AI timing relative to heat
+**Changes Required:**
 
-### Calculation Formulas
-```
-Heat Detection Rate = (Detected Heats / Expected Heats) × 100
+1. **Import useFarm hook** (add to existing imports)
+   ```typescript
+   import { useFarm } from "@/contexts/FarmContext";
+   import { FarmSwitcher } from "@/components/FarmSwitcher";
+   ```
 
-Expected Heats = Number of open cycling animals × (Days in Period / 21)
-Detected Heats = Actual heat records in period
-```
+2. **Replace local state with context** (remove lines 41-42)
+   - Remove: `const [farmId, setFarmId] = useState<string | null>(null);`
+   - Remove: `const [farmData, setFarmData] = useState<any>(null);`
+   - Add: `const { farmId, farmName, farmLogoUrl, canManageFarm, setFarmId, setFarmDetails } = useFarm();`
 
-### Secondary Metrics
-- **Heat-to-AI Interval**: Time from heat detection to AI (target: 12-30 hours)
-- **Standing Heat %**: Percentage of detected heats with standing heat confirmed
-- **AI Timing Accuracy**: % of AI performed within optimal window
+3. **Remove the duplicate `loadFarmData` useEffect** (lines 76-117)
+   - This logic is already handled by FarmContext when `farmId` changes
+   - Keep a simplified effect to fetch additional farm details (like region, livestock_type) that aren't in FarmContext
 
-### UI Component: `HeatDetectionRateCard.tsx`
-- HDR percentage with gauge visualization
-- Detection method breakdown (visual, mounting, behavioral)
-- Average cycle length (days) with variance indicator
-- "Missed heat" alerts for animals overdue for heat
+4. **Add new state for extended farm details** (only fields not in FarmContext)
+   ```typescript
+   const [extendedFarmData, setExtendedFarmData] = useState<{
+     region?: string;
+     livestock_type?: string;
+     biosecurity_level?: string;
+     water_source?: string;
+     distance_to_market_km?: number;
+     pcic_enrolled?: boolean;
+   } | null>(null);
+   ```
+
+5. **Add simplified useEffect to fetch extended farm data**
+   ```typescript
+   useEffect(() => {
+     const loadExtendedFarmData = async () => {
+       if (!farmId) {
+         setExtendedFarmData(null);
+         return;
+       }
+       const { data } = await supabase
+         .from("farms")
+         .select("region, livestock_type, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
+         .eq("id", farmId)
+         .single();
+       if (data) setExtendedFarmData(data);
+     };
+     loadExtendedFarmData();
+   }, [farmId]);
+   ```
+
+6. **Add Farm Switcher to Profile Header Card**
+   ```typescript
+   <Card>
+     <CardHeader className="text-center">
+       {/* Existing Avatar code */}
+       <CardTitle className="text-2xl">{profile?.full_name || "User Profile"}</CardTitle>
+       
+       {/* NEW: Farm Switcher Section */}
+       <div className="flex items-center justify-center gap-2 mt-2">
+         {farmName && (
+           <Badge variant="outline" className="gap-1">
+             <Building2 className="h-3 w-3" />
+             {farmName}
+           </Badge>
+         )}
+         <FarmSwitcher 
+           currentFarmId={farmId} 
+           onFarmChange={handleFarmChange} 
+         />
+       </div>
+       
+       {/* Existing roles display */}
+     </CardHeader>
+   </Card>
+   ```
+
+7. **Add handleFarmChange function** (similar to Dashboard.tsx pattern)
+   ```typescript
+   const handleFarmChange = async (newFarmId: string) => {
+     setFarmId(newFarmId);
+     
+     // FarmContext will automatically fetch name, logo, canManage
+     // We only need to fetch extended data
+     const { data } = await supabase
+       .from("farms")
+       .select("region, livestock_type, biosecurity_level, water_source, distance_to_market_km, pcic_enrolled")
+       .eq("id", newFarmId)
+       .single();
+     
+     if (data) setExtendedFarmData(data);
+   };
+   ```
+
+8. **Update Farm Settings section references**
+   - Replace `farmData?.logo_url` with `farmLogoUrl`
+   - Replace `farmData?.name` with `farmName`
+   - Replace `farmData?.region` with `extendedFarmData?.region`
+   - Replace `farmData?.livestock_type` with `extendedFarmData?.livestock_type`
+   - Update FarmLogoUpload's `onUploadSuccess` to also update FarmContext
 
 ---
 
-## 4. Breeding Season Support
+## Data Flow After Changes
 
-### Purpose
-Enable farms using seasonal breeding to track performance within defined windows.
-
-### Configuration
-- Allow farm to set "breeding season" dates (optional)
-- Default: year-round breeding (no season restrictions)
-- Typical seasons: "Wet season breeding" (Jun-Nov) or "Dry season breeding" (Dec-May)
-
-### Metrics within Season
-- AI performed during season window
-- Conception rate within season
-- Expected calving distribution
-
-### UI Component: `BreedingSeasonCard.tsx`
-- Season timeline visualization
-- Current season status (active/inactive)
-- Season-specific success metrics
-- Toggle to enable/disable seasonal view
+```text
+User clicks FarmSwitcher dropdown
+         |
+         v
+handleFarmChange(newFarmId)
+         |
+    +----+----+
+    |         |
+    v         v
+setFarmId()   Fetch extended
+(FarmContext) farm data
+    |         |
+    v         v
+FarmContext   setExtendedFarmData()
+auto-fetches  (local state for
+name, logo,   region, livestock, etc.)
+canManage
+    |
+    v
+All components using useFarm()
+automatically update (SSOT)
+```
 
 ---
 
-## Technical Implementation
+## UI Preview
 
-### New Files to Create
+The Profile Header Card will show:
+1. User avatar and name (existing)
+2. Current farm name badge with Building2 icon (new)
+3. Farm switcher dropdown - only visible when user has multiple farms (new)
+4. User roles badges (existing)
 
-| File | Purpose |
+---
+
+## Files Modified
+
+| File | Changes |
 |------|---------|
-| `src/hooks/useBreedingAnalytics.ts` | Main data hook for all breeding analytics |
-| `src/components/breeding/analytics/ServicesPerConceptionCard.tsx` | SPC metric display |
-| `src/components/breeding/analytics/CalvingIntervalCard.tsx` | CI metric with histogram |
-| `src/components/breeding/analytics/HeatDetectionRateCard.tsx` | HDR metric with gauge |
-| `src/components/breeding/analytics/BreedingSeasonCard.tsx` | Seasonal breeding view |
-| `src/components/breeding/analytics/BreedingAnalyticsSection.tsx` | Container for all analytics cards |
-| `src/components/breeding/analytics/index.ts` | Barrel exports |
-
-### Hook: `useBreedingAnalytics.ts`
-
-```typescript
-interface BreedingAnalytics {
-  // Services per Conception
-  avgServicesPerConception: number;
-  spcByLivestockType: Record<string, number>;
-  repeatBreeders: Animal[]; // 3+ services
-  
-  // Calving Interval
-  avgCalvingIntervalDays: number;
-  calvingIntervalDistribution: { range: string; count: number }[];
-  longestIntervalAnimals: Animal[];
-  
-  // Heat Detection Rate
-  heatDetectionRate: number;
-  expectedHeats: number;
-  detectedHeats: number;
-  avgCycleLengthDays: number;
-  cycleLengthVariance: number;
-  detectionMethodBreakdown: Record<string, number>;
-  
-  // Time period
-  periodStart: Date;
-  periodEnd: Date;
-  
-  isLoading: boolean;
-}
-```
-
-### Database Query Strategy
-
-1. **SPC Calculation**: 
-   - Group `ai_records` by animal where `pregnancy_confirmed = true`
-   - Count services between confirmed pregnancies
-   - Use `services_this_cycle` for current cycle
-
-2. **Calving Interval**:
-   - Query `breeding_events` where `event_type = 'calving'`
-   - Also use offspring birth dates for historical data
-   - Calculate intervals for animals with 2+ calvings
-
-3. **Heat Detection Rate**:
-   - Count `heat_records` in period
-   - Estimate expected heats from female count and cycle length
-   - Calculate detection efficiency
-
-### Integration with Breeding Hub
-
-Add a new "Analytics" tab or section to the BreedingHub component:
-
-```typescript
-// In BreedingHub.tsx
-<Tabs>
-  <TabsList>
-    <TabsTrigger value="overview">Overview</TabsTrigger>
-    <TabsTrigger value="analytics">Analytics</TabsTrigger>
-  </TabsList>
-  <TabsContent value="analytics">
-    <BreedingAnalyticsSection farmId={farmId} />
-  </TabsContent>
-</Tabs>
-```
+| `src/pages/Profile.tsx` | Use FarmContext instead of local state, add FarmSwitcher, refactor farm data loading |
 
 ---
 
-## UI Design Patterns
+## Testing Checklist
 
-### Card Layout
-Following existing chart patterns (`useResponsiveChart`):
-- Mobile-first responsive design
-- Skeleton loading states
-- Bilingual labels (English primary, Tagalog secondary)
-- Color-coded status indicators using existing design tokens
-
-### Visual Components
-1. **Gauge Chart**: For percentage metrics (HDR)
-2. **Bar/Histogram Chart**: For calving interval distribution
-3. **Metric Cards**: Large number + context + trend
-4. **Animal Lists**: Clickable links to animal profiles
-
-### Color Coding (consistent with fertility status)
-- Green: Excellent/On target
-- Yellow/Orange: Needs attention
-- Red: Critical/Below benchmark
-
----
-
-## Implementation Order
-
-1. **Create `useBreedingAnalytics.ts` hook**
-   - Implement all data fetching and calculations
-   - Use existing query patterns with farm_id isolation
-
-2. **Create individual metric cards**
-   - `ServicesPerConceptionCard.tsx`
-   - `CalvingIntervalCard.tsx`
-   - `HeatDetectionRateCard.tsx`
-   - `BreedingSeasonCard.tsx` (optional/configurable)
-
-3. **Create container component**
-   - `BreedingAnalyticsSection.tsx`
-   - Responsive grid layout for cards
-
-4. **Integrate with BreedingHub**
-   - Add Analytics tab/section
-   - Update exports
-
-5. **Update Breeding Hub exports**
-   - Export new components from `index.ts`
-
----
-
-## Performance Considerations
-
-- Use `staleTime: 5 * 60 * 1000` (5 min) for analytics queries
-- Analytics are not real-time critical
-- Consider lazy loading the analytics section (not visible on initial load)
-- Use Promise.all for parallel data fetching
-
----
-
-## Future Enhancements (Not in Scope)
-
-- PDF report generation for breeding analytics
-- Government-level aggregated analytics (already exists in `useBreedingStats`)
-- Push notifications for breeding alerts
-- Integration with external AI prediction models
+- [ ] User with single farm: FarmSwitcher hidden, farm name shown
+- [ ] User with multiple farms: FarmSwitcher visible, can switch farms
+- [ ] Farm switch updates: Farm Settings section, Team Management, Logo upload
+- [ ] Farm switch persists: Navigating away and back maintains selected farm
+- [ ] Logout clears farm: FarmContext is cleared on sign out
 
