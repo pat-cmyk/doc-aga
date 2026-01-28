@@ -17,6 +17,7 @@ interface InvitationRequest {
   inviterName: string;
   role: string;
   invitationToken: string;
+  appUrl: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -35,9 +36,11 @@ const handler = async (req: Request): Promise<Response> => {
       inviterName,
       role,
       invitationToken,
+      appUrl,
     }: InvitationRequest = await req.json();
 
     console.log(`Sending invitation to ${invitedEmail} for farm ${farmName}`);
+    console.log(`Using app URL: ${appUrl}`);
 
     const roleName = role === "farmer_owner" ? "Farm Manager" : "Farm Hand";
     const roleDescription =
@@ -45,10 +48,7 @@ const handler = async (req: Request): Promise<Response> => {
         ? "You'll be able to manage animals and records."
         : "You'll have access to assigned animals.";
 
-    const acceptUrl = `${supabaseUrl.replace(
-      "supabase.co",
-      "lovableproject.com"
-    )}/invite/accept/${invitationToken}`;
+    const acceptUrl = `${appUrl}/invite/accept/${invitationToken}`;
 
     const emailResponse = await resend.emails.send({
       from: "GoldenForage <onboarding@resend.dev>",
