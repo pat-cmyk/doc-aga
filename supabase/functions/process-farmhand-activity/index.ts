@@ -748,27 +748,67 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
     let finalAnimalId = animalId;
 
     if (!animalId && extractedData.animal_identifier) {
-      const identifier = extractedData.animal_identifier.toLowerCase();
+      const identifier = extractedData.animal_identifier.toLowerCase().trim();
       
-      // Try to find by ear tag or name
-      const { data: animals } = await supabase
-        .from('animals')
-        .select('id, ear_tag, name')
-        .eq('farm_id', farmId)
-        .eq('is_deleted', false);
-
-      const animal = animals?.find(a => 
-        a.ear_tag?.toLowerCase().includes(identifier) ||
-        a.name?.toLowerCase().includes(identifier) ||
-        identifier.includes(a.ear_tag?.toLowerCase() || '') ||
-        identifier.includes(a.name?.toLowerCase() || '')
-      );
-
-      if (animal) {
-        finalAnimalId = animal.id;
-        console.log('Found animal:', animal);
+      // Skip if identifier is too short to be reliable
+      if (identifier.length < 2) {
+        console.log('Animal identifier too short for reliable matching:', identifier);
       } else {
-        console.log('Animal not found for identifier:', identifier);
+        // Try to find by ear tag or name with strict matching
+        const { data: animals } = await supabase
+          .from('animals')
+          .select('id, ear_tag, name')
+          .eq('farm_id', farmId)
+          .eq('is_deleted', false);
+
+        // Score-based matching: prioritize exact matches, then partial matches
+        let bestMatch: { animal: { id: string; ear_tag: string | null; name: string | null }; score: number } | null = null;
+        
+        for (const animal of animals || []) {
+          const earTag = animal.ear_tag?.toLowerCase() || '';
+          const name = animal.name?.toLowerCase() || '';
+          
+          // Skip animals with no identifiable fields
+          if (!earTag && !name) continue;
+          
+          let score = 0;
+          
+          // Exact match scores highest
+          if (earTag === identifier || name === identifier) {
+            score = 100;
+          }
+          // Ear tag is contained in identifier (e.g., "A002 Bessie" contains "A002")
+          else if (earTag && identifier.includes(earTag) && earTag.length >= 2) {
+            score = 80;
+          }
+          // Name is contained in identifier (e.g., "Tita Bessie" contains "Bessie")
+          else if (name && identifier.includes(name) && name.length >= 2) {
+            score = 70;
+          }
+          // Identifier is contained in ear tag (partial ear tag match)
+          else if (earTag && earTag.includes(identifier) && identifier.length >= 2) {
+            score = 60;
+          }
+          // Identifier is contained in name (partial name match)
+          else if (name && name.includes(identifier) && identifier.length >= 2) {
+            score = 50;
+          }
+          
+          if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+            bestMatch = { animal, score };
+          }
+        }
+        
+        if (bestMatch && bestMatch.score >= 50) {
+          finalAnimalId = bestMatch.animal.id;
+          console.log('Found animal match:', {
+            animal: bestMatch.animal,
+            score: bestMatch.score,
+            searchTerm: identifier
+          });
+        } else {
+          console.log('No confident animal match for identifier:', identifier);
+        }
       }
     }
 
