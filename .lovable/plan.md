@@ -1,45 +1,50 @@
 
+# Fix: Cloud Build Error for Native Settings Plugin
 
-# Plan: Fix Wrong Package Name for Native Settings
+## Problem
+The Lovable cloud environment is failing to build because Vite scans all import statements - including dynamic imports - during the build analysis phase. Even though `capacitor-native-settings` is installed locally on your machine, it's not available in the cloud environment.
 
-## Problem Identified
+## Solution
+Add a TypeScript declaration file to tell the build system this module exists (even if it's only available at runtime on native platforms). This is a standard pattern for native-only Capacitor plugins.
 
-The package `@capgo/capacitor-native-settings` does **not exist** on npm. The correct package name is:
+## Changes Required
 
-**`capacitor-native-settings`** (without the `@capgo/` prefix)
+### 1. Create Type Declaration File
+**New file: `src/types/capacitor-native-settings.d.ts`**
 
-This is why you're getting the 404 error when trying to install.
-
-## Code Fix Required
-
-### File: `src/lib/openAppSettings.ts`
-
-**Change the import from:**
 ```typescript
-const { NativeSettings, AndroidSettings, IOSSettings } = await import(
-  '@capgo/capacitor-native-settings'
-);
+declare module 'capacitor-native-settings' {
+  export const NativeSettings: {
+    open(options: {
+      optionAndroid: AndroidSettings;
+      optionIOS: IOSSettings;
+    }): Promise<void>;
+  };
+  
+  export enum AndroidSettings {
+    ApplicationDetails = 'application_details',
+    // ... other settings
+  }
+  
+  export enum IOSSettings {
+    App = 'app',
+    // ... other settings
+  }
+}
 ```
 
-**To:**
-```typescript
-const { NativeSettings, AndroidSettings, IOSSettings } = await import(
-  'capacitor-native-settings'
-);
-```
+This declaration file tells TypeScript "trust me, this module exists" without requiring the actual package to be installed in the cloud build.
 
-## Manual Steps After Code Fix
+## Why This Works
+- The native check `Capacitor.isNativePlatform()` returns `false` in web/cloud environments
+- The dynamic import inside the `try` block only executes on native platforms
+- The type declaration satisfies Vite's build-time import analysis
+- Your local Android build already works because the package is installed there
 
-Once I update the code, run these commands in your `doc-aga` folder:
-
-```bash
-npm install capacitor-native-settings --legacy-peer-deps
-npx cap sync android
-```
-
-Then rebuild the APK in Android Studio.
+## After Implementation
+1. **Git commit and push** these changes to GitHub
+2. The Lovable cloud build should succeed
+3. Your local Android APK continues to work as before
 
 ## Technical Note
-
-The package `capacitor-native-settings` is actively maintained (version 8.0.0 published 9 days ago) and supports Capacitor 7.x which matches your project. The API usage in our code is correct - only the import path needs fixing.
-
+This is a common pattern for Capacitor plugins that are native-only. The type declaration acts as a "stub" for web builds while the real implementation runs on Android/iOS.
