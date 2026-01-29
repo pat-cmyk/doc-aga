@@ -68,7 +68,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       // Externalize native-only Capacitor plugins that aren't available in web builds
-      external: ['capacitor-native-settings'],
+      external: [
+        'capacitor-native-settings',
+        '@capacitor/camera',
+        '@capacitor/local-notifications',
+        '@capacitor/haptics',
+      ],
       output: {
         manualChunks: {
           // Vendor chunk for React and core dependencies

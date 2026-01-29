@@ -112,9 +112,10 @@ const SyncHandler = () => {
       console.log('[SyncHandler] Permission initialization results:', results);
     });
 
-    // Setup notification click handler - dynamic import
+    // Setup notification click handler - dynamic import with variable indirection
     if (Capacitor.isNativePlatform()) {
-      import(/* @vite-ignore */ '@capacitor/local-notifications').then(({ LocalNotifications }) => {
+      const CAP_LOCAL_NOTIF = '@capacitor/local-notifications';
+      import(/* @vite-ignore */ CAP_LOCAL_NOTIF).then(({ LocalNotifications }) => {
         LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
           const data = notification.notification.extra;
           
