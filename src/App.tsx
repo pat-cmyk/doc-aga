@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, useRef } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -86,10 +86,14 @@ const queryClient = new QueryClient({
 
 // Initialize CacheManager singleton with queryClient
 initCacheManager(queryClient);
+// Sync cooldown to prevent rapid-fire syncs on network flicker
+const SYNC_COOLDOWN = 30000; // 30 seconds minimum between syncs
+
 // Component to handle sync, notifications, and service worker bridge
 const SyncHandler = () => {
   const isOnline = useOnlineStatus();
   const navigate = useNavigate();
+  const lastSyncTimeRef = useRef<number>(0);
 
   // Initialize offline audio sync
   useOfflineAudioSync();
@@ -126,9 +130,18 @@ const SyncHandler = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Trigger sync when coming back online
+    // Trigger sync when coming back online (with cooldown to prevent rapid-fire syncs)
     if (isOnline) {
+      const now = Date.now();
+      const timeSinceLastSync = now - lastSyncTimeRef.current;
+      
+      if (timeSinceLastSync < SYNC_COOLDOWN) {
+        console.log('[SyncHandler] Sync cooldown active, skipping...');
+        return;
+      }
+      
       console.log('[SyncHandler] Online detected, requesting background sync...');
+      lastSyncTimeRef.current = now;
       
       // Try background sync first (works even if app closes)
       requestBackgroundSync().then((registered) => {
@@ -142,15 +155,16 @@ const SyncHandler = () => {
   }, [isOnline]);
 
   useEffect(() => {
-    // Periodic background sync every 5 minutes while online (fallback for browsers without Periodic Sync)
+    // Periodic background sync every 15 minutes while online (fallback for browsers without Periodic Sync)
     if (!isOnline) return;
 
-    console.log('[SyncHandler] Setting up periodic sync fallback (every 5 minutes)');
+    console.log('[SyncHandler] Setting up periodic sync fallback (every 15 minutes)');
     
     const interval = setInterval(() => {
       console.log('[SyncHandler] Running periodic sync...');
+      lastSyncTimeRef.current = Date.now();
       syncQueue();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 15 * 60 * 1000); // 15 minutes
 
     return () => {
       console.log('[SyncHandler] Clearing periodic sync interval');
