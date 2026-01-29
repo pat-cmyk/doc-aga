@@ -19,10 +19,11 @@ export async function openAppSettings(): Promise<boolean> {
   }
 
   try {
-    // Dynamic import to avoid bundling issues on web
-    const { NativeSettings, AndroidSettings, IOSSettings } = await import(
-      'capacitor-native-settings'
-    );
+    // Use a variable to prevent static analysis by bundlers
+    // The @vite-ignore comment tells Vite to skip analyzing this import
+    const moduleName = 'capacitor-native-settings';
+    const module = await import(/* @vite-ignore */ moduleName);
+    const { NativeSettings, AndroidSettings, IOSSettings } = module;
 
     const platform = Capacitor.getPlatform();
 
