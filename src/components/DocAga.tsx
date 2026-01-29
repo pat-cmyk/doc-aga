@@ -546,7 +546,7 @@ const DocAga = () => {
         </div>
       </ScrollArea>
 
-      <div className="border-t p-2 sm:p-3 space-y-2">
+      <div className="border-t p-2 sm:p-3 pb-safe space-y-2">
         {/* TTS Audio Controls */}
         {(ttsQueue.isPlaying || ttsQueue.isPaused || ttsQueue.queueLength > 0) && (
           <TTSAudioControls
