@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, subMonths, differenceInDays } from "date-fns";
+import { differenceInDays, subDays, format } from "date-fns";
 
 export interface FinancialHealthData {
   // Core metrics
@@ -9,12 +9,12 @@ export interface FinancialHealthData {
   netProfit: number;
   
   // Trends
-  earnedChange: number; // percentage change from last month
+  earnedChange: number; // percentage change from previous period
   spentChange: number;
   
   // Daily metrics
   dailyProfit: number;
-  daysInMonth: number;
+  daysInPeriod: number;
   daysPassed: number;
   
   // Status
@@ -29,69 +29,87 @@ export interface FinancialHealthData {
   topExpenseCategory: string | null;
 }
 
-export function useFinancialHealth(farmId: string) {
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
+export function useFinancialHealth(farmId: string, dateRange?: DateRange) {
   return useQuery({
-    queryKey: ["financial-health", farmId],
+    queryKey: ["financial-health", farmId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     queryFn: async (): Promise<FinancialHealthData> => {
       const now = new Date();
-      const thisMonthStart = startOfMonth(now);
-      const thisMonthEnd = endOfMonth(now);
-      const lastMonthStart = startOfMonth(subMonths(now, 1));
-      const lastMonthEnd = endOfMonth(subMonths(now, 1));
       
-      const daysPassed = differenceInDays(now, thisMonthStart) + 1;
-      const daysInMonth = differenceInDays(thisMonthEnd, thisMonthStart) + 1;
+      // Use provided date range or default to current month logic
+      const periodStart = dateRange?.start || now;
+      const periodEnd = dateRange?.end || now;
+      
+      // Calculate the period length in days
+      const periodLengthDays = differenceInDays(periodEnd, periodStart) + 1;
+      
+      // Calculate comparison period (same length, immediately before)
+      const comparisonEnd = subDays(periodStart, 1);
+      const comparisonStart = subDays(comparisonEnd, periodLengthDays - 1);
+      
+      // Days passed calculation - if period end is in the future, use today
+      const effectiveEnd = periodEnd > now ? now : periodEnd;
+      const daysPassed = Math.max(1, differenceInDays(effectiveEnd, periodStart) + 1);
 
-      // Fetch this month's revenues
-      const { data: thisMonthRevenues } = await supabase
+      const periodStartStr = format(periodStart, "yyyy-MM-dd");
+      const periodEndStr = format(periodEnd, "yyyy-MM-dd");
+      const comparisonStartStr = format(comparisonStart, "yyyy-MM-dd");
+      const comparisonEndStr = format(comparisonEnd, "yyyy-MM-dd");
+
+      // Fetch current period revenues
+      const { data: currentRevenues } = await supabase
         .from("farm_revenues")
         .select("amount, source")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("transaction_date", thisMonthStart.toISOString().split("T")[0])
-        .lte("transaction_date", thisMonthEnd.toISOString().split("T")[0]);
+        .gte("transaction_date", periodStartStr)
+        .lte("transaction_date", periodEndStr);
 
-      // Fetch last month's revenues
-      const { data: lastMonthRevenues } = await supabase
+      // Fetch comparison period revenues
+      const { data: comparisonRevenues } = await supabase
         .from("farm_revenues")
         .select("amount")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("transaction_date", lastMonthStart.toISOString().split("T")[0])
-        .lte("transaction_date", lastMonthEnd.toISOString().split("T")[0]);
+        .gte("transaction_date", comparisonStartStr)
+        .lte("transaction_date", comparisonEndStr);
 
-      // Fetch this month's expenses (operational only)
-      const { data: thisMonthExpenses } = await supabase
+      // Fetch current period expenses (operational only)
+      const { data: currentExpenses } = await supabase
         .from("farm_expenses")
         .select("amount, category, allocation_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .neq("allocation_type", "Personal")
-        .gte("expense_date", thisMonthStart.toISOString().split("T")[0])
-        .lte("expense_date", thisMonthEnd.toISOString().split("T")[0]);
+        .gte("expense_date", periodStartStr)
+        .lte("expense_date", periodEndStr);
 
-      // Fetch last month's expenses
-      const { data: lastMonthExpenses } = await supabase
+      // Fetch comparison period expenses
+      const { data: comparisonExpenses } = await supabase
         .from("farm_expenses")
         .select("amount, allocation_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .neq("allocation_type", "Personal")
-        .gte("expense_date", lastMonthStart.toISOString().split("T")[0])
-        .lte("expense_date", lastMonthEnd.toISOString().split("T")[0]);
+        .gte("expense_date", comparisonStartStr)
+        .lte("expense_date", comparisonEndStr);
 
       // Calculate totals
-      const earnedThisMonth = thisMonthRevenues?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
-      const earnedLastMonth = lastMonthRevenues?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
-      const spentThisMonth = thisMonthExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const spentLastMonth = lastMonthExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const earnedThisMonth = currentRevenues?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
+      const earnedLastPeriod = comparisonRevenues?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
+      const spentThisMonth = currentExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const spentLastPeriod = comparisonExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
       // Calculate trends
-      const earnedChange = earnedLastMonth > 0 
-        ? ((earnedThisMonth - earnedLastMonth) / earnedLastMonth) * 100 
+      const earnedChange = earnedLastPeriod > 0 
+        ? ((earnedThisMonth - earnedLastPeriod) / earnedLastPeriod) * 100 
         : 0;
-      const spentChange = spentLastMonth > 0 
-        ? ((spentThisMonth - spentLastMonth) / spentLastMonth) * 100 
+      const spentChange = spentLastPeriod > 0 
+        ? ((spentThisMonth - spentLastPeriod) / spentLastPeriod) * 100 
         : 0;
 
       // Net and daily
@@ -118,7 +136,7 @@ export function useFinancialHealth(farmId: string) {
 
       // Find top revenue source
       const revenueBySource: Record<string, number> = {};
-      thisMonthRevenues?.forEach(r => {
+      currentRevenues?.forEach(r => {
         revenueBySource[r.source] = (revenueBySource[r.source] || 0) + Number(r.amount);
       });
       const topRevenueSource = Object.entries(revenueBySource)
@@ -126,7 +144,7 @@ export function useFinancialHealth(farmId: string) {
 
       // Find top expense category
       const expenseByCategory: Record<string, number> = {};
-      thisMonthExpenses?.forEach(e => {
+      currentExpenses?.forEach(e => {
         expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + Number(e.amount);
       });
       const topExpenseCategory = Object.entries(expenseByCategory)
@@ -139,7 +157,7 @@ export function useFinancialHealth(farmId: string) {
         earnedChange,
         spentChange,
         dailyProfit,
-        daysInMonth,
+        daysInPeriod: periodLengthDays,
         daysPassed,
         isProfitable,
         status,

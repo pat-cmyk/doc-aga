@@ -10,9 +10,14 @@ export interface Insight {
   priority: number;
 }
 
-export function useContextualInsights(farmId: string) {
-  const { data: healthData, isLoading: healthLoading } = useFinancialHealth(farmId);
-  const { data: comparisonData, isLoading: comparisonLoading } = useRevenueExpenseComparison(farmId);
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
+export function useContextualInsights(farmId: string, dateRange?: DateRange) {
+  const { data: healthData, isLoading: healthLoading } = useFinancialHealth(farmId, dateRange);
+  const { data: comparisonData, isLoading: comparisonLoading } = useRevenueExpenseComparison(farmId, dateRange);
 
   const insights = useMemo(() => {
     if (!healthData || !comparisonData) return [];
@@ -51,7 +56,7 @@ export function useContextualInsights(farmId: string) {
       allInsights.push({
         id: 'expense_spike',
         type: 'warning',
-        title: `Spending up ${healthData.spentChange.toFixed(0)}% from last month`,
+        title: `Spending up ${healthData.spentChange.toFixed(0)}% from previous period`,
         description: 'Check which categories increased and if it was planned.',
         priority: 75,
       });
@@ -68,8 +73,8 @@ export function useContextualInsights(farmId: string) {
       });
     }
 
-    // Warning: Late in month but not at breakeven
-    if (dayOfMonth > 20 && healthData.breakevenProgress < 100) {
+    // Warning: Late in month but not at breakeven (only for current month view)
+    if (!dateRange && dayOfMonth > 20 && healthData.breakevenProgress < 100) {
       allInsights.push({
         id: 'breakeven_behind',
         type: 'warning',
@@ -84,14 +89,14 @@ export function useContextualInsights(farmId: string) {
       allInsights.push({
         id: 'excellent_month',
         type: 'success',
-        title: 'Excellent month! Profits are strong',
+        title: 'Excellent period! Profits are strong',
         description: 'Keep up the great work managing your farm finances.',
         priority: 60,
       });
     }
 
-    // Success: Hit breakeven early
-    if (dayOfMonth <= 20 && healthData.breakevenProgress >= 100) {
+    // Success: Hit breakeven early (only for current month view)
+    if (!dateRange && dayOfMonth <= 20 && healthData.breakevenProgress >= 100) {
       allInsights.push({
         id: 'breakeven_early',
         type: 'success',
@@ -107,7 +112,7 @@ export function useContextualInsights(farmId: string) {
         id: 'expense_down',
         type: 'success',
         title: `Spending down ${Math.abs(healthData.spentChange).toFixed(0)}%`,
-        description: 'Good cost control this month!',
+        description: 'Good cost control this period!',
         priority: 55,
       });
     }
@@ -129,7 +134,7 @@ export function useContextualInsights(farmId: string) {
       allInsights.push({
         id: 'no_revenue',
         type: 'info',
-        title: 'No income recorded this month yet',
+        title: 'No income recorded for this period yet',
         description: 'Add your milk sales and other revenue to track progress.',
         priority: 45,
       });
@@ -139,7 +144,7 @@ export function useContextualInsights(farmId: string) {
     return allInsights
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 3);
-  }, [healthData, comparisonData]);
+  }, [healthData, comparisonData, dateRange]);
 
   return {
     insights,

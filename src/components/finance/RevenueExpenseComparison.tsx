@@ -4,9 +4,16 @@ import { TrendingUp, TrendingDown, Minus, ArrowDownLeft, ArrowUpRight } from "lu
 import { useRevenueExpenseComparison } from "@/hooks/useRevenueExpenseComparison";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { format } from "date-fns";
+
+interface DateRange {
+  start: Date;
+  end: Date;
+}
 
 interface RevenueExpenseComparisonProps {
   farmId: string;
+  dateRange?: DateRange;
 }
 
 function formatCompact(value: number): string {
@@ -77,8 +84,15 @@ function SourceBar({
   );
 }
 
-export function RevenueExpenseComparison({ farmId }: RevenueExpenseComparisonProps) {
-  const { data, isLoading } = useRevenueExpenseComparison(farmId);
+export function RevenueExpenseComparison({ farmId, dateRange }: RevenueExpenseComparisonProps) {
+  const { data, isLoading } = useRevenueExpenseComparison(farmId, dateRange);
+
+  const getPeriodLabel = () => {
+    if (!dateRange) return "This Month";
+    const startStr = format(dateRange.start, "MMM d");
+    const endStr = format(dateRange.end, "MMM d");
+    return `${startStr} - ${endStr}`;
+  };
 
   if (isLoading) {
     return (
@@ -103,7 +117,7 @@ export function RevenueExpenseComparison({ farmId }: RevenueExpenseComparisonPro
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold">Money In vs Money Out</CardTitle>
-          <span className="text-xs text-muted-foreground">This Month</span>
+          <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
         </div>
       </CardHeader>
       <CardContent>
@@ -136,7 +150,7 @@ export function RevenueExpenseComparison({ farmId }: RevenueExpenseComparisonPro
                   />
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground italic">No revenue this month</p>
+                <p className="text-xs text-muted-foreground italic">No revenue this period</p>
               )}
             </div>
           </div>
@@ -169,7 +183,7 @@ export function RevenueExpenseComparison({ farmId }: RevenueExpenseComparisonPro
                   />
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground italic">No expenses this month</p>
+                <p className="text-xs text-muted-foreground italic">No expenses this period</p>
               )}
             </div>
           </div>

@@ -1,17 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useProfitability } from "@/hooks/useProfitability";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
-import { TrendingUp, TrendingDown, Scale, Loader2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
-interface ProfitabilityThermometerProps {
-  farmId: string;
+interface DateRange {
+  start: Date;
+  end: Date;
 }
 
-export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerProps) {
-  const { data, isLoading } = useProfitability(farmId);
+interface ProfitabilityThermometerProps {
+  farmId: string;
+  dateRange?: DateRange;
+}
+
+export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThermometerProps) {
+  const { data, isLoading } = useProfitability(farmId, dateRange);
   const { isMobile, fontSize } = useResponsiveChart({ size: 'small' });
 
   const formatCurrency = (value: number) => {
@@ -21,6 +27,15 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const getPeriodLabel = () => {
+    if (!dateRange) {
+      return format(new Date(), "MMMM yyyy");
+    }
+    const startStr = format(dateRange.start, "MMM d");
+    const endStr = format(dateRange.end, "MMM d, yyyy");
+    return `${startStr} - ${endStr}`;
   };
 
   if (isLoading) {
@@ -54,7 +69,6 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
   const isProfitable = data?.isProfitable ?? true;
   const netPosition = data?.netPosition ?? 0;
   const hasData = (data?.totalInput || 0) > 0 || (data?.totalOutput || 0) > 0;
-  const currentMonth = format(new Date(), "MMMM yyyy");
 
   return (
     <Card className="overflow-hidden">
@@ -84,7 +98,7 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
             )}
           </div>
         </div>
-        <CardDescription>{currentMonth} P&L Overview</CardDescription>
+        <CardDescription>{getPeriodLabel()} P&L Overview</CardDescription>
       </CardHeader>
       <CardContent className="pt-2">
         {/* Net Position Display */}
@@ -144,7 +158,7 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
         ) : (
           <div className="flex flex-col items-center justify-center h-[160px] text-muted-foreground">
             <Scale className="h-10 w-10 mb-2 opacity-50" />
-            <p className="text-center text-sm">No transactions this month yet</p>
+            <p className="text-center text-sm">No transactions this period yet</p>
           </div>
         )}
 
@@ -204,7 +218,7 @@ export function ProfitabilityThermometer({ farmId }: ProfitabilityThermometerPro
           <p className="text-sm">
             {isProfitable ? "✅" : "⚠️"}{" "}
             <span className="font-medium">
-              You spent {formatCurrency(data?.operationalCosts || 0)} this month.
+              You spent {formatCurrency(data?.operationalCosts || 0)} this period.
             </span>{" "}
             {(data?.unrealizedGain || 0) > 0 && (
               <>

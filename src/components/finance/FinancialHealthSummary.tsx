@@ -4,13 +4,20 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFinancialHealth } from "@/hooks/useFinancialHealth";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+
+interface DateRange {
+  start: Date;
+  end: Date;
+}
 
 interface FinancialHealthSummaryProps {
   farmId: string;
+  dateRange?: DateRange;
 }
 
-export function FinancialHealthSummary({ farmId }: FinancialHealthSummaryProps) {
-  const { data, isLoading } = useFinancialHealth(farmId);
+export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSummaryProps) {
+  const { data, isLoading } = useFinancialHealth(farmId, dateRange);
 
   const formatCompact = (value: number) => {
     const absValue = Math.abs(value);
@@ -24,6 +31,13 @@ export function FinancialHealthSummary({ farmId }: FinancialHealthSummaryProps) 
 
   const formatFull = (value: number) => {
     return `₱${value.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getPeriodLabel = () => {
+    if (!dateRange) return "This Month";
+    const startStr = format(dateRange.start, "MMM d");
+    const endStr = format(dateRange.end, "MMM d, yyyy");
+    return `${startStr} - ${endStr}`;
   };
 
   if (isLoading) {
@@ -119,7 +133,7 @@ export function FinancialHealthSummary({ farmId }: FinancialHealthSummaryProps) 
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-lg">Your Farm This Month</h3>
+            <h3 className="font-semibold text-lg">Your Farm: {getPeriodLabel()}</h3>
           </div>
           <div className={cn(
             "flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium",
@@ -204,7 +218,7 @@ export function FinancialHealthSummary({ farmId }: FinancialHealthSummaryProps) 
         )}>
           <span className={data.isProfitable ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
             {data.isProfitable ? "📈" : "📉"} You're {data.isProfitable ? "making" : "losing"}{" "}
-            <strong>{formatCompact(Math.abs(data.dailyProfit))}/day</strong> on average this month
+            <strong>{formatCompact(Math.abs(data.dailyProfit))}/day</strong> on average
             {data.topRevenueSource && data.isProfitable && (
               <span className="hidden sm:inline"> • Top source: {data.topRevenueSource}</span>
             )}

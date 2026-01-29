@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { subDays, differenceInDays, format } from "date-fns";
 
 export interface ProfitabilityData {
   operationalCosts: number;
@@ -15,9 +15,14 @@ export interface ProfitabilityData {
   otherRevenue: number;
 }
 
-export function useProfitability(farmId: string | undefined) {
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
+export function useProfitability(farmId: string | undefined, dateRange?: DateRange) {
   return useQuery({
-    queryKey: ["profitability", farmId],
+    queryKey: ["profitability", farmId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     queryFn: async (): Promise<ProfitabilityData> => {
       if (!farmId) {
         return {
@@ -34,19 +39,32 @@ export function useProfitability(farmId: string | undefined) {
         };
       }
 
-      const currentMonthStart = startOfMonth(new Date());
-      const currentMonthEnd = endOfMonth(new Date());
-      const lastMonthStart = startOfMonth(subMonths(new Date(), 1));
-      const lastMonthEnd = endOfMonth(subMonths(new Date(), 1));
+      const now = new Date();
+      
+      // Use provided date range or default to current month
+      const periodStart = dateRange?.start || now;
+      const periodEnd = dateRange?.end || now;
+      
+      // Calculate the period length for comparison
+      const periodLengthDays = differenceInDays(periodEnd, periodStart) + 1;
+      
+      // Calculate comparison period (same length, immediately before)
+      const comparisonEnd = subDays(periodStart, 1);
+      const comparisonStart = subDays(comparisonEnd, periodLengthDays - 1);
 
-      // 1. Get operational costs for current month
+      const periodStartStr = format(periodStart, "yyyy-MM-dd");
+      const periodEndStr = format(periodEnd, "yyyy-MM-dd");
+      const comparisonStartStr = format(comparisonStart, "yyyy-MM-dd");
+      const comparisonEndStr = format(comparisonEnd, "yyyy-MM-dd");
+
+      // 1. Get operational costs for current period
       const { data: expenses, error: expensesError } = await supabase
         .from("farm_expenses")
         .select("amount, allocation_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("expense_date", format(currentMonthStart, "yyyy-MM-dd"))
-        .lte("expense_date", format(currentMonthEnd, "yyyy-MM-dd"));
+        .gte("expense_date", periodStartStr)
+        .lte("expense_date", periodEndStr);
 
       if (expensesError) {
         console.error("Error fetching expenses:", expensesError);
@@ -57,14 +75,14 @@ export function useProfitability(farmId: string | undefined) {
         .filter((e) => e.allocation_type === "Operational" || !e.allocation_type)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-      // 2. Get revenues for current month
+      // 2. Get revenues for current period
       const { data: revenues, error: revenuesError } = await supabase
         .from("farm_revenues")
         .select("amount, source")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("transaction_date", format(currentMonthStart, "yyyy-MM-dd"))
-        .lte("transaction_date", format(currentMonthEnd, "yyyy-MM-dd"));
+        .gte("transaction_date", periodStartStr)
+        .lte("transaction_date", periodEndStr);
 
       if (revenuesError) {
         console.error("Error fetching revenues:", revenuesError);
@@ -89,16 +107,16 @@ export function useProfitability(farmId: string | undefined) {
       const cashRevenue = milkRevenue + animalSalesRevenue + otherRevenue;
 
       // 3. Calculate unrealized gain from herd value growth
-      // Get current month valuations (latest per animal)
+      // Get current period valuations (latest per animal)
       const { data: currentValuations } = await supabase
         .from("biological_asset_valuations")
         .select("animal_id, estimated_value, valuation_date")
         .eq("farm_id", farmId)
-        .gte("valuation_date", format(currentMonthStart, "yyyy-MM-dd"))
-        .lte("valuation_date", format(currentMonthEnd, "yyyy-MM-dd"))
+        .gte("valuation_date", periodStartStr)
+        .lte("valuation_date", periodEndStr)
         .order("valuation_date", { ascending: false });
 
-      // Get latest valuation per animal for current month
+      // Get latest valuation per animal for current period
       const currentAnimalValues = new Map<string, number>();
       (currentValuations || []).forEach((v) => {
         if (!currentAnimalValues.has(v.animal_id)) {
@@ -106,26 +124,26 @@ export function useProfitability(farmId: string | undefined) {
         }
       });
 
-      // Get last month's valuations (latest per animal)
-      const { data: lastMonthValuations } = await supabase
+      // Get comparison period valuations (latest per animal)
+      const { data: comparisonValuations } = await supabase
         .from("biological_asset_valuations")
         .select("animal_id, estimated_value, valuation_date")
         .eq("farm_id", farmId)
-        .gte("valuation_date", format(lastMonthStart, "yyyy-MM-dd"))
-        .lte("valuation_date", format(lastMonthEnd, "yyyy-MM-dd"))
+        .gte("valuation_date", comparisonStartStr)
+        .lte("valuation_date", comparisonEndStr)
         .order("valuation_date", { ascending: false });
 
-      const lastMonthAnimalValues = new Map<string, number>();
-      (lastMonthValuations || []).forEach((v) => {
-        if (!lastMonthAnimalValues.has(v.animal_id)) {
-          lastMonthAnimalValues.set(v.animal_id, v.estimated_value || 0);
+      const comparisonAnimalValues = new Map<string, number>();
+      (comparisonValuations || []).forEach((v) => {
+        if (!comparisonAnimalValues.has(v.animal_id)) {
+          comparisonAnimalValues.set(v.animal_id, v.estimated_value || 0);
         }
       });
 
-      // Calculate unrealized gain (increase in value for animals present in both months)
+      // Calculate unrealized gain (increase in value for animals present in both periods)
       let unrealizedGain = 0;
       currentAnimalValues.forEach((currentValue, animalId) => {
-        const previousValue = lastMonthAnimalValues.get(animalId) || 0;
+        const previousValue = comparisonAnimalValues.get(animalId) || 0;
         unrealizedGain += currentValue - previousValue;
       });
 

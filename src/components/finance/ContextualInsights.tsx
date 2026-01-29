@@ -13,8 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useContextualInsights, Insight } from "@/hooks/useContextualInsights";
 import { cn } from "@/lib/utils";
 
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
 interface ContextualInsightsProps {
   farmId: string;
+  dateRange?: DateRange;
 }
 
 const insightConfig: Record<Insight['type'], {
@@ -70,8 +76,8 @@ function InsightItem({ insight }: { insight: Insight }) {
   );
 }
 
-export function ContextualInsights({ farmId }: ContextualInsightsProps) {
-  const { insights, isLoading } = useContextualInsights(farmId);
+export function ContextualInsights({ farmId, dateRange }: ContextualInsightsProps) {
+  const { insights, isLoading } = useContextualInsights(farmId, dateRange);
   const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
