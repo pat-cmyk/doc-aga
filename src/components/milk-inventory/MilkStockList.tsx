@@ -93,7 +93,7 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
 
   // Group animals by species
   const animalsBySpecies = useMemo(() => {
-    if (!data) return new Map<string, typeof data.summary.byAnimal>();
+    if (!data?.summary?.byAnimal) return new Map<string, typeof data.summary.byAnimal>();
     
     const grouped = new Map<string, typeof data.summary.byAnimal>();
     for (const animal of data.summary.byAnimal) {
@@ -165,7 +165,7 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
       </Card>
 
       {/* Species Summary Cards */}
-      {summary.bySpecies.length > 0 && pricesBySpecies && (
+      {summary.bySpecies && summary.bySpecies.length > 0 && pricesBySpecies && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground px-1">By Type</h4>
           <MilkSpeciesSummary
@@ -178,10 +178,11 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
       )}
 
       {/* Species > Animal Breakdown */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground px-1">By Species & Animal</h4>
+      {summary.bySpecies && summary.bySpecies.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-muted-foreground px-1">By Species & Animal</h4>
         
-        {summary.bySpecies.map((species) => {
+          {summary.bySpecies.map((species) => {
           const isSpeciesExpanded = expandedSpecies.has(species.livestock_type);
           const speciesIcon = SPECIES_ICONS[species.livestock_type] || "🐄";
           const animalsInSpecies = animalsBySpecies.get(species.livestock_type) || [];
@@ -311,8 +312,8 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
             </Collapsible>
           );
         })}
-      </div>
-
+        </div>
+      )}
       {/* Sale Dialog */}
       <RecordMilkSaleDialog
         farmId={farmId}
