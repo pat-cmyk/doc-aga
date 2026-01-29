@@ -1,157 +1,164 @@
 
+# Fix: Filter Animals by Farm Entry Date in Bulk Recording Dialogs
 
-# Improve Dialog Scrolling for Edit/View Voice Entries
+## Problem Summary
 
-## Current State Analysis
+When recording bulk activities (feed, milk, health, BCS) for a past date, animals are incorrectly included if their `farm_entry_date` is **after** the selected recording date. The system only checks `birth_date` (which can be much earlier), allowing records to be created for animals that weren't physically on the farm yet.
 
-I found **two dialog components** used for voice entry management:
+**Example from your data:**
+| Animal | birth_date | farm_entry_date | Feeding Date | Problem |
+|--------|------------|-----------------|--------------|---------|
+| Olens Main | 2025-01-28 | 2026-01-28 | 2026-01-08 | Fed 20 days BEFORE entering farm |
 
-### 1. EditSubmissionDialog (`src/components/approval/EditSubmissionDialog.tsx`)
-- Used by **farmhands** to edit their pending submissions before manager review
-- Used by **farmhands** to resubmit rejected activities
-- **Issue**: Has a fixed width (`sm:max-w-[425px]`) but **NO scrolling mechanism**
-- The dialog content grows indefinitely without scroll constraints
+## Root Cause
 
-### 2. ActivityDetailsDialog (`src/components/approval/ActivityDetailsDialog.tsx`)  
-- Used by **farm managers/owners** to view and approve/reject submissions
-- **Partially addressed**: Has `max-h-[90vh]` on DialogContent and `ScrollArea` with `max-h-[50vh]`
-- **Issue**: The 50vh scroll area may be too restrictive on mobile devices, cutting off content
-
-## Identified Problems
-
-| Dialog | Problem | Impact |
-|--------|---------|--------|
-| EditSubmissionDialog | No max-height constraint | On long forms (injection with many fields), content can overflow screen |
-| EditSubmissionDialog | No ScrollArea wrapper | Users cannot scroll to see all form fields |
-| ActivityDetailsDialog | Fixed 50vh for content | On mobile, this may only show ~300-350px of scrollable area |
-| Both | No mobile-specific handling | No responsive adjustments for smaller screens |
+1. `useFarmAnimals` hook fetches all active animals without date filtering
+2. Bulk dialogs use `getSelectedAnimals()` which doesn't consider the selected record date
+3. Single-animal dialogs correctly use `validateRecordDate()`, but bulk dialogs don't
 
 ## Solution
 
-### EditSubmissionDialog Fixes
+Create a date-aware animal filtering function and apply it in all bulk recording dialogs. When a user selects a backdated record date, only animals that were on the farm on that date should be available for selection.
 
-1. **Add max-height constraint** to DialogContent:
-   ```tsx
-   <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
-   ```
+### Technical Approach
 
-2. **Wrap form content in ScrollArea** with responsive height:
-   ```tsx
-   <ScrollArea className="max-h-[60vh] flex-1 pr-4">
-     <div className="py-4 space-y-4">
-       {/* Animal selection */}
-       {/* Form fields */}
-     </div>
-   </ScrollArea>
-   ```
+**Option A (Selected):** Filter at the component level after selection
+- Add a filtering step in each bulk dialog that removes animals not yet on farm
+- More visible logic, easier to debug
+- Maintains existing hook structure
 
-3. **Keep DialogHeader and DialogFooter outside ScrollArea** so they remain fixed and visible
+**Option B:** Create a date-aware variant of the hook
+- Would require refactoring multiple hooks
+- More invasive change
 
-### ActivityDetailsDialog Fixes
-
-1. **Increase scroll area height** for better mobile experience:
-   ```tsx
-   <ScrollArea className="max-h-[60vh] pr-4">
-   ```
-
-2. **Add flex layout** to ensure footer stays at bottom:
-   ```tsx
-   <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-   ```
-
-## Technical Details
-
-### File Changes
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/approval/EditSubmissionDialog.tsx` | Add ScrollArea, max-height, flex layout |
-| `src/components/approval/ActivityDetailsDialog.tsx` | Adjust scroll area height, add flex layout |
+| `src/lib/recordValidation.ts` | Add `filterAnimalsByFarmDate()` utility function |
+| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Filter animals based on `recordDate` |
+| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | Filter animals based on `recordDate` |
+| `src/components/health-recording/RecordBulkHealthDialog.tsx` | Filter animals based on `recordDate` |
+| `src/components/body-condition/RecordBulkBCSDialog.tsx` | Filter animals based on `recordDate` |
+| `src/hooks/useFarmAnimals.ts` | Add `farm_entry_date` and `birth_date` to the query |
 
-### EditSubmissionDialog Changes
+## Implementation Details
 
-**Lines 269-313** - Current structure:
-```tsx
-<DialogContent className="sm:max-w-[425px]">
-  <DialogHeader>...</DialogHeader>
-  {/* Rejection alert */}
-  <div className="py-4 space-y-4">
-    {/* Animal selection */}
-    {renderFields()}
-  </div>
-  <DialogFooter>...</DialogFooter>
-</DialogContent>
+### 1. Add Filtering Utility (`src/lib/recordValidation.ts`)
+
+```typescript
+export interface AnimalWithDates {
+  id: string;
+  farm_entry_date?: string | null;
+  birth_date?: string | null;
+  [key: string]: any; // Allow other animal properties
+}
+
+/**
+ * Filters animals to only include those that were on the farm
+ * on the specified date.
+ * 
+ * Logic:
+ * - If farm_entry_date exists: animal must have entered on or before recordDate
+ * - If no farm_entry_date (farm-born): use birth_date, must be on or before recordDate
+ * - If neither date exists: include animal (defensive - shouldn't happen)
+ */
+export function filterAnimalsByFarmDate<T extends AnimalWithDates>(
+  animals: T[],
+  recordDate: Date
+): T[] {
+  const recordDateOnly = new Date(recordDate);
+  recordDateOnly.setHours(0, 0, 0, 0);
+
+  return animals.filter(animal => {
+    // Determine the earliest date this animal was on the farm
+    const effectiveDate = animal.farm_entry_date || animal.birth_date;
+    
+    if (!effectiveDate) {
+      // No date info - include by default (edge case)
+      return true;
+    }
+
+    const animalDate = new Date(effectiveDate);
+    animalDate.setHours(0, 0, 0, 0);
+
+    // Animal must have been on farm on or before the record date
+    return animalDate <= recordDateOnly;
+  });
+}
 ```
 
-**Proposed structure**:
-```tsx
-<DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
-  <DialogHeader>...</DialogHeader>
-  {/* Rejection alert - stays outside scroll */}
-  <ScrollArea className="max-h-[60vh] flex-1">
-    <div className="py-4 space-y-4 pr-4">
-      {/* Animal selection */}
-      {renderFields()}
-    </div>
-  </ScrollArea>
-  <DialogFooter>...</DialogFooter>
-</DialogContent>
+### 2. Update `useFarmAnimals` Hook
+
+Add `farm_entry_date` and `birth_date` to the select query so filtering can work:
+
+```typescript
+const { data, error } = await supabase
+  .from('animals')
+  .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, farm_entry_date, birth_date')
+  .eq('farm_id', farmId)
+  .is('exit_date', null)
+  .eq('is_deleted', false)
+  .order('name');
 ```
 
-### ActivityDetailsDialog Changes
+### 3. Update Bulk Feed Dialog
 
-**Line 515** - Current:
-```tsx
-<DialogContent className="max-w-3xl max-h-[90vh]">
+```typescript
+// After selecting animals, filter by record date
+const dateFilteredAnimals = useMemo(() => {
+  return filterAnimalsByFarmDate(displayAnimals, recordDate);
+}, [displayAnimals, recordDate]);
+
+// Use filtered list for dropdown options
+const dropdownOptions = useMemo(
+  () => getAnimalDropdownOptions(dateFilteredAnimals),
+  [dateFilteredAnimals]
+);
+
+// Use filtered list for selection
+const selectedAnimals = useMemo(
+  () => getSelectedAnimals(dateFilteredAnimals, selectedOption),
+  [dateFilteredAnimals, selectedOption]
+);
 ```
 
-**Line 535** - Current scroll area:
-```tsx
-<ScrollArea className="max-h-[50vh] pr-4">
+### 4. Apply Same Pattern to Other Bulk Dialogs
+
+- `RecordBulkMilkDialog.tsx`
+- `RecordBulkHealthDialog.tsx`
+- `RecordBulkBCSDialog.tsx`
+
+### 5. Reset Selection When Filtered List Changes
+
+When the record date changes and an animal is filtered out, the selection should reset:
+
+```typescript
+// Reset selection if current selection is no longer valid
+useEffect(() => {
+  if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+    // Individual animal selected - check if still in filtered list
+    const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
+    if (!stillExists) {
+      setSelectedOption("");
+    }
+  }
+}, [dateFilteredAnimals, selectedOption]);
 ```
 
-**Proposed changes**:
-```tsx
-<DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-...
-<ScrollArea className="flex-1 max-h-[60vh] pr-4">
-```
+## User Experience Improvements
 
-## Visual Behavior After Fix
-
-```text
-┌─────────────────────────────────────────┐
-│  DialogHeader (Fixed - always visible)  │
-├─────────────────────────────────────────┤
-│  ┌───────────────────────────────────┐  │
-│  │                                   │  │
-│  │     ScrollArea (60vh max)         │  │
-│  │     - Shows scrollbar when        │  │
-│  │       content exceeds height      │  │
-│  │     - Smooth scroll on touch      │  │
-│  │                                   │  │
-│  └───────────────────────────────────┘  │
-├─────────────────────────────────────────┤
-│  DialogFooter (Fixed - always visible)  │
-│  [Cancel] [Save Changes]                │
-└─────────────────────────────────────────┘
-```
-
-## Import Addition
-
-EditSubmissionDialog needs to import ScrollArea:
-```tsx
-import { ScrollArea } from "@/components/ui/scroll-area";
-```
+1. **Dynamic Animal Count**: When backdating, the "All Animals (X)" count will reflect only animals present on that date
+2. **Clear Feedback**: If an animal disappears from the list when changing date, this indicates they weren't on farm yet
+3. **Consistent Behavior**: Bulk dialogs will match single-animal dialog validation
 
 ## Testing Checklist
 
 After implementation:
-1. Open EditSubmissionDialog with an injection record (has most fields)
-2. Verify scrollbar appears when content exceeds viewport
-3. Verify header and footer remain fixed while scrolling
-4. Test on mobile viewport (390px width)
-5. Open ActivityDetailsDialog with milking record showing multiple animals
-6. Verify all animal cards are accessible via scroll
-7. Confirm approve/reject buttons remain visible
-
+1. Open Bulk Feed Dialog
+2. Select a past date (e.g., 2 weeks ago)
+3. Verify animals with `farm_entry_date` after that date are NOT shown
+4. Verify farm-born animals (no `farm_entry_date`) use `birth_date` instead
+5. Verify "All Animals" count updates when changing dates
+6. Test same flow in Bulk Milk, Bulk Health, and Bulk BCS dialogs
+7. Confirm existing single-animal dialogs still work correctly
