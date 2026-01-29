@@ -23,6 +23,7 @@ import { Loader2, Heart, CalendarIcon, Users, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
+import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { HEALTH_CATEGORIES, QUICK_DIAGNOSES, QUICK_TREATMENTS } from "@/lib/healthCategories";
@@ -70,7 +71,13 @@ export function RecordBulkHealthDialog({
   }, [isOnline, farmId]);
 
   const displayAnimals = isOnline ? animals : cachedAnimals;
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
+  
+  // Filter animals by record date - only show animals that were on farm at that date
+  const dateFilteredAnimals = useMemo(() => {
+    return filterAnimalsByFarmDate(displayAnimals, recordDate);
+  }, [displayAnimals, recordDate]);
+  
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
 
   // Haptic on dialog open
   useEffect(() => {
@@ -91,9 +98,19 @@ export function RecordBulkHealthDialog({
     }
   }, [open]);
 
+  // Reset selection if current selection is no longer valid after date change
+  useEffect(() => {
+    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+      const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
+      if (!stillExists) {
+        setSelectedOption("");
+      }
+    }
+  }, [dateFilteredAnimals, selectedOption]);
+
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(displayAnimals, selectedOption),
-    [displayAnimals, selectedOption]
+    () => getSelectedAnimals(dateFilteredAnimals, selectedOption),
+    [dateFilteredAnimals, selectedOption]
   );
 
   const currentQuickDiagnoses = useMemo(() => {

@@ -18,6 +18,7 @@ import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals, FarmAnimal } from "@/hooks/useFarmAnimals";
+import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { BCS_LEVELS } from "@/lib/bcsDefinitions";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,14 +127,30 @@ export function RecordBulkBCSDialog({
 
   // Use online animals or cached
   const displayAnimals = isOnline ? animals : cachedAnimals;
+  
+  // Filter animals by record date - only show animals that were on farm at that date
+  const dateFilteredAnimals = useMemo(() => {
+    return filterAnimalsByFarmDate(displayAnimals, recordDate);
+  }, [displayAnimals, recordDate]);
+  
   const dropdownOptions = useMemo(
-    () => getAnimalDropdownOptions(displayAnimals),
-    [displayAnimals]
+    () => getAnimalDropdownOptions(dateFilteredAnimals),
+    [dateFilteredAnimals]
   );
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(displayAnimals, selectedOption),
-    [displayAnimals, selectedOption]
+    () => getSelectedAnimals(dateFilteredAnimals, selectedOption),
+    [dateFilteredAnimals, selectedOption]
   );
+
+  // Reset selection if current selection is no longer valid after date change
+  useEffect(() => {
+    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+      const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
+      if (!stillExists) {
+        setSelectedOption("");
+      }
+    }
+  }, [dateFilteredAnimals, selectedOption]);
 
   // Get current BCS level info
   const currentLevel = useMemo(() => {

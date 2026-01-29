@@ -12,6 +12,8 @@ export interface FarmAnimal {
   entry_weight_kg?: number | null;
   entry_weight_unknown?: boolean | null;
   birth_weight_kg?: number | null;
+  farm_entry_date?: string | null;
+  birth_date?: string | null;
 }
 
 export function useFarmAnimals(farmId: string | null) {
@@ -22,7 +24,7 @@ export function useFarmAnimals(farmId: string | null) {
 
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg')
+        .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, farm_entry_date, birth_date')
         .eq('farm_id', farmId)
         .is('exit_date', null)
         .eq('is_deleted', false)
