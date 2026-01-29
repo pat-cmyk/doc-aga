@@ -1,165 +1,93 @@
 
+# Plan: Add Android APK Download Link to Auth Page
 
-# Plan: Fix Animal Profile Cost Tab to Include Feed Consumption Costs (SSOT Alignment)
+## Summary
 
-## Problem Summary
+Add a direct download link to the Android APK on the `/auth` page, replacing the "Android APK coming soon" placeholder with a functional download button.
 
-The Animal Profile "Cost" tab only reads from `farm_expenses` table, missing ₱7,608 in feed consumption costs for Mang Tomas and similar gaps across 18 animals totaling ~₱52K in untracked feed costs.
+## Current Behavior
 
-This directly mirrors the issue we just fixed for the Herd Investment card - we need to apply the same SSOT pattern to individual animal cost tracking.
+The `AppDownloadSection` component:
+1. Tries to fetch `version.json` from storage (`app-releases/android/version.json`)
+2. If found: Shows download button with version info
+3. If not found: Shows "Android APK coming soon" placeholder
+
+Currently, no `version.json` exists, so users see the placeholder.
+
+## Solution
+
+Add a hardcoded fallback URL in `AppDownloadSection.tsx` that will be used when no `version.json` is available. This ensures the download button always works while still supporting dynamic version info from storage in the future.
 
 ## Changes Required
 
-### File 1: `src/hooks/useAnimalExpenses.ts`
+### File: `src/components/AppDownloadSection.tsx`
 
-**Add Feed Consumption Query to Summary**
+**Add Fallback Constants** (at top of file):
 
-Update `useAnimalExpenseSummary` to include feed consumption costs from `feeding_records`:
+```typescript
+const FALLBACK_APK_URL = "https://github.com/pat-cmyk/doc-aga/releases/download/untagged-7e459e239b3cc1b7533d/app-release.apk";
+const FALLBACK_VERSION = "1.0.0";
+```
+
+**Update the Android Download Section** (lines 111-150):
+
+Replace the conditional rendering to show download button even when `versionInfo` is null:
 
 ```text
-Current Data Sources:
-  - farm_expenses (manual expenses only)
+Before:
+  versionInfo ? (show download button) : (show "coming soon")
 
-New Data Sources:
-  - farm_expenses (manual expenses)
-  - feeding_records (consumption-based costs: kilograms x cost_per_kg_at_time)
+After:
+  Always show download button using:
+  - versionInfo.downloadUrl if available
+  - FALLBACK_APK_URL as fallback
 ```
 
-Update the interface and query:
+**Update `handleDownload` function** (lines 82-95):
 
 ```typescript
-export interface AnimalExpenseSummary {
-  totalExpenses: number;
-  categoryBreakdown: Record<string, number>;
-  expenseCount: number;
-  feedConsumptionCost: number;  // NEW: From feeding_records
-  manualExpenses: number;       // NEW: Just from farm_expenses
-}
+const handleDownload = async () => {
+  const downloadUrl = versionInfo?.downloadUrl || FALLBACK_APK_URL;
+  
+  try {
+    window.open(downloadUrl, "_blank");
+  } catch (error) {
+    console.error("Download error:", error);
+    setDownloadError("Failed to start download. Please try again.");
+  }
+};
 ```
 
-Add a second query for feeding costs:
-
-```typescript
-// Query feeding_records for this animal
-const { data: feedingData } = await supabase
-  .from("feeding_records")
-  .select("kilograms, cost_per_kg_at_time")
-  .eq("animal_id", animalId)
-  .not("cost_per_kg_at_time", "is", null);
-
-const feedConsumptionCost = feedingData?.reduce(
-  (sum, r) => sum + ((r.kilograms || 0) * (r.cost_per_kg_at_time || 0)),
-  0
-) || 0;
-```
-
----
-
-### File 2: `src/components/animal-expenses/AnimalCostSummary.tsx`
-
-**Add Feed Consumption Line to Breakdown**
-
-Update the props interface and display:
-
-```typescript
-interface AnimalCostSummaryProps {
-  // ... existing props
-  feedConsumptionCost: number;  // NEW
-  manualExpenses: number;       // NEW
-}
-```
-
-Update the breakdown section to show:
-- Acquisition Cost (purchase price or grant)
-- Manual Expenses (from farm_expenses per category)
-- Feed Consumption (from feeding_records) - NEW
-- Total Investment
-
----
-
-### File 3: `src/components/animal-expenses/AnimalExpenseTab.tsx`
-
-**Pass New Props to AnimalCostSummary**
-
-Update to pass the new `feedConsumptionCost` and `manualExpenses` from the updated summary hook:
+**Update Button Display**:
 
 ```tsx
-<AnimalCostSummary
-  // ... existing props
-  feedConsumptionCost={summary?.feedConsumptionCost || 0}
-  manualExpenses={summary?.manualExpenses || 0}
-  totalExpenses={summary?.totalExpenses || 0}  // Now includes feed consumption
-/>
+<Button onClick={handleDownload} className="w-full gap-2" variant="default">
+  <Download className="h-4 w-4" />
+  Download APK {versionInfo?.version ? `(v${versionInfo.version})` : ""}
+</Button>
 ```
 
----
+**Always Show Install Instructions**:
 
-## Data Flow After Fix
+Remove the conditional `{versionInfo && ...}` wrapper around the "How to install?" button so it's always visible.
 
-```text
-Animal Profile Cost Tab
-          |
-    +-----+-----+
-    |           |
-    v           v
-farm_expenses  feeding_records
-(manual)       (consumption)
-    |               |
-    +-------+-------+
-            |
-            v
-   AnimalCostSummary
-   (Unified Total)
-```
+## Expected Result
 
----
-
-## Expected Results for Mang Tomas
-
-| Line Item | Before | After |
-|-----------|--------|-------|
-| Acquisition Cost | ₱0 | ₱0 |
-| Manual Expenses | ₱54.90 | ₱54.90 |
-| Feed Consumption | Not shown | ₱7,663.02 |
-| **Total Investment** | **₱54.90** | **₱7,717.92** |
-
----
+| State | Before | After |
+|-------|--------|-------|
+| No version.json | "Android APK coming soon" | Download button → GitHub APK |
+| With version.json | Download button → storage URL | Download button → storage URL |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/hooks/useAnimalExpenses.ts` | Add feeding_records query to summary, update interface |
-| `src/components/animal-expenses/AnimalCostSummary.tsx` | Add feedConsumptionCost prop and display line |
-| `src/components/animal-expenses/AnimalExpenseTab.tsx` | Pass new summary props |
-
----
-
-## Technical Details
-
-### Query for Feed Consumption (per animal)
-
-```sql
-SELECT SUM(kilograms * cost_per_kg_at_time) as feed_consumption_cost
-FROM feeding_records
-WHERE animal_id = :animalId
-  AND cost_per_kg_at_time IS NOT NULL
-```
-
-### Consistency with Herd Investment
-
-This fix aligns the Animal Profile Cost Tab with the Herd Investment calculation we just implemented, ensuring both use:
-- `feeding_records.kilograms * cost_per_kg_at_time` for consumption-based costs
-- `farm_expenses` for manual expense entries
-
----
+| `src/components/AppDownloadSection.tsx` | Add fallback URL, update download logic and UI |
 
 ## Testing Checklist
 
-1. Open Mang Tomas's animal profile
-2. Navigate to the Cost tab
-3. Verify Feed Consumption line shows ~₱7,663
-4. Verify Total Investment reflects the combined cost
-5. Check other animals (Mang Flora, Tita Barbecue, Bessie) show similar feed consumption costs
-6. Confirm Herd Investment total still matches the sum of all animal investments
-
+1. Navigate to `/auth` page
+2. Verify the "Download APK" button appears (not "coming soon")
+3. Click the download button
+4. Verify it opens the GitHub release URL in a new tab
+5. Verify "How to install?" link is visible and opens the instructions dialog
