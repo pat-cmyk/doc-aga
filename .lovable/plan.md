@@ -1,176 +1,116 @@
 
+# Plan: Fix Financial Capacity Report - Herd Value and Data Source Alignment
 
-# Demo Data Seed Plan: Estehanon Farm
-## Presentation Preparation for Jan 23, 2026
-
-### Current State Summary
-
-| Data Type | Current Records | Date Range | Gap |
-|-----------|----------------|------------|-----|
-| **Milking Records** | 41 records | Jan 8-29, 2026 | Missing Oct 22, 2025 - Jan 7, 2026 |
-| **Feeding Records** | 102 records | Jan 2-28, 2026 | Missing Oct 22, 2025 - Jan 1, 2026 |
-| **Heat Detection** | 2 observations | Jan 15-17, 2026 | No breeding events recorded |
-| **Milk Sales Revenue** | 32 records | Jan 8-29, 2026 | ₱14,371 total |
-| **AI Records** | 0 | None | Needs full breeding cycle data |
-
-### Target Date Range
-- **Start**: October 22, 2025
-- **End**: January 22, 2026 (3 months of complete data)
-- **Days to Fill**: ~78 days of missing data
+## Problem Summary
+The Farmer Financial Capacity Report shows an incorrect "Herd Value" of ₱70,000 instead of the dynamically calculated value (~₱473,550). This happens because:
+1. A database column name mismatch causes valuation data to fail loading
+2. The herd value logic falls back to `purchase_price` instead of calculating `weight × market_price`
+3. The report doesn't use the same valuation approach as the dashboard
 
 ---
 
-## Animals in Demo Farm
+## Technical Analysis
 
-| Name | Ear Tag | Type | Gender | Status | Daily Production Target |
-|------|---------|------|--------|--------|------------------------|
-| Bessie | A002 | Cattle | Female | Early Lactation | 8-12L/day |
-| Tita Barbecue | C0001 | Cattle | Female | Early Lactation | 8-12L/day |
-| Mang Flora | C0002 | Cattle | Female | Not Lactating (heifer) | N/A (breeding candidate) |
-| Olens Main | Olens | Cattle | Male | Young Bull | N/A |
-| Tsibato | G001 | Goat | Female | Early Lactation | 1-2L/day |
-| (Unnamed) | G002 | Goat | Female | Early Lactation | 1-2L/day |
-
----
-
-## Phase 1: Milk Production Data
-
-### Seed Data Strategy
-Generate daily AM and PM milking sessions for lactating animals.
-
-**Production Targets (Realistic Average, Premium Pricing):**
-- **Cattle (Bessie, Tita Barbecue)**: 8-12L/day total (4-6L AM, 4-6L PM)
-- **Goats (Tsibato, G002)**: 1-2L/day total (0.5-1L AM, 0.5-1L PM)
-
-**Pricing (Premium):**
-- Cattle milk: ₱40/L
-- Goat milk: ₱60/L
-
-**Sales**: 100% sold - all records marked with `is_sold = true` and `sale_amount` calculated
-
-**Date Range to Insert**: Oct 22, 2025 → Jan 7, 2026 (before existing data starts)
-
-### SQL Insert Pattern
+### Current State (Broken)
 ```text
-For each day in range:
-  For each lactating animal:
-    INSERT milking_record (AM session)
-    INSERT milking_record (PM session)
-    INSERT farm_revenues (Milk Sales) - daily batch
+Herd Value Calculation Flow:
+1. Fetch valuations → FAILS (wrong column name: "fair_value" vs "estimated_value")
+2. Returns empty array []
+3. For each animal:
+   - Check valuation → None found
+   - Check purchase_price → Only Tita Barbecue has ₱70,000
+4. Total: ₱70,000 (only 1 of 6 animals valued)
+```
+
+### Expected State (Fixed)
+```text
+Herd Value Calculation Flow:
+1. For each animal, get effective weight (current → entry → birth)
+2. Fetch market price via get_market_price RPC
+3. Calculate: effective_weight × market_price
+4. Sum all animals
+5. Total: ~₱473,550 (5 of 6 animals with weight × ₱350/kg)
 ```
 
 ---
 
-## Phase 2: Feeding Records
+## Changes Required
 
-### Seed Data Strategy
-Daily feeding entries using existing feed inventory items.
+### File: `src/lib/financialReportGenerator.ts`
 
-**Feeding Schedule:**
-- **Cattle**: ~15-20kg roughage + 3-5kg concentrates per day
-- **Goats**: ~2-3kg roughage + 0.5-1kg concentrates per day
+**Change 1: Fix Valuations Query Column Name**
+- Location: `fetchValuationsData` function (~line 384-388)
+- Change `fair_value` to `estimated_value`
+- This fixes the silent failure when fetching historical valuations
 
-**Feed Inventory Available:**
-- Roughage: Bag Corn Silage, Baled Corn Silage, Sako, Soya
-- Concentrates: Copra, Rice Bran, Rumsol Feeds Cattle Grower
+**Change 2: Replace Market Price Fetch with RPC Call**
+- Location: `fetchMarketPrice` function (~line 396-413)
+- Use `supabase.rpc("get_market_price", {...})` like the dashboard
+- Return the proper market price with source information
 
-**Date Range to Insert**: Oct 22, 2025 → Jan 1, 2026
+**Change 3: Align Herd Value Calculation with SSOT Pattern**
+- Location: `processHerdSummary` function (~line 439-498)
+- New logic:
+  1. Use `getAnimalEffectiveWeight()` helper (already imported)
+  2. Calculate per-animal value as: `effective_weight × market_price`
+  3. Fallback to `estimated_value` from valuations if available
+  4. Last resort: use `purchase_price`
 
----
-
-## Phase 3: Active Breeding Program
-
-### Breeding Story Arc
-
-**Scenario**: Mang Flora (breeding heifer, born Nov 2023, now ~2 years old) goes through a complete breeding cycle.
-
-| Date | Event | Animal | Details |
-|------|-------|--------|---------|
-| Nov 1, 2025 | Heat Observed | Mang Flora | Standing heat, vulva swelling |
-| Nov 2, 2025 | AI Service | Mang Flora | Technician: "Dr. Santos", Semen: "Angus A-102" |
-| Nov 22, 2025 | No Return Check | Mang Flora | 21 days - no return to heat (positive sign) |
-| Dec 7, 2025 | Pregnancy Check | Mang Flora | Confirmed pregnant at 35 days |
-| Jan 5, 2026 | Routine Check | Mang Flora | 65 days pregnant, healthy |
-
-**Additional Heat Observations (goats cycle every ~21 days):**
-- Tsibato: Oct 25, Nov 15, Dec 6, Dec 27 (observed but not bred)
-- G002: Oct 30, Nov 20, Dec 11, Jan 1 (observed but not bred)
-
-### Tables to Populate
-1. `breeding_events` - For heat observations and AI events
-2. `ai_records` - For artificial insemination details
-3. `heat_observation_checks` - Daily heat monitoring
+**Change 4: Update HerdSummary Interface to Include Price Source**
+- Add `priceSource: string` field to match dashboard data
+- Helps transparency about where the price came from
 
 ---
 
-## Technical Implementation
+## Implementation Details
 
-### Step 1: Update Animal Entry Dates
-Before seeding historical data, backdate animal `farm_entry_date` to allow records:
+### Updated `processHerdSummary` Logic
 
 ```text
-Animals needing farm_entry_date update:
-- Bessie: Change from Jan 8 → Oct 15, 2025
-- Tita Barbecue: Change from Dec 30 → Oct 15, 2025
-- Mang Flora: Already Jan 2 → Change to Oct 15, 2025
-- Tsibato: Needs entry date → Oct 15, 2025
-- G002: Change from Jan 8 → Oct 15, 2025
+For each active animal:
+1. Get effective weight using priority: current_weight → entry_weight → birth_weight
+2. If weight exists:
+   - Calculate value = weight × marketPrice
+3. Else if valuation exists:
+   - Use valuation.estimated_value
+4. Else if purchase_price exists:
+   - Use purchase_price
+5. Else:
+   - Value = 0 (animal contributes 0 to herd value)
 ```
 
-### Step 2: Set Milking Start Dates
-Adjust milking_start_date to enable historical milk records:
+### Updated `fetchMarketPrice` Logic
 
 ```text
-- Bessie: Change from Jan 8 → Oct 22, 2025
-- Tita Barbecue: Change from Jan 8 → Oct 22, 2025
-- Tsibato: Change from Jan 8 → Oct 22, 2025
-- G002: Change from Jan 8 → Oct 22, 2025
-- Mang Flora: Keep NULL (not lactating - she's a breeding heifer)
+1. Call get_market_price RPC with livestock_type and farm_id
+2. Return { price, source, effectiveDate }
+3. Fallback to ₱300/kg only if RPC fails
 ```
 
-### Step 3: Insert Milking Records
-~78 days × 4 lactating animals × 2 sessions = ~624 new milking records
+---
 
-### Step 4: Insert Milk Sales Revenue
-Batch daily sales into farm_revenues table with source = 'Milk Sales'
+## Affected Components
 
-### Step 5: Insert Feeding Records
-~72 days × 6 animals × 1 record/day = ~432 new feeding records
-
-### Step 6: Insert Breeding Events
-~15-20 breeding_events records for the active breeding program
-
-### Step 7: Recalculate Daily Farm Stats
-Run ensure_farm_stats RPC to regenerate aggregated statistics
+| Component | Change Type | Impact |
+|-----------|-------------|--------|
+| `financialReportGenerator.ts` | Fix + Enhancement | Core calculation fix |
+| `HerdSummary` interface | Add field | Minor type update |
+| Report PDF/CSV exports | None | Will automatically use corrected data |
 
 ---
 
-## Expected Demo Outcomes
+## Expected Outcome
 
-After seeding, the farm dashboard will show:
-
-1. **Milk Production Chart**: 3-month trend with consistent daily production
-2. **Total Milk Produced**: ~7,000-8,000L (cattle) + ~250-300L (goats)
-3. **Total Milk Revenue**: ~₱300,000-350,000 (at premium pricing)
-4. **Feeding History**: Complete daily feeding logs
-5. **Breeding Hub**: Active breeding program with pregnancy confirmation
-6. **Heat Calendar**: Regular heat observations for all females
+After the fix:
+- **Herd Value**: Will show ~₱473,550 (calculated from weight × market price)
+- **Market Price**: Will use ₱350/kg from DA Bulletin (via RPC)
+- **Consistency**: Report values will match dashboard HerdValueChart
+- **Data Source**: Each animal valued by weight × price (SSOT pattern)
 
 ---
 
-## Summary of SQL Operations
-
-| Operation | Records | Table |
-|-----------|---------|-------|
-| Update animal dates | 5 | animals |
-| Insert milking (AM) | ~312 | milking_records |
-| Insert milking (PM) | ~312 | milking_records |
-| Insert milk revenues | ~78 | farm_revenues |
-| Insert feeding records | ~432 | feeding_records |
-| Insert breeding events | ~20 | breeding_events |
-| Insert AI records | 1 | ai_records |
-| Insert heat checks | ~30 | heat_observation_checks |
-| Regenerate stats | - | daily_farm_stats (via RPC) |
-
-**Total**: ~1,200 new records to create a complete 3-month demo dataset
-
+## Testing Points
+1. Open Financial Capacity Report and verify Herd Value matches dashboard
+2. Confirm console logs show successful valuation fetching
+3. Export PDF and verify correct herd value in document
+4. Test with different period selections (3/6/12 months)
