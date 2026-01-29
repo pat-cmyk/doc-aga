@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Camera, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet, Pencil, Home, ShoppingCart, Gift } from "lucide-react";
+import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet, Pencil, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -38,8 +38,7 @@ import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
-
-// Helper function to get stage definitions
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 const getLifeStageDefinition = (stage: string | null): string => {
   switch (stage) {
     // Cattle
@@ -245,7 +244,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
   const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
@@ -468,10 +466,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
     }
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleAvatarUpload = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
@@ -607,24 +602,21 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
                     </Avatar>
                     {!readOnly && (
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading || !isOnline}
-                        title={!isOnline ? "Available when online" : ""}
-                      >
-                        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                      </Button>
+                      uploading ? (
+                        <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        </div>
+                      ) : (
+                        <CameraPhotoInput
+                          onPhotoSelected={handleAvatarUpload}
+                          variant="secondary"
+                          size="icon"
+                          label=""
+                          disabled={!isOnline}
+                          className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
+                        />
+                      )
                     )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
                   </div>
                 </div>
                 {!readOnly && (
@@ -744,24 +736,21 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       <AvatarFallback className="text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
                     </Avatar>
                     {!readOnly && (
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading || !isOnline}
-                        title={!isOnline ? "Available when online" : ""}
-                      >
-                        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                      </Button>
+                      uploading ? (
+                        <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      ) : (
+                        <CameraPhotoInput
+                          onPhotoSelected={handleAvatarUpload}
+                          variant="secondary"
+                          size="icon"
+                          label=""
+                          disabled={!isOnline}
+                          className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+                        />
+                      )
                     )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
                   </div>
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 flex-wrap">

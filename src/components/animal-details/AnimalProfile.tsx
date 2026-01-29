@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { GenderBadge } from "@/components/ui/gender-indicator";
-import { Camera, Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { formatDistanceToNow } from "date-fns";
@@ -68,14 +69,10 @@ export const AnimalProfile = ({
   caching
 }: AnimalProfileProps) => {
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleAvatarUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file",
@@ -169,23 +166,22 @@ export const AnimalProfile = ({
           />
           <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
         </Avatar>
-        <Button
-          size="icon"
-          variant="secondary"
-          className="absolute -bottom-1 -right-1 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || !isOnline}
-          title={!isOnline ? "Available when online" : ""}
-        >
-          {uploading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Camera className="h-3 w-3 sm:h-4 sm:w-4" />}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleAvatarUpload}
-        />
+        <div className="absolute -bottom-1 -right-1">
+          {uploading ? (
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-secondary flex items-center justify-center">
+              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+            </div>
+          ) : (
+            <CameraPhotoInput
+              onPhotoSelected={handleAvatarUpload}
+              variant="secondary"
+              size="icon"
+              label=""
+              disabled={!isOnline}
+              className="h-7 w-7 sm:h-8 sm:w-8 rounded-full"
+            />
+          )}
+        </div>
       </div>
       <div className="flex-1 overflow-hidden">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

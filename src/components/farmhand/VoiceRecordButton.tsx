@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, Square, Loader2, WifiOff } from 'lucide-react';
@@ -126,6 +127,23 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
   const startRecording = async () => {
     try {
       await hapticImpact('medium');
+      
+      // On native Android, check permission status first to trigger native dialog
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ 
+            name: 'microphone' as PermissionName 
+          });
+          
+          if (permissionStatus.state === 'denied') {
+            setShowPermissionDialog(true);
+            return;
+          }
+        } catch (permError: any) {
+          // Permission query failed - continue to getUserMedia which will also prompt
+          console.log('[VoiceRecordButton] Permission query not supported, continuing...');
+        }
+      }
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       

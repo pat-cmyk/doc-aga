@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Mail, Phone, MapPin, Upload, X, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, X, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export const MerchantProfile = () => {
@@ -46,10 +47,7 @@ export const MerchantProfile = () => {
     }
   }, [merchant]);
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid file",
@@ -239,21 +237,14 @@ export const MerchantProfile = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="border-2 border-dashed rounded-lg p-6 text-center w-32 h-32 flex flex-col items-center justify-center">
-                  <Upload className="h-6 w-6 mb-2 text-muted-foreground" />
-                  <Label
-                    htmlFor="logo-upload"
-                    className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {isUploadingLogo ? "Uploading..." : "Upload"}
-                  </Label>
-                  <Input
-                    id="logo-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoUpload}
+                <div className="w-32 h-32 flex items-center justify-center">
+                  <CameraPhotoInput
+                    onPhotoSelected={handleLogoUpload}
+                    onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
+                    variant="outline"
+                    label={isUploadingLogo ? "Uploading..." : "Upload Logo"}
                     disabled={isUploadingLogo}
+                    className="w-full h-full flex-col gap-2"
                   />
                 </div>
               )}

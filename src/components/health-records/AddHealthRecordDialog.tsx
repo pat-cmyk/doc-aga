@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Plus, Camera, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 
 interface AddHealthRecordDialogProps {
@@ -23,8 +24,6 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
   const [saving, setSaving] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -39,7 +38,6 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
     const savedDialogOpen = sessionStorage.getItem('hr_dialog_open');
     const savedFormData = sessionStorage.getItem('hr_form_data');
     const savedPhotos = sessionStorage.getItem('hr_uploaded_photos');
-    const savedSelectingPhoto = sessionStorage.getItem('hr_selecting_photo');
     
     if (savedDialogOpen === '1') setShowDialog(true);
     if (savedFormData) {
@@ -56,7 +54,6 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
         console.error('Failed to restore photos:', e);
       }
     }
-    if (savedSelectingPhoto === '1') setIsSelectingPhoto(true);
   }, []);
 
   // Persist state
@@ -115,47 +112,34 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
     });
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) {
-      setIsSelectingPhoto(false);
-      sessionStorage.removeItem('hr_selecting_photo');
-      return;
-    }
+  const handlePhotoUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
 
     setIsUploadingImage(true);
-    const uploadedUrls: string[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
+      const compressedBlob = await compressImage(file);
+      
+      const fileExt = 'jpg';
+      const fileName = `${animalId}-health-${Date.now()}.${fileExt}`;
+      const filePath = `health/${fileName}`;
 
-        const compressedBlob = await compressImage(file);
-        
-        const fileExt = 'jpg';
-        const fileName = `${animalId}-health-${Date.now()}-${i}.${fileExt}`;
-        const filePath = `health/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('animal-photos')
+        .upload(filePath, compressedBlob, {
+          contentType: 'image/jpeg'
+        });
 
-        const { error: uploadError } = await supabase.storage
-          .from('animal-photos')
-          .upload(filePath, compressedBlob, {
-            contentType: 'image/jpeg'
-          });
+      if (uploadError) throw uploadError;
 
-        if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from('animal-photos')
+        .getPublicUrl(filePath);
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('animal-photos')
-          .getPublicUrl(filePath);
-
-        uploadedUrls.push(publicUrl);
-      }
-
-      setUploadedPhotos([...uploadedPhotos, ...uploadedUrls]);
+      setUploadedPhotos([...uploadedPhotos, publicUrl]);
       toast({
-        title: "Photos uploaded",
-        description: `${uploadedUrls.length} photo(s) added`
+        title: "Photo uploaded",
+        description: "Photo added successfully"
       });
     } catch (error: any) {
       console.error('Photo upload error:', error);
@@ -166,9 +150,6 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
       });
     } finally {
       setIsUploadingImage(false);
-      setIsSelectingPhoto(false);
-      sessionStorage.removeItem('hr_selecting_photo');
-      if (event.target) event.target.value = '';
     }
   };
 
@@ -272,14 +253,7 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
       sessionStorage.removeItem('hr_dialog_open');
       sessionStorage.removeItem('hr_form_data');
       sessionStorage.removeItem('hr_uploaded_photos');
-      sessionStorage.removeItem('hr_selecting_photo');
     }
-  };
-
-  const handleAddPhotosClick = () => {
-    setIsSelectingPhoto(true);
-    sessionStorage.setItem('hr_selecting_photo', '1');
-    fileInputRef.current?.click();
   };
 
   return (
@@ -372,27 +346,16 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
             {isUploadingImage && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading photos...
+                Uploading photo...
               </div>
             )}
-            <Button
-              type="button"
+            <CameraPhotoInput
+              onPhotoSelected={handlePhotoUpload}
+              onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
               variant="outline"
-              className="w-full"
-              onClick={handleAddPhotosClick}
+              label={isUploadingImage ? "Uploading..." : "Add Photo"}
               disabled={saving || isUploadingImage}
-            >
-              <Camera className="h-4 w-4 mr-2" />
-              {isUploadingImage ? "Uploading..." : "Add Photos"}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              className="hidden"
-              onChange={handlePhotoUpload}
+              className="w-full"
             />
             {uploadedPhotos.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mt-2">

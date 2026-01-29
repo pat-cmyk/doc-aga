@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Mic, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,23 @@ export function VoiceInputButton({
 
   const startRecording = async () => {
     try {
+      // On native Android, check permission status first to trigger native dialog
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ 
+            name: 'microphone' as PermissionName 
+          });
+          
+          if (permissionStatus.state === 'denied') {
+            setShowPermissionDialog(true);
+            return;
+          }
+        } catch (permError: any) {
+          // Permission query failed - continue to getUserMedia which will also prompt
+          console.log('[VoiceInputButton] Permission query not supported, continuing...');
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
