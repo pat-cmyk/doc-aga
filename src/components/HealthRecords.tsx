@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, FileText, Syringe } from "lucide-react";
+import { Loader2, Plus, FileText, Syringe, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
 import { RecordSingleHealthDialog } from "./health-recording/RecordSingleHealthDialog";
+import { EditHealthRecordDialog } from "./health-recording/EditHealthRecordDialog";
 
 interface HealthRecordsProps {
   animalId: string;
@@ -32,6 +33,7 @@ const HealthRecords = ({
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<any | null>(null);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
 
@@ -125,10 +127,24 @@ const HealthRecords = ({
             {records.map(r => (
               <Card key={r.id}>
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium">{new Date(r.visit_date).toLocaleDateString()}</p>
-                  {r.diagnosis && <p className="text-sm text-muted-foreground">Diagnosis: {r.diagnosis}</p>}
-                  {r.treatment && <p className="text-sm text-muted-foreground">Treatment: {r.treatment}</p>}
-                  {r.notes && <p className="text-sm text-muted-foreground mt-2">{r.notes}</p>}
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{new Date(r.visit_date).toLocaleDateString()}</p>
+                      {r.diagnosis && <p className="text-sm text-muted-foreground">Diagnosis: {r.diagnosis}</p>}
+                      {r.treatment && <p className="text-sm text-muted-foreground">Treatment: {r.treatment}</p>}
+                      {r.notes && <p className="text-sm text-muted-foreground mt-2">{r.notes}</p>}
+                    </div>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setEditingRecord(r)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -146,6 +162,17 @@ const HealthRecords = ({
           earTag={earTag}
           farmId={farmId}
           animalFarmEntryDate={animalFarmEntryDate}
+          onSuccess={loadRecords}
+        />
+      )}
+
+      {/* Edit Health Record Dialog */}
+      {editingRecord && (
+        <EditHealthRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          record={editingRecord}
+          animalName={animalName || earTag || 'Unknown'}
           onSuccess={loadRecords}
         />
       )}
