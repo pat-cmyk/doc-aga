@@ -17,7 +17,6 @@ import { SuperAdminRoute } from "./components/auth/SuperAdminRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { syncQueue } from "./lib/syncService";
 import { initDevicePermissions } from "./lib/devicePermissionService";
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
 import { initCacheManager } from "./lib/cacheManager";
@@ -113,18 +112,20 @@ const SyncHandler = () => {
       console.log('[SyncHandler] Permission initialization results:', results);
     });
 
-    // Setup notification click handler
+    // Setup notification click handler - dynamic import
     if (Capacitor.isNativePlatform()) {
-      LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-        const data = notification.notification.extra;
-        
-        if (data?.failed) {
-          navigate('/farmhand');
-        } else if (data?.type === 'animal_form') {
-          navigate('/');
-        } else if (data?.type === 'voice_activity') {
-          navigate('/farmhand');
-        }
+      import(/* @vite-ignore */ '@capacitor/local-notifications').then(({ LocalNotifications }) => {
+        LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+          const data = notification.notification.extra;
+          
+          if (data?.failed) {
+            navigate('/farmhand');
+          } else if (data?.type === 'animal_form') {
+            navigate('/');
+          } else if (data?.type === 'voice_activity') {
+            navigate('/farmhand');
+          }
+        });
       });
     }
   }, [navigate]);

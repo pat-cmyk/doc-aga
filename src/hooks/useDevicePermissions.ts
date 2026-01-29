@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
-import { Camera } from "@capacitor/camera";
 
 export type PermissionStatus = "granted" | "denied" | "prompt" | "unknown";
 
@@ -10,6 +8,17 @@ export interface DevicePermissions {
   location: PermissionStatus;
   camera: PermissionStatus;
   notifications: PermissionStatus;
+}
+
+// Dynamic import helpers
+async function getNativeCamera() {
+  const { Camera } = await import(/* @vite-ignore */ '@capacitor/camera');
+  return Camera;
+}
+
+async function getLocalNotifications() {
+  const { LocalNotifications } = await import(/* @vite-ignore */ '@capacitor/local-notifications');
+  return LocalNotifications;
 }
 
 export function useDevicePermissions() {
@@ -55,6 +64,7 @@ export function useDevicePermissions() {
     // Check camera - use Capacitor Camera plugin on native
     try {
       if (Capacitor.isNativePlatform()) {
+        const Camera = await getNativeCamera();
         const status = await Camera.checkPermissions();
         if (status.camera === 'granted' && status.photos === 'granted') {
           newPermissions.camera = 'granted';
@@ -74,6 +84,7 @@ export function useDevicePermissions() {
     // Check notifications
     try {
       if (Capacitor.isNativePlatform()) {
+        const LocalNotifications = await getLocalNotifications();
         const result = await LocalNotifications.checkPermissions();
         newPermissions.notifications = result.display as PermissionStatus;
       } else if ("Notification" in window) {
@@ -120,6 +131,7 @@ export function useDevicePermissions() {
     try {
       // Use Capacitor Camera plugin on native for proper permission request
       if (Capacitor.isNativePlatform()) {
+        const Camera = await getNativeCamera();
         const result = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
         const granted = result.camera === 'granted' && result.photos === 'granted';
         setPermissions(prev => ({ ...prev, camera: granted ? 'granted' : 'denied' }));
@@ -140,6 +152,7 @@ export function useDevicePermissions() {
   const requestNotificationPermission = useCallback(async (): Promise<boolean> => {
     try {
       if (Capacitor.isNativePlatform()) {
+        const LocalNotifications = await getLocalNotifications();
         const result = await LocalNotifications.requestPermissions();
         const granted = result.display === "granted";
         setPermissions(prev => ({ ...prev, notifications: granted ? "granted" : "denied" }));
