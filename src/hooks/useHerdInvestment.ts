@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export interface HerdInvestment {
   totalPurchasePrice: number;
   totalAnimalExpenses: number;
+  manualExpenses: number;
+  feedConsumptionCost: number;
   totalInvestment: number;
   purchasedCount: number;
   grantCount: number;
@@ -43,6 +45,19 @@ export const useHerdInvestment = (farmId: string) => {
 
       if (expensesError) throw expensesError;
 
+      // Get feed consumption costs from feeding_records
+      const { data: feedingRecords, error: feedingError } = await supabase
+        .from("feeding_records")
+        .select(`
+          kilograms,
+          cost_per_kg_at_time,
+          animal:animals!inner(farm_id)
+        `)
+        .eq("animal.farm_id", farmId)
+        .not("cost_per_kg_at_time", "is", null);
+
+      if (feedingError) throw feedingError;
+
       // Calculate totals
       let totalPurchasePrice = 0;
       let purchasedCount = 0;
@@ -64,11 +79,20 @@ export const useHerdInvestment = (farmId: string) => {
         }
       });
 
-      const totalAnimalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+      const manualExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+      
+      const feedConsumptionCost = feedingRecords?.reduce(
+        (sum, record) => sum + ((record.kilograms || 0) * (record.cost_per_kg_at_time || 0)),
+        0
+      ) || 0;
+
+      const totalAnimalExpenses = manualExpenses + feedConsumptionCost;
 
       return {
         totalPurchasePrice,
         totalAnimalExpenses,
+        manualExpenses,
+        feedConsumptionCost,
         totalInvestment: totalPurchasePrice + totalAnimalExpenses,
         purchasedCount,
         grantCount,
