@@ -356,7 +356,7 @@ export function UnifiedActionsFab({
           className="fixed z-50 flex flex-col shadow-2xl inset-0 rounded-none sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[450px] sm:h-[650px] sm:rounded-lg lg:w-[500px] lg:h-[700px] animate-in fade-in zoom-in-95 duration-200"
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b p-3 sm:p-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
+          <div className="flex items-center justify-between border-b p-3 sm:p-4 pt-safe sm:pt-4 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
             <div className="flex items-center gap-2">
               <Stethoscope className="h-5 w-5" />
               <h2 className="font-semibold text-base sm:text-lg">Doc Aga</h2>
