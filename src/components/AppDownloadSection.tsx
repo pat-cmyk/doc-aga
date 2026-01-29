@@ -5,7 +5,7 @@ import { InstallInstructionsDialog } from "./InstallInstructionsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-const FALLBACK_APK_URL = "https://github.com/pat-cmyk/doc-aga/releases/download/untagged-7e459e239b3cc1b7533d/app-release.apk";
+const FALLBACK_APK_URL = "https://github.com/pat-cmyk/doc-aga/releases/download/Beta_Launch/app-release.apk";
 const FALLBACK_VERSION = "1.0.0";
 
 interface VersionInfo {
