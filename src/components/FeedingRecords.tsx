@@ -14,9 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Wheat } from "lucide-react";
+import { Loader2, Plus, Wheat, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { RecordSingleFeedDialog } from "@/components/feed-recording/RecordSingleFeedDialog";
+import { EditFeedingRecordDialog, FeedingRecordWithDetails } from "@/components/feed-recording/EditFeedingRecordDialog";
 
 interface FeedingRecord {
   id: string;
@@ -27,6 +28,8 @@ interface FeedingRecord {
   record_datetime: string;
   created_at: string;
   created_by: string | null;
+  feed_inventory_id: string | null;
+  cost_per_kg_at_time: number | null;
 }
 
 interface FeedingRecordsProps {
@@ -47,11 +50,27 @@ export function FeedingRecords({
   const [records, setRecords] = useState<FeedingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<FeedingRecordWithDetails | null>(null);
   const [resolvedFarmId, setResolvedFarmId] = useState<string | null>(farmId || null);
   const [resolvedFarmEntryDate, setResolvedFarmEntryDate] = useState<string | null>(animalFarmEntryDate || null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isOnline = useOnlineStatus();
+
+  const handleEditRecord = (record: FeedingRecord) => {
+    setSelectedRecord({
+      id: record.id,
+      animal_id: record.animal_id,
+      feed_type: record.feed_type,
+      kilograms: record.kilograms,
+      notes: record.notes,
+      record_datetime: record.record_datetime,
+      feed_inventory_id: record.feed_inventory_id,
+      cost_per_kg_at_time: record.cost_per_kg_at_time,
+    });
+    setEditDialogOpen(true);
+  };
 
   useEffect(() => {
     loadFeedingRecords();
@@ -185,6 +204,18 @@ export function FeedingRecords({
             animalFarmEntryDate={resolvedFarmEntryDate}
             onSuccess={loadFeedingRecords}
           />
+          
+          {selectedRecord && (
+            <EditFeedingRecordDialog
+              open={editDialogOpen}
+              onOpenChange={setEditDialogOpen}
+              record={selectedRecord}
+              farmId={resolvedFarmId}
+              animalName={animalName}
+              animalFarmEntryDate={resolvedFarmEntryDate}
+              onSuccess={loadFeedingRecords}
+            />
+          )}
         </>
       )}
 
@@ -204,7 +235,7 @@ export function FeedingRecords({
                 <Card key={record.id} className="border">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-base">
                           {record.feed_type || "Unknown"}
                         </p>
@@ -213,10 +244,22 @@ export function FeedingRecords({
                           {format(new Date(record.record_datetime), "h:mm a")}
                         </p>
                       </div>
-                      <div className="bg-primary/10 text-primary px-3 py-1 rounded-full">
-                        <span className="font-bold text-base">
-                          {record.kilograms?.toFixed(2) || "0.00"} kg
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-primary/10 text-primary px-3 py-1 rounded-full">
+                          <span className="font-bold text-base">
+                            {record.kilograms?.toFixed(2) || "0.00"} kg
+                          </span>
+                        </div>
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditRecord(record)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {record.notes && (
@@ -238,6 +281,7 @@ export function FeedingRecords({
                     <TableHead>Feed Type</TableHead>
                     <TableHead className="text-right">Amount (kg)</TableHead>
                     <TableHead>Notes</TableHead>
+                    {!readOnly && <TableHead className="w-[60px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,6 +302,18 @@ export function FeedingRecords({
                       <TableCell className="text-muted-foreground text-sm">
                         {record.notes || "-"}
                       </TableCell>
+                      {!readOnly && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditRecord(record)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
