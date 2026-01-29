@@ -21,7 +21,7 @@ export async function openAppSettings(): Promise<boolean> {
   try {
     // Dynamic import to avoid bundling issues on web
     const { NativeSettings, AndroidSettings, IOSSettings } = await import(
-      '@capgo/capacitor-native-settings'
+      'capacitor-native-settings'
     );
 
     const platform = Capacitor.getPlatform();
