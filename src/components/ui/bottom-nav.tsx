@@ -29,12 +29,12 @@ export function BottomNav({ activeTab, onTabChange, pendingCount = 0, disabled =
     <nav 
       role="navigation" 
       aria-label="Main navigation"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border pb-safe"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border pb-safe w-full max-w-full"
     >
       {/* Gradient overlay for depth */}
       <div className="absolute inset-0 bg-gradient-to-t from-card via-card to-card/95 backdrop-blur-md" />
       
-      <div className="relative flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+      <div className="relative flex items-center justify-around h-16 max-w-lg mx-auto px-2 w-full">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           const Icon = item.icon;

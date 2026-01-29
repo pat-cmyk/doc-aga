@@ -376,7 +376,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto">
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto overflow-x-hidden max-w-full">
       <PullToRefreshIndicator />
       {/* Header - Optimized for mobile with 2-row layout */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
