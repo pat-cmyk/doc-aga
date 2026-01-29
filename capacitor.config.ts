@@ -25,6 +25,10 @@ const config: CapacitorConfig = {
       smallIcon: "ic_stat_icon_config_sample",
       iconColor: "#166534",
     },
+    Camera: {
+      // Present photo picker as a sheet (Android 13+)
+      presentationStyle: 'popover',
+    },
   },
 };
 

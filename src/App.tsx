@@ -16,7 +16,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/auth/SuperAdminRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { syncQueue } from "./lib/syncService";
-import { initNotifications } from "./lib/notificationService";
+import { initDevicePermissions } from "./lib/devicePermissionService";
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
@@ -104,8 +104,10 @@ const SyncHandler = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize notifications on mount
-    initNotifications();
+    // Initialize ALL device permissions on mount (SSOT pattern)
+    initDevicePermissions().then((results) => {
+      console.log('[SyncHandler] Permission initialization results:', results);
+    });
 
     // Setup notification click handler
     if (Capacitor.isNativePlatform()) {
