@@ -1,372 +1,274 @@
 
+# Complete Device Permission Integration: Camera + Microphone
 
-# Fix Device Permission Issues for Camera and Microphone on Native Android
+## Summary
 
-## Problem Summary
+This plan extends the previous camera-focused plan to include a comprehensive review and update of all voice/microphone components. The goal is to ensure **both camera AND microphone** permissions correctly trigger native Android dialogs and appear in the Android app settings.
 
-Device asset access (microphone, camera) is not working correctly on native Android. The issues are:
+## Current Status
 
-| Issue | Location | Impact |
-|-------|----------|--------|
-| Incorrect App ID in AppLauncher | `MicrophonePermissionDialog.tsx`, `CameraPermissionDialog.tsx` | "Open Settings" button opens wrong app |
-| Missing `@capacitor/camera` plugin | Project dependencies | Cannot use native camera for photo capture |
-| Web-only permission requests | `useDevicePermissions.ts`, `useVoiceRecording.ts`, `VoiceTrainingSession.tsx` | Native Android permission dialogs may not trigger |
-| No pre-emptive permission checking | Voice/Camera components | Permission errors only caught after failure |
+### Camera Components (Not Yet Integrated)
+These still use HTML `<input type="file">` and need to be replaced with `CameraPhotoInput`:
 
-### Root Cause Analysis
+| Component | Purpose | Status |
+|-----------|---------|--------|
+| `AnimalDetails.tsx` | Avatar upload | ❌ Uses file input |
+| `AnimalProfile.tsx` | Avatar upload | ❌ Uses file input |
+| `FarmLogoUpload.tsx` | Farm logo | ❌ Uses file input |
+| `AddHealthRecordDialog.tsx` | Photo attachments | ❌ Uses file input |
+| `RecordSingleHealthDialog.tsx` | Photo attachments | ❌ Uses file input |
+| `DocAga.tsx` | Image attachment | ❌ Uses file input |
+| `MerchantProfile.tsx` | Business logo | ❌ Uses file input |
+| `ProductFormDialog.tsx` | Product image | ❌ Uses file input |
 
-1. **Wrong Package Name**: Both permission dialogs use `package:app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea` but the actual app ID is `com.goldenforage.docaga` (defined in `capacitor.config.ts`)
+### Microphone Components (Already Updated)
+These already have native permission checks from the previous implementation:
 
-2. **No Native Camera Plugin**: The project uses standard HTML file inputs (`accept="image/*"`) which work on web but are unreliable on native Android
+| Component | Permission Check | Status |
+|-----------|------------------|--------|
+| `useVoiceRecording.ts` | ✅ Capacitor native check (lines 174-190) | Done |
+| `VoiceTrainingSession.tsx` | ✅ Native permission pre-check | Done |
+| `useDevicePermissions.ts` | ✅ Uses `Camera.checkPermissions()` for camera | Done |
+| `MicrophonePermissionDialog.tsx` | ✅ Uses correct App ID | Done |
 
-3. **Web API Reliance**: Components directly call `navigator.mediaDevices.getUserMedia()` without first checking/requesting native Android permissions through Capacitor
+### Microphone Components (Need Updates)
+These still call `getUserMedia` directly without native checks:
+
+| Component | Current Behavior | Needed Update |
+|-----------|------------------|---------------|
+| `VoiceInputButton.tsx` | Calls `getUserMedia` directly (line 30) | Add Capacitor check |
+| `farmhand/VoiceRecordButton.tsx` | Calls `getUserMedia` directly (line 130) | Add Capacitor check |
 
 ---
 
-## Solution Overview
+## Architecture Overview
 
 ```text
-+------------------------------------------+
-|           Phase 1: Quick Fixes           |
-+------------------------------------------+
-| 1. Update AppLauncher URLs (appId fix)   |
-| 2. Add centralized APP_CONFIG constant   |
-+------------------------------------------+
-              |
-              v
-+------------------------------------------+
-|        Phase 2: Camera Plugin            |
-+------------------------------------------+
-| 1. Install @capacitor/camera             |
-| 2. Create useNativeCamera hook           |
-| 3. Update image upload components        |
-+------------------------------------------+
-              |
-              v
-+------------------------------------------+
-|      Phase 3: Permission Flow            |
-+------------------------------------------+
-| 1. Enhance useDevicePermissions hook     |
-| 2. Add native permission requests        |
-| 3. Update VoiceTrainingSession           |
-+------------------------------------------+
++------------------------------------------------------------------+
+|                    PERMISSION FLOW DIAGRAM                       |
++------------------------------------------------------------------+
+
+CAMERA PERMISSION:                    MICROPHONE PERMISSION:
+┌────────────────────┐                ┌────────────────────────┐
+│  CameraPhotoInput  │                │  VoiceInputButton /    │
+│  Component         │                │  VoiceRecordButton     │
+└────────┬───────────┘                └───────────┬────────────┘
+         │                                        │
+         v                                        v
+┌────────────────────┐                ┌────────────────────────┐
+│ useNativeCamera()  │                │ Native permission      │
+│ hook               │                │ pre-check              │
+└────────┬───────────┘                └───────────┬────────────┘
+         │                                        │
+         v                                        v
+┌────────────────────┐                ┌────────────────────────┐
+│ Capacitor.is       │                │ Capacitor.is           │
+│ NativePlatform()?  │                │ NativePlatform()?      │
+├────────┬───────────┤                ├───────────┬────────────┤
+│  YES   │    NO     │                │   YES     │    NO      │
+│   │    │     │     │                │    │      │     │      │
+│   v    │     v     │                │    v      │     v      │
+│Camera. │ <input    │                │ Query     │ getUserMedia
+│getPhoto│ type=file>│                │ permission│ directly   │
+│  ()    │           │                │ first     │            │
+└────────┴───────────┘                └───────────┴────────────┘
+         │                                        │
+         v                                        v
+    ┌────────────┐                        ┌────────────┐
+    │ Native     │                        │ Native     │
+    │ Permission │                        │ Permission │
+    │ Dialog     │                        │ Dialog     │
+    └────────────┘                        └────────────┘
 ```
 
 ---
 
-## Phase 1: Fix AppLauncher URLs (Quick Fix)
+## Implementation Plan
 
-### 1.1 Create Centralized App Config
+### Phase 1: Camera Components (8 files)
 
-**New File**: `src/lib/appConfig.ts`
+Replace HTML file inputs with `CameraPhotoInput` in these components:
 
-```typescript
-// Centralized app configuration for native platform
-export const APP_CONFIG = {
-  appId: 'com.goldenforage.docaga',
-  appName: 'Doc Aga',
-} as const;
+#### 1.1 AnimalDetails.tsx
+- Remove `fileInputRef` and hidden input
+- Replace camera button with `CameraPhotoInput`
+- Update `handleAvatarUpload` to accept `File` directly
 
-// Helper to get Android settings URL
-export const getAndroidSettingsUrl = () => 
-  `package:${APP_CONFIG.appId}`;
-```
+#### 1.2 AnimalProfile.tsx
+- Same pattern as AnimalDetails.tsx
 
-### 1.2 Update MicrophonePermissionDialog.tsx
+#### 1.3 FarmLogoUpload.tsx
+- Replace `<Input id="logo-upload" type="file">` with `CameraPhotoInput`
+- Update handler to accept `File`
 
-**File**: `src/components/MicrophonePermissionDialog.tsx`
+#### 1.4 AddHealthRecordDialog.tsx
+- Replace hidden file input with `CameraPhotoInput`
+- Photos are added one at a time (native camera only captures single photos)
 
-| Line | Current | Updated |
-|------|---------|---------|
-| 39-41 | `url: 'package:app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea'` | `url: getAndroidSettingsUrl()` |
+#### 1.5 RecordSingleHealthDialog.tsx
+- Same pattern as AddHealthRecordDialog
 
-**Changes**:
-- Import `getAndroidSettingsUrl` from `@/lib/appConfig`
-- Replace hardcoded package URL with helper function
+#### 1.6 DocAga.tsx
+- Replace image attachment input with `CameraPhotoInput`
 
-### 1.3 Update CameraPermissionDialog.tsx
+#### 1.7 MerchantProfile.tsx
+- Replace logo upload input with `CameraPhotoInput`
 
-**File**: `src/components/permissions/CameraPermissionDialog.tsx`
+#### 1.8 ProductFormDialog.tsx
+- Replace product image input with `CameraPhotoInput`
 
-| Line | Current | Updated |
-|------|---------|---------|
-| 38-40 | `url: 'package:app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea'` | `url: getAndroidSettingsUrl()` |
+### Phase 2: Microphone Components (2 files)
 
-**Changes**:
-- Import `getAndroidSettingsUrl` from `@/lib/appConfig`
-- Replace hardcoded package URL with helper function
+Add native permission pre-checks to remaining voice components:
 
----
+#### 2.1 VoiceInputButton.tsx (src/components/ui/voice-input-button.tsx)
 
-## Phase 2: Install and Integrate Capacitor Camera Plugin
-
-### 2.1 Install Plugin
-
-The `@capacitor/camera` plugin must be installed. This enables:
-- Native camera capture with proper permission handling
-- Photo library access on Android
-- Automatic permission prompts
-
-### 2.2 Create Native Camera Hook
-
-**New File**: `src/hooks/useNativeCamera.ts`
-
-```typescript
-import { useState, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera';
-
-export interface UseNativeCameraOptions {
-  quality?: number;
-  allowEditing?: boolean;
-  source?: 'camera' | 'photos' | 'prompt';
-}
-
-export interface UseNativeCameraReturn {
-  takePhoto: () => Promise<Photo | null>;
-  pickPhoto: () => Promise<Photo | null>;
-  captureOrPick: () => Promise<Photo | null>;
-  isCapturing: boolean;
-  error: Error | null;
-  isNative: boolean;
-}
-
-export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNativeCameraReturn {
-  const { quality = 90, allowEditing = false, source = 'prompt' } = options;
-  
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const isNative = Capacitor.isNativePlatform();
-
-  const checkPermissions = async () => {
-    if (!isNative) return true;
-    
-    const status = await Camera.checkPermissions();
-    if (status.camera !== 'granted' || status.photos !== 'granted') {
-      const request = await Camera.requestPermissions();
-      return request.camera === 'granted' && request.photos === 'granted';
-    }
-    return true;
-  };
-
-  const capturePhoto = async (cameraSource: CameraSource): Promise<Photo | null> => {
-    setIsCapturing(true);
-    setError(null);
-    
-    try {
-      const hasPermission = await checkPermissions();
-      if (!hasPermission) {
-        throw new Error('Camera permission denied');
-      }
-
-      const photo = await Camera.getPhoto({
-        quality,
-        allowEditing,
-        resultType: CameraResultType.Uri,
-        source: cameraSource,
-        saveToGallery: false,
-      });
-
-      return photo;
-    } catch (err: any) {
-      // User cancelled is not an error
-      if (err.message?.includes('cancelled') || err.message?.includes('canceled')) {
-        return null;
-      }
-      setError(err);
-      throw err;
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
-  const takePhoto = useCallback(() => 
-    capturePhoto(CameraSource.Camera), [quality, allowEditing]);
-
-  const pickPhoto = useCallback(() => 
-    capturePhoto(CameraSource.Photos), [quality, allowEditing]);
-
-  const captureOrPick = useCallback(() => 
-    capturePhoto(CameraSource.Prompt), [quality, allowEditing]);
-
-  return {
-    takePhoto,
-    pickPhoto,
-    captureOrPick,
-    isCapturing,
-    error,
-    isNative,
-  };
-}
-```
-
-### 2.3 Create Camera Photo Input Component
-
-**New File**: `src/components/ui/camera-photo-input.tsx`
-
-A drop-in replacement for `<input type="file" accept="image/*">` that:
-- Uses Capacitor Camera on native platforms
-- Falls back to standard file input on web
-- Handles permissions gracefully
-- Shows the CameraPermissionDialog when denied
-
----
-
-## Phase 3: Enhance Native Permission Flow
-
-### 3.1 Update useDevicePermissions Hook
-
-**File**: `src/hooks/useDevicePermissions.ts`
-
-**Current Issues**:
-- Uses only Web APIs (`navigator.permissions.query`, `navigator.mediaDevices.getUserMedia`)
-- These don't always trigger native Android permission dialogs
-- No integration with Capacitor plugins
-
-**Enhanced Implementation**:
-
-```typescript
-import { Camera } from '@capacitor/camera';
-
-// In checkAllPermissions:
-const checkCameraPermission = async (): Promise<PermissionStatus> => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const status = await Camera.checkPermissions();
-      if (status.camera === 'granted' && status.photos === 'granted') {
-        return 'granted';
-      }
-      if (status.camera === 'denied' || status.photos === 'denied') {
-        return 'denied';
-      }
-      return 'prompt';
-    } catch {
-      return 'unknown';
-    }
-  }
-  // Fall back to web API
-  // ... existing web logic
-};
-
-// In requestCameraPermission:
-const requestCameraPermission = async (): Promise<boolean> => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const result = await Camera.requestPermissions();
-      const granted = result.camera === 'granted' && result.photos === 'granted';
-      setPermissions(prev => ({ ...prev, camera: granted ? 'granted' : 'denied' }));
-      return granted;
-    } catch {
-      setPermissions(prev => ({ ...prev, camera: 'denied' }));
-      return false;
-    }
-  }
-  // Fall back to web API (getUserMedia)
-  // ... existing web logic
-};
-```
-
-### 3.2 Add Native Microphone Permission Check
-
-For microphone, Android requires explicit permission. Add a pre-check before calling `getUserMedia`:
-
-**File**: `src/hooks/useVoiceRecording.ts` (lines ~172-175)
-
-```typescript
-// Before calling getUserMedia, check if on native platform
-if (Capacitor.isNativePlatform()) {
-  // Check microphone permission status first
-  const status = await checkMicrophonePermission();
-  if (status === 'denied') {
-    throw new Error('Microphone permission denied');
-  }
-}
-
-const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-```
-
-### 3.3 Update VoiceTrainingSession
-
-**File**: `src/components/voice-training/VoiceTrainingSession.tsx`
-
-The `startRecording` function directly calls `getUserMedia` without checking permissions. Update to:
-
-1. Import `Capacitor` from `@capacitor/core`
-2. Check native permissions before recording
-3. Show permission dialog proactively if denied
-
+**Current code (line 28-30):**
 ```typescript
 const startRecording = async () => {
   try {
-    // On native, check permission first
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+```
+
+**Updated code:**
+```typescript
+import { Capacitor } from '@capacitor/core';
+
+const startRecording = async () => {
+  try {
+    // On native Android, check permission status first
     if (Capacitor.isNativePlatform()) {
-      const permissionStatus = await navigator.permissions.query({ 
-        name: 'microphone' as PermissionName 
-      }).catch(() => ({ state: 'prompt' }));
-      
-      if (permissionStatus.state === 'denied') {
-        setShowPermissionDialog(true);
-        return;
+      try {
+        const permissionStatus = await navigator.permissions.query({ 
+          name: 'microphone' as PermissionName 
+        });
+        
+        if (permissionStatus.state === 'denied') {
+          setShowPermissionDialog(true);
+          return;
+        }
+      } catch (permError: any) {
+        // If permissions API doesn't support microphone query, continue
+        if (permError.message === 'Microphone permission denied') {
+          setShowPermissionDialog(true);
+          return;
+        }
       }
     }
     
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // ... rest of recording logic
-  } catch (error) {
-    console.error('Error starting recording:', error);
-    setShowPermissionDialog(true);
-  }
-};
+```
+
+#### 2.2 farmhand/VoiceRecordButton.tsx
+
+**Current code (line 126-130):**
+```typescript
+const startRecording = async () => {
+  try {
+    await hapticImpact('medium');
+    
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+```
+
+**Updated code:**
+```typescript
+import { Capacitor } from '@capacitor/core';
+
+const startRecording = async () => {
+  try {
+    await hapticImpact('medium');
+    
+    // On native Android, check permission status first
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ 
+          name: 'microphone' as PermissionName 
+        });
+        
+        if (permissionStatus.state === 'denied') {
+          setShowPermissionDialog(true);
+          return;
+        }
+      } catch (permError: any) {
+        // If permissions API doesn't support microphone query, continue
+        if (permError.message === 'Microphone permission denied') {
+          setShowPermissionDialog(true);
+          return;
+        }
+      }
+    }
+    
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 ```
 
 ---
 
 ## Files to Modify Summary
 
-| File | Changes |
-|------|---------|
-| **New**: `src/lib/appConfig.ts` | Centralized app ID configuration |
-| **New**: `src/hooks/useNativeCamera.ts` | Native camera capture hook |
-| **New**: `src/components/ui/camera-photo-input.tsx` | Cross-platform photo input component |
-| `src/components/MicrophonePermissionDialog.tsx` | Fix AppLauncher URL |
-| `src/components/permissions/CameraPermissionDialog.tsx` | Fix AppLauncher URL |
-| `src/hooks/useDevicePermissions.ts` | Add Capacitor Camera integration |
-| `src/hooks/useVoiceRecording.ts` | Add native permission pre-check |
-| `src/components/voice-training/VoiceTrainingSession.tsx` | Add permission check before recording |
+| # | File | Type | Change |
+|---|------|------|--------|
+| 1 | `src/components/AnimalDetails.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 2 | `src/components/animal-details/AnimalProfile.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 3 | `src/components/FarmLogoUpload.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 4 | `src/components/health-records/AddHealthRecordDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 5 | `src/components/health-recording/RecordSingleHealthDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 6 | `src/components/DocAga.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 7 | `src/components/merchant/MerchantProfile.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 8 | `src/components/merchant/ProductFormDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
+| 9 | `src/components/ui/voice-input-button.tsx` | Microphone | Add Capacitor native check before getUserMedia |
+| 10 | `src/components/farmhand/VoiceRecordButton.tsx` | Microphone | Add Capacitor native check before getUserMedia |
 
 ---
 
-## Native Build Steps (Post-Implementation)
+## Post-Implementation Steps
 
-After the code changes are implemented, you'll need to:
+After all code changes are implemented:
 
-1. **Pull the latest code** from your repository
-2. **Install the new plugin**:
-   ```bash
-   npm install @capacitor/camera
-   ```
-3. **Sync with native project**:
+1. **Pull latest code** to local development environment
+2. **Sync native project:**
    ```bash
    npx cap sync android
    ```
-4. **Rebuild and deploy**:
+3. **Rebuild the app:**
    ```bash
    npx cap run android
    ```
+4. **Verify in Android Settings** → Apps → Doc Aga → Permissions:
+   - Camera permission should now appear
+   - Microphone permission should now appear
 
 ---
 
 ## Testing Checklist
 
-After implementation, test on Samsung Galaxy A17 5G:
+| Test | Location | Expected Result |
+|------|----------|-----------------|
+| Tap camera icon on animal avatar | Animal Details | Native camera permission dialog |
+| Tap farm logo upload | Farm Settings | Native camera permission dialog |
+| Tap photo button in health record | Add Health Record | Native camera permission dialog |
+| Tap Doc Aga image attachment | Doc Aga chat | Native camera permission dialog |
+| Tap voice record button | Farmhand dashboard | Native microphone permission dialog |
+| Tap VoiceInputButton | Any form with voice input | Native microphone permission dialog |
+| Check Android Settings | App Permissions | Both Camera and Microphone listed |
+| Deny permission, tap "Open Settings" | Permission dialog | Opens Doc Aga app settings (correct app) |
 
-| Test | Expected Result |
-|------|-----------------|
-| Tap microphone in Voice Training | Native Android permission dialog appears |
-| Deny mic permission, tap "Open Settings" | Opens Doc Aga app settings (not wrong app) |
-| Grant mic permission | Recording starts successfully |
-| Tap camera/photo upload | Native Android permission dialog appears |
-| Deny camera permission, tap "Open Settings" | Opens Doc Aga app settings |
-| Grant camera permission | Camera/gallery opens successfully |
-| Check Device Permissions Hub | All statuses reflect actual Android permissions |
+---
+
+## Technical Notes
+
+### Why Microphone Needs Different Handling
+- There is no `@capacitor/microphone` plugin - Android microphone access works through Web Audio API (`getUserMedia`)
+- However, on native platforms, we should still check permission status before calling `getUserMedia` to provide better UX
+- The permission check uses `navigator.permissions.query({ name: 'microphone' })` on native to pre-detect denied state
+
+### Why Camera Uses Capacitor Plugin
+- `@capacitor/camera` provides native camera UI with proper permission handling
+- It also handles photo library access
+- The plugin automatically manages Android runtime permissions
+
+### Existing Infrastructure
+- `CameraPhotoInput` component is already created and tested
+- `useNativeCamera` hook handles native/web fallback
+- `MicrophonePermissionDialog` and `CameraPermissionDialog` use correct App ID URLs
+- `useDevicePermissions` hook properly checks both camera and microphone status
 
