@@ -1,7 +1,12 @@
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
 let isInitialized = false;
+
+// Dynamic import helper for LocalNotifications
+async function getLocalNotifications() {
+  const { LocalNotifications } = await import(/* @vite-ignore */ '@capacitor/local-notifications');
+  return LocalNotifications;
+}
 
 export async function initNotifications(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) {
@@ -12,6 +17,7 @@ export async function initNotifications(): Promise<boolean> {
   if (isInitialized) return true;
 
   try {
+    const LocalNotifications = await getLocalNotifications();
     const permission = await LocalNotifications.requestPermissions();
     isInitialized = permission.display === 'granted';
     return isInitialized;
@@ -34,6 +40,7 @@ export async function sendNotification(
   try {
     await initNotifications();
     
+    const LocalNotifications = await getLocalNotifications();
     await LocalNotifications.schedule({
       notifications: [{
         title,

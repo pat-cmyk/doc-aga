@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera';
+import type { Photo } from '@capacitor/camera';
 
 export interface UseNativeCameraOptions {
   /** Image quality (1-100). Default: 90 */
@@ -30,6 +30,16 @@ export interface UseNativeCameraReturn {
   requestPermissions: () => Promise<boolean>;
 }
 
+// Dynamic import helper for native camera
+async function getNativeCamera() {
+  const module = await import(/* @vite-ignore */ '@capacitor/camera');
+  return {
+    Camera: module.Camera,
+    CameraResultType: module.CameraResultType,
+    CameraSource: module.CameraSource,
+  };
+}
+
 export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNativeCameraReturn {
   const { quality = 90, allowEditing = false } = options;
   
@@ -52,6 +62,7 @@ export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNative
     }
     
     try {
+      const { Camera } = await getNativeCamera();
       const status = await Camera.checkPermissions();
       // Both camera and photos need to be granted for full functionality
       if (status.camera === 'granted' && status.photos === 'granted') {
@@ -82,6 +93,7 @@ export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNative
     }
 
     try {
+      const { Camera } = await getNativeCamera();
       const result = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
       return result.camera === 'granted' && result.photos === 'granted';
     } catch {
@@ -92,7 +104,7 @@ export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNative
   /**
    * Capture a photo from the specified source
    */
-  const capturePhoto = useCallback(async (cameraSource: CameraSource): Promise<Photo | null> => {
+  const capturePhoto = useCallback(async (sourceType: 'camera' | 'photos' | 'prompt'): Promise<Photo | null> => {
     setIsCapturing(true);
     setError(null);
     
@@ -109,6 +121,15 @@ export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNative
           throw new Error('Camera permission denied');
         }
       }
+
+      const { Camera, CameraResultType, CameraSource } = await getNativeCamera();
+      
+      // Map source type to CameraSource enum
+      const cameraSource = sourceType === 'camera' 
+        ? CameraSource.Camera 
+        : sourceType === 'photos' 
+          ? CameraSource.Photos 
+          : CameraSource.Prompt;
 
       const photo = await Camera.getPhoto({
         quality,
@@ -134,13 +155,13 @@ export function useNativeCamera(options: UseNativeCameraOptions = {}): UseNative
   }, [quality, allowEditing, checkPermissions, requestPermissions]);
 
   const takePhoto = useCallback(() => 
-    capturePhoto(CameraSource.Camera), [capturePhoto]);
+    capturePhoto('camera'), [capturePhoto]);
 
   const pickPhoto = useCallback(() => 
-    capturePhoto(CameraSource.Photos), [capturePhoto]);
+    capturePhoto('photos'), [capturePhoto]);
 
   const captureOrPick = useCallback(() => 
-    capturePhoto(CameraSource.Prompt), [capturePhoto]);
+    capturePhoto('prompt'), [capturePhoto]);
 
   return {
     takePhoto,

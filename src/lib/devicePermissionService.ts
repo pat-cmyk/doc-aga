@@ -1,6 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { Camera } from '@capacitor/camera';
-import { LocalNotifications } from '@capacitor/local-notifications';
 
 let isInitialized = false;
 
@@ -26,8 +24,9 @@ export async function checkAllPermissions(): Promise<PermissionResults> {
     return results;
   }
 
-  // Check camera
+  // Check camera - dynamic import
   try {
+    const { Camera } = await import(/* @vite-ignore */ '@capacitor/camera');
     const cameraStatus = await Camera.checkPermissions();
     if (cameraStatus.camera === 'granted' && cameraStatus.photos === 'granted') {
       results.camera = 'granted';
@@ -49,8 +48,9 @@ export async function checkAllPermissions(): Promise<PermissionResults> {
     results.microphone = 'prompt';
   }
 
-  // Check notifications
+  // Check notifications - dynamic import
   try {
+    const { LocalNotifications } = await import(/* @vite-ignore */ '@capacitor/local-notifications');
     const notifStatus = await LocalNotifications.checkPermissions();
     results.notifications = notifStatus.display as PermissionStatus;
   } catch (error) {
@@ -84,9 +84,10 @@ export async function initDevicePermissions(): Promise<PermissionResults> {
     notifications: 'prompt',
   };
 
-  // Camera: Use Capacitor Camera plugin for native permission dialog
+  // Camera: Use Capacitor Camera plugin for native permission dialog - dynamic import
   try {
     console.log('[DevicePermissions] Requesting camera permissions...');
+    const { Camera } = await import(/* @vite-ignore */ '@capacitor/camera');
     const cameraStatus = await Camera.requestPermissions({
       permissions: ['camera', 'photos']
     });
@@ -117,9 +118,10 @@ export async function initDevicePermissions(): Promise<PermissionResults> {
     results.microphone = 'denied';
   }
 
-  // Notifications: Already working, maintain existing behavior
+  // Notifications: Already working, maintain existing behavior - dynamic import
   try {
     console.log('[DevicePermissions] Requesting notification permissions...');
+    const { LocalNotifications } = await import(/* @vite-ignore */ '@capacitor/local-notifications');
     const notifResult = await LocalNotifications.requestPermissions();
     results.notifications = notifResult.display as PermissionStatus;
     console.log('[DevicePermissions] Notification permission result:', results.notifications);
