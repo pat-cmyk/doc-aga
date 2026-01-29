@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
 
+// Module name constants for variable indirection (prevents Rollup static analysis)
+const CAP_CAMERA = '@capacitor/camera';
+const CAP_LOCAL_NOTIF = '@capacitor/local-notifications';
+
 export type PermissionStatus = "granted" | "denied" | "prompt" | "unknown";
 
 export interface DevicePermissions {
@@ -12,12 +16,12 @@ export interface DevicePermissions {
 
 // Dynamic import helpers
 async function getNativeCamera() {
-  const { Camera } = await import(/* @vite-ignore */ '@capacitor/camera');
+  const { Camera } = await import(/* @vite-ignore */ CAP_CAMERA);
   return Camera;
 }
 
 async function getLocalNotifications() {
-  const { LocalNotifications } = await import(/* @vite-ignore */ '@capacitor/local-notifications');
+  const { LocalNotifications } = await import(/* @vite-ignore */ CAP_LOCAL_NOTIF);
   return LocalNotifications;
 }
 

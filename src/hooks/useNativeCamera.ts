@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { Photo } from '@capacitor/camera';
 
+// Module name constant for variable indirection (prevents Rollup static analysis)
+const CAP_CAMERA = '@capacitor/camera';
+
 export interface UseNativeCameraOptions {
   /** Image quality (1-100). Default: 90 */
   quality?: number;
@@ -32,7 +35,7 @@ export interface UseNativeCameraReturn {
 
 // Dynamic import helper for native camera
 async function getNativeCamera() {
-  const module = await import(/* @vite-ignore */ '@capacitor/camera');
+  const module = await import(/* @vite-ignore */ CAP_CAMERA);
   return {
     Camera: module.Camera,
     CameraResultType: module.CameraResultType,
