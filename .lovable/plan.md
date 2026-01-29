@@ -1,299 +1,176 @@
 
 
-# Wide App Assessment: Farm Dashboard vs Government Dashboard
+# Demo Data Seed Plan: Estehanon Farm
+## Presentation Preparation for Jan 23, 2026
 
-## Executive Summary
+### Current State Summary
 
-After thoroughly analyzing the codebase, I've identified significant opportunities to enhance the government dashboard by leveraging data already collected at the farm level. The farm dashboard collects rich, granular data that is currently only partially surfaced to government users. This assessment identifies gaps, consolidation opportunities, and enhancement recommendations.
+| Data Type | Current Records | Date Range | Gap |
+|-----------|----------------|------------|-----|
+| **Milking Records** | 41 records | Jan 8-29, 2026 | Missing Oct 22, 2025 - Jan 7, 2026 |
+| **Feeding Records** | 102 records | Jan 2-28, 2026 | Missing Oct 22, 2025 - Jan 1, 2026 |
+| **Heat Detection** | 2 observations | Jan 15-17, 2026 | No breeding events recorded |
+| **Milk Sales Revenue** | 32 records | Jan 8-29, 2026 | ₱14,371 total |
+| **AI Records** | 0 | None | Needs full breeding cycle data |
 
-## Current Architecture Overview
+### Target Date Range
+- **Start**: October 22, 2025
+- **End**: January 22, 2026 (3 months of complete data)
+- **Days to Fill**: ~78 days of missing data
 
+---
+
+## Animals in Demo Farm
+
+| Name | Ear Tag | Type | Gender | Status | Daily Production Target |
+|------|---------|------|--------|--------|------------------------|
+| Bessie | A002 | Cattle | Female | Early Lactation | 8-12L/day |
+| Tita Barbecue | C0001 | Cattle | Female | Early Lactation | 8-12L/day |
+| Mang Flora | C0002 | Cattle | Female | Not Lactating (heifer) | N/A (breeding candidate) |
+| Olens Main | Olens | Cattle | Male | Young Bull | N/A |
+| Tsibato | G001 | Goat | Female | Early Lactation | 1-2L/day |
+| (Unnamed) | G002 | Goat | Female | Early Lactation | 1-2L/day |
+
+---
+
+## Phase 1: Milk Production Data
+
+### Seed Data Strategy
+Generate daily AM and PM milking sessions for lactating animals.
+
+**Production Targets (Realistic Average, Premium Pricing):**
+- **Cattle (Bessie, Tita Barbecue)**: 8-12L/day total (4-6L AM, 4-6L PM)
+- **Goats (Tsibato, G002)**: 1-2L/day total (0.5-1L AM, 0.5-1L PM)
+
+**Pricing (Premium):**
+- Cattle milk: ₱40/L
+- Goat milk: ₱60/L
+
+**Sales**: 100% sold - all records marked with `is_sold = true` and `sale_amount` calculated
+
+**Date Range to Insert**: Oct 22, 2025 → Jan 7, 2026 (before existing data starts)
+
+### SQL Insert Pattern
 ```text
-DATA FLOW ARCHITECTURE:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        FARM DASHBOARD (Data Source)                         │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
-│  │   Milking    │ │   Animals    │ │   Health     │ │   Finance    │       │
-│  │   Records    │ │   Registry   │ │   Records    │ │   Data       │       │
-│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
-│  │   Feed       │ │   Breeding   │ │   Weight     │ │   BCS        │       │
-│  │   Inventory  │ │   & AI       │ │   Records    │ │   Records    │       │
-│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
-└───────────────────────────────┬─────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    GOVERNMENT DASHBOARD (Aggregated View)                    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ LIVESTOCK ANALYTICS (Partially Connected)                            │   │
-│  │ ✅ Farm counts, animal counts, health events                         │   │
-│  │ ✅ Breeding stats, vaccination compliance, BCS distribution          │   │
-│  │ ✅ Mortality tracking, regional maps                                 │   │
-│  │ ⚠️  Milk production (aggregated only, no species breakdown)         │   │
-│  │ ❌ Feed inventory status (not surfaced)                              │   │
-│  │ ❌ Market prices by species (not surfaced)                           │   │
-│  │ ❌ Financial health indicators (not surfaced)                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ FARMER VOICE (Well Connected)                                        │   │
-│  │ ✅ Feedback queue, sentiment analysis, clusters                      │   │
-│  │ ✅ Geographic heatmaps, response templates                           │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ PROGRAMS & INSIGHTS (Partially Connected)                            │   │
-│  │ ✅ Grant distribution, grant effectiveness comparison                │   │
-│  │ ✅ Regional investment cards                                         │   │
-│  │ ❌ Production trends by species (placeholder)                        │   │
-│  │ ❌ Program participation tracking (placeholder)                      │   │
-│  │ ❌ Impact analysis (placeholder)                                     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
+For each day in range:
+  For each lactating animal:
+    INSERT milking_record (AM session)
+    INSERT milking_record (PM session)
+    INSERT farm_revenues (Milk Sales) - daily batch
 ```
 
 ---
 
-## Gap Analysis: Data Available but Not Surfaced
+## Phase 2: Feeding Records
 
-### 1. Species-Based Milk Production Analytics
+### Seed Data Strategy
+Daily feeding entries using existing feed inventory items.
 
-**Farm Level (Source Data)**:
-- `useMilkInventory` now includes `livestock_type` per record
-- `useLastMilkPriceBySpecies` provides species-specific pricing (Goat ~₱45/L, Cattle ~₱30/L, Carabao ~₱35/L)
-- `MilkSpeciesSummary` component shows breakdown by species
+**Feeding Schedule:**
+- **Cattle**: ~15-20kg roughage + 3-5kg concentrates per day
+- **Goats**: ~2-3kg roughage + 0.5-1kg concentrates per day
 
-**Government Level (Gap)**:
-- `GovTrendCharts` shows "Total Milk Production" as a single line
-- `get_government_stats_timeseries` returns `total_milk_liters` without species breakdown
-- No visibility into price differentials or market value by species
+**Feed Inventory Available:**
+- Roughage: Bag Corn Silage, Baled Corn Silage, Sako, Soya
+- Concentrates: Copra, Rice Bran, Rumsol Feeds Cattle Grower
 
-**Recommendation**: Add `milk_by_species` breakdown to government timeseries data, enabling:
-- Species-specific production trends
-- Market price tracking by species
-- Revenue analysis (Goat milk vs Cattle milk economic contribution)
+**Date Range to Insert**: Oct 22, 2025 → Jan 1, 2026
 
 ---
 
-### 2. Feed Inventory Status Across Regions
+## Phase 3: Active Breeding Program
 
-**Farm Level (Source Data)**:
-- `DashboardStats` shows "Feed Stock Days" (survival buffer calculation)
-- `useFeedInventory` tracks concentrates, roughage, minerals by category
-- `feedStockBreakdown` provides detailed kg and days remaining
+### Breeding Story Arc
 
-**Government Level (Gap)**:
-- No feed inventory data surfaced to government dashboard
-- Cannot identify regions with critically low feed supplies
-- No early warning system for potential livestock welfare issues
+**Scenario**: Mang Flora (breeding heifer, born Nov 2023, now ~2 years old) goes through a complete breeding cycle.
 
-**Recommendation**: Create `get_regional_feed_status` RPC function aggregating:
-- Farms with critical (<7 days), low (<30 days), adequate feed levels
-- Feed shortage hotspots by region/province
-- Seasonal feed availability patterns
+| Date | Event | Animal | Details |
+|------|-------|--------|---------|
+| Nov 1, 2025 | Heat Observed | Mang Flora | Standing heat, vulva swelling |
+| Nov 2, 2025 | AI Service | Mang Flora | Technician: "Dr. Santos", Semen: "Angus A-102" |
+| Nov 22, 2025 | No Return Check | Mang Flora | 21 days - no return to heat (positive sign) |
+| Dec 7, 2025 | Pregnancy Check | Mang Flora | Confirmed pregnant at 35 days |
+| Jan 5, 2026 | Routine Check | Mang Flora | 65 days pregnant, healthy |
 
----
+**Additional Heat Observations (goats cycle every ~21 days):**
+- Tsibato: Oct 25, Nov 15, Dec 6, Dec 27 (observed but not bred)
+- G002: Oct 30, Nov 20, Dec 11, Jan 1 (observed but not bred)
 
-### 3. Financial Health Indicators
-
-**Farm Level (Source Data)**:
-- `FinancialHealthSummary` shows profitability, cash flow, revenue trends
-- `HerdValueChart` tracks herd investment value
-- `RevenueExpenseComparison` shows income vs costs
-- `useMarketPrices` tracks prices by livestock type and location
-
-**Government Level (Gap)**:
-- No farm financial health aggregation
-- Cannot identify economically struggling farms for intervention
-- No market price trends visible for policy decisions
-- "Avg Purchase Price" card exists but limited context
-
-**Recommendation**: Add "Economic Health" section showing:
-- Regional profitability indicators
-- Market price trends by species and region
-- Farm financial risk distribution (% profitable, break-even, struggling)
+### Tables to Populate
+1. `breeding_events` - For heat observations and AI events
+2. `ai_records` - For artificial insemination details
+3. `heat_observation_checks` - Daily heat monitoring
 
 ---
 
-### 4. Daily Activity Compliance Patterns
+## Technical Implementation
 
-**Farm Level (Source Data)**:
-- `DailyActivityCompliance` shows milking/feeding completion rates
-- `useFarmhandProductivity` tracks team activity
-- Real-time breeding observation tracking
+### Step 1: Update Animal Entry Dates
+Before seeding historical data, backdate animal `farm_entry_date` to allow records:
 
-**Government Level (Gap)**:
-- No visibility into farm operation consistency
-- Cannot correlate compliance with production outcomes
-- No data on farmhand utilization patterns
+```text
+Animals needing farm_entry_date update:
+- Bessie: Change from Jan 8 → Oct 15, 2025
+- Tita Barbecue: Change from Dec 30 → Oct 15, 2025
+- Mang Flora: Already Jan 2 → Change to Oct 15, 2025
+- Tsibato: Needs entry date → Oct 15, 2025
+- G002: Change from Jan 8 → Oct 15, 2025
+```
 
-**Recommendation**: Create aggregated compliance metrics:
-- Regional milking compliance rates
-- Farms with consistent vs inconsistent daily operations
-- Correlation analysis: compliance → production outcomes
+### Step 2: Set Milking Start Dates
+Adjust milking_start_date to enable historical milk records:
 
----
+```text
+- Bessie: Change from Jan 8 → Oct 22, 2025
+- Tita Barbecue: Change from Jan 8 → Oct 22, 2025
+- Tsibato: Change from Jan 8 → Oct 22, 2025
+- G002: Change from Jan 8 → Oct 22, 2025
+- Mang Flora: Keep NULL (not lactating - she's a breeding heifer)
+```
 
-### 5. Weight and Growth Analytics
+### Step 3: Insert Milking Records
+~78 days × 4 lactating animals × 2 sessions = ~624 new milking records
 
-**Farm Level (Source Data)**:
-- `weight_records` table with full history
-- `useWeightDataCompleteness` tracks data gaps
-- Growth benchmarks and trend analysis available
+### Step 4: Insert Milk Sales Revenue
+Batch daily sales into farm_revenues table with source = 'Milk Sales'
 
-**Government Level (Gap)**:
-- No weight/growth trends by region
-- Cannot assess feed efficiency or growth rates
-- No visibility into data completeness by region
+### Step 5: Insert Feeding Records
+~72 days × 6 animals × 1 record/day = ~432 new feeding records
 
-**Recommendation**: Surface growth analytics:
-- Average daily gain by species and region
-- Weight distribution by life stage
-- Data completeness scoring by farm/region
+### Step 6: Insert Breeding Events
+~15-20 breeding_events records for the active breeding program
 
----
-
-## Current Government Dashboard Structure
-
-| Tab | Section | Data Sources | Status |
-|-----|---------|--------------|--------|
-| **Livestock Analytics** | Population Overview | `get_government_stats`, `gov_farm_analytics` | ✅ Complete |
-| | Reproduction & Breeding | `get_government_breeding_stats` | ✅ Complete |
-| | Animal Health & Welfare | `get_government_health_stats` | ✅ Complete |
-| | Trends & Insights | `get_government_stats_timeseries` | ⚠️ Partial |
-| **Farmer Voice** | Feedback Queue | `farmer_feedback` table | ✅ Complete |
-| | Sentiment/Clusters | Aggregation from feedback | ✅ Complete |
-| **Programs & Insights** | Grant Analytics | `useGrantAnalytics`, `useGrantEffectiveness` | ✅ Complete |
-| | Production Trends | — | ❌ Placeholder |
-| | Program Participation | — | ❌ Placeholder |
-| | Impact Analysis | — | ❌ Placeholder |
+### Step 7: Recalculate Daily Farm Stats
+Run ensure_farm_stats RPC to regenerate aggregated statistics
 
 ---
 
-## Recommended Enhancements
+## Expected Demo Outcomes
 
-### Priority 1: Species-Based Milk Production (High Value, Medium Effort)
+After seeding, the farm dashboard will show:
 
-**Why**: Government needs to understand the economic composition of dairy production. Goat milk commands 47% higher prices than cattle milk.
-
-**Implementation**:
-1. Update `get_government_stats_timeseries` to return:
-   ```sql
-   cattle_milk_liters, goat_milk_liters, carabao_milk_liters
-   ```
-2. Add `avg_cattle_milk_price`, `avg_goat_milk_price` columns
-3. Create new chart component: `MilkProductionBySpeciesChart`
-4. Add to "Production Trends" (currently placeholder)
-
-**New Hook**: `useGovernmentMilkAnalytics`
-- Production by species over time
-- Average prices by species and region
-- Revenue contribution breakdown
+1. **Milk Production Chart**: 3-month trend with consistent daily production
+2. **Total Milk Produced**: ~7,000-8,000L (cattle) + ~250-300L (goats)
+3. **Total Milk Revenue**: ~₱300,000-350,000 (at premium pricing)
+4. **Feeding History**: Complete daily feeding logs
+5. **Breeding Hub**: Active breeding program with pregnancy confirmation
+6. **Heat Calendar**: Regular heat observations for all females
 
 ---
 
-### Priority 2: Regional Feed Security Dashboard (High Value, Medium Effort)
+## Summary of SQL Operations
 
-**Why**: Early warning for feed shortages can prevent livestock welfare crises and economic losses.
+| Operation | Records | Table |
+|-----------|---------|-------|
+| Update animal dates | 5 | animals |
+| Insert milking (AM) | ~312 | milking_records |
+| Insert milking (PM) | ~312 | milking_records |
+| Insert milk revenues | ~78 | farm_revenues |
+| Insert feeding records | ~432 | feeding_records |
+| Insert breeding events | ~20 | breeding_events |
+| Insert AI records | 1 | ai_records |
+| Insert heat checks | ~30 | heat_observation_checks |
+| Regenerate stats | - | daily_farm_stats (via RPC) |
 
-**Implementation**:
-1. Create RPC: `get_regional_feed_security`
-   - Farms with <7 days feed (critical)
-   - Farms with <30 days feed (warning)
-   - Regional feed inventory totals
-2. Create component: `FeedSecurityHeatmap`
-3. Add to "Animal Health & Welfare" section
-
----
-
-### Priority 3: Market Price Intelligence (Medium Value, Low Effort)
-
-**Why**: `market_prices` table already exists with farmer-reported prices. Just needs aggregation.
-
-**Implementation**:
-1. Create RPC: `get_regional_market_prices`
-   - Average price by species and region
-   - Price trend over last 6 months
-   - Price variance indicators
-2. Add to "Programs & Insights" or new "Economic Indicators" section
-
----
-
-### Priority 4: Operational Compliance Metrics (Medium Value, High Effort)
-
-**Why**: Correlates farm operational discipline with production outcomes.
-
-**Implementation**:
-1. Create RPC: `get_farm_compliance_metrics`
-   - Milking session completion rates
-   - Feeding record consistency
-   - Data entry timeliness
-2. Create component: `FarmOperationalHealthCard`
-3. Add to "Trends & Insights"
-
----
-
-### Priority 5: Growth & Weight Analytics (Lower Priority, Medium Effort)
-
-**Implementation**:
-1. Extend `get_government_health_stats` with weight metrics
-2. Add average daily gain by species
-3. Weight distribution visualization
-
----
-
-## Technical Implementation Notes
-
-### Existing RPC Functions to Extend
-
-| Function | Current Output | Proposed Additions |
-|----------|---------------|-------------------|
-| `get_government_stats_timeseries` | `total_milk_liters` | `cattle_milk_liters`, `goat_milk_liters`, `avg_price_per_species` |
-| `get_government_health_stats` | BCS, vaccination, mortality | Feed stock days aggregate |
-| `get_government_stats` | Farm/animal counts | Farms with feed warnings |
-
-### New RPC Functions Needed
-
-1. `get_regional_milk_analytics_by_species` - Species-level milk data
-2. `get_regional_feed_security` - Feed stock aggregation
-3. `get_regional_market_prices` - Price aggregation
-4. `get_farm_compliance_metrics` - Operational metrics
-
-### New Components Needed
-
-1. `MilkProductionBySpeciesChart` - Replaces single-line milk chart
-2. `FeedSecurityHeatmap` - Regional feed status
-3. `MarketPriceAnalyticsCard` - Price trends
-4. `FarmOperationalHealthCard` - Compliance metrics
-
----
-
-## Data Consolidation Opportunities
-
-### Duplicate/Redundant Data Flows
-
-1. **Milk Inventory vs Milking Records**: Both track milk production. Consider single source.
-2. **Grant Analytics + Grant Effectiveness**: Similar queries, could be combined into single RPC.
-3. **Regional Stats + Gov Farm Analytics**: Some overlap in farm counts.
-
-### Suggested Consolidations
-
-| Current | Proposed |
-|---------|----------|
-| `GovDashboardOverview` + `RegionalInvestmentCards` | Could share grant data query |
-| `useBreedingStats` + `useGovernmentHealthStats` | Consider unified "animal lifecycle" RPC |
-
----
-
-## Summary: Top 5 Actionable Items
-
-1. **Add species breakdown to milk production charts** - Immediate value for market understanding
-2. **Create feed security monitoring** - Proactive welfare protection
-3. **Surface market price trends** - Policy decision support
-4. **Fill "Production Trends" placeholder** - Uses existing farm data
-5. **Add farm operational compliance** - Quality indicator for programs
-
-These enhancements would transform the government dashboard from a basic census tool into a comprehensive livestock sector intelligence platform, enabling data-driven policy decisions and proactive interventions.
+**Total**: ~1,200 new records to create a complete 3-month demo dataset
 
