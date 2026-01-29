@@ -1,84 +1,195 @@
 
-# Fix: Cloud Build Error for Native Settings Plugin (Complete Solution)
+# Edit Feeding Record Functionality
 
-## Root Cause Analysis
+## Overview
+Implement edit/update functionality for feeding records, following the established `EditMilkRecordDialog` pattern. This includes updating the `feeding_records` table, reversing inventory deductions when feed type or quantity changes, and updating related expense records.
 
-The previous fix added `capacitor-native-settings` to `build.rollupOptions.external`, but the error persists because:
+## Current State Analysis
 
-1. **vite-plugin-pwa runs a separate Rollup process** for the service worker build
-2. This separate process **does not inherit** the main Vite `external` configuration
-3. Rollup scans ALL imports (including dynamic imports) during build analysis
-4. Even though the code has a runtime guard (`Capacitor.isNativePlatform()`), the bundler still tries to resolve the import at build time
+### Data Model (from `types.ts`)
 
-## Solution
+**`feeding_records` table:**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | string | Primary key |
+| animal_id | string | FK to animals |
+| record_datetime | string | Date/time of feeding |
+| feed_type | string | Feed type name |
+| kilograms | number | Amount fed |
+| feed_inventory_id | string (nullable) | FK to feed_inventory (null for Fresh Cut) |
+| cost_per_kg_at_time | number (nullable) | Locked cost at consumption |
+| notes | string (nullable) | Optional notes |
+| created_by | string (nullable) | FK to profiles |
 
-We need a **build-time conditional import** approach that completely hides the native module from the bundler during web builds. This involves:
+**Related tables affected by edits:**
+- `feed_inventory`: quantity_kg must be adjusted
+- `feed_stock_transactions`: new adjustment record needed
+- `farm_expenses`: linked expenses must be updated
 
-1. Creating a **virtual module shim** that provides a no-op implementation for web builds
-2. Using **Vite's define feature** to swap implementations based on build target
+### Existing Patterns
 
-### Alternative (Simpler) Approach
+The `RecordSingleFeedDialog.tsx` creates:
+1. A `feeding_records` entry with `feed_inventory_id` and `cost_per_kg_at_time`
+2. Updates `feed_inventory.quantity_kg` (deduction)
+3. Creates `feed_stock_transactions` entry (type: 'consumption')
+4. Creates `farm_expenses` entry with `linked_feed_inventory_id`
 
-Since the `openAppSettings` function already has a platform check that returns early on web, we can refactor to use a **string-based dynamic import** that Vite/Rollup won't try to resolve:
+## Implementation Plan
 
-## Changes Required
+### 1. Create `EditFeedingRecordDialog.tsx`
 
-### 1. Refactor `src/lib/openAppSettings.ts`
+**File:** `src/components/feed-recording/EditFeedingRecordDialog.tsx`
 
-Replace the static dynamic import with a fully runtime-evaluated import that bundlers cannot analyze:
-
+**Props interface:**
 ```typescript
-export async function openAppSettings(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) {
-    console.log('[openAppSettings] Not on native platform');
-    return false;
-  }
+interface EditFeedingRecordDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  record: FeedingRecordWithDetails;
+  farmId: string;
+  animalName: string;
+  onSuccess?: () => void;
+}
 
-  try {
-    // Use a variable to prevent static analysis by bundlers
-    const moduleName = 'capacitor-native-settings';
-    const module = await import(/* @vite-ignore */ moduleName);
-    const { NativeSettings, AndroidSettings, IOSSettings } = module;
-
-    // ... rest of implementation
-  } catch (error) {
-    console.error('[openAppSettings] Failed to open settings:', error);
-    return false;
-  }
+interface FeedingRecordWithDetails {
+  id: string;
+  animal_id: string;
+  feed_type: string | null;
+  kilograms: number | null;
+  notes: string | null;
+  record_datetime: string;
+  feed_inventory_id: string | null;
+  cost_per_kg_at_time: number | null;
 }
 ```
 
-The key change is:
-- `/* @vite-ignore */` comment tells Vite to skip analyzing this import
-- Using a variable (`moduleName`) instead of a string literal prevents Rollup from resolving it
+**UI Components:**
+- Date picker (with backdate validation)
+- Feed type selector (dropdown from feed_inventory + "Fresh Cut and Carry")
+- Kilograms input with stock validation
+- Notes textarea
+- Save/Cancel buttons
 
-### 2. Keep existing files (no changes needed)
+### 2. Update Logic (Complex Inventory Reversal)
 
-- `src/types/capacitor-native-settings.d.ts` - Keep for TypeScript support
-- `vite.config.ts` with `external: ['capacitor-native-settings']` - Keep as fallback
+When a feeding record is edited, the system must handle three scenarios:
 
-## Technical Details
+**Scenario A: Same feed type, quantity changed**
+- Calculate delta: `newKg - originalKg`
+- Adjust inventory: `quantity_kg -= delta`
+- Update expense amount based on new quantity
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Import style | `await import('capacitor-native-settings')` | `await import(/* @vite-ignore */ moduleName)` |
-| Bundler behavior | Tries to resolve and fails | Skips resolution entirely |
-| Runtime behavior | Same | Same (works on native, no-op on web) |
+**Scenario B: Different feed type selected**
+- Reverse original deduction: restore original `kilograms` to old inventory
+- Apply new deduction to new inventory
+- Update expense record with new linked_feed_inventory_id
 
-## Why This Works
+**Scenario C: Changed to/from "Fresh Cut and Carry"**
+- If changing FROM Fresh Cut TO inventory item: deduct from inventory, create expense
+- If changing TO Fresh Cut FROM inventory: restore to inventory, delete expense
 
-1. **`/* @vite-ignore */`** - Official Vite directive to skip import analysis
-2. **Variable indirection** - `moduleName` variable prevents Rollup's static analysis from seeing the module name
-3. **Platform guard first** - The `isNativePlatform()` check runs before the import, so on web the import never executes
-4. **Type declaration file** - Keeps TypeScript happy without needing the actual package
+### 3. Database Operations Sequence
 
-## Files to Modify
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Edit Feeding Record Flow                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Fetch original record details                                │
+│     └─ Get original kg, feed_inventory_id, cost_per_kg          │
+│                                                                  │
+│  2. Calculate inventory adjustment                               │
+│     ├─ If same feed_inventory_id:                               │
+│     │   └─ delta = new_kg - original_kg                         │
+│     │                                                            │
+│     └─ If different feed_inventory_id:                          │
+│         ├─ Restore original_kg to old inventory                 │
+│         └─ Deduct new_kg from new inventory                     │
+│                                                                  │
+│  3. Update feed_inventory.quantity_kg                           │
+│     └─ Create feed_stock_transactions (type: 'adjustment')      │
+│                                                                  │
+│  4. Update feeding_records row                                   │
+│     ├─ kilograms                                                 │
+│     ├─ feed_type                                                │
+│     ├─ feed_inventory_id                                        │
+│     ├─ cost_per_kg_at_time (recalculate if new feed type)       │
+│     ├─ record_datetime                                          │
+│     └─ notes                                                     │
+│                                                                  │
+│  5. Update/Create/Delete farm_expenses                          │
+│     ├─ Find expense by animal_id + description match            │
+│     ├─ Update amount if quantity changed                        │
+│     └─ Delete if changed to Fresh Cut (no cost)                 │
+│                                                                  │
+│  6. Invalidate queries                                           │
+│     └─ feeding-records, feed-inventory, animal-expenses         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-1. **`src/lib/openAppSettings.ts`** - Add `@vite-ignore` comment and use variable for module name
+### 4. Update `FeedingRecords.tsx` Component
 
-## After Implementation
+Add edit functionality to the record display:
 
-1. The cloud build should complete successfully
-2. Your local Android APK build continues to work (the actual package is installed there)
-3. Commit and push to GitHub
-4. Proceed with your release process
+**Mobile view changes:**
+- Add edit icon button to each record card
+- Track selected record for editing
+
+**Desktop table changes:**
+- Add "Actions" column with edit button
+
+**State additions:**
+```typescript
+const [editDialogOpen, setEditDialogOpen] = useState(false);
+const [selectedRecord, setSelectedRecord] = useState<FeedingRecordWithDetails | null>(null);
+```
+
+### 5. Update Interface for FeedingRecord
+
+Extend the existing interface to include inventory-related fields:
+
+```typescript
+interface FeedingRecord {
+  id: string;
+  animal_id: string;
+  feed_type: string | null;
+  kilograms: number | null;
+  notes: string | null;
+  record_datetime: string;
+  created_at: string;
+  created_by: string | null;
+  // Add these fields for edit functionality:
+  feed_inventory_id: string | null;
+  cost_per_kg_at_time: number | null;
+}
+```
+
+## Files to Create/Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/components/feed-recording/EditFeedingRecordDialog.tsx` | Create | New edit dialog component |
+| `src/components/FeedingRecords.tsx` | Modify | Add edit button, integrate dialog |
+
+## Technical Considerations
+
+1. **Stock validation**: When editing to increase quantity, check if sufficient stock exists
+2. **Fresh Cut handling**: No inventory/expense tracking for Fresh Cut and Carry
+3. **Cost locking**: Recalculate `cost_per_kg_at_time` only if feed type changes
+4. **Offline support**: Edit functionality will be online-only initially (matches EditMilkRecordDialog pattern)
+5. **Query invalidation**: Ensure all related caches are refreshed after edit
+
+## Edge Cases Handled
+
+- Editing a record where the original feed_inventory item was deleted
+- Changing from inventory-tracked feed to Fresh Cut (expense deletion)
+- Changing from Fresh Cut to inventory-tracked (expense creation)
+- Stock insufficient for increased quantity
+- Record date validation against farm entry date
+
+---
+
+## Summary
+
+This implementation provides complete CRUD functionality for feeding records, aligning with the Doc Aga SSOT pattern established in the project architecture. The edit dialog follows the existing `EditMilkRecordDialog` pattern while handling the additional complexity of inventory deduction reversals and expense record synchronization.
