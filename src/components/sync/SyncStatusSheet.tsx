@@ -116,7 +116,7 @@ export const SyncStatusSheet = () => {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="right" className="w-full sm:max-w-md pt-safe">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <ArrowUpDown className="h-5 w-5" />
@@ -124,7 +124,7 @@ export const SyncStatusSheet = () => {
           </SheetTitle>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-100px)] mt-4">
+        <ScrollArea className="h-[calc(100dvh-100px-env(safe-area-inset-top,0px))] mt-4">
           <div className="space-y-4 pr-4">
             {/* Connection Status */}
             <Card>
