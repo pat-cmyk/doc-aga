@@ -5,6 +5,9 @@ import { InstallInstructionsDialog } from "./InstallInstructionsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+const FALLBACK_APK_URL = "https://github.com/pat-cmyk/doc-aga/releases/download/untagged-7e459e239b3cc1b7533d/app-release.apk";
+const FALLBACK_VERSION = "1.0.0";
+
 interface VersionInfo {
   version: string;
   versionCode: number;
@@ -80,14 +83,10 @@ export function AppDownloadSection({ className }: AppDownloadSectionProps) {
   };
 
   const handleDownload = async () => {
-    if (!versionInfo?.downloadUrl) {
-      setDownloadError("Download not available yet. Please check back soon.");
-      return;
-    }
-
+    const downloadUrl = versionInfo?.downloadUrl || FALLBACK_APK_URL;
+    
     try {
-      // Open download in new tab/trigger download
-      window.open(versionInfo.downloadUrl, "_blank");
+      window.open(downloadUrl, "_blank");
     } catch (error) {
       console.error("Download error:", error);
       setDownloadError("Failed to start download. Please try again.");
@@ -112,7 +111,7 @@ export function AppDownloadSection({ className }: AppDownloadSectionProps) {
           <div className="space-y-2">
             {isLoading ? (
               <div className="h-10 bg-muted animate-pulse rounded-md" />
-            ) : versionInfo ? (
+            ) : (
               <>
                 <Button
                   onClick={handleDownload}
@@ -120,33 +119,27 @@ export function AppDownloadSection({ className }: AppDownloadSectionProps) {
                   variant="default"
                 >
                   <Download className="h-4 w-4" />
-                  Download APK (v{versionInfo.version})
+                  Download APK {versionInfo?.version ? `(v${versionInfo.version})` : `(v${FALLBACK_VERSION})`}
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  {versionInfo.size} • Android 7.0+
-                </p>
+                {versionInfo?.size && (
+                  <p className="text-xs text-muted-foreground">
+                    {versionInfo.size} • Android 7.0+
+                  </p>
+                )}
               </>
-            ) : (
-              <div className="py-2 px-4 bg-muted/50 rounded-md">
-                <p className="text-sm text-muted-foreground">
-                  Android APK coming soon
-                </p>
-              </div>
             )}
 
             {downloadError && (
               <p className="text-xs text-destructive">{downloadError}</p>
             )}
 
-            {versionInfo && (
-              <button
-                onClick={() => setShowInstructions(true)}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <HelpCircle className="h-3 w-3" />
-                How to install?
-              </button>
-            )}
+            <button
+              onClick={() => setShowInstructions(true)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <HelpCircle className="h-3 w-3" />
+              How to install?
+            </button>
           </div>
         )}
 
