@@ -1,368 +1,299 @@
 
 
-# Milk Inventory Species-Based Segmentation Plan
+# Wide App Assessment: Farm Dashboard vs Government Dashboard
 
-## Current State Analysis
+## Executive Summary
 
-### What Exists Today
+After thoroughly analyzing the codebase, I've identified significant opportunities to enhance the government dashboard by leveraging data already collected at the farm level. The farm dashboard collects rich, granular data that is currently only partially surfaced to government users. This assessment identifies gaps, consolidation opportunities, and enhancement recommendations.
 
-| Component | Current Behavior | Gap |
-|-----------|-----------------|-----|
-| **milk_inventory table** | Stores `animal_id` but no `livestock_type` | No direct species column; requires join to animals |
-| **MilkInventoryItem interface** | Has `animal_id`, `animal_name`, `ear_tag` | Missing `livestock_type` field |
-| **MilkStockList UI** | Groups inventory "By Animal" only | No grouping by species type |
-| **RecordMilkSaleDialog** | Single price input for all milk | No species-aware pricing |
-| **useLastMilkPrice hook** | Returns farm-wide last price (defaults to ₱65) | No species-specific pricing |
-| **useMilkInventory hook** | Fetches from `animals(name, ear_tag)` join | Does not include `livestock_type` |
-| **MilkInventorySummary** | `totalLiters`, `oldestDate`, `byAnimal` | No `bySpecies` breakdown |
-
-### Database Reality (Current Data)
+## Current Architecture Overview
 
 ```text
-Species     | Inventory Records | Liters Available | Avg Sale Price
------------ | ----------------- | ---------------- | --------------
-Carabao     | 5,349             | 52,493.83 L      | (no sales yet)
-Cattle      | 24,583            | 326,571.47 L     | ₱30.31/L
-Goat        | 7,623             | 65,745.10 L      | ₱44.45/L
-```
-
-The data confirms goat milk is priced ~47% higher than cattle milk (₱44.45 vs ₱30.31).
-
----
-
-## Solution Architecture
-
-```text
-SPECIES-SEGMENTED MILK INVENTORY:
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     MilkInventoryTab.tsx                                │
-│                             │                                           │
-│                             ▼                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │ LEVEL 1: Species Summary Cards (NEW)                               │ │
-│  │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                    │ │
-│  │ │ 🐄 Cattle   │ │ 🐐 Goat     │ │ 🐃 Carabao  │                    │ │
-│  │ │ 326,571 L   │ │ 65,745 L    │ │ 52,494 L    │                    │ │
-│  │ │ ₱30/L avg   │ │ ₱45/L avg   │ │ ₱--/L       │                    │ │
-│  │ │ [Sell]      │ │ [Sell]      │ │ [Sell]      │                    │ │
-│  │ └─────────────┘ └─────────────┘ └─────────────┘                    │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                             │                                           │
-│                             ▼                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │ LEVEL 2: Collapsible Species Sections                              │ │
-│  │ ▼ Cattle (100 animals) ────────────────────────────────────────    │ │
-│  │   • Bessie (Tag 001) ............ 5.2 L                            │ │
-│  │   • Daisy (Tag 002) ............. 3.8 L                            │ │
-│  │                                                                     │ │
-│  │ ▼ Goat (33 animals) ───────────────────────────────────────────    │ │
-│  │   • Nanny (Tag G01) ............. 1.2 L                            │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                             │                                           │
-│                             ▼                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │ LEVEL 3: Species-Specific Sale Dialog                              │ │
-│  │ ┌─────────────────────────────────────────────────────────────┐   │ │
-│  │ │ Record Goat Milk Sale                                        │   │ │
-│  │ │                                                              │   │ │
-│  │ │ Available: 65,745 L from 33 animals                          │   │ │
-│  │ │ Last Price: ₱44.45/L                                         │   │ │
-│  │ │                                                              │   │ │
-│  │ │ [Liters: ____] [Price/L: 44.45]                              │   │ │
-│  │ └─────────────────────────────────────────────────────────────┘   │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
+DATA FLOW ARCHITECTURE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        FARM DASHBOARD (Data Source)                         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │   Milking    │ │   Animals    │ │   Health     │ │   Finance    │       │
+│  │   Records    │ │   Registry   │ │   Records    │ │   Data       │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │   Feed       │ │   Breeding   │ │   Weight     │ │   BCS        │       │
+│  │   Inventory  │ │   & AI       │ │   Records    │ │   Records    │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+└───────────────────────────────┬─────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    GOVERNMENT DASHBOARD (Aggregated View)                    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ LIVESTOCK ANALYTICS (Partially Connected)                            │   │
+│  │ ✅ Farm counts, animal counts, health events                         │   │
+│  │ ✅ Breeding stats, vaccination compliance, BCS distribution          │   │
+│  │ ✅ Mortality tracking, regional maps                                 │   │
+│  │ ⚠️  Milk production (aggregated only, no species breakdown)         │   │
+│  │ ❌ Feed inventory status (not surfaced)                              │   │
+│  │ ❌ Market prices by species (not surfaced)                           │   │
+│  │ ❌ Financial health indicators (not surfaced)                        │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ FARMER VOICE (Well Connected)                                        │   │
+│  │ ✅ Feedback queue, sentiment analysis, clusters                      │   │
+│  │ ✅ Geographic heatmaps, response templates                           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ PROGRAMS & INSIGHTS (Partially Connected)                            │   │
+│  │ ✅ Grant distribution, grant effectiveness comparison                │   │
+│  │ ✅ Regional investment cards                                         │   │
+│  │ ❌ Production trends by species (placeholder)                        │   │
+│  │ ❌ Program participation tracking (placeholder)                      │   │
+│  │ ❌ Impact analysis (placeholder)                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Implementation Plan
+## Gap Analysis: Data Available but Not Surfaced
 
-### Phase 1: Update Data Layer
+### 1. Species-Based Milk Production Analytics
 
-#### 1.1 Update useMilkInventory Hook
+**Farm Level (Source Data)**:
+- `useMilkInventory` now includes `livestock_type` per record
+- `useLastMilkPriceBySpecies` provides species-specific pricing (Goat ~₱45/L, Cattle ~₱30/L, Carabao ~₱35/L)
+- `MilkSpeciesSummary` component shows breakdown by species
 
-**File:** `src/hooks/useMilkInventory.ts`
+**Government Level (Gap)**:
+- `GovTrendCharts` shows "Total Milk Production" as a single line
+- `get_government_stats_timeseries` returns `total_milk_liters` without species breakdown
+- No visibility into price differentials or market value by species
 
-Add `livestock_type` to the query and update interfaces:
-
-```typescript
-// Updated MilkInventoryItem interface
-export interface MilkInventoryItem {
-  id: string;
-  milking_record_id: string;
-  animal_id: string;
-  animal_name: string | null;
-  ear_tag: string | null;
-  livestock_type: string;        // NEW
-  record_date: string;
-  liters_original: number;
-  liters_remaining: number;
-  is_available: boolean;
-  created_at: string;
-}
-
-// NEW: Species-level summary
-export interface SpeciesSummary {
-  livestock_type: string;
-  total_liters: number;
-  animal_count: number;
-  oldest_date: string | null;
-  avg_price: number | null;      // Last known price for this species
-}
-
-// Updated MilkInventorySummary
-export interface MilkInventorySummary {
-  totalLiters: number;
-  oldestDate: string | null;
-  bySpecies: SpeciesSummary[];   // NEW
-  byAnimal: { ... }[];
-}
-```
-
-Update the Supabase query to include `livestock_type`:
-
-```typescript
-// In serverQuery queryFn
-const { data, error } = await supabase
-  .from("milk_inventory")
-  .select(`
-    id, milking_record_id, animal_id, record_date,
-    liters_original, liters_remaining, is_available, created_at,
-    animals!inner(name, ear_tag, livestock_type)  // ADD livestock_type
-  `)
-  .eq("farm_id", farmId)
-  .eq("is_available", true)
-  .gte("liters_remaining", 0.05)
-  .order("record_date", { ascending: true });
-```
-
-Add species grouping to the summary calculation:
-
-```typescript
-// Group by species
-const speciesMap = new Map<string, {
-  total_liters: number;
-  animal_ids: Set<string>;
-  oldest_date: string;
-}>();
-
-items.forEach(item => {
-  const type = item.livestock_type;
-  const existing = speciesMap.get(type);
-  if (existing) {
-    existing.total_liters += item.liters_remaining;
-    existing.animal_ids.add(item.animal_id);
-    if (item.record_date < existing.oldest_date) {
-      existing.oldest_date = item.record_date;
-    }
-  } else {
-    speciesMap.set(type, {
-      total_liters: item.liters_remaining,
-      animal_ids: new Set([item.animal_id]),
-      oldest_date: item.record_date,
-    });
-  }
-});
-
-const bySpecies = Array.from(speciesMap.entries()).map(([livestock_type, data]) => ({
-  livestock_type,
-  total_liters: data.total_liters,
-  animal_count: data.animal_ids.size,
-  oldest_date: data.oldest_date,
-  avg_price: null, // Will be fetched separately
-})).sort((a, b) => b.total_liters - a.total_liters);
-```
-
-#### 1.2 Create Species-Aware Price Hook
-
-**File:** `src/hooks/useRevenues.ts`
-
-Add a new hook for species-specific pricing:
-
-```typescript
-export function useLastMilkPriceBySpecies(farmId: string) {
-  return useQuery({
-    queryKey: ["last-milk-price-by-species", farmId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("milking_records")
-        .select(`
-          price_per_liter, 
-          animal_id, 
-          created_at,
-          animals!inner(farm_id, livestock_type)
-        `)
-        .eq("animals.farm_id", farmId)
-        .eq("is_sold", true)
-        .not("price_per_liter", "is", null)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Group by species, take most recent price
-      const priceMap: Record<string, number> = {};
-      const seen = new Set<string>();
-      
-      for (const record of data || []) {
-        const type = record.animals?.livestock_type;
-        if (type && !seen.has(type)) {
-          priceMap[type] = record.price_per_liter;
-          seen.add(type);
-        }
-      }
-
-      // Defaults if no sales history
-      return {
-        cattle: priceMap.cattle ?? 30,
-        goat: priceMap.goat ?? 45,
-        carabao: priceMap.carabao ?? 35,
-        sheep: priceMap.sheep ?? 50,
-      };
-    },
-    enabled: !!farmId,
-  });
-}
-```
-
-### Phase 2: Update UI Components
-
-#### 2.1 Create Species Summary Cards Component
-
-**File:** `src/components/milk-inventory/MilkSpeciesSummary.tsx` (NEW)
-
-```typescript
-// Component showing summary cards for each species
-// Each card displays: Icon, Species Name, Total Liters, Avg Price, Sell Button
-// Clicking "Sell" opens RecordMilkSaleDialog pre-filtered to that species
-```
-
-#### 2.2 Update MilkStockList Component
-
-**File:** `src/components/milk-inventory/MilkStockList.tsx`
-
-Changes:
-1. Add species summary cards at the top (before "By Animal" section)
-2. Group animals under species collapsibles
-3. Add species filter to the breakdown section
-4. Add species icon/badge to each animal row
-
-#### 2.3 Update RecordMilkSaleDialog Component
-
-**File:** `src/components/milk-inventory/RecordMilkSaleDialog.tsx`
-
-Changes:
-1. Accept optional `filterSpecies?: string` prop
-2. Filter `availableItems` by species when set
-3. Use species-specific default price from `useLastMilkPriceBySpecies`
-4. Update dialog title to show species (e.g., "Record Goat Milk Sale")
-5. Show species-specific inventory in the preview
-
-### Phase 3: Update Cache Layer
-
-**File:** `src/lib/dataCache.ts`
-
-Update `MilkInventoryCacheItem` interface to include `livestock_type`:
-
-```typescript
-export interface MilkInventoryCacheItem {
-  id: string;
-  milking_record_id: string;
-  animal_id: string;
-  animal_name: string | null;
-  ear_tag: string | null;
-  livestock_type: string;        // NEW
-  record_date: string;
-  liters_original: number;
-  liters_remaining: number;
-  is_available: boolean;
-  created_at: string;
-  client_generated_id?: string;
-  syncStatus: 'synced' | 'pending';
-}
-```
+**Recommendation**: Add `milk_by_species` breakdown to government timeseries data, enabling:
+- Species-specific production trends
+- Market price tracking by species
+- Revenue analysis (Goat milk vs Cattle milk economic contribution)
 
 ---
 
-## Files to Modify
+### 2. Feed Inventory Status Across Regions
 
-| # | File | Action | Changes |
-|---|------|--------|---------|
-| 1 | `src/hooks/useMilkInventory.ts` | MODIFY | Add `livestock_type` to query, add `bySpecies` to summary |
-| 2 | `src/hooks/useRevenues.ts` | MODIFY | Add `useLastMilkPriceBySpecies` hook |
-| 3 | `src/lib/dataCache.ts` | MODIFY | Add `livestock_type` to `MilkInventoryCacheItem` |
-| 4 | `src/components/milk-inventory/MilkSpeciesSummary.tsx` | CREATE | New species summary cards component |
-| 5 | `src/components/milk-inventory/MilkStockList.tsx` | MODIFY | Add species grouping, integrate summary cards |
-| 6 | `src/components/milk-inventory/RecordMilkSaleDialog.tsx` | MODIFY | Add species filter & species-specific pricing |
-| 7 | `src/components/milk-inventory/MilkSalesHistory.tsx` | MODIFY | Add species column/filter to sales history |
+**Farm Level (Source Data)**:
+- `DashboardStats` shows "Feed Stock Days" (survival buffer calculation)
+- `useFeedInventory` tracks concentrates, roughage, minerals by category
+- `feedStockBreakdown` provides detailed kg and days remaining
 
----
+**Government Level (Gap)**:
+- No feed inventory data surfaced to government dashboard
+- Cannot identify regions with critically low feed supplies
+- No early warning system for potential livestock welfare issues
 
-## UI Mockup
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 🥛 Milk Inventory                                            [Refresh] │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │
-│  │ 🐄 CATTLE       │ │ 🐐 GOAT         │ │ 🐃 CARABAO      │           │
-│  │                 │ │                 │ │                 │           │
-│  │ 326,571.5 L     │ │ 65,745.1 L      │ │ 52,493.8 L      │           │
-│  │ 100 animals     │ │ 33 animals      │ │ 22 animals      │           │
-│  │ ~₱30/L          │ │ ~₱45/L          │ │ No sales yet    │           │
-│  │                 │ │                 │ │                 │           │
-│  │ [💰 Sell Cattle]│ │ [💰 Sell Goat]  │ │ [💰 Sell Cara]  │           │
-│  └─────────────────┘ └─────────────────┘ └─────────────────┘           │
-│                                                                         │
-│  ──────────────────────────────────────────────────────────────────    │
-│                                                                         │
-│  📊 By Species                                                          │
-│                                                                         │
-│  ▼ Cattle (100 animals) ─────────────────────── 326,571.5 L            │
-│    │                                                                    │
-│    │ ▶ Bessie (Tag C001) ──────────── Fresh ──── 12.5 L                │
-│    │ ▶ Daisy (Tag C002) ───────────── Aging ──── 8.3 L                 │
-│    │ ...                                                                │
-│                                                                         │
-│  ▼ Goat (33 animals) ────────────────────────── 65,745.1 L             │
-│    │                                                                    │
-│    │ ▶ Nanny (Tag G001) ──────────── Fresh ──── 2.1 L                  │
-│    │ ...                                                                │
-│                                                                         │
-│  ▶ Carabao (22 animals) ─────────────────────── 52,493.8 L             │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Recommendation**: Create `get_regional_feed_status` RPC function aggregating:
+- Farms with critical (<7 days), low (<30 days), adequate feed levels
+- Feed shortage hotspots by region/province
+- Seasonal feed availability patterns
 
 ---
 
-## Government Portal Integration
+### 3. Financial Health Indicators
 
-The government portal will automatically benefit from species-segregated data through the existing `get_government_stats_timeseries` RPC. However, to provide proper milk market price reporting:
+**Farm Level (Source Data)**:
+- `FinancialHealthSummary` shows profitability, cash flow, revenue trends
+- `HerdValueChart` tracks herd investment value
+- `RevenueExpenseComparison` shows income vs costs
+- `useMarketPrices` tracks prices by livestock type and location
 
-### Future Enhancement (Separate Task)
+**Government Level (Gap)**:
+- No farm financial health aggregation
+- Cannot identify economically struggling farms for intervention
+- No market price trends visible for policy decisions
+- "Avg Purchase Price" card exists but limited context
 
-Add a new government analytics component showing:
-- Average milk prices by species across regions
-- Price trends over time by species
-- Production volume by species
-- Market price comparison tool
-
-This would require:
-1. New RPC function: `get_milk_price_analytics_by_species`
-2. New component: `MilkPriceAnalyticsCard` in government dashboard
+**Recommendation**: Add "Economic Health" section showing:
+- Regional profitability indicators
+- Market price trends by species and region
+- Farm financial risk distribution (% profitable, break-even, struggling)
 
 ---
 
-## Expected Outcomes
+### 4. Daily Activity Compliance Patterns
 
-| Capability | Before | After |
-|------------|--------|-------|
-| View milk by species | ❌ | ✅ Separate cards per species |
-| Sell specific species | ❌ | ✅ Species-filtered sale dialog |
-| Species-specific pricing | ❌ | ✅ Default prices by species |
-| FIFO within species | ❌ | ✅ Oldest of selected species first |
-| Track price per species | Partial | ✅ Full history with species tag |
-| Government price reporting | ❌ | ✅ (Future enhancement) |
+**Farm Level (Source Data)**:
+- `DailyActivityCompliance` shows milking/feeding completion rates
+- `useFarmhandProductivity` tracks team activity
+- Real-time breeding observation tracking
+
+**Government Level (Gap)**:
+- No visibility into farm operation consistency
+- Cannot correlate compliance with production outcomes
+- No data on farmhand utilization patterns
+
+**Recommendation**: Create aggregated compliance metrics:
+- Regional milking compliance rates
+- Farms with consistent vs inconsistent daily operations
+- Correlation analysis: compliance → production outcomes
+
+---
+
+### 5. Weight and Growth Analytics
+
+**Farm Level (Source Data)**:
+- `weight_records` table with full history
+- `useWeightDataCompleteness` tracks data gaps
+- Growth benchmarks and trend analysis available
+
+**Government Level (Gap)**:
+- No weight/growth trends by region
+- Cannot assess feed efficiency or growth rates
+- No visibility into data completeness by region
+
+**Recommendation**: Surface growth analytics:
+- Average daily gain by species and region
+- Weight distribution by life stage
+- Data completeness scoring by farm/region
+
+---
+
+## Current Government Dashboard Structure
+
+| Tab | Section | Data Sources | Status |
+|-----|---------|--------------|--------|
+| **Livestock Analytics** | Population Overview | `get_government_stats`, `gov_farm_analytics` | ✅ Complete |
+| | Reproduction & Breeding | `get_government_breeding_stats` | ✅ Complete |
+| | Animal Health & Welfare | `get_government_health_stats` | ✅ Complete |
+| | Trends & Insights | `get_government_stats_timeseries` | ⚠️ Partial |
+| **Farmer Voice** | Feedback Queue | `farmer_feedback` table | ✅ Complete |
+| | Sentiment/Clusters | Aggregation from feedback | ✅ Complete |
+| **Programs & Insights** | Grant Analytics | `useGrantAnalytics`, `useGrantEffectiveness` | ✅ Complete |
+| | Production Trends | — | ❌ Placeholder |
+| | Program Participation | — | ❌ Placeholder |
+| | Impact Analysis | — | ❌ Placeholder |
+
+---
+
+## Recommended Enhancements
+
+### Priority 1: Species-Based Milk Production (High Value, Medium Effort)
+
+**Why**: Government needs to understand the economic composition of dairy production. Goat milk commands 47% higher prices than cattle milk.
+
+**Implementation**:
+1. Update `get_government_stats_timeseries` to return:
+   ```sql
+   cattle_milk_liters, goat_milk_liters, carabao_milk_liters
+   ```
+2. Add `avg_cattle_milk_price`, `avg_goat_milk_price` columns
+3. Create new chart component: `MilkProductionBySpeciesChart`
+4. Add to "Production Trends" (currently placeholder)
+
+**New Hook**: `useGovernmentMilkAnalytics`
+- Production by species over time
+- Average prices by species and region
+- Revenue contribution breakdown
+
+---
+
+### Priority 2: Regional Feed Security Dashboard (High Value, Medium Effort)
+
+**Why**: Early warning for feed shortages can prevent livestock welfare crises and economic losses.
+
+**Implementation**:
+1. Create RPC: `get_regional_feed_security`
+   - Farms with <7 days feed (critical)
+   - Farms with <30 days feed (warning)
+   - Regional feed inventory totals
+2. Create component: `FeedSecurityHeatmap`
+3. Add to "Animal Health & Welfare" section
+
+---
+
+### Priority 3: Market Price Intelligence (Medium Value, Low Effort)
+
+**Why**: `market_prices` table already exists with farmer-reported prices. Just needs aggregation.
+
+**Implementation**:
+1. Create RPC: `get_regional_market_prices`
+   - Average price by species and region
+   - Price trend over last 6 months
+   - Price variance indicators
+2. Add to "Programs & Insights" or new "Economic Indicators" section
+
+---
+
+### Priority 4: Operational Compliance Metrics (Medium Value, High Effort)
+
+**Why**: Correlates farm operational discipline with production outcomes.
+
+**Implementation**:
+1. Create RPC: `get_farm_compliance_metrics`
+   - Milking session completion rates
+   - Feeding record consistency
+   - Data entry timeliness
+2. Create component: `FarmOperationalHealthCard`
+3. Add to "Trends & Insights"
+
+---
+
+### Priority 5: Growth & Weight Analytics (Lower Priority, Medium Effort)
+
+**Implementation**:
+1. Extend `get_government_health_stats` with weight metrics
+2. Add average daily gain by species
+3. Weight distribution visualization
+
+---
+
+## Technical Implementation Notes
+
+### Existing RPC Functions to Extend
+
+| Function | Current Output | Proposed Additions |
+|----------|---------------|-------------------|
+| `get_government_stats_timeseries` | `total_milk_liters` | `cattle_milk_liters`, `goat_milk_liters`, `avg_price_per_species` |
+| `get_government_health_stats` | BCS, vaccination, mortality | Feed stock days aggregate |
+| `get_government_stats` | Farm/animal counts | Farms with feed warnings |
+
+### New RPC Functions Needed
+
+1. `get_regional_milk_analytics_by_species` - Species-level milk data
+2. `get_regional_feed_security` - Feed stock aggregation
+3. `get_regional_market_prices` - Price aggregation
+4. `get_farm_compliance_metrics` - Operational metrics
+
+### New Components Needed
+
+1. `MilkProductionBySpeciesChart` - Replaces single-line milk chart
+2. `FeedSecurityHeatmap` - Regional feed status
+3. `MarketPriceAnalyticsCard` - Price trends
+4. `FarmOperationalHealthCard` - Compliance metrics
+
+---
+
+## Data Consolidation Opportunities
+
+### Duplicate/Redundant Data Flows
+
+1. **Milk Inventory vs Milking Records**: Both track milk production. Consider single source.
+2. **Grant Analytics + Grant Effectiveness**: Similar queries, could be combined into single RPC.
+3. **Regional Stats + Gov Farm Analytics**: Some overlap in farm counts.
+
+### Suggested Consolidations
+
+| Current | Proposed |
+|---------|----------|
+| `GovDashboardOverview` + `RegionalInvestmentCards` | Could share grant data query |
+| `useBreedingStats` + `useGovernmentHealthStats` | Consider unified "animal lifecycle" RPC |
+
+---
+
+## Summary: Top 5 Actionable Items
+
+1. **Add species breakdown to milk production charts** - Immediate value for market understanding
+2. **Create feed security monitoring** - Proactive welfare protection
+3. **Surface market price trends** - Policy decision support
+4. **Fill "Production Trends" placeholder** - Uses existing farm data
+5. **Add farm operational compliance** - Quality indicator for programs
+
+These enhancements would transform the government dashboard from a basic census tool into a comprehensive livestock sector intelligence platform, enabling data-driven policy decisions and proactive interventions.
 
