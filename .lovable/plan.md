@@ -1,215 +1,231 @@
 
-# CRUD Capabilities Audit: Record Types per SSOT Architecture
+# Plan: Add Zod Input Validation to Edge Functions
 
-## Executive Summary
+## Overview
+This plan addresses the security finding by adding comprehensive Zod schema validation to edge functions that currently parse JSON without proper validation. The `doc-aga` function already uses Zod and will serve as the pattern reference.
 
-This audit reviews all primary record types to assess Create, Read, Update, Delete (CRUD) capabilities in the UI components. The findings show significant gaps in **frontend UI** edit/delete functionality, while the **Doc Aga AI assistant** has comprehensive update capabilities via backend tools.
+## Analysis Summary
 
----
+| Function | Current State | Risk Level | Changes Needed |
+|----------|--------------|------------|----------------|
+| `admin-create-user` | Basic null checks only | High | Full Zod schema for email, password, role, UUID token |
+| `process-animal-voice` | Type check only | Medium | Length validation, sanitization |
+| `voice-to-text` | Base64 regex + size check | Medium | Explicit length limits, structured validation |
+| `merchant-signup` | No validation | Medium | Full Zod schema for business details |
 
-## Current State by Record Type
+## Existing Pattern (from doc-aga)
 
-### 1. MILKING RECORDS ✅ Full CRUD
+The project already uses Zod validation in `doc-aga/index.ts`:
+```typescript
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `RecordSingleMilkDialog.tsx`, `RecordBulkMilkDialog.tsx` | Implemented |
-| Read | `MilkingRecords.tsx` | Implemented |
-| Update | `EditMilkRecordDialog.tsx` | Implemented |
-| Delete | `DeleteMilkRecordFromProfileDialog.tsx` | Implemented |
-
-**Backend (Doc Aga):** `add_milking_record`, `update_milking_record` available
-
----
-
-### 2. FEEDING RECORDS ✅ Full CRUD (Just Added)
-
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `RecordSingleFeedDialog.tsx`, `RecordBulkFeedDialog.tsx` | Implemented |
-| Read | `FeedingRecords.tsx` | Implemented |
-| Update | `EditFeedingRecordDialog.tsx` | **Just Implemented** |
-| Delete | — | Missing |
-
-**Backend (Doc Aga):** `add_feeding_record`, `update_feeding_record` available
-
----
-
-### 3. HEALTH RECORDS ✅ Full CRUD (Just Added)
-
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `RecordSingleHealthDialog.tsx`, `RecordBulkHealthDialog.tsx` | Implemented |
-| Read | `HealthRecords.tsx` | Implemented |
-| Update | `EditHealthRecordDialog.tsx` | **Just Implemented** |
-| Delete | — | Missing |
-
-**Backend (Doc Aga):** `add_health_record`, `update_health_record`, `add_health_resolution` available
-
----
-
-### 4. WEIGHT RECORDS ✅ Full CRUD (Just Added)
-
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `RecordSingleWeightDialog.tsx` | Implemented |
-| Read | `WeightRecords.tsx` | Implemented |
-| Update | `EditWeightRecordDialog.tsx` | **Just Implemented** |
-| Delete | — | Missing |
-
-**Backend (Doc Aga):** `add_weight_record`, `update_weight_record` available
-
----
-
-### 5. AI/BREEDING RECORDS ✅ Full CRUD (Just Added)
-
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `ScheduleAIDialog.tsx` | Implemented |
-| Read | `AIRecords.tsx` | Implemented |
-| Update (status) | `MarkAIPerformedDialog.tsx`, `ConfirmPregnancyDialog.tsx` | Implemented (workflow-based) |
-| Update (general) | `EditAIRecordDialog.tsx` | **Just Implemented** |
-| Delete | — | Missing |
-
-**Backend (Doc Aga):** `add_ai_record`, `update_ai_record` available
-
----
-
-### 6. INJECTION RECORDS ❌ Minimal CRUD
-
-| Operation | UI Component | Status |
-|-----------|--------------|--------|
-| Create | `ActivityConfirmation.tsx` (via voice/farmhand flow only) | Partial |
-| Read | `MedicalTimeline.tsx` (embedded in timeline only) | Partial |
-| Update | — | **Missing** |
-| Delete | — | Missing |
-
-**Backend (Doc Aga):** `add_injection_record`, `update_injection_record` available
-
-**Gap:** 
-- No dedicated injection records viewing component (only visible in MedicalTimeline)
-- No standalone create dialog for direct injection entry
-- No edit or delete functionality
-
----
-
-## CRUD Matrix Summary
-
-```text
-Record Type      | Create | Read | Update | Delete | Doc Aga Update
------------------|--------|------|--------|--------|----------------
-Milking          |   ✅   |  ✅  |   ✅   |   ✅   |      ✅
-Feeding          |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
-Health           |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
-Weight           |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
-AI/Breeding      |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
-Injection        |   ⚠️   |  ⚠️  |   ❌   |   ❌   |      ✅
-
-Legend: ✅ = Full | ⚠️ = Partial | ❌ = Missing
+const docAgaRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string().min(1).max(2000).trim(),
+    imageUrl: z.string().url().nullish()
+  })).min(1),
+  farmId: z.string().uuid().optional(),
+  context: z.enum(['farmer', 'government']).optional().default('farmer')
+});
 ```
 
----
+## Implementation Details
 
-## Implementation Priority
+### 1. admin-create-user/index.ts
 
-Based on usage frequency and data integrity impact:
+Add Zod schema after imports:
 
-### Priority 1 (High Impact)
-1. **EditHealthRecordDialog** - Health record corrections are critical for veterinary accuracy
-2. **EditWeightRecordDialog** - Weight tracking affects growth metrics and OVR calculations
+```typescript
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-### Priority 2 (Medium Impact)
-3. **EditAIRecordDialog** - Allow editing of scheduled date, technician, semen code
-4. **InjectionRecordsTab** - Dedicated viewing component with create/edit dialogs
+const createUserSchema = z.object({
+  email: z.string()
+    .trim()
+    .email('Invalid email format')
+    .max(255, 'Email must be under 255 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must be under 128 characters'),
+  fullName: z.string()
+    .trim()
+    .min(1, 'Full name is required')
+    .max(100, 'Full name must be under 100 characters'),
+  role: z.enum([
+    'farmer_owner', 
+    'farmhand', 
+    'admin', 
+    'government'
+  ]).optional().default('farmer_owner'),
+  invitationToken: z.string()
+    .uuid('Invalid invitation token format')
+    .optional()
+});
+```
 
-### Priority 3 (Completeness)
-5. **Delete dialogs** for all record types (with soft-delete consideration)
-6. **DeleteFeedingRecordDialog** - Complete feeding CRUD
+Replace manual JSON parsing with schema validation:
+```typescript
+// Before (current code)
+const { email, password, fullName, role, invitationToken } = await req.json();
+if (!email || !password || !fullName) { ... }
 
----
+// After (with Zod)
+const rawBody = await req.json();
+const parseResult = createUserSchema.safeParse(rawBody);
+if (!parseResult.success) {
+  return new Response(
+    JSON.stringify({ 
+      error: 'Validation failed', 
+      details: parseResult.error.flatten().fieldErrors 
+    }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+const { email, password, fullName, role, invitationToken } = parseResult.data;
+```
 
-## Recommended Implementation Plan
+### 2. process-animal-voice/index.ts
 
-### Phase 1: Health Record Edit (Highest Priority)
+Add validation with length limits:
 
-**Create:** `src/components/health-recording/EditHealthRecordDialog.tsx`
+```typescript
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-- Allow editing: `visit_date`, `diagnosis`, `treatment`, `notes`
-- Pattern: Follow `EditMilkRecordDialog` structure
-- Add edit buttons to `HealthRecords.tsx` record cards
+const MAX_TRANSCRIPTION_LENGTH = 5000;
 
-**Schema considerations:**
-- No inventory impact (simpler than feeding records)
-- May need to invalidate OVR cache if health impacts scoring
+const animalVoiceSchema = z.object({
+  transcription: z.string()
+    .trim()
+    .min(1, 'Transcription cannot be empty')
+    .max(MAX_TRANSCRIPTION_LENGTH, `Transcription must be under ${MAX_TRANSCRIPTION_LENGTH} characters`)
+});
+```
 
-### Phase 2: Weight Record Edit
+Update the parsing logic:
+```typescript
+// Before
+const { transcription } = await req.json();
+if (!transcription || typeof transcription !== 'string') { ... }
 
-**Create:** `src/components/weight-recording/EditWeightRecordDialog.tsx`
+// After
+const rawBody = await req.json();
+const parseResult = animalVoiceSchema.safeParse(rawBody);
+if (!parseResult.success) {
+  return new Response(
+    JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid input' }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+const { transcription } = parseResult.data;
+```
 
-- Allow editing: `measurement_date`, `weight_kg`, `measurement_method`, `notes`
-- Pattern: Follow `EditMilkRecordDialog` structure
-- Add edit buttons to `WeightRecords.tsx` history table/cards
+### 3. voice-to-text/index.ts
 
-**SSOT Considerations:**
-- Must update `animals.current_weight_kg` if editing the most recent record
-- Invalidate OVR cache (weight affects ADG calculations)
-- Invalidate feed consumption calculations
+Add explicit audio validation schema:
 
-### Phase 3: AI Record Edit
+```typescript
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-**Create:** `src/components/breeding/EditAIRecordDialog.tsx`
+const MAX_BASE64_LENGTH = 15_000_000; // ~10MB decoded
 
-- Allow editing: `scheduled_date`, `technician`, `semen_code`, `notes`
-- Separate from pregnancy confirmation flow
-- Add edit buttons to `AIRecords.tsx` record cards
+const voiceToTextSchema = z.object({
+  audio: z.string()
+    .min(100, 'Audio data too short')
+    .max(MAX_BASE64_LENGTH, 'Audio data exceeds maximum size')
+    .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid base64 encoding')
+});
+```
 
-### Phase 4: Injection Records Complete
+Update validation:
+```typescript
+// Before
+const { audio } = await req.json();
+if (!audio || typeof audio !== 'string') { ... }
+if (!/^[A-Za-z0-9+/=]+$/.test(audio)) { ... }
 
-**Create:**
-1. `src/components/health-recording/InjectionRecordsTab.tsx` - Dedicated viewing
-2. `src/components/health-recording/RecordInjectionDialog.tsx` - Standalone create
-3. `src/components/health-recording/EditInjectionRecordDialog.tsx` - Edit capability
+// After
+const rawBody = await req.json();
+const parseResult = voiceToTextSchema.safeParse(rawBody);
+if (!parseResult.success) {
+  return new Response(
+    JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid audio data' }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+const { audio } = parseResult.data;
+// Continue with size validation...
+```
 
-**Integration:**
-- Add as sub-tab under Health tab in animal profile (alongside Records and Preventive)
+### 4. merchant-signup/index.ts
 
----
+Add comprehensive business validation:
 
-## Files to Create
+```typescript
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-| File | Purpose | Priority |
-|------|---------|----------|
-| `src/components/health-recording/EditHealthRecordDialog.tsx` | Edit health records | P1 |
-| `src/components/weight-recording/EditWeightRecordDialog.tsx` | Edit weight records | P2 |
-| `src/components/breeding/EditAIRecordDialog.tsx` | Edit AI/breeding records | P3 |
-| `src/components/health-recording/InjectionRecordsTab.tsx` | View injection records | P4 |
-| `src/components/health-recording/RecordInjectionDialog.tsx` | Create injection record | P4 |
-| `src/components/health-recording/EditInjectionRecordDialog.tsx` | Edit injection records | P4 |
+const merchantSignupSchema = z.object({
+  fullName: z.string()
+    .trim()
+    .min(1, 'Full name is required')
+    .max(100, 'Full name must be under 100 characters'),
+  businessName: z.string()
+    .trim()
+    .min(1, 'Business name is required')
+    .max(150, 'Business name must be under 150 characters'),
+  businessDescription: z.string()
+    .trim()
+    .max(1000, 'Description must be under 1000 characters')
+    .optional(),
+  contactPhone: z.string()
+    .trim()
+    .regex(/^[0-9+\-\s()]{7,20}$/, 'Invalid phone number format')
+    .optional(),
+  contactEmail: z.string()
+    .trim()
+    .email('Invalid email format')
+    .max(255, 'Email must be under 255 characters')
+    .optional(),
+  businessAddress: z.string()
+    .trim()
+    .max(500, 'Address must be under 500 characters')
+    .optional()
+});
+```
 
 ## Files to Modify
 
-| File | Changes | Priority |
-|------|---------|----------|
-| `src/components/HealthRecords.tsx` | Add edit buttons, integrate EditHealthRecordDialog | P1 |
-| `src/components/WeightRecords.tsx` | Add edit buttons, integrate EditWeightRecordDialog | P2 |
-| `src/components/AIRecords.tsx` | Add edit buttons, integrate EditAIRecordDialog | P3 |
+1. `supabase/functions/admin-create-user/index.ts`
+   - Add Zod import
+   - Add createUserSchema
+   - Replace manual validation with schema.safeParse()
 
----
+2. `supabase/functions/process-animal-voice/index.ts`
+   - Add Zod import
+   - Add animalVoiceSchema with MAX_TRANSCRIPTION_LENGTH
+   - Replace type check with schema validation
+
+3. `supabase/functions/voice-to-text/index.ts`
+   - Add Zod import
+   - Add voiceToTextSchema
+   - Consolidate base64 regex check into schema
+
+4. `supabase/functions/merchant-signup/index.ts`
+   - Add Zod import
+   - Add merchantSignupSchema
+   - Add validation before database call
+
+## Security Benefits
+
+- **Injection Prevention**: Validates and constrains all string inputs
+- **Type Safety**: Ensures correct types before processing
+- **Length Limits**: Prevents resource exhaustion attacks
+- **Format Validation**: Email, UUID, phone patterns enforced
+- **Consistent Errors**: Structured error responses for debugging
 
 ## Technical Notes
 
-1. All edit dialogs should follow the established pattern from `EditMilkRecordDialog`:
-   - Haptic feedback on interactions
-   - Online-only initially (matches existing patterns)
-   - Query invalidation for related caches
-   - Return before/after values for audit trail
-
-2. Delete functionality should implement:
-   - Confirmation dialogs
-   - Undo capability (30-second window like milk records)
-   - Soft delete consideration for audit compliance
-
-3. Cache invalidation patterns to follow per `cacheManager.ts`:
-   - Health: invalidate `health-records`, `dashboard`, `animal`
-   - Weight: invalidate `weight-records`, `animals`, `feed-inventory`, `lactating-animals`
-   - AI: invalidate `ai-records`, `dashboard`, `pregnant-animals`
+- Uses same Zod version as doc-aga: `https://deno.land/x/zod@v3.22.4/mod.ts`
+- Uses `safeParse()` to avoid throwing exceptions
+- Returns 400 status with detailed field errors
+- All schemas use `.trim()` to normalize whitespace
+- Optional fields use `.optional()` appropriately
