@@ -143,6 +143,7 @@ export function RecordSingleMilkDialog({
         animal_id: animalId,
         animal_name: animalName || 'Unknown',
         ear_tag: earTag,
+        livestock_type: 'cattle', // Default, will be corrected on sync
         record_date: dateStr,
         liters_original: litersNum,
         liters_remaining: litersNum,

@@ -28,6 +28,7 @@ interface AnimalForSplit {
 export interface MilkSplitResult {
   animalId: string;
   animalName: string;
+  livestockType: string;
   liters: number;
   weight: number;
   stage: string;
@@ -49,6 +50,7 @@ export function calculateMilkSplit(
     return [{
       animalId: animal.id,
       animalName: animal.name || animal.ear_tag || 'Unknown',
+      livestockType: animal.livestock_type || 'cattle',
       liters: totalLiters,
       weight,
       stage: animal.milking_stage || 'Unknown',
@@ -65,6 +67,7 @@ export function calculateMilkSplit(
     return {
       animalId: animal.id,
       animalName: animal.name || animal.ear_tag || 'Unknown',
+      livestockType: animal.livestock_type || 'cattle',
       weight,
       stage: animal.milking_stage || 'Unknown',
       score,
@@ -76,6 +79,6 @@ export function calculateMilkSplit(
   // Calculate proportional liters for each
   return scores.map(s => ({
     ...s,
-    liters: Math.round((s.score / totalScore) * totalLiters * 100) / 100, // Round to 2 decimal places
+    liters: Math.round((s.score / totalScore) * totalLiters * 100) / 100,
   }));
 }

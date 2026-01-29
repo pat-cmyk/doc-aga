@@ -1,12 +1,20 @@
 import { useMilkSalesHistory } from "@/hooks/useMilkInventory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { History } from "lucide-react";
 
 interface MilkSalesHistoryProps {
   farmId: string;
 }
+
+const SPECIES_ICONS: Record<string, string> = {
+  cattle: "🐄",
+  goat: "🐐",
+  carabao: "🐃",
+  sheep: "🐑",
+};
 
 export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
   const { data, isLoading } = useMilkSalesHistory(farmId);
@@ -34,12 +42,33 @@ export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
   // Calculate totals using liters_sold
   const totalLiters = data.reduce((sum, r) => sum + r.liters_sold, 0);
 
+  // Group by species for summary
+  const bySpecies = data.reduce((acc, r) => {
+    const type = r.livestock_type || 'cattle';
+    if (!acc[type]) acc[type] = 0;
+    acc[type] += r.liters_sold;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="rounded-lg bg-muted/50 p-3">
-        <p className="text-sm text-muted-foreground">Total Sold</p>
-        <p className="text-xl font-bold">{totalLiters.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</p>
+      <div className="rounded-lg bg-muted/50 p-3 space-y-2">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Sold</p>
+          <p className="text-xl font-bold">{totalLiters.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</p>
+        </div>
+        {Object.keys(bySpecies).length > 1 && (
+          <div className="flex flex-wrap gap-2 pt-2 border-t">
+            {Object.entries(bySpecies).map(([species, liters]) => (
+              <Badge key={species} variant="secondary" className="gap-1">
+                <span>{SPECIES_ICONS[species] || "🐄"}</span>
+                <span className="capitalize">{species}:</span>
+                <span>{liters.toFixed(1)} L</span>
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sales Table */}
@@ -49,6 +78,7 @@ export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Animal</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead className="text-right">Original</TableHead>
               <TableHead className="text-right">Sold</TableHead>
             </TableRow>
@@ -61,6 +91,12 @@ export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
                 </TableCell>
                 <TableCell>
                   {sale.animal_name || sale.ear_tag || "—"}
+                </TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-1">
+                    <span>{SPECIES_ICONS[sale.livestock_type] || "🐄"}</span>
+                    <span className="text-xs capitalize text-muted-foreground">{sale.livestock_type}</span>
+                  </span>
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
                   {sale.liters_original.toFixed(1)} L

@@ -261,6 +261,7 @@ export function RecordBulkMilkDialog({
           animal_id: split.animalId,
           animal_name: split.animalName,
           ear_tag: null,
+          livestock_type: split.livestockType || 'cattle',
           record_date: dateStr,
           liters_original: split.liters,
           liters_remaining: split.liters,

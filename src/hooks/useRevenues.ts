@@ -91,7 +91,51 @@ export function useLastMilkPrice(farmId: string) {
         .limit(1);
 
       if (error) throw error;
-      return data?.[0]?.price_per_liter || 65; // Default to ₱65/liter
+      return data?.[0]?.price_per_liter || 65;
+    },
+    enabled: !!farmId,
+  });
+}
+
+export type SpeciesPriceMap = Record<string, number>;
+
+export function useLastMilkPriceBySpecies(farmId: string) {
+  return useQuery({
+    queryKey: ["last-milk-price-by-species", farmId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("milking_records")
+        .select(`
+          price_per_liter, 
+          animal_id, 
+          created_at,
+          animals!inner(farm_id, livestock_type)
+        `)
+        .eq("animals.farm_id", farmId)
+        .eq("is_sold", true)
+        .not("price_per_liter", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const priceMap: SpeciesPriceMap = {};
+      const seen = new Set<string>();
+      
+      for (const record of data || []) {
+        const type = (record.animals as any)?.livestock_type;
+        if (type && !seen.has(type)) {
+          priceMap[type] = record.price_per_liter as number;
+          seen.add(type);
+        }
+      }
+
+      return {
+        cattle: priceMap.cattle ?? 30,
+        goat: priceMap.goat ?? 45,
+        carabao: priceMap.carabao ?? 35,
+        sheep: priceMap.sheep ?? 50,
+        ...priceMap,
+      };
     },
     enabled: !!farmId,
   });

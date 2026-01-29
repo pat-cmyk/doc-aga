@@ -311,13 +311,13 @@ export interface MilkInventoryCacheItem {
   animal_id: string;
   animal_name: string | null;
   ear_tag: string | null;
+  livestock_type: string;
   record_date: string;
   liters_original: number;
   liters_remaining: number;
   is_available: boolean;
   created_at: string;
   syncStatus: CacheSyncStatus;
-  // Legacy field for backward compat with old cache
   liters?: number;
 }
 
@@ -327,10 +327,17 @@ export interface MilkInventoryCache {
   summary: {
     totalLiters: number;
     oldestDate: string | null;
+    bySpecies: Array<{
+      livestock_type: string;
+      total_liters: number;
+      animal_count: number;
+      oldest_date: string | null;
+    }>;
     byAnimal: Array<{
       animal_id: string;
       animal_name: string | null;
       ear_tag: string | null;
+      livestock_type: string;
       total_liters: number;
       oldest_date: string;
       record_count: number;
@@ -1672,10 +1679,43 @@ export function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[])
   );
   const oldestDate = sortedItems.length > 0 ? sortedItems[0].record_date : null;
   
+  // Group by species
+  const speciesMap = new Map<string, {
+    total_liters: number;
+    animal_ids: Set<string>;
+    oldest_date: string;
+  }>();
+
+  availableItems.forEach(item => {
+    const type = item.livestock_type || 'cattle';
+    const existing = speciesMap.get(type);
+    if (existing) {
+      existing.total_liters += item.liters_remaining;
+      existing.animal_ids.add(item.animal_id);
+      if (item.record_date < existing.oldest_date) {
+        existing.oldest_date = item.record_date;
+      }
+    } else {
+      speciesMap.set(type, {
+        total_liters: item.liters_remaining,
+        animal_ids: new Set([item.animal_id]),
+        oldest_date: item.record_date,
+      });
+    }
+  });
+
+  const bySpecies = Array.from(speciesMap.entries()).map(([livestock_type, data]) => ({
+    livestock_type,
+    total_liters: data.total_liters,
+    animal_count: data.animal_ids.size,
+    oldest_date: data.oldest_date,
+  })).sort((a, b) => b.total_liters - a.total_liters);
+
   // Group by animal
   const animalMap = new Map<string, {
     animal_name: string | null;
     ear_tag: string | null;
+    livestock_type: string;
     total_liters: number;
     oldest_date: string;
     record_count: number;
@@ -1693,6 +1733,7 @@ export function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[])
       animalMap.set(item.animal_id, {
         animal_name: item.animal_name,
         ear_tag: item.ear_tag,
+        livestock_type: item.livestock_type || 'cattle',
         total_liters: item.liters_remaining,
         oldest_date: item.record_date,
         record_count: 1,
@@ -1704,7 +1745,7 @@ export function recalculateMilkInventorySummary(items: MilkInventoryCacheItem[])
     .map(([animal_id, data]) => ({ animal_id, ...data }))
     .sort((a, b) => b.total_liters - a.total_liters);
   
-  return { totalLiters, oldestDate, byAnimal };
+  return { totalLiters, oldestDate, bySpecies, byAnimal };
 }
 
 /**
