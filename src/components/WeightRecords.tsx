@@ -4,18 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Scale, TrendingUp, Plus } from "lucide-react";
+import { Scale, TrendingUp, Plus, Pencil } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
 import { RecordSingleWeightDialog } from "@/components/weight-recording/RecordSingleWeightDialog";
+import { EditWeightRecordDialog } from "@/components/weight-recording/EditWeightRecordDialog";
 import { ADGBadge } from "@/components/weight-recording/ADGBadge";
 import { calculateADG, calculateOverallADG, type ADGResult } from "@/lib/growthMetrics";
 
 interface WeightRecord {
   id: string;
+  animal_id: string;
   weight_kg: number;
   measurement_date: string;
   measurement_method: string | null;
@@ -39,6 +41,7 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<WeightRecord | null>(null);
   const { isMobile, fontSize, xAxisProps, margin } = useResponsiveChart({ size: 'small' });
   const isOnline = useOnlineStatus();
 
@@ -293,11 +296,23 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                           {format(new Date(record.measurement_date), "MMM dd, yyyy")}
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {record.measurement_method?.replace("_", " ") || "—"}
+                      <div className="flex items-start gap-2">
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="text-xs text-muted-foreground capitalize">
+                            {record.measurement_method?.replace("_", " ") || "—"}
+                          </div>
+                          <ADGBadge adgResult={record.adgFromPrevious} showDays size="sm" />
                         </div>
-                        <ADGBadge adgResult={record.adgFromPrevious} showDays size="sm" />
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => setEditingRecord(record)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {record.notes && (
@@ -319,6 +334,7 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                     <TableHead>ADG</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead>Notes</TableHead>
+                    {!readOnly && <TableHead className="w-[50px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -335,6 +351,18 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                       <TableCell className="text-sm text-muted-foreground">
                         {record.notes || "—"}
                       </TableCell>
+                      {!readOnly && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEditingRecord(record)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -348,6 +376,17 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
       <div className="mt-6 pt-6 border-t">
         <BCSHistoryChart animalId={animalId} farmId={farmId} />
       </div>
+
+      {/* Edit Weight Record Dialog */}
+      {editingRecord && (
+        <EditWeightRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          record={editingRecord}
+          animalName={animalName}
+          onSuccess={loadWeightRecords}
+        />
+      )}
     </div>
   );
 }

@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Calendar, CheckCircle, Clock, Flame, Dna } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Calendar, CheckCircle, Clock, Flame, Dna, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
 import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
+import { EditAIRecordDialog } from "./breeding/EditAIRecordDialog";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { HeatHistoryTab } from "./heat-detection/HeatHistoryTab";
@@ -22,6 +24,7 @@ interface AIRecordsProps {
 const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingRecord, setEditingRecord] = useState<any | null>(null);
   const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
@@ -105,6 +108,16 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
                             Pregnant
                           </Badge>
                         )}
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEditingRecord(r)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     
@@ -166,6 +179,17 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
           </div>
         )}
       </CardContent>
+
+      {/* Edit AI Record Dialog */}
+      {editingRecord && (
+        <EditAIRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          record={editingRecord}
+          animalName={animalName || 'Unknown'}
+          onSuccess={loadRecords}
+        />
+      )}
     </Card>
   );
 

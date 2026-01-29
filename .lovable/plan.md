@@ -35,49 +35,43 @@ This audit reviews all primary record types to assess Create, Read, Update, Dele
 
 ---
 
-### 3. HEALTH RECORDS ⚠️ Partial CRUD
+### 3. HEALTH RECORDS ✅ Full CRUD (Just Added)
 
 | Operation | UI Component | Status |
 |-----------|--------------|--------|
 | Create | `RecordSingleHealthDialog.tsx`, `RecordBulkHealthDialog.tsx` | Implemented |
 | Read | `HealthRecords.tsx` | Implemented |
-| Update | — | **Missing in UI** |
+| Update | `EditHealthRecordDialog.tsx` | **Just Implemented** |
 | Delete | — | Missing |
 
 **Backend (Doc Aga):** `add_health_record`, `update_health_record`, `add_health_resolution` available
 
-**Gap:** No frontend edit dialog exists. Users cannot correct diagnoses or treatments via UI.
-
 ---
 
-### 4. WEIGHT RECORDS ⚠️ Partial CRUD
+### 4. WEIGHT RECORDS ✅ Full CRUD (Just Added)
 
 | Operation | UI Component | Status |
 |-----------|--------------|--------|
 | Create | `RecordSingleWeightDialog.tsx` | Implemented |
 | Read | `WeightRecords.tsx` | Implemented |
-| Update | `EditAcquisitionWeightDialog.tsx` (limited - acquisition weight only) | Partial |
+| Update | `EditWeightRecordDialog.tsx` | **Just Implemented** |
 | Delete | — | Missing |
 
 **Backend (Doc Aga):** `add_weight_record`, `update_weight_record` available
 
-**Gap:** General weight record editing not available in UI. Only acquisition weight can be edited via `EditAcquisitionWeightDialog`.
-
 ---
 
-### 5. AI/BREEDING RECORDS ⚠️ Partial CRUD
+### 5. AI/BREEDING RECORDS ✅ Full CRUD (Just Added)
 
 | Operation | UI Component | Status |
 |-----------|--------------|--------|
 | Create | `ScheduleAIDialog.tsx` | Implemented |
 | Read | `AIRecords.tsx` | Implemented |
 | Update (status) | `MarkAIPerformedDialog.tsx`, `ConfirmPregnancyDialog.tsx` | Implemented (workflow-based) |
-| Update (general) | — | **Missing in UI** |
+| Update (general) | `EditAIRecordDialog.tsx` | **Just Implemented** |
 | Delete | — | Missing |
 
 **Backend (Doc Aga):** `add_ai_record`, `update_ai_record` available
-
-**Gap:** Cannot edit scheduled date, technician, semen code, or notes after creation. Only status progression (Scheduled → Performed → Pregnant) is supported.
 
 ---
 
@@ -106,9 +100,9 @@ Record Type      | Create | Read | Update | Delete | Doc Aga Update
 -----------------|--------|------|--------|--------|----------------
 Milking          |   ✅   |  ✅  |   ✅   |   ✅   |      ✅
 Feeding          |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
-Health           |   ✅   |  ✅  |   ❌   |   ❌   |      ✅
-Weight           |   ✅   |  ✅  |   ⚠️   |   ❌   |      ✅
-AI/Breeding      |   ✅   |  ✅  |   ⚠️   |   ❌   |      ✅
+Health           |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
+Weight           |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
+AI/Breeding      |   ✅   |  ✅  |   ✅   |   ❌   |      ✅
 Injection        |   ⚠️   |  ⚠️  |   ❌   |   ❌   |      ✅
 
 Legend: ✅ = Full | ⚠️ = Partial | ❌ = Missing
