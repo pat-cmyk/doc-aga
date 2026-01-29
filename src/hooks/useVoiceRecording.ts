@@ -171,26 +171,14 @@ export function useVoiceRecording(
     dispatch({ type: 'REQUEST_MIC' });
 
     try {
-      // On native Android, check permission status first to trigger proper permission dialog
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const permissionStatus = await navigator.permissions.query({ 
-            name: 'microphone' as PermissionName 
-          });
-          
-          if (permissionStatus.state === 'denied') {
-            throw new Error('Microphone permission denied');
-          }
-        } catch (permError: any) {
-          // If permissions API doesn't support microphone, continue and let getUserMedia handle it
-          if (permError.message === 'Microphone permission denied') {
-            throw permError;
-          }
-        }
-      }
-      
-      // Request microphone permission first
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request microphone access directly - getUserMedia is more reliable than permissions.query
+      // on Android WebView, and must be called within user gesture context
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation,
+          noiseSuppression,
+        } 
+      });
       
       if (preferRealtime) {
         // Try realtime mode (ElevenLabs Scribe)
