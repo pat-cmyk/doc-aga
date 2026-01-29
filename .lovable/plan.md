@@ -1,323 +1,368 @@
 
-# Permission Architecture Assessment and SSOT Implementation Plan
 
-## Executive Summary
+# Milk Inventory Species-Based Segmentation Plan
 
-After a thorough analysis, I've identified **the key architectural difference** between why **Notifications work** (permission granted) while **Camera and Microphone do not appear** in Android settings.
+## Current State Analysis
 
-## Root Cause Analysis
+### What Exists Today
 
-### What Notifications Do Right (The Working Pattern)
+| Component | Current Behavior | Gap |
+|-----------|-----------------|-----|
+| **milk_inventory table** | Stores `animal_id` but no `livestock_type` | No direct species column; requires join to animals |
+| **MilkInventoryItem interface** | Has `animal_id`, `animal_name`, `ear_tag` | Missing `livestock_type` field |
+| **MilkStockList UI** | Groups inventory "By Animal" only | No grouping by species type |
+| **RecordMilkSaleDialog** | Single price input for all milk | No species-aware pricing |
+| **useLastMilkPrice hook** | Returns farm-wide last price (defaults to ₱65) | No species-specific pricing |
+| **useMilkInventory hook** | Fetches from `animals(name, ear_tag)` join | Does not include `livestock_type` |
+| **MilkInventorySummary** | `totalLiters`, `oldestDate`, `byAnimal` | No `bySpecies` breakdown |
 
-```text
-NOTIFICATIONS SSOT PATTERN (WORKS):
-┌─────────────────────────────────────────────────────────────────────┐
-│ 1. PLUGIN CONFIGURATION                                            │
-│    capacitor.config.ts → plugins: { LocalNotifications: {...} }    │
-│                                                                     │
-│ 2. EARLY INITIALIZATION (App.tsx line 108)                         │
-│    App mounts → initNotifications() called immediately             │
-│                                                                     │
-│ 3. PERMISSION REQUEST (notificationService.ts line 15)             │
-│    LocalNotifications.requestPermissions() → Native dialog         │
-│                                                                     │
-│ 4. RESULT: Permission appears in Android Settings                  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### What Camera and Microphone Are Missing
+### Database Reality (Current Data)
 
 ```text
-CAMERA/MICROPHONE CURRENT PATTERN (BROKEN):
-┌─────────────────────────────────────────────────────────────────────┐
-│ 1. PLUGIN INSTALLED (@capacitor/camera)                            │
-│    ✅ Installed in package.json                                    │
-│                                                                     │
-│ 2. PLUGIN CONFIGURATION                                            │
-│    ❌ NOT in capacitor.config.ts plugins section                   │
-│                                                                     │
-│ 3. NO EARLY INITIALIZATION                                         │
-│    ❌ No initCamera() or initMicrophone() on app mount             │
-│                                                                     │
-│ 4. PERMISSION REQUEST (only when user clicks button)               │
-│    ⚠️ Camera.requestPermissions() only called on user action       │
-│    ⚠️ Microphone uses Web API (getUserMedia) not Capacitor plugin  │
-│                                                                     │
-│ 5. RESULT: Permissions don't appear in Android Settings            │
-│    (because they were never properly requested through native API) │
-└─────────────────────────────────────────────────────────────────────┘
+Species     | Inventory Records | Liters Available | Avg Sale Price
+----------- | ----------------- | ---------------- | --------------
+Carabao     | 5,349             | 52,493.83 L      | (no sales yet)
+Cattle      | 24,583            | 326,571.47 L     | ₱30.31/L
+Goat        | 7,623             | 65,745.10 L      | ₱44.45/L
 ```
 
-## Key Finding: The Missing Pieces
+The data confirms goat milk is priced ~47% higher than cattle milk (₱44.45 vs ₱30.31).
 
-### Issue 1: No Camera Plugin Configuration in capacitor.config.ts
+---
 
-The current `capacitor.config.ts` only has `LocalNotifications` configured:
-
-```typescript
-// Current capacitor.config.ts (line 24-27)
-plugins: {
-  LocalNotifications: { ... },  // ✅ Configured
-  // Camera: ???                // ❌ Missing!
-}
-```
-
-### Issue 2: No Early Permission Initialization for Camera/Microphone
-
-Notifications work because `initNotifications()` is called in `App.tsx` on mount:
-
-```typescript
-// src/App.tsx line 106-108 (works for notifications)
-useEffect(() => {
-  initNotifications();  // Called immediately on app start
-  // ...
-}, [navigate]);
-```
-
-**Camera and Microphone have NO equivalent initialization** - they only request permissions when the user actually tries to use the feature.
-
-### Issue 3: No Capacitor Plugin for Microphone
-
-There is no `@capacitor/microphone` plugin - microphone access uses the Web Audio API (`getUserMedia`). This means:
-- Microphone permissions are handled through the WebView, not native Android
-- The permission may not be correctly registered with the Android permission system
-
-## Solution: SSOT Permission Architecture
-
-Following the proven notification pattern, we need to create a centralized permission initialization system.
-
-### Architecture Overview
+## Solution Architecture
 
 ```text
-NEW SSOT PERMISSION ARCHITECTURE:
-┌─────────────────────────────────────────────────────────────────────┐
-│                        App.tsx (Entry Point)                        │
-│                               │                                     │
-│                               ▼                                     │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │           initDevicePermissions()                             │  │
-│  │  (Single Source of Truth for all native permissions)          │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                               │                                     │
-│         ┌─────────────────────┼─────────────────────┐              │
-│         ▼                     ▼                     ▼              │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│  │ Notifications │     │    Camera    │     │  Microphone  │       │
-│  │ (existing)    │     │   (new)      │     │   (new)      │       │
-│  └──────────────┘     └──────────────┘     └──────────────┘       │
-│         │                     │                     │              │
-│         ▼                     ▼                     ▼              │
-│  LocalNotifications   Camera.request    Early getUserMedia         │
-│  .requestPermissions  Permissions()     check + fallback           │
-└─────────────────────────────────────────────────────────────────────┘
+SPECIES-SEGMENTED MILK INVENTORY:
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     MilkInventoryTab.tsx                                │
+│                             │                                           │
+│                             ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │ LEVEL 1: Species Summary Cards (NEW)                               │ │
+│  │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                    │ │
+│  │ │ 🐄 Cattle   │ │ 🐐 Goat     │ │ 🐃 Carabao  │                    │ │
+│  │ │ 326,571 L   │ │ 65,745 L    │ │ 52,494 L    │                    │ │
+│  │ │ ₱30/L avg   │ │ ₱45/L avg   │ │ ₱--/L       │                    │ │
+│  │ │ [Sell]      │ │ [Sell]      │ │ [Sell]      │                    │ │
+│  │ └─────────────┘ └─────────────┘ └─────────────┘                    │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                             │                                           │
+│                             ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │ LEVEL 2: Collapsible Species Sections                              │ │
+│  │ ▼ Cattle (100 animals) ────────────────────────────────────────    │ │
+│  │   • Bessie (Tag 001) ............ 5.2 L                            │ │
+│  │   • Daisy (Tag 002) ............. 3.8 L                            │ │
+│  │                                                                     │ │
+│  │ ▼ Goat (33 animals) ───────────────────────────────────────────    │ │
+│  │   • Nanny (Tag G01) ............. 1.2 L                            │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                             │                                           │
+│                             ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │ LEVEL 3: Species-Specific Sale Dialog                              │ │
+│  │ ┌─────────────────────────────────────────────────────────────┐   │ │
+│  │ │ Record Goat Milk Sale                                        │   │ │
+│  │ │                                                              │   │ │
+│  │ │ Available: 65,745 L from 33 animals                          │   │ │
+│  │ │ Last Price: ₱44.45/L                                         │   │ │
+│  │ │                                                              │   │ │
+│  │ │ [Liters: ____] [Price/L: 44.45]                              │   │ │
+│  │ └─────────────────────────────────────────────────────────────┘   │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Implementation Plan
 
-### Phase 1: Add Camera Plugin Configuration
+### Phase 1: Update Data Layer
 
-**File:** `capacitor.config.ts`
+#### 1.1 Update useMilkInventory Hook
 
-Add the Camera plugin configuration to match the LocalNotifications pattern:
+**File:** `src/hooks/useMilkInventory.ts`
 
-```typescript
-plugins: {
-  CapacitorHttp: { enabled: true },
-  SplashScreen: { ... },
-  LocalNotifications: { ... },
-  // NEW: Add Camera plugin configuration
-  Camera: {
-    // Use Android's default photo picker for better UX
-    photoPickerPresentation: 'sheet',
-    // Permissions prompts
-    permissionType: 'prompt',
-  },
-},
-```
-
-### Phase 2: Create Centralized Permission Service
-
-**File:** `src/lib/devicePermissionService.ts` (NEW)
-
-Create a single service that mirrors the notification service pattern:
+Add `livestock_type` to the query and update interfaces:
 
 ```typescript
-import { Capacitor } from '@capacitor/core';
-import { Camera } from '@capacitor/camera';
-import { LocalNotifications } from '@capacitor/local-notifications';
-
-let isInitialized = false;
-
-export interface PermissionResults {
-  camera: 'granted' | 'denied' | 'prompt';
-  microphone: 'granted' | 'denied' | 'prompt';
-  notifications: 'granted' | 'denied' | 'prompt';
+// Updated MilkInventoryItem interface
+export interface MilkInventoryItem {
+  id: string;
+  milking_record_id: string;
+  animal_id: string;
+  animal_name: string | null;
+  ear_tag: string | null;
+  livestock_type: string;        // NEW
+  record_date: string;
+  liters_original: number;
+  liters_remaining: number;
+  is_available: boolean;
+  created_at: string;
 }
 
-export async function initDevicePermissions(): Promise<PermissionResults> {
-  if (!Capacitor.isNativePlatform()) {
-    return { camera: 'prompt', microphone: 'prompt', notifications: 'prompt' };
-  }
+// NEW: Species-level summary
+export interface SpeciesSummary {
+  livestock_type: string;
+  total_liters: number;
+  animal_count: number;
+  oldest_date: string | null;
+  avg_price: number | null;      // Last known price for this species
+}
 
-  if (isInitialized) {
-    return checkAllPermissions();
-  }
+// Updated MilkInventorySummary
+export interface MilkInventorySummary {
+  totalLiters: number;
+  oldestDate: string | null;
+  bySpecies: SpeciesSummary[];   // NEW
+  byAnimal: { ... }[];
+}
+```
 
-  const results: PermissionResults = {
-    camera: 'prompt',
-    microphone: 'prompt', 
-    notifications: 'prompt',
-  };
+Update the Supabase query to include `livestock_type`:
 
-  // Camera: Use Capacitor Camera plugin
-  try {
-    const cameraStatus = await Camera.requestPermissions({ 
-      permissions: ['camera', 'photos'] 
+```typescript
+// In serverQuery queryFn
+const { data, error } = await supabase
+  .from("milk_inventory")
+  .select(`
+    id, milking_record_id, animal_id, record_date,
+    liters_original, liters_remaining, is_available, created_at,
+    animals!inner(name, ear_tag, livestock_type)  // ADD livestock_type
+  `)
+  .eq("farm_id", farmId)
+  .eq("is_available", true)
+  .gte("liters_remaining", 0.05)
+  .order("record_date", { ascending: true });
+```
+
+Add species grouping to the summary calculation:
+
+```typescript
+// Group by species
+const speciesMap = new Map<string, {
+  total_liters: number;
+  animal_ids: Set<string>;
+  oldest_date: string;
+}>();
+
+items.forEach(item => {
+  const type = item.livestock_type;
+  const existing = speciesMap.get(type);
+  if (existing) {
+    existing.total_liters += item.liters_remaining;
+    existing.animal_ids.add(item.animal_id);
+    if (item.record_date < existing.oldest_date) {
+      existing.oldest_date = item.record_date;
+    }
+  } else {
+    speciesMap.set(type, {
+      total_liters: item.liters_remaining,
+      animal_ids: new Set([item.animal_id]),
+      oldest_date: item.record_date,
     });
-    results.camera = cameraStatus.camera === 'granted' ? 'granted' : 'denied';
-  } catch (error) {
-    console.error('Camera permission request failed:', error);
   }
+});
 
-  // Microphone: Use Web API but trigger early to register with Android
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop());
-    results.microphone = 'granted';
-  } catch (error) {
-    results.microphone = 'denied';
-  }
+const bySpecies = Array.from(speciesMap.entries()).map(([livestock_type, data]) => ({
+  livestock_type,
+  total_liters: data.total_liters,
+  animal_count: data.animal_ids.size,
+  oldest_date: data.oldest_date,
+  avg_price: null, // Will be fetched separately
+})).sort((a, b) => b.total_liters - a.total_liters);
+```
 
-  // Notifications: Already working, maintain existing behavior
-  try {
-    const notifResult = await LocalNotifications.requestPermissions();
-    results.notifications = notifResult.display as 'granted' | 'denied' | 'prompt';
-  } catch (error) {
-    console.error('Notification permission request failed:', error);
-  }
+#### 1.2 Create Species-Aware Price Hook
 
-  isInitialized = true;
-  return results;
+**File:** `src/hooks/useRevenues.ts`
+
+Add a new hook for species-specific pricing:
+
+```typescript
+export function useLastMilkPriceBySpecies(farmId: string) {
+  return useQuery({
+    queryKey: ["last-milk-price-by-species", farmId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("milking_records")
+        .select(`
+          price_per_liter, 
+          animal_id, 
+          created_at,
+          animals!inner(farm_id, livestock_type)
+        `)
+        .eq("animals.farm_id", farmId)
+        .eq("is_sold", true)
+        .not("price_per_liter", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Group by species, take most recent price
+      const priceMap: Record<string, number> = {};
+      const seen = new Set<string>();
+      
+      for (const record of data || []) {
+        const type = record.animals?.livestock_type;
+        if (type && !seen.has(type)) {
+          priceMap[type] = record.price_per_liter;
+          seen.add(type);
+        }
+      }
+
+      // Defaults if no sales history
+      return {
+        cattle: priceMap.cattle ?? 30,
+        goat: priceMap.goat ?? 45,
+        carabao: priceMap.carabao ?? 35,
+        sheep: priceMap.sheep ?? 50,
+      };
+    },
+    enabled: !!farmId,
+  });
 }
 ```
 
-### Phase 3: Update App.tsx to Initialize All Permissions
+### Phase 2: Update UI Components
 
-**File:** `src/App.tsx`
+#### 2.1 Create Species Summary Cards Component
 
-Replace the single `initNotifications()` call with the new centralized service:
-
-```typescript
-// Change from:
-import { initNotifications } from "./lib/notificationService";
-
-// To:
-import { initDevicePermissions } from "./lib/devicePermissionService";
-
-// In SyncHandler useEffect:
-useEffect(() => {
-  // Initialize ALL device permissions on mount (SSOT)
-  initDevicePermissions().then((results) => {
-    console.log('[SyncHandler] Permission results:', results);
-  });
-  // ... rest of notification click handler
-}, [navigate]);
-```
-
-### Phase 4: Update capacitor.config.ts with Camera Plugin
-
-**File:** `capacitor.config.ts`
+**File:** `src/components/milk-inventory/MilkSpeciesSummary.tsx` (NEW)
 
 ```typescript
-import { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'com.goldenforage.docaga',
-  appName: 'Doc Aga',
-  webDir: 'dist',
-  server: {
-    androidScheme: 'https'
-  },
-  plugins: {
-    CapacitorHttp: {
-      enabled: true,
-    },
-    SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: "#166534",
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_CROP",
-      showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
-    },
-    LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#166534",
-    },
-    // NEW: Camera plugin configuration
-    Camera: {
-      // Present photo picker as a sheet (Android 13+)
-      presentationStyle: 'popover',
-    },
-  },
-};
-
-export default config;
+// Component showing summary cards for each species
+// Each card displays: Icon, Species Name, Total Liters, Avg Price, Sell Button
+// Clicking "Sell" opens RecordMilkSaleDialog pre-filtered to that species
 ```
 
-## Files to Create/Modify
+#### 2.2 Update MilkStockList Component
 
-| # | File | Action | Purpose |
+**File:** `src/components/milk-inventory/MilkStockList.tsx`
+
+Changes:
+1. Add species summary cards at the top (before "By Animal" section)
+2. Group animals under species collapsibles
+3. Add species filter to the breakdown section
+4. Add species icon/badge to each animal row
+
+#### 2.3 Update RecordMilkSaleDialog Component
+
+**File:** `src/components/milk-inventory/RecordMilkSaleDialog.tsx`
+
+Changes:
+1. Accept optional `filterSpecies?: string` prop
+2. Filter `availableItems` by species when set
+3. Use species-specific default price from `useLastMilkPriceBySpecies`
+4. Update dialog title to show species (e.g., "Record Goat Milk Sale")
+5. Show species-specific inventory in the preview
+
+### Phase 3: Update Cache Layer
+
+**File:** `src/lib/dataCache.ts`
+
+Update `MilkInventoryCacheItem` interface to include `livestock_type`:
+
+```typescript
+export interface MilkInventoryCacheItem {
+  id: string;
+  milking_record_id: string;
+  animal_id: string;
+  animal_name: string | null;
+  ear_tag: string | null;
+  livestock_type: string;        // NEW
+  record_date: string;
+  liters_original: number;
+  liters_remaining: number;
+  is_available: boolean;
+  created_at: string;
+  client_generated_id?: string;
+  syncStatus: 'synced' | 'pending';
+}
+```
+
+---
+
+## Files to Modify
+
+| # | File | Action | Changes |
 |---|------|--------|---------|
-| 1 | `src/lib/devicePermissionService.ts` | CREATE | Centralized SSOT permission initialization |
-| 2 | `capacitor.config.ts` | MODIFY | Add Camera plugin configuration |
-| 3 | `src/App.tsx` | MODIFY | Call initDevicePermissions() on mount |
+| 1 | `src/hooks/useMilkInventory.ts` | MODIFY | Add `livestock_type` to query, add `bySpecies` to summary |
+| 2 | `src/hooks/useRevenues.ts` | MODIFY | Add `useLastMilkPriceBySpecies` hook |
+| 3 | `src/lib/dataCache.ts` | MODIFY | Add `livestock_type` to `MilkInventoryCacheItem` |
+| 4 | `src/components/milk-inventory/MilkSpeciesSummary.tsx` | CREATE | New species summary cards component |
+| 5 | `src/components/milk-inventory/MilkStockList.tsx` | MODIFY | Add species grouping, integrate summary cards |
+| 6 | `src/components/milk-inventory/RecordMilkSaleDialog.tsx` | MODIFY | Add species filter & species-specific pricing |
+| 7 | `src/components/milk-inventory/MilkSalesHistory.tsx` | MODIFY | Add species column/filter to sales history |
 
-## Post-Implementation: Native Project Steps
+---
 
-After code changes are deployed, in your local environment:
+## UI Mockup
 
-```bash
-# 1. Pull latest code
-git pull origin main
-
-# 2. Rebuild the project
-npm run build
-
-# 3. Sync native project (this applies plugin changes)
-npx cap sync android
-
-# 4. Run on device
-npx cap run android
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🥛 Milk Inventory                                            [Refresh] │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │
+│  │ 🐄 CATTLE       │ │ 🐐 GOAT         │ │ 🐃 CARABAO      │           │
+│  │                 │ │                 │ │                 │           │
+│  │ 326,571.5 L     │ │ 65,745.1 L      │ │ 52,493.8 L      │           │
+│  │ 100 animals     │ │ 33 animals      │ │ 22 animals      │           │
+│  │ ~₱30/L          │ │ ~₱45/L          │ │ No sales yet    │           │
+│  │                 │ │                 │ │                 │           │
+│  │ [💰 Sell Cattle]│ │ [💰 Sell Goat]  │ │ [💰 Sell Cara]  │           │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘           │
+│                                                                         │
+│  ──────────────────────────────────────────────────────────────────    │
+│                                                                         │
+│  📊 By Species                                                          │
+│                                                                         │
+│  ▼ Cattle (100 animals) ─────────────────────── 326,571.5 L            │
+│    │                                                                    │
+│    │ ▶ Bessie (Tag C001) ──────────── Fresh ──── 12.5 L                │
+│    │ ▶ Daisy (Tag C002) ───────────── Aging ──── 8.3 L                 │
+│    │ ...                                                                │
+│                                                                         │
+│  ▼ Goat (33 animals) ────────────────────────── 65,745.1 L             │
+│    │                                                                    │
+│    │ ▶ Nanny (Tag G001) ──────────── Fresh ──── 2.1 L                  │
+│    │ ...                                                                │
+│                                                                         │
+│  ▶ Carabao (22 animals) ─────────────────────── 52,493.8 L             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Expected Results After Implementation
+---
 
-| Permission | Before | After |
+## Government Portal Integration
+
+The government portal will automatically benefit from species-segregated data through the existing `get_government_stats_timeseries` RPC. However, to provide proper milk market price reporting:
+
+### Future Enhancement (Separate Task)
+
+Add a new government analytics component showing:
+- Average milk prices by species across regions
+- Price trends over time by species
+- Production volume by species
+- Market price comparison tool
+
+This would require:
+1. New RPC function: `get_milk_price_analytics_by_species`
+2. New component: `MilkPriceAnalyticsCard` in government dashboard
+
+---
+
+## Expected Outcomes
+
+| Capability | Before | After |
 |------------|--------|-------|
-| Notifications | ✅ Granted | ✅ Granted |
-| Camera | ❌ Not in Settings | ✅ Appears in Settings, native dialog shown |
-| Microphone | ❌ Not in Settings | ✅ Appears in Settings, native dialog shown |
+| View milk by species | ❌ | ✅ Separate cards per species |
+| Sell specific species | ❌ | ✅ Species-filtered sale dialog |
+| Species-specific pricing | ❌ | ✅ Default prices by species |
+| FIFO within species | ❌ | ✅ Oldest of selected species first |
+| Track price per species | Partial | ✅ Full history with species tag |
+| Government price reporting | ❌ | ✅ (Future enhancement) |
 
-## Why This Works
-
-1. **Early Initialization**: Requesting permissions on app mount ensures Android registers them
-2. **Capacitor Camera Plugin**: Uses native Android permission APIs, not WebView
-3. **Microphone Trigger**: Early `getUserMedia` call forces Android to register the permission
-4. **SSOT Pattern**: Single centralized service mirrors the working notification pattern
-5. **Plugin Configuration**: Adding Camera to capacitor.config.ts ensures proper native integration
-
-## Technical Notes
-
-### Why Microphone Needs Special Handling
-
-Unlike camera (which has a dedicated Capacitor plugin), microphone access in Android WebView:
-- Uses Web Audio API (`getUserMedia`)
-- Requires an early call to trigger Android's permission registration
-- Will show native dialog on first `getUserMedia` call
-
-### AndroidManifest.xml Requirements
-
-The permissions you added manually are correct. The key missing piece was the **early initialization call** that triggers Android to show the permission dialog and register the permission with the system.
