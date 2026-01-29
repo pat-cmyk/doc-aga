@@ -10,8 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Mic, Settings, ExternalLink, RefreshCw } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
-import { AppLauncher } from "@capacitor/app-launcher";
-import { getAndroidSettingsUrl, getIOSSettingsUrl } from "@/lib/appConfig";
+import { openAppSettings } from "@/lib/openAppSettings";
+import { toast } from "sonner";
 
 interface MicrophonePermissionDialogProps {
   open: boolean;
@@ -35,14 +35,11 @@ export function MicrophonePermissionDialog({
     
     try {
       if (isCapacitor) {
-        if (isAndroid) {
-          // Open Android app settings using correct app ID
-          await AppLauncher.openUrl({ 
-            url: getAndroidSettingsUrl() 
+        const opened = await openAppSettings();
+        if (!opened) {
+          toast.error('Could not open settings', {
+            description: 'Please go to Settings > Apps > Doc Aga manually.',
           });
-        } else if (isIOS) {
-          // Open iOS app settings
-          await AppLauncher.openUrl({ url: getIOSSettingsUrl() });
         }
       } else {
         // Web browser - show instructions since we can't open settings directly
@@ -50,8 +47,9 @@ export function MicrophonePermissionDialog({
       }
     } catch (error) {
       console.error('Error opening settings:', error);
-      // Fallback: show browser help
-      window.open('https://support.google.com/chrome/answer/2693767', '_blank');
+      toast.error('Could not open settings', {
+        description: 'Please go to Settings > Apps > Doc Aga manually.',
+      });
     } finally {
       setIsOpeningSettings(false);
     }

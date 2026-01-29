@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Bell, Settings, ExternalLink, RefreshCw } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
-import { AppLauncher } from "@capacitor/app-launcher";
+import { openAppSettings } from "@/lib/openAppSettings";
+import { toast } from "sonner";
 
 interface NotificationPermissionDialogProps {
   open: boolean;
@@ -34,19 +35,20 @@ export function NotificationPermissionDialog({
     
     try {
       if (isCapacitor) {
-        if (isAndroid) {
-          await AppLauncher.openUrl({ 
-            url: 'package:app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea' 
+        const opened = await openAppSettings();
+        if (!opened) {
+          toast.error('Could not open settings', {
+            description: 'Please go to Settings > Apps > Doc Aga manually.',
           });
-        } else if (isIOS) {
-          await AppLauncher.openUrl({ url: 'app-settings:' });
         }
       } else {
         window.open('https://support.google.com/chrome/answer/3220216', '_blank');
       }
     } catch (error) {
       console.error('Error opening settings:', error);
-      window.open('https://support.google.com/chrome/answer/3220216', '_blank');
+      toast.error('Could not open settings', {
+        description: 'Please go to Settings > Apps > Doc Aga manually.',
+      });
     } finally {
       setIsOpeningSettings(false);
     }
