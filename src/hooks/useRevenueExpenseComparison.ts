@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, subMonths, startOfYear, format } from "date-fns";
+import { subDays, differenceInDays, format } from "date-fns";
 
 interface TopSource {
   source: string;
@@ -15,7 +15,7 @@ interface TopCategory {
 }
 
 export interface RevenueExpenseComparisonData {
-  // Monthly totals
+  // Period totals
   revenueThisMonth: number;
   expenseThisMonth: number;
   revenueLastMonth: number;
@@ -35,51 +35,71 @@ export interface RevenueExpenseComparisonData {
   topExpenseCategories: TopCategory[];
 }
 
-export function useRevenueExpenseComparison(farmId: string) {
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
+export function useRevenueExpenseComparison(farmId: string, dateRange?: DateRange) {
   return useQuery({
-    queryKey: ["revenue-expense-comparison", farmId],
+    queryKey: ["revenue-expense-comparison", farmId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     queryFn: async (): Promise<RevenueExpenseComparisonData> => {
       const now = new Date();
-      const thisMonthStart = format(startOfMonth(now), "yyyy-MM-dd");
-      const thisMonthEnd = format(endOfMonth(now), "yyyy-MM-dd");
-      const lastMonthStart = format(startOfMonth(subMonths(now, 1)), "yyyy-MM-dd");
-      const lastMonthEnd = format(endOfMonth(subMonths(now, 1)), "yyyy-MM-dd");
-      const yearStart = format(startOfYear(now), "yyyy-MM-dd");
+      
+      // Use provided date range or default to current month
+      const periodStart = dateRange?.start || now;
+      const periodEnd = dateRange?.end || now;
+      
+      // Calculate the period length in days
+      const periodLengthDays = differenceInDays(periodEnd, periodStart) + 1;
+      
+      // Calculate comparison period (same length, immediately before)
+      const comparisonEnd = subDays(periodStart, 1);
+      const comparisonStart = subDays(comparisonEnd, periodLengthDays - 1);
 
-      // Fetch revenues
+      const periodStartStr = format(periodStart, "yyyy-MM-dd");
+      const periodEndStr = format(periodEnd, "yyyy-MM-dd");
+      const comparisonStartStr = format(comparisonStart, "yyyy-MM-dd");
+      const comparisonEndStr = format(comparisonEnd, "yyyy-MM-dd");
+
+      // Calculate year start for YTD totals
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      const yearStartStr = format(yearStart, "yyyy-MM-dd");
+
+      // Fetch all revenues for the year (to calculate YTD)
       const { data: revenues } = await supabase
         .from("farm_revenues")
         .select("amount, source, transaction_date")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("transaction_date", yearStart);
+        .gte("transaction_date", yearStartStr);
 
-      // Fetch expenses
+      // Fetch all expenses for the year
       const { data: expenses } = await supabase
         .from("farm_expenses")
         .select("amount, category, expense_date")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
-        .gte("expense_date", yearStart);
+        .gte("expense_date", yearStartStr);
 
       const revenueList = revenues || [];
       const expenseList = expenses || [];
 
-      // Calculate monthly totals
+      // Calculate current period totals
       const revenueThisMonth = revenueList
-        .filter(r => r.transaction_date >= thisMonthStart && r.transaction_date <= thisMonthEnd)
+        .filter(r => r.transaction_date >= periodStartStr && r.transaction_date <= periodEndStr)
         .reduce((sum, r) => sum + Number(r.amount), 0);
 
       const revenueLastMonth = revenueList
-        .filter(r => r.transaction_date >= lastMonthStart && r.transaction_date <= lastMonthEnd)
+        .filter(r => r.transaction_date >= comparisonStartStr && r.transaction_date <= comparisonEndStr)
         .reduce((sum, r) => sum + Number(r.amount), 0);
 
       const expenseThisMonth = expenseList
-        .filter(e => e.expense_date >= thisMonthStart && e.expense_date <= thisMonthEnd)
+        .filter(e => e.expense_date >= periodStartStr && e.expense_date <= periodEndStr)
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
       const expenseLastMonth = expenseList
-        .filter(e => e.expense_date >= lastMonthStart && e.expense_date <= lastMonthEnd)
+        .filter(e => e.expense_date >= comparisonStartStr && e.expense_date <= comparisonEndStr)
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
       // Calculate trends
@@ -96,10 +116,10 @@ export function useRevenueExpenseComparison(farmId: string) {
       const expenseThisYear = expenseList.reduce((sum, e) => sum + Number(e.amount), 0);
       const netThisYear = revenueThisYear - expenseThisYear;
 
-      // Calculate top revenue sources (this month)
+      // Calculate top revenue sources (for selected period)
       const revenueBySource: Record<string, number> = {};
       revenueList
-        .filter(r => r.transaction_date >= thisMonthStart && r.transaction_date <= thisMonthEnd)
+        .filter(r => r.transaction_date >= periodStartStr && r.transaction_date <= periodEndStr)
         .forEach(r => {
           revenueBySource[r.source] = (revenueBySource[r.source] || 0) + Number(r.amount);
         });
@@ -113,10 +133,10 @@ export function useRevenueExpenseComparison(farmId: string) {
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 3);
 
-      // Calculate top expense categories (this month)
+      // Calculate top expense categories (for selected period)
       const expenseByCategory: Record<string, number> = {};
       expenseList
-        .filter(e => e.expense_date >= thisMonthStart && e.expense_date <= thisMonthEnd)
+        .filter(e => e.expense_date >= periodStartStr && e.expense_date <= periodEndStr)
         .forEach(e => {
           expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + Number(e.amount);
         });
