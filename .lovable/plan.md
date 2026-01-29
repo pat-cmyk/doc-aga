@@ -1,116 +1,109 @@
 
-# Plan: Fix Financial Capacity Report - Herd Value and Data Source Alignment
+
+# Plan: Fix Feed Stock Audit Tab - Unlinked Records and Currency Display
 
 ## Problem Summary
-The Farmer Financial Capacity Report shows an incorrect "Herd Value" of ₱70,000 instead of the dynamically calculated value (~₱473,550). This happens because:
-1. A database column name mismatch causes valuation data to fail loading
-2. The herd value logic falls back to `purchase_price` instead of calculating `weight × market_price`
-3. The report doesn't use the same valuation approach as the dashboard
+The Feed Stock Audit tab has two issues:
+1. **Currency Display**: Shows "KES" (Kenyan Shilling) instead of Philippine Peso (₱)
+2. **453 Records Need Fixing**:
+   - 21 records missing `feed_inventory_id` (can be matched by feed_type)
+   - 432 records missing `cost_per_kg_at_time` (need cost backfill from inventory)
 
 ---
 
-## Technical Analysis
+## Part 1: Fix Currency Display
 
-### Current State (Broken)
-```text
-Herd Value Calculation Flow:
-1. Fetch valuations → FAILS (wrong column name: "fair_value" vs "estimated_value")
-2. Returns empty array []
-3. For each animal:
-   - Check valuation → None found
-   - Check purchase_price → Only Tita Barbecue has ₱70,000
-4. Total: ₱70,000 (only 1 of 6 animals valued)
-```
+### File: `src/components/feed-inventory/InventoryAuditReport.tsx`
 
-### Expected State (Fixed)
-```text
-Herd Value Calculation Flow:
-1. For each animal, get effective weight (current → entry → birth)
-2. Fetch market price via get_market_price RPC
-3. Calculate: effective_weight × market_price
-4. Sum all animals
-5. Total: ~₱473,550 (5 of 6 animals with weight × ₱350/kg)
-```
+**Change 1: Import Currency Utility**
+- Location: Top of file (after existing imports)
+- Add: `import { formatPHP } from "@/lib/currency";`
+
+**Change 2: Fix Summary Card Currency**
+- Location: Line 208
+- Before: `KES {Math.round(summary.totalCostTracked).toLocaleString()}`
+- After: `{formatPHP(summary.totalCostTracked)}`
+
+**Change 3: Fix Table Cell Currency**
+- Location: Line 310
+- Before: `KES {record.cost_per_kg_at_time.toFixed(2)}`
+- After: `{formatPHP(record.cost_per_kg_at_time, true)}`
+- Note: Using `true` for decimals parameter to show cost per kg with 2 decimal places
 
 ---
 
-## Changes Required
+## Part 2: Fix Database Records
 
-### File: `src/lib/financialReportGenerator.ts`
-
-**Change 1: Fix Valuations Query Column Name**
-- Location: `fetchValuationsData` function (~line 384-388)
-- Change `fair_value` to `estimated_value`
-- This fixes the silent failure when fetching historical valuations
-
-**Change 2: Replace Market Price Fetch with RPC Call**
-- Location: `fetchMarketPrice` function (~line 396-413)
-- Use `supabase.rpc("get_market_price", {...})` like the dashboard
-- Return the proper market price with source information
-
-**Change 3: Align Herd Value Calculation with SSOT Pattern**
-- Location: `processHerdSummary` function (~line 439-498)
-- New logic:
-  1. Use `getAnimalEffectiveWeight()` helper (already imported)
-  2. Calculate per-animal value as: `effective_weight × market_price`
-  3. Fallback to `estimated_value` from valuations if available
-  4. Last resort: use `purchase_price`
-
-**Change 4: Update HerdSummary Interface to Include Price Source**
-- Add `priceSource: string` field to match dashboard data
-- Helps transparency about where the price came from
-
----
-
-## Implementation Details
-
-### Updated `processHerdSummary` Logic
+### Step 1: Link Unlinked Records by Feed Type
+Run SQL to update 21 records that have matching inventory items:
 
 ```text
-For each active animal:
-1. Get effective weight using priority: current_weight → entry_weight → birth_weight
-2. If weight exists:
-   - Calculate value = weight × marketPrice
-3. Else if valuation exists:
-   - Use valuation.estimated_value
-4. Else if purchase_price exists:
-   - Use purchase_price
-5. Else:
-   - Value = 0 (animal contributes 0 to herd value)
+UPDATE feeding_records fr
+SET feed_inventory_id = fi.id
+FROM animals a, feed_inventory fi
+WHERE fr.animal_id = a.id
+  AND a.farm_id = '0ffc89c8-152d-42a3-a0f5-67cf772860cc'
+  AND fi.farm_id = a.farm_id
+  AND fi.feed_type = fr.feed_type
+  AND fr.feed_inventory_id IS NULL
+  AND fr.feed_type != 'Fresh Cut and Carry';
 ```
 
-### Updated `fetchMarketPrice` Logic
+### Step 2: Backfill Cost Data from Inventory
+Run SQL to populate `cost_per_kg_at_time` for all linked records:
 
 ```text
-1. Call get_market_price RPC with livestock_type and farm_id
-2. Return { price, source, effectiveDate }
-3. Fallback to ₱300/kg only if RPC fails
+UPDATE feeding_records fr
+SET cost_per_kg_at_time = fi.cost_per_unit
+FROM feed_inventory fi
+WHERE fr.feed_inventory_id = fi.id
+  AND fr.cost_per_kg_at_time IS NULL;
 ```
 
 ---
 
-## Affected Components
+## Expected Results
 
-| Component | Change Type | Impact |
-|-----------|-------------|--------|
-| `financialReportGenerator.ts` | Fix + Enhancement | Core calculation fix |
-| `HerdSummary` interface | Add field | Minor type update |
-| Report PDF/CSV exports | None | Will automatically use corrected data |
+### After Currency Fix
+| Location | Before | After |
+|----------|--------|-------|
+| Summary Card | KES 2,500 | ₱2,500 |
+| Table Cost/kg | KES 6.00 | ₱6.00 |
 
----
-
-## Expected Outcome
-
-After the fix:
-- **Herd Value**: Will show ~₱473,550 (calculated from weight × market price)
-- **Market Price**: Will use ₱350/kg from DA Bulletin (via RPC)
-- **Consistency**: Report values will match dashboard HerdValueChart
-- **Data Source**: Each animal valued by weight × price (SSOT pattern)
+### After Database Fix
+| Metric | Before | After |
+|--------|--------|-------|
+| Untracked Records | 21 | 0 |
+| Missing Cost Records | 432 | 0 |
+| Issues Found | ~119 (in 200-limit view) | 0 |
+| Properly Linked | ~60% | 100% |
 
 ---
 
-## Testing Points
-1. Open Financial Capacity Report and verify Herd Value matches dashboard
-2. Confirm console logs show successful valuation fetching
-3. Export PDF and verify correct herd value in document
-4. Test with different period selections (3/6/12 months)
+## Technical Details
+
+### Records Being Fixed
+
+| Feed Type | Unlinked | Missing Cost | Inventory Cost |
+|-----------|----------|--------------|----------------|
+| Bag Corn Silage | 8 | 432 | ₱6/kg |
+| Rice Bran | 3 | 0 | ₱25/kg |
+| Rumsol Feeds Cattle Grower | 8 | 0 | ₱30/kg |
+| Soya | 1 | 0 | ₱30/kg |
+| Baled Corn Silage | 1 | 0 | ₱8/kg |
+
+### Files Modified
+- `src/components/feed-inventory/InventoryAuditReport.tsx` - Currency formatting
+
+### Database Updates
+- `feeding_records` table - Link inventory and backfill costs for 453 records
+
+---
+
+## Testing Checklist
+1. Navigate to Feed Inventory tab and select "Audit" sub-tab
+2. Verify "Cost Tracked" summary shows ₱ symbol
+3. Verify table "Cost/kg" column shows ₱ values
+4. Confirm "Issues Found" shows 0
+5. Confirm "Properly Linked" shows 100%
+
