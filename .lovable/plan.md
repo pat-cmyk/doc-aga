@@ -1,109 +1,179 @@
 
 
-# Plan: Fix Feed Stock Audit Tab - Unlinked Records and Currency Display
+# Plan: Include Feed Consumption Costs in Herd Investment (SSOT Fix)
 
-## Problem Summary
-The Feed Stock Audit tab has two issues:
-1. **Currency Display**: Shows "KES" (Kenyan Shilling) instead of Philippine Peso (₱)
-2. **453 Records Need Fixing**:
-   - 21 records missing `feed_inventory_id` (can be matched by feed_type)
-   - 432 records missing `cost_per_kg_at_time` (need cost backfill from inventory)
+## Summary
+
+This fix ensures the Herd Investment calculation follows the Single Source of Truth pattern by including consumption-based feed costs from `feeding_records` alongside manual expenses from `farm_expenses`.
 
 ---
 
-## Part 1: Fix Currency Display
+## Current State
 
-### File: `src/components/feed-inventory/InventoryAuditReport.tsx`
+| Source | Current Total | Included in Herd Investment? |
+|--------|---------------|------------------------------|
+| Animal Purchase Prices | ₱70,000 | Yes |
+| Manual Animal Expenses (`farm_expenses`) | ₱8,427 | Yes |
+| Feed Consumption Costs (`feeding_records`) | ₱39,930 | **No** |
 
-**Change 1: Import Currency Utility**
-- Location: Top of file (after existing imports)
-- Add: `import { formatPHP } from "@/lib/currency";`
-
-**Change 2: Fix Summary Card Currency**
-- Location: Line 208
-- Before: `KES {Math.round(summary.totalCostTracked).toLocaleString()}`
-- After: `{formatPHP(summary.totalCostTracked)}`
-
-**Change 3: Fix Table Cell Currency**
-- Location: Line 310
-- Before: `KES {record.cost_per_kg_at_time.toFixed(2)}`
-- After: `{formatPHP(record.cost_per_kg_at_time, true)}`
-- Note: Using `true` for decimals parameter to show cost per kg with 2 decimal places
+**Current Total Shown**: ₱78,427
+**Actual Total Should Be**: ₱118,357
 
 ---
 
-## Part 2: Fix Database Records
+## Changes Required
 
-### Step 1: Link Unlinked Records by Feed Type
-Run SQL to update 21 records that have matching inventory items:
+### File 1: `src/hooks/useHerdInvestment.ts`
 
-```text
-UPDATE feeding_records fr
-SET feed_inventory_id = fi.id
-FROM animals a, feed_inventory fi
-WHERE fr.animal_id = a.id
-  AND a.farm_id = '0ffc89c8-152d-42a3-a0f5-67cf772860cc'
-  AND fi.farm_id = a.farm_id
-  AND fi.feed_type = fr.feed_type
-  AND fr.feed_inventory_id IS NULL
-  AND fr.feed_type != 'Fresh Cut and Carry';
+**Update Interface** - Add new fields for transparency:
+
+```typescript
+export interface HerdInvestment {
+  totalPurchasePrice: number;
+  totalAnimalExpenses: number;      // Now includes feed consumption
+  manualExpenses: number;           // NEW: Just farm_expenses
+  feedConsumptionCost: number;      // NEW: From feeding_records
+  totalInvestment: number;
+  // ... existing fields
+}
 ```
 
-### Step 2: Backfill Cost Data from Inventory
-Run SQL to populate `cost_per_kg_at_time` for all linked records:
+**Add Feed Consumption Query** - After the expenses query:
+
+```typescript
+// Get feed consumption costs from feeding_records
+const { data: feedingRecords, error: feedingError } = await supabase
+  .from("feeding_records")
+  .select(`
+    kilograms,
+    cost_per_kg_at_time,
+    animal:animals!inner(farm_id)
+  `)
+  .eq("animal.farm_id", farmId)
+  .not("cost_per_kg_at_time", "is", null);
+
+if (feedingError) throw feedingError;
+
+const feedConsumptionCost = feedingRecords?.reduce(
+  (sum, record) => sum + (record.kilograms * (record.cost_per_kg_at_time || 0)),
+  0
+) || 0;
+```
+
+**Update Return Object**:
+
+```typescript
+const manualExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+
+return {
+  totalPurchasePrice,
+  manualExpenses,
+  feedConsumptionCost,
+  totalAnimalExpenses: manualExpenses + feedConsumptionCost,  // Combined
+  totalInvestment: totalPurchasePrice + manualExpenses + feedConsumptionCost,
+  // ... rest of fields
+};
+```
+
+---
+
+### File 2: `src/components/farm-dashboard/HerdInvestmentSheet.tsx`
+
+**Update Cost Breakdown Section** - Replace the single "Animal Expenses" line with a detailed breakdown:
 
 ```text
-UPDATE feeding_records fr
-SET cost_per_kg_at_time = fi.cost_per_unit
-FROM feed_inventory fi
-WHERE fr.feed_inventory_id = fi.id
-  AND fr.cost_per_kg_at_time IS NULL;
+Before:
+  Purchase Costs     ₱70K
+  Animal Expenses    ₱8K    <-- misleading
+  ─────────────────────
+  Total Investment   ₱78K
+
+After:
+  Purchase Costs       ₱70K
+  Manual Expenses      ₱8K
+  Feed Consumption     ₱40K   <-- NEW line
+  ─────────────────────────
+  Total Investment     ₱118K
+```
+
+**Code Changes**:
+
+Add a new row in the cost breakdown section:
+
+```tsx
+{/* Cost Breakdown */}
+<div className="space-y-2 pt-2 border-t">
+  <div className="flex justify-between text-sm">
+    <span className="text-muted-foreground">Purchase Costs</span>
+    <span className="font-medium">{formatCurrency(investmentData.totalPurchasePrice)}</span>
+  </div>
+  <div className="flex justify-between text-sm">
+    <span className="text-muted-foreground">Manual Expenses</span>
+    <span className="font-medium">{formatCurrency(investmentData.manualExpenses)}</span>
+  </div>
+  <div className="flex justify-between text-sm">
+    <span className="text-muted-foreground">Feed Consumption</span>
+    <span className="font-medium">{formatCurrency(investmentData.feedConsumptionCost)}</span>
+  </div>
+  <div className="flex justify-between text-sm font-medium pt-2 border-t">
+    <span>Total Investment</span>
+    <span>{formatCurrency(investmentData.totalInvestment)}</span>
+  </div>
+</div>
+```
+
+---
+
+## Data Flow After Fix
+
+```text
+┌─────────────────────────────┐
+│      Herd Investment        │
+│        ₱118,357             │
+└─────────────────────────────┘
+              │
+    ┌─────────┼─────────┐
+    ▼         ▼         ▼
+┌─────────┐ ┌─────────┐ ┌─────────────────┐
+│Purchase │ │ Manual  │ │Feed Consumption │
+│ ₱70,000 │ │ ₱8,427  │ │    ₱39,930      │
+└─────────┘ └─────────┘ └─────────────────┘
+    │           │               │
+    │           │               │
+animals    farm_expenses   feeding_records
+(purchase  (animal_id      (kilograms ×
+ _price)    not null)      cost_per_kg)
 ```
 
 ---
 
 ## Expected Results
 
-### After Currency Fix
-| Location | Before | After |
-|----------|--------|-------|
-| Summary Card | KES 2,500 | ₱2,500 |
-| Table Cost/kg | KES 6.00 | ₱6.00 |
-
-### After Database Fix
 | Metric | Before | After |
 |--------|--------|-------|
-| Untracked Records | 21 | 0 |
-| Missing Cost Records | 432 | 0 |
-| Issues Found | ~119 (in 200-limit view) | 0 |
-| Properly Linked | ~60% | 100% |
+| Dashboard Card | ₱78K | ₱118K |
+| Purchase Costs | ₱70K | ₱70K |
+| Manual Expenses | ₱8K (labeled "Animal Expenses") | ₱8K (labeled "Manual Expenses") |
+| Feed Consumption | Not shown | ₱40K (new line) |
+| Total Investment | ₱78K | ₱118K |
 
 ---
 
-## Technical Details
+## Files Modified
 
-### Records Being Fixed
-
-| Feed Type | Unlinked | Missing Cost | Inventory Cost |
-|-----------|----------|--------------|----------------|
-| Bag Corn Silage | 8 | 432 | ₱6/kg |
-| Rice Bran | 3 | 0 | ₱25/kg |
-| Rumsol Feeds Cattle Grower | 8 | 0 | ₱30/kg |
-| Soya | 1 | 0 | ₱30/kg |
-| Baled Corn Silage | 1 | 0 | ₱8/kg |
-
-### Files Modified
-- `src/components/feed-inventory/InventoryAuditReport.tsx` - Currency formatting
-
-### Database Updates
-- `feeding_records` table - Link inventory and backfill costs for 453 records
+| File | Changes |
+|------|---------|
+| `src/hooks/useHerdInvestment.ts` | Add feed consumption query, update interface and calculations |
+| `src/components/farm-dashboard/HerdInvestmentSheet.tsx` | Add feed consumption line in cost breakdown |
 
 ---
 
 ## Testing Checklist
-1. Navigate to Feed Inventory tab and select "Audit" sub-tab
-2. Verify "Cost Tracked" summary shows ₱ symbol
-3. Verify table "Cost/kg" column shows ₱ values
-4. Confirm "Issues Found" shows 0
-5. Confirm "Properly Linked" shows 100%
+
+1. Open the Farm Dashboard
+2. Click on the "Herd Investment" card to open the sheet
+3. Verify total shows ~₱118K instead of ₱78K
+4. Verify breakdown shows three lines: Purchase Costs, Manual Expenses, Feed Consumption
+5. Verify Feed Consumption matches the Feed Stock Audit total (~₱40K)
+6. Cross-check: Purchase + Manual + Feed = Total Investment
 
