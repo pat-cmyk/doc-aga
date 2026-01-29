@@ -167,8 +167,12 @@ export const HerdInvestmentSheet = ({ open, onOpenChange, farmId }: HerdInvestme
               <span className="font-medium">{formatCurrency(investmentData.totalPurchasePrice)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Animal Expenses</span>
-              <span className="font-medium">{formatCurrency(investmentData.totalAnimalExpenses)}</span>
+              <span className="text-muted-foreground">Manual Expenses</span>
+              <span className="font-medium">{formatCurrency(investmentData.manualExpenses)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Feed Consumption</span>
+              <span className="font-medium">{formatCurrency(investmentData.feedConsumptionCost)}</span>
             </div>
             <div className="flex justify-between text-sm font-medium pt-2 border-t">
               <span>Total Investment</span>
