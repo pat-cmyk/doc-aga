@@ -112,7 +112,7 @@ export default function Checkout() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
+        <header className="border-b bg-card pt-safe">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -139,7 +139,7 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+      <header className="border-b bg-card pt-safe">
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")}>
             <ArrowLeft className="h-4 w-4 mr-2" />

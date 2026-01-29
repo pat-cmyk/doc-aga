@@ -184,7 +184,7 @@ const FarmhandDashboard = () => {
     <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto">
       <PullToRefreshIndicator />
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 pt-safe">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DocAgaLogo size={40} />

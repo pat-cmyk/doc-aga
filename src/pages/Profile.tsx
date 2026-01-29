@@ -181,7 +181,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background pt-safe">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Button
           variant="ghost"
