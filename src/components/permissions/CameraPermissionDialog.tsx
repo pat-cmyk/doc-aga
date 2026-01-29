@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Settings, ExternalLink, RefreshCw } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { AppLauncher } from "@capacitor/app-launcher";
+import { getAndroidSettingsUrl, getIOSSettingsUrl } from "@/lib/appConfig";
 
 interface CameraPermissionDialogProps {
   open: boolean;
@@ -35,11 +36,13 @@ export function CameraPermissionDialog({
     try {
       if (isCapacitor) {
         if (isAndroid) {
+          // Open Android app settings using correct app ID
           await AppLauncher.openUrl({ 
-            url: 'package:app.lovable.fa0cc69c441c4305b8c2e99c9ca1b5ea' 
+            url: getAndroidSettingsUrl() 
           });
         } else if (isIOS) {
-          await AppLauncher.openUrl({ url: 'app-settings:' });
+          // Open iOS app settings
+          await AppLauncher.openUrl({ url: getIOSSettingsUrl() });
         }
       } else {
         window.open('https://support.google.com/chrome/answer/2693767', '_blank');
