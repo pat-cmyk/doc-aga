@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send, Bot, User, Volume2, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceRecordButton } from "./ui/VoiceRecordButton";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { useRole } from "@/hooks/useRole";
@@ -62,7 +63,6 @@ const DocAga = () => {
   });
   
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { roles, hasRole } = useRole();
   const { hasAccess: hasGovernmentAccess } = useGovernmentAccess();
@@ -129,16 +129,13 @@ const DocAga = () => {
     }
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleImageSelect = (file: File) => {
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -606,24 +603,17 @@ const DocAga = () => {
             }}
             className="flex gap-1.5 sm:gap-2"
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
             {inputMethod === "image" && (
-              <Button
-                type="button"
+              <CameraPhotoInput
+                onPhotoSelected={handleImageSelect}
+                onError={(error) => toast({ title: "Error", description: error.message, variant: "destructive" })}
                 variant="outline"
                 size="sm"
-                onClick={() => fileInputRef.current?.click()}
+                label=""
+                showIcon={true}
                 disabled={loading || isUploadingImage}
                 className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
-              >
-                <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
-              </Button>
+              />
             )}
             <Input
               value={input}

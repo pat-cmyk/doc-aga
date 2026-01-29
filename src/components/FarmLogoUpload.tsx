@@ -2,11 +2,10 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Upload, Sprout, Trash2 } from "lucide-react";
+import { Loader2, Sprout, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { CameraPermissionDialog } from "./permissions/CameraPermissionDialog";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 
 interface FarmLogoUploadProps {
   farmId: string;
@@ -18,7 +17,6 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl);
-  const [showCameraDialog, setShowCameraDialog] = useState(false);
 
   const validateFile = (file: File): boolean => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'];
@@ -45,12 +43,8 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
     return true;
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handlePhotoSelected = async (file: File) => {
     if (!validateFile(file)) {
-      event.target.value = '';
       return;
     }
 
@@ -100,20 +94,13 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         description: "Farm logo updated successfully"
       });
     } catch (error: any) {
-      // Check for permission-related errors
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError' || 
-          error.message?.includes('permission') || error.message?.includes('denied')) {
-        setShowCameraDialog(true);
-      } else {
-        toast({
-          title: "Upload failed",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setUploading(false);
-      event.target.value = '';
     }
   };
 
@@ -169,7 +156,7 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         </Avatar>
         
         <div className="flex-1 space-y-2">
-          <Label htmlFor="logo-upload" className="text-sm font-medium">
+          <Label className="text-sm font-medium">
             Farm Logo
           </Label>
           <p className="text-xs text-muted-foreground">
@@ -179,20 +166,13 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
       </div>
 
       <div className="flex gap-2">
-        <Button
+        <CameraPhotoInput
+          onPhotoSelected={handlePhotoSelected}
+          onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
           variant="outline"
+          label={previewUrl ? 'Change Logo' : 'Upload Logo'}
           disabled={uploading}
-          asChild
-        >
-          <Label htmlFor="logo-upload" className="cursor-pointer">
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Upload className="h-4 w-4 mr-2" />
-            )}
-            {previewUrl ? 'Change Logo' : 'Upload Logo'}
-          </Label>
-        </Button>
+        />
         
         {previewUrl && (
           <Button
@@ -205,20 +185,6 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
           </Button>
         )}
       </div>
-
-      <Input
-        id="logo-upload"
-        type="file"
-        accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      <CameraPermissionDialog
-        open={showCameraDialog}
-        onOpenChange={setShowCameraDialog}
-        onRetry={() => document.getElementById('logo-upload')?.click()}
-      />
     </div>
   );
 };

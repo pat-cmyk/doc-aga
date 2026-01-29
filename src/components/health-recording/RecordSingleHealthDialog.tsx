@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,12 +19,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Heart, CalendarIcon, WifiOff, Camera, X, User } from "lucide-react";
+import { Loader2, Heart, CalendarIcon, WifiOff, X, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { HEALTH_CATEGORIES, QUICK_DIAGNOSES, QUICK_TREATMENTS } from "@/lib/healthCategories";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { validateRecordDate } from "@/lib/recordValidation";
@@ -59,7 +60,6 @@ export function RecordSingleHealthDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
@@ -162,42 +162,33 @@ export function RecordSingleHealthDialog({
     });
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  const handlePhotoUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
 
     setIsUploadingImage(true);
-    const uploadedUrls: string[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
+      const compressedBlob = await compressImage(file);
+      
+      const fileName = `${animalId}-health-${Date.now()}.jpg`;
+      const filePath = `health/${fileName}`;
 
-        const compressedBlob = await compressImage(file);
-        
-        const fileName = `${animalId}-health-${Date.now()}-${i}.jpg`;
-        const filePath = `health/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('animal-photos')
+        .upload(filePath, compressedBlob, {
+          contentType: 'image/jpeg'
+        });
 
-        const { error: uploadError } = await supabase.storage
-          .from('animal-photos')
-          .upload(filePath, compressedBlob, {
-            contentType: 'image/jpeg'
-          });
+      if (uploadError) throw uploadError;
 
-        if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from('animal-photos')
+        .getPublicUrl(filePath);
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('animal-photos')
-          .getPublicUrl(filePath);
-
-        uploadedUrls.push(publicUrl);
-      }
-
-      setUploadedPhotos([...uploadedPhotos, ...uploadedUrls]);
+      setUploadedPhotos([...uploadedPhotos, publicUrl]);
       toast({
-        title: "Photos uploaded",
-        description: `${uploadedUrls.length} photo(s) added`
+        title: "Photo uploaded",
+        description: "Photo added successfully"
       });
     } catch (error: any) {
       console.error('Photo upload error:', error);
@@ -208,9 +199,6 @@ export function RecordSingleHealthDialog({
       });
     } finally {
       setIsUploadingImage(false);
-      if (event.target) {
-        event.target.value = '';
-      }
     }
   };
 
@@ -589,26 +577,16 @@ export function RecordSingleHealthDialog({
                 {isUploadingImage && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading photos...
+                    Uploading photo...
                   </div>
                 )}
-                <Button
-                  type="button"
+                <CameraPhotoInput
+                  onPhotoSelected={handlePhotoUpload}
+                  onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
                   variant="outline"
-                  className="w-full"
-                  onClick={() => fileInputRef.current?.click()}
+                  label={isUploadingImage ? "Uploading..." : "Add Photo"}
                   disabled={isSubmitting || isUploadingImage}
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  {isUploadingImage ? "Uploading..." : "Add Photos"}
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handlePhotoUpload}
+                  className="w-full"
                 />
                 {uploadedPhotos.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">

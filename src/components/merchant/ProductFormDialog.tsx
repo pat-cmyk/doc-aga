@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface Product {
@@ -115,10 +116,7 @@ export const ProductFormDialog = ({
     setCategoryId("");
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleImageUpload = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
@@ -289,20 +287,13 @@ export const ProductFormDialog = ({
               </div>
             ) : (
               <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <Label
-                  htmlFor="image-upload"
-                  className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
-                >
-                  {isUploadingImage ? "Uploading..." : "Click to upload image"}
-                </Label>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
+                <CameraPhotoInput
+                  onPhotoSelected={handleImageUpload}
+                  onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
+                  variant="outline"
+                  label={isUploadingImage ? "Uploading..." : "Upload Image"}
                   disabled={isUploadingImage}
+                  className="mx-auto"
                 />
               </div>
             )}
