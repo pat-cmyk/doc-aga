@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
+import { Capacitor } from "@capacitor/core";
 
 type LanguageFilter = 'all' | 'english' | 'tagalog' | 'taglish';
 
@@ -55,6 +56,23 @@ export function VoiceTrainingSession() {
 
   const startRecording = async () => {
     try {
+      // On native, check permission first to trigger proper Android permission dialog
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ 
+            name: 'microphone' as PermissionName 
+          });
+          
+          if (permissionStatus.state === 'denied') {
+            setShowPermissionDialog(true);
+            return;
+          }
+        } catch {
+          // navigator.permissions may not support microphone on all platforms
+          // Continue and let getUserMedia handle it
+        }
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -74,9 +92,14 @@ export function VoiceTrainingSession() {
 
       mediaRecorder.start();
       setIsRecording(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting recording:', error);
-      setShowPermissionDialog(true);
+      // Check if it's a permission error
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setShowPermissionDialog(true);
+      } else {
+        setShowPermissionDialog(true);
+      }
     }
   };
 

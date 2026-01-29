@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { Camera } from "@capacitor/camera";
 
 export type PermissionStatus = "granted" | "denied" | "prompt" | "unknown";
 
@@ -51,9 +52,18 @@ export function useDevicePermissions() {
       newPermissions.location = "unknown";
     }
 
-    // Check camera
+    // Check camera - use Capacitor Camera plugin on native
     try {
-      if (navigator.permissions) {
+      if (Capacitor.isNativePlatform()) {
+        const status = await Camera.checkPermissions();
+        if (status.camera === 'granted' && status.photos === 'granted') {
+          newPermissions.camera = 'granted';
+        } else if (status.camera === 'denied' || status.photos === 'denied') {
+          newPermissions.camera = 'denied';
+        } else {
+          newPermissions.camera = 'prompt';
+        }
+      } else if (navigator.permissions) {
         const result = await navigator.permissions.query({ name: "camera" as PermissionName });
         newPermissions.camera = result.state as PermissionStatus;
       }
@@ -108,6 +118,15 @@ export function useDevicePermissions() {
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     try {
+      // Use Capacitor Camera plugin on native for proper permission request
+      if (Capacitor.isNativePlatform()) {
+        const result = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+        const granted = result.camera === 'granted' && result.photos === 'granted';
+        setPermissions(prev => ({ ...prev, camera: granted ? 'granted' : 'denied' }));
+        return granted;
+      }
+      
+      // Web fallback
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
       setPermissions(prev => ({ ...prev, camera: "granted" }));
