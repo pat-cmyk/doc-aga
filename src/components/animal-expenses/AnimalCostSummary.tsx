@@ -8,6 +8,8 @@ interface AnimalCostSummaryProps {
   acquisitionType: string | null;
   categoryBreakdown: Record<string, number>;
   totalExpenses: number;
+  feedConsumptionCost: number;
+  manualExpenses: number;
   isLoading?: boolean;
 }
 
@@ -25,6 +27,8 @@ export function AnimalCostSummary({
   acquisitionType,
   categoryBreakdown,
   totalExpenses,
+  feedConsumptionCost,
+  manualExpenses,
   isLoading,
 }: AnimalCostSummaryProps) {
   const acquisitionCost = purchasePrice || 0;
@@ -101,7 +105,17 @@ export function AnimalCostSummary({
             </div>
           ))}
 
-          {Object.keys(categoryBreakdown).length === 0 && (
+          {feedConsumptionCost > 0 && (
+            <div className="flex justify-between py-1 border-b">
+              <span className="text-muted-foreground flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Feed Consumption
+              </span>
+              <span className="font-medium">{formatCurrency(feedConsumptionCost)}</span>
+            </div>
+          )}
+
+          {Object.keys(categoryBreakdown).length === 0 && feedConsumptionCost === 0 && (
             <div className="text-center py-2 text-muted-foreground">
               No expenses recorded yet
             </div>
