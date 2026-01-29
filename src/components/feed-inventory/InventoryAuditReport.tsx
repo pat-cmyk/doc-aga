@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Leaf, Link2Off, DollarSign, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { formatPHP } from "@/lib/currency";
 
 type AuditStatus = 'linked' | 'fresh_cut' | 'untracked' | 'missing_cost';
 
@@ -205,7 +206,7 @@ export function InventoryAuditReport({ farmId }: { farmId: string }) {
         <Card>
           <CardContent className="pt-4">
             <div className="text-muted-foreground text-sm">Cost Tracked</div>
-            <p className="text-2xl font-bold">KES {Math.round(summary.totalCostTracked).toLocaleString()}</p>
+            <p className="text-2xl font-bold">{formatPHP(summary.totalCostTracked)}</p>
           </CardContent>
         </Card>
         <Card className={issueCount > 0 ? 'border-destructive/50' : 'border-green-500/50'}>
@@ -307,7 +308,7 @@ export function InventoryAuditReport({ farmId }: { farmId: string }) {
                         <TableCell className="text-right">
                           {record.cost_per_kg_at_time !== null ? (
                             <span className="text-green-600 font-medium">
-                              KES {record.cost_per_kg_at_time.toFixed(2)}
+                              {formatPHP(record.cost_per_kg_at_time, true)}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">-</span>
