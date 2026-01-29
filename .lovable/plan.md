@@ -1,274 +1,289 @@
 
-# Complete Device Permission Integration: Camera + Microphone
+# App-Wide Safe Area Insets for Android (Notch + Navigation Bar)
 
-## Summary
+## Problem Summary
 
-This plan extends the previous camera-focused plan to include a comprehensive review and update of all voice/microphone components. The goal is to ensure **both camera AND microphone** permissions correctly trigger native Android dialogs and appear in the Android app settings.
+Based on your screenshots from the Samsung Galaxy A17 5G, UI elements are getting obscured by:
 
-## Current Status
+1. **Top**: The punch-hole camera/notch area is overlapping with:
+   - Dashboard header ("Estehanon Farm")
+   - Sheet/Dialog headers (like "Sync Status")
+   
+2. **Bottom**: The Android 3-button navigation bar may overlap with:
+   - Form inputs
+   - Bottom content
+   - BottomNav component
 
-### Camera Components (Not Yet Integrated)
-These still use HTML `<input type="file">` and need to be replaced with `CameraPhotoInput`:
+## Current State Analysis
 
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| `AnimalDetails.tsx` | Avatar upload | ❌ Uses file input |
-| `AnimalProfile.tsx` | Avatar upload | ❌ Uses file input |
-| `FarmLogoUpload.tsx` | Farm logo | ❌ Uses file input |
-| `AddHealthRecordDialog.tsx` | Photo attachments | ❌ Uses file input |
-| `RecordSingleHealthDialog.tsx` | Photo attachments | ❌ Uses file input |
-| `DocAga.tsx` | Image attachment | ❌ Uses file input |
-| `MerchantProfile.tsx` | Business logo | ❌ Uses file input |
-| `ProductFormDialog.tsx` | Product image | ❌ Uses file input |
+| Location | Current Safe Area | Problem |
+|----------|------------------|---------|
+| Dashboard.tsx header | No `pt-safe` | Header content behind notch |
+| FarmhandDashboard.tsx header | No `pt-safe` | Header content behind notch |
+| MerchantDashboard.tsx header | No `pt-safe` | Header content behind notch |
+| GovernmentLayout.tsx header | No `pt-safe` | Header content behind notch |
+| SheetContent (sheet.tsx) | No safe area padding | Sheet header behind notch on right/left |
+| Bottom navigation (bottom-nav.tsx) | Has `pb-safe` | OK |
+| Doc Aga popup | Has `pt-safe` | OK |
 
-### Microphone Components (Already Updated)
-These already have native permission checks from the previous implementation:
-
-| Component | Permission Check | Status |
-|-----------|------------------|--------|
-| `useVoiceRecording.ts` | ✅ Capacitor native check (lines 174-190) | Done |
-| `VoiceTrainingSession.tsx` | ✅ Native permission pre-check | Done |
-| `useDevicePermissions.ts` | ✅ Uses `Camera.checkPermissions()` for camera | Done |
-| `MicrophonePermissionDialog.tsx` | ✅ Uses correct App ID | Done |
-
-### Microphone Components (Need Updates)
-These still call `getUserMedia` directly without native checks:
-
-| Component | Current Behavior | Needed Update |
-|-----------|------------------|---------------|
-| `VoiceInputButton.tsx` | Calls `getUserMedia` directly (line 30) | Add Capacitor check |
-| `farmhand/VoiceRecordButton.tsx` | Calls `getUserMedia` directly (line 130) | Add Capacitor check |
+**CSS Utilities Already Defined** (in index.css):
+- `.pt-safe` - `padding-top: max(1.5rem, env(safe-area-inset-top))`
+- `.pb-safe` - `padding-bottom: max(3rem, env(safe-area-inset-bottom))`
+- `.pr-safe` / `.pl-safe` - for horizontal insets
 
 ---
 
-## Architecture Overview
+## Solution Architecture
 
 ```text
-+------------------------------------------------------------------+
-|                    PERMISSION FLOW DIAGRAM                       |
-+------------------------------------------------------------------+
-
-CAMERA PERMISSION:                    MICROPHONE PERMISSION:
-┌────────────────────┐                ┌────────────────────────┐
-│  CameraPhotoInput  │                │  VoiceInputButton /    │
-│  Component         │                │  VoiceRecordButton     │
-└────────┬───────────┘                └───────────┬────────────┘
-         │                                        │
-         v                                        v
-┌────────────────────┐                ┌────────────────────────┐
-│ useNativeCamera()  │                │ Native permission      │
-│ hook               │                │ pre-check              │
-└────────┬───────────┘                └───────────┬────────────┘
-         │                                        │
-         v                                        v
-┌────────────────────┐                ┌────────────────────────┐
-│ Capacitor.is       │                │ Capacitor.is           │
-│ NativePlatform()?  │                │ NativePlatform()?      │
-├────────┬───────────┤                ├───────────┬────────────┤
-│  YES   │    NO     │                │   YES     │    NO      │
-│   │    │     │     │                │    │      │     │      │
-│   v    │     v     │                │    v      │     v      │
-│Camera. │ <input    │                │ Query     │ getUserMedia
-│getPhoto│ type=file>│                │ permission│ directly   │
-│  ()    │           │                │ first     │            │
-└────────┴───────────┘                └───────────┴────────────┘
-         │                                        │
-         v                                        v
-    ┌────────────┐                        ┌────────────┐
-    │ Native     │                        │ Native     │
-    │ Permission │                        │ Permission │
-    │ Dialog     │                        │ Dialog     │
-    └────────────┘                        └────────────┘
++----------------------------------------------------------+
+|                    SAFE AREA STRATEGY                     |
++----------------------------------------------------------+
+|                                                          |
+|  ┌─────────────────────────────────────────────────────┐ |
+|  │ Level 1: Global Base Components                     │ |
+|  │ - SheetContent: Add pt-safe for top & bottom sheets │ |
+|  │ - DrawerContent: Add pb-safe for bottom drawers     │ |
+|  │ - DialogContent: Add safe area for full-screen      │ |
+|  └─────────────────────────────────────────────────────┘ |
+|                           │                              |
+|                           ▼                              |
+|  ┌─────────────────────────────────────────────────────┐ |
+|  │ Level 2: Page Layouts                               │ |
+|  │ - Dashboard.tsx header: Add pt-safe                 │ |
+|  │ - FarmhandDashboard.tsx header: Add pt-safe         │ |
+|  │ - MerchantDashboard.tsx header: Add pt-safe         │ |
+|  │ - GovernmentLayout.tsx header: Add pt-safe          │ |
+|  │ - All other page layouts with sticky headers        │ |
+|  └─────────────────────────────────────────────────────┘ |
+|                           │                              |
+|                           ▼                              |
+|  ┌─────────────────────────────────────────────────────┐ |
+|  │ Level 3: Full-Screen Overlays                       │ |
+|  │ - Doc Aga chat (already has pt-safe)                │ |
+|  │ - Any future full-screen modals                     │ |
+|  └─────────────────────────────────────────────────────┘ |
+|                                                          |
++----------------------------------------------------------+
 ```
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Camera Components (8 files)
+### Phase 1: Update Base UI Components
 
-Replace HTML file inputs with `CameraPhotoInput` in these components:
+#### 1.1 Update SheetContent (src/components/ui/sheet.tsx)
 
-#### 1.1 AnimalDetails.tsx
-- Remove `fileInputRef` and hidden input
-- Replace camera button with `CameraPhotoInput`
-- Update `handleAvatarUpload` to accept `File` directly
+The Sheet component is used for side panels (like Sync Status). On mobile, these can open from the right/bottom and need safe area handling.
 
-#### 1.2 AnimalProfile.tsx
-- Same pattern as AnimalDetails.tsx
-
-#### 1.3 FarmLogoUpload.tsx
-- Replace `<Input id="logo-upload" type="file">` with `CameraPhotoInput`
-- Update handler to accept `File`
-
-#### 1.4 AddHealthRecordDialog.tsx
-- Replace hidden file input with `CameraPhotoInput`
-- Photos are added one at a time (native camera only captures single photos)
-
-#### 1.5 RecordSingleHealthDialog.tsx
-- Same pattern as AddHealthRecordDialog
-
-#### 1.6 DocAga.tsx
-- Replace image attachment input with `CameraPhotoInput`
-
-#### 1.7 MerchantProfile.tsx
-- Replace logo upload input with `CameraPhotoInput`
-
-#### 1.8 ProductFormDialog.tsx
-- Replace product image input with `CameraPhotoInput`
-
-### Phase 2: Microphone Components (2 files)
-
-Add native permission pre-checks to remaining voice components:
-
-#### 2.1 VoiceInputButton.tsx (src/components/ui/voice-input-button.tsx)
-
-**Current code (line 28-30):**
-```typescript
-const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+**Current** (line 58):
+```tsx
+<SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
 ```
 
-**Updated code:**
-```typescript
-import { Capacitor } from '@capacitor/core';
-
-const startRecording = async () => {
-  try {
-    // On native Android, check permission status first
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const permissionStatus = await navigator.permissions.query({ 
-          name: 'microphone' as PermissionName 
-        });
-        
-        if (permissionStatus.state === 'denied') {
-          setShowPermissionDialog(true);
-          return;
-        }
-      } catch (permError: any) {
-        // If permissions API doesn't support microphone query, continue
-        if (permError.message === 'Microphone permission denied') {
-          setShowPermissionDialog(true);
-          return;
-        }
-      }
-    }
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+**Updated**:
+```tsx
+<SheetPrimitive.Content 
+  ref={ref} 
+  className={cn(
+    sheetVariants({ side }), 
+    // Apply safe area based on side
+    side === "right" && "pt-safe",
+    side === "left" && "pt-safe",
+    side === "top" && "pt-safe",
+    side === "bottom" && "pb-safe",
+    className
+  )} 
+  {...props}
+>
 ```
 
-#### 2.2 farmhand/VoiceRecordButton.tsx
+This ensures:
+- Right/Left sheets get top safe area (for notch)
+- Bottom sheets get bottom safe area (for nav bar)
+- Top sheets get top safe area
 
-**Current code (line 126-130):**
-```typescript
-const startRecording = async () => {
-  try {
-    await hapticImpact('medium');
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+#### 1.2 Update DrawerContent (src/components/ui/drawer.tsx)
+
+Bottom drawers need safe area for Android navigation:
+
+**Current** (line 34):
+```tsx
+className={cn(
+  "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+  className,
+)}
 ```
 
-**Updated code:**
-```typescript
-import { Capacitor } from '@capacitor/core';
+**Updated**:
+```tsx
+className={cn(
+  "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background pb-safe",
+  className,
+)}
+```
 
-const startRecording = async () => {
-  try {
-    await hapticImpact('medium');
-    
-    // On native Android, check permission status first
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const permissionStatus = await navigator.permissions.query({ 
-          name: 'microphone' as PermissionName 
-        });
-        
-        if (permissionStatus.state === 'denied') {
-          setShowPermissionDialog(true);
-          return;
-        }
-      } catch (permError: any) {
-        // If permissions API doesn't support microphone query, continue
-        if (permError.message === 'Microphone permission denied') {
-          setShowPermissionDialog(true);
-          return;
-        }
-      }
-    }
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+### Phase 2: Update Page Layouts
+
+#### 2.1 Dashboard.tsx (src/pages/Dashboard.tsx)
+
+**Current header** (line 382):
+```tsx
+<header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+```
+
+**Updated**:
+```tsx
+<header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 pt-safe">
+```
+
+#### 2.2 FarmhandDashboard.tsx (src/pages/FarmhandDashboard.tsx)
+
+**Current header** (line 187):
+```tsx
+<header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+```
+
+**Updated**:
+```tsx
+<header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 pt-safe">
+```
+
+#### 2.3 MerchantDashboard.tsx (src/pages/MerchantDashboard.tsx)
+
+**Current header** (line 77):
+```tsx
+<header className="border-b bg-card">
+```
+
+**Updated**:
+```tsx
+<header className="border-b bg-card pt-safe">
+```
+
+#### 2.4 GovernmentLayout.tsx (src/components/government/GovernmentLayout.tsx)
+
+**Current header** (line 12):
+```tsx
+<header className="border-b bg-card">
+```
+
+**Updated**:
+```tsx
+<header className="border-b bg-card pt-safe">
+```
+
+### Phase 3: Audit Other Pages
+
+The following pages also need header safe area:
+
+| Page | Header Line | Update Needed |
+|------|-------------|---------------|
+| Auth.tsx | Form container | Check if needs safe area |
+| Marketplace.tsx | Header | Add pt-safe |
+| Checkout.tsx | Header | Add pt-safe |
+| OrderHistory.tsx | Header | Add pt-safe |
+| MessagingPage.tsx | Header | Add pt-safe |
+| Profile.tsx | Header | Add pt-safe |
+| DistributorFinder.tsx | Header | Add pt-safe |
+
+### Phase 4: Increase CSS Safe Area Minimums
+
+The current CSS has conservative values. Based on the Samsung Galaxy A17 5G with a punch-hole notch, we should increase the minimum:
+
+**Current** (index.css line 178):
+```css
+.pt-safe {
+  padding-top: max(1.5rem, env(safe-area-inset-top, 0px));
+}
+```
+
+**Updated** (increase from 1.5rem to 2rem for more breathing room):
+```css
+.pt-safe {
+  padding-top: max(2rem, env(safe-area-inset-top, 0px));
+}
 ```
 
 ---
 
 ## Files to Modify Summary
 
-| # | File | Type | Change |
-|---|------|------|--------|
-| 1 | `src/components/AnimalDetails.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 2 | `src/components/animal-details/AnimalProfile.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 3 | `src/components/FarmLogoUpload.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 4 | `src/components/health-records/AddHealthRecordDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 5 | `src/components/health-recording/RecordSingleHealthDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 6 | `src/components/DocAga.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 7 | `src/components/merchant/MerchantProfile.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 8 | `src/components/merchant/ProductFormDialog.tsx` | Camera | Replace file input with CameraPhotoInput |
-| 9 | `src/components/ui/voice-input-button.tsx` | Microphone | Add Capacitor native check before getUserMedia |
-| 10 | `src/components/farmhand/VoiceRecordButton.tsx` | Microphone | Add Capacitor native check before getUserMedia |
+| # | File | Change |
+|---|------|--------|
+| 1 | `src/index.css` | Increase pt-safe minimum from 1.5rem to 2rem |
+| 2 | `src/components/ui/sheet.tsx` | Add safe area classes based on sheet side |
+| 3 | `src/components/ui/drawer.tsx` | Add pb-safe to DrawerContent |
+| 4 | `src/pages/Dashboard.tsx` | Add pt-safe to header |
+| 5 | `src/pages/FarmhandDashboard.tsx` | Add pt-safe to header |
+| 6 | `src/pages/MerchantDashboard.tsx` | Add pt-safe to header |
+| 7 | `src/components/government/GovernmentLayout.tsx` | Add pt-safe to header |
+| 8 | `src/pages/Marketplace.tsx` | Add pt-safe to header |
+| 9 | `src/pages/Checkout.tsx` | Add pt-safe to header |
+| 10 | `src/pages/OrderHistory.tsx` | Add pt-safe to header |
+| 11 | `src/pages/MessagingPage.tsx` | Add pt-safe to header |
+| 12 | `src/pages/Profile.tsx` | Add pt-safe to header |
+| 13 | `src/pages/DistributorFinder.tsx` | Add pt-safe to header |
+| 14 | `src/pages/Auth.tsx` | Add pt-safe to container if needed |
 
 ---
 
-## Post-Implementation Steps
+## Visual Before/After
 
-After all code changes are implemented:
-
-1. **Pull latest code** to local development environment
-2. **Sync native project:**
-   ```bash
-   npx cap sync android
-   ```
-3. **Rebuild the app:**
-   ```bash
-   npx cap run android
-   ```
-4. **Verify in Android Settings** → Apps → Doc Aga → Permissions:
-   - Camera permission should now appear
-   - Microphone permission should now appear
-
----
-
-## Testing Checklist
-
-| Test | Location | Expected Result |
-|------|----------|-----------------|
-| Tap camera icon on animal avatar | Animal Details | Native camera permission dialog |
-| Tap farm logo upload | Farm Settings | Native camera permission dialog |
-| Tap photo button in health record | Add Health Record | Native camera permission dialog |
-| Tap Doc Aga image attachment | Doc Aga chat | Native camera permission dialog |
-| Tap voice record button | Farmhand dashboard | Native microphone permission dialog |
-| Tap VoiceInputButton | Any form with voice input | Native microphone permission dialog |
-| Check Android Settings | App Permissions | Both Camera and Microphone listed |
-| Deny permission, tap "Open Settings" | Permission dialog | Opens Doc Aga app settings (correct app) |
+```text
+BEFORE (Current):                    AFTER (Fixed):
+┌────────────────────┐               ┌────────────────────┐
+│⬤   ────────────── │ ← Notch       │⬤                   │ ← Notch
+│Estehanon Farm      │ ← Obscured    │    [Safe Area]     │
+│                    │               │────────────────────│
+│                    │               │Estehanon Farm      │ ← Clear
+│                    │               │                    │
+│    [Content]       │               │    [Content]       │
+│                    │               │                    │
+│                    │               │                    │
+│────────────────────│               │────────────────────│
+│ 🏠  🐄  ⚙️  💰  ⋯ │               │ 🏠  🐄  ⚙️  💰  ⋯ │
+│ ▮▮▮     ⬤     ◀  │ ← Nav bar     │    [Safe Area]     │
+└────────────────────┘               │ ▮▮▮     ⬤     ◀  │
+                                     └────────────────────┘
+```
 
 ---
 
 ## Technical Notes
 
-### Why Microphone Needs Different Handling
-- There is no `@capacitor/microphone` plugin - Android microphone access works through Web Audio API (`getUserMedia`)
-- However, on native platforms, we should still check permission status before calling `getUserMedia` to provide better UX
-- The permission check uses `navigator.permissions.query({ name: 'microphone' })` on native to pre-detect denied state
+### Why env(safe-area-inset-*) Works
 
-### Why Camera Uses Capacitor Plugin
-- `@capacitor/camera` provides native camera UI with proper permission handling
-- It also handles photo library access
-- The plugin automatically manages Android runtime permissions
+These CSS environment variables are set by the browser/WebView when:
+1. The viewport meta tag includes `viewport-fit=cover`
+2. The device has non-rectangular screens (notches, rounded corners)
 
-### Existing Infrastructure
-- `CameraPhotoInput` component is already created and tested
-- `useNativeCamera` hook handles native/web fallback
-- `MicrophonePermissionDialog` and `CameraPermissionDialog` use correct App ID URLs
-- `useDevicePermissions` hook properly checks both camera and microphone status
+The app's `index.html` should already have the correct viewport meta tag. If not, it should be:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+```
 
+### Native Build Steps
+
+After these changes are deployed:
+1. Pull latest code
+2. Run `npx cap sync android`
+3. Rebuild with `npx cap run android`
+
+---
+
+## Testing Checklist
+
+After implementation, test on Samsung Galaxy A17 5G:
+
+| Test | Expected Result |
+|------|-----------------|
+| Dashboard header | Farm name and logo visible below notch |
+| Open Sync Status sheet | "Sync Status" title visible, not behind notch |
+| Open any bottom drawer | Content not covered by Android nav bar |
+| Farmhand Dashboard | Header clear of notch |
+| Merchant Dashboard | Header clear of notch |
+| Government Dashboard | Header clear of notch |
+| Doc Aga popup (already fixed) | Header clear of notch |
+| All page headers | Consistent padding across the app |
