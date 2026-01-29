@@ -383,32 +383,53 @@ async function fetchWeightData(farmId: string): Promise<any[]> {
 async function fetchValuationsData(farmId: string) {
   const { data: valuations, error } = await supabase
     .from("biological_asset_valuations")
-    .select("id, animal_id, fair_value, valuation_date")
+    .select("id, animal_id, estimated_value, valuation_date, weight_kg, market_price_per_kg")
     .eq("farm_id", farmId)
     .order("valuation_date", { ascending: false });
 
   if (error) {
     console.error("[Financial Report] Failed to fetch valuations:", error);
   }
+  console.log("[Financial Report] Fetched valuations:", valuations?.length || 0);
   return valuations || [];
 }
 
-async function fetchMarketPrice(farmId: string): Promise<number> {
+interface MarketPriceResult {
+  price: number;
+  source: string;
+}
+
+async function fetchMarketPrice(farmId: string): Promise<MarketPriceResult> {
   try {
-    // Try to get market price from biological asset valuations or use default
-    const { data: valuations } = await supabase
-      .from("biological_asset_valuations")
-      .select("market_price_per_kg")
-      .eq("farm_id", farmId)
-      .order("valuation_date", { ascending: false })
-      .limit(1);
+    // First, get the farm's livestock type
+    const { data: farm } = await supabase
+      .from("farms")
+      .select("livestock_type")
+      .eq("id", farmId)
+      .single();
     
-    if (valuations && valuations.length > 0 && valuations[0].market_price_per_kg) {
-      return Number(valuations[0].market_price_per_kg);
+    const livestockType = farm?.livestock_type || "cattle";
+    
+    // Use the same RPC as the dashboard for consistency (SSOT)
+    const { data: rpcResult, error } = await supabase.rpc("get_market_price", {
+      p_livestock_type: livestockType,
+      p_farm_id: farmId,
+    });
+    
+    if (!error && rpcResult && Array.isArray(rpcResult) && rpcResult.length > 0) {
+      const priceData = rpcResult[0];
+      console.log("[Financial Report] Market price from RPC:", priceData);
+      return {
+        price: Number(priceData.price) || 300,
+        source: priceData.source || "Default",
+      };
     }
-    return 300; // Default ₱300/kg
-  } catch {
-    return 300;
+    
+    console.log("[Financial Report] RPC failed or empty, using fallback price");
+    return { price: 300, source: "Fallback" };
+  } catch (err) {
+    console.error("[Financial Report] fetchMarketPrice error:", err);
+    return { price: 300, source: "Fallback" };
   }
 }
 
@@ -440,13 +461,17 @@ function processHerdSummary(
   animals: any[],
   valuations: any[],
   weights: any[],
-  marketPrice: number
+  marketPriceData: MarketPriceResult
 ): HerdSummary {
   // Animals are now pre-filtered for active (exit_date IS NULL) in fetchAnimalsData
   const activeAnimals = animals;
+  const marketPrice = marketPriceData.price;
   
   // Group by life_stage and acquisition_type
   const groupedAnimals: Record<string, { count: number; acquisitionType: string; value: number }> = {};
+  
+  // Track individual animal valuations for debugging
+  const animalValuations: { name: string; weight: number | null; value: number; source: string }[] = [];
   
   activeAnimals.forEach((animal) => {
     const key = animal.life_stage || "Unknown";
@@ -455,13 +480,35 @@ function processHerdSummary(
     }
     groupedAnimals[key].count++;
     
-    // Get latest valuation for this animal
-    const latestValuation = valuations.find((v) => v.animal_id === animal.id);
-    if (latestValuation) {
-      groupedAnimals[key].value += Number(latestValuation.fair_value);
-    } else if (animal.purchase_price) {
-      groupedAnimals[key].value += Number(animal.purchase_price);
+    // SSOT: Calculate value using weight × market price (same as dashboard)
+    const effectiveWeight = getAnimalEffectiveWeight(animal, weights);
+    let animalValue = 0;
+    let valueSource = "none";
+    
+    if (effectiveWeight && effectiveWeight > 0) {
+      // Priority 1: Weight × Market Price (SSOT pattern)
+      animalValue = effectiveWeight * marketPrice;
+      valueSource = `weight(${effectiveWeight}kg) × price(₱${marketPrice}/kg)`;
+    } else {
+      // Priority 2: Use existing valuation if available
+      const latestValuation = valuations.find((v) => v.animal_id === animal.id);
+      if (latestValuation?.estimated_value) {
+        animalValue = Number(latestValuation.estimated_value);
+        valueSource = "valuation_record";
+      } else if (animal.purchase_price) {
+        // Priority 3: Fall back to purchase price
+        animalValue = Number(animal.purchase_price);
+        valueSource = "purchase_price";
+      }
     }
+    
+    groupedAnimals[key].value += animalValue;
+    animalValuations.push({
+      name: animal.name || animal.id,
+      weight: effectiveWeight,
+      value: animalValue,
+      source: valueSource,
+    });
   });
 
   const composition: HerdComposition[] = Object.entries(groupedAnimals).map(([category, data]) => ({
@@ -480,13 +527,17 @@ function processHerdSummary(
     ? weightsWithValues.reduce((sum, w) => sum + w, 0) / weightsWithValues.length 
     : null;
   
-  console.log("[Financial Report] Weight calculation:", {
+  const totalValue = composition.reduce((sum, c) => sum + c.estimatedValue, 0);
+
+  console.log("[Financial Report] Herd valuation (SSOT):", {
+    marketPrice,
+    priceSource: marketPriceData.source,
     totalAnimals: activeAnimals.length,
     animalsWithWeight: weightsWithValues.length,
     averageWeight,
+    totalValue,
+    breakdown: animalValuations,
   });
-
-  const totalValue = composition.reduce((sum, c) => sum + c.estimatedValue, 0);
 
   return {
     composition,
