@@ -27,6 +27,7 @@ import {
   getAnimalDropdownOptions,
   getSelectedAnimals,
 } from "@/hooks/useLactatingAnimals";
+import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
 import { AnimalCombobox } from "./AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
@@ -88,7 +89,13 @@ export function RecordBulkMilkDialog({
 
   // Use cached animals when offline
   const displayAnimals = isOnline ? animals : cachedAnimals;
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
+  
+  // Filter animals by record date - only show animals that were on farm at that date
+  const dateFilteredAnimals = useMemo(() => {
+    return filterAnimalsByFarmDate(displayAnimals, recordDate);
+  }, [displayAnimals, recordDate]);
+  
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
 
   // Haptic on dialog open
   useEffect(() => {
@@ -107,9 +114,19 @@ export function RecordBulkMilkDialog({
     }
   }, [open]);
 
+  // Reset selection if current selection is no longer valid after date change
+  useEffect(() => {
+    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+      const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
+      if (!stillExists) {
+        setSelectedOption("");
+      }
+    }
+  }, [dateFilteredAnimals, selectedOption]);
+
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(displayAnimals, selectedOption),
-    [displayAnimals, selectedOption]
+    () => getSelectedAnimals(dateFilteredAnimals, selectedOption),
+    [dateFilteredAnimals, selectedOption]
   );
 
   const splitPreview = useMemo(() => {

@@ -5,6 +5,13 @@ interface AnimalDateInfo {
   birth_date?: string | null;
 }
 
+export interface AnimalWithDates {
+  id: string;
+  farm_entry_date?: string | null;
+  birth_date?: string | null;
+  [key: string]: any;
+}
+
 interface ValidationResult {
   valid: boolean;
   message?: string;
@@ -50,4 +57,37 @@ export function getEarliestValidDate(animal: AnimalDateInfo): Date | null {
     return new Date(animal.birth_date);
   }
   return null;
+}
+
+/**
+ * Filters animals to only include those that were on the farm
+ * on the specified date.
+ * 
+ * Logic:
+ * - If farm_entry_date exists: animal must have entered on or before recordDate
+ * - If no farm_entry_date (farm-born): use birth_date, must be on or before recordDate
+ * - If neither date exists: include animal (defensive - shouldn't happen)
+ */
+export function filterAnimalsByFarmDate<T extends AnimalWithDates>(
+  animals: T[],
+  recordDate: Date
+): T[] {
+  const recordDateOnly = new Date(recordDate);
+  recordDateOnly.setHours(0, 0, 0, 0);
+
+  return animals.filter(animal => {
+    // Determine the earliest date this animal was on the farm
+    const effectiveDate = animal.farm_entry_date || animal.birth_date;
+    
+    if (!effectiveDate) {
+      // No date info - include by default (edge case)
+      return true;
+    }
+
+    const animalDate = new Date(effectiveDate);
+    animalDate.setHours(0, 0, 0, 0);
+
+    // Animal must have been on farm on or before the record date
+    return animalDate <= recordDateOnly;
+  });
 }

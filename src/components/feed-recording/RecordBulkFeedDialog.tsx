@@ -35,6 +35,7 @@ import {
   getAnimalDropdownOptions,
   getSelectedAnimals,
 } from "@/hooks/useFarmAnimals";
+import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { calculateFeedSplit, calculateCostPerKg, FeedSplitResult } from "@/lib/feedSplitCalculation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
@@ -106,7 +107,13 @@ export function RecordBulkFeedDialog({
 
   const displayAnimals = isOnline ? animals : cachedAnimals;
   const displayFeedInventory = isOnline ? feedInventory : cachedFeed;
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(displayAnimals), [displayAnimals]);
+  
+  // Filter animals by record date - only show animals that were on farm at that date
+  const dateFilteredAnimals = useMemo(() => {
+    return filterAnimalsByFarmDate(displayAnimals, recordDate);
+  }, [displayAnimals, recordDate]);
+  
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
   
   // Get available quantity for selected feed type
   const selectedFeedInventory = useMemo(() => {
@@ -131,9 +138,19 @@ export function RecordBulkFeedDialog({
     }
   }, [open]);
 
+  // Reset selection if current selection is no longer valid after date change
+  useEffect(() => {
+    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+      const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
+      if (!stillExists) {
+        setSelectedOption("");
+      }
+    }
+  }, [dateFilteredAnimals, selectedOption]);
+
   const selectedAnimals = useMemo(
-    () => getSelectedAnimals(displayAnimals, selectedOption),
-    [displayAnimals, selectedOption]
+    () => getSelectedAnimals(dateFilteredAnimals, selectedOption),
+    [dateFilteredAnimals, selectedOption]
   );
 
   // Calculate cost per kg for selected feed

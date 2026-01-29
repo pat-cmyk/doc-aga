@@ -16,6 +16,8 @@ export interface LactatingAnimal {
   is_currently_lactating?: boolean | null;
   milking_start_date?: string | null;
   estimated_days_in_milk?: number | null;
+  farm_entry_date?: string | null;
+  birth_date?: string | null;
 }
 
 export function useLactatingAnimals(farmId: string | null) {
@@ -27,7 +29,7 @@ export function useLactatingAnimals(farmId: string | null) {
       // Include animals with is_currently_lactating = true OR milking_stage in lactating stages
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk')
+        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk, farm_entry_date, birth_date')
         .eq('farm_id', farmId)
         .eq('gender', 'Female')
         .is('exit_date', null)
