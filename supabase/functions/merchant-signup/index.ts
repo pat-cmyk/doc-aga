@@ -1,10 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const merchantSignupSchema = z.object({
+  fullName: z.string()
+    .trim()
+    .min(1, 'Full name is required')
+    .max(100, 'Full name must be under 100 characters'),
+  businessName: z.string()
+    .trim()
+    .min(1, 'Business name is required')
+    .max(150, 'Business name must be under 150 characters'),
+  businessDescription: z.string()
+    .trim()
+    .max(1000, 'Description must be under 1000 characters')
+    .optional()
+    .nullable(),
+  contactPhone: z.string()
+    .trim()
+    .regex(/^[0-9+\-\s()]{7,20}$/, 'Invalid phone number format')
+    .optional()
+    .nullable(),
+  contactEmail: z.string()
+    .trim()
+    .email('Invalid email format')
+    .max(255, 'Email must be under 255 characters')
+    .optional()
+    .nullable(),
+  businessAddress: z.string()
+    .trim()
+    .max(500, 'Address must be under 500 characters')
+    .optional()
+    .nullable()
+});
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW = 60000;
@@ -70,7 +104,22 @@ serve(async (req) => {
       });
     }
 
-    const { fullName, businessName, businessDescription, contactPhone, contactEmail, businessAddress } = await req.json();
+    // Parse and validate input with Zod
+    const rawBody = await req.json();
+    const parseResult = merchantSignupSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('Validation error:', parseResult.error.flatten());
+      return new Response(
+        JSON.stringify({ 
+          error: 'Validation failed', 
+          details: parseResult.error.flatten().fieldErrors 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { fullName, businessName, businessDescription, contactPhone, contactEmail, businessAddress } = parseResult.data;
 
     console.log('Processing merchant signup for user:', user.id);
 
@@ -79,10 +128,10 @@ serve(async (req) => {
       _user_id: user.id,
       _full_name: fullName,
       _business_name: businessName,
-      _business_description: businessDescription,
-      _contact_phone: contactPhone,
-      _contact_email: contactEmail,
-      _business_address: businessAddress,
+      _business_description: businessDescription || null,
+      _contact_phone: contactPhone || null,
+      _contact_email: contactEmail || null,
+      _business_address: businessAddress || null,
     });
 
     if (error) {

@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Import SSOT prompts from shared library
 import { TRANSCRIPTION_SYSTEM_PROMPT } from "../_shared/stt-prompts.ts";
@@ -15,6 +16,15 @@ const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW = 60000;
 const MAX_AUDIO_SIZE_MB = 10;
 const MAX_AUDIO_SIZE_BYTES = MAX_AUDIO_SIZE_MB * 1024 * 1024;
+const MAX_BASE64_LENGTH = 15_000_000; // ~10MB decoded
+
+// Input validation schema
+const voiceToTextSchema = z.object({
+  audio: z.string()
+    .min(100, 'Audio data too short')
+    .max(MAX_BASE64_LENGTH, 'Audio data exceeds maximum size')
+    .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid base64 encoding')
+});
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
@@ -241,25 +251,21 @@ serve(async (req) => {
       )
     }
 
-    // Parse and validate audio data
-    const { audio } = await req.json()
+    // Parse and validate audio data with Zod
+    const rawBody = await req.json();
+    const parseResult = voiceToTextSchema.safeParse(rawBody);
     
-    if (!audio || typeof audio !== 'string') {
+    if (!parseResult.success) {
+      console.error('[voice-to-text] Validation error:', parseResult.error.errors);
       return new Response(
-        JSON.stringify({ error: 'Invalid audio data format' }),
+        JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid audio data' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Validate base64 format
-    if (!/^[A-Za-z0-9+/=]+$/.test(audio)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid audio encoding' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    const { audio } = parseResult.data;
 
-    // Validate audio size
+    // Validate audio size (decoded size estimation)
     audioSizeBytes = (audio.length * 3) / 4 // Approximate decoded size
     if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
       console.warn(`[voice-to-text] Audio too large: ${(audioSizeBytes / 1024 / 1024).toFixed(2)}MB`)

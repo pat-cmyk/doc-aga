@@ -1,10 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const createUserSchema = z.object({
+  email: z.string()
+    .trim()
+    .email('Invalid email format')
+    .max(255, 'Email must be under 255 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must be under 128 characters'),
+  fullName: z.string()
+    .trim()
+    .min(1, 'Full name is required')
+    .max(100, 'Full name must be under 100 characters'),
+  role: z.enum([
+    'farmer_owner', 
+    'farmhand', 
+    'admin', 
+    'government'
+  ]).optional().default('farmer_owner'),
+  invitationToken: z.string()
+    .uuid('Invalid invitation token format')
+    .optional()
+});
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW = 60000;
@@ -92,14 +117,22 @@ serve(async (req) => {
       });
     }
 
-    const { email, password, fullName, role, invitationToken } = await req.json();
+    // Parse and validate input with Zod
+    const rawBody = await req.json();
+    const parseResult = createUserSchema.safeParse(rawBody);
     
-    if (!email || !password || !fullName) {
+    if (!parseResult.success) {
+      console.error('Validation error:', parseResult.error.flatten());
       return new Response(
-        JSON.stringify({ error: 'Email, password, and full name are required' }),
-        { status: 400, headers: corsHeaders }
+        JSON.stringify({ 
+          error: 'Validation failed', 
+          details: parseResult.error.flatten().fieldErrors 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { email, password, fullName, role, invitationToken } = parseResult.data;
 
     // Only super admins can create government or admin users
     if ((role === 'government' || role === 'admin') && !isSuperAdmin) {

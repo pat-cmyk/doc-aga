@@ -1,11 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Import SSOT prompts from shared library
 import { 
   ANIMAL_EXTRACTION_PROMPT,
-  REGISTRATION_KEYWORDS,
-  NON_REGISTRATION_KEYWORDS,
   isLikelyAnimalRegistration 
 } from "../_shared/stt-prompts.ts";
 
@@ -13,6 +12,16 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation constants and schema
+const MAX_TRANSCRIPTION_LENGTH = 5000;
+
+const animalVoiceSchema = z.object({
+  transcription: z.string()
+    .trim()
+    .min(1, 'Transcription cannot be empty')
+    .max(MAX_TRANSCRIPTION_LENGTH, `Transcription must be under ${MAX_TRANSCRIPTION_LENGTH} characters`)
+});
 
 interface ExtractedAnimalData {
   livestock_type: 'cattle' | 'goat' | 'sheep' | 'carabao' | null;
@@ -32,14 +41,19 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription } = await req.json();
-
-    if (!transcription || typeof transcription !== 'string') {
+    // Parse and validate input with Zod
+    const rawBody = await req.json();
+    const parseResult = animalVoiceSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('[process-animal-voice] Validation error:', parseResult.error.errors);
       return new Response(
-        JSON.stringify({ error: 'No transcription provided' }),
+        JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid input' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { transcription } = parseResult.data;
 
     console.log('Processing animal voice transcription:', transcription);
 
