@@ -87,6 +87,8 @@ export function AnimalExpenseTab({
         acquisitionType={acquisitionType}
         categoryBreakdown={summary?.categoryBreakdown || {}}
         totalExpenses={summary?.totalExpenses || 0}
+        feedConsumptionCost={summary?.feedConsumptionCost || 0}
+        manualExpenses={summary?.manualExpenses || 0}
         isLoading={summaryLoading}
       />
 

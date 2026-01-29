@@ -17,6 +17,8 @@ export interface AnimalExpenseSummary {
   totalExpenses: number;
   categoryBreakdown: Record<string, number>;
   expenseCount: number;
+  feedConsumptionCost: number;
+  manualExpenses: number;
 }
 
 export interface AddAnimalExpenseData {
@@ -51,25 +53,47 @@ export function useAnimalExpenseSummary(animalId: string) {
   return useQuery({
     queryKey: ["animal-expense-summary", animalId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get manual expenses from farm_expenses
+      const { data: expenseData, error: expenseError } = await supabase
         .from("farm_expenses")
         .select("category, amount")
         .eq("animal_id", animalId)
         .eq("is_deleted", false);
 
-      if (error) throw error;
+      if (expenseError) throw expenseError;
+
+      // Get feed consumption costs from feeding_records
+      const { data: feedingData, error: feedingError } = await supabase
+        .from("feeding_records")
+        .select("kilograms, cost_per_kg_at_time")
+        .eq("animal_id", animalId)
+        .not("cost_per_kg_at_time", "is", null);
+
+      if (feedingError) throw feedingError;
+
+      // Calculate manual expenses
+      let manualExpenses = 0;
+      const categoryBreakdown: Record<string, number> = {};
+
+      expenseData?.forEach((expense) => {
+        manualExpenses += expense.amount;
+        categoryBreakdown[expense.category] =
+          (categoryBreakdown[expense.category] || 0) + expense.amount;
+      });
+
+      // Calculate feed consumption cost
+      const feedConsumptionCost = feedingData?.reduce(
+        (sum, record) => sum + ((record.kilograms || 0) * (record.cost_per_kg_at_time || 0)),
+        0
+      ) || 0;
 
       const summary: AnimalExpenseSummary = {
-        totalExpenses: 0,
-        categoryBreakdown: {},
-        expenseCount: data?.length || 0,
+        totalExpenses: manualExpenses + feedConsumptionCost,
+        categoryBreakdown,
+        expenseCount: expenseData?.length || 0,
+        feedConsumptionCost,
+        manualExpenses,
       };
-
-      data?.forEach((expense) => {
-        summary.totalExpenses += expense.amount;
-        summary.categoryBreakdown[expense.category] =
-          (summary.categoryBreakdown[expense.category] || 0) + expense.amount;
-      });
 
       return summary;
     },
