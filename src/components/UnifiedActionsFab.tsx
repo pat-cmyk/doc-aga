@@ -232,7 +232,7 @@ export function UnifiedActionsFab({
       {/* FAB Container */}
       <div 
         ref={containerRef}
-        className="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end"
+        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end max-w-[calc(100vw-1rem)]"
       >
         {/* Action buttons - Only render when expanded to prevent click blocking */}
         {isExpanded && (

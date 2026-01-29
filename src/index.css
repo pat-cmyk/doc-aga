@@ -149,8 +149,12 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  body {
+  /* Global viewport constraints for Android */
+  html, body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
   }
 
   /* Responsive Typography */
@@ -163,4 +167,29 @@ All colors MUST be HSL.
       font-size: 15px;
     }
   }
+}
+
+/* Safe area insets for Android (notch, navigation bar, punch-hole cameras) */
+@supports (padding: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  .pr-safe {
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+  .pl-safe {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+  }
+}
+
+/* Android Chrome address bar compensation */
+.min-h-screen-safe {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Prevent text and flex items from causing horizontal overflow */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
