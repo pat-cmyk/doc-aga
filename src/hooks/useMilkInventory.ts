@@ -15,6 +15,7 @@ export interface MilkInventoryItem {
   animal_id: string;
   animal_name: string | null;
   ear_tag: string | null;
+  livestock_type: string;
   record_date: string;
   liters_original: number;
   liters_remaining: number;
@@ -22,13 +23,22 @@ export interface MilkInventoryItem {
   created_at: string;
 }
 
+export interface SpeciesSummary {
+  livestock_type: string;
+  total_liters: number;
+  animal_count: number;
+  oldest_date: string | null;
+}
+
 export interface MilkInventorySummary {
   totalLiters: number;
   oldestDate: string | null;
+  bySpecies: SpeciesSummary[];
   byAnimal: {
     animal_id: string;
     animal_name: string | null;
     ear_tag: string | null;
+    livestock_type: string;
     total_liters: number;
     oldest_date: string;
     record_count: number;
@@ -71,11 +81,11 @@ export function useMilkInventory(farmId: string) {
           is_available,
           created_at,
           client_generated_id,
-          animals!inner(name, ear_tag)
+          animals!inner(name, ear_tag, livestock_type)
         `)
         .eq("farm_id", farmId)
         .eq("is_available", true)
-        .gte("liters_remaining", 0.05) // Filter out < 0.05L which rounds to 0.0
+        .gte("liters_remaining", 0.05)
         .order("record_date", { ascending: true });
 
       if (error) throw error;
@@ -86,12 +96,13 @@ export function useMilkInventory(farmId: string) {
         animal_id: r.animal_id,
         animal_name: r.animals?.name,
         ear_tag: r.animals?.ear_tag,
+        livestock_type: r.animals?.livestock_type || 'cattle',
         record_date: r.record_date,
         liters_original: parseFloat(r.liters_original),
         liters_remaining: parseFloat(r.liters_remaining),
         is_available: r.is_available,
         created_at: r.created_at,
-        client_generated_id: r.client_generated_id, // For reconciliation
+        client_generated_id: r.client_generated_id,
         syncStatus: 'synced' as const,
       }));
 
@@ -99,10 +110,43 @@ export function useMilkInventory(farmId: string) {
       const totalLiters = items.reduce((sum, r) => sum + r.liters_remaining, 0);
       const oldestDate = items.length > 0 ? items[0].record_date : null;
 
+      // Group by species
+      const speciesMap = new Map<string, {
+        total_liters: number;
+        animal_ids: Set<string>;
+        oldest_date: string;
+      }>();
+
+      items.forEach(item => {
+        const type = item.livestock_type;
+        const existing = speciesMap.get(type);
+        if (existing) {
+          existing.total_liters += item.liters_remaining;
+          existing.animal_ids.add(item.animal_id);
+          if (item.record_date < existing.oldest_date) {
+            existing.oldest_date = item.record_date;
+          }
+        } else {
+          speciesMap.set(type, {
+            total_liters: item.liters_remaining,
+            animal_ids: new Set([item.animal_id]),
+            oldest_date: item.record_date,
+          });
+        }
+      });
+
+      const bySpecies: SpeciesSummary[] = Array.from(speciesMap.entries()).map(([livestock_type, data]) => ({
+        livestock_type,
+        total_liters: data.total_liters,
+        animal_count: data.animal_ids.size,
+        oldest_date: data.oldest_date,
+      })).sort((a, b) => b.total_liters - a.total_liters);
+
       // Group by animal
       const animalMap = new Map<string, {
         animal_name: string | null;
         ear_tag: string | null;
+        livestock_type: string;
         total_liters: number;
         oldest_date: string;
         record_count: number;
@@ -120,6 +164,7 @@ export function useMilkInventory(farmId: string) {
           animalMap.set(item.animal_id, {
             animal_name: item.animal_name,
             ear_tag: item.ear_tag,
+            livestock_type: item.livestock_type,
             total_liters: item.liters_remaining,
             oldest_date: item.record_date,
             record_count: 1,
@@ -135,6 +180,7 @@ export function useMilkInventory(farmId: string) {
       const summary: MilkInventorySummary = {
         totalLiters,
         oldestDate,
+        bySpecies,
         byAnimal,
       };
 
@@ -163,6 +209,7 @@ export function useMilkInventory(farmId: string) {
     animal_id: item.animal_id,
     animal_name: item.animal_name,
     ear_tag: item.ear_tag,
+    livestock_type: item.livestock_type || 'cattle',
     record_date: item.record_date,
     liters_original: item.liters_original ?? item.liters ?? 0,
     liters_remaining: item.liters_remaining ?? item.liters ?? 0,
@@ -178,6 +225,7 @@ export function useMilkInventory(farmId: string) {
   const summary: MilkInventorySummary = serverQuery.data?.summary || cachedData?.summary || {
     totalLiters: 0,
     oldestDate: null,
+    bySpecies: [],
     byAnimal: [],
   };
 
@@ -216,7 +264,7 @@ export function useMilkSalesHistory(farmId: string) {
           liters_remaining,
           is_available,
           created_at,
-          animals!inner(name, ear_tag)
+          animals!inner(name, ear_tag, livestock_type)
         `)
         .eq("farm_id", farmId)
         .eq("is_available", false)
@@ -231,6 +279,7 @@ export function useMilkSalesHistory(farmId: string) {
         animal_id: r.animal_id,
         animal_name: r.animals?.name,
         ear_tag: r.animals?.ear_tag,
+        livestock_type: r.animals?.livestock_type || 'cattle',
         record_date: r.record_date,
         liters_original: parseFloat(r.liters_original),
         liters_sold: parseFloat(r.liters_original) - parseFloat(r.liters_remaining),

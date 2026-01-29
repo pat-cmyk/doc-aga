@@ -225,6 +225,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
             animal_id: newRecord.animal_id,
             animal_name: null, // Will be filled on next server sync
             ear_tag: null,
+            livestock_type: 'cattle', // Default, will be corrected on sync
             record_date: newRecord.record_date,
             liters_original: newRecord.liters,
             liters_remaining: newRecord.liters,
