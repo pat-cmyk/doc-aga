@@ -34,6 +34,10 @@ import { GrantDistributionCard } from "@/components/government/GrantDistribution
 import { RegionalInvestmentCards } from "@/components/government/RegionalInvestmentCards";
 import { GrantEffectivenessPanel } from "@/components/government/GrantEffectivenessPanel";
 import { VeterinaryExpenseHeatmap } from "@/components/government/VeterinaryExpenseHeatmap";
+import { MilkProductionBySpeciesChart } from "@/components/government/MilkProductionBySpeciesChart";
+import { FeedSecurityCard } from "@/components/government/FeedSecurityCard";
+import { MarketPriceAnalyticsCard } from "@/components/government/MarketPriceAnalyticsCard";
+import { FarmOperationalHealthCard } from "@/components/government/FarmOperationalHealthCard";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +48,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subDays, format, parse } from "date-fns";
 
-import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target, Syringe, Scale, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, TrendingUp, Activity, Users, FileText, Stethoscope, Download, Sparkles, BarChart3, HeartPulse, MessageSquare, CalendarIcon, Target, Syringe, Scale, Filter, ChevronDown, ChevronUp, Wheat, DollarSign, ClipboardCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -52,7 +56,6 @@ import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
-
 type DatePreset = "last7Days" | "last30Days" | "last90Days" | "custom";
 
 const GovernmentDashboard = () => {
@@ -1111,26 +1114,63 @@ const GovernmentDashboard = () => {
               </CardContent>
             </Card>
 
+            {/* Production Trends - Now Implemented */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Production Trends</h3>
+                <span className="text-sm text-muted-foreground">Milk production by species with revenue estimates</span>
+              </div>
+              
+              <MilkProductionBySpeciesChart
+                startDate={primaryDateRange.start}
+                endDate={primaryDateRange.end}
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+              />
+            </div>
+
+            {/* Economic & Feed Security */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Economic & Feed Security</h3>
+                <span className="text-sm text-muted-foreground">Market prices and feed availability</span>
+              </div>
+              
+              <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                <MarketPriceAnalyticsCard
+                  startDate={primaryDateRange.start}
+                  endDate={primaryDateRange.end}
+                  region={primaryRegion}
+                />
+                <FeedSecurityCard
+                  region={primaryRegion}
+                  province={primaryProvince}
+                  municipality={primaryMunicipality}
+                />
+              </div>
+            </div>
+
+            {/* Operational Compliance */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <ClipboardCheck className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Operational Compliance</h3>
+                <span className="text-sm text-muted-foreground">Farm activity logging and data quality</span>
+              </div>
+              
+              <FarmOperationalHealthCard
+                startDate={primaryDateRange.start}
+                endDate={primaryDateRange.end}
+                region={primaryRegion}
+                province={primaryProvince}
+              />
+            </div>
+
             {/* Coming Soon Sections */}
             <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-              <Card className="border-dashed">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle>Production Trends</CardTitle>
-                  </div>
-                  <CardDescription>Coming Soon</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>• Regional milk yield comparisons</li>
-                    <li>• Seasonal production patterns</li>
-                    <li>• Growth indicators by livestock type</li>
-                    <li>• Feed efficiency metrics</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
               <Card className="border-dashed">
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -1163,24 +1203,6 @@ const GovernmentDashboard = () => {
                     <li>• ROI metrics for government programs</li>
                     <li>• Comparative effectiveness studies</li>
                     <li>• Long-term outcome tracking</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-dashed">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle>Advanced Features</CardTitle>
-                  </div>
-                  <CardDescription>Coming Soon</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>• FFEDIS Sync & Export - Farm registry with QR codes</li>
-                    <li>• Priority Alerts - Automated outbreak detection</li>
-                    <li>• Procurement Validation - Cooperative accreditation</li>
-                    <li>• Custom report builder</li>
                   </ul>
                 </CardContent>
               </Card>

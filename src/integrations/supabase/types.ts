@@ -3988,6 +3988,27 @@ export type Database = {
         }
         Returns: Json
       }
+      get_farm_compliance_metrics: {
+        Args: {
+          end_date: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          avg_feeding_completion: number
+          avg_milking_completion: number
+          compliance_rate: number
+          farms_with_feeding_logs: number
+          farms_with_health_logs: number
+          farms_with_milking_logs: number
+          high_compliance_farms: number
+          low_compliance_farms: number
+          province: string
+          region: string
+          total_farms: number
+        }[]
+      }
       get_farm_invitation_public: {
         Args: { p_token: string }
         Returns: {
@@ -4104,6 +4125,28 @@ export type Database = {
           vaccination_compliance_rate: number
         }[]
       }
+      get_government_milk_analytics: {
+        Args: {
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          avg_carabao_price: number
+          avg_cattle_price: number
+          avg_goat_price: number
+          carabao_farms_milking: number
+          carabao_milk_liters: number
+          cattle_farms_milking: number
+          cattle_milk_liters: number
+          goat_farms_milking: number
+          goat_milk_liters: number
+          report_date: string
+          total_milk_liters: number
+        }[]
+      }
       get_government_stats: {
         Args: {
           end_date: string
@@ -4168,6 +4211,41 @@ export type Database = {
           effective_date: string
           price: number
           source: string
+        }[]
+      }
+      get_regional_feed_security: {
+        Args: {
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+        }
+        Returns: {
+          adequate_feed_farms: number
+          avg_feed_stock_days: number
+          critical_feed_farms: number
+          critical_percentage: number
+          low_feed_farms: number
+          low_percentage: number
+          province: string
+          region: string
+          total_concentrate_kg: number
+          total_farms: number
+          total_roughage_kg: number
+        }[]
+      }
+      get_regional_market_prices: {
+        Args: { end_date: string; region_filter?: string; start_date: string }
+        Returns: {
+          avg_price_per_kg: number
+          latest_date: string
+          latest_price: number
+          livestock_type: string
+          max_price: number
+          min_price: number
+          price_trend: string
+          price_volatility: number
+          region: string
+          sample_count: number
         }[]
       }
       get_stt_analytics: {
