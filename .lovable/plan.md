@@ -1,231 +1,144 @@
 
-# Plan: Add Zod Input Validation to Edge Functions
+# Plan: Add Date Range Filter and Fix Missing Action Buttons in Finance Tab
 
-## Overview
-This plan addresses the security finding by adding comprehensive Zod schema validation to edge functions that currently parse JSON without proper validation. The `doc-aga` function already uses Zod and will serve as the pattern reference.
+## Problem Analysis
 
-## Analysis Summary
+### Issue 1: Missing Action Buttons
+Looking at the current implementation:
+- **Desktop**: `QuickActionsBar` is wrapped in `hidden md:block` (line 40 of FinanceTab.tsx)
+- **Mobile**: `MobileQuickActions` is wrapped in a conditional `{canManage && ...}` (line 93)
 
-| Function | Current State | Risk Level | Changes Needed |
-|----------|--------------|------------|----------------|
-| `admin-create-user` | Basic null checks only | High | Full Zod schema for email, password, role, UUID token |
-| `process-animal-voice` | Type check only | Medium | Length validation, sanitization |
-| `voice-to-text` | Base64 regex + size check | Medium | Explicit length limits, structured validation |
-| `merchant-signup` | No validation | Medium | Full Zod schema for business details |
+The screenshot shows the Finance tab on what appears to be a desktop/tablet view without the action buttons visible. This suggests:
+- The `canManage` prop might be `false` for the current user
+- Or there's a breakpoint issue where the screen width falls between mobile and desktop states
 
-## Existing Pattern (from doc-aga)
+The `canManage` value comes from `useUnifiedPermissions().canManageFarm` which checks if the user has farm management permissions.
 
-The project already uses Zod validation in `doc-aga/index.ts`:
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+### Issue 2: Missing Date Range Filter
+All financial components currently hardcode date ranges:
+- `FinancialHealthSummary`: Shows "This Month" only
+- `RevenueExpenseComparison`: Hardcoded to current month/year
+- `ProfitabilityThermometer`: Hardcoded to current month
+- `ContextualInsights`: Derives from current month data
 
-const docAgaRequestSchema = z.object({
-  messages: z.array(z.object({
-    role: z.enum(['user', 'assistant', 'system']),
-    content: z.string().min(1).max(2000).trim(),
-    imageUrl: z.string().url().nullish()
-  })).min(1),
-  farmId: z.string().uuid().optional(),
-  context: z.enum(['farmer', 'government']).optional().default('farmer')
-});
-```
+## Solution Overview
+
+### Part 1: Fix Missing Action Buttons
+1. Show QuickActionsBar on all screen sizes (not just desktop)
+2. Ensure the Report button is always visible even when `canManage` is false
+3. Add fallback visibility for essential actions
+
+### Part 2: Add Date Range Filter
+Create a unified date range picker at the top of the Finance tab that filters all child components.
 
 ## Implementation Details
 
-### 1. admin-create-user/index.ts
+### New File: `src/components/finance/FinanceDateRangePicker.tsx`
+A reusable date range picker component with presets:
+- "This Month" (default)
+- "Last Month"
+- "Last 3 Months"
+- "Last 6 Months"
+- "This Year"
+- "Custom Range" (with calendar picker)
 
-Add Zod schema after imports:
+Uses the existing shadcn DatePicker pattern with:
+- Two date inputs (start/end)
+- Quick preset buttons
+- Mobile-friendly design
 
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+### Modify: `src/components/FinanceTab.tsx`
+1. Add state for `dateRange: { start: Date, end: Date }`
+2. Add `FinanceDateRangePicker` component in the header
+3. Pass `dateRange` to all child components
+4. Fix QuickActionsBar visibility:
+   - Always show Report button
+   - Show Add Expense/Revenue only when `canManage` is true
 
-const createUserSchema = z.object({
-  email: z.string()
-    .trim()
-    .email('Invalid email format')
-    .max(255, 'Email must be under 255 characters'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128, 'Password must be under 128 characters'),
-  fullName: z.string()
-    .trim()
-    .min(1, 'Full name is required')
-    .max(100, 'Full name must be under 100 characters'),
-  role: z.enum([
-    'farmer_owner', 
-    'farmhand', 
-    'admin', 
-    'government'
-  ]).optional().default('farmer_owner'),
-  invitationToken: z.string()
-    .uuid('Invalid invitation token format')
-    .optional()
-});
+### Modify: `src/components/finance/FinancialHealthSummary.tsx`
+- Accept optional `dateRange` prop
+- Update header from "Your Farm This Month" to show actual date range
+- Pass date range to `useFinancialHealth` hook
+
+### Modify: `src/hooks/useFinancialHealth.ts`
+- Accept optional `startDate` and `endDate` parameters
+- Use these instead of hardcoded `startOfMonth(now)` / `endOfMonth(now)`
+- Recalculate comparison period based on the selected range length
+
+### Modify: `src/components/finance/RevenueExpenseComparison.tsx`
+- Accept optional `dateRange` prop
+- Update "This Month" label to show actual date range
+
+### Modify: `src/hooks/useRevenueExpenseComparison.ts`
+- Accept optional date range parameters
+- Filter data based on the provided range
+
+### Modify: `src/components/finance/QuickActionsBar.tsx`
+- Separate the Report button from the `canManage` conditional
+- Report should always be visible
+- Add/Edit actions still require `canManage`
+
+### Modify: `src/components/finance/MobileQuickActions.tsx`
+- Similar separation of Report button
+- Ensure it's visible even without `canManage`
+
+## Visual Layout
+
+```text
++------------------------------------------+
+|  Finance                    [Date Range v]|
+|  Track your farm income...               |
+|           +-- [Add Expense] [Add Revenue] [Report] -- (visible when canManage)
+|           +-- [Report] -------------------- (always visible)
++------------------------------------------+
+|  [This Month] [Last Month] [3M] [6M] [YTD] [Custom]  <- Quick presets
++------------------------------------------+
+|  Your Farm: Jan 1 - Jan 31, 2026         |
+|  +------+ +------+ +------+              |
+|  |Earned| | Spent| | Net  |              |
+|  +------+ +------+ +------+              |
++------------------------------------------+
 ```
 
-Replace manual JSON parsing with schema validation:
-```typescript
-// Before (current code)
-const { email, password, fullName, role, invitationToken } = await req.json();
-if (!email || !password || !fullName) { ... }
+## Technical Considerations
 
-// After (with Zod)
-const rawBody = await req.json();
-const parseResult = createUserSchema.safeParse(rawBody);
-if (!parseResult.success) {
-  return new Response(
-    JSON.stringify({ 
-      error: 'Validation failed', 
-      details: parseResult.error.flatten().fieldErrors 
-    }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-const { email, password, fullName, role, invitationToken } = parseResult.data;
-```
+### Date Range State Management
+- Store as `{ start: Date, end: Date }`
+- Default to current month
+- Persist selection in URL query params (optional, for bookmarking)
 
-### 2. process-animal-voice/index.ts
+### Performance
+- Use `useMemo` to prevent unnecessary recalculations
+- Include date range in query keys for proper cache invalidation
+- Format dates consistently as `yyyy-MM-dd` for database queries
 
-Add validation with length limits:
+### Mobile UX
+- Collapsible preset bar on mobile
+- Bottom sheet picker for custom date range
+- Touch-friendly date inputs
 
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const MAX_TRANSCRIPTION_LENGTH = 5000;
-
-const animalVoiceSchema = z.object({
-  transcription: z.string()
-    .trim()
-    .min(1, 'Transcription cannot be empty')
-    .max(MAX_TRANSCRIPTION_LENGTH, `Transcription must be under ${MAX_TRANSCRIPTION_LENGTH} characters`)
-});
-```
-
-Update the parsing logic:
-```typescript
-// Before
-const { transcription } = await req.json();
-if (!transcription || typeof transcription !== 'string') { ... }
-
-// After
-const rawBody = await req.json();
-const parseResult = animalVoiceSchema.safeParse(rawBody);
-if (!parseResult.success) {
-  return new Response(
-    JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid input' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-const { transcription } = parseResult.data;
-```
-
-### 3. voice-to-text/index.ts
-
-Add explicit audio validation schema:
-
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const MAX_BASE64_LENGTH = 15_000_000; // ~10MB decoded
-
-const voiceToTextSchema = z.object({
-  audio: z.string()
-    .min(100, 'Audio data too short')
-    .max(MAX_BASE64_LENGTH, 'Audio data exceeds maximum size')
-    .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid base64 encoding')
-});
-```
-
-Update validation:
-```typescript
-// Before
-const { audio } = await req.json();
-if (!audio || typeof audio !== 'string') { ... }
-if (!/^[A-Za-z0-9+/=]+$/.test(audio)) { ... }
-
-// After
-const rawBody = await req.json();
-const parseResult = voiceToTextSchema.safeParse(rawBody);
-if (!parseResult.success) {
-  return new Response(
-    JSON.stringify({ error: parseResult.error.errors[0]?.message || 'Invalid audio data' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-const { audio } = parseResult.data;
-// Continue with size validation...
-```
-
-### 4. merchant-signup/index.ts
-
-Add comprehensive business validation:
-
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const merchantSignupSchema = z.object({
-  fullName: z.string()
-    .trim()
-    .min(1, 'Full name is required')
-    .max(100, 'Full name must be under 100 characters'),
-  businessName: z.string()
-    .trim()
-    .min(1, 'Business name is required')
-    .max(150, 'Business name must be under 150 characters'),
-  businessDescription: z.string()
-    .trim()
-    .max(1000, 'Description must be under 1000 characters')
-    .optional(),
-  contactPhone: z.string()
-    .trim()
-    .regex(/^[0-9+\-\s()]{7,20}$/, 'Invalid phone number format')
-    .optional(),
-  contactEmail: z.string()
-    .trim()
-    .email('Invalid email format')
-    .max(255, 'Email must be under 255 characters')
-    .optional(),
-  businessAddress: z.string()
-    .trim()
-    .max(500, 'Address must be under 500 characters')
-    .optional()
-});
-```
+## Files to Create
+1. `src/components/finance/FinanceDateRangePicker.tsx`
 
 ## Files to Modify
+1. `src/components/FinanceTab.tsx` - Add date state, date picker, pass props
+2. `src/components/finance/FinancialHealthSummary.tsx` - Accept date range prop
+3. `src/hooks/useFinancialHealth.ts` - Accept date range params
+4. `src/components/finance/RevenueExpenseComparison.tsx` - Accept date range prop
+5. `src/hooks/useRevenueExpenseComparison.ts` - Accept date range params
+6. `src/components/finance/QuickActionsBar.tsx` - Fix Report visibility
+7. `src/components/finance/MobileQuickActions.tsx` - Ensure visibility
+8. `src/components/finance/ProfitabilityThermometer.tsx` - Accept date range
+9. `src/hooks/useProfitability.ts` - Accept date range params
+10. `src/components/finance/ContextualInsights.tsx` - Accept date range
+11. `src/hooks/useContextualInsights.ts` - Accept date range params
 
-1. `supabase/functions/admin-create-user/index.ts`
-   - Add Zod import
-   - Add createUserSchema
-   - Replace manual validation with schema.safeParse()
-
-2. `supabase/functions/process-animal-voice/index.ts`
-   - Add Zod import
-   - Add animalVoiceSchema with MAX_TRANSCRIPTION_LENGTH
-   - Replace type check with schema validation
-
-3. `supabase/functions/voice-to-text/index.ts`
-   - Add Zod import
-   - Add voiceToTextSchema
-   - Consolidate base64 regex check into schema
-
-4. `supabase/functions/merchant-signup/index.ts`
-   - Add Zod import
-   - Add merchantSignupSchema
-   - Add validation before database call
-
-## Security Benefits
-
-- **Injection Prevention**: Validates and constrains all string inputs
-- **Type Safety**: Ensures correct types before processing
-- **Length Limits**: Prevents resource exhaustion attacks
-- **Format Validation**: Email, UUID, phone patterns enforced
-- **Consistent Errors**: Structured error responses for debugging
-
-## Technical Notes
-
-- Uses same Zod version as doc-aga: `https://deno.land/x/zod@v3.22.4/mod.ts`
-- Uses `safeParse()` to avoid throwing exceptions
-- Returns 400 status with detailed field errors
-- All schemas use `.trim()` to normalize whitespace
-- Optional fields use `.optional()` appropriately
+## Testing Checklist
+- [ ] Desktop: All action buttons visible for farm owners
+- [ ] Desktop: Report button visible for read-only users
+- [ ] Mobile: Bottom action bar appears correctly
+- [ ] Date presets work correctly (This Month, Last Month, etc.)
+- [ ] Custom date range selection works
+- [ ] All charts update when date range changes
+- [ ] Financial summary updates with correct period data
+- [ ] Comparison percentages recalculate based on period length
