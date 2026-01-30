@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Clock, CheckCircle, XCircle, User, Calendar, Eye, Pencil } from "lucide-react";
 import { usePendingActivities, PendingActivity } from "@/hooks/usePendingActivities";
 import { ActivityDetailsDialog } from "./ActivityDetailsDialog";
@@ -128,8 +128,8 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[600px] pr-4">
-            <div className="space-y-4">
+          <ScrollArea className="h-auto max-h-[70vh] md:max-h-[600px] min-h-[300px]">
+            <div className="space-y-4 pr-4">
               {pendingActivities.map((activity) => (
                 <Card 
                   key={activity.id} 
@@ -139,21 +139,22 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       {/* Header */}
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold truncate">
                               {getActivityTypeLabel(activity.activity_type)}
                             </h4>
                             {getStatusBadge(activity.status)}
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground truncate">
                             {formatActivityDetails(activity)}
                           </p>
                         </div>
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="shrink-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleViewDetails(activity);
@@ -164,14 +165,14 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                       </div>
 
                       {/* Submitter & Time Info */}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          <span>{activity.submitter?.full_name || 'Unknown'}</span>
+                      <div className="flex items-center gap-x-4 gap-y-1 text-sm text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <User className="h-4 w-4 shrink-0" />
+                          <span className="truncate max-w-[120px] sm:max-w-none">{activity.submitter?.full_name || 'Unknown'}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>
+                          <Calendar className="h-4 w-4 shrink-0" />
+                          <span className="whitespace-nowrap">
                             {formatDistanceToNow(new Date(activity.submitted_at), { addSuffix: true })}
                           </span>
                         </div>
@@ -180,7 +181,7 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                       {/* Auto-approve countdown */}
                       {activity.auto_approve_at && (
                         <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-orange-500" />
+                          <Clock className="h-4 w-4 text-orange-500 shrink-0" />
                           <span className="text-muted-foreground">
                             Auto-approves {formatDistanceToNow(new Date(activity.auto_approve_at), { addSuffix: true })}
                           </span>
@@ -188,7 +189,7 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                       )}
 
                       {/* Quick Action Buttons */}
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex flex-wrap gap-2 pt-2">
                         <Button
                           size="sm"
                           onClick={(e) => {
@@ -196,7 +197,7 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                             handleApprove(activity);
                           }}
                           disabled={isReviewing}
-                          className="flex-1"
+                          className="flex-1 min-w-[100px]"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
                           Approve
@@ -228,6 +229,8 @@ export const PendingActivitiesQueue = ({ farmId }: PendingActivitiesQueueProps) 
                 </Card>
               ))}
             </div>
+            <ScrollBar orientation="vertical" />
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </CardContent>
       </Card>
