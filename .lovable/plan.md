@@ -1,81 +1,90 @@
 
-Goal
-- Fix the local `npm run build` failure: “Rollup failed to resolve import '@capacitor/camera' from src/lib/devicePermissionService.ts”.
 
-What the screenshot is telling us
-- This is not a runtime permission issue; it’s a bundling issue during the production build (specifically when the PWA build step runs).
-- Even though the code uses dynamic imports, the way it’s written still leaves Rollup attempting to resolve `@capacitor/camera` at build time in some cases (especially in secondary builds like vite-plugin-pwa’s injectManifest build).
-- A second common cause is simply: the local machine’s `node_modules` doesn’t actually contain `@capacitor/camera` (exported project not fully installed / lockfile mismatch). But we should make the build robust even if native-only plugins are absent in “web-only” environments.
+# Plan: Add Proper Scrollbar Support for Manager Approval Queue
 
-Approach (two-layer fix)
-1) Make dynamic imports “truly runtime-only” (so Rollup doesn’t try to resolve them)
-   - Change `import(/* @vite-ignore */ '@capacitor/camera')` to use variable indirection:
-     - `const CAMERA_MODULE = '@capacitor/camera'`
-     - `await import(/* @vite-ignore */ CAMERA_MODULE)`
-   - This is the same technique you already use for other native-only stubs in the project.
+## Current Implementation Analysis
 
-2) Explicitly tell Rollup to externalize native-only Capacitor plugins during web builds
-   - Add `@capacitor/camera` and `@capacitor/local-notifications` to `build.rollupOptions.external` in `vite.config.ts`.
-   - Optionally include other native-only plugins used via static imports (e.g., `@capacitor/haptics`) to prevent the next “resolve import” failure after we fix camera.
+The `PendingActivitiesQueue` component at `src/components/approval/PendingActivitiesQueue.tsx` currently:
+- Uses a vertical `ScrollArea` with fixed height (`h-[600px]`) for the list of pending activities
+- Each activity card displays details that could potentially overflow horizontally on smaller screens
+- The `ScrollArea` component only renders a vertical scrollbar by default
 
-Files to inspect and update
-A) `src/lib/devicePermissionService.ts`
-- Update both camera dynamic import sites:
-  - `checkAllPermissions()`
-  - `initDevicePermissions()`
-- Replace:
-  - `await import(/* @vite-ignore */ '@capacitor/camera')`
-  - with variable indirection.
+## Problem
 
-B) `src/hooks/useDevicePermissions.ts`
-- Update helper `getNativeCamera()` and `getLocalNotifications()` to use variable indirection (same reason).
+When there's content that extends beyond the screen width (particularly on mobile devices or narrow viewports), there's no horizontal scrollbar to allow users to pan across the content. This can happen with:
+- Long animal names or ear tags
+- Tables in the `ActivityDetailsDialog` (feeding distributions)
+- Auto-approve countdown text that wraps awkwardly
 
-C) `src/hooks/useNativeCamera.ts`
-- Update `getNativeCamera()` to use variable indirection.
-- Keep the `import type { Photo } from '@capacitor/camera'` as-is (type-only imports are erased at build and should not cause bundling issues).
+## Solution
 
-D) `src/lib/notificationService.ts`
-- Update `getLocalNotifications()` dynamic import to use variable indirection.
+We'll enhance the scrolling behavior in two ways:
 
-E) `src/App.tsx`
-- Update the dynamic import for `@capacitor/local-notifications` to use variable indirection.
+### 1. Add Horizontal Scrollbar to PendingActivitiesQueue
 
-F) `vite.config.ts`
-- Extend Rollup external list from:
-  - `external: ['capacitor-native-settings']`
-- To include:
-  - `@capacitor/camera`
-  - `@capacitor/local-notifications`
-  - (optional but recommended) `@capacitor/haptics` if `src/lib/haptics.ts` is used in web builds and you want the build to survive without that plugin present.
+Modify the `ScrollArea` in `PendingActivitiesQueue.tsx` to include both vertical and horizontal scrollbars. We'll also add a horizontal `ScrollBar` explicitly to ensure it appears when content overflows.
 
-Implementation details (exact pattern we will apply)
-- Define module name constants near the helper:
-  - `const CAP_CAMERA = '@capacitor/camera';`
-  - `const CAP_LOCAL_NOTIF = '@capacitor/local-notifications';`
-- Use:
-  - `await import(/* @vite-ignore */ CAP_CAMERA)`
-  - `await import(/* @vite-ignore */ CAP_LOCAL_NOTIF)`
-This prevents Rollup from statically resolving those modules as part of the web/PWA build.
+**Changes to `src/components/approval/PendingActivitiesQueue.tsx`:**
+- Import `ScrollBar` alongside `ScrollArea` from the UI component
+- Add a horizontal `ScrollBar` inside the `ScrollArea` component
+- Ensure the inner content has proper minimum width constraints
 
-Local environment sanity checks (what you should do on your machine)
-- After we implement the code changes, the build should be robust even if the modules are absent, but you should still confirm your install:
-  1) `rm -rf node_modules package-lock.json` (or pnpm/yarn equivalents)
-  2) `npm install`
-  3) `npm run build`
-- If you are building the native app after pulling latest changes:
-  - `npx cap sync`
-(You’ve used Capacitor already; syncing is required whenever dependencies or native plugin usage changes.)
+### 2. Improve Card Content Responsiveness
 
-Expected result
-- `npm run build` succeeds for web/PWA builds without Rollup trying to resolve native-only Capacitor plugins.
-- Native behavior remains unchanged because imports only occur at runtime on native platforms.
+Update the activity cards to handle overflow more gracefully:
+- Ensure text truncation on long names with `truncate` class where appropriate
+- Add `min-w-0` to flex containers to allow text truncation to work properly
+- Use responsive text sizing for better mobile display
 
-Test checklist
-- Web: `npm run build` completes successfully.
-- Web preview: app still loads and routes work (including /auth).
-- Native Android: permissions flow still triggers camera + notifications properly.
-- Native Android: no runtime crashes in screens that rely on camera/notifications.
+### 3. Make ScrollArea Height Responsive
 
-If this still fails after the changes
-- We’ll check for the next unresolved Capacitor plugin (often `@capacitor/haptics` or another plugin imported statically).
-- We’ll apply the same pattern (variable-indirection dynamic import + externalization) to that plugin too.
+Instead of a fixed `h-[600px]`, use a more responsive approach:
+- Use `max-h-[600px]` on desktop
+- Use `max-h-[70vh]` for better mobile adaptation
+- Combine with `min-h-[300px]` to prevent the area from being too small
+
+## Implementation Details
+
+### File: `src/components/approval/PendingActivitiesQueue.tsx`
+
+**Line 5 - Update import:**
+```typescript
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+```
+
+**Line 131 - Update ScrollArea wrapper:**
+```typescript
+<ScrollArea className="h-auto max-h-[70vh] md:max-h-[600px] min-h-[300px]">
+  <div className="space-y-4 pr-4">
+    {/* ... existing cards */}
+  </div>
+  <ScrollBar orientation="vertical" />
+  <ScrollBar orientation="horizontal" />
+</ScrollArea>
+```
+
+**Lines 140-164 - Improve card header responsiveness:**
+- Add `min-w-0` to text containers
+- Add `truncate` to activity type labels for very long text
+- Wrap the metadata row to handle overflow
+
+**Lines 167-178 - Improve submitter/time info section:**
+- Make the flex container wrap on small screens with `flex-wrap`
+- Add text truncation for long names
+
+## Additional Improvements
+
+### Card Layout on Mobile (Lines 191-225):
+- Stack action buttons vertically on very small screens
+- Use `flex-wrap gap-2` instead of fixed flex layout
+
+## Testing Checklist
+- Verify vertical scrolling works when there are many pending activities
+- Verify horizontal scrolling appears when card content overflows (resize browser to narrow width)
+- Test on mobile viewport (375px width) to ensure cards don't overflow the container
+- Confirm action buttons remain accessible and tappable on mobile
+- Test with long animal names and ear tags to verify truncation works
+
+## Files to Modify
+1. `src/components/approval/PendingActivitiesQueue.tsx` - Main changes for scroll support and responsive layout
+
