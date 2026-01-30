@@ -1,90 +1,86 @@
 
 
-# Plan: Add Proper Scrollbar Support for Manager Approval Queue
-
-## Current Implementation Analysis
-
-The `PendingActivitiesQueue` component at `src/components/approval/PendingActivitiesQueue.tsx` currently:
-- Uses a vertical `ScrollArea` with fixed height (`h-[600px]`) for the list of pending activities
-- Each activity card displays details that could potentially overflow horizontally on smaller screens
-- The `ScrollArea` component only renders a vertical scrollbar by default
+# Plan: Fix QR Code Invitation URLs to Use Published App URL
 
 ## Problem
 
-When there's content that extends beyond the screen width (particularly on mobile devices or narrow viewports), there's no horizontal scrollbar to allow users to pan across the content. This can happen with:
-- Long animal names or ear tags
-- Tables in the `ActivityDetailsDialog` (feeding distributions)
-- Auto-approve countdown text that wraps awkwardly
+The QR codes for farm invitations currently use `window.location.origin` to generate the invitation URL:
+
+```typescript
+const getInviteUrl = (token: string) => 
+  `${window.location.origin}/invite/accept/${token}`;
+```
+
+When a farm owner generates a QR code from the Lovable preview environment (e.g., `id-preview--...lovable.app`), the QR code points to that private preview URL. External users scanning the QR code are redirected to Lovable's login page instead of the app's invitation flow.
 
 ## Solution
 
-We'll enhance the scrolling behavior in two ways:
+Update `appConfig.ts` to include the published app URL and use it consistently for all invitation-related URLs (QR codes and invitation emails).
 
-### 1. Add Horizontal Scrollbar to PendingActivitiesQueue
+## Changes
 
-Modify the `ScrollArea` in `PendingActivitiesQueue.tsx` to include both vertical and horizontal scrollbars. We'll also add a horizontal `ScrollBar` explicitly to ensure it appears when content overflows.
+### 1. Update App Configuration
 
-**Changes to `src/components/approval/PendingActivitiesQueue.tsx`:**
-- Import `ScrollBar` alongside `ScrollArea` from the UI component
-- Add a horizontal `ScrollBar` inside the `ScrollArea` component
-- Ensure the inner content has proper minimum width constraints
+**File:** `src/lib/appConfig.ts`
 
-### 2. Improve Card Content Responsiveness
+Add a `publishedUrl` property to the centralized config:
 
-Update the activity cards to handle overflow more gracefully:
-- Ensure text truncation on long names with `truncate` class where appropriate
-- Add `min-w-0` to flex containers to allow text truncation to work properly
-- Use responsive text sizing for better mobile display
-
-### 3. Make ScrollArea Height Responsive
-
-Instead of a fixed `h-[600px]`, use a more responsive approach:
-- Use `max-h-[600px]` on desktop
-- Use `max-h-[70vh]` for better mobile adaptation
-- Combine with `min-h-[300px]` to prevent the area from being too small
-
-## Implementation Details
-
-### File: `src/components/approval/PendingActivitiesQueue.tsx`
-
-**Line 5 - Update import:**
 ```typescript
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+export const APP_CONFIG = {
+  appId: 'com.goldenforage.docaga',
+  appName: 'Doc Aga',
+  publishedUrl: 'https://doc-aga.lovable.app',
+} as const;
+
+/**
+ * Get the base URL for public-facing links (invitations, shares, etc.)
+ * Always uses the published URL to ensure external users can access
+ */
+export const getPublicAppUrl = () => APP_CONFIG.publishedUrl;
 ```
 
-**Line 131 - Update ScrollArea wrapper:**
+### 2. Update FarmTeamManagement Component
+
+**File:** `src/components/FarmTeamManagement.tsx`
+
+Import and use the new `getPublicAppUrl` function:
+
 ```typescript
-<ScrollArea className="h-auto max-h-[70vh] md:max-h-[600px] min-h-[300px]">
-  <div className="space-y-4 pr-4">
-    {/* ... existing cards */}
-  </div>
-  <ScrollBar orientation="vertical" />
-  <ScrollBar orientation="horizontal" />
-</ScrollArea>
+import { getPublicAppUrl } from "@/lib/appConfig";
+
+// Update the getInviteUrl function (line 41-42)
+const getInviteUrl = (token: string) => 
+  `${getPublicAppUrl()}/invite/accept/${token}`;
 ```
 
-**Lines 140-164 - Improve card header responsiveness:**
-- Add `min-w-0` to text containers
-- Add `truncate` to activity type labels for very long text
-- Wrap the metadata row to handle overflow
+Also update the invitation email calls to use the public URL:
 
-**Lines 167-178 - Improve submitter/time info section:**
-- Make the flex container wrap on small screens with `flex-wrap`
-- Add text truncation for long names
+- Line 146: `appUrl: getPublicAppUrl(),` (instead of `window.location.origin`)
+- Line 213: `appUrl: getPublicAppUrl(),` (instead of `window.location.origin`)
 
-## Additional Improvements
+## Technical Rationale
 
-### Card Layout on Mobile (Lines 191-225):
-- Stack action buttons vertically on very small screens
-- Use `flex-wrap gap-2` instead of fixed flex layout
+| Approach | Pros | Cons |
+|----------|------|------|
+| Hardcode in appConfig | Simple, centralized, always correct | Needs manual update if domain changes |
+| Environment variable | Configurable per environment | .env is auto-managed, can't add custom vars |
+| Detect from hostname | No hardcoding | Complex logic, still needs fallback |
 
-## Testing Checklist
-- Verify vertical scrolling works when there are many pending activities
-- Verify horizontal scrolling appears when card content overflows (resize browser to narrow width)
-- Test on mobile viewport (375px width) to ensure cards don't overflow the container
-- Confirm action buttons remain accessible and tappable on mobile
-- Test with long animal names and ear tags to verify truncation works
+The **centralized config** approach is best because:
+- It's already established in `appConfig.ts` for other app-wide constants
+- The published URL rarely changes
+- Single source of truth for all public-facing URLs
 
 ## Files to Modify
-1. `src/components/approval/PendingActivitiesQueue.tsx` - Main changes for scroll support and responsive layout
+
+1. **`src/lib/appConfig.ts`** - Add `publishedUrl` and helper function
+2. **`src/components/FarmTeamManagement.tsx`** - Use the new helper for QR codes and email invitations
+
+## Testing Checklist
+
+- [ ] QR codes display URLs starting with `https://doc-aga.lovable.app`
+- [ ] Scanning QR code on external device opens the correct invitation page
+- [ ] Invitation emails contain the published URL
+- [ ] Copy invite link copies the correct public URL
+- [ ] Works from both preview and published environments
 
