@@ -6,7 +6,14 @@
 export const APP_CONFIG = {
   appId: 'com.goldenforage.docaga',
   appName: 'Doc Aga',
+  publishedUrl: 'https://doc-aga.lovable.app',
 } as const;
+
+/**
+ * Get the base URL for public-facing links (invitations, shares, etc.)
+ * Always uses the published URL to ensure external users can access
+ */
+export const getPublicAppUrl = () => APP_CONFIG.publishedUrl;
 
 /**
  * Get the Android app settings URL for AppLauncher

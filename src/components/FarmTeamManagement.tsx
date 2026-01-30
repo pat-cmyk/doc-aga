@@ -12,6 +12,7 @@ import { UserPlus, Trash2, Mail, Calendar, Send, Copy, Check, Key, QrCode } from
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
+import { getPublicAppUrl } from "@/lib/appConfig";
 
 interface FarmTeamManagementProps {
   farmId: string;
@@ -39,7 +40,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
   const queryClient = useQueryClient();
 
   const getInviteUrl = (token: string) => 
-    `${window.location.origin}/invite/accept/${token}`;
+    `${getPublicAppUrl()}/invite/accept/${token}`;
 
   // Fetch team members - using secure RPC for accepted members, direct query for pending
   const { data: teamMembers, isLoading } = useQuery({
@@ -143,7 +144,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
             inviterName: inviterProfile?.full_name || "A team member",
             role: role,
             invitationToken: membershipData.invitation_token,
-            appUrl: window.location.origin,
+            appUrl: getPublicAppUrl(),
           },
         }
       );
@@ -210,7 +211,7 @@ export const FarmTeamManagement = ({ farmId, isOwner }: FarmTeamManagementProps)
             inviterName: inviterProfile?.full_name || "A team member",
             role: member.role_in_farm,
             invitationToken: membershipData.invitation_token,
-            appUrl: window.location.origin,
+            appUrl: getPublicAppUrl(),
           },
         }
       );
