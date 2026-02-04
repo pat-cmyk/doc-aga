@@ -34,6 +34,13 @@ interface GovFarmAnalyticsRow {
   sheep_count: number;
 }
 
+// Helper to safely parse numeric values (handles strings from Supabase)
+const toNum = (value: unknown): number | null => {
+  if (value == null) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
 export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
   return useQuery({
     queryKey: ["regional-stats", dataCategory],
@@ -44,7 +51,15 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
         _metadata: { source: "regional_stats_dashboard", data_category: dataCategory }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[useRegionalStats] RPC error:", error.message);
+        throw error;
+      }
+
+      if (!data || !Array.isArray(data)) {
+        console.warn("[useRegionalStats] No data returned from RPC");
+        return [];
+      }
 
       // Cast the data to our expected type
       const allFarms = data as unknown as GovFarmAnalyticsRow[];
@@ -77,17 +92,23 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
 
         existing.farmCount += 1;
         
-        // Calculate total animal count from species counts
-        const totalAnimals = (farm.cattle_count || 0) + 
-                             (farm.goat_count || 0) + 
-                             (farm.carabao_count || 0) + 
-                             (farm.sheep_count || 0);
+        // Calculate total animal count from species counts (with safe numeric parsing)
+        const cattleCount = toNum(farm.cattle_count) ?? 0;
+        const goatCount = toNum(farm.goat_count) ?? 0;
+        const carabaoCount = toNum(farm.carabao_count) ?? 0;
+        const sheepCount = toNum(farm.sheep_count) ?? 0;
+        const totalAnimals = cattleCount + goatCount + carabaoCount + sheepCount;
+        
         existing.animalCount += totalAnimals;
-        existing.activeAnimalCount += farm.active_animal_count || 0;
+        existing.activeAnimalCount += toNum(farm.active_animal_count) ?? 0;
 
-        if (farm.gps_lat && farm.gps_lng) {
-          existing.latSum += farm.gps_lat;
-          existing.lngSum += farm.gps_lng;
+        // Parse GPS coordinates safely
+        const lat = toNum(farm.gps_lat);
+        const lng = toNum(farm.gps_lng);
+        
+        if (lat !== null && lng !== null) {
+          existing.latSum += lat;
+          existing.lngSum += lng;
           existing.coordCount += 1;
         }
 
@@ -99,8 +120,21 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
       regionMap.forEach((data, region) => {
         // Use actual coordinates if available, otherwise fallback to predefined
         const fallbackCoords = getRegionalCoordinates(region);
-        const avg_gps_lat = data.coordCount > 0 ? data.latSum / data.coordCount : (fallbackCoords?.lat ?? 12.8797);
-        const avg_gps_lng = data.coordCount > 0 ? data.lngSum / data.coordCount : (fallbackCoords?.lng ?? 121.7740);
+        
+        let avg_gps_lat: number;
+        let avg_gps_lng: number;
+        
+        if (data.coordCount > 0) {
+          avg_gps_lat = data.latSum / data.coordCount;
+          avg_gps_lng = data.lngSum / data.coordCount;
+        } else if (fallbackCoords) {
+          avg_gps_lat = fallbackCoords.lat;
+          avg_gps_lng = fallbackCoords.lng;
+        } else {
+          // Default to center of Philippines if no coordinates available
+          avg_gps_lat = 12.8797;
+          avg_gps_lng = 121.7740;
+        }
 
         stats.push({
           region,
@@ -111,6 +145,9 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
           avg_gps_lng,
         });
       });
+
+      console.log(`[useRegionalStats] Returning ${stats.length} regions for category "${dataCategory}":`, 
+        stats.map(s => `${s.region} (${s.farm_count} farms)`).join(', '));
 
       return stats;
     },
