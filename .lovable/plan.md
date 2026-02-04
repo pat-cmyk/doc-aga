@@ -1,117 +1,93 @@
 
-# Fix: Government Dashboard Broken RPC Functions
 
-## Problem Summary
+# Generate Missing Demo Data for Trends & Insights
 
-The "Reproduction & Breeding" and "Animal Health & Welfare" sections of the government dashboard are displaying all zeros despite data existing in the database. This is caused by **two broken RPC functions** that fail when executed.
+## Objective
 
-## Root Cause Analysis
+Generate comprehensive demo data for the 50 new farms (added Feb 4, 2026) to fill temporal gaps in the Trends & Insights charts. All data will be strictly isolated to farms where `data_category = 'demo'`.
 
-### Issue 1: `get_government_breeding_stats` - Nested Aggregate Error
-```
-ERROR: aggregate function calls cannot be nested
-```
-The function's `deliveries_json` CTE incorrectly nests `jsonb_object_agg` inside `SUM`, which PostgreSQL doesn't allow.
+---
 
-**Location**: `deliveries_json AS (...)`
+## Data Generation Scope
+
+### 1. Milking Records (Oct 2025 - Feb 2026)
+
+| Parameter | Value |
+|-----------|-------|
+| Target Farms | 50 demo farms |
+| Target Animals | ~300 lactating females (cattle, goats, carabao) |
+| Date Range | October 1, 2025 → February 5, 2026 (127 days) |
+| Sessions | AM and PM daily |
+| Expected Records | ~50,000-75,000 records |
+
+**Species-Appropriate Volumes:**
+- Cattle: 3-9 liters per session
+- Goat: 0.3-1.6 liters per session
+- Carabao: 2-6 liters per session
+
+**Pricing:** Regional DA Bulletin rates (35-70 PHP/L)
+
+### 2. Health Records (Oct 2025 - Feb 2026)
+
+| Parameter | Value |
+|-----------|-------|
+| Target Farms | 50 demo farms |
+| Date Range | October 2025 → February 2026 |
+| Records per Farm | 3-5 events |
+| Expected Records | ~150-250 records |
+| Event Types | Checkups, vaccinations, treatments, follow-ups |
+
+### 3. Doc Aga Queries (Oct 2025 - Feb 2026)
+
+| Parameter | Value |
+|-----------|-------|
+| Target Farms | 50 demo farms |
+| Date Range | October 2025 → February 2026 |
+| Queries per Farm | 2-5 questions |
+| Expected Records | ~100-250 records |
+| Topics | Feeding, breeding, health symptoms, milk production |
+
+---
+
+## Data Isolation Guarantee
+
+All SQL INSERT statements will use explicit filtering:
+
 ```sql
--- BROKEN CODE:
-SELECT jsonb_object_agg(
-  month,
-  jsonb_build_object(
-    'total', SUM(delivery_count),  -- ❌ Can't nest agg inside agg
-    'by_type', jsonb_object_agg(livestock_type, delivery_count)
-  )
-)
+-- Example pattern for all inserts
+INSERT INTO milking_records (animal_id, farm_id, ...)
+SELECT a.id, a.farm_id, ...
+FROM animals a
+INNER JOIN farms f ON a.farm_id = f.id
+WHERE f.data_category = 'demo'
+  AND f.id IN (SELECT id FROM farms WHERE created_at >= '2026-02-04')
+  AND a.sex = 'female'
+  AND a.reproductive_status IN ('lactating', 'pregnant');
 ```
 
-### Issue 2: `get_government_health_stats` - Missing Column Reference
-```
-ERROR: column hr.cycle_length_days does not exist
-```
-The function references `hr.cycle_length_days` which doesn't exist in the `heat_records` table.
-
-**Actual `heat_records` columns**: `id`, `animal_id`, `farm_id`, `detected_at`, `detection_method`, `intensity`, `standing_heat`, `optimal_breeding_start`, `optimal_breeding_end`, `notes`, `created_by`, `created_at`, `client_generated_id`
-
-## Data Verification
-
-The underlying data is present and correct:
-
-| Table | Records in Date Range | Notes |
-|-------|----------------------|-------|
-| AI Records | 21 | Oct 2025 - Feb 2026 |
-| Heat Records | 146 | Ready for display |
-| BCS Scores | 97 | Avg score: 2.97 |
-| Animal Exits | 35 | Multiple exit reasons |
-| Semen Codes | 21 unique | For genetic tracking |
+**No live/production data will be affected.**
 
 ---
 
-## Technical Fix Plan
+## Expected Dashboard Impact
 
-### Step 1: Fix `get_government_breeding_stats` RPC
+After data generation, the Trends & Insights section will display:
 
-**Problem**: Nested aggregate functions in the monthly deliveries JSON construction
-
-**Solution**: Rewrite the CTE to pre-aggregate totals before building JSON:
-1. First CTE: Group by month and livestock type
-2. Second CTE: Calculate monthly totals
-3. Final CTE: Build JSON without nesting aggregates
-
-### Step 2: Fix `get_government_health_stats` RPC
-
-**Problem**: References non-existent `cycle_length_days` column
-
-**Solution**: Compute average cycle length dynamically using a LAG window function:
-```sql
--- Calculate cycle length from consecutive heat events
-WITH heat_intervals AS (
-  SELECT 
-    animal_id,
-    detected_at,
-    LAG(detected_at) OVER (PARTITION BY animal_id ORDER BY detected_at) as prev_heat
-  FROM heat_records
-)
-SELECT AVG(EXTRACT(EPOCH FROM (detected_at - prev_heat)) / 86400)
-FROM heat_intervals
-WHERE prev_heat IS NOT NULL
-  AND interval BETWEEN 15 AND 30 days  -- Valid estrous range
-```
-
-Also fix:
-- BCS join path uses `animal_id` for proper filtering through demo farms
-- Optimal breeding window column name: `optimal_breeding_start` not `optimal_breeding_window_start`
+| Chart | Current State | After Generation |
+|-------|---------------|------------------|
+| Total Milk Production | 0-50L/day (Jan-Feb 2026) | 5,000-8,000L/day |
+| Health Events | 0-6 events/day | 15-30 events/day |
+| Doc Aga Queries | 0-35 queries/day | 10-40 queries/day |
+| Farm Growth | 11 → 65 farms (correct) | No change needed |
+| Livestock Composition | Correct totals | No change needed |
 
 ---
 
-## Database Changes Required
+## Execution Steps
 
-**Migration**: Drop and recreate both RPC functions with corrected SQL:
+1. **Query lactating animals** from the 50 new demo farms
+2. **Generate milking records** using date series with randomized volumes
+3. **Insert health records** with varied visit types and dates
+4. **Insert doc_aga_queries** with common farmer questions
+5. **Verify data** by re-running timeseries RPC
 
-1. `get_government_breeding_stats` - Fix nested aggregate in JSON construction
-2. `get_government_health_stats` - Compute cycle length dynamically, fix column names
-
----
-
-## Expected Outcomes After Fix
-
-### Reproduction & Breeding Section
-- **Heat Events**: ~146 (from `heat_records`)
-- **Avg Cycle**: ~21-27 days (computed dynamically)
-- **Ready for AI**: Animals with `optimal_breeding_start` in date range
-- **AI Procedures**: 21 scheduled
-- **AI Success Rate**: Based on `pregnancy_confirmed` records
-- **Semen Sources**: 21 unique genetic lines
-
-### Animal Health & Welfare Section
-- **Vaccination Compliance**: From `preventive_health_schedules`
-- **BCS Distribution**: 97 assessments, avg 2.97
-- **Mortality Rate**: Based on 5 deaths / total animals
-
----
-
-## Files to Modify
-
-No frontend code changes required. The fix is entirely in the database layer:
-- **Drop and recreate**: `get_government_breeding_stats`
-- **Drop and recreate**: `get_government_health_stats`
