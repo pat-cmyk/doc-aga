@@ -1,97 +1,117 @@
 
-
-# Fix: Government Dashboard Data Connection Issues
+# Fix: Government Dashboard Broken RPC Functions
 
 ## Problem Summary
 
-The government dashboard's "Reproduction & Breeding", "Animal Health & Welfare", and "Trends & Insights" sections are not displaying data due to a broken database function and data date range gaps.
+The "Reproduction & Breeding" and "Animal Health & Welfare" sections of the government dashboard are displaying all zeros despite data existing in the database. This is caused by **two broken RPC functions** that fail when executed.
 
 ## Root Cause Analysis
 
-### 1. Critical RPC Function Error
-The `get_government_health_stats` function (version with `data_category_filter` parameter) references a table called `vaccination_records` that does not exist in the database. The error in the console confirms this:
+### Issue 1: `get_government_breeding_stats` - Nested Aggregate Error
 ```
-relation "vaccination_records" does not exist
+ERROR: aggregate function calls cannot be nested
+```
+The function's `deliveries_json` CTE incorrectly nests `jsonb_object_agg` inside `SUM`, which PostgreSQL doesn't allow.
+
+**Location**: `deliveries_json AS (...)`
+```sql
+-- BROKEN CODE:
+SELECT jsonb_object_agg(
+  month,
+  jsonb_build_object(
+    'total', SUM(delivery_count),  -- ❌ Can't nest agg inside agg
+    'by_type', jsonb_object_agg(livestock_type, delivery_count)
+  )
+)
 ```
 
-**Impact**: All health-related cards fail to load (Vaccination Compliance, BCS Distribution, Mortality Analytics, Heat Detection Metrics).
+### Issue 2: `get_government_health_stats` - Missing Column Reference
+```
+ERROR: column hr.cycle_length_days does not exist
+```
+The function references `hr.cycle_length_days` which doesn't exist in the `heat_records` table.
 
-### 2. AI Records Date Gap
-- Dashboard viewing: November 6, 2025 to February 4, 2026
-- Demo AI records end at: November 3, 2025
-- Result: 0 breeding/AI records appear, causing empty breeding charts
+**Actual `heat_records` columns**: `id`, `animal_id`, `farm_id`, `detected_at`, `detection_method`, `intensity`, `standing_heat`, `optimal_breeding_start`, `optimal_breeding_end`, `notes`, `created_by`, `created_at`, `client_generated_id`
 
-### 3. Existing Data Not Being Displayed
-Despite the errors, demo data exists:
-| Table | Records in Date Range |
-|-------|----------------------|
-| Body Condition Scores | 97 |
-| Heat Records | 66 |
-| Preventive Health Schedules | 205 |
-| AI Records | 0 (date gap) |
+## Data Verification
+
+The underlying data is present and correct:
+
+| Table | Records in Date Range | Notes |
+|-------|----------------------|-------|
+| AI Records | 21 | Oct 2025 - Feb 2026 |
+| Heat Records | 146 | Ready for display |
+| BCS Scores | 97 | Avg score: 2.97 |
+| Animal Exits | 35 | Multiple exit reasons |
+| Semen Codes | 21 unique | For genetic tracking |
 
 ---
 
-## Technical Implementation Plan
+## Technical Fix Plan
 
-### Step 1: Fix the RPC Function
-Drop and recreate `get_government_health_stats` to:
-- Remove reference to non-existent `vaccination_records` table
-- Use `preventive_health_schedules` with `schedule_type = 'vaccination'` for vaccination data
-- Support the `data_category_filter` parameter properly
-- Return all expected columns for the health stats interface
+### Step 1: Fix `get_government_breeding_stats` RPC
 
-### Step 2: Generate Demo AI/Breeding Records
-Insert AI records for the demo farms with:
-- Scheduled dates from October 2025 through February 2026
-- Mix of performed and pending procedures
-- Pregnancy confirmations with expected delivery dates
-- Species distribution (cattle, goat, carabao)
+**Problem**: Nested aggregate functions in the monthly deliveries JSON construction
 
-### Step 3: Extend Demo Heat Detection Records
-Add heat records for:
-- December 2025 through February 2026
-- Realistic estrous cycle patterns (18-24 day intervals)
-- Optimal breeding window timestamps
+**Solution**: Rewrite the CTE to pre-aggregate totals before building JSON:
+1. First CTE: Group by month and livestock type
+2. Second CTE: Calculate monthly totals
+3. Final CTE: Build JSON without nesting aggregates
 
-### Step 4: Verify and Update Mortality Data
-Ensure exit records exist within the date range for:
-- Sales with sale prices
-- Deaths (for mortality rate calculation)
-- Other exit reasons (culled, transferred, slaughtered)
+### Step 2: Fix `get_government_health_stats` RPC
 
----
+**Problem**: References non-existent `cycle_length_days` column
 
-## Expected Outcomes
+**Solution**: Compute average cycle length dynamically using a LAG window function:
+```sql
+-- Calculate cycle length from consecutive heat events
+WITH heat_intervals AS (
+  SELECT 
+    animal_id,
+    detected_at,
+    LAG(detected_at) OVER (PARTITION BY animal_id ORDER BY detected_at) as prev_heat
+  FROM heat_records
+)
+SELECT AVG(EXTRACT(EPOCH FROM (detected_at - prev_heat)) / 86400)
+FROM heat_intervals
+WHERE prev_heat IS NOT NULL
+  AND interval BETWEEN 15 AND 30 days  -- Valid estrous range
+```
 
-After implementation:
-
-| Section | Component | Expected Result |
-|---------|-----------|-----------------|
-| Reproduction & Breeding | Heat Detection Metrics | Shows heat events, avg cycle length, optimal window count |
-| Reproduction & Breeding | Breeding Overview Cards | Shows AI procedures, pregnancies, success rates |
-| Reproduction & Breeding | Breeding Success Chart | Shows success rates by livestock type |
-| Reproduction & Breeding | Expected Deliveries Timeline | Shows upcoming deliveries by month |
-| Animal Health & Welfare | Vaccination Compliance Card | Shows vaccination/deworming completion rates |
-| Animal Health & Welfare | BCS Distribution Chart | Shows pie chart of underweight/optimal/overweight |
-| Animal Health & Welfare | Mortality Analytics Card | Shows exit breakdown and mortality rate |
-| Trends & Insights | GovTrendCharts | Shows farm growth, livestock composition, health events, milk production |
+Also fix:
+- BCS join path uses `animal_id` for proper filtering through demo farms
+- Optimal breeding window column name: `optimal_breeding_start` not `optimal_breeding_window_start`
 
 ---
 
 ## Database Changes Required
 
-1. **Replace RPC Function**: `get_government_health_stats` with corrected version
-2. **Insert Data**: 
-   - ~150 AI records (Oct 2025 - Feb 2026)
-   - ~50 additional heat records (Dec 2025 - Feb 2026)
-   - ~20 animal exit records with date range coverage
+**Migration**: Drop and recreate both RPC functions with corrected SQL:
+
+1. `get_government_breeding_stats` - Fix nested aggregate in JSON construction
+2. `get_government_health_stats` - Compute cycle length dynamically, fix column names
+
+---
+
+## Expected Outcomes After Fix
+
+### Reproduction & Breeding Section
+- **Heat Events**: ~146 (from `heat_records`)
+- **Avg Cycle**: ~21-27 days (computed dynamically)
+- **Ready for AI**: Animals with `optimal_breeding_start` in date range
+- **AI Procedures**: 21 scheduled
+- **AI Success Rate**: Based on `pregnancy_confirmed` records
+- **Semen Sources**: 21 unique genetic lines
+
+### Animal Health & Welfare Section
+- **Vaccination Compliance**: From `preventive_health_schedules`
+- **BCS Distribution**: 97 assessments, avg 2.97
+- **Mortality Rate**: Based on 5 deaths / total animals
 
 ---
 
 ## Files to Modify
 
-No frontend code changes are required. The issue is entirely in the database layer:
-- Database function: `get_government_health_stats`
-- Database data: `ai_records`, `heat_records`, `animals` (exit_date/exit_reason)
-
+No frontend code changes required. The fix is entirely in the database layer:
+- **Drop and recreate**: `get_government_breeding_stats`
+- **Drop and recreate**: `get_government_health_stats`
