@@ -4189,8 +4189,13 @@ export type Database = {
               start_date: string
             }
             Returns: {
+              animals_optimal: number
+              animals_overweight: number
+              animals_underweight: number
               avg_bcs: number
               avg_cycle_length: number
+              bcs_assessments_count: number
+              deworming_count: number
               heat_detection_count: number
               mortality_count: number
               mortality_rate: number
