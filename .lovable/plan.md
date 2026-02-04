@@ -1,104 +1,127 @@
 
+## What I found (thorough assessment)
 
-# Fix: Update TypeScript Interface to Match Updated RPC
+### 1) Mapbox is working and not the blocker
+From the browser network logs:
+- The app successfully calls the backend function `mapbox-token` and receives a valid Mapbox public token (HTTP 200).
+- Mapbox style loads successfully (`mapbox/light-v11` returns HTTP 200).
 
-## Problem Summary
+So Mapbox requirements (token + map style load) are satisfied. The reason you see a basemap but no pins is almost certainly “no usable marker data is reaching Mapbox”.
 
-The map pins are not showing because the `useRegionalStats` hook's TypeScript interface still references **old column names** that no longer exist after the RPC function was updated. This causes the data aggregation to fail silently.
+### 2) Demo + Live farms DO have GPS coordinates (so data exists)
+From the database:
+- Total farms: 27
+- Demo farms: 15 (15/15 have gps_lat & gps_lng)
+- Live farms: 12 (12/12 have gps_lat & gps_lng)
+- The analytics view `gov_farm_analytics` also shows **0 rows missing GPS**.
 
-## Root Cause
+So we do NOT need to “fill in missing GPS” right now; the coordinates are already present.
 
-| Interface Has (OLD) | RPC/View Actually Returns (NEW) |
-|---------------------|--------------------------------|
-| `animal_count` | (removed - use `active_animal_count`) |
-| `health_events_7d` | (removed) |
-| `health_events_30d` | (removed) |
-| `lgu_code` | (removed) |
-| `ffedis_id` | (removed) |
-| `validation_status` | (removed) |
-| `validated_at` | (removed) |
-| — | `livestock_type` (NEW) |
-| — | `created_at` (NEW) |
-| — | `is_deleted` (NEW) |
-| — | `cattle_count` (NEW) |
-| — | `goat_count` (NEW) |
-| — | `carabao_count` (NEW) |
-| — | `sheep_count` (NEW) |
+### 3) The actual blocker: the RPC is failing at runtime
+When calling:
+`public.get_gov_farm_analytics_with_audit(...)`
 
-The code on lines 85-88 tries to access `farm.animal_count` which is undefined, causing `animalCount` to be 0 for all regions.
+It errors with:
+- `ERROR: column "role" does not exist`
+- Context: inside `get_gov_farm_analytics_with_audit` it runs `SELECT role FROM profiles ...`
 
-## Solution
+Your `public.profiles` table columns (confirmed) do not include `role` or `user_role`. It only has fields like:
+- id, full_name, phone, created_at, updated_at, email, voice_training_*, is_disabled
 
-### 1. Update TypeScript Interface
+Therefore the RPC crashes immediately, so the frontend receives no farm analytics rows → no regional aggregation → no markers.
 
-Update `GovFarmAnalyticsRow` to match the actual RPC return type:
+### 4) Secondary issue that can still prevent pins even after RPC fix: numeric fields likely arrive as strings
+Your `gov_farm_analytics.gps_lat/gps_lng` are `numeric` in the view/table schema. In many PostgREST/Supabase-style JSON responses, `numeric` and `bigint` often arrive as strings in JavaScript.
 
-```typescript
-interface GovFarmAnalyticsRow {
-  id: string;
-  name: string;
-  region: string;
-  province: string;
-  municipality: string;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  livestock_type: string | null;
-  created_at: string;
-  is_deleted: boolean;
-  is_program_participant: boolean | null;
-  program_group: string | null;
-  data_category: string;
-  active_animal_count: number;
-  cattle_count: number;
-  goat_count: number;
-  carabao_count: number;
-  sheep_count: number;
-}
-```
+If the frontend does math like:
+- `existing.latSum += farm.gps_lat;` (where gps_lat is `"14.18"` as a string)
+it can produce string concatenation and eventually `NaN` averages, which then fails this marker guard:
+- `if (!region.avg_gps_lat || !region.avg_gps_lng) return;`
+(`NaN` is falsy, so markers are skipped.)
 
-### 2. Update Aggregation Logic
+So we should fix both:
+1) RPC runtime error (mandatory)
+2) numeric parsing/casting (strongly recommended to make pins reliable)
 
-Fix the aggregation to use the correct column names and derive total animal count from species counts:
+---
 
-```typescript
-// Calculate total animal count from species counts
-const totalAnimals = (farm.cattle_count || 0) + 
-                     (farm.goat_count || 0) + 
-                     (farm.carabao_count || 0) + 
-                     (farm.sheep_count || 0);
+## Fix plan (what I will implement next)
 
-existing.animalCount += totalAnimals;
-existing.activeAnimalCount += farm.active_animal_count || 0;
-// Remove health_events references (no longer available)
-```
+### A) Database: repair `get_gov_farm_analytics_with_audit` so it no longer depends on `profiles.role`
+Goal: make the function:
+- Authorize correctly for government/admin users
+- Audit log safely
+- Return rows reliably
 
-### 3. Update RegionalStats Interface
+Changes:
+1. Remove `SELECT role FROM profiles ...` (this is invalid).
+2. Determine authorization using the already-established pattern:
+   - `has_role(auth.uid(), 'government'::user_role)` or `has_role(auth.uid(), 'admin'::user_role)`
+3. For audit logging `user_role`, set it deterministically:
+   - if admin => `"admin"`
+   - else if government => `"government"`
+   - else raise unauthorized
+4. Return an explicit SELECT list from `gov_farm_analytics` (avoid `SELECT *`) and cast numeric/bigint to JS-friendly types.
+   - Option 1 (preferred): make RPC return `double precision` for gps and `bigint` for counts, but explicitly cast:
+     - `gps_lat::double precision`, `gps_lng::double precision`
+   - This avoids the earlier “structure mismatch” problem because we won’t use `SELECT *`, we’ll match the return signature exactly.
 
-Since `health_events_7d` and `health_events_30d` are no longer available from the view, either:
-- Remove them from the `RegionalStats` interface, OR
-- Set them to 0 as placeholders
+Expected outcome:
+- RPC stops throwing 42703 (missing column)
+- Frontend gets data again
+- Audit log continues to work
 
-I'll remove them since they're not being displayed on the map.
+### B) Frontend: harden `useRegionalStats` against string numerics (so averages never become NaN)
+Even with casting, it’s safest to ensure robust parsing on the client.
 
-## Files to Modify
+Changes in `src/hooks/useRegionalStats.ts`:
+1. Introduce small helper converters:
+   - `toNum(value): number | null` that does `value == null ? null : Number(value)` and returns `null` if `Number.isFinite` fails.
+2. Apply conversions for:
+   - `gps_lat`, `gps_lng`
+   - `cattle_count`, `goat_count`, `carabao_count`, `sheep_count`
+   - `active_animal_count`
+3. Update the marker guard logic indirectly by ensuring `avg_gps_lat/lng` is a real finite number. If not, fall back to `getRegionalCoordinates(region)`.
 
-| File | Change |
-|------|--------|
-| `src/hooks/useRegionalStats.ts` | Update interface and aggregation logic |
+Expected outcome:
+- No more NaN coordinates
+- Pins render consistently for both demo and live data
 
-## Demo Farm GPS Data Status
+### C) Add targeted diagnostics (temporary, removable)
+To make sure we never “silently fail” again, I’ll add minimal diagnostics:
+- If the RPC returns error: surface a small inline error state in the map card (instead of silently showing an empty map).
+- Optionally log `regionalStats.length` and a sample region to console in dev.
 
-All 15 demo farms have valid GPS coordinates:
-- **NCR**: 1 farm (nXscale Farm)
-- **Region IV-A**: 12 farms across Batangas, Cavite, Laguna, Quezon, Rizal
-- **Region VIII**: 2 farms in Eastern Samar and Samar
+Expected outcome:
+- If backend breaks again, you’ll immediately see “why” (auth error, rpc error, empty dataset, etc.)
 
-After this fix, pins should appear for these 3 regions when "Demo Data" is selected.
+---
 
-## Expected Outcome
+## Verification checklist (I’ll run through after implementing)
+1. Backend function call succeeds (no errors) and returns rows.
+2. `useRegionalStats('demo')` returns 3 regions (NCR, Region IV-A, Region VIII) based on current data.
+3. Pins appear in:
+   - Demo
+   - Live
+   - All
+4. Clicking a pin opens the detail panel and shows correct region name.
 
-- Map shows pins for all regions with farms
-- Demo filter shows pins for NCR, Region IV-A, Region VIII
-- Marker sizes correctly reflect farm counts
-- Clicking pins opens regional detail panel
+---
 
+## Mismatches / missing information I will notify you about
+Current confirmed mismatches:
+- RPC function references `profiles.role` but `profiles` has no `role` column (hard failure).
+- `gov_farm_analytics.gps_lat/gps_lng` are `numeric`, which can become string values in JS responses and break averaging unless cast/parsed.
+
+Not missing:
+- Demo GPS coordinates: present for all demo farms (15/15)
+- Live GPS coordinates: present for all live farms (12/12)
+- Mapbox token/style loading: working
+
+---
+
+## Files / areas that will change
+- Database migration: update `public.get_gov_farm_analytics_with_audit` function body and return query to:
+  - remove profiles.role dependency
+  - cast return values explicitly
+- `src/hooks/useRegionalStats.ts`: numeric parsing hardening + better error surfacing
