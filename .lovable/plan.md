@@ -1,105 +1,104 @@
 
-
-# Fix: Government Dashboard RPC Column Name Errors
+# Fix: Regional Livestock Map Missing Pins for Demo Data
 
 ## Problem Summary
 
-The migration `20260204112600` (data category split) introduced SQL column name errors in 4 government RPC functions, causing the dashboard to fail with "Failed to load government statistics."
+The Regional Livestock Distribution map shows no pins when "Demo Data" is selected because the map's data source was not updated during the live/demo data segregation implementation.
 
 ## Root Cause
 
-The migration referenced incorrect column names that don't exist in the actual database schema:
+The `dataCategory` filter is being used throughout the Government Dashboard but was not connected to the map component:
 
-| RPC Function | Wrong Column | Correct Column |
-|-------------|--------------|----------------|
-| `get_government_stats` | `mr.record_datetime` | `mr.record_date` |
-| `get_government_stats` | `hr.record_date` | `hr.visit_date` |
-| `get_government_stats_timeseries` | `mr.record_datetime` | `mr.record_date` |
-| `get_government_stats_timeseries` | `hr.record_date` | `hr.visit_date` |
-| `get_health_heatmap_data` | `hr.record_date` | `hr.visit_date` |
-| `get_health_heatmap_data` | `hr.symptoms` | `hr.diagnosis` |
-| `get_government_health_stats` | `hr.cycle_length_days` | (calculate from `detected_at`) |
-| `get_government_health_stats` | `hr.observed_date` | `hr.detected_at` |
+| Component | Issue |
+|-----------|-------|
+| `GovernmentDashboard.tsx` | Has `dataCategory` state but doesn't pass it to `RegionalLivestockMap` |
+| `RegionalLivestockMap.tsx` | Doesn't accept `dataCategory` prop |
+| `useRegionalStats` hook | Doesn't filter by `data_category` - returns all farms regardless of selection |
 
-## Fix Strategy
+The hook calls `get_gov_farm_analytics_with_audit()` which returns all farms from the view. The view now includes `data_category`, but the hook doesn't filter the results.
 
-Create a corrective SQL migration that uses `CREATE OR REPLACE FUNCTION` to fix all 4 broken RPC functions with the correct column references:
+## Current Data Status
 
-1. **`get_government_stats`**: Fix `milking_records.record_date` and `health_records.visit_date`
+From the database:
+- **Demo farms**: 15 farms
+- **Live farms**: 11 farms
 
-2. **`get_government_stats_timeseries`**: Fix same column references in the timeseries variant
+When "Demo" is selected, the hook still returns all 26 farms but the aggregation doesn't filter, so pins appear based on total data (or don't render correctly due to the mismatch).
 
-3. **`get_health_heatmap_data`**: 
-   - Change `hr.record_date` to `hr.visit_date`
-   - Change `hr.symptoms` to `hr.diagnosis`
+## Solution
 
-4. **`get_government_health_stats`**: 
-   - Replace `hr.cycle_length_days` with a lateral join calculation using previous heat records
-   - Change `hr.observed_date` to `hr.detected_at`
+### 1. Update `RegionalLivestockMap` Component
 
-## Technical Details
+Add `dataCategory` prop and pass it to the hook:
 
-### Heat Cycle Calculation Fix
+```typescript
+interface RegionalLivestockMapProps {
+  dateRange?: { start: Date; end: Date };
+  dataCategory?: 'live' | 'demo' | 'all';  // NEW
+}
 
-Since `heat_records` doesn't have a `cycle_length_days` column, calculate it dynamically:
-
-```sql
-heat_stats AS (
-  SELECT
-    COUNT(*) AS heat_count,
-    AVG(
-      CASE 
-        WHEN prev_heat.detected_at IS NOT NULL 
-        THEN EXTRACT(EPOCH FROM (hr.detected_at - prev_heat.detected_at)) / 86400
-        ELSE NULL
-      END
-    ) AS avg_cycle
-  FROM heat_records hr
-  INNER JOIN animals a ON hr.animal_id = a.id
-  INNER JOIN filtered_farms ff ON a.farm_id = ff.id
-  LEFT JOIN LATERAL (
-    SELECT detected_at
-    FROM heat_records hr2
-    WHERE hr2.animal_id = hr.animal_id
-      AND hr2.detected_at < hr.detected_at
-    ORDER BY hr2.detected_at DESC
-    LIMIT 1
-  ) prev_heat ON true
-  WHERE hr.detected_at::date BETWEEN start_date AND end_date
-)
+const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLivestockMapProps) => {
+  const { data: regionalStats, isLoading } = useRegionalStats(dataCategory);
+  // ...
+};
 ```
 
-### Optimal Window Fix
+### 2. Update `useRegionalStats` Hook
 
-Change the optimal breeding window logic to use `detected_at`:
+Accept `dataCategory` parameter and filter results:
 
-```sql
-optimal_window AS (
-  SELECT COUNT(DISTINCT a.id) AS optimal_count
-  FROM animals a
-  INNER JOIN filtered_farms ff ON a.farm_id = ff.id
-  INNER JOIN heat_records hr ON hr.animal_id = a.id
-  WHERE a.is_deleted = false
-    AND a.exit_date IS NULL
-    AND a.gender = 'female'
-    AND hr.detected_at >= CURRENT_TIMESTAMP - INTERVAL '21 days'
-    AND hr.detected_at <= CURRENT_TIMESTAMP - INTERVAL '18 days'
-)
+```typescript
+export const useRegionalStats = (dataCategory: 'live' | 'demo' | 'all' = 'live') => {
+  return useQuery({
+    queryKey: ["regional-stats", dataCategory],  // Include in cache key
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_gov_farm_analytics_with_audit", {
+        _access_type: "view",
+        _metadata: { source: "regional_stats_dashboard", data_category: dataCategory }
+      });
+
+      if (error) throw error;
+
+      const farms = data as unknown as GovFarmAnalyticsRow[];
+      
+      // Filter by data category client-side (view includes the column)
+      const filteredFarms = dataCategory === 'all' 
+        ? farms 
+        : farms.filter(f => f.data_category === dataCategory);
+
+      // Aggregate by region using filteredFarms...
+    },
+  });
+};
+```
+
+### 3. Pass `dataCategory` from Dashboard
+
+Update the RegionalLivestockMap call in GovernmentDashboard:
+
+```typescript
+<RegionalLivestockMap 
+  dateRange={primaryDateRange} 
+  dataCategory={dataCategory}  // NEW
+/>
 ```
 
 ## Files to Modify
 
-| File | Action |
+| File | Change |
 |------|--------|
-| `supabase/migrations/YYYYMMDD_fix_rpc_columns.sql` | **NEW** - Corrective migration with all 4 fixed RPCs |
+| `src/hooks/useRegionalStats.ts` | Add `dataCategory` param, add `data_category` to interface, filter results |
+| `src/components/government/RegionalLivestockMap.tsx` | Add `dataCategory` prop, pass to hook |
+| `src/pages/GovernmentDashboard.tsx` | Pass `dataCategory` to RegionalLivestockMap |
+
+## Additional Fix Required
+
+There's also a TypeScript error in `useGovernmentHealthStats.ts` where the RPC return type doesn't match the expected interface. The corrective migration changed the column names but the hook still expects the old column names. This needs to be fixed by mapping the new column names to the expected interface.
 
 ## Testing Checklist
 
-- [ ] Government dashboard loads without errors on "Demo" filter
-- [ ] Government dashboard loads without errors on "Live" filter  
-- [ ] Government dashboard loads without errors on "All" filter
-- [ ] Overview statistics card shows real numbers
-- [ ] Timeseries charts render data correctly
-- [ ] Health heatmap displays municipalities
-- [ ] Health stats section shows vaccination/breeding data
-
+- [ ] Map shows pins when "Demo Data" is selected
+- [ ] Map shows pins when "Live Data" is selected  
+- [ ] Map shows all pins when "All Data" is selected
+- [ ] Clicking map pins opens regional detail panel with correct filtered data
+- [ ] Government health stats load without TypeScript errors
