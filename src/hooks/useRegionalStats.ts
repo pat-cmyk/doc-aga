@@ -9,8 +9,6 @@ export interface RegionalStats {
   farm_count: number;
   animal_count: number;
   active_animal_count: number;
-  health_events_7d: number;
-  health_events_30d: number;
   avg_gps_lat: number;
   avg_gps_lng: number;
 }
@@ -23,17 +21,17 @@ interface GovFarmAnalyticsRow {
   municipality: string;
   gps_lat: number | null;
   gps_lng: number | null;
-  lgu_code: string | null;
-  ffedis_id: string | null;
-  validation_status: string | null;
-  validated_at: string | null;
+  livestock_type: string | null;
+  created_at: string;
+  is_deleted: boolean;
   is_program_participant: boolean | null;
   program_group: string | null;
-  animal_count: number;
-  active_animal_count: number;
-  health_events_7d: number;
-  health_events_30d: number;
   data_category: string;
+  active_animal_count: number;
+  cattle_count: number;
+  goat_count: number;
+  carabao_count: number;
+  sheep_count: number;
 }
 
 export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
@@ -61,8 +59,6 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
         farmCount: number;
         animalCount: number;
         activeAnimalCount: number;
-        healthEvents7d: number;
-        healthEvents30d: number;
         latSum: number;
         lngSum: number;
         coordCount: number;
@@ -74,18 +70,20 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
           farmCount: 0,
           animalCount: 0,
           activeAnimalCount: 0,
-          healthEvents7d: 0,
-          healthEvents30d: 0,
           latSum: 0,
           lngSum: 0,
           coordCount: 0,
         };
 
         existing.farmCount += 1;
-        existing.animalCount += farm.animal_count || 0;
+        
+        // Calculate total animal count from species counts
+        const totalAnimals = (farm.cattle_count || 0) + 
+                             (farm.goat_count || 0) + 
+                             (farm.carabao_count || 0) + 
+                             (farm.sheep_count || 0);
+        existing.animalCount += totalAnimals;
         existing.activeAnimalCount += farm.active_animal_count || 0;
-        existing.healthEvents7d += farm.health_events_7d || 0;
-        existing.healthEvents30d += farm.health_events_30d || 0;
 
         if (farm.gps_lat && farm.gps_lng) {
           existing.latSum += farm.gps_lat;
@@ -109,8 +107,6 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
           farm_count: data.farmCount,
           animal_count: data.animalCount,
           active_animal_count: data.activeAnimalCount,
-          health_events_7d: data.healthEvents7d,
-          health_events_30d: data.healthEvents30d,
           avg_gps_lat,
           avg_gps_lng,
         });
