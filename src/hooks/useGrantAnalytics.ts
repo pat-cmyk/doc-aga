@@ -32,14 +32,17 @@ export interface GrantAnalytics {
   acquisitionBreakdown: AcquisitionBreakdown;
 }
 
+export type DataCategory = 'live' | 'demo' | 'all';
+
 export const useGrantAnalytics = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<GrantAnalytics>({
-    queryKey: ["grant-analytics", region || "all", province || "all", municipality || "all"],
+    queryKey: ["grant-analytics", region || "all", province || "all", municipality || "all", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -51,10 +54,15 @@ export const useGrantAnalytics = (
           acquisition_type,
           purchase_price,
           grant_source,
-          farms!inner(region, province, municipality)
+          farms!inner(region, province, municipality, data_category)
         `)
         .eq("is_deleted", false)
         .is("exit_date", null);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        query = query.eq("farms.data_category", dataCategory);
+      }
 
       if (region) {
         query = query.eq("farms.region", region);
@@ -130,21 +138,28 @@ export const useGrantAnalytics = (
   });
 };
 
-export const useRegionalGrantDistribution = (options?: { enabled?: boolean }) => {
+export const useRegionalGrantDistribution = (dataCategory: DataCategory = 'live', options?: { enabled?: boolean }) => {
   return useQuery<RegionalGrantData[]>({
-    queryKey: ["regional-grant-distribution"],
+    queryKey: ["regional-grant-distribution", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      const { data: animals, error } = await supabase
+      let query = supabase
         .from("animals")
         .select(`
           acquisition_type,
           purchase_price,
-          farms!inner(region)
+          farms!inner(region, data_category)
         `)
         .eq("is_deleted", false)
         .is("exit_date", null);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        query = query.eq("farms.data_category", dataCategory);
+      }
+
+      const { data: animals, error } = await query;
 
       if (error) throw error;
 

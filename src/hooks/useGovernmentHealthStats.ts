@@ -37,16 +37,19 @@ interface UseGovernmentHealthStatsOptions {
   enabled?: boolean;
 }
 
+export type DataCategory = 'live' | 'demo' | 'all';
+
 export function useGovernmentHealthStats(
   startDate: string,
   endDate: string,
   region?: string | null,
   province?: string | null,
   municipality?: string | null,
+  dataCategory: DataCategory = 'live',
   options: UseGovernmentHealthStatsOptions = {}
 ) {
   return useQuery({
-    queryKey: ['government-health-stats', startDate, endDate, region, province, municipality],
+    queryKey: ['government-health-stats', startDate, endDate, region, province, municipality, dataCategory],
     queryFn: async (): Promise<GovernmentHealthStats | null> => {
       const { data, error } = await supabase.rpc('get_government_health_stats', {
         start_date: startDate,
@@ -54,6 +57,7 @@ export function useGovernmentHealthStats(
         region_filter: region || null,
         province_filter: province || null,
         municipality_filter: municipality || null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) {

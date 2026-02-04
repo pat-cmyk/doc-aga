@@ -59,6 +59,7 @@ interface FarmWithDetails {
   validation_status: string | null;
   is_program_participant: boolean | null;
   program_group: string | null;
+  data_category: 'live' | 'demo';
 }
 export const FarmOversight = () => {
   const queryClient = useQueryClient();
@@ -88,6 +89,7 @@ export const FarmOversight = () => {
           validation_status,
           is_program_participant,
           program_group,
+          data_category,
           created_at,
           owner_id,
           is_deleted,
@@ -122,6 +124,7 @@ export const FarmOversight = () => {
         validation_status: string | null;
         is_program_participant: boolean | null;
         program_group: string | null;
+        data_category: 'live' | 'demo';
         created_at: string;
         owner_id: string;
         is_deleted: boolean;
@@ -169,6 +172,7 @@ export const FarmOversight = () => {
           validation_status: farm.validation_status,
           is_program_participant: farm.is_program_participant,
           program_group: farm.program_group,
+          data_category: farm.data_category || 'live',
           created_at: farm.created_at,
           owner_id: farm.owner_id,
           owner_name: farm.profiles?.full_name || "Unknown",
@@ -180,6 +184,31 @@ export const FarmOversight = () => {
           team_members_count: farm.farm_memberships?.[0]?.count || 0,
           is_deleted: farm.is_deleted,
         };
+      });
+    },
+  });
+
+  const updateDataCategoryMutation = useMutation({
+    mutationFn: async ({ farmId, category }: { farmId: string; category: 'live' | 'demo' }) => {
+      const { error } = await supabase
+        .from("farms")
+        .update({ data_category: category })
+        .eq("id", farmId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-farms"] });
+      toast({
+        title: "Success",
+        description: "Farm data category updated",
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating data category:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update data category",
+        variant: "destructive",
       });
     },
   });
@@ -316,6 +345,7 @@ export const FarmOversight = () => {
                 <TableHead>Region</TableHead>
                 <TableHead>Animals (Active/Deleted)</TableHead>
                 <TableHead>Team Members</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
@@ -342,6 +372,32 @@ export const FarmOversight = () => {
                     </div>
                   </TableCell>
                   <TableCell>{farm.team_members_count}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={farm.data_category}
+                      onValueChange={(value: 'live' | 'demo') => 
+                        updateDataCategoryMutation.mutate({ farmId: farm.id, category: value })
+                      }
+                    >
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="live">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-green-500" />
+                            Live
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="demo">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-blue-500" />
+                            Demo
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={farm.is_deleted ? "destructive" : "default"}>
                       {farm.is_deleted ? "Deactivated" : "Active"}

@@ -53,6 +53,7 @@ const RegionalDetailPanel = ({
     region || undefined,
     undefined, // province
     undefined, // municipality
+    'live', // dataCategory
     { enabled: isOpen && !!region }
   );
 
@@ -63,6 +64,7 @@ const RegionalDetailPanel = ({
       region || undefined,
       undefined, // province
       undefined, // municipality
+      'live', // dataCategory
       { enabled: isOpen && !!region }
     );
 
@@ -71,6 +73,7 @@ const RegionalDetailPanel = ({
     region || undefined,
     undefined, // province
     undefined, // municipality
+    'live', // dataCategory
     { enabled: isOpen && !!region }
   );
 
