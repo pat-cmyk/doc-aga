@@ -8,15 +8,18 @@ import { supabase } from "@/integrations/supabase/client";
 import RegionalDetailPanel from "./RegionalDetailPanel";
 import { subDays } from "date-fns";
 
+type DataCategory = 'live' | 'demo' | 'all';
+
 interface RegionalLivestockMapProps {
   dateRange?: { start: Date; end: Date };
+  dataCategory?: DataCategory;
 }
 
-const RegionalLivestockMap = ({ dateRange }: RegionalLivestockMapProps) => {
+const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLivestockMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const { data: regionalStats, isLoading } = useRegionalStats();
+  const { data: regionalStats, isLoading } = useRegionalStats(dataCategory);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
