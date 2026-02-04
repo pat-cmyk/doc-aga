@@ -4196,6 +4196,7 @@ export type Database = {
               avg_cycle_length: number
               bcs_assessments_count: number
               deworming_count: number
+              deworming_rate: number
               heat_detection_count: number
               mortality_count: number
               mortality_rate: number
