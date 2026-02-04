@@ -1,104 +1,129 @@
 
-# Fix: Regional Livestock Map Missing Pins for Demo Data
+
+# Fix: RPC Return Type Mismatch Preventing Map Pins
 
 ## Problem Summary
 
-The Regional Livestock Distribution map shows no pins when "Demo Data" is selected because the map's data source was not updated during the live/demo data segregation implementation.
+The Regional Livestock Map shows no pins because the `get_gov_farm_analytics_with_audit` RPC function is returning a **400 error**:
+
+```
+"structure of query does not match function result type"
+"Returned type numeric(9,6) does not match expected type double precision in column 6"
+```
 
 ## Root Cause
 
-The `dataCategory` filter is being used throughout the Government Dashboard but was not connected to the map component:
+The `get_gov_farm_analytics_with_audit` function's return type signature is out of sync with the actual `gov_farm_analytics` view.
 
-| Component | Issue |
-|-----------|-------|
-| `GovernmentDashboard.tsx` | Has `dataCategory` state but doesn't pass it to `RegionalLivestockMap` |
-| `RegionalLivestockMap.tsx` | Doesn't accept `dataCategory` prop |
-| `useRegionalStats` hook | Doesn't filter by `data_category` - returns all farms regardless of selection |
+### Mismatches Found
 
-The hook calls `get_gov_farm_analytics_with_audit()` which returns all farms from the view. The view now includes `data_category`, but the hook doesn't filter the results.
-
-## Current Data Status
-
-From the database:
-- **Demo farms**: 15 farms
-- **Live farms**: 11 farms
-
-When "Demo" is selected, the hook still returns all 26 farms but the aggregation doesn't filter, so pins appear based on total data (or don't render correctly due to the mismatch).
+| Column | Function Declares | View Actually Returns |
+|--------|------------------|----------------------|
+| `gps_lat` | DOUBLE PRECISION | NUMERIC(9,6) |
+| `gps_lng` | DOUBLE PRECISION | NUMERIC(9,6) |
+| `data_category` | (missing) | TEXT |
+| `livestock_type` | (missing) | TEXT |
+| `cattle_count` | (missing) | BIGINT |
+| `goat_count` | (missing) | BIGINT |
+| `carabao_count` | (missing) | BIGINT |
+| `sheep_count` | (missing) | BIGINT |
+| `lgu_code` | TEXT | (doesn't exist) |
+| `ffedis_id` | TEXT | (doesn't exist) |
+| `validation_status` | TEXT | (doesn't exist) |
+| `validated_at` | TIMESTAMPTZ | (doesn't exist) |
+| `animal_count` | BIGINT | (doesn't exist) |
+| `health_events_7d` | BIGINT | (doesn't exist) |
+| `health_events_30d` | BIGINT | (doesn't exist) |
 
 ## Solution
 
-### 1. Update `RegionalLivestockMap` Component
+### 1. SQL Migration
 
-Add `dataCategory` prop and pass it to the hook:
+Drop and recreate the RPC function with the correct return type matching the view's actual structure:
+
+```sql
+DROP FUNCTION IF EXISTS public.get_gov_farm_analytics_with_audit(TEXT, JSONB);
+
+CREATE OR REPLACE FUNCTION public.get_gov_farm_analytics_with_audit(
+    _access_type TEXT DEFAULT 'view',
+    _metadata JSONB DEFAULT '{}'::jsonb
+)
+RETURNS TABLE (
+    id UUID,
+    name TEXT,
+    region TEXT,
+    province TEXT,
+    municipality TEXT,
+    gps_lat NUMERIC(9,6),        -- Fixed: was DOUBLE PRECISION
+    gps_lng NUMERIC(9,6),        -- Fixed: was DOUBLE PRECISION
+    livestock_type TEXT,          -- Added
+    created_at TIMESTAMPTZ,       -- Added
+    is_deleted BOOLEAN,           -- Added
+    is_program_participant BOOLEAN,
+    program_group TEXT,
+    data_category TEXT,           -- Added: required for filtering
+    active_animal_count BIGINT,
+    cattle_count BIGINT,          -- Added
+    goat_count BIGINT,            -- Added
+    carabao_count BIGINT,         -- Added
+    sheep_count BIGINT            -- Added
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+...
+    RETURN QUERY SELECT * FROM gov_farm_analytics;
+END;
+$$;
+```
+
+### 2. Update TypeScript Interface
+
+Update `useRegionalStats.ts` to match the new column structure:
 
 ```typescript
-interface RegionalLivestockMapProps {
-  dateRange?: { start: Date; end: Date };
-  dataCategory?: 'live' | 'demo' | 'all';  // NEW
+interface GovFarmAnalyticsRow {
+  id: string;
+  name: string;
+  region: string;
+  province: string;
+  municipality: string;
+  gps_lat: number | null;
+  gps_lng: number | null;
+  livestock_type: string | null;
+  created_at: string;
+  is_deleted: boolean;
+  is_program_participant: boolean | null;
+  program_group: string | null;
+  data_category: string;
+  active_animal_count: number;
+  cattle_count: number;
+  goat_count: number;
+  carabao_count: number;
+  sheep_count: number;
 }
-
-const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLivestockMapProps) => {
-  const { data: regionalStats, isLoading } = useRegionalStats(dataCategory);
-  // ...
-};
-```
-
-### 2. Update `useRegionalStats` Hook
-
-Accept `dataCategory` parameter and filter results:
-
-```typescript
-export const useRegionalStats = (dataCategory: 'live' | 'demo' | 'all' = 'live') => {
-  return useQuery({
-    queryKey: ["regional-stats", dataCategory],  // Include in cache key
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_gov_farm_analytics_with_audit", {
-        _access_type: "view",
-        _metadata: { source: "regional_stats_dashboard", data_category: dataCategory }
-      });
-
-      if (error) throw error;
-
-      const farms = data as unknown as GovFarmAnalyticsRow[];
-      
-      // Filter by data category client-side (view includes the column)
-      const filteredFarms = dataCategory === 'all' 
-        ? farms 
-        : farms.filter(f => f.data_category === dataCategory);
-
-      // Aggregate by region using filteredFarms...
-    },
-  });
-};
-```
-
-### 3. Pass `dataCategory` from Dashboard
-
-Update the RegionalLivestockMap call in GovernmentDashboard:
-
-```typescript
-<RegionalLivestockMap 
-  dateRange={primaryDateRange} 
-  dataCategory={dataCategory}  // NEW
-/>
 ```
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useRegionalStats.ts` | Add `dataCategory` param, add `data_category` to interface, filter results |
-| `src/components/government/RegionalLivestockMap.tsx` | Add `dataCategory` prop, pass to hook |
-| `src/pages/GovernmentDashboard.tsx` | Pass `dataCategory` to RegionalLivestockMap |
+| New SQL Migration | Recreate RPC function with correct return type |
+| `src/hooks/useRegionalStats.ts` | Update TypeScript interface to match new columns |
 
-## Additional Fix Required
+## Expected Outcome
 
-There's also a TypeScript error in `useGovernmentHealthStats.ts` where the RPC return type doesn't match the expected interface. The corrective migration changed the column names but the hook still expects the old column names. This needs to be fixed by mapping the new column names to the expected interface.
+After fix:
+- The RPC call succeeds (no more 400 error)
+- Demo farms with GPS coordinates appear as pins on the map
+- Data category filtering works correctly (Demo, Live, All)
 
 ## Testing Checklist
 
-- [ ] Map shows pins when "Demo Data" is selected
-- [ ] Map shows pins when "Live Data" is selected  
-- [ ] Map shows all pins when "All Data" is selected
-- [ ] Clicking map pins opens regional detail panel with correct filtered data
-- [ ] Government health stats load without TypeScript errors
+- [ ] RPC returns data successfully (no 400 error)
+- [ ] Map shows pins for Demo farms (should see 15 farms across Region IV-A, Region VIII, NCR)
+- [ ] Map shows pins for Live farms
+- [ ] Map shows all pins when "All Data" selected
+- [ ] Clicking pins opens regional detail panel
+
