@@ -935,7 +935,7 @@ const GovernmentDashboard = () => {
                   </CardContent>
                 </Card>
               }>
-                <RegionalLivestockMap dateRange={primaryDateRange} />
+                <RegionalLivestockMap dateRange={primaryDateRange} dataCategory={dataCategory} />
               </Suspense>
 
               {/* Comparison Summary */}

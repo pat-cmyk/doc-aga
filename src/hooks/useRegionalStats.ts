@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
 
+export type DataCategory = 'live' | 'demo' | 'all';
+
 export interface RegionalStats {
   region: string;
   farm_count: number;
@@ -31,22 +33,28 @@ interface GovFarmAnalyticsRow {
   active_animal_count: number;
   health_events_7d: number;
   health_events_30d: number;
+  data_category: string;
 }
 
-export const useRegionalStats = () => {
+export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
   return useQuery({
-    queryKey: ["regional-stats"],
+    queryKey: ["regional-stats", dataCategory],
     queryFn: async () => {
       // Use the audited RPC function for government analytics access
       const { data, error } = await supabase.rpc("get_gov_farm_analytics_with_audit", {
         _access_type: "view",
-        _metadata: { source: "regional_stats_dashboard" }
+        _metadata: { source: "regional_stats_dashboard", data_category: dataCategory }
       });
 
       if (error) throw error;
 
       // Cast the data to our expected type
-      const farms = data as unknown as GovFarmAnalyticsRow[];
+      const allFarms = data as unknown as GovFarmAnalyticsRow[];
+      
+      // Filter by data category client-side (view includes data_category column)
+      const farms = dataCategory === 'all' 
+        ? allFarms 
+        : allFarms.filter(f => f.data_category === dataCategory);
 
       // Aggregate by region
       const regionMap = new Map<string, {

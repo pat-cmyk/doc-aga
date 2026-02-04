@@ -69,26 +69,31 @@ export function useGovernmentHealthStats(
         return null;
       }
 
-      const row = data[0];
+      // Map RPC response to expected interface (RPC uses abbreviated column names)
+      const row = data[0] as Record<string, unknown>;
       return {
-        scheduled_vaccinations: Number(row.scheduled_vaccinations) || 0,
-        completed_vaccinations: Number(row.completed_vaccinations) || 0,
-        overdue_vaccinations: Number(row.overdue_vaccinations) || 0,
-        scheduled_deworming: Number(row.scheduled_deworming) || 0,
-        completed_deworming: Number(row.completed_deworming) || 0,
-        vaccination_compliance_rate: Number(row.vaccination_compliance_rate) || 0,
-        heat_events_count: Number(row.heat_events_count) || 0,
-        avg_cycle_length_days: Number(row.avg_cycle_length_days) || 0,
-        animals_in_optimal_window: Number(row.animals_in_optimal_window) || 0,
-        total_exits: Number(row.total_exits) || 0,
-        exits_sold: Number(row.exits_sold) || 0,
-        exits_died: Number(row.exits_died) || 0,
-        exits_culled: Number(row.exits_culled) || 0,
-        exits_transferred: Number(row.exits_transferred) || 0,
-        exits_slaughtered: Number(row.exits_slaughtered) || 0,
+        // Vaccination stats - RPC returns vaccination_count and vaccination_rate
+        scheduled_vaccinations: Number(row.vaccination_count) || 0,
+        completed_vaccinations: Number(row.vaccination_count) || 0,
+        overdue_vaccinations: 0, // Not available from simplified RPC
+        scheduled_deworming: 0, // Not available from simplified RPC
+        completed_deworming: 0, // Not available from simplified RPC
+        vaccination_compliance_rate: Number(row.vaccination_rate) || 0,
+        // Heat detection - RPC returns heat_detection_count, avg_cycle_length, optimal_breeding_window_count
+        heat_events_count: Number(row.heat_detection_count) || 0,
+        avg_cycle_length_days: Number(row.avg_cycle_length) || 0,
+        animals_in_optimal_window: Number(row.optimal_breeding_window_count) || 0,
+        // Mortality/exits - RPC returns mortality_count and mortality_rate
+        total_exits: Number(row.mortality_count) || 0,
+        exits_sold: 0, // Not available from simplified RPC
+        exits_died: Number(row.mortality_count) || 0,
+        exits_culled: 0, // Not available from simplified RPC
+        exits_transferred: 0, // Not available from simplified RPC
+        exits_slaughtered: 0, // Not available from simplified RPC
         mortality_rate: Number(row.mortality_rate) || 0,
-        total_sales_revenue: Number(row.total_sales_revenue) || 0,
-        avg_bcs_score: Number(row.avg_bcs_score) || 0,
+        total_sales_revenue: 0, // Not available from simplified RPC
+        // BCS - RPC returns avg_bcs and bcs counts
+        avg_bcs_score: Number(row.avg_bcs) || 0,
         animals_underweight: Number(row.animals_underweight) || 0,
         animals_optimal: Number(row.animals_optimal) || 0,
         animals_overweight: Number(row.animals_overweight) || 0,
