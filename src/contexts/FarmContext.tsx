@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 
 interface FarmContextType {
   farmId: string | null;
@@ -7,9 +8,10 @@ interface FarmContextType {
   farmLogoUrl: string | null;
   canManageFarm: boolean;
   maxBackdateDays: number;
+  backdatingEnabled: boolean;
   isLoading: boolean;
   setFarmId: (farmId: string | null) => void;
-  setFarmDetails: (details: { name?: string; logoUrl?: string | null; canManage?: boolean; maxBackdateDays?: number }) => void;
+  setFarmDetails: (details: { name?: string; logoUrl?: string | null; canManage?: boolean }) => void;
   clearFarm: () => void;
 }
 
@@ -28,8 +30,16 @@ export function FarmProvider({ children }: { children: ReactNode }) {
   const [farmName, setFarmName] = useState<string>('My Farm');
   const [farmLogoUrl, setFarmLogoUrl] = useState<string | null>(null);
   const [canManageFarm, setCanManageFarm] = useState(false);
-  const [maxBackdateDays, setMaxBackdateDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Use platform settings for backdating (centralized control)
+  const { data: platformSettings, isLoading: platformLoading } = usePlatformSettings();
+  
+  // When backdating is disabled, use a large number (36500 = ~100 years) for effectively unlimited
+  const maxBackdateDays = platformSettings?.backdatingEnabled 
+    ? platformSettings.maxBackdateDays 
+    : 36500;
+  const backdatingEnabled = platformSettings?.backdatingEnabled ?? false;
 
   // Fetch farm details when farmId changes
   useEffect(() => {
@@ -38,7 +48,6 @@ export function FarmProvider({ children }: { children: ReactNode }) {
         setFarmName('My Farm');
         setFarmLogoUrl(null);
         setCanManageFarm(false);
-        setMaxBackdateDays(7);
         return;
       }
 
@@ -47,7 +56,7 @@ export function FarmProvider({ children }: { children: ReactNode }) {
         const [farmResult, userResult] = await Promise.all([
           supabase
             .from('farms')
-            .select('name, logo_url, owner_id, max_backdate_days')
+            .select('name, logo_url, owner_id')
             .eq('id', farmId)
             .single(),
           supabase.auth.getUser()
@@ -57,7 +66,6 @@ export function FarmProvider({ children }: { children: ReactNode }) {
           setFarmName(farmResult.data.name || 'My Farm');
           setFarmLogoUrl(farmResult.data.logo_url);
           setCanManageFarm(farmResult.data.owner_id === userResult.data.user?.id);
-          setMaxBackdateDays(farmResult.data.max_backdate_days ?? 7);
         }
       } catch (error) {
         console.error('Error fetching farm details:', error);
@@ -97,11 +105,10 @@ export function FarmProvider({ children }: { children: ReactNode }) {
     setFarmIdState(id);
   }, []);
 
-  const setFarmDetails = useCallback((details: { name?: string; logoUrl?: string | null; canManage?: boolean; maxBackdateDays?: number }) => {
+  const setFarmDetails = useCallback((details: { name?: string; logoUrl?: string | null; canManage?: boolean }) => {
     if (details.name !== undefined) setFarmName(details.name);
     if (details.logoUrl !== undefined) setFarmLogoUrl(details.logoUrl);
     if (details.canManage !== undefined) setCanManageFarm(details.canManage);
-    if (details.maxBackdateDays !== undefined) setMaxBackdateDays(details.maxBackdateDays);
   }, []);
 
   const clearFarm = useCallback(() => {
@@ -109,7 +116,6 @@ export function FarmProvider({ children }: { children: ReactNode }) {
     setFarmName('My Farm');
     setFarmLogoUrl(null);
     setCanManageFarm(false);
-    setMaxBackdateDays(7);
   }, []);
 
   return (
@@ -119,7 +125,8 @@ export function FarmProvider({ children }: { children: ReactNode }) {
       farmLogoUrl,
       canManageFarm,
       maxBackdateDays,
-      isLoading,
+      backdatingEnabled,
+      isLoading: isLoading || platformLoading,
       setFarmId,
       setFarmDetails,
       clearFarm

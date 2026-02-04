@@ -610,6 +610,20 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
 
     console.log(`Extracted ${toolCalls.length} tool call(s)`);
     
+    // Fetch platform backdating setting once per request (outside the loop)
+    const { data: platformSettingsData } = await supabase
+      .from('platform_settings')
+      .select('setting_value')
+      .eq('setting_key', 'backdating')
+      .single();
+    
+    const backdatingEnabled = (platformSettingsData?.setting_value as unknown as { enabled: boolean; max_days: number })?.enabled ?? false;
+    const platformMaxDays = (platformSettingsData?.setting_value as unknown as { enabled: boolean; max_days: number })?.max_days ?? 7;
+    
+    // If backdating is disabled, use a very large number (effectively unlimited)
+    const effectiveMaxDays = backdatingEnabled ? platformMaxDays : 36500;
+    console.log(`Backdating setting: enabled=${backdatingEnabled}, maxDays=${effectiveMaxDays}`);
+    
     // Parse all tool calls
     const extractedActivities = toolCalls.map((toolCall: any, index: number) => {
       const data = JSON.parse(toolCall.function.arguments);
@@ -623,13 +637,13 @@ CRITICAL: Flag future references: "bukas", "ugma", "tomorrow", "mamaya", "sa sus
       
       // Validate and parse date reference if provided
       if (data.date_reference) {
-        const dateValidation = parseAndValidateDate(data.date_reference);
+        const dateValidation = parseAndValidateDate(data.date_reference, effectiveMaxDays);
         if (!dateValidation.isValid) {
           throw new Error(dateValidation.error);
         }
         data.validated_date = dateValidation.date;
         data.validated_datetime = dateValidation.datetime;
-        console.log(`✓ Date validated: ${data.date_reference} → ${data.validated_date}`);
+        console.log(`✓ Date validated: ${data.date_reference} → ${data.validated_date} (maxDays: ${effectiveMaxDays}, enabled: ${backdatingEnabled})`);
       }
       
       return data;
