@@ -4079,22 +4079,23 @@ export type Database = {
         Args: { _access_type?: string; _metadata?: Json }
         Returns: {
           active_animal_count: number
-          animal_count: number
-          ffedis_id: string
+          carabao_count: number
+          cattle_count: number
+          created_at: string
+          data_category: string
+          goat_count: number
           gps_lat: number
           gps_lng: number
-          health_events_30d: number
-          health_events_7d: number
           id: string
+          is_deleted: boolean
           is_program_participant: boolean
-          lgu_code: string
+          livestock_type: string
           municipality: string
           name: string
           program_group: string
           province: string
           region: string
-          validated_at: string
-          validation_status: string
+          sheep_count: number
         }[]
       }
       get_government_breeding_stats:
