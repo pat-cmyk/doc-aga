@@ -1622,6 +1622,7 @@ export type Database = {
           biosecurity_level: string | null
           client_generated_id: string | null
           created_at: string
+          data_category: string
           distance_to_market_km: number | null
           ffedis_id: string | null
           gps_lat: number
@@ -1649,6 +1650,7 @@ export type Database = {
           biosecurity_level?: string | null
           client_generated_id?: string | null
           created_at?: string
+          data_category?: string
           distance_to_market_km?: number | null
           ffedis_id?: string | null
           gps_lat: number
@@ -1676,6 +1678,7 @@ export type Database = {
           biosecurity_level?: string | null
           client_generated_id?: string | null
           created_at?: string
+          data_category?: string
           distance_to_market_km?: number | null
           ffedis_id?: string | null
           gps_lat?: number
@@ -3826,22 +3829,23 @@ export type Database = {
       gov_farm_analytics: {
         Row: {
           active_animal_count: number | null
-          animal_count: number | null
-          ffedis_id: string | null
+          carabao_count: number | null
+          cattle_count: number | null
+          created_at: string | null
+          data_category: string | null
+          goat_count: number | null
           gps_lat: number | null
           gps_lng: number | null
-          health_events_30d: number | null
-          health_events_7d: number | null
           id: string | null
+          is_deleted: boolean | null
           is_program_participant: boolean | null
-          lgu_code: string | null
+          livestock_type: string | null
           municipality: string | null
           name: string | null
           program_group: string | null
           province: string | null
           region: string | null
-          validated_at: string | null
-          validation_status: string | null
+          sheep_count: number | null
         }
         Relationships: []
       }
@@ -4093,62 +4097,121 @@ export type Database = {
           validation_status: string
         }[]
       }
-      get_government_breeding_stats: {
-        Args: {
-          end_date: string
-          municipality_filter?: string
-          province_filter?: string
-          region_filter?: string
-          start_date: string
-        }
-        Returns: {
-          ai_success_rate: number
-          carabao_success_rate: number
-          cattle_success_rate: number
-          currently_pregnant: number
-          due_this_quarter: number
-          expected_deliveries_by_month: Json
-          goat_success_rate: number
-          sheep_success_rate: number
-          total_ai_performed: number
-          total_ai_scheduled: number
-          total_pregnancies_confirmed: number
-          unique_semen_codes: number
-        }[]
-      }
-      get_government_health_stats: {
-        Args: {
-          end_date: string
-          municipality_filter?: string
-          province_filter?: string
-          region_filter?: string
-          start_date: string
-        }
-        Returns: {
-          animals_in_optimal_window: number
-          animals_optimal: number
-          animals_overweight: number
-          animals_underweight: number
-          avg_bcs_score: number
-          avg_cycle_length_days: number
-          bcs_assessments_count: number
-          completed_deworming: number
-          completed_vaccinations: number
-          exits_culled: number
-          exits_died: number
-          exits_slaughtered: number
-          exits_sold: number
-          exits_transferred: number
-          heat_events_count: number
-          mortality_rate: number
-          overdue_vaccinations: number
-          scheduled_deworming: number
-          scheduled_vaccinations: number
-          total_exits: number
-          total_sales_revenue: number
-          vaccination_compliance_rate: number
-        }[]
-      }
+      get_government_breeding_stats:
+        | {
+            Args: {
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              ai_success_rate: number
+              carabao_success_rate: number
+              cattle_success_rate: number
+              currently_pregnant: number
+              due_this_quarter: number
+              expected_deliveries_by_month: Json
+              goat_success_rate: number
+              sheep_success_rate: number
+              total_ai_performed: number
+              total_ai_scheduled: number
+              total_pregnancies_confirmed: number
+              unique_semen_codes: number
+            }[]
+          }
+        | {
+            Args: {
+              data_category_filter?: string
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              ai_success_rate: number
+              carabao_success_rate: number
+              cattle_success_rate: number
+              currently_pregnant: number
+              due_this_quarter: number
+              expected_deliveries_by_month: Json
+              goat_success_rate: number
+              sheep_success_rate: number
+              total_ai_performed: number
+              total_ai_scheduled: number
+              total_pregnancies_confirmed: number
+            }[]
+          }
+      get_government_health_stats:
+        | {
+            Args: {
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              animals_in_optimal_window: number
+              animals_optimal: number
+              animals_overweight: number
+              animals_underweight: number
+              avg_bcs_score: number
+              avg_cycle_length_days: number
+              bcs_assessments_count: number
+              completed_deworming: number
+              completed_vaccinations: number
+              exits_culled: number
+              exits_died: number
+              exits_slaughtered: number
+              exits_sold: number
+              exits_transferred: number
+              heat_events_count: number
+              mortality_rate: number
+              overdue_vaccinations: number
+              scheduled_deworming: number
+              scheduled_vaccinations: number
+              total_exits: number
+              total_sales_revenue: number
+              vaccination_compliance_rate: number
+            }[]
+          }
+        | {
+            Args: {
+              data_category_filter?: string
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              animals_in_optimal_window: number
+              animals_optimal: number
+              animals_overweight: number
+              animals_underweight: number
+              avg_bcs_score: number
+              avg_cycle_length_days: number
+              bcs_assessments_count: number
+              completed_deworming: number
+              completed_vaccinations: number
+              exits_culled: number
+              exits_died: number
+              exits_slaughtered: number
+              exits_sold: number
+              exits_transferred: number
+              heat_events_count: number
+              mortality_rate: number
+              overdue_vaccinations: number
+              scheduled_deworming: number
+              scheduled_vaccinations: number
+              total_exits: number
+              total_sales_revenue: number
+              vaccination_compliance_rate: number
+            }[]
+          }
       get_government_milk_analytics: {
         Args: {
           end_date: string
@@ -4171,59 +4234,118 @@ export type Database = {
           total_milk_liters: number
         }[]
       }
-      get_government_stats: {
-        Args: {
-          end_date: string
-          municipality_filter?: string
-          province_filter?: string
-          region_filter?: string
-          start_date: string
-        }
-        Returns: {
-          active_animal_count: number
-          avg_milk_liters: number
-          daily_log_count: number
-          doc_aga_query_count: number
-          farm_count: number
-          health_event_count: number
-        }[]
-      }
-      get_government_stats_timeseries: {
-        Args: {
-          end_date: string
-          filter_municipality?: string
-          filter_province?: string
-          filter_region?: string
-          start_date: string
-        }
-        Returns: {
-          carabao_count: number
-          cattle_count: number
-          date: string
-          doc_aga_queries: number
-          goat_count: number
-          health_events: number
-          sheep_count: number
-          total_farms: number
-          total_milk_liters: number
-        }[]
-      }
-      get_health_heatmap_data: {
-        Args: {
-          days_back?: number
-          municipality_filter?: string
-          province_filter?: string
-          region_filter?: string
-        }
-        Returns: {
-          health_event_count: number
-          municipality: string
-          prevalence_rate: number
-          region: string
-          symptom_types: string[]
-          total_animals: number
-        }[]
-      }
+      get_government_stats:
+        | {
+            Args: {
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              active_animal_count: number
+              avg_milk_liters: number
+              daily_log_count: number
+              doc_aga_query_count: number
+              farm_count: number
+              health_event_count: number
+            }[]
+          }
+        | {
+            Args: {
+              data_category_filter?: string
+              end_date: string
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+              start_date: string
+            }
+            Returns: {
+              active_animal_count: number
+              avg_milk_liters: number
+              daily_log_count: number
+              doc_aga_query_count: number
+              farm_count: number
+              health_event_count: number
+            }[]
+          }
+      get_government_stats_timeseries:
+        | {
+            Args: {
+              end_date: string
+              filter_municipality?: string
+              filter_province?: string
+              filter_region?: string
+              start_date: string
+            }
+            Returns: {
+              carabao_count: number
+              cattle_count: number
+              date: string
+              doc_aga_queries: number
+              goat_count: number
+              health_events: number
+              sheep_count: number
+              total_farms: number
+              total_milk_liters: number
+            }[]
+          }
+        | {
+            Args: {
+              data_category_filter?: string
+              end_date: string
+              filter_municipality?: string
+              filter_province?: string
+              filter_region?: string
+              start_date: string
+            }
+            Returns: {
+              carabao_count: number
+              cattle_count: number
+              date: string
+              doc_aga_queries: number
+              goat_count: number
+              health_events: number
+              sheep_count: number
+              total_farms: number
+              total_milk_liters: number
+            }[]
+          }
+      get_health_heatmap_data:
+        | {
+            Args: {
+              days_back?: number
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+            }
+            Returns: {
+              health_event_count: number
+              municipality: string
+              prevalence_rate: number
+              region: string
+              symptom_types: string[]
+              total_animals: number
+            }[]
+          }
+        | {
+            Args: {
+              data_category_filter?: string
+              days_back?: number
+              municipality_filter?: string
+              province_filter?: string
+              region_filter?: string
+            }
+            Returns: {
+              health_event_count: number
+              municipality: string
+              prevalence_rate: number
+              region: string
+              symptom_types: string[]
+              total_animals: number
+            }[]
+          }
       get_market_price: {
         Args: {
           p_farm_id?: string

@@ -56,7 +56,10 @@ import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
+import { Database as DatabaseIcon } from "lucide-react";
+
 type DatePreset = "last7Days" | "last30Days" | "last90Days" | "custom";
+type DataCategory = 'live' | 'demo' | 'all';
 
 const GovernmentDashboard = () => {
   const navigate = useNavigate();
@@ -151,12 +154,18 @@ const GovernmentDashboard = () => {
     searchParams.get("c_municipality") || undefined
   );
 
+  // Data category filter for live/demo segregation
+  const [dataCategory, setDataCategory] = useState<DataCategory>(() => 
+    (searchParams.get("data_source") as DataCategory) || 'live'
+  );
+
   // Update URL when state changes
   useMemo(() => {
     const params = new URLSearchParams();
     
     params.set("tab", activeTab);
     params.set("compare", comparisonMode.toString());
+    params.set("data_source", dataCategory);
     params.set("p_preset", primaryPreset);
     params.set("p_start", format(primaryDateRange.start, "yyyy-MM-dd"));
     params.set("p_end", format(primaryDateRange.end, "yyyy-MM-dd"));
@@ -174,7 +183,7 @@ const GovernmentDashboard = () => {
     }
     
     setSearchParams(params, { replace: true });
-  }, [activeTab, comparisonMode, primaryPreset, primaryDateRange, primaryRegion, primaryProvince, primaryMunicipality, comparisonPreset, comparisonDateRange, comparisonRegion, comparisonProvince, comparisonMunicipality]);
+  }, [activeTab, comparisonMode, dataCategory, primaryPreset, primaryDateRange, primaryRegion, primaryProvince, primaryMunicipality, comparisonPreset, comparisonDateRange, comparisonRegion, comparisonProvince, comparisonMunicipality]);
 
   // Data fetching
   const { data: stats, isLoading: statsLoading, error: statsError } = useGovernmentStats(
@@ -183,6 +192,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
+    dataCategory,
     { enabled: !!hasAccess }
   );
 
@@ -192,6 +202,7 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
+    dataCategory,
     { enabled: !!hasAccess && comparisonMode }
   );
 
@@ -204,6 +215,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
+    dataCategory,
     { enabled: !!hasAccess }
   );
 
@@ -212,6 +224,7 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
+    dataCategory,
     { enabled: !!hasAccess && comparisonMode }
   );
 
@@ -233,6 +246,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
+    dataCategory,
     { enabled: !!hasAccess }
   );
 
@@ -242,6 +256,7 @@ const GovernmentDashboard = () => {
     comparisonRegion,
     comparisonProvince,
     comparisonMunicipality,
+    dataCategory,
     { enabled: !!hasAccess && comparisonMode }
   );
 
@@ -252,6 +267,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
+    dataCategory,
     { enabled: !!hasAccess }
   );
 
@@ -262,6 +278,7 @@ const GovernmentDashboard = () => {
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
+    dataCategory,
     { enabled: !!hasAccess }
   );
 
@@ -488,6 +505,34 @@ const GovernmentDashboard = () => {
             <Collapsible>
               {/* Actions Row - Export Buttons + Filter Toggle */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Data Source Selector */}
+                <Select value={dataCategory} onValueChange={(value: DataCategory) => setDataCategory(value)}>
+                  <SelectTrigger className="w-[140px]">
+                    <DatabaseIcon className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Data Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="live">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                        Live Data
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="demo">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                        Demo Data
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-gray-500" />
+                        All Data
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
                 <Button
                   variant="outline"
                   size="sm"
@@ -516,6 +561,12 @@ const GovernmentDashboard = () => {
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
+                {dataCategory !== 'live' && (
+                  <Badge variant={dataCategory === 'demo' ? 'secondary' : 'outline'} className="gap-1">
+                    <span className={`h-2 w-2 rounded-full ${dataCategory === 'demo' ? 'bg-blue-500' : 'bg-gray-500'}`} />
+                    {dataCategory === 'demo' ? 'Demo Mode' : 'All Data'}
+                  </Badge>
+                )}
                 {comparisonMode && (
                   <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
                     Comparing

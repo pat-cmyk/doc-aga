@@ -18,16 +18,19 @@ interface BreedingStats {
   }>;
 }
 
+export type DataCategory = 'live' | 'demo' | 'all';
+
 export const useBreedingStats = (
   startDate: Date,
   endDate: Date,
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery({
-    queryKey: ["breeding-stats", startDate, endDate, region, province, municipality],
+    queryKey: ["breeding-stats", startDate, endDate, region, province, municipality, dataCategory],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_government_breeding_stats", {
         start_date: startDate.toISOString().split('T')[0],
@@ -35,6 +38,7 @@ export const useBreedingStats = (
         region_filter: region && region !== "all" ? region : null,
         province_filter: province && province !== "all" ? province : null,
         municipality_filter: municipality && municipality !== "all" ? municipality : null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) throw error;
