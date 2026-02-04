@@ -1,190 +1,221 @@
 
-# Plan: Move Backdating Control to Admin Dashboard (Lenient Mode)
 
-## Confirmed Behavior
+# Plan: Live/Demo Farm Data Segregation System
 
-When the **"Enforce backdating limit" toggle is OFF**:
-- ✅ All farmers can enter records from any past date (no restriction)
-- ✅ This is the lenient mode for initial user acquisition
+## Overview
 
-When the **"Enforce backdating limit" toggle is ON**:
-- ✅ Farmers can only backdate up to the selected number of days (7/30/60/90/180/365)
+Implement a data segregation system that allows admins to classify farms as "live" (production) or "demo" (test/demo), with the government dashboard able to filter between these datasets for presentations and real-world analysis.
 
 ---
 
-## Current Architecture
+## Industry Best Practices Analysis
 
-| Component | Current Behavior |
-|-----------|------------------|
-| `farms.max_backdate_days` | Per-farm setting (7-30 days) |
-| Profile page | Farm owners can change their own limit |
-| Recording dialogs | Use `useFarm().maxBackdateDays` |
-| Edge function | Uses 7-day default |
+| Approach | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **Single-column flag (Recommended)** | Add `data_category` column to farms table | Simple, fast queries, easy admin control, minimal code changes | All data in one table (acceptable for your scale) |
+| **Separate databases** | Demo data in isolated DB | Complete isolation, zero risk of mixing | Complex to maintain, expensive, overkill for your use case |
+| **Schema-based isolation** | Different PostgreSQL schemas per environment | Good isolation, single DB | Complex RLS, harder to query across |
+| **Tag-based system** | Flexible tagging with many categories | Very flexible | Over-engineered for binary live/demo |
 
-## Target Architecture
+**Recommendation**: Single-column flag is the industry standard for SaaS platforms at your stage. It aligns with your SSOT architecture and existing patterns (similar to `is_deleted`, `is_program_participant` flags).
 
-| Component | New Behavior |
-|-----------|--------------|
-| `platform_settings` table | Global platform-level settings |
-| Admin Dashboard → System → Configuration | Toggle on/off + limit selection |
-| Recording dialogs | Read from platform settings via context |
-| Edge function | Fetch platform setting; if disabled, skip date validation |
+---
+
+## Architecture Design
+
+### Data Flow
+
+```text
+Admin Dashboard → Set farm.data_category → Database
+                                              ↓
+Government Dashboard → Select data_category filter
+                                              ↓
+                       RPCs filter by data_category
+                                              ↓
+                       Scoped analytics displayed
+```
+
+### Key Principles
+1. **Non-breaking**: Default all existing farms to `live` 
+2. **Cascading**: Farm's category applies to all its animals, records, etc.
+3. **Admin-only control**: Only super admins can change a farm's category
+4. **Minimal RPC changes**: Add one optional parameter to government RPCs
 
 ---
 
 ## Database Changes
 
-### New Table: `platform_settings`
+### 1. New Column on `farms` Table
 
 ```sql
-CREATE TABLE platform_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  setting_key TEXT UNIQUE NOT NULL,
-  setting_value JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES auth.users(id)
-);
+-- Add data_category column with default 'live'
+ALTER TABLE public.farms 
+ADD COLUMN data_category TEXT NOT NULL DEFAULT 'live'
+CHECK (data_category IN ('live', 'demo'));
 
--- Insert default: enforcement OFF during acquisition phase
-INSERT INTO platform_settings (setting_key, setting_value)
-VALUES ('backdating', '{"enabled": false, "max_days": 7}'::jsonb);
+-- Index for efficient filtering
+CREATE INDEX idx_farms_data_category ON farms(data_category);
 
--- Enable realtime for live updates
-ALTER PUBLICATION supabase_realtime ADD TABLE platform_settings;
+-- Update existing [TEST] farms to 'demo'
+UPDATE farms 
+SET data_category = 'demo' 
+WHERE name LIKE '%[TEST]%';
 ```
 
-### RLS Policies
+### 2. Update Government RPCs
 
-- **SELECT**: Allow all authenticated users (read-only for app consumption)
-- **UPDATE**: Allow only super admins via `is_super_admin()` function
+All government RPC functions will receive a new optional `data_category_filter` parameter:
+
+- `get_government_stats()`
+- `get_government_stats_timeseries()`
+- `get_health_heatmap_data()`
+- `get_government_health_stats()`
+- `get_breeding_stats()`
+
+Example modification:
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_government_stats(
+  start_date date,
+  end_date date,
+  region_filter text DEFAULT NULL,
+  province_filter text DEFAULT NULL,
+  municipality_filter text DEFAULT NULL,
+  data_category_filter text DEFAULT 'live'  -- NEW PARAMETER
+)
+...
+WHERE f.is_deleted = false
+  AND (data_category_filter IS NULL OR f.data_category = data_category_filter)
+  ...
+```
+
+### 3. Update `gov_farm_analytics` View
+
+Add `data_category` to the view output for filtering:
+
+```sql
+CREATE VIEW public.gov_farm_analytics AS
+SELECT 
+  f.id AS farm_id,
+  f.data_category,  -- NEW COLUMN
+  ...
+```
+
+---
+
+## Frontend Changes
+
+### 1. Admin Dashboard: Farm Oversight
+
+**File**: `src/components/admin/FarmOversight.tsx`
+
+Add a column and control to set farm data category:
+
+- Display current category as a badge (Live = green, Demo = blue)
+- Add dropdown or toggle to change category per farm
+- Bulk action to set multiple farms at once
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ Farm Oversight                                           │
+│ ┌─────────┬─────────┬────────────┬─────────────────────┐│
+│ │ Farm    │ Region  │ Category   │ Actions             ││
+│ ├─────────┼─────────┼────────────┼─────────────────────┤│
+│ │ Green   │ IV-A    │ 🟢 Live    │ [▼ Set Category]   ││
+│ │ TF-001  │ IV-A    │ 🔵 Demo    │ [▼ Set Category]   ││
+│ └─────────┴─────────┴────────────┴─────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2. Government Dashboard: Data Source Selector
+
+**File**: `src/pages/GovernmentDashboard.tsx`
+
+Add a prominent data source selector in the filter bar:
+
+```text
+┌───────────────────────────────────────────────────────────┐
+│ Government Portal                                          │
+│                                                            │
+│ Data Source: [Live Data ▼]   Region: [All ▼]   Date: ... │
+│              ├─ Live Data (Production)                    │
+│              ├─ Demo Data (Test/Demo)                     │
+│              └─ All Data                                  │
+└───────────────────────────────────────────────────────────┘
+```
+
+State management:
+- Store selection in URL params (`?data_source=live|demo|all`)
+- Pass to all government hooks as new parameter
+- Default to `live` for production-accurate view
+
+### 3. Update Government Hooks
+
+**Files to modify**:
+- `src/hooks/useGovernmentStats.ts`
+- `src/hooks/useBreedingStats.ts`
+- `src/hooks/useGovernmentHealthStats.ts`
+- `src/hooks/useGrantAnalytics.ts`
+
+Add `dataCategory?: 'live' | 'demo' | 'all'` parameter:
+
+```typescript
+export const useGovernmentStats = (
+  startDate: Date,
+  endDate: Date,
+  region?: string,
+  province?: string,
+  municipality?: string,
+  dataCategory?: 'live' | 'demo' | 'all',  // NEW
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: ["government-stats", ..., dataCategory || "live"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_government_stats", {
+        ...
+        data_category_filter: dataCategory === 'all' ? null : (dataCategory || 'live')
+      });
+    }
+  });
+};
+```
 
 ---
 
 ## Files to Modify
 
-### 1. New Hook: `src/hooks/usePlatformSettings.ts`
-
-Create a hook to:
-- Query `platform_settings` table for the `backdating` key
-- Return `{ backdatingEnabled: boolean, maxBackdateDays: number | null }`
-- Provide mutation hook for admin updates
-- Cache for 5 minutes to reduce database calls
-
-### 2. Update: `src/contexts/FarmContext.tsx`
-
-- Import and use `usePlatformSettings` hook
-- Replace per-farm `maxBackdateDays` with platform-wide value
-- When `backdatingEnabled` is false, return a very large number (36500 = ~100 years) to effectively disable restriction
-- Remove fetching `max_backdate_days` from farms table
-
-### 3. Update: `src/components/admin/tabs/SystemTab.tsx`
-
-Replace static `ConfigurationPanel` with interactive `PlatformSettingsPanel`:
-
-- **Toggle Switch**: "Enforce backdating limit" (ON/OFF)
-- **Dropdown**: Days selection (7, 30, 60, 90, 180, 365) - only shown when toggle is ON
-- **Status indicator**: Shows current state clearly
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ Platform Settings                                    │
-│ Control platform-wide behavior and restrictions      │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ Record Backdating Limit                              │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ [Toggle OFF]  Enforce backdating limit          │ │
-│ └─────────────────────────────────────────────────┘ │
-│                                                      │
-│ When disabled, farmers can enter records for any    │
-│ past date. Enable this to restrict backdating.      │
-│                                                      │
-│ Status: 🔵 Disabled - No limit (acquisition mode)   │
-│         OR                                           │
-│ Status: 🟢 Enabled - 7 days maximum                 │
-└─────────────────────────────────────────────────────┘
-```
-
-### 4. Update: `src/pages/Profile.tsx`
-
-- Remove `<RecordBackdatingSettings farmId={farmId} />` component usage (line 415)
-- Remove the `RecordBackdatingSettings` function definition (lines 539-592)
-- Remove unused imports: `useFarmSettings`, `useUpdateFarmSettings`
-
-### 5. Update: `supabase/functions/process-farmhand-activity/index.ts`
-
-Modify the date validation logic:
-
-```typescript
-// Fetch platform setting
-const { data: settings } = await supabase
-  .from('platform_settings')
-  .select('setting_value')
-  .eq('setting_key', 'backdating')
-  .single();
-
-const backdatingEnabled = settings?.setting_value?.enabled ?? false;
-const maxDays = settings?.setting_value?.max_days ?? 7;
-
-// In parseAndValidateDate call:
-if (data.date_reference) {
-  if (backdatingEnabled) {
-    // Enforce limit
-    const dateValidation = parseAndValidateDate(data.date_reference, maxDays);
-    if (!dateValidation.isValid) {
-      // Return error...
-    }
-  } else {
-    // No enforcement - just parse the date without limit check
-    const dateValidation = parseAndValidateDate(data.date_reference, 36500);
-  }
-}
-```
-
-### 6. Cleanup: `src/hooks/useFarmSettings.ts`
-
-Keep file but remove the `maxBackdateDays` logic (may be used for other farm settings in future).
-
----
-
-## Data Flow After Implementation
-
-```text
-1. Admin toggles setting in Dashboard → System → Configuration
-   ↓
-2. platform_settings table updated
-   ↓
-3. usePlatformSettings hook returns { enabled: false, maxDays: 7 }
-   ↓
-4. FarmContext provides maxBackdateDays: 36500 (effectively unlimited)
-   ↓
-5. Recording dialogs show full calendar (no date restrictions)
-   ↓
-6. Edge function skips backdating validation for voice submissions
-```
-
----
-
-## Summary of Changes
-
-| File | Action |
+| File | Change |
 |------|--------|
-| Database | Add `platform_settings` table with RLS |
-| `src/hooks/usePlatformSettings.ts` | **NEW** - Query/mutate platform settings |
-| `src/contexts/FarmContext.tsx` | Update to use platform settings |
-| `src/components/admin/tabs/SystemTab.tsx` | Replace static panel with interactive controls |
-| `src/pages/Profile.tsx` | Remove backdating settings section |
-| `supabase/functions/process-farmhand-activity/index.ts` | Fetch platform setting, conditionally skip validation |
+| **Database** | Add `data_category` column, update RPCs, update view |
+| `src/components/admin/FarmOversight.tsx` | Add category badge + dropdown control |
+| `src/pages/GovernmentDashboard.tsx` | Add data source selector, pass to hooks |
+| `src/hooks/useGovernmentStats.ts` | Add `dataCategory` parameter |
+| `src/hooks/useBreedingStats.ts` | Add `dataCategory` parameter |
+| `src/hooks/useGovernmentHealthStats.ts` | Add `dataCategory` parameter |
+| `src/hooks/useGrantAnalytics.ts` | Add farm join filter for data_category |
+| `src/components/government/GovDashboardOverview.tsx` | Receive and display category context |
+
+---
+
+## Implementation Summary
+
+1. **Database migration**: Add column, update RPCs, update view
+2. **Admin UI**: Category badge and dropdown in Farm Oversight
+3. **Government UI**: Data source dropdown selector
+4. **Hooks**: Pass data category filter to all government queries
+5. **Auto-migration**: Mark existing `[TEST]` farms as demo
 
 ---
 
 ## Testing Checklist
 
-- [ ] Admin can toggle backdating enforcement on/off
-- [ ] When OFF: farmers can select any past date in calendars
-- [ ] When ON: farmers see date limit enforced
-- [ ] Admin can select limit from 7/30/60/90/180/365 days
-- [ ] Voice submissions respect the platform setting
-- [ ] Setting persists across sessions
-- [ ] Non-admin users cannot see/modify the setting
-- [ ] Profile page no longer shows backdating option
+- [ ] Admin can see current category for each farm
+- [ ] Admin can change farm category (live ↔ demo)
+- [ ] Government dashboard defaults to "Live Data"
+- [ ] Switching to "Demo Data" shows only demo farms' statistics
+- [ ] "All Data" shows combined statistics
+- [ ] URL persists data source selection
+- [ ] Existing `[TEST]` farms are auto-categorized as demo
+- [ ] New farms default to `live`
+
