@@ -977,6 +977,7 @@ const GovernmentDashboard = () => {
                 currentlyPregnant={breedingStats?.currently_pregnant || 0}
                 aiSuccessRate={breedingStats?.ai_success_rate || 0}
                 dueThisQuarter={breedingStats?.due_this_quarter || 0}
+                uniqueSemenCodes={breedingStats?.unique_semen_count || 0}
                 isLoading={breedingStatsLoading}
               />
               
