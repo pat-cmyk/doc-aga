@@ -1,258 +1,219 @@
 
-# Fix Data Category SSOT Violations in Doc Aga Government AI
 
-## SSOT Violations Found
+# Fix Doc Aga AI Data Category Filtering - Root Cause and Solution
 
-### Violation 1: Duplicated Type Definition
-`DataCategory` is defined **7 times** in different files:
+## Problem Identified
 
-| File | Line |
-|------|------|
-| `src/pages/GovernmentDashboard.tsx` | 62 |
-| `src/hooks/useBreedingStats.ts` | 22 |
-| `src/hooks/useGrantAnalytics.ts` | 35 |
-| `src/hooks/useGovernmentStats.ts` | 32 |
-| `src/hooks/useGovernmentHealthStats.ts` | 40 |
-| `src/hooks/useRegionalStats.ts` | 5 |
-| `src/components/government/RegionalLivestockMap.tsx` | 11 |
+### Symptom
+- Dashboard shows **25 deliveries** in March 2026 (demo data)
+- Doc Aga AI says "**No pregnant animals found**" when asked about the same data
+- Both are supposed to use `data_source=demo` filter
 
-**SSOT Fix**: Create single definition in `src/types/government.ts`
-
-### Violation 2: Doc Aga Tools Ignore Data Category
-The dashboard uses `data_category_filter` in all RPC calls, but the Doc Aga tools query **ALL farms**:
+### Root Cause
+The Doc Aga tools use **nested relation filtering** which is NOT supported by Supabase PostgREST:
 
 ```typescript
-// Dashboard (correct - uses filter):
-await supabase.rpc("get_government_breeding_stats", {
-  data_category_filter: dataCategory === 'all' ? null : dataCategory,
-});
-
-// Doc Aga tool (wrong - no filter):
-const { data: aiRecords } = await supabase
-  .from('ai_records')
-  .select('...')  // No data_category filter!
+// BROKEN - PostgREST doesn't support .in() on nested relations
+aiQuery = aiQuery.in('animals.farm_id', farmIds);
 ```
 
-**Result**: Dashboard shows 25 deliveries (demo), AI sees 0 (live data is empty)
+This query silently fails and returns no results, while the dashboard uses a proper SQL RPC with JOINs that works correctly.
 
----
-
-## Solution Design
-
-### Step 1: Create Centralized Type Definition
-
-**New File: `src/types/government.ts`**
-
-```typescript
-/**
- * Data category for live/demo data segregation
- * Single Source of Truth - used across all government analytics
- */
-export type DataCategory = 'live' | 'demo' | 'all';
-
-/**
- * Default data category when not specified
- */
-export const DEFAULT_DATA_CATEGORY: DataCategory = 'live';
+### Evidence from Logs
 ```
-
-### Step 2: Update All Files to Import from SSOT
-
-Refactor all 7 files to import from the centralized location:
-
-```typescript
-// Before (in each file):
-type DataCategory = 'live' | 'demo' | 'all';
-
-// After (import from SSOT):
-import { DataCategory } from '@/types/government';
-```
-
-### Step 3: Pass Data Category to Edge Function
-
-**File: `src/components/DocAga.tsx`**
-
-Extract `data_source` from URL and send to edge function:
-
-```typescript
-// Add to DocAga component
-const [searchParams] = useSearchParams();
-const dataCategory = searchParams.get('data_source') || 'live';
-
-// Update fetch body
-body: JSON.stringify({ 
-  messages: messagesToSend, 
-  context: isGovernmentContext ? 'government' : 'farmer',
-  dataCategory: isGovernmentContext ? dataCategory : undefined,
-  conversationId 
-}),
-```
-
-### Step 4: Accept Data Category in Edge Function
-
-**File: `supabase/functions/doc-aga/index.ts`**
-
-Update schema and pass to tools:
-
-```typescript
-const docAgaRequestSchema = z.object({
-  messages: z.array(...),
-  farmId: z.string().uuid().optional(),
-  context: z.enum(['farmer', 'government']).optional().default('farmer'),
-  dataCategory: z.enum(['live', 'demo', 'all']).optional().default('live'),
-  conversationId: z.string().uuid().optional(),
-});
-
-// Pass to executeToolCall
-const toolResult = await executeToolCall(
-  toolName, toolArgs, userSupabase, farmId, context, userId, conversationId, dataCategory
-);
-```
-
-### Step 5: Create Helper Function for Farm Filtering
-
-**File: `supabase/functions/doc-aga/tools.ts`**
-
-Add centralized helper (SSOT pattern for tools):
-
-```typescript
-/**
- * Get farm IDs filtered by data category
- * Returns null if 'all' or no filter needed
- */
-async function getFilteredFarmIds(
-  supabase: SupabaseClient, 
-  dataCategory?: 'live' | 'demo' | 'all'
-): Promise<string[] | null> {
-  if (!dataCategory || dataCategory === 'all') return null;
-  
-  const { data: farms } = await supabase
-    .from('farms')
-    .select('id')
-    .eq('data_category', dataCategory)
-    .eq('is_deleted', false);
-  
-  return farms?.map(f => f.id) || [];
+INFO Tool result: {
+  total_pregnant: 0,
+  message: "No pregnant animals with expected delivery dates found in the system"
 }
 ```
 
-### Step 6: Update All Government Tools
+### Evidence from Database
+The data EXISTS - direct SQL query returns 30+ pregnant animals in demo farms:
+```sql
+-- This works and returns data:
+SELECT * FROM ai_records a
+JOIN animals an ON a.animal_id = an.id
+JOIN farms f ON an.farm_id = f.id
+WHERE f.data_category = 'demo' AND a.pregnancy_confirmed = true
+```
 
-Apply consistent filter pattern to all 9 government tools:
+---
 
-| Tool | Current Filter | After Fix |
-|------|----------------|-----------|
-| `getNationalOverview` | None | `.in('farm_id', farmIds)` on animals query |
-| `getRegionalStats` | None | Add farms filter |
-| `getBreedingAnalytics` | None | Add animal/farm join filter |
-| `getHealthAnalytics` | None | Add animal/farm join filter |
-| `getProductionTrends` | None | Add animal/farm join filter |
-| `getFarmerFeedbackSummary` | None | Add farm join filter |
-| `getExpectedDeliveriesAnalysis` | None | Add farms filter |
-| `getDeliveryRiskAssessment` | None | Add farms filter |
-| `getCohortHealthAnalysis` | None | Add farms filter |
+## Solution: Two-Stage Query Pattern
 
-**Example Tool Update:**
+Instead of nested relation filtering, use a two-stage query:
+
+1. **Stage 1**: Get animal IDs from filtered farms
+2. **Stage 2**: Query target table using animal IDs directly
+
+### Before (Broken)
+```typescript
+let aiQuery = supabase
+  .from('ai_records')
+  .select('..., animals!inner(..., farms!inner(...))')
+  .eq('pregnancy_confirmed', true);
+
+if (farmIds) {
+  aiQuery = aiQuery.in('animals.farm_id', farmIds);  // ❌ DOESN'T WORK
+}
+```
+
+### After (Fixed)
+```typescript
+// Stage 1: Get animal IDs from filtered farms
+let animalIds: string[] | null = null;
+if (farmIds && farmIds.length > 0) {
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id')
+    .in('farm_id', farmIds)
+    .eq('is_deleted', false);
+  animalIds = animals?.map(a => a.id) || [];
+  
+  if (animalIds.length === 0) {
+    return { total_pregnant: 0, message: "No animals found in selected farms" };
+  }
+}
+
+// Stage 2: Query ai_records filtering by animal IDs directly
+let aiQuery = supabase
+  .from('ai_records')
+  .select('..., animals!inner(..., farms!inner(...))')
+  .eq('pregnancy_confirmed', true);
+
+if (animalIds) {
+  aiQuery = aiQuery.in('animal_id', animalIds);  // ✅ WORKS - direct column
+}
+```
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `supabase/functions/doc-aga/tools.ts` | Refactor all government tools to use two-stage query pattern |
+
+---
+
+## Affected Tools (9 Total)
+
+All government tools need this fix:
+
+1. `getExpectedDeliveriesAnalysis` - Expected deliveries timeline
+2. `getDeliveryRiskAssessment` - Risk assessment for deliveries
+3. `getCohortHealthAnalysis` - Cohort health analysis
+4. `getNationalOverview` - National statistics
+5. `getRegionalStats` - Regional statistics
+6. `getBreedingAnalytics` - Breeding success rates
+7. `getHealthAnalytics` - Health patterns
+8. `getProductionTrends` - Milk production trends
+9. `getFarmerFeedbackSummary` - Farmer feedback summary
+
+---
+
+## Implementation Pattern
+
+Create a helper function to standardize the pattern:
 
 ```typescript
-async function getExpectedDeliveriesAnalysis(
-  args: any, 
+/**
+ * Get animal IDs filtered by data category (two-stage query helper)
+ * This works around PostgREST limitation with nested .in() filters
+ */
+async function getFilteredAnimalIds(
   supabase: SupabaseClient,
-  dataCategory?: 'live' | 'demo' | 'all'
-) {
-  // Get filtered farm IDs based on data category
+  dataCategory?: DataCategory
+): Promise<string[] | null> {
+  // Get farm IDs first
   const farmIds = await getFilteredFarmIds(supabase, dataCategory);
   
-  if (farmIds && farmIds.length === 0) {
-    return {
-      total_pregnant: 0,
-      message: `No farms found with data category '${dataCategory}'`
-    };
-  }
-
-  // Build query
-  let query = supabase
-    .from('ai_records')
-    .select(`
-      id, expected_delivery_date, pregnancy_confirmed,
-      animals!inner(id, name, ear_tag, livestock_type, farm_id, 
-        farms!inner(name, region, municipality, data_category))
-    `)
-    .eq('pregnancy_confirmed', true)
-    .not('expected_delivery_date', 'is', null);
+  if (farmIds === null) return null; // No filter needed
+  if (farmIds.length === 0) return []; // No farms found
   
-  // Apply farm filter if specified
-  if (farmIds) {
-    query = query.in('animals.farm_id', farmIds);
+  // Get animal IDs from those farms
+  const { data: animals, error } = await supabase
+    .from('animals')
+    .select('id')
+    .in('farm_id', farmIds)
+    .eq('is_deleted', false);
+  
+  if (error) {
+    console.error('[getFilteredAnimalIds] Error:', error.message);
+    return null;
   }
-
-  const { data: aiRecords } = await query.order('expected_delivery_date', { ascending: true });
-  // ... rest of function
+  
+  console.log(`[getFilteredAnimalIds] Found ${animals?.length || 0} animals for dataCategory '${dataCategory}'`);
+  return animals?.map(a => a.id) || [];
 }
 ```
 
 ---
 
-## Files to Create/Modify
+## Logging Improvements
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/types/government.ts` | CREATE | SSOT for DataCategory type |
-| `src/pages/GovernmentDashboard.tsx` | MODIFY | Import from SSOT |
-| `src/hooks/useBreedingStats.ts` | MODIFY | Import from SSOT |
-| `src/hooks/useGrantAnalytics.ts` | MODIFY | Import from SSOT |
-| `src/hooks/useGovernmentStats.ts` | MODIFY | Import from SSOT |
-| `src/hooks/useGovernmentHealthStats.ts` | MODIFY | Import from SSOT |
-| `src/hooks/useRegionalStats.ts` | MODIFY | Import from SSOT |
-| `src/components/government/RegionalLivestockMap.tsx` | MODIFY | Import from SSOT |
-| `src/components/DocAga.tsx` | MODIFY | Pass dataCategory to edge function |
-| `supabase/functions/doc-aga/index.ts` | MODIFY | Accept dataCategory in schema |
-| `supabase/functions/doc-aga/tools.ts` | MODIFY | Add helper + filter all government tools |
+Add explicit logging for dataCategory to aid debugging:
+
+```typescript
+// In index.ts, add to the request log:
+console.log(`Doc Aga request - context: ${context}, dataCategory: ${dataCategory || 'none'}`);
+
+// In tools.ts, add to getFilteredFarmIds:
+console.log(`[getFilteredFarmIds] Category: ${dataCategory}, Found: ${farms?.length || 0} farms`);
+```
 
 ---
 
 ## Expected Outcome
 
-### Before (Broken):
-```
-Dashboard: data_source=demo → Shows 25 March deliveries
-Doc Aga:   Queries ALL data → "No pregnant animals found"
-```
+### After Fix:
+- **User asks**: "How many animals are due in March 2026?"
+- **Dashboard shows**: 25 deliveries (demo data)
+- **Doc Aga responds**: "There are 25 animals due in March 2026 (15 goats, 9 cattle, 1 carabao)..."
 
-### After (Fixed):
+### Data Flow After Fix:
 ```
-Dashboard: data_source=demo → Shows 25 March deliveries
-Doc Aga:   Queries demo data → "25 animals due in March 2026..."
+URL: data_source=demo
+     │
+     ▼
+DocAga.tsx reads dataCategory='demo'
+     │
+     ▼
+Edge function receives dataCategory='demo'
+     │
+     ▼
+getFilteredAnimalIds(supabase, 'demo')
+├── getFilteredFarmIds → 65 demo farm IDs
+└── Get animals from those farms → ~765 animal IDs
+     │
+     ▼
+Query ai_records.in('animal_id', animalIds) → 25 March 2026 ✓
 ```
 
 ---
 
 ## Technical Details
 
-### Data Flow After Fix
+### Why PostgREST Nested .in() Fails
 
-```text
-URL: /government?data_source=demo
-         │
-         ▼
-GovernmentDashboard.tsx
-├── useBreedingStats(dataCategory='demo')
-│   └── RPC: data_category_filter='demo' → 25 deliveries
-│
-└── DocAga (via FloatingFab)
-    └── Reads searchParams.get('data_source') = 'demo'
-        └── POST to edge function: { dataCategory: 'demo' }
-            └── executeToolCall(..., dataCategory='demo')
-                └── getFilteredFarmIds(supabase, 'demo')
-                    └── Queries only demo farms
-                        └── Returns same 25 deliveries ✓
+PostgREST translates Supabase queries to API calls. The `.in()` method on nested relations like `animals.farm_id` generates a query that PostgREST cannot properly interpret, resulting in either:
+- Silent failure (returns empty results)
+- Incorrect filtering
+
+The RPC functions work because they use raw SQL with proper JOINs:
+```sql
+-- RPC uses proper SQL JOIN (works)
+SELECT * FROM ai_records air
+INNER JOIN animals a ON a.id = air.animal_id
+INNER JOIN farms f ON f.id = a.farm_id
+WHERE f.data_category = 'demo'
 ```
 
-### SSOT Alignment
+### SSOT Compliance
 
-| SSOT Principle | Implementation |
-|----------------|----------------|
-| Single type definition | `src/types/government.ts` |
-| Single filter helper | `getFilteredFarmIds()` in tools.ts |
-| Consistent filter pattern | All government tools use helper |
-| URL as source of truth | DocAga reads from `data_source` param |
+This fix maintains SSOT architecture:
+1. `DataCategory` type defined in `src/types/government.ts`
+2. URL `data_source` param is the single source of truth
+3. Both dashboard RPCs and AI tools filter the same way
+4. Helper functions ensure consistent filtering across all tools
+
