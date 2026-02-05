@@ -219,3 +219,31 @@ This is important context for Phase 1 - primiparous detection would flag ALL dem
 
 **Recommendation:** Start with Option A for immediate value, with clear upgrade path to Option B as the system matures.
 
+---
+
+## Implementation Status
+
+### ✅ Phase 1 Complete (Feb 5, 2026)
+
+1. **Fixed February "Urgent" tag bug** - Updated `ExpectedDeliveriesTimeline.tsx` to use `calculateMonthUrgency()` that properly checks if any part of a month falls within 30 days, not just the first day.
+
+2. **Added PCRS definitions to glossary** - `src/lib/urgencyGlossary.ts` now includes:
+   - `PCRS_SCORING_COMPONENTS` - 5 factor definitions (Timeline, BCS, Parity, Health, Data Freshness)
+   - `PCRS_TIERS` - 4 tier definitions (Critical, High, Moderate, Low)
+   - Calculator functions: `calculatePCRS()`, `getPCRSTier()`, `getPCRSGlossaryForPrompt()`
+
+3. **Created usePreCalvingRiskScore hook** - `src/hooks/usePreCalvingRiskScore.ts` provides:
+   - `calculateAnimalPCRS()` - Calculate score for single animal
+   - `usePreCalvingRiskScore()` - Hook for batch processing with summary
+   - `getMonthRiskTier()` - Aggregate month-level risk tier
+
+4. **Updated Doc Aga tools with PCRS** - `getDeliveryRiskAssessment()` now returns:
+   - `pcrs_analysis.summary` - Counts by tier (critical, high, moderate, low)
+   - `pcrs_analysis.critical_animals` - Top 10 critical animals with score breakdown
+   - `pcrs_analysis.high_risk_animals` - Top 10 high-risk animals
+   - Enhanced recommendations with PCRS-based alerts
+
+### 🔜 Phase 2 (Next Quarter)
+- Add livestock-specific BCS thresholds
+- Track calving outcomes in breeding_events
+- Add BCS trend analysis

@@ -357,12 +357,313 @@
    },
  };
  
+// ============================================
+// PRE-CALVING RISK SCORE (PCRS) - Phase 1
+// ============================================
+
+/**
+ * Pre-Calving Risk Score (PCRS) System
+ * 
+ * A 100-point scoring system based on veterinary research from:
+ * - Penn State Extension
+ * - University of Georgia Extension
+ * - Merck Veterinary Manual
+ * - USDA/NAHBS studies
+ */
+
+export interface PCRSScoreComponent {
+  name: string;
+  maxPoints: number;
+  description: string;
+  thresholds: {
+    value: string;
+    points: number;
+    label: string;
+  }[];
+}
+
+export const PCRS_SCORING_COMPONENTS: Record<string, PCRSScoreComponent> = {
+  timelineProximity: {
+    name: 'Timeline Proximity',
+    maxPoints: 35,
+    description: 'Days until expected delivery',
+    thresholds: [
+      { value: '<7 days', points: 35, label: 'Imminent' },
+      { value: '7-14 days', points: 25, label: 'Very Soon' },
+      { value: '15-30 days', points: 15, label: 'Soon' },
+      { value: '31-60 days', points: 5, label: 'Approaching' },
+      { value: '>60 days', points: 0, label: 'Not urgent' },
+    ],
+  },
+  bcsRisk: {
+    name: 'Body Condition Score Risk',
+    maxPoints: 25,
+    description: 'BCS deviation from ideal range (2.5-3.5)',
+    thresholds: [
+      { value: '<2.0', points: 25, label: 'Severely underweight' },
+      { value: '2.0-2.4', points: 15, label: 'Underweight' },
+      { value: '>4.5', points: 25, label: 'Severely overweight' },
+      { value: '4.0-4.5', points: 10, label: 'Overweight' },
+      { value: '2.5-3.5', points: 0, label: 'Ideal' },
+    ],
+  },
+  parityRisk: {
+    name: 'Parity Risk',
+    maxPoints: 15,
+    description: 'First-calf heifers have 3-4x higher dystocia risk',
+    thresholds: [
+      { value: 'Parity 0 (first calving)', points: 15, label: 'Primiparous - High Risk' },
+      { value: 'Parity 1-2', points: 5, label: 'Low parity' },
+      { value: 'Parity 3+', points: 0, label: 'Experienced' },
+    ],
+  },
+  healthHistory: {
+    name: 'Health History',
+    maxPoints: 15,
+    description: 'Health issues in the last 90 days',
+    thresholds: [
+      { value: '3+ issues', points: 15, label: 'Multiple issues' },
+      { value: '2 issues', points: 10, label: 'Some issues' },
+      { value: '1 issue', points: 5, label: 'Minor concern' },
+      { value: '0 issues', points: 0, label: 'Healthy' },
+    ],
+  },
+  dataFreshness: {
+    name: 'Data Freshness',
+    maxPoints: 10,
+    description: 'Days since last BCS assessment',
+    thresholds: [
+      { value: '>60 days', points: 10, label: 'Stale data - blind spot' },
+      { value: '31-60 days', points: 5, label: 'Needs update' },
+      { value: '≤30 days', points: 0, label: 'Recent' },
+    ],
+  },
+};
+
+export interface PCRSTier {
+  tier: 'critical' | 'high' | 'moderate' | 'low';
+  label: string;
+  labelTagalog: string;
+  description: string;
+  descriptionTagalog: string;
+  minScore: number;
+  maxScore: number;
+  textClass: string;
+  bgClass: string;
+  badgeVariant: 'destructive' | 'outline' | 'secondary' | 'default';
+  actionLevel: string;
+}
+
+export const PCRS_TIERS: Record<string, PCRSTier> = {
+  critical: {
+    tier: 'critical',
+    label: 'Critical',
+    labelTagalog: 'Kritikal',
+    description: 'Immediate veterinary review required',
+    descriptionTagalog: 'Kailangan ng agarang pagsusuri ng beterinaryo',
+    minScore: 75,
+    maxScore: 100,
+    textClass: 'text-destructive',
+    bgClass: 'bg-destructive/10',
+    badgeVariant: 'destructive',
+    actionLevel: 'Immediate veterinary review required',
+  },
+  high: {
+    tier: 'high',
+    label: 'High',
+    labelTagalog: 'Mataas',
+    description: 'Priority monitoring, prep calving area',
+    descriptionTagalog: 'Kailangan ng priority monitoring, ihanda ang calving area',
+    minScore: 50,
+    maxScore: 74,
+    textClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
+    badgeVariant: 'outline',
+    actionLevel: 'Priority monitoring, prepare calving area',
+  },
+  moderate: {
+    tier: 'moderate',
+    label: 'Moderate',
+    labelTagalog: 'Katamtaman',
+    description: 'Standard close-up protocols',
+    descriptionTagalog: 'Standard close-up protocols',
+    minScore: 25,
+    maxScore: 49,
+    textClass: 'text-yellow-600',
+    bgClass: 'bg-yellow-50',
+    badgeVariant: 'secondary',
+    actionLevel: 'Standard close-up protocols',
+  },
+  low: {
+    tier: 'low',
+    label: 'Low',
+    labelTagalog: 'Mababa',
+    description: 'Routine monitoring',
+    descriptionTagalog: 'Routine monitoring',
+    minScore: 0,
+    maxScore: 24,
+    textClass: 'text-green-600',
+    bgClass: 'bg-green-50',
+    badgeVariant: 'default',
+    actionLevel: 'Routine monitoring',
+  },
+};
+
+/**
+ * Calculate the PCRS tier based on total score
+ */
+export function getPCRSTier(score: number): PCRSTier {
+  if (score >= 75) return PCRS_TIERS.critical;
+  if (score >= 50) return PCRS_TIERS.high;
+  if (score >= 25) return PCRS_TIERS.moderate;
+  return PCRS_TIERS.low;
+}
+
+/**
+ * Calculate timeline proximity score
+ */
+export function calculateTimelineScore(daysUntilDelivery: number): number {
+  if (daysUntilDelivery < 7) return 35;
+  if (daysUntilDelivery <= 14) return 25;
+  if (daysUntilDelivery <= 30) return 15;
+  if (daysUntilDelivery <= 60) return 5;
+  return 0;
+}
+
+/**
+ * Calculate BCS risk score
+ * Ideal BCS at calving: 2.5-3.5 (on 5-point scale)
+ */
+export function calculateBCSScore(bcs: number | null): number {
+  if (bcs === null) return 5; // Missing data = slight penalty
+  if (bcs < 2.0) return 25;
+  if (bcs < 2.5) return 15;
+  if (bcs > 4.5) return 25;
+  if (bcs > 4.0) return 10;
+  return 0; // Ideal range
+}
+
+/**
+ * Calculate parity risk score
+ * Primiparous (first-calf) have 3-4x higher dystocia risk
+ */
+export function calculateParityScore(parity: number | null): number {
+  if (parity === null) return 5; // Unknown parity = slight penalty
+  if (parity === 0) return 15; // First calving
+  if (parity <= 2) return 5;
+  return 0; // Experienced
+}
+
+/**
+ * Calculate health history score
+ * Based on number of health issues in last 90 days
+ */
+export function calculateHealthHistoryScore(issueCount: number): number {
+  if (issueCount >= 3) return 15;
+  if (issueCount === 2) return 10;
+  if (issueCount === 1) return 5;
+  return 0;
+}
+
+/**
+ * Calculate data freshness score
+ * Based on days since last BCS assessment
+ */
+export function calculateDataFreshnessScore(daysSinceLastBCS: number | null): number {
+  if (daysSinceLastBCS === null) return 10; // No BCS data = high penalty
+  if (daysSinceLastBCS > 60) return 10;
+  if (daysSinceLastBCS > 30) return 5;
+  return 0;
+}
+
+export interface PCRSInput {
+  daysUntilDelivery: number;
+  latestBCS: number | null;
+  parity: number | null;
+  healthIssueCount: number;
+  daysSinceLastBCS: number | null;
+}
+
+export interface PCRSResult {
+  totalScore: number;
+  tier: PCRSTier;
+  breakdown: {
+    timeline: number;
+    bcs: number;
+    parity: number;
+    health: number;
+    dataFreshness: number;
+  };
+  factors: string[];
+}
+
+/**
+ * Calculate complete Pre-Calving Risk Score
+ */
+export function calculatePCRS(input: PCRSInput): PCRSResult {
+  const timeline = calculateTimelineScore(input.daysUntilDelivery);
+  const bcs = calculateBCSScore(input.latestBCS);
+  const parity = calculateParityScore(input.parity);
+  const health = calculateHealthHistoryScore(input.healthIssueCount);
+  const dataFreshness = calculateDataFreshnessScore(input.daysSinceLastBCS);
+
+  const totalScore = timeline + bcs + parity + health + dataFreshness;
+  const tier = getPCRSTier(totalScore);
+
+  // Build factor explanations
+  const factors: string[] = [];
+  if (timeline >= 25) factors.push(`Delivery imminent (${input.daysUntilDelivery} days)`);
+  if (bcs >= 15) factors.push(input.latestBCS !== null ? `BCS concern (${input.latestBCS})` : 'No BCS data');
+  if (parity >= 10) factors.push('First-time calving');
+  if (health >= 10) factors.push(`Recent health issues (${input.healthIssueCount})`);
+  if (dataFreshness >= 5) factors.push('BCS data needs update');
+
+  return {
+    totalScore,
+    tier,
+    breakdown: {
+      timeline,
+      bcs,
+      parity,
+      health,
+      dataFreshness,
+    },
+    factors,
+  };
+}
+
+/**
+ * Generate PCRS glossary for AI prompt context
+ */
+export function getPCRSGlossaryForPrompt(): string {
+  return `
+PRE-CALVING RISK SCORE (PCRS) - 100-Point System:
+
+Scoring Components:
+- Timeline Proximity (0-35 pts): <7 days=35, 7-14 days=25, 15-30 days=15, 31-60 days=5, >60 days=0
+- BCS Risk (0-25 pts): <2.0 or >4.5=25 (severe), 2.0-2.4=15, 4.0-4.5=10, 2.5-3.5=0 (ideal)
+- Parity Risk (0-15 pts): First calving=15 (high dystocia risk), Parity 1-2=5, Parity 3+=0
+- Health History (0-15 pts): 3+ issues=15, 2 issues=10, 1 issue=5, 0 issues=0
+- Data Freshness (0-10 pts): No BCS or >60 days=10, 31-60 days=5, ≤30 days=0
+
+Risk Tiers:
+- Critical (75-100): 🔴 Immediate veterinary review required
+- High (50-74): 🟠 Priority monitoring, prep calving area
+- Moderate (25-49): 🟡 Standard close-up protocols
+- Low (0-24): 🟢 Routine monitoring
+
+Use PCRS to identify high-risk deliveries beyond just timeline urgency.
+`;
+}
+
  // ============================================
  // HELPER: Generate AI Prompt Context
  // ============================================
  export function getUrgencyGlossaryForPrompt(): string {
    return `
- DASHBOARD TERMINOLOGY DEFINITIONS:
+DASHBOARD TERMINOLOGY DEFINITIONS:
+
+${getPCRSGlossaryForPrompt()}
  
  Expected Deliveries Timeline:
  - "Urgent" = Due within 30 days from current date
