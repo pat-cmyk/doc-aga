@@ -57,7 +57,8 @@ const docAgaRequestSchema = z.object({
   })).min(1, 'At least one message required'),
   farmId: z.string().uuid().optional(),
   context: z.enum(['farmer', 'government']).optional().default('farmer'),
-  conversationId: z.string().uuid().optional() // For persistent memory
+  conversationId: z.string().uuid().optional(), // For persistent memory
+  dataCategory: z.enum(['live', 'demo', 'all']).optional().default('live') // Data category for government context
 });
 
 // Helper: Find matching FAQ based on user question
@@ -472,6 +473,7 @@ serve(async (req) => {
     }
 
     const { messages, context, conversationId } = validatedData;
+    const dataCategory = validatedData.dataCategory;
     const isGovernmentContext = context === 'government';
     
     console.log(`Doc Aga request - context: ${context}, conversationId: ${conversationId || 'none'}`);
@@ -782,7 +784,7 @@ serve(async (req) => {
         const toolArgs = JSON.parse(toolCall.function.arguments);
         
         console.log(`Executing tool: ${toolName}`, toolArgs);
-        const result = await executeToolCall(toolName, toolArgs, supabase, farmId, context, user.id, conversationId);
+        const result = await executeToolCall(toolName, toolArgs, supabase, farmId, context, user.id, conversationId, dataCategory);
         console.log(`Tool result:`, result);
         
         toolResults.push({

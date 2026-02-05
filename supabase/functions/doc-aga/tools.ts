@@ -1,5 +1,32 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Data category type for live/demo data segregation (SSOT with frontend)
+type DataCategory = 'live' | 'demo' | 'all';
+
+/**
+ * Get farm IDs filtered by data category (SSOT helper)
+ * Returns null if 'all' or no filter needed, meaning query all farms
+ */
+async function getFilteredFarmIds(
+  supabase: SupabaseClient,
+  dataCategory?: DataCategory
+): Promise<string[] | null> {
+  if (!dataCategory || dataCategory === 'all') return null;
+
+  const { data: farms, error } = await supabase
+    .from('farms')
+    .select('id')
+    .eq('data_category', dataCategory)
+    .eq('is_deleted', false);
+
+  if (error) {
+    console.error('[getFilteredFarmIds] Error:', error.message);
+    return null;
+  }
+
+  return farms?.map(f => f.id) || [];
+}
+
 export async function executeToolCall(
   toolName: string,
   args: any,
@@ -7,7 +34,8 @@ export async function executeToolCall(
   farmId: string | undefined,
   context: 'farmer' | 'government' = 'farmer',
   userId?: string,
-  conversationId?: string
+  conversationId?: string,
+  dataCategory?: DataCategory
 ) {
   console.log(`Executing tool: ${toolName} (context: ${context})`, args);
 
@@ -15,31 +43,31 @@ export async function executeToolCall(
   if (context === 'government') {
     switch (toolName) {
       case "get_national_overview":
-        return await getNationalOverview(supabase);
+        return await getNationalOverview(supabase, dataCategory);
       
       case "get_regional_stats":
-        return await getRegionalStats(args, supabase);
+        return await getRegionalStats(args, supabase, dataCategory);
       
       case "get_breeding_analytics":
-        return await getBreedingAnalytics(args, supabase);
+        return await getBreedingAnalytics(args, supabase, dataCategory);
       
       case "get_health_analytics":
-        return await getHealthAnalytics(args, supabase);
+        return await getHealthAnalytics(args, supabase, dataCategory);
       
       case "get_production_trends":
-        return await getProductionTrends(args, supabase);
+        return await getProductionTrends(args, supabase, dataCategory);
       
       case "get_farmer_feedback_summary":
-        return await getFarmerFeedbackSummary(args, supabase);
+        return await getFarmerFeedbackSummary(args, supabase, dataCategory);
       
       case "get_expected_deliveries_analysis":
-        return await getExpectedDeliveriesAnalysis(args, supabase);
+        return await getExpectedDeliveriesAnalysis(args, supabase, dataCategory);
       
       case "get_delivery_risk_assessment":
-        return await getDeliveryRiskAssessment(args, supabase);
+        return await getDeliveryRiskAssessment(args, supabase, dataCategory);
       
       case "get_cohort_health_analysis":
-        return await getCohortHealthAnalysis(args, supabase);
+        return await getCohortHealthAnalysis(args, supabase, dataCategory);
       
       default:
         return { error: `Unknown government tool: ${toolName}` };
@@ -143,18 +171,35 @@ export async function executeToolCall(
 
 // ============= GOVERNMENT ANALYST TOOLS =============
 
-async function getNationalOverview(supabase: SupabaseClient) {
+async function getNationalOverview(supabase: SupabaseClient, dataCategory?: DataCategory) {
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+  
   // Get total farms count
-  const { count: totalFarms } = await supabase
+  let farmsQuery = supabase
     .from('farms')
     .select('*', { count: 'exact', head: true })
     .eq('is_deleted', false);
+  
+  if (farmIds) {
+    farmsQuery = farmsQuery.in('id', farmIds);
+  } else if (dataCategory && dataCategory !== 'all') {
+    farmsQuery = farmsQuery.eq('data_category', dataCategory);
+  }
+  
+  const { count: totalFarms } = await farmsQuery;
 
   // Get total animals count by livestock type
-  const { data: animals } = await supabase
+  let animalsQuery = supabase
     .from('animals')
     .select('livestock_type, life_stage, milking_stage')
     .eq('is_deleted', false);
+  
+  if (farmIds) {
+    animalsQuery = animalsQuery.in('farm_id', farmIds);
+  }
+  
+  const { data: animals } = await animalsQuery;
 
   const totalAnimals = animals?.length || 0;
   const livestockBreakdown: Record<string, number> = {};
@@ -171,10 +216,18 @@ async function getNationalOverview(supabase: SupabaseClient) {
   });
 
   // Get farms by region
-  const { data: farmsByRegion } = await supabase
+  let regionQuery = supabase
     .from('farms')
     .select('region')
     .eq('is_deleted', false);
+  
+  if (farmIds) {
+    regionQuery = regionQuery.in('id', farmIds);
+  } else if (dataCategory && dataCategory !== 'all') {
+    regionQuery = regionQuery.eq('data_category', dataCategory);
+  }
+  
+  const { data: farmsByRegion } = await regionQuery;
 
   const regionBreakdown: Record<string, number> = {};
   farmsByRegion?.forEach(f => {
@@ -210,8 +263,11 @@ async function getNationalOverview(supabase: SupabaseClient) {
   };
 }
 
-async function getRegionalStats(args: any, supabase: SupabaseClient) {
+async function getRegionalStats(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const region = args.region;
+  
+  // Get filtered farm IDs based on data category
+  const categoryFarmIds = await getFilteredFarmIds(supabase, dataCategory);
   
   let farmsQuery = supabase
     .from('farms')
@@ -220,6 +276,13 @@ async function getRegionalStats(args: any, supabase: SupabaseClient) {
 
   if (region) {
     farmsQuery = farmsQuery.eq('region', region);
+  }
+  
+  // Apply data category filter
+  if (categoryFarmIds) {
+    farmsQuery = farmsQuery.in('id', categoryFarmIds);
+  } else if (dataCategory && dataCategory !== 'all') {
+    farmsQuery = farmsQuery.eq('data_category', dataCategory);
   }
 
   const { data: farms } = await farmsQuery;
@@ -271,16 +334,25 @@ async function getRegionalStats(args: any, supabase: SupabaseClient) {
   };
 }
 
-async function getBreedingAnalytics(args: any, supabase: SupabaseClient) {
+async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const days = args.days || 90;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
   // Get AI records
-  const { data: aiRecords } = await supabase
+  let aiQuery = supabase
     .from('ai_records')
-    .select('performed_date, pregnancy_confirmed, animals!inner(livestock_type)')
+    .select('performed_date, pregnancy_confirmed, animals!inner(livestock_type, farm_id)')
     .gte('performed_date', startDate)
     .not('performed_date', 'is', null);
+  
+  if (farmIds) {
+    aiQuery = aiQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { data: aiRecords } = await aiQuery;
 
   const totalAI = aiRecords?.length || 0;
   const confirmedPregnancies = aiRecords?.filter(r => r.pregnancy_confirmed)?.length || 0;
@@ -301,10 +373,16 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient) {
   });
 
   // Get currently pregnant animals count
-  const { count: pregnantCount } = await supabase
+  let pregnantQuery = supabase
     .from('ai_records')
-    .select('*', { count: 'exact', head: true })
+    .select('*, animals!inner(farm_id)', { count: 'exact', head: true })
     .eq('pregnancy_confirmed', true);
+  
+  if (farmIds) {
+    pregnantQuery = pregnantQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { count: pregnantCount } = await pregnantQuery;
 
   return {
     period_days: days,
@@ -316,15 +394,24 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient) {
   };
 }
 
-async function getHealthAnalytics(args: any, supabase: SupabaseClient) {
+async function getHealthAnalytics(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const days = args.days || 30;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
   // Get health records
-  const { data: healthRecords } = await supabase
+  let healthQuery = supabase
     .from('health_records')
-    .select('diagnosis, treatment, visit_date')
+    .select('diagnosis, treatment, visit_date, animals!inner(farm_id)')
     .gte('visit_date', startDate);
+  
+  if (farmIds) {
+    healthQuery = healthQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { data: healthRecords } = await healthQuery;
 
   const totalRecords = healthRecords?.length || 0;
 
@@ -342,11 +429,17 @@ async function getHealthAnalytics(args: any, supabase: SupabaseClient) {
     .map(([diagnosis, count]) => ({ diagnosis, count }));
 
   // Animal exits (mortality, sales)
-  const { data: exitedAnimals } = await supabase
+  let exitsQuery = supabase
     .from('animals')
     .select('exit_reason, exit_date')
     .gte('exit_date', startDate)
     .not('exit_date', 'is', null);
+  
+  if (farmIds) {
+    exitsQuery = exitsQuery.in('farm_id', farmIds);
+  }
+  
+  const { data: exitedAnimals } = await exitsQuery;
 
   const exitReasons: Record<string, number> = {};
   exitedAnimals?.forEach(a => {
@@ -363,16 +456,25 @@ async function getHealthAnalytics(args: any, supabase: SupabaseClient) {
   };
 }
 
-async function getProductionTrends(args: any, supabase: SupabaseClient) {
+async function getProductionTrends(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const days = args.days || 30;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
   // Get daily milk production
-  const { data: milkRecords } = await supabase
+  let milkQuery = supabase
     .from('milking_records')
-    .select('record_date, liters, animals!inner(livestock_type)')
+    .select('record_date, liters, animals!inner(livestock_type, farm_id)')
     .gte('record_date', startDate)
     .order('record_date', { ascending: true });
+  
+  if (farmIds) {
+    milkQuery = milkQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { data: milkRecords } = await milkQuery;
 
   // Aggregate by date
   const dailyTotals: Record<string, number> = {};
@@ -409,15 +511,24 @@ async function getProductionTrends(args: any, supabase: SupabaseClient) {
   };
 }
 
-async function getFarmerFeedbackSummary(args: any, supabase: SupabaseClient) {
+async function getFarmerFeedbackSummary(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const days = args.days || 30;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
   // Get feedback records
-  const { data: feedback } = await supabase
+  let feedbackQuery = supabase
     .from('farmer_feedback')
-    .select('primary_category, sentiment, status, auto_priority, created_at')
+    .select('primary_category, sentiment, status, auto_priority, created_at, farm_id')
     .gte('created_at', startDate);
+  
+  if (farmIds) {
+    feedbackQuery = feedbackQuery.in('farm_id', farmIds);
+  }
+  
+  const { data: feedback } = await feedbackQuery;
 
   const totalFeedback = feedback?.length || 0;
 
@@ -461,20 +572,36 @@ async function getFarmerFeedbackSummary(args: any, supabase: SupabaseClient) {
 
 // ============= DEEP ANALYTICS TOOLS =============
 
-async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient) {
+async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const targetMonth = args.target_month; // e.g., "2026-03"
   const includeHealthRisks = args.include_health_risks !== false;
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+  
+  if (farmIds && farmIds.length === 0) {
+    return {
+      total_pregnant: 0,
+      message: `No farms found with data category '${dataCategory}'`
+    };
+  }
+
   // Get all pregnant animals with expected delivery dates
-  const { data: aiRecords } = await supabase
+  let aiQuery = supabase
     .from('ai_records')
     .select(`
       id, expected_delivery_date, performed_date, pregnancy_confirmed,
-      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality))
+      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality, data_category))
     `)
     .eq('pregnancy_confirmed', true)
     .not('expected_delivery_date', 'is', null)
     .order('expected_delivery_date', { ascending: true });
+  
+  if (farmIds) {
+    aiQuery = aiQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { data: aiRecords } = await aiQuery;
 
   if (!aiRecords || aiRecords.length === 0) {
     return {
@@ -642,22 +769,31 @@ async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient
   };
 }
 
-async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient) {
+async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const daysAhead = args.days_ahead || 60;
   const startDate = new Date().toISOString().split('T')[0];
   const endDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  // Get filtered farm IDs based on data category
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
   // Get pregnant animals due in the period
-  const { data: pregnantAnimals } = await supabase
+  let pregnantQuery = supabase
     .from('ai_records')
     .select(`
       id, expected_delivery_date, pregnancy_confirmed,
-      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality))
+      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality, data_category))
     `)
     .eq('pregnancy_confirmed', true)
     .gte('expected_delivery_date', startDate)
     .lte('expected_delivery_date', endDate)
     .order('expected_delivery_date', { ascending: true });
+  
+  if (farmIds) {
+    pregnantQuery = pregnantQuery.in('animals.farm_id', farmIds);
+  }
+  
+  const { data: pregnantAnimals } = await pregnantQuery;
 
   if (!pregnantAnimals || pregnantAnimals.length === 0) {
     return {
@@ -782,20 +918,29 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient) {
   };
 }
 
-async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient) {
+async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
   const cohortFilter = args.cohort_filter; // 'due_month', 'region', 'livestock_type'
   const filterValue = args.filter_value;
+
+  // Get filtered farm IDs based on data category
+  const categoryFarmIds = await getFilteredFarmIds(supabase, dataCategory);
 
   let animalIds: string[] = [];
   let cohortDescription = '';
 
   if (cohortFilter === 'due_month' && filterValue) {
     // Get animals due in specific month
-    const { data: aiRecords } = await supabase
+    let aiQuery = supabase
       .from('ai_records')
-      .select('animals!inner(id)')
+      .select('animals!inner(id, farm_id)')
       .eq('pregnancy_confirmed', true)
       .like('expected_delivery_date', `${filterValue}%`);
+    
+    if (categoryFarmIds) {
+      aiQuery = aiQuery.in('animals.farm_id', categoryFarmIds);
+    }
+    
+    const { data: aiRecords } = await aiQuery;
 
     animalIds = aiRecords?.map((r: any) => r.animals?.id).filter(Boolean) || [];
     const monthName = new Date(filterValue + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
@@ -803,22 +948,34 @@ async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient) {
 
   } else if (cohortFilter === 'region' && filterValue) {
     // Get animals in specific region
-    const { data: animals } = await supabase
+    let animalsQuery = supabase
       .from('animals')
       .select('id, farms!inner(region)')
       .eq('farms.region', filterValue)
       .eq('is_deleted', false);
+    
+    if (categoryFarmIds) {
+      animalsQuery = animalsQuery.in('farm_id', categoryFarmIds);
+    }
+    
+    const { data: animals } = await animalsQuery;
 
     animalIds = animals?.map((a: any) => a.id) || [];
     cohortDescription = `Animals in ${filterValue}`;
 
   } else if (cohortFilter === 'livestock_type' && filterValue) {
     // Get animals of specific type
-    const { data: animals } = await supabase
+    let animalsQuery = supabase
       .from('animals')
       .select('id')
       .eq('livestock_type', filterValue)
       .eq('is_deleted', false);
+    
+    if (categoryFarmIds) {
+      animalsQuery = animalsQuery.in('farm_id', categoryFarmIds);
+    }
+    
+    const { data: animals } = await animalsQuery;
 
     animalIds = animals?.map((a: any) => a.id) || [];
     cohortDescription = `All ${filterValue}`;

@@ -7,8 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import RegionalDetailPanel from "./RegionalDetailPanel";
 import { subDays } from "date-fns";
-
-type DataCategory = 'live' | 'demo' | 'all';
+import { DataCategory } from "@/types/government";
 
 interface RegionalLivestockMapProps {
   dateRange?: { start: Date; end: Date };

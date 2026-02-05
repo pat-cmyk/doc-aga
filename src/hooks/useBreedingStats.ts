@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 interface BreedingStats {
   total_ai_scheduled: number;
@@ -18,8 +19,6 @@ interface BreedingStats {
   }>;
   unique_semen_count: number;
 }
-
-export type DataCategory = 'live' | 'demo' | 'all';
 
 export const useBreedingStats = (
   startDate: Date,

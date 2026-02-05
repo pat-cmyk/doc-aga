@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface GrantSourceBreakdown {
   grantSource: string;
@@ -31,8 +32,6 @@ export interface GrantAnalytics {
   grantSourceBreakdown: GrantSourceBreakdown[];
   acquisitionBreakdown: AcquisitionBreakdown;
 }
-
-export type DataCategory = 'live' | 'demo' | 'all';
 
 export const useGrantAnalytics = (
   region?: string,

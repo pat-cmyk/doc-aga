@@ -57,9 +57,9 @@ import { useSearchParams } from "react-router-dom";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { Database as DatabaseIcon } from "lucide-react";
+import { DataCategory } from "@/types/government";
 
 type DatePreset = "last7Days" | "last30Days" | "last90Days" | "custom";
-type DataCategory = 'live' | 'demo' | 'all';
 
 const GovernmentDashboard = () => {
   const navigate = useNavigate();
