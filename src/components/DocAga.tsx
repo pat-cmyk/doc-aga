@@ -16,6 +16,7 @@ import { useRole } from "@/hooks/useRole";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
 import { useLocation } from "react-router-dom";
+ import { Globe, TrendingUp as TrendingUpIcon } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -37,12 +38,7 @@ const DocAga = () => {
   // Generate stable conversation ID for this session
   const [conversationId] = useState(() => crypto.randomUUID());
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:\n\n• View animal profiles and health history\n• Search for animals by breed, stage, or characteristics\n• Create health records when you report issues\n• Log milking production data\n• **Query historical data** (milk production, weights, health - any date!)\n• Provide farm management advice\n\nYou can type your question, attach an image, or use voice recording. How can I help you today?"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -71,8 +67,51 @@ const DocAga = () => {
   // Detect if user is on government dashboard
   const isGovernmentContext = hasGovernmentAccess && location.pathname.startsWith('/government');
 
+   // Set initial welcome message based on context
+   useEffect(() => {
+     if (messages.length === 0) {
+       const welcomeMessage = isGovernmentContext 
+         ? governmentWelcomeMessage 
+         : farmerWelcomeMessage;
+       setMessages([{ role: "assistant", content: welcomeMessage }]);
+     }
+   }, [isGovernmentContext]);
+ 
+   // Government-specific welcome message
+   const governmentWelcomeMessage = `I'm Doc Aga Analytics, your livestock sector intelligence assistant. I can:
+ 
+ • Provide national/regional livestock statistics
+ • Analyze breeding trends and AI success rates
+ • Track health patterns across all farms
+ • Monitor production metrics and forecasts
+ • Summarize farmer feedback and priority issues
+ 
+ I analyze aggregate data across all registered farms. How can I help you today?`;
+ 
+   // Farmer-specific welcome message
+   const farmerWelcomeMessage = `Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:
+ 
+ • View animal profiles and health history
+ • Search for animals by breed, stage, or characteristics
+ • Create health records when you report issues
+ • Log milking production data
+ • **Query historical data** (milk production, weights, health - any date!)
+ • Provide farm management advice
+ 
+ You can type your question, attach an image, or use voice recording. How can I help you today?`;
+ 
   // Quick actions based on role
   const getQuickActions = (): QuickAction[] => {
+    // Government analyst quick actions
+    if (isGovernmentContext) {
+      return [
+        { icon: Globe, label: "National Overview", prompt: "Show me national livestock statistics", color: "text-blue-600" },
+        { icon: TrendingUpIcon, label: "Breeding Analytics", prompt: "What are the breeding trends and AI success rates?", color: "text-green-600" },
+        { icon: Activity, label: "Health Trends", prompt: "Show me health patterns across the sector", color: "text-orange-600" },
+        { icon: MessageSquare, label: "Farmer Feedback", prompt: "Summarize recent farmer feedback and priority issues", color: "text-purple-600" },
+      ];
+    }
+    
     if (hasRole('farmhand')) {
       return [
         { icon: Activity, label: "Log Activity", prompt: "I want to log an activity", color: "text-blue-600" },
@@ -92,6 +131,13 @@ const DocAga = () => {
 
   const quickActions = getQuickActions();
 
+   // Force chat-only mode for government context
+   useEffect(() => {
+     if (isGovernmentContext && inputMethod !== 'chat') {
+       setInputMethod('chat');
+     }
+   }, [isGovernmentContext, inputMethod]);
+ 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -421,6 +467,9 @@ const DocAga = () => {
   const showQuickActions = messages.length === 1;
 
   const getModeLabel = () => {
+    if (isGovernmentContext) {
+      return "Analytics Mode";
+    }
     switch (currentIntent) {
       case "instruction": return "Recording Mode";
       case "analytics": return "Analysis Mode";
@@ -430,6 +479,9 @@ const DocAga = () => {
   };
 
   const getModeColor = () => {
+    if (isGovernmentContext) {
+      return "bg-blue-500";
+    }
     switch (currentIntent) {
       case "instruction": return "bg-blue-500";
       case "analytics": return "bg-green-500";
@@ -447,22 +499,25 @@ const DocAga = () => {
             {getModeLabel()}
           </Badge>
         </div>
-        <Tabs value={inputMethod} onValueChange={(v) => handleInputMethodChange(v as InputMethod)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="chat" className="text-xs">
-              <MessageSquare className="h-3.5 w-3.5 mr-1" />
-              Chat
-            </TabsTrigger>
-            <TabsTrigger value="voice" className="text-xs">
-              <Mic className="h-3.5 w-3.5 mr-1" />
-              Voice
-            </TabsTrigger>
-            <TabsTrigger value="image" className="text-xs">
-              <ImageIcon className="h-3.5 w-3.5 mr-1" />
-              Image
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Hide voice/image tabs for government context - text-only analysis */}
+        {!isGovernmentContext && (
+          <Tabs value={inputMethod} onValueChange={(v) => handleInputMethodChange(v as InputMethod)}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="chat" className="text-xs">
+                <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                Chat
+              </TabsTrigger>
+              <TabsTrigger value="voice" className="text-xs">
+                <Mic className="h-3.5 w-3.5 mr-1" />
+                Voice
+              </TabsTrigger>
+              <TabsTrigger value="image" className="text-xs">
+                <ImageIcon className="h-3.5 w-3.5 mr-1" />
+                Image
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
       <ScrollArea className="flex-1 p-2 sm:p-3" ref={scrollRef}>
@@ -576,7 +631,7 @@ const DocAga = () => {
         )}
 
         {/* Conditional input based on selected method */}
-        {inputMethod === "voice" ? (
+        {inputMethod === "voice" && !isGovernmentContext ? (
           <div className="flex items-center justify-center p-4 border-t-0 bg-muted/30">
             <VoiceRecordButton 
               onTranscription={(text) => {
