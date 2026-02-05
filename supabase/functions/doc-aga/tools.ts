@@ -24,9 +24,41 @@ async function getFilteredFarmIds(
     return null;
   }
 
+   console.log(`[getFilteredFarmIds] Category: ${dataCategory}, Found: ${farms?.length || 0} farms`);
   return farms?.map(f => f.id) || [];
 }
 
+ /**
+  * Get animal IDs filtered by data category (two-stage query helper)
+  * This works around PostgREST limitation with nested .in() filters on relations
+  * Returns null if 'all' or no filter needed, meaning query all animals
+  */
+ async function getFilteredAnimalIds(
+   supabase: SupabaseClient,
+   dataCategory?: DataCategory
+ ): Promise<string[] | null> {
+   // Get farm IDs first
+   const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   
+   if (farmIds === null) return null; // No filter needed
+   if (farmIds.length === 0) return []; // No farms found
+   
+   // Get animal IDs from those farms
+   const { data: animals, error } = await supabase
+     .from('animals')
+     .select('id')
+     .in('farm_id', farmIds)
+     .eq('is_deleted', false);
+   
+   if (error) {
+     console.error('[getFilteredAnimalIds] Error:', error.message);
+     return null;
+   }
+   
+   console.log(`[getFilteredAnimalIds] Found ${animals?.length || 0} animals for dataCategory '${dataCategory}'`);
+   return animals?.map(a => a.id) || [];
+ }
+ 
 export async function executeToolCall(
   toolName: string,
   args: any,
@@ -338,8 +370,20 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCat
   const days = args.days || 90;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Get filtered farm IDs based on data category
-  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+   const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
+   
+   if (animalIds && animalIds.length === 0) {
+     return {
+       period_days: days,
+       total_ai_procedures: 0,
+       confirmed_pregnancies: 0,
+       overall_success_rate: 0,
+       success_rate_by_type: {},
+       currently_pregnant: 0,
+       message: `No animals found for data category '${dataCategory}'`
+     };
+   }
 
   // Get AI records
   let aiQuery = supabase
@@ -348,8 +392,8 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCat
     .gte('performed_date', startDate)
     .not('performed_date', 'is', null);
   
-  if (farmIds) {
-    aiQuery = aiQuery.in('animals.farm_id', farmIds);
+   if (animalIds) {
+     aiQuery = aiQuery.in('animal_id', animalIds);
   }
   
   const { data: aiRecords } = await aiQuery;
@@ -378,8 +422,8 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCat
     .select('*, animals!inner(farm_id)', { count: 'exact', head: true })
     .eq('pregnancy_confirmed', true);
   
-  if (farmIds) {
-    pregnantQuery = pregnantQuery.in('animals.farm_id', farmIds);
+   if (animalIds) {
+     pregnantQuery = pregnantQuery.in('animal_id', animalIds);
   }
   
   const { count: pregnantCount } = await pregnantQuery;
@@ -398,8 +442,22 @@ async function getHealthAnalytics(args: any, supabase: SupabaseClient, dataCateg
   const days = args.days || 30;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Get filtered farm IDs based on data category
-  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+   const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
+   
+   // Also get farm IDs for animals exit query
+   const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   
+   if (animalIds && animalIds.length === 0) {
+     return {
+       period_days: days,
+       total_health_records: 0,
+       top_diagnoses: [],
+       animal_exits: {},
+       total_exits: 0,
+       message: `No animals found for data category '${dataCategory}'`
+     };
+   }
 
   // Get health records
   let healthQuery = supabase
@@ -407,8 +465,8 @@ async function getHealthAnalytics(args: any, supabase: SupabaseClient, dataCateg
     .select('diagnosis, treatment, visit_date, animals!inner(farm_id)')
     .gte('visit_date', startDate);
   
-  if (farmIds) {
-    healthQuery = healthQuery.in('animals.farm_id', farmIds);
+   if (animalIds) {
+     healthQuery = healthQuery.in('animal_id', animalIds);
   }
   
   const { data: healthRecords } = await healthQuery;
@@ -460,8 +518,19 @@ async function getProductionTrends(args: any, supabase: SupabaseClient, dataCate
   const days = args.days || 30;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Get filtered farm IDs based on data category
-  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+   const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
+   
+   if (animalIds && animalIds.length === 0) {
+     return {
+       period_days: days,
+       total_milk_liters: 0,
+       average_daily_liters: 0,
+       production_by_livestock_type: {},
+       daily_trend: [],
+       message: `No animals found for data category '${dataCategory}'`
+     };
+   }
 
   // Get daily milk production
   let milkQuery = supabase
@@ -470,8 +539,8 @@ async function getProductionTrends(args: any, supabase: SupabaseClient, dataCate
     .gte('record_date', startDate)
     .order('record_date', { ascending: true });
   
-  if (farmIds) {
-    milkQuery = milkQuery.in('animals.farm_id', farmIds);
+   if (animalIds) {
+     milkQuery = milkQuery.in('animal_id', animalIds);
   }
   
   const { data: milkRecords } = await milkQuery;
@@ -576,10 +645,10 @@ async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient
   const targetMonth = args.target_month; // e.g., "2026-03"
   const includeHealthRisks = args.include_health_risks !== false;
 
-  // Get filtered farm IDs based on data category
-  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+   const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
   
-  if (farmIds && farmIds.length === 0) {
+   if (animalIds && animalIds.length === 0) {
     return {
       total_pregnant: 0,
       message: `No farms found with data category '${dataCategory}'`
@@ -597,8 +666,8 @@ async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient
     .not('expected_delivery_date', 'is', null)
     .order('expected_delivery_date', { ascending: true });
   
-  if (farmIds) {
-    aiQuery = aiQuery.in('animals.farm_id', farmIds);
+   if (animalIds) {
+     aiQuery = aiQuery.in('animal_id', animalIds);
   }
   
   const { data: aiRecords } = await aiQuery;
@@ -774,8 +843,16 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
   const startDate = new Date().toISOString().split('T')[0];
   const endDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Get filtered farm IDs based on data category
-  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+    const filteredAnimalIds = await getFilteredAnimalIds(supabase, dataCategory);
+   
+    if (filteredAnimalIds && filteredAnimalIds.length === 0) {
+     return {
+       period_days: daysAhead,
+       total_deliveries_expected: 0,
+       message: `No animals found for data category '${dataCategory}'`
+     };
+   }
 
   // Get pregnant animals due in the period
   let pregnantQuery = supabase
@@ -789,8 +866,8 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     .lte('expected_delivery_date', endDate)
     .order('expected_delivery_date', { ascending: true });
   
-  if (farmIds) {
-    pregnantQuery = pregnantQuery.in('animals.farm_id', farmIds);
+    if (filteredAnimalIds) {
+      pregnantQuery = pregnantQuery.in('animal_id', filteredAnimalIds);
   }
   
   const { data: pregnantAnimals } = await pregnantQuery;
@@ -803,21 +880,21 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     };
   }
 
-  const animalIds = pregnantAnimals.map((r: any) => r.animals?.id).filter(Boolean);
+   const pregnantAnimalIds = pregnantAnimals.map((r: any) => r.animals?.id).filter(Boolean);
 
   // Get health records for these animals (last 30 days)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const { data: healthRecords } = await supabase
     .from('health_records')
     .select('animal_id, diagnosis, visit_date')
-    .in('animal_id', animalIds)
+     .in('animal_id', pregnantAnimalIds)
     .gte('visit_date', thirtyDaysAgo);
 
   // Get BCS records
   const { data: bcsRecords } = await supabase
     .from('body_condition_scores')
     .select('animal_id, score, assessment_date')
-    .in('animal_id', animalIds)
+     .in('animal_id', pregnantAnimalIds)
     .order('assessment_date', { ascending: false });
 
   // Calculate risk factors
@@ -873,13 +950,13 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     
     risk_factors: {
       animals_with_recent_health_issues: animalsWithHealthIssues.size,
-      health_issue_percentage: Math.round((animalsWithHealthIssues.size / animalIds.length) * 100),
+       health_issue_percentage: Math.round((animalsWithHealthIssues.size / pregnantAnimalIds.length) * 100),
       
       animals_with_low_bcs: lowBcsAnimals.length,
       low_bcs_percentage: Object.keys(latestBcsByAnimal).length > 0
         ? Math.round((lowBcsAnimals.length / Object.keys(latestBcsByAnimal).length) * 100)
         : 0,
-      bcs_data_coverage: `${Object.keys(latestBcsByAnimal).length}/${animalIds.length} animals have BCS data`,
+       bcs_data_coverage: `${Object.keys(latestBcsByAnimal).length}/${pregnantAnimalIds.length} animals have BCS data`,
       
       potential_outbreak_regions: potentialOutbreakRegions
     },
@@ -922,8 +999,10 @@ async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient, data
   const cohortFilter = args.cohort_filter; // 'due_month', 'region', 'livestock_type'
   const filterValue = args.filter_value;
 
-  // Get filtered farm IDs based on data category
-  const categoryFarmIds = await getFilteredFarmIds(supabase, dataCategory);
+   // Get filtered animal IDs based on data category (two-stage pattern)
+   const categoryAnimalIds = await getFilteredAnimalIds(supabase, dataCategory);
+   // Also get farm IDs for farm-based queries
+   const categoryFarmIds = await getFilteredFarmIds(supabase, dataCategory);
 
   let animalIds: string[] = [];
   let cohortDescription = '';
@@ -936,8 +1015,8 @@ async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient, data
       .eq('pregnancy_confirmed', true)
       .like('expected_delivery_date', `${filterValue}%`);
     
-    if (categoryFarmIds) {
-      aiQuery = aiQuery.in('animals.farm_id', categoryFarmIds);
+     if (categoryAnimalIds) {
+       aiQuery = aiQuery.in('animal_id', categoryAnimalIds);
     }
     
     const { data: aiRecords } = await aiQuery;
