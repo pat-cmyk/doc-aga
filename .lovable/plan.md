@@ -1,102 +1,112 @@
 
+# Seed Complete Breeding Data for Government Dashboard
 
-# Complete Remaining Demo Milking Data: Jan-Feb 2026
+## Problem Summary
 
-## Current Gap Analysis
+The Reproduction & Breeding section shows zero/empty values because:
 
-| Species | Jan 2026 | Feb 2026 | Action Needed |
-|---------|----------|----------|---------------|
-| Cattle (283) | ✅ Has data (69,633 L) | ✅ Has data (16,986 L) | Minor gaps only |
-| Goat (124) | ❌ 0 records | ❌ 0 records | Generate all |
-| Carabao (45) | ❌ 0 records | ❌ 0 records | Generate all |
+| Metric | Current | Reason |
+|--------|---------|--------|
+| AI Success Rate | 0% | No `performed_date` on new farm AI records |
+| Currently Pregnant | 0 | No `pregnancy_confirmed = true` |
+| Due This Quarter | 0 | No `expected_delivery_date` in next 90 days |
+| Semen Sources | 0 | RPC doesn't return this field + not passed to component |
+| AI Success by Type | "No data" | No performed procedures with confirmations |
+
+The 114 AI records on the 50 new demo farms only have `scheduled_date` set - they're missing `performed_date`, `pregnancy_confirmed`, and `expected_delivery_date`.
+
+---
 
 ## Data Generation Plan
 
-### Step 1: Generate Goat Milking Records (Jan 1 - Feb 5, 2026)
+### Step 1: Update Existing AI Records (Set performed_date and confirmations)
 
-| Parameter | Value |
-|-----------|-------|
-| Animals | 124 lactating goats |
-| Date Range | January 1 → February 5, 2026 (36 days) |
-| Sessions | AM and PM daily |
-| Expected Records | ~8,928 records |
-| Volume | 0.3-1.6 liters per session |
-| Pricing | 50-70 PHP/L |
+For the 114 existing AI records on new demo farms:
+- Set `performed_date` = `scheduled_date + 0-3 days` (realistic delay)
+- Set `pregnancy_confirmed = true` for ~60% (realistic success rate)
+- Set `expected_delivery_date` based on livestock-specific gestation:
+  - Cattle: 283 days
+  - Goat: 150 days
+  - Carabao: 310 days
 
-### Step 2: Generate Carabao Milking Records (Jan 1 - Feb 5, 2026)
+### Step 2: Add Unique Semen Codes to RPC
 
-| Parameter | Value |
-|-----------|-------|
-| Animals | 45 lactating carabao |
-| Date Range | January 1 → February 5, 2026 (36 days) |
-| Sessions | AM and PM daily |
-| Expected Records | ~3,240 records |
-| Volume | 2-6 liters per session |
-| Pricing | 40-55 PHP/L |
+Update the `get_government_breeding_stats` RPC to return `unique_semen_count` as a new output column.
+
+### Step 3: Pass Semen Codes to Component
+
+Update the GovernmentDashboard.tsx to pass `uniqueSemenCodes` prop to BreedingOverviewCards.
+
+---
 
 ## Expected Outcomes
 
-### Before vs After (Jan-Feb 2026)
+After data update:
 
-| Month | Current | After Fix |
-|-------|---------|-----------|
-| Jan 2026 | 69,633 L (cattle only) | ~82,000 L (+goats/carabao) |
-| Feb 2026 | 16,986 L (cattle only) | ~20,000 L (+goats/carabao) |
+| Metric | Current | After Fix |
+|--------|---------|-----------|
+| AI Procedures | 17 (0 performed) | 17 (17 performed) |
+| Currently Pregnant | 0 | ~10-12 |
+| AI Success Rate | 0% | ~60-65% |
+| Due This Quarter | 0 | ~5-8 |
+| Semen Sources | 0 | ~15-20 |
+| AI Success by Type | No data | Cattle: 60%, Goat: 55%, Carabao: 65% |
 
-### Additional Data Generated
-
-| Species | New Records | Additional Liters |
-|---------|-------------|-------------------|
-| Goat | ~8,928 | ~8,500 L |
-| Carabao | ~3,240 | ~12,960 L |
-| **Total** | **~12,168** | **~21,460 L** |
+---
 
 ## Technical Implementation
 
-### Batch Strategy
+### SQL Updates for AI Records
 
-To avoid timeouts, inserts will be done in smaller batches:
-- Goats: 2 batches (Jan 1-20, Jan 21 - Feb 5)
-- Carabao: 2 batches (Jan 1-20, Jan 21 - Feb 5)
+```text
+1. Update performed_date for all scheduled AI records:
+   - Set performed_date = scheduled_date + random(0-3) days
+   - Filter: demo farms created >= 2026-02-04
 
-### SQL Pattern
+2. Set pregnancy confirmations (~60% success rate):
+   - pregnancy_confirmed = true for random subset
+   - expected_delivery_date calculated by livestock type
+   - confirmed_at = performed_date + 60 days (realistic pregnancy check timing)
 
-```sql
-INSERT INTO milking_records (animal_id, record_date, liters, session, price_per_liter, is_sold, created_by, created_at)
-SELECT 
-  a.id,
-  d.date::date,
-  0.3 + random() * 1.3,  -- Goat volumes
-  s.session,
-  50 + random() * 20,    -- Goat pricing
-  true,
-  'c8514ae7-f603-415e-8603-039515f7189e',
-  NOW()
-FROM animals a
-INNER JOIN farms f ON a.farm_id = f.id
-CROSS JOIN generate_series('2026-01-01'::date, '2026-01-20'::date, '1 day'::interval) d(date)
-CROSS JOIN (VALUES ('AM'), ('PM')) s(session)
-WHERE f.data_category = 'demo'
-  AND f.created_at >= '2026-02-04'
-  AND a.gender = 'female'
-  AND a.is_currently_lactating = true
-  AND a.livestock_type = 'goat'
-ON CONFLICT (animal_id, record_date, session) DO NOTHING;
+3. Ensure due_this_quarter has data:
+   - Some expected_delivery_date values between now and now + 90 days
 ```
 
-### Data Isolation Guarantee
+### RPC Enhancement
 
-All inserts filter by:
+Add new output column `unique_semen_count` to `get_government_breeding_stats`:
+```text
+- COUNT(DISTINCT ai.semen_code) within date range
+- Return as part of result set
+```
+
+### Frontend Update
+
+Update GovernmentDashboard.tsx line ~979:
+```text
+<BreedingOverviewCards
+  ...
+  uniqueSemenCodes={breedingStats?.unique_semen_count || 0}
+/>
+```
+
+---
+
+## Data Isolation Guarantee
+
+All SQL updates filter by:
 - `f.data_category = 'demo'`
-- `f.created_at >= '2026-02-04'`
-- Species-specific livestock_type
+- `f.created_at >= '2026-02-04'` (new demo farms only)
 
-**No live/production data will be affected.**
+No live/production data will be affected.
+
+---
 
 ## Dashboard Impact
 
-After completion, the Trends & Insights charts will show:
-- Consistent species mix across all months
-- Goat and carabao contributions visible in Jan-Feb
-- More realistic multi-species production profile
-
+After completion, the Reproduction & Breeding section will display:
+- Meaningful AI success rates by livestock type
+- Accurate pregnancy counts
+- Due this quarter showing upcoming deliveries
+- Semen sources showing genetic diversity
+- BreedingSuccessChart populated with species-specific data
