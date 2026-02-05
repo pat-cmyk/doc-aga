@@ -4,11 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { useGrantEffectiveness, AcquisitionMetrics } from "@/hooks/useGrantEffectiveness";
 import { TrendingUp, TrendingDown, Minus, Heart, Milk, Activity, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataCategory } from "@/types/government";
 
 interface GrantEffectivenessPanelProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
 const MetricComparison = ({ 
@@ -112,8 +114,9 @@ export const GrantEffectivenessPanel = ({
   region,
   province,
   municipality,
+  dataCategory = 'live',
 }: GrantEffectivenessPanelProps) => {
-  const { data, isLoading, error } = useGrantEffectiveness(region, province, municipality);
+  const { data, isLoading, error } = useGrantEffectiveness(region, province, municipality, dataCategory);
 
   if (error) {
     return (

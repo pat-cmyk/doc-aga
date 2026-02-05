@@ -4,12 +4,14 @@ import { Progress } from "@/components/ui/progress";
 import { useFarmComplianceMetrics } from "@/hooks/useFarmComplianceMetrics";
 import { ClipboardCheck, CheckCircle2, AlertCircle, Droplets, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataCategory } from "@/types/government";
 
 interface FarmOperationalHealthCardProps {
   startDate: Date;
   endDate: Date;
   region?: string;
   province?: string;
+  dataCategory?: DataCategory;
 }
 
 export const FarmOperationalHealthCard = ({
@@ -17,12 +19,14 @@ export const FarmOperationalHealthCard = ({
   endDate,
   region,
   province,
+  dataCategory = 'live',
 }: FarmOperationalHealthCardProps) => {
   const { data, isLoading, error } = useFarmComplianceMetrics(
     startDate,
     endDate,
     region,
-    province
+    province,
+    dataCategory
   );
 
   if (isLoading) {

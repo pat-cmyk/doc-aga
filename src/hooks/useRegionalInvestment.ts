@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface RegionalInvestmentData {
   totalHerdInvestment: number;
@@ -16,10 +17,11 @@ export const useRegionalInvestment = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<RegionalInvestmentData>({
-    queryKey: ["regional-investment", region || "all", province || "all", municipality || "all"],
+    queryKey: ["regional-investment", region || "all", province || "all", municipality || "all", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -28,6 +30,11 @@ export const useRegionalInvestment = (
         .from("farms")
         .select("id")
         .eq("is_deleted", false);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        farmsQuery = farmsQuery.eq("data_category", dataCategory);
+      }
 
       if (region) {
         farmsQuery = farmsQuery.eq("region", region);

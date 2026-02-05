@@ -228,6 +228,7 @@ const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLive
         isOpen={isPanelOpen}
         onClose={handlePanelClose}
         dateRange={effectiveDateRange}
+        dataCategory={dataCategory}
       />
     </>
   );

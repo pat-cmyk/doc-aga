@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { DataCategory } from "@/types/government";
 
 export interface MilkAnalyticsDataPoint {
   report_date: string;
@@ -37,6 +38,7 @@ export const useGovernmentMilkAnalytics = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<MilkAnalyticsSummary>({
@@ -47,6 +49,7 @@ export const useGovernmentMilkAnalytics = (
       region || "all",
       province || "all",
       municipality || "all",
+      dataCategory,
     ],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
@@ -58,6 +61,7 @@ export const useGovernmentMilkAnalytics = (
         region_filter: region || null,
         province_filter: province || null,
         municipality_filter: municipality || null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) throw error;

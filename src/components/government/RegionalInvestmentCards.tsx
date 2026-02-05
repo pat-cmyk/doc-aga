@@ -2,11 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Building2, Users, TrendingUp } from "lucide-react";
 import { useRegionalInvestment } from "@/hooks/useRegionalInvestment";
+import { DataCategory } from "@/types/government";
 
 interface RegionalInvestmentCardsProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
 const formatCurrency = (amount: number) => {
@@ -18,8 +20,8 @@ const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString()}`;
 };
 
-export function RegionalInvestmentCards({ region, province, municipality }: RegionalInvestmentCardsProps) {
-  const { data, isLoading } = useRegionalInvestment(region, province, municipality);
+export function RegionalInvestmentCards({ region, province, municipality, dataCategory = 'live' }: RegionalInvestmentCardsProps) {
+  const { data, isLoading } = useRegionalInvestment(region, province, municipality, dataCategory);
 
   if (isLoading) {
     return (

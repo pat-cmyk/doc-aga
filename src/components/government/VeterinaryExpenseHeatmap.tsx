@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useVeterinaryExpenseHeatmap } from "@/hooks/useVeterinaryExpenseHeatmap";
 import { Stethoscope, Pill, AlertTriangle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataCategory } from "@/types/government";
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ interface VeterinaryExpenseHeatmapProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
 const formatCurrency = (value: number) => {
@@ -54,8 +56,9 @@ export const VeterinaryExpenseHeatmap = ({
   region,
   province,
   municipality,
+  dataCategory = 'live',
 }: VeterinaryExpenseHeatmapProps) => {
-  const { data, isLoading, error } = useVeterinaryExpenseHeatmap(region, province, municipality);
+  const { data, isLoading, error } = useVeterinaryExpenseHeatmap(region, province, municipality, dataCategory);
 
   if (error) {
     return (

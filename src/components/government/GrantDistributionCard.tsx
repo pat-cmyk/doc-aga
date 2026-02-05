@@ -3,15 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Gift, TrendingUp } from "lucide-react";
 import { useGrantAnalytics } from "@/hooks/useGrantAnalytics";
+import { DataCategory } from "@/types/government";
 
 interface GrantDistributionCardProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
-export function GrantDistributionCard({ region, province, municipality }: GrantDistributionCardProps) {
-  const { data, isLoading } = useGrantAnalytics(region, province, municipality);
+export function GrantDistributionCard({ region, province, municipality, dataCategory = 'live' }: GrantDistributionCardProps) {
+  const { data, isLoading } = useGrantAnalytics(region, province, municipality, dataCategory);
 
   if (isLoading) {
     return (

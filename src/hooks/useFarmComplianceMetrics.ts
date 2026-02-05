@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { DataCategory } from "@/types/government";
 
 export interface FarmComplianceData {
   region: string;
@@ -31,6 +32,7 @@ export const useFarmComplianceMetrics = (
   endDate: Date,
   region?: string,
   province?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<ComplianceSummary>({
@@ -40,6 +42,7 @@ export const useFarmComplianceMetrics = (
       format(endDate, "yyyy-MM-dd"),
       region || "all",
       province || "all",
+      dataCategory,
     ],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
@@ -50,6 +53,7 @@ export const useFarmComplianceMetrics = (
         end_date: format(endDate, "yyyy-MM-dd"),
         region_filter: region || null,
         province_filter: province || null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) throw error;

@@ -1039,6 +1039,7 @@ const GovernmentDashboard = () => {
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
+                dataCategory={dataCategory}
               />
             </div>
 
@@ -1131,6 +1132,7 @@ const GovernmentDashboard = () => {
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
+                dataCategory={dataCategory}
               />
 
               {/* Grant Distribution Card */}
@@ -1138,6 +1140,7 @@ const GovernmentDashboard = () => {
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
+                dataCategory={dataCategory}
               />
 
               {/* Grant Effectiveness Panel */}
@@ -1145,6 +1148,7 @@ const GovernmentDashboard = () => {
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
+                dataCategory={dataCategory}
               />
             </div>
 
@@ -1180,6 +1184,7 @@ const GovernmentDashboard = () => {
                 region={primaryRegion}
                 province={primaryProvince}
                 municipality={primaryMunicipality}
+                dataCategory={dataCategory}
               />
             </div>
 
@@ -1196,11 +1201,13 @@ const GovernmentDashboard = () => {
                   startDate={primaryDateRange.start}
                   endDate={primaryDateRange.end}
                   region={primaryRegion}
+                  dataCategory={dataCategory}
                 />
                 <FeedSecurityCard
                   region={primaryRegion}
                   province={primaryProvince}
                   municipality={primaryMunicipality}
+                  dataCategory={dataCategory}
                 />
               </div>
             </div>
@@ -1218,6 +1225,7 @@ const GovernmentDashboard = () => {
                 endDate={primaryDateRange.end}
                 region={primaryRegion}
                 province={primaryProvince}
+                dataCategory={dataCategory}
               />
             </div>
 

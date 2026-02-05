@@ -28,12 +28,14 @@ import {
   Legend,
 } from "recharts";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { DataCategory } from "@/types/government";
 
 interface RegionalDetailPanelProps {
   region: string | null;
   isOpen: boolean;
   onClose: () => void;
   dateRange: { start: Date; end: Date };
+  dataCategory?: DataCategory;
 }
 
 const RegionalDetailPanel = ({
@@ -41,6 +43,7 @@ const RegionalDetailPanel = ({
   isOpen,
   onClose,
   dateRange,
+  dataCategory = 'live',
 }: RegionalDetailPanelProps) => {
   const { fontSize, xAxisProps } = useResponsiveChart({ size: 'medium' });
   const daysDiff = Math.ceil(
@@ -53,7 +56,7 @@ const RegionalDetailPanel = ({
     region || undefined,
     undefined, // province
     undefined, // municipality
-    'live', // dataCategory
+    dataCategory,
     { enabled: isOpen && !!region }
   );
 
@@ -64,7 +67,7 @@ const RegionalDetailPanel = ({
       region || undefined,
       undefined, // province
       undefined, // municipality
-      'live', // dataCategory
+      dataCategory,
       { enabled: isOpen && !!region }
     );
 
@@ -73,7 +76,7 @@ const RegionalDetailPanel = ({
     region || undefined,
     undefined, // province
     undefined, // municipality
-    'live', // dataCategory
+    dataCategory,
     { enabled: isOpen && !!region }
   );
 
