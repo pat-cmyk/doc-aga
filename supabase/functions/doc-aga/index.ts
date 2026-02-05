@@ -470,11 +470,9 @@ serve(async (req) => {
       );
     }
 
-    const { messages, context, conversationId } = validatedData;
-    const dataCategory = validatedData.dataCategory;
-    const isGovernmentContext = context === 'government';
-    
-    console.log(`Doc Aga request - context: ${context}, conversationId: ${conversationId || 'none'}`);
+     const { messages, conversationId } = validatedData;
+     
+     console.log(`Doc Aga request - conversationId: ${conversationId || 'none'}`);
     
     // Transform messages to support vision (images)
     const transformedMessages = messages.map((msg: any) => {
@@ -512,23 +510,6 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // For government context, verify user has government role
-    if (isGovernmentContext) {
-      const { data: govRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'government');
-      
-      if (!govRoles || govRoles.length === 0) {
-        return new Response(JSON.stringify({ error: "Government access required" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.log('✅ Government access verified');
     }
 
     // Apply rate limiting
@@ -594,33 +575,31 @@ serve(async (req) => {
       }
     }
     
-    // Fetch user's farms (only for farmer context)
+     // Fetch user's farms
     let farmId: string | undefined;
-    if (!isGovernmentContext) {
-      // If farmId provided, verify user has access
-      if (validatedData.farmId) {
-        const { data: farmAccess, error: accessError } = await supabase
-          .rpc('can_access_farm', { fid: validatedData.farmId });
-        
-        if (accessError || !farmAccess) {
-          console.error('Farm access denied:', { userId: user.id, farmId: validatedData.farmId });
-          return new Response(
-            JSON.stringify({ error: 'You do not have access to this farm' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        console.log('✅ Farm access verified');
+     // If farmId provided, verify user has access
+     if (validatedData.farmId) {
+       const { data: farmAccess, error: accessError } = await supabase
+         .rpc('can_access_farm', { fid: validatedData.farmId });
+       
+       if (accessError || !farmAccess) {
+         console.error('Farm access denied:', { userId: user.id, farmId: validatedData.farmId });
+         return new Response(
+           JSON.stringify({ error: 'You do not have access to this farm' }),
+           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
       }
       
-      const { data: farms } = await supabase
-        .from('farms')
-        .select('id, name')
-        .eq('owner_id', user.id)
-        .eq('is_deleted', false);
-      
-      farmId = farms?.[0]?.id;
+       console.log('✅ Farm access verified');
     }
+     
+     const { data: farms } = await supabase
+       .from('farms')
+       .select('id, name')
+       .eq('owner_id', user.id)
+       .eq('is_deleted', false);
+     
+     farmId = farms?.[0]?.id;
     
     // Fetch FAQ knowledge base
     const { data: faqs } = await supabase.from('doc_aga_faqs').select('*').eq('is_active', true);
@@ -648,7 +627,7 @@ serve(async (req) => {
       earliestRecordDate: null
     };
     
-    if (farmId && !isGovernmentContext) {
+     if (farmId) {
       try {
         // Fetch farm creation date and earliest records in parallel
         const [farmResult, milkResult, healthResult] = await Promise.all([
@@ -706,26 +685,9 @@ serve(async (req) => {
       }
     }
     
-    // Select system prompt and tools based on context
-    // Generate current date in Philippine timezone for government context
-    const currentPHDate = new Date().toLocaleString('en-PH', {
-      timeZone: 'Asia/Manila',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }) + ' PHT';
-    
-    const systemPrompt = isGovernmentContext 
-      ? getGovernmentAnalystPrompt(currentPHDate) 
-      : getFarmerSystemPrompt(faqContext, dateContext);
-    
-    const tools = isGovernmentContext 
-      ? getGovernmentTools() 
-      : getFarmerTools();
+     // Use farmer system prompt and tools
+     const systemPrompt = getFarmerSystemPrompt(faqContext, dateContext);
+     const tools = getFarmerTools();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -782,7 +744,7 @@ serve(async (req) => {
         const toolArgs = JSON.parse(toolCall.function.arguments);
         
         console.log(`Executing tool: ${toolName}`, toolArgs);
-        const result = await executeToolCall(toolName, toolArgs, supabase, farmId, context, user.id, conversationId, dataCategory);
+         const result = await executeToolCall(toolName, toolArgs, supabase, farmId, user.id, conversationId);
         console.log(`Tool result:`, result);
         
         toolResults.push({
