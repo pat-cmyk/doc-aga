@@ -17,9 +17,10 @@ interface ActionFabProps {
   onAction: (actionId: string) => void;
   mainIcon: LucideIcon;
   mainLabel?: string;
+  mainButtonClassName?: string;
 }
 
-export function ActionFab({ actions, onAction, mainIcon: MainIcon, mainLabel = "Actions" }: ActionFabProps) {
+export function ActionFab({ actions, onAction, mainIcon: MainIcon, mainLabel = "Actions", mainButtonClassName }: ActionFabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleAction = (actionId: string) => {
@@ -76,7 +77,7 @@ export function ActionFab({ actions, onAction, mainIcon: MainIcon, mainLabel = "
             "h-14 w-14 rounded-full shadow-lg transition-all duration-200",
             isExpanded 
               ? "bg-muted text-muted-foreground hover:bg-muted/80" 
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
+              : mainButtonClassName || "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
           aria-label={isExpanded ? "Close menu" : mainLabel}
         >

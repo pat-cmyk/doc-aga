@@ -1,5 +1,8 @@
 project_id = "sxorybjlxyquxteptdyk"
 
+[functions.rico]
+verify_jwt = false
+
 [functions.generate-morning-brief]
 verify_jwt = true
 
