@@ -1,249 +1,266 @@
 
 
-# Pre-Calving Risk Score (PCRS) System: Research and Options
+# RICO: Government AI Persona Separation Plan
 
-## Bug Confirmation: February 2026 Missing "Urgent" Tag
+## Overview
 
-**Root Cause Identified:** The current logic uses `parseISO(`${monthKey}-01`)` which checks if the **first day of the month** is within 30 days, not the actual delivery dates.
-
-- **Current Date:** Feb 5, 2026
-- **February 2026 deliveries:** 12 animals due Feb 16-23 (11-18 days away)
-- **March 2026 deliveries:** 25 animals due Mar 16+ (39+ days away)
-
-February should show "Urgent" badge but doesn't because `parseISO("2026-02-01")` is technically in the past (before "now"). This is a logic bug.
+Create **RICO** (Reporting & Intelligence Compliance Officer) as a completely separate AI persona for the government dashboard, implementing Option C (Microservice Architecture) with distinct branding, personality, and visual identity.
 
 ---
 
-## Global Best Practices Research: Pre-Calving Risk Assessment
+## RICO Persona Definition
 
-### Industry-Standard Risk Factors
+### Identity
+| Attribute | Value |
+|-----------|-------|
+| **Full Name** | RICO - Reporting & Intelligence Compliance Officer |
+| **Role** | Government livestock sector intelligence analyst |
+| **Personality** | Fast-paced, modern, high-energy, "ma-diskarte" (resourceful) |
+| **Core Focus** | Audit Defense - validating data integrity, no ghost beneficiaries |
+| **Tone** | Professional authority with Filipino resourcefulness |
 
-Based on veterinary research from University of Georgia Extension, Penn State Extension, University of Minnesota, Merck Veterinary Manual, and USDA/NAHBS studies:
+### Key Differentiators from Doc Aga
 
-| Risk Factor | Impact on Dystocia/Complications | Source |
-|-------------|----------------------------------|--------|
-| **Body Condition Score (BCS)** | BCS >3.5 or <2.5 at calving = 2x higher risk of metabolic disorders, dystocia | Penn State, UGA |
-| **Parity (First-calf heifers)** | Primiparous = 3-4x higher dystocia risk than multiparous | Merck Vet Manual |
-| **Days Until Delivery** | <14 days = high intervention probability | Industry standard |
-| **Recent Health Issues** | Active infection/treatment = increased calving complications | UMN Extension |
-| **Data Freshness** | Stale data (>30 days since BCS/checkup) = blind spot | Operational best practice |
-| **Services per Conception** | High SPC (>3) may correlate with fetal issues | Reproductive research |
-| **Age at First Calving** | Too young (<24 months cattle) = smaller pelvic area | USDA AIPL |
+| Aspect | Doc Aga (Farmer) | RICO (Government) |
+|--------|------------------|-------------------|
+| **Personality** | Warm, barangay vet, trusted friend | Sharp, modern analyst, authority figure |
+| **Language** | Taglish, casual | Professional English/Tagalog, data-driven |
+| **Focus** | Farm operations, animal health | Data validation, compliance, policy insights |
+| **Tone** | Supportive, nurturing | Confident, analytical, action-oriented |
+| **Icon** | Stethoscope (green/primary) | Shield/Landmark (blue) |
+| **Color** | Primary (green) | Blue |
 
-### Transition Period Critical Checkpoints
-
-From Zinpro and DAIReXNET Transition Management Checklists:
-
-1. **Dry-off** - BCS assessment
-2. **3-4 weeks pre-calving** - Close-up period, BCS 2.5-3.0 target
-3. **At calving** - Highest risk point
-4. **60 days post-calving** - Recovery assessment
-
----
-
-## Three Options for Pre-Calving Risk Score System
-
-### Option A: Simple Weighted Score (Recommended for Phase 1)
-
-A straightforward 100-point scoring system using currently available data.
-
-#### Scoring Components
-
-| Factor | Points | Criteria |
-|--------|--------|----------|
-| **Timeline Proximity** | 0-35 pts | <7 days: 35, 7-14 days: 25, 15-30 days: 15, 31-60 days: 5, >60 days: 0 |
-| **BCS Risk** | 0-25 pts | <2.0: 25, 2.0-2.4: 15, 4.0-4.5: 10, >4.5: 25, 2.5-3.5 (ideal): 0 |
-| **Parity Risk** | 0-15 pts | Primiparous (parity=0): 15, Parity 1-2: 5, Parity 3+: 0 |
-| **Health History** | 0-15 pts | Health issues in last 90 days: +5 per issue (max 15) |
-| **Data Freshness** | 0-10 pts | No BCS in >60 days: 10, No BCS in >30 days: 5, Recent BCS: 0 |
-
-#### Risk Tiers
-
-| Score | Tier | Badge | Action Level |
-|-------|------|-------|--------------|
-| **75-100** | Critical | 🔴 Red | Immediate veterinary review required |
-| **50-74** | High | 🟠 Orange | Priority monitoring, prep calving area |
-| **25-49** | Moderate | 🟡 Yellow | Standard close-up protocols |
-| **0-24** | Low | 🟢 Green | Routine monitoring |
-
-#### Pros
-- Uses 100% existing data (no schema changes)
-- Simple to understand and explain to farmers
-- Can implement in 1-2 days
-- Aligns with Doc Aga's existing data tools
-
-#### Cons
-- Limited precision without sire calving ease data
-- Doesn't account for livestock-type-specific thresholds
-- No machine learning/adaptive component
-
----
-
-### Option B: Multi-Factor Composite Score with Livestock-Specific Thresholds
-
-Enhanced version with species-specific calibration.
-
-#### Livestock-Specific BCS Targets
-
-| Species | Target at Calving | Underweight Risk | Overweight Risk |
-|---------|-------------------|------------------|-----------------|
-| Cattle (dairy) | 2.5-3.0 (5-pt scale) | <2.0 | >3.5 |
-| Cattle (beef) | 5-6 (9-pt scale) | <4 | >7 |
-| Goat | 2.5-3.0 | <2.0 | >4.0 |
-| Carabao | 3.0-3.5 | <2.5 | >4.0 |
-
-#### Additional Factors
-
-| Factor | Points | Notes |
-|--------|--------|-------|
-| **Breeding History** | 0-10 pts | SPC >3: +5, Previous stillbirth: +10 |
-| **Weight Trend** | 0-10 pts | Weight loss in late gestation: +10 |
-| **Vaccination Status** | 0-5 pts | Overdue vaccines: +5 per overdue |
-
-#### Total: 100-point scale (same tiers as Option A)
-
-#### Pros
-- More accurate per-species assessment
-- Accounts for Philippine livestock mix
-- Better correlation with actual outcomes
-
-#### Cons
-- Requires BCS conversion logic per species
-- More complex to explain to non-technical users
-- May need historical outcome data to validate weights
-
----
-
-### Option C: Predictive Risk Model with Outcome Learning (Future)
-
-Machine learning approach that learns from actual calving outcomes.
-
-#### Architecture
+### RICO System Prompt Highlights
 
 ```
-Input Features → ML Model → Risk Probability (0-100%)
-     ↓                            ↑
-     └─────── Feedback Loop ──────┘
-                (actual outcomes)
+You are RICO (Reporting & Intelligence Compliance Officer), a high-energy 
+livestock sector intelligence analyst for Philippine government officials.
+
+Your approach:
+- "Audit Defense" mindset - validate before trusting data
+- Identify discrepancies, ghost beneficiaries, data integrity issues
+- Cross-reference geo-tagged data with expected patterns
+- Quick, decisive analysis with actionable recommendations
+
+Personality:
+- Ma-diskarte (resourceful) - find insights others miss
+- Professional authority - data speaks for itself
+- Fast-paced - get to the point quickly
+- Modern - use contemporary Filipino/English business language
 ```
 
-#### Required Data Points (not all currently available)
+---
 
-| Feature | Current Status |
-|---------|----------------|
-| BCS at close-up | ✅ Available |
-| Parity | ✅ Available |
-| Age | ✅ Available |
-| Days to delivery | ✅ Available |
-| Health history | ✅ Available |
-| Sire calving ease EPD | ❌ Not tracked |
-| Previous calving difficulty | ❌ Not tracked (breeding_events could add) |
-| Calf birth weight prediction | ❌ Not tracked |
-| Pelvic measurements | ❌ Not tracked |
+## Architecture: Microservice with Shared Tools
 
-#### Pros
-- Highest potential accuracy
-- Self-improving over time
-- Can incorporate new factors easily
-
-#### Cons
-- Requires 6-12 months of outcome data
-- Needs schema additions
-- Higher implementation complexity
-- Overkill for current farm sizes
+```text
+supabase/functions/
+├── _shared/
+│   ├── stt-prompts.ts          (existing)
+│   └── analyst-tools.ts        (NEW - shared government analytics)
+├── doc-aga/
+│   ├── index.ts                (farmer-only, simplified)
+│   └── tools.ts                (farmer tools only)
+└── rico/                        (NEW)
+    └── index.ts                 (government analyst)
+```
 
 ---
 
-## Recommendation: Phased Approach
+## Files to Create
 
-### Phase 1 (Immediate): Option A + Bug Fix
-1. Fix the February "Urgent" calculation bug
-2. Implement simple 100-point PCRS in `urgencyGlossary.ts`
-3. Update `ExpectedDeliveriesTimeline` to show risk tier per animal
-4. Add PCRS to Doc Aga tools for AI analysis
+### 1. `supabase/functions/_shared/analyst-tools.ts`
 
-### Phase 2 (Next Quarter): Enhance to Option B
-1. Add livestock-specific thresholds
-2. Track calving outcomes in `breeding_events`
-3. Add BCS trend analysis (direction of change)
+Move all 9 government tools from `doc-aga/tools.ts`:
 
-### Phase 3 (Future): Evaluate Option C
-1. After 200+ recorded calving outcomes
-2. Build outcome correlation analysis
-3. Consider ML if justified by farm scale
+| Tool | Description |
+|------|-------------|
+| `get_national_overview` | Total farms, animals, regional distribution |
+| `get_regional_stats` | Region-specific statistics |
+| `get_breeding_analytics` | AI success rates, pregnancy stats |
+| `get_health_analytics` | Health patterns, mortality rates |
+| `get_production_trends` | Milk production trends |
+| `get_farmer_feedback_summary` | Feedback by category/sentiment |
+| `get_expected_deliveries_analysis` | Monthly deliveries with PCRS |
+| `get_delivery_risk_assessment` | Risk factors for upcoming deliveries |
+| `get_cohort_health_analysis` | Deep health analysis for cohorts |
 
----
+Also move:
+- `DataCategory` type
+- `getFilteredFarmIds()` helper
+- `getFilteredAnimalIds()` helper
+- `batchQuery()` helper
+- PCRS calculation functions
 
-## Data Availability Assessment
+### 2. `supabase/functions/rico/index.ts`
 
-Based on current demo data query:
+New edge function with:
+- RICO system prompt (personality, restrictions, analytical approach)
+- Import tools from `../_shared/analyst-tools.ts`
+- Same rate limiting and logging infrastructure
+- Government-only context (no farmer mode)
 
-| Factor | Data Available | Sample Values |
-|--------|----------------|---------------|
-| Days until delivery | ✅ Yes | 11-180 days |
-| BCS scores | ⚠️ Partial (some missing) | 1.5, 2.8, 2.9, 3.2, 4.1 |
-| BCS date freshness | ✅ Yes | Can calculate days since BCS |
-| Parity | ✅ Yes | All showing 0 (demo data) |
-| Health record count (90 days) | ✅ Yes | 0-2 issues |
-| Livestock type | ✅ Yes | cattle, goat, carabao |
+### 3. `src/components/government/RicoChat.tsx`
 
-**Note:** Current demo data shows all `parity=0`, suggesting either:
-1. Demo data generation didn't populate parity
-2. All animals are primiparous (first calving)
+New chat component with:
+- RICO branding (blue theme, shield/landmark icon)
+- Government-specific welcome message
+- Quick actions for common analytics queries
+- No voice/image input (read-only analyst)
 
-This is important context for Phase 1 - primiparous detection would flag ALL demo animals as higher risk.
+### 4. Update `src/components/government/GovernmentFab.tsx`
 
----
-
-## Implementation Files
-
-| File | Changes |
-|------|---------|
-| `src/lib/urgencyGlossary.ts` | Add PCRS definitions and calculator |
-| `src/components/government/ExpectedDeliveriesTimeline.tsx` | Fix month-based bug, add per-animal risk view |
-| `supabase/functions/doc-aga/tools.ts` | Add PCRS to delivery analysis tools |
-| `src/hooks/usePreCalvingRiskScore.ts` | New hook for PCRS calculation |
+- Change FAB color from primary (green) to blue
+- Change icon from Stethoscope to Landmark/Shield
+- Replace DocAga with RicoChat component
+- Update action labels to reference RICO
 
 ---
 
-## Summary: Pros/Cons Comparison
+## Files to Modify
 
-| Criterion | Option A (Simple) | Option B (Composite) | Option C (ML) |
-|-----------|-------------------|---------------------|---------------|
-| Implementation time | 1-2 days | 1 week | 2-3 months |
-| Data requirements | ✅ All available | ✅ All available | ❌ Needs outcome data |
-| Accuracy | Good (70-80%) | Better (80-85%) | Best (85-95%) |
-| Explainability | ✅ Easy | ✅ Moderate | ❌ Black box |
-| Maintenance | Low | Medium | High |
-| Farmer understanding | ✅ Intuitive | ✅ Understandable | ⚠️ Trust required |
+### 1. `supabase/functions/doc-aga/tools.ts`
+- Remove government tools (moved to `_shared/analyst-tools.ts`)
+- Keep farmer tools only
+- Remove `executeToolCall` government context branch
 
-**Recommendation:** Start with Option A for immediate value, with clear upgrade path to Option B as the system matures.
+### 2. `supabase/functions/doc-aga/index.ts`
+- Remove `getGovernmentAnalystPrompt()` function
+- Remove `getGovernmentTools()` function
+- Remove government context handling
+- Simplify to farmer-only mode
+
+### 3. `src/components/DocAga.tsx`
+- Remove `isGovernmentContext` logic
+- Remove government quick actions
+- Remove government welcome message
+- Simplify to farmer-only component
+
+### 4. `supabase/config.toml`
+- Add `[functions.rico]` configuration with `verify_jwt = true`
 
 ---
 
-## Implementation Status
+## Visual Changes
 
-### ✅ Phase 1 Complete (Feb 5, 2026)
+### FAB Styling (GovernmentFab)
 
-1. **Fixed February "Urgent" tag bug** - Updated `ExpectedDeliveriesTimeline.tsx` to use `calculateMonthUrgency()` that properly checks if any part of a month falls within 30 days, not just the first day.
+| Element | Before | After |
+|---------|--------|-------|
+| Main Button Color | `bg-primary` (green) | `bg-blue-600` |
+| Main Icon | `Stethoscope` | `Landmark` (government building) |
+| Panel Header Color | `bg-primary` | `bg-blue-600` |
+| Panel Title | "Doc Aga - Analyst" | "RICO - Intelligence" |
+| Action Label | "Ask Doc Aga" | "Ask RICO" |
+| Description | "Policy insights & analytics help" | "Audit & compliance analysis" |
 
-2. **Added PCRS definitions to glossary** - `src/lib/urgencyGlossary.ts` now includes:
-   - `PCRS_SCORING_COMPONENTS` - 5 factor definitions (Timeline, BCS, Parity, Health, Data Freshness)
-   - `PCRS_TIERS` - 4 tier definitions (Critical, High, Moderate, Low)
-   - Calculator functions: `calculatePCRS()`, `getPCRSTier()`, `getPCRSGlossaryForPrompt()`
+### Chat Component (RicoChat)
 
-3. **Created usePreCalvingRiskScore hook** - `src/hooks/usePreCalvingRiskScore.ts` provides:
-   - `calculateAnimalPCRS()` - Calculate score for single animal
-   - `usePreCalvingRiskScore()` - Hook for batch processing with summary
-   - `getMonthRiskTier()` - Aggregate month-level risk tier
+- Header: Blue gradient with Landmark icon
+- Mode Badge: "Intelligence Mode" (blue)
+- Quick Actions:
+  1. "Compliance Check" - Validate regional data integrity
+  2. "National Overview" - Aggregate statistics
+  3. "Risk Assessment" - Delivery and health risks
+  4. "Audit Discrepancies" - Find data anomalies
 
-4. **Updated Doc Aga tools with PCRS** - `getDeliveryRiskAssessment()` now returns:
-   - `pcrs_analysis.summary` - Counts by tier (critical, high, moderate, low)
-   - `pcrs_analysis.critical_animals` - Top 10 critical animals with score breakdown
-   - `pcrs_analysis.high_risk_animals` - Top 10 high-risk animals
-   - Enhanced recommendations with PCRS-based alerts
+---
 
-### 🔜 Phase 2 (Next Quarter)
-- Add livestock-specific BCS thresholds
-- Track calving outcomes in breeding_events
-- Add BCS trend analysis
+## RICO System Prompt (Full)
+
+```
+You are RICO (Reporting & Intelligence Compliance Officer), a high-energy 
+livestock sector intelligence analyst for Philippine government officials.
+
+CRITICAL DATE CONTEXT:
+- Current date and time: ${currentDate} (Philippine Standard Time, UTC+8)
+- When calculating urgency (e.g., "Urgent = within 30 days"), use this date
+
+YOUR APPROACH - "AUDIT DEFENSE":
+1. **Data Validation First**: Before presenting statistics, assess data quality
+   - Check for unusual patterns that might indicate data entry issues
+   - Flag potential "ghost beneficiaries" (farms with no activity)
+   - Validate geo-tagged data against expected regional patterns
+   
+2. **Quick, Decisive Analysis**: Get to the point fast
+   - Lead with the key insight, then provide supporting data
+   - Highlight anomalies and discrepancies
+   - Recommend specific actions for policy makers
+
+3. **Cross-Reference Everything**: No single metric in isolation
+   - Compare regional performance against national averages
+   - Track trends over time to identify sudden changes
+   - Correlate health data with production outcomes
+
+PERSONALITY:
+- "Ma-diskarte" (Resourceful): Find insights that others miss
+- Professional Authority: Let the data speak, but interpret it clearly
+- Fast-Paced: Decision-makers need quick answers
+- Modern: Use contemporary Filipino business language when appropriate
+
+CRITICAL RESTRICTIONS - READ-ONLY ANALYST:
+- You are a READ-ONLY analyst - CANNOT suggest recording data
+- CANNOT create health records, milking logs, or farm-level entries
+- If asked to record something: "RICO is for intelligence analysis only. 
+  For data entry, please use the farm dashboard directly."
+
+RESPONSE STYLE:
+- Start with the key finding (don't bury the lead)
+- Use bullet points for clarity
+- Include specific numbers and percentages
+- Compare against benchmarks when available
+- End with actionable recommendation
+
+AVAILABLE TOOLS:
+[Same 9 government analytics tools]
+```
+
+---
+
+## Implementation Order
+
+### Phase 1: Backend Separation (Edge Functions)
+1. Create `supabase/functions/_shared/analyst-tools.ts`
+2. Create `supabase/functions/rico/index.ts`
+3. Update `supabase/config.toml`
+4. Remove government code from `doc-aga/index.ts` and `doc-aga/tools.ts`
+5. Deploy both functions
+
+### Phase 2: Frontend Separation (Components)
+1. Create `src/components/government/RicoChat.tsx`
+2. Update `src/components/government/GovernmentFab.tsx` (blue, Landmark icon)
+3. Remove government context from `src/components/DocAga.tsx`
+
+### Phase 3: Testing
+1. Test RICO on government dashboard
+2. Test Doc Aga on farmer dashboard
+3. Verify both use correct personas and tools
+
+---
+
+## Files Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/_shared/analyst-tools.ts` | CREATE | Shared government analytics tools + helpers |
+| `supabase/functions/rico/index.ts` | CREATE | RICO edge function |
+| `src/components/government/RicoChat.tsx` | CREATE | RICO chat component |
+| `supabase/config.toml` | MODIFY | Add `[functions.rico]` |
+| `supabase/functions/doc-aga/index.ts` | MODIFY | Remove government context |
+| `supabase/functions/doc-aga/tools.ts` | MODIFY | Remove government tools |
+| `src/components/DocAga.tsx` | MODIFY | Remove government context |
+| `src/components/government/GovernmentFab.tsx` | MODIFY | Blue FAB, Landmark icon, RICO branding |
+
+---
+
+## Expected Outcome
+
+After implementation:
+
+1. **Doc Aga** remains the warm, trusted barangay vet for farmers
+2. **RICO** becomes the sharp, modern intelligence analyst for government
+3. **Clear separation** - each persona has dedicated edge function
+4. **Shared tools** in `_shared/` folder for maintainability
+5. **Visual distinction** - Blue FAB with Landmark icon for government
+6. **No confusion** - completely different personalities and branding
+
