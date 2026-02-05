@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { DataCategory } from "@/types/government";
 
 export interface MarketPriceData {
   livestock_type: string;
@@ -29,6 +30,7 @@ export const useRegionalMarketPrices = (
   startDate: Date,
   endDate: Date,
   region?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<MarketPriceSummary>({
@@ -37,6 +39,7 @@ export const useRegionalMarketPrices = (
       format(startDate, "yyyy-MM-dd"),
       format(endDate, "yyyy-MM-dd"),
       region || "all",
+      dataCategory,
     ],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
@@ -46,6 +49,7 @@ export const useRegionalMarketPrices = (
         start_date: format(startDate, "yyyy-MM-dd"),
         end_date: format(endDate, "yyyy-MM-dd"),
         region_filter: region || null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) throw error;

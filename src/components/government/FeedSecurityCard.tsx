@@ -5,22 +5,26 @@ import { Progress } from "@/components/ui/progress";
 import { useRegionalFeedSecurity } from "@/hooks/useRegionalFeedSecurity";
 import { AlertTriangle, CheckCircle, Wheat, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataCategory } from "@/types/government";
 
 interface FeedSecurityCardProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
 export const FeedSecurityCard = ({
   region,
   province,
   municipality,
+  dataCategory = 'live',
 }: FeedSecurityCardProps) => {
   const { data, isLoading, error } = useRegionalFeedSecurity(
     region,
     province,
-    municipality
+    municipality,
+    dataCategory
   );
 
   if (isLoading) {

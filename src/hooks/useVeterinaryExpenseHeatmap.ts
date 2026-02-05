@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface VeterinaryExpenseData {
   municipality: string;
@@ -27,10 +28,11 @@ export const useVeterinaryExpenseHeatmap = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<VeterinaryExpenseSummary>({
-    queryKey: ["veterinary-expense-heatmap", region || "all", province || "all", municipality || "all"],
+    queryKey: ["veterinary-expense-heatmap", region || "all", province || "all", municipality || "all", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
@@ -41,10 +43,15 @@ export const useVeterinaryExpenseHeatmap = (
           id,
           amount,
           category,
-          farms!inner(id, region, province, municipality)
+          farms!inner(id, region, province, municipality, data_category)
         `)
         .in("category", ["Veterinary Services", "Medicine & Vaccines", "veterinary", "medicine"])
         .eq("is_deleted", false);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        expensesQuery = expensesQuery.eq("farms.data_category", dataCategory);
+      }
 
       if (region) expensesQuery = expensesQuery.eq("farms.region", region);
       if (province) expensesQuery = expensesQuery.eq("farms.province", province);
@@ -59,10 +66,15 @@ export const useVeterinaryExpenseHeatmap = (
         .select(`
           id,
           farm_id,
-          farms!inner(id, region, province, municipality)
+          farms!inner(id, region, province, municipality, data_category)
         `)
         .eq("is_deleted", false)
         .is("exit_date", null);
+
+      // Apply data category filter for animals too
+      if (dataCategory !== 'all') {
+        animalsQuery = animalsQuery.eq("farms.data_category", dataCategory);
+      }
 
       if (region) animalsQuery = animalsQuery.eq("farms.region", region);
       if (province) animalsQuery = animalsQuery.eq("farms.province", province);

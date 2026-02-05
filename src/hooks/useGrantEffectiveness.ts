@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface AcquisitionMetrics {
   count: number;
@@ -24,10 +25,11 @@ export const useGrantEffectiveness = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<GrantEffectivenessData>({
-    queryKey: ["grant-effectiveness", region || "all", province || "all", municipality || "all"],
+    queryKey: ["grant-effectiveness", region || "all", province || "all", municipality || "all", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
@@ -40,9 +42,14 @@ export const useGrantEffectiveness = (
           grant_source,
           exit_date,
           exit_reason,
-          farms!inner(region, province, municipality)
+          farms!inner(region, province, municipality, data_category)
         `)
         .eq("is_deleted", false);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        animalsQuery = animalsQuery.eq("farms.data_category", dataCategory);
+      }
 
       if (region) animalsQuery = animalsQuery.eq("farms.region", region);
       if (province) animalsQuery = animalsQuery.eq("farms.province", province);

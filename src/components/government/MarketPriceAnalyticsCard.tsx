@@ -4,19 +4,22 @@ import { Badge } from "@/components/ui/badge";
 import { useRegionalMarketPrices } from "@/hooks/useRegionalMarketPrices";
 import { TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataCategory } from "@/types/government";
 
 interface MarketPriceAnalyticsCardProps {
   startDate: Date;
   endDate: Date;
   region?: string;
+  dataCategory?: DataCategory;
 }
 
 export const MarketPriceAnalyticsCard = ({
   startDate,
   endDate,
   region,
+  dataCategory = 'live',
 }: MarketPriceAnalyticsCardProps) => {
-  const { data, isLoading, error } = useRegionalMarketPrices(startDate, endDate, region);
+  const { data, isLoading, error } = useRegionalMarketPrices(startDate, endDate, region, dataCategory);
 
   if (isLoading) {
     return (

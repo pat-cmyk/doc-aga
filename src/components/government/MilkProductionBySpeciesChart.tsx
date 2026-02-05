@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { Droplets, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { formatPHPCompact } from "@/lib/currency";
+import { DataCategory } from "@/types/government";
 
 interface MilkProductionBySpeciesChartProps {
   startDate: Date;
@@ -13,6 +14,7 @@ interface MilkProductionBySpeciesChartProps {
   region?: string;
   province?: string;
   municipality?: string;
+  dataCategory?: DataCategory;
 }
 
 export const MilkProductionBySpeciesChart = ({
@@ -21,13 +23,15 @@ export const MilkProductionBySpeciesChart = ({
   region,
   province,
   municipality,
+  dataCategory = 'live',
 }: MilkProductionBySpeciesChartProps) => {
   const { data, isLoading, error } = useGovernmentMilkAnalytics(
     startDate,
     endDate,
     region,
     province,
-    municipality
+    municipality,
+    dataCategory
   );
 
   const { isMobile, fontSize, xAxisProps, legendProps } = useResponsiveChart({

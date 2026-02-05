@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface RegionalFeedSecurityData {
   region: string;
@@ -29,10 +30,11 @@ export const useRegionalFeedSecurity = (
   region?: string,
   province?: string,
   municipality?: string,
+  dataCategory: DataCategory = 'live',
   options?: { enabled?: boolean }
 ) => {
   return useQuery<FeedSecuritySummary>({
-    queryKey: ["regional-feed-security", region || "all", province || "all", municipality || "all"],
+    queryKey: ["regional-feed-security", region || "all", province || "all", municipality || "all", dataCategory],
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -41,6 +43,7 @@ export const useRegionalFeedSecurity = (
         region_filter: region || null,
         province_filter: province || null,
         municipality_filter: municipality || null,
+        data_category_filter: dataCategory === 'all' ? null : dataCategory,
       });
 
       if (error) throw error;
