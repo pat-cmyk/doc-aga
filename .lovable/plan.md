@@ -1,195 +1,316 @@
 
-# Fix Doc Aga Analyst Persona and Create App-Wide Tag/Banner Glossary
+# Add Date Context to Government Dashboard + Deep Analytics for Doc Aga Analyst
 
 ## Problem Analysis
 
-### Issue 1: Persona Conflict in Doc Aga - Analyst
+### Issue 1: Missing Date Context in Government Dashboard
 
-The current implementation has a critical persona conflict:
+The Doc Aga Analyst doesn't know the current date, leading to responses like "please provide the current date" (as shown in the screenshot). The farmer dashboard displays a `PhilippineTimeBanner` component but the government dashboard lacks this.
 
-| Aspect | Expected Behavior | Current Behavior |
-|--------|-------------------|------------------|
-| Welcome Message | "I'm your Analyst Assistant for livestock sector data..." | Farm assistant message about animal records |
-| Quick Actions | "View National Stats", "Breeding Trends", "Health Analytics" | "Log Activity", "Report Issue" (farmer actions) |
-| Input Modes | Text only (Chat) | Chat, Voice, Image tabs shown |
-| Role | Interpret aggregate data across ALL farms | Suggests recording farm-level data |
-| Data Entry | NEVER - read-only analysis | Offers to log records |
+**Current State:**
+- `GovernmentLayout.tsx` has no date/time display
+- Government analyst prompt (`getGovernmentAnalystPrompt()`) does NOT include date context like the farmer prompt does
+- The farmer prompt explicitly includes: `Current date and time: ${dateContext.currentDate} (Philippine Standard Time, UTC+8)`
 
-**Root Cause**: The `DocAga.tsx` component doesn't customize:
-1. Welcome message for government context
-2. Quick actions for analyst role
-3. Input method tabs (Voice/Image are farmer-specific)
+### Issue 2: Generic Responses Instead of Data-Driven Analysis
 
-### Issue 2: Missing Tag/Banner Definitions
+The AI gives explanations like "Urgent means within 30 days" but doesn't:
+- Query the ACTUAL data for March 2026 deliveries
+- Examine health records that might impact those specific animals
+- Check BCS scores for pregnant animals due in March 2026
+- Correlate potential risks (outbreaks, low BCS) with delivery success
 
-The AI couldn't explain what "Urgent" means in the Expected Deliveries context because there's no centralized glossary. Currently, urgency definitions are scattered:
-
-| Domain | Term | Definition | Location |
-|--------|------|------------|----------|
-| Deliveries | Urgent | Due within 30 days | `ExpectedDeliveriesTimeline.tsx` (hardcoded) |
-| Health Alerts | Overdue | Past due date | `useUpcomingAlerts.ts` |
-| Health Alerts | Urgent | Within 2 days | `useUpcomingAlerts.ts` |
-| Feed Expiry | Critical | Within 7 days | `useFeedExpiryAlerts.ts` |
-| Breeding | Critical | In heat now / repeat breeder | `useBreedingAlerts.ts` |
-| Data Gaps | Critical | 3+ days without records | `useDataGapAlerts.ts` |
-| Health Status | Critical | Mortality >= 20% | `AnimalHealthHeatmap.tsx` |
-| Feedback | Urgent | Sentiment = urgent | `SentimentTrendChart.tsx` |
+**Root Cause:** The government analyst tools are too high-level and don't provide:
+1. Expected deliveries breakdown by month with animal-level detail
+2. Cross-referencing of health issues with pregnant animals
+3. BCS analysis for specific cohorts (e.g., "animals due in March 2026")
+4. Risk correlation analysis
 
 ---
 
 ## Solution Design
 
-### Part 1: Fix Government Analyst Persona
+### Part 1: Add Date Context to Government Dashboard UI
 
-**File: `src/components/DocAga.tsx`**
+**File: `src/components/government/GovernmentLayout.tsx`**
 
-Changes:
-1. Add government-specific welcome message
-2. Add government-specific quick actions
-3. Hide Voice/Image tabs for government context (text-only analysis)
-4. Remove "Recording Mode" and data entry intents for government
+Add the existing `PhilippineTimeBanner` component to the header (matching the farmer dashboard pattern).
 
-**Government Welcome Message:**
-```
-"I'm Doc Aga Analytics, your livestock sector intelligence assistant. I can:
+```tsx
+import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 
-• Provide national/regional livestock statistics
-• Analyze breeding trends and AI success rates
-• Track health patterns across all farms
-• Monitor production metrics and forecasts
-• Summarize farmer feedback and priority issues
-
-I analyze aggregate data across all registered farms. How can I help you today?"
+// In header section:
+<div>
+  <h1 className="text-2xl font-bold">Government Dashboard</h1>
+  <p className="text-sm text-muted-foreground">Livestock industry insights</p>
+  <PhilippineTimeBanner compact />
+</div>
 ```
 
-**Government Quick Actions:**
-```typescript
-[
-  { icon: BarChart3, label: "National Overview", prompt: "Show me national livestock statistics", color: "text-blue-600" },
-  { icon: TrendingUp, label: "Breeding Analytics", prompt: "What are the breeding trends and AI success rates?", color: "text-green-600" },
-  { icon: Activity, label: "Health Trends", prompt: "Show me health patterns across the sector", color: "text-orange-600" },
-  { icon: MessageSquare, label: "Farmer Feedback", prompt: "Summarize recent farmer feedback and priority issues", color: "text-purple-600" },
-]
-```
-
-### Part 2: Create Centralized Tag/Banner Glossary
-
-**New File: `src/lib/urgencyGlossary.ts`**
-
-This will be the Single Source of Truth (SSOT) for all urgency/status definitions used app-wide, with:
-- English and Tagalog labels
-- Precise thresholds
-- Context-specific meanings
-- Color mappings
-
-**Structure:**
-```typescript
-export interface UrgencyDefinition {
-  level: string;
-  label: string;
-  labelTagalog: string;
-  description: string;
-  descriptionTagalog: string;
-  threshold: string;
-  color: string;
-  textClass: string;
-  bgClass: string;
-}
-
-export const URGENCY_GLOSSARY = {
-  // Domain-specific urgency definitions
-  expectedDeliveries: { ... },
-  healthAlerts: { ... },
-  feedExpiry: { ... },
-  breedingAlerts: { ... },
-  dataGaps: { ... },
-  healthStatus: { ... },
-  feedback: { ... },
-};
-```
-
-### Part 3: Update Government Analyst System Prompt
+### Part 2: Inject Date Context into Government Analyst Prompt
 
 **File: `supabase/functions/doc-aga/index.ts`**
 
-Enhance `getGovernmentAnalystPrompt()` to include:
-1. Explicit prohibition on data recording/entry suggestions
-2. Reference to the urgency glossary for accurate term definitions
-3. Dashboard context awareness
+Update `getGovernmentAnalystPrompt()` to accept a date parameter (similar to `getFarmerSystemPrompt`):
 
-**Enhanced Prompt Addition:**
-```
-CRITICAL RESTRICTIONS:
-- You are a READ-ONLY analyst. You CANNOT and should NOT:
-  - Suggest recording data
-  - Offer to log activities
-  - Ask about individual animal records
-  - Prompt for voice or image inputs
-- If asked to record something, clarify: "As an analyst assistant, I provide insights from existing data. For data entry, please use the farm dashboard directly."
-
-DASHBOARD TERMINOLOGY:
-When explaining dashboard metrics, use these exact definitions:
-
-Expected Deliveries:
-- "Urgent" = Due within 30 days from today
-- Shows animals with confirmed pregnancies and calculated expected_delivery_date
-
-Breeding Analytics:
-- "AI Success Rate" = (Confirmed pregnancies / Total AI procedures performed) × 100
-- "Currently Pregnant" = Animals with pregnancy_confirmed = true
-
-Health Status Severity:
-- "Critical" = Mortality/morbidity rate >= 20%
-- "High" = Rate >= 10%
-- "Moderate" = Rate >= 5%
-- "Low" = Rate < 5%
-
-Feed Security:
-- "Critical" = Less than 7 days of stock remaining
-- "Warning" = Less than 30 days of stock remaining
+```typescript
+function getGovernmentAnalystPrompt(currentDate: string): string {
+  return `You are Doc Aga Analytics...
+  
+  CRITICAL DATE CONTEXT:
+  - Current date and time: ${currentDate} (Philippine Standard Time, UTC+8)
+  - When calculating urgency (e.g., "Urgent = within 30 days"), use this date as the reference
+  - Example: If today is February 5, 2026, then March 7, 2026 is 30 days away, making any deliveries on or before that date "Urgent"
+  
+  ...rest of prompt
+`;
+}
 ```
 
----
+Also update the call site:
+```typescript
+const currentDate = new Date().toLocaleString('en-PH', {
+  timeZone: 'Asia/Manila',
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true
+}) + ' PHT';
 
-## Implementation Steps
+const systemPrompt = isGovernmentContext 
+  ? getGovernmentAnalystPrompt(currentDate) 
+  : getFarmerSystemPrompt(faqContext, dateContext);
+```
 
-### Step 1: Create Urgency Glossary (New File)
-Create `src/lib/urgencyGlossary.ts` with comprehensive definitions for all urgency/status terms.
+### Part 3: Add Deep Analytics Tools for Specific Queries
 
-### Step 2: Update DocAga Component
-Modify `src/components/DocAga.tsx`:
-- Add conditional welcome message
-- Add conditional quick actions
-- Conditionally hide Voice/Image tabs
-- Import glossary for reference
+**File: `supabase/functions/doc-aga/tools.ts`**
 
-### Step 3: Enhance Government Analyst Prompt
-Update `supabase/functions/doc-aga/index.ts`:
-- Add explicit read-only restrictions
-- Include dashboard terminology section
-- Reference urgency definitions
+Create new government analyst tools that provide data-driven answers:
 
----
+#### Tool 1: `get_expected_deliveries_analysis`
+```typescript
+{
+  name: "get_expected_deliveries_analysis",
+  description: "Get detailed analysis of expected deliveries by month, including health risks, BCS scores, and potential issues for animals due in each period",
+  parameters: {
+    type: "object",
+    properties: {
+      month: { type: "string", description: "Target month (e.g., 'March 2026') or 'all' for overview" },
+      include_health_risks: { type: "boolean", description: "Include health records correlation" },
+      include_bcs: { type: "boolean", description: "Include body condition score analysis" }
+    }
+  }
+}
+```
 
-## Expected Outcomes
+**Returns:**
+- Animals due in the specified month with their current status
+- Health events in the last 30 days for those animals
+- BCS scores and trends (underweight = higher miscarriage risk)
+- Risk assessment based on correlations
 
-### Doc Aga - Analyst After Fix:
+#### Tool 2: `get_delivery_risk_assessment`
+```typescript
+{
+  name: "get_delivery_risk_assessment",
+  description: "Analyze potential risks for upcoming deliveries: health outbreaks affecting pregnant animals, underweight animals, repeat breeders with history",
+  parameters: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", description: "Start of period (YYYY-MM-DD)" },
+      end_date: { type: "string", description: "End of period (YYYY-MM-DD)" }
+    }
+  }
+}
+```
 
-| Aspect | Behavior |
-|--------|----------|
-| Welcome | "I'm your livestock sector intelligence assistant..." |
-| Quick Actions | National Overview, Breeding Analytics, Health Trends, Farmer Feedback |
-| Input | Text chat only (no Voice/Image tabs) |
-| Responses | Never suggests recording, only interprets data |
-| Terminology | Uses precise definitions (e.g., "Urgent = due within 30 days") |
+**Returns:**
+- Count of pregnant animals with recent health issues
+- Animals with BCS < 2.5 (underweight, higher risk)
+- Regional health outbreak analysis
+- Historical success rates for this cohort
 
-### Glossary Benefits:
+#### Tool 3: `get_cohort_health_analysis`
+```typescript
+{
+  name: "get_cohort_health_analysis", 
+  description: "Analyze health status for a specific cohort (e.g., animals due in March 2026, lactating cattle in Region X)",
+  parameters: {
+    type: "object",
+    properties: {
+      cohort_type: { type: "string", description: "Type: 'pregnant_due', 'lactating', 'by_region'" },
+      filter_value: { type: "string", description: "Filter value (e.g., 'March 2026' or 'Region IV-A')" }
+    }
+  }
+}
+```
 
-1. **Consistency**: All components reference same definitions
-2. **AI Context**: Doc Aga can accurately explain dashboard terms
-3. **Maintainability**: Single place to update thresholds
-4. **Bilingual**: English and Tagalog support built-in
-5. **Documentation**: Serves as developer and user reference
+**Returns:**
+- Cohort size and breakdown by livestock type
+- Health events in last 30/90 days
+- BCS distribution (underweight/optimal/overweight)
+- Mortality/morbidity rates for this cohort
+- Comparison to overall population averages
+
+### Part 4: Update Government Tools List
+
+**File: `supabase/functions/doc-aga/index.ts`**
+
+Add the new tools to `getGovernmentTools()`:
+
+```typescript
+function getGovernmentTools(): any[] {
+  return [
+    // Existing tools...
+    { type: "function", function: { name: "get_national_overview", ... } },
+    { type: "function", function: { name: "get_regional_stats", ... } },
+    { type: "function", function: { name: "get_breeding_analytics", ... } },
+    { type: "function", function: { name: "get_health_analytics", ... } },
+    { type: "function", function: { name: "get_production_trends", ... } },
+    { type: "function", function: { name: "get_farmer_feedback_summary", ... } },
+    
+    // NEW: Deep analytics tools
+    { type: "function", function: { 
+      name: "get_expected_deliveries_analysis",
+      description: "Get detailed breakdown of expected deliveries by month with health risk assessment, BCS analysis, and potential complications for pregnant animals",
+      parameters: { type: "object", properties: { 
+        target_month: { type: "string", description: "Target month in format 'YYYY-MM' (e.g., '2026-03' for March 2026)" },
+        include_health_risks: { type: "boolean", description: "Include correlation with recent health events" }
+      }}
+    }},
+    { type: "function", function: { 
+      name: "get_delivery_risk_assessment",
+      description: "Analyze risk factors for upcoming deliveries: health outbreaks, underweight animals (low BCS), regional disease patterns that could impact delivery success",
+      parameters: { type: "object", properties: {
+        days_ahead: { type: "number", description: "How many days ahead to analyze (default: 60)" }
+      }}
+    }},
+    { type: "function", function: { 
+      name: "get_cohort_health_analysis",
+      description: "Deep health analysis for a specific cohort of animals (pregnant due in specific month, animals in a region, etc.)",
+      parameters: { type: "object", properties: {
+        cohort_filter: { type: "string", description: "Filter type: 'due_month', 'region', 'livestock_type'" },
+        filter_value: { type: "string", description: "Value for filter (e.g., '2026-03', 'Region IV-A', 'cattle')" }
+      }}
+    }}
+  ];
+}
+```
+
+### Part 5: Implement Tool Functions
+
+**File: `supabase/functions/doc-aga/tools.ts`**
+
+#### `getExpectedDeliveriesAnalysis()`
+```typescript
+async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient) {
+  const targetMonth = args.target_month; // e.g., "2026-03"
+  const includeHealthRisks = args.include_health_risks !== false;
+  
+  // Get all pregnant animals with expected delivery dates
+  const { data: pregnantAnimals } = await supabase
+    .from('ai_records')
+    .select(`
+      id, expected_delivery_date, performed_date, pregnancy_confirmed,
+      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality))
+    `)
+    .eq('pregnancy_confirmed', true)
+    .not('expected_delivery_date', 'is', null)
+    .order('expected_delivery_date', { ascending: true });
+
+  // Group by month
+  const byMonth: Record<string, any[]> = {};
+  pregnantAnimals?.forEach(r => {
+    const month = r.expected_delivery_date?.substring(0, 7);
+    if (!byMonth[month]) byMonth[month] = [];
+    byMonth[month].push(r);
+  });
+
+  // If specific month requested, get detailed analysis
+  if (targetMonth && byMonth[targetMonth]) {
+    const animalIds = byMonth[targetMonth].map(r => r.animals?.id).filter(Boolean);
+    
+    // Get recent health records for these animals
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const { data: healthRecords } = await supabase
+      .from('health_records')
+      .select('animal_id, diagnosis, visit_date')
+      .in('animal_id', animalIds)
+      .gte('visit_date', thirtyDaysAgo);
+    
+    // Get BCS records for these animals
+    const { data: bcsRecords } = await supabase
+      .from('body_condition_records')
+      .select('animal_id, score, recorded_at')
+      .in('animal_id', animalIds)
+      .order('recorded_at', { ascending: false });
+    
+    // Calculate risk metrics
+    const animalsWithHealthIssues = new Set(healthRecords?.map(r => r.animal_id) || []);
+    const lowBcsAnimals = bcsRecords?.filter(r => r.score < 2.5) || [];
+    
+    return {
+      month: targetMonth,
+      total_deliveries: byMonth[targetMonth].length,
+      by_livestock_type: groupBy(byMonth[targetMonth], r => r.animals?.livestock_type),
+      by_region: groupBy(byMonth[targetMonth], r => r.animals?.farms?.region),
+      health_risk_summary: {
+        animals_with_recent_health_issues: animalsWithHealthIssues.size,
+        percentage_with_issues: Math.round((animalsWithHealthIssues.size / animalIds.length) * 100),
+        common_diagnoses: getTopDiagnoses(healthRecords),
+      },
+      bcs_risk_summary: {
+        animals_with_low_bcs: lowBcsAnimals.length,
+        percentage_underweight: Math.round((lowBcsAnimals.length / animalIds.length) * 100),
+        note: "Animals with BCS < 2.5 have higher risk of delivery complications"
+      },
+      animals_at_risk: getHighRiskAnimals(byMonth[targetMonth], animalsWithHealthIssues, lowBcsAnimals)
+    };
+  }
+
+  // Return monthly overview
+  return {
+    total_pregnant: pregnantAnimals?.length || 0,
+    by_month: Object.entries(byMonth).map(([month, animals]) => ({
+      month,
+      count: animals.length,
+      is_urgent: isWithin30Days(month),
+      by_type: countByType(animals)
+    }))
+  };
+}
+```
+
+### Part 6: Enhanced System Prompt for Analytical Depth
+
+Update the government analyst prompt to encourage deep analysis:
+
+```typescript
+ANALYTICAL APPROACH:
+When asked about dashboard metrics or specific data:
+1. ALWAYS use the relevant tool to fetch actual data - never guess or generalize
+2. When explaining "Urgent" deliveries for a specific month, query that month's data
+3. Cross-reference with health data to identify risk factors
+4. Include BCS analysis for pregnant animals (low BCS = higher complications risk)
+5. Provide specific counts and percentages, not just definitions
+6. Explain the "why" behind the numbers - what factors contribute to the status
+
+EXAMPLE OF GOOD ANALYSIS:
+User: "Why are March 2026 deliveries marked as Urgent?"
+Response: "March 2026 deliveries are marked Urgent because they fall within 30 days of today (February 5, 2026). Let me analyze the data:
+
+Based on the expected deliveries analysis:
+- 25 animals are due in March 2026 (18 cattle, 5 goats, 2 carabao)
+- 3 of these (12%) have had health events in the past 30 days
+- 2 animals have low BCS (< 2.5), indicating potential nutritional issues
+- No regional disease outbreaks currently affecting these animals
+
+Recommendation: Focus on the 2 underweight animals for nutritional intervention before delivery."
+```
 
 ---
 
@@ -197,134 +318,68 @@ Update `supabase/functions/doc-aga/index.ts`:
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `src/lib/urgencyGlossary.ts` | CREATE | SSOT for all urgency/status definitions |
-| `src/components/DocAga.tsx` | MODIFY | Government-specific UI and behavior |
-| `supabase/functions/doc-aga/index.ts` | MODIFY | Enhanced analyst prompt with restrictions |
+| `src/components/government/GovernmentLayout.tsx` | MODIFY | Add PhilippineTimeBanner for date display |
+| `supabase/functions/doc-aga/index.ts` | MODIFY | Pass date context to government prompt, add new tools |
+| `supabase/functions/doc-aga/tools.ts` | MODIFY | Implement deep analytics tool functions |
+
+---
+
+## Expected Outcomes
+
+### After Implementation:
+
+**Date Context:**
+- Government dashboard header shows current Philippine date/time
+- Doc Aga Analyst always knows the current date
+- Urgency calculations are explicitly tied to "today's date"
+
+**Analytical Depth:**
+When asked "Why is March 2026 urgent?", the AI will:
+1. Confirm today is February 5, 2026
+2. Explain March 2026 is within 30 days (= Urgent)
+3. Query the actual 25 animals due in March 2026
+4. Report 3 have recent health issues, 2 have low BCS
+5. Flag specific risk factors (outbreaks, underweight)
+6. Provide actionable recommendations
+
+### Sample Response After Fix:
+```
+Today is February 5, 2026. The 25 animals due in March 2026 are marked "Urgent" 
+because they fall within the 30-day window.
+
+Risk Assessment for March 2026 Deliveries:
+• Total: 25 animals (18 cattle, 5 goats, 2 carabao)
+• With recent health issues: 3 (12%)
+• With low BCS (< 2.5): 2 (8%) 
+• Regional outbreaks affecting pregnant animals: None detected
+
+The 2 underweight animals (low BCS) have a higher risk of delivery complications. 
+I recommend nutritional intervention and closer monitoring for these cases.
+```
 
 ---
 
 ## Technical Details
 
-### Urgency Glossary Structure
+### Date Context Flow
 
-```typescript
-// Example structure for src/lib/urgencyGlossary.ts
+```text
+User sends query → Edge function receives request
+                 → Generate currentDate in PH timezone
+                 → Pass to getGovernmentAnalystPrompt(currentDate)
+                 → AI has explicit date context in system prompt
+                 → AI uses tools to fetch data
+                 → AI provides date-aware analysis
+```
 
-export const EXPECTED_DELIVERIES_URGENCY = {
-  urgent: {
-    level: 'urgent',
-    label: 'Urgent',
-    labelTagalog: 'Kagyat',
-    description: 'Expected delivery within 30 days',
-    descriptionTagalog: 'Inaasahang panganganak sa loob ng 30 araw',
-    threshold: '<= 30 days',
-    textClass: 'text-destructive',
-    bgClass: 'bg-orange-500/5',
-  },
-  upcoming: {
-    level: 'upcoming',
-    label: 'Upcoming',
-    labelTagalog: 'Paparating',
-    description: 'Expected delivery beyond 30 days',
-    descriptionTagalog: 'Inaasahang panganganak lampas sa 30 araw',
-    threshold: '> 30 days',
-    textClass: 'text-muted-foreground',
-    bgClass: 'bg-muted',
-  },
-};
+### Tool Data Flow
 
-export const HEALTH_ALERT_URGENCY = {
-  overdue: {
-    level: 'overdue',
-    label: 'Overdue',
-    labelTagalog: 'Lampas na',
-    description: 'Past the scheduled date',
-    descriptionTagalog: 'Lagpas na sa nakatakdang petsa',
-    threshold: 'days_until_due < 0',
-    textClass: 'text-destructive',
-    bgClass: 'bg-destructive/10',
-  },
-  urgent: {
-    level: 'urgent',
-    label: 'Urgent',
-    labelTagalog: 'Kagyat',
-    description: 'Due within 2 days',
-    descriptionTagalog: 'Kailangan sa loob ng 2 araw',
-    threshold: 'days_until_due <= 2',
-    textClass: 'text-orange-600',
-    bgClass: 'bg-orange-50',
-  },
-  soon: {
-    level: 'soon',
-    label: 'Soon',
-    labelTagalog: 'Malapit na',
-    description: 'Due within 7 days',
-    descriptionTagalog: 'Kailangan sa loob ng 7 araw',
-    threshold: 'days_until_due <= 7',
-    textClass: 'text-yellow-600',
-    bgClass: 'bg-yellow-50',
-  },
-  upcoming: {
-    level: 'upcoming',
-    label: 'Upcoming',
-    labelTagalog: 'Paparating',
-    description: 'Scheduled beyond 7 days',
-    descriptionTagalog: 'Nakatakda lampas sa 7 araw',
-    threshold: 'days_until_due > 7',
-    textClass: 'text-muted-foreground',
-    bgClass: 'bg-muted',
-  },
-};
-
-// Similar structures for:
-// - FEED_EXPIRY_URGENCY
-// - BREEDING_ALERT_URGENCY  
-// - DATA_GAP_URGENCY
-// - HEALTH_STATUS_SEVERITY
-// - FEEDBACK_SENTIMENT
-
-// Helper function for Doc Aga prompt
-export function getUrgencyGlossaryForPrompt(): string {
-  return `
-DASHBOARD TERMINOLOGY DEFINITIONS:
-
-Expected Deliveries Timeline:
-- "Urgent" = Due within 30 days from current date
-- Shows pregnant animals with expected_delivery_date set
-
-Health Alerts:
-- "Overdue" = Past the scheduled vaccination/deworming date
-- "Urgent" = Due within 2 days
-- "Soon" = Due within 7 days
-- "Upcoming" = Scheduled beyond 7 days
-
-Feed Inventory:
-- "Expired" = Past expiry date
-- "Critical" = Expires within 7 days
-- "Warning" = Expires within 14 days
-- "Upcoming" = Expires within 30 days
-
-Breeding Alerts:
-- "Critical" = Animal in heat now OR repeat breeder (5+ failed services)
-- "Warning" = Pregnancy check overdue OR proestrus (1 day to heat)
-- "Info" = VWP ending soon OR proestrus (2-3 days to heat)
-
-Data Recording Gaps:
-- "Critical" = 3+ days without milking/feeding records
-- "Warning" = 2 days without records
-- "Info" = 1 day gap
-
-Health Status Severity (for regions/municipalities):
-- "Critical" = Mortality/morbidity rate >= 20%
-- "High" = Rate >= 10%
-- "Moderate" = Rate >= 5%
-- "Low" = Rate < 5%
-
-Farmer Feedback Sentiment:
-- "Urgent" = Requires immediate government attention
-- "Negative" = Concern or complaint
-- "Neutral" = General inquiry or observation
-- "Positive" = Appreciation or success story
-`;
-}
+```text
+User asks about March 2026 deliveries
+  → AI calls get_expected_deliveries_analysis({ target_month: "2026-03" })
+  → Tool queries ai_records for pregnant animals due in 2026-03
+  → Tool queries health_records for those animal IDs (last 30 days)
+  → Tool queries body_condition_records for BCS data
+  → Tool returns structured risk assessment
+  → AI interprets data and provides specific insights
 ```
