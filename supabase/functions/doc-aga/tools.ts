@@ -3,6 +3,48 @@ import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Data category type for live/demo data segregation (SSOT with frontend)
 type DataCategory = 'live' | 'demo' | 'all';
 
+// Maximum IDs per batch to avoid PostgREST URL length limits
+const MAX_IDS_PER_BATCH = 200;
+
+/**
+ * Batch large ID arrays and combine results (avoids PostgREST URL limits)
+ */
+async function batchQuery<T>(
+  ids: string[],
+  queryFn: (batchIds: string[]) => Promise<{ data: T[] | null; error: any }>
+): Promise<{ data: T[]; error: any }> {
+  if (ids.length === 0) {
+    return { data: [], error: null };
+  }
+
+  if (ids.length <= MAX_IDS_PER_BATCH) {
+    const result = await queryFn(ids);
+    return { data: result.data || [], error: result.error };
+  }
+
+  // Split into batches
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += MAX_IDS_PER_BATCH) {
+    batches.push(ids.slice(i, i + MAX_IDS_PER_BATCH));
+  }
+
+  const allResults: T[] = [];
+  let lastError: any = null;
+
+  for (const batch of batches) {
+    const { data, error } = await queryFn(batch);
+    if (error) {
+      console.error('[batchQuery] Batch error:', error.message);
+      lastError = error;
+    }
+    if (data) {
+      allResults.push(...data);
+    }
+  }
+
+  return { data: allResults, error: lastError };
+}
+
 /**
  * Get farm IDs filtered by data category (SSOT helper)
  * Returns null if 'all' or no filter needed, meaning query all farms
@@ -385,27 +427,83 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCat
      };
    }
 
-  // Get AI records
-  let aiQuery = supabase
-    .from('ai_records')
-    .select('performed_date, pregnancy_confirmed, animals!inner(livestock_type, farm_id)')
-    .gte('performed_date', startDate)
-    .not('performed_date', 'is', null);
-  
-   if (animalIds) {
-     aiQuery = aiQuery.in('animal_id', animalIds);
+  // Stage 1: Get AI records with simple column filters (SSOT two-stage pattern)
+  let aiRecords: any[] = [];
+  let aiError: any = null;
+
+  if (animalIds && animalIds.length > MAX_IDS_PER_BATCH) {
+    // Use batched query for large ID arrays
+    const result = await batchQuery(animalIds, async (batchIds) => {
+      return await supabase
+        .from('ai_records')
+        .select('id, animal_id, performed_date, pregnancy_confirmed')
+        .gte('performed_date', startDate)
+        .not('performed_date', 'is', null)
+        .in('animal_id', batchIds);
+    });
+    aiRecords = result.data;
+    aiError = result.error;
+  } else {
+    // Standard query for smaller sets
+    let aiQuery = supabase
+      .from('ai_records')
+      .select('id, animal_id, performed_date, pregnancy_confirmed')
+      .gte('performed_date', startDate)
+      .not('performed_date', 'is', null);
+    
+    if (animalIds) {
+      aiQuery = aiQuery.in('animal_id', animalIds);
+    }
+    
+    const result = await aiQuery;
+    aiRecords = result.data || [];
+    aiError = result.error;
   }
+
+  // Log any errors
+  if (aiError) {
+    console.error('[getBreedingAnalytics] ai_records query error:', aiError.message);
+    return {
+      period_days: days,
+      total_ai_procedures: 0,
+      confirmed_pregnancies: 0,
+      overall_success_rate: 0,
+      success_rate_by_type: {},
+      currently_pregnant: 0,
+      error: true,
+      message: `Query error: ${aiError.message}`
+    };
+  }
+
+  console.log(`[getBreedingAnalytics] Found ${aiRecords?.length || 0} AI records`);
+
+  // Stage 2: Get animal details separately for livestock type analysis
+  const animalIdsWithRecords = [...new Set(aiRecords?.map(r => r.animal_id) || [])];
+  let animalsMap: Record<string, { livestock_type: string }> = {};
   
-  const { data: aiRecords } = await aiQuery;
+  if (animalIdsWithRecords.length > 0) {
+    const { data: animalDetails, error: animalError } = await supabase
+      .from('animals')
+      .select('id, livestock_type')
+      .in('id', animalIdsWithRecords);
+    
+    if (animalError) {
+      console.error('[getBreedingAnalytics] animals query error:', animalError.message);
+    } else {
+      animalDetails?.forEach(a => {
+        animalsMap[a.id] = { livestock_type: a.livestock_type };
+      });
+    }
+  }
 
   const totalAI = aiRecords?.length || 0;
   const confirmedPregnancies = aiRecords?.filter(r => r.pregnancy_confirmed)?.length || 0;
   const successRate = totalAI > 0 ? Math.round((confirmedPregnancies / totalAI) * 100) : 0;
 
-  // Success rate by livestock type
+  // Success rate by livestock type (using enriched data)
   const aiByType: Record<string, { total: number; confirmed: number }> = {};
   aiRecords?.forEach((r: any) => {
-    const type = r.animals?.livestock_type || 'Unknown';
+    const type = animalsMap[r.animal_id]?.livestock_type || 'Unknown';
     if (!aiByType[type]) aiByType[type] = { total: 0, confirmed: 0 };
     aiByType[type].total++;
     if (r.pregnancy_confirmed) aiByType[type].confirmed++;
@@ -416,17 +514,21 @@ async function getBreedingAnalytics(args: any, supabase: SupabaseClient, dataCat
     successByType[type] = stats.total > 0 ? Math.round((stats.confirmed / stats.total) * 100) : 0;
   });
 
-  // Get currently pregnant animals count
+  // Stage 3: Get currently pregnant animals count (simple query)
   let pregnantQuery = supabase
     .from('ai_records')
-    .select('*, animals!inner(farm_id)', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('pregnancy_confirmed', true);
   
    if (animalIds) {
      pregnantQuery = pregnantQuery.in('animal_id', animalIds);
   }
   
-  const { count: pregnantCount } = await pregnantQuery;
+  const { count: pregnantCount, error: pregnantError } = await pregnantQuery;
+  
+  if (pregnantError) {
+    console.error('[getBreedingAnalytics] pregnant count error:', pregnantError.message);
+  }
 
   return {
     period_days: days,
@@ -656,32 +758,112 @@ async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient
   }
 
   // Get all pregnant animals with expected delivery dates
-  let aiQuery = supabase
-    .from('ai_records')
-    .select(`
-      id, expected_delivery_date, performed_date, pregnancy_confirmed,
-      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality, data_category))
-    `)
-    .eq('pregnancy_confirmed', true)
-    .not('expected_delivery_date', 'is', null)
-    .order('expected_delivery_date', { ascending: true });
-  
-   if (animalIds) {
-     aiQuery = aiQuery.in('animal_id', animalIds);
+  // Stage 1: Get ai_records with simple column filters (SSOT two-stage pattern)
+  let aiRecords: any[] = [];
+  let aiError: any = null;
+
+  if (animalIds && animalIds.length > MAX_IDS_PER_BATCH) {
+    // Use batched query for large ID arrays
+    const result = await batchQuery(animalIds, async (batchIds) => {
+      return await supabase
+        .from('ai_records')
+        .select('id, animal_id, expected_delivery_date, performed_date, pregnancy_confirmed')
+        .eq('pregnancy_confirmed', true)
+        .not('expected_delivery_date', 'is', null)
+        .in('animal_id', batchIds);
+    });
+    aiRecords = result.data;
+    aiError = result.error;
+    // Sort after combining batches
+    aiRecords.sort((a, b) => (a.expected_delivery_date || '').localeCompare(b.expected_delivery_date || ''));
+  } else {
+    // Standard query for smaller sets
+    let aiQuery = supabase
+      .from('ai_records')
+      .select('id, animal_id, expected_delivery_date, performed_date, pregnancy_confirmed')
+      .eq('pregnancy_confirmed', true)
+      .not('expected_delivery_date', 'is', null)
+      .order('expected_delivery_date', { ascending: true });
+    
+    if (animalIds) {
+      aiQuery = aiQuery.in('animal_id', animalIds);
+    }
+    
+    const result = await aiQuery;
+    aiRecords = result.data || [];
+    aiError = result.error;
   }
-  
-  const { data: aiRecords } = await aiQuery;
+
+  // Log any errors
+  if (aiError) {
+    console.error('[getExpectedDeliveriesAnalysis] ai_records query error:', aiError.message);
+    return {
+      total_pregnant: 0,
+      error: true,
+      message: `Query error: ${aiError.message}`
+    };
+  }
+
+  console.log(`[getExpectedDeliveriesAnalysis] Found ${aiRecords?.length || 0} pregnant animals with delivery dates`);
 
   if (!aiRecords || aiRecords.length === 0) {
     return {
       total_pregnant: 0,
-      message: "No pregnant animals with expected delivery dates found in the system"
+      message: "No pregnant animals with expected delivery dates found"
     };
   }
 
+  // Stage 2: Get animal details separately
+  const animalIdsWithRecords = [...new Set(aiRecords.map(r => r.animal_id))];
+  const { data: animalDetails, error: animalError } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag, livestock_type, farm_id')
+    .in('id', animalIdsWithRecords);
+
+  if (animalError) {
+    console.error('[getExpectedDeliveriesAnalysis] animals query error:', animalError.message);
+  }
+
+  // Stage 3: Get farm details
+  const farmIdsForAnimals = [...new Set(animalDetails?.map(a => a.farm_id) || [])];
+  const { data: farmDetails, error: farmError } = await supabase
+    .from('farms')
+    .select('id, name, region, municipality, data_category')
+    .in('id', farmIdsForAnimals);
+
+  if (farmError) {
+    console.error('[getExpectedDeliveriesAnalysis] farms query error:', farmError.message);
+  }
+
+  // Create lookup maps
+  const animalMap = new Map(animalDetails?.map(a => [a.id, a]) || []);
+  const farmMap = new Map(farmDetails?.map(f => [f.id, f]) || []);
+
+  // Enrich records with animal and farm data
+  const enrichedRecords = aiRecords.map(record => {
+    const animal = animalMap.get(record.animal_id);
+    const farm = animal ? farmMap.get(animal.farm_id) : null;
+    return {
+      ...record,
+      animals: animal ? {
+        id: animal.id,
+        name: animal.name,
+        ear_tag: animal.ear_tag,
+        livestock_type: animal.livestock_type,
+        farm_id: animal.farm_id,
+        farms: farm ? {
+          name: farm.name,
+          region: farm.region,
+          municipality: farm.municipality,
+          data_category: farm.data_category
+        } : null
+      } : null
+    };
+  });
+
   // Group by month
   const byMonth: Record<string, any[]> = {};
-  aiRecords.forEach((r: any) => {
+  enrichedRecords.forEach((r: any) => {
     const month = r.expected_delivery_date?.substring(0, 7);
     if (month) {
       if (!byMonth[month]) byMonth[month] = [];
@@ -824,7 +1006,7 @@ async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient
 
   // Return monthly overview
   return {
-    total_pregnant: aiRecords.length,
+    total_pregnant: enrichedRecords.length,
     by_month: Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, animals]) => ({
@@ -855,24 +1037,58 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
    }
 
   // Get pregnant animals due in the period
-  let pregnantQuery = supabase
-    .from('ai_records')
-    .select(`
-      id, expected_delivery_date, pregnancy_confirmed,
-      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality, data_category))
-    `)
-    .eq('pregnancy_confirmed', true)
-    .gte('expected_delivery_date', startDate)
-    .lte('expected_delivery_date', endDate)
-    .order('expected_delivery_date', { ascending: true });
-  
+  // Stage 1: Get ai_records with simple column filters (SSOT two-stage pattern)
+  let pregnantRecords: any[] = [];
+  let aiError: any = null;
+
+  if (filteredAnimalIds && filteredAnimalIds.length > MAX_IDS_PER_BATCH) {
+    // Use batched query for large ID arrays
+    const result = await batchQuery(filteredAnimalIds, async (batchIds) => {
+      return await supabase
+        .from('ai_records')
+        .select('id, animal_id, expected_delivery_date, pregnancy_confirmed')
+        .eq('pregnancy_confirmed', true)
+        .gte('expected_delivery_date', startDate)
+        .lte('expected_delivery_date', endDate)
+        .in('animal_id', batchIds);
+    });
+    pregnantRecords = result.data;
+    aiError = result.error;
+    // Sort after combining batches
+    pregnantRecords.sort((a, b) => (a.expected_delivery_date || '').localeCompare(b.expected_delivery_date || ''));
+  } else {
+    // Standard query for smaller sets
+    let pregnantQuery = supabase
+      .from('ai_records')
+      .select('id, animal_id, expected_delivery_date, pregnancy_confirmed')
+      .eq('pregnancy_confirmed', true)
+      .gte('expected_delivery_date', startDate)
+      .lte('expected_delivery_date', endDate)
+      .order('expected_delivery_date', { ascending: true });
+    
     if (filteredAnimalIds) {
       pregnantQuery = pregnantQuery.in('animal_id', filteredAnimalIds);
+    }
+    
+    const result = await pregnantQuery;
+    pregnantRecords = result.data || [];
+    aiError = result.error;
   }
-  
-  const { data: pregnantAnimals } = await pregnantQuery;
 
-  if (!pregnantAnimals || pregnantAnimals.length === 0) {
+  // Log any errors
+  if (aiError) {
+    console.error('[getDeliveryRiskAssessment] ai_records query error:', aiError.message);
+    return {
+      period_days: daysAhead,
+      total_deliveries_expected: 0,
+      error: true,
+      message: `Query error: ${aiError.message}`
+    };
+  }
+
+  console.log(`[getDeliveryRiskAssessment] Found ${pregnantRecords?.length || 0} deliveries expected`);
+
+  if (!pregnantRecords || pregnantRecords.length === 0) {
     return {
       period_days: daysAhead,
       total_deliveries_expected: 0,
@@ -880,7 +1096,53 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     };
   }
 
-   const pregnantAnimalIds = pregnantAnimals.map((r: any) => r.animals?.id).filter(Boolean);
+  // Stage 2: Get animal details separately
+  const pregnantAnimalIds = [...new Set(pregnantRecords.map(r => r.animal_id))];
+  const { data: animalDetails, error: animalError } = await supabase
+    .from('animals')
+    .select('id, name, ear_tag, livestock_type, farm_id')
+    .in('id', pregnantAnimalIds);
+
+  if (animalError) {
+    console.error('[getDeliveryRiskAssessment] animals query error:', animalError.message);
+  }
+
+  // Stage 3: Get farm details
+  const farmIdsForAnimals = [...new Set(animalDetails?.map(a => a.farm_id) || [])];
+  const { data: farmDetails, error: farmError } = await supabase
+    .from('farms')
+    .select('id, name, region, municipality, data_category')
+    .in('id', farmIdsForAnimals);
+
+  if (farmError) {
+    console.error('[getDeliveryRiskAssessment] farms query error:', farmError.message);
+  }
+
+  // Create lookup maps
+  const animalMap = new Map(animalDetails?.map(a => [a.id, a]) || []);
+  const farmMap = new Map(farmDetails?.map(f => [f.id, f]) || []);
+
+  // Enrich records with animal and farm data
+  const pregnantAnimals = pregnantRecords.map(record => {
+    const animal = animalMap.get(record.animal_id);
+    const farm = animal ? farmMap.get(animal.farm_id) : null;
+    return {
+      ...record,
+      animals: animal ? {
+        id: animal.id,
+        name: animal.name,
+        ear_tag: animal.ear_tag,
+        livestock_type: animal.livestock_type,
+        farm_id: animal.farm_id,
+        farms: farm ? {
+          name: farm.name,
+          region: farm.region,
+          municipality: farm.municipality,
+          data_category: farm.data_category
+        } : null
+      } : null
+    };
+  });
 
   // Get health records for these animals (last 30 days)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -950,7 +1212,7 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     
     risk_factors: {
       animals_with_recent_health_issues: animalsWithHealthIssues.size,
-       health_issue_percentage: Math.round((animalsWithHealthIssues.size / pregnantAnimalIds.length) * 100),
+       health_issue_percentage: pregnantAnimalIds.length > 0 ? Math.round((animalsWithHealthIssues.size / pregnantAnimalIds.length) * 100) : 0,
       
       animals_with_low_bcs: lowBcsAnimals.length,
       low_bcs_percentage: Object.keys(latestBcsByAnimal).length > 0
@@ -1009,19 +1271,51 @@ async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient, data
 
   if (cohortFilter === 'due_month' && filterValue) {
     // Get animals due in specific month
-    let aiQuery = supabase
-      .from('ai_records')
-      .select('animals!inner(id, farm_id)')
-      .eq('pregnancy_confirmed', true)
-      .like('expected_delivery_date', `${filterValue}%`);
-    
-     if (categoryAnimalIds) {
-       aiQuery = aiQuery.in('animal_id', categoryAnimalIds);
-    }
-    
-    const { data: aiRecords } = await aiQuery;
+    // Stage 1: Simple ai_records query (SSOT two-stage pattern)
+    let aiRecords: any[] = [];
+    let aiError: any = null;
 
-    animalIds = aiRecords?.map((r: any) => r.animals?.id).filter(Boolean) || [];
+    if (categoryAnimalIds && categoryAnimalIds.length > MAX_IDS_PER_BATCH) {
+      // Use batched query for large ID arrays
+      const result = await batchQuery(categoryAnimalIds, async (batchIds) => {
+        return await supabase
+          .from('ai_records')
+          .select('id, animal_id')
+          .eq('pregnancy_confirmed', true)
+          .like('expected_delivery_date', `${filterValue}%`)
+          .in('animal_id', batchIds);
+      });
+      aiRecords = result.data;
+      aiError = result.error;
+    } else {
+      // Standard query for smaller sets
+      let aiQuery = supabase
+        .from('ai_records')
+        .select('id, animal_id')
+        .eq('pregnancy_confirmed', true)
+        .like('expected_delivery_date', `${filterValue}%`);
+      
+      if (categoryAnimalIds) {
+        aiQuery = aiQuery.in('animal_id', categoryAnimalIds);
+      }
+      
+      const result = await aiQuery;
+      aiRecords = result.data || [];
+      aiError = result.error;
+    }
+
+    if (aiError) {
+      console.error('[getCohortHealthAnalysis] ai_records query error:', aiError.message);
+      return {
+        cohort: `Animals due in ${filterValue}`,
+        cohort_size: 0,
+        error: true,
+        message: `Query error: ${aiError.message}`
+      };
+    }
+
+    console.log(`[getCohortHealthAnalysis] Found ${aiRecords?.length || 0} AI records for month ${filterValue}`);
+    animalIds = aiRecords?.map((r: any) => r.animal_id).filter(Boolean) || [];
     const monthName = new Date(filterValue + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
     cohortDescription = `Pregnant animals due in ${monthName}`;
 
