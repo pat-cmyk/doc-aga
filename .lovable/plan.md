@@ -1,109 +1,139 @@
 
-# Update Past Expected Delivery Dates to Current/Future Dates
+# Floating Doc Aga Panel for Government Dashboard
 
-## Problem Summary
+## Overview
+Transform the government dashboard's Doc Aga AI from a full-screen overlay to a floating panel that allows you to continue viewing and interacting with the dashboard while chatting with Doc Aga.
 
-The "Expected Deliveries Timeline" shows outdated months (Nov 2025 - Jan 2026) because **27 AI records** on older demo farms have past `expected_delivery_date` values:
+## Current vs. Proposed Behavior
 
-| Month | Past Records | Farms Affected |
-|-------|--------------|----------------|
-| Aug-Oct 2025 | 16 | TF-001 through TF-009 |
-| Nov 2025 | 6 | TF-004, TF-005, TF-006, TF-007 |
-| Dec 2025 | 2 | TF-001, TF-005 |
-| Jan 2026 | 5 | TF-001, TF-003, TF-004, TF-005 |
+| Aspect | Current | After Change |
+|--------|---------|--------------|
+| On Click | Full-screen takeover (`fixed inset-0`) | Floating panel in corner |
+| Dashboard Access | Hidden completely | Visible and interactive |
+| Mobile | Full-screen | Full-screen (stays same for usability) |
+| Desktop | Full-screen | Floating panel (450x650px) |
+| Backdrop | Solid background | Semi-transparent, click-through |
 
-Meanwhile, the **63 new demo farm records** correctly show future dates (Feb - Sep 2026).
+## Visual Design
 
----
-
-## Solution: Shift Past Dates Forward
-
-Update all AI records with past expected_delivery_date to realistic future dates:
-
-### Update Strategy
-
-For each AI record with `expected_delivery_date < '2026-02-05'`:
-- Shift the date forward by adding a consistent offset to bring it into the future
-- Maintain species-appropriate spacing using existing performed_date + gestation period
-- Target distribution: Feb 2026 → May 2026
-
-### SQL Update
-
-```sql
-UPDATE ai_records ar
-SET expected_delivery_date = 
-  CASE 
-    WHEN a.livestock_type = 'cattle' THEN ar.performed_date + interval '283 days'
-    WHEN a.livestock_type = 'goat' THEN ar.performed_date + interval '150 days'
-    WHEN a.livestock_type = 'carabao' THEN ar.performed_date + interval '310 days'
-    ELSE ar.performed_date + interval '200 days'
-  END
-FROM animals a
-JOIN farms f ON a.farm_id = f.id
-WHERE ar.animal_id = a.id
-  AND f.data_category = 'demo'
-  AND ar.expected_delivery_date IS NOT NULL
-  AND ar.expected_delivery_date < '2026-02-05'
-  AND ar.performed_date IS NOT NULL;
+```text
++--------------------------------------------------+
+|  Government Dashboard                      [User] |
++--------------------------------------------------+
+|                                                   |
+|  +-------------+  +-------------+  +-------------+|
+|  |  Card 1     |  |  Card 2     |  |  Card 3     ||
+|  +-------------+  +-------------+  +-------------+|
+|                                                   |
+|  +----------------------------------------------+ |
+|  |  Charts and Analytics                        | |
+|  |                                              | |
+|  +----------------------------------------------+ |
+|                                                   |
+|                         +-----------------------+ |
+|                         | Doc Aga Panel         | |
+|                         | +-------------------+ | |
+|                         | | Chat messages     | | |
+|                         | |                   | | |
+|                         | +-------------------+ | |
+|                         | [Voice] [Input...][>]| | |
+|                         +-----------------------+ |
++--------------------------------------------------+
 ```
 
-This recalculates expected_delivery_date based on correct gestation periods from the performed_date, which will naturally bring dates into the future if the performed_date is recent.
+## Implementation Steps
 
-### Alternative: Direct Date Shift
+### Step 1: Update GovernmentFab.tsx
 
-If performed_dates are also old, use a direct shift:
-```sql
-UPDATE ai_records ar
-SET expected_delivery_date = expected_delivery_date + interval '6 months'
-FROM animals a
-JOIN farms f ON a.farm_id = f.id
-WHERE ar.animal_id = a.id
-  AND f.data_category = 'demo'
-  AND ar.expected_delivery_date IS NOT NULL
-  AND ar.expected_delivery_date < '2026-02-05';
+Replace the full-screen container with a floating panel pattern:
+
+**Before:**
+```typescript
+{showDocAga && (
+  <div className="fixed inset-0 z-50 bg-background">
+    <DocAgaConsultation ... />
+  </div>
+)}
 ```
 
----
+**After:**
+```typescript
+{showDocAga && (
+  <>
+    {/* Semi-transparent backdrop - click to minimize (desktop only) */}
+    <div
+      className="hidden sm:block fixed inset-0 bg-background/20 backdrop-blur-[2px] z-40"
+      onClick={() => setShowDocAga(false)}
+    />
+    
+    {/* Floating Panel */}
+    <Card
+      className="fixed z-50 flex flex-col shadow-2xl 
+        inset-0 rounded-none 
+        sm:inset-auto sm:bottom-24 sm:right-4 sm:w-[420px] sm:h-[550px] sm:rounded-lg 
+        lg:w-[450px] lg:h-[600px]"
+    >
+      {/* Header with close button */}
+      <div className="flex items-center justify-between border-b p-3 bg-primary text-primary-foreground rounded-t-none sm:rounded-t-lg">
+        <div className="flex items-center gap-2">
+          <Stethoscope className="h-5 w-5" />
+          <span className="font-semibold">Doc Aga - Analyst</span>
+        </div>
+        <Button onClick={() => setShowDocAga(false)} variant="ghost" size="icon">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* DocAga content area */}
+      <div className="flex-1 overflow-hidden">
+        <DocAga />  {/* Reuse existing DocAga component */}
+      </div>
+    </Card>
+  </>
+)}
+```
 
-## Expected Outcomes
+### Step 2: Switch from DocAgaConsultation to DocAga
 
-### Before
-| Timeline Shows | Issue |
-|----------------|-------|
-| Nov 2025 (6) | ❌ Past |
-| Dec 2025 (2) | ❌ Past |
-| Jan 2026 (5) | ❌ Past |
-| Feb 2026 (3) | ✅ Current |
-| Mar 2026 (18) | ✅ Future |
+The `DocAga` component (used by `UnifiedActionsFab`) is more feature-rich and already supports:
+- Government context detection via `useGovernmentAccess` hook
+- Voice, text, and image input modes
+- Quick actions
+- TTS audio controls
 
-### After
-| Timeline Shows | Status |
-|----------------|--------|
-| Feb 2026 (6) | ✅ Current/Urgent |
-| Mar 2026 (22) | ✅ Future |
-| Apr 2026 (8) | ✅ Future |
-| May-Sep 2026 | ✅ Future |
+This is a better fit than `DocAgaConsultation` which was designed for a simpler flow.
 
----
+### Step 3: Add Minimize/Collapse Option (Optional Enhancement)
+
+Add a minimized state where only a small icon/badge shows, allowing quick access without the full panel.
+
+## Benefits
+
+1. **Multi-tasking**: View dashboard charts while asking Doc Aga questions about them
+2. **Context-aware**: Ask "What does this chart show?" while looking at it
+3. **Familiar pattern**: Matches the floating chat pattern already used in farm dashboard
+4. **Mobile-friendly**: Full-screen on mobile preserves usability on small screens
 
 ## Technical Details
 
-### Records to Update
-- **27 AI records** across 8 older demo farms (TF-001 to TF-009)
-- All have `f.data_category = 'demo'`
-- No live/production data will be affected
+### Files to Modify
 
-### Data Isolation Guarantee
-Filter explicitly by:
-- `f.data_category = 'demo'`
-- `ar.expected_delivery_date < '2026-02-05'` (only past dates)
+| File | Changes |
+|------|---------|
+| `src/components/government/GovernmentFab.tsx` | Replace full-screen with floating panel, switch to DocAga component |
 
----
+### Component Reuse
 
-## Dashboard Impact
+- Reuse `DocAga` component which already has government context detection
+- DocAga automatically switches to "Analyst Assistant" persona when `location.pathname.startsWith('/government')`
 
-After update, the Expected Deliveries Timeline will:
-- Show only future months starting from February 2026
-- Display the "due in 30 days" badge for Feb 2026 deliveries
-- Properly highlight urgent upcoming deliveries
-- Remove confusing past-dated entries
+### Positioning Coordination
+
+Following the established mobile FAB positioning pattern:
+- Panel positioned at `bottom-24 right-4` on mobile (above bottom nav)
+- Panel positioned at `bottom-6 right-6` on desktop (standard corner)
+
+### Z-Index Stack
+
+- Backdrop: `z-40` (allows panel to float above)
+- Floating Panel: `z-50` (above backdrop, below modals)
