@@ -13,7 +13,6 @@ Remove all government context handling from the Doc Aga edge function and fronte
 |------|--------|----------------|
 | `supabase/functions/doc-aga/index.ts` | MODIFY | Remove ~200+ lines of gov code |
 | `supabase/functions/doc-aga/tools.ts` | MODIFY | Remove ~1100+ lines of gov tools |
-| `src/components/DocAga.tsx` | MODIFY | Remove ~50+ lines of gov context |
 
 ---
 
@@ -25,11 +24,13 @@ Remove all government context handling from the Doc Aga edge function and fronte
 
 | Section | Lines | Description |
 |---------|-------|-------------|
-| Schema validation | ~59-62 | Remove `context` enum and `dataCategory` from schema |
+| Schema validation | 59-61 | Remove `context` enum and `dataCategory` from schema |
 | `getGovernmentAnalystPrompt()` | 166-262 | Full function removal (~100 lines) |
 | `getGovernmentTools()` | 264-277 | Full function removal (~15 lines) |
 | Government role check | 519-534 | Remove government access verification block |
-| Context branching | 477-478, 724-730 | Remove `isGovernmentContext` logic |
+| Context branching | 475-478 | Remove `isGovernmentContext` variable |
+| Prompt/Tools selection | 724-730 | Simplify to always use farmer prompt/tools |
+| executeToolCall context param | 787 | Remove context and dataCategory from call |
 
 **Keep unchanged:**
 - Rate limiting infrastructure
@@ -42,7 +43,7 @@ Remove all government context handling from the Doc Aga edge function and fronte
 **After cleanup:** 
 - `docAgaRequestSchema` removes `context` and `dataCategory` 
 - Main handler only builds farmer system prompt
-- `executeToolCall` only handles farmer context
+- `executeToolCall` only receives farmer context
 
 ### 2. `supabase/functions/doc-aga/tools.ts`
 
@@ -50,58 +51,62 @@ Remove all government context handling from the Doc Aga edge function and fronte
 
 | Section | Lines | Description |
 |---------|-------|-------------|
-| PCRS calculations | 9-129 | Moved to `_shared/analyst-tools.ts` |
+| `DataCategory` type | 4 | Moved to `_shared/analyst-tools.ts` |
+| PCRS calculations | 9-129 | Moved to shared |
 | `batchQuery()` helper | 131-168 | Moved to shared |
 | `getFilteredFarmIds()` | 170-193 | Moved to shared |
 | `getFilteredAnimalIds()` | 195-224 | Moved to shared |
-| Government context branch | 238-271 | Remove entire `if (context === 'government')` block |
+| Government context branch in executeToolCall | 238-271 | Remove entire `if (context === 'government')` block |
+| Government tools comment | 368 | Remove section header |
 | `getNationalOverview()` | 370-460 | Moved to shared |
-| `getRegionalStats()` | 462-510+ | Moved to shared |
-| `getBreedingAnalytics()` | ~390-520 | Moved to shared |
-| `getHealthAnalytics()` | ~520-650 | Moved to shared |
-| `getProductionTrends()` | ~650-750 | Moved to shared |
-| `getFarmerFeedbackSummary()` | ~750-850 | Moved to shared |
-| `getExpectedDeliveriesAnalysis()` | ~850-1000 | Moved to shared |
-| `getDeliveryRiskAssessment()` | ~1000-1200 | Moved to shared |
-| `getCohortHealthAnalysis()` | ~1200-1400 | Moved to shared |
+| `getRegionalStats()` | 462-531 | Moved to shared |
+| `getBreedingAnalytics()` | 533-663 | Moved to shared |
+| `getHealthAnalytics()` | 665-739 | Moved to shared |
+| `getProductionTrends()` | 741-805 | Moved to shared |
+| `getFarmerFeedbackSummary()` | 807-864 | Moved to shared |
+| Deep analytics header | 866 | Remove section header |
+| `getExpectedDeliveriesAnalysis()` | 868-1140 | Moved to shared |
+| `getDeliveryRiskAssessment()` | 1142-1501 | Moved to shared |
+| `getCohortHealthAnalysis()` | 1503-1726 | Moved to shared |
 
 **Keep:**
 - All farmer tools (animal profiles, health records, milking, breeding, etc.)
-- `executeToolCall` but only with farmer switch cases
+- `executeToolCall` but only with farmer switch cases (starting at line 274)
 
 **After cleanup:**
 - File reduces from ~3656 lines to ~2400 lines
 - Only farmer-related database operations remain
-- Remove `DataCategory` type and related helpers (now in shared)
+- Simpler executeToolCall signature (remove context, dataCategory params)
 
-### 3. `src/components/DocAga.tsx`
+---
 
-**Remove:**
+## Simplified executeToolCall Signature
 
-| Section | Lines | Description |
-|---------|-------|-------------|
-| Imports | 16, 19 | `useGovernmentAccess`, government icons |
-| Government context detection | 64, 68-72 | `hasGovernmentAccess`, `isGovernmentContext`, `dataCategory` |
-| Government welcome message | 84-93 | `governmentWelcomeMessage` constant |
-| Welcome message conditional | 76-82 | Simplify to always use farmer message |
-| Government quick actions | 109-117 | Remove government-specific quick actions array |
-| Force chat mode for gov | 138-143 | Remove `useEffect` that forces chat mode |
-| Mode label for gov | 475-477 | Remove government `getModeLabel()` case |
-| Mode color for gov | 486-488 | Remove government `getModeColor()` case |
-| Input tabs conditional | 507-508 | Remove `!isGovernmentContext` conditional |
-| Voice mode conditional | 639 | Remove `!isGovernmentContext` check |
-| API call context param | 288-290 | Remove `context` and `dataCategory` from request body |
+**Before:**
+```typescript
+export async function executeToolCall(
+  toolName: string,
+  args: any,
+  supabase: SupabaseClient,
+  farmId: string | undefined,
+  context: 'farmer' | 'government' = 'farmer',
+  userId?: string,
+  conversationId?: string,
+  dataCategory?: DataCategory
+)
+```
 
-**Keep:**
-- All farmer functionality (voice, image, chat)
-- TTS queue
-- Intent parsing
-- Quick actions for farmers
-
-**After cleanup:**
-- Component becomes simpler farmer-only chat
-- Remove `useGovernmentAccess` import
-- Remove `useLocation` and `useSearchParams` if only used for gov context
+**After:**
+```typescript
+export async function executeToolCall(
+  toolName: string,
+  args: any,
+  supabase: SupabaseClient,
+  farmId: string | undefined,
+  userId?: string,
+  conversationId?: string
+)
+```
 
 ---
 
@@ -111,7 +116,7 @@ Remove all government context handling from the Doc Aga edge function and fronte
 Before Phase 2:
 ┌─────────────────────────────────────────────┐
 │  doc-aga edge function                      │
-│  ├── Farmer Tools (~2500 lines)             │
+│  ├── Farmer Tools (~2400 lines)             │
 │  ├── Government Tools (~1100 lines)   ❌    │
 │  ├── Gov Prompt (~100 lines)           ❌    │
 │  └── Context switching (~50 lines)     ❌    │
@@ -120,7 +125,7 @@ Before Phase 2:
 After Phase 2:
 ┌─────────────────────────────────────────────┐
 │  doc-aga edge function (FARMER ONLY)        │
-│  └── Farmer Tools (~2500 lines)             │
+│  └── Farmer Tools (~2400 lines)             │
 └─────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────┐
 │  rico edge function (GOVERNMENT ONLY)       │
@@ -134,9 +139,34 @@ After Phase 2:
 
 | File | Before | After | Reduction |
 |------|--------|-------|-----------|
-| `doc-aga/index.ts` | ~908 lines | ~650 lines | ~28% |
+| `doc-aga/index.ts` | ~908 lines | ~700 lines | ~23% |
 | `doc-aga/tools.ts` | ~3656 lines | ~2400 lines | ~34% |
-| `DocAga.tsx` | ~702 lines | ~620 lines | ~12% |
+
+---
+
+## Technical Implementation
+
+### Step 1: Update `doc-aga/tools.ts`
+
+1. Remove lines 1-224 (DataCategory, PCRS, helper functions)
+2. Remove lines 238-271 (government context branch in executeToolCall)
+3. Remove lines 368-1726 (all government tools)
+4. Update executeToolCall signature to remove context/dataCategory params
+
+### Step 2: Update `doc-aga/index.ts`
+
+1. Remove schema fields (lines 59-61): `context` and `dataCategory`
+2. Remove `getGovernmentAnalystPrompt()` function (lines 166-262)
+3. Remove `getGovernmentTools()` function (lines 264-277)
+4. Remove government role check block (lines 519-534)
+5. Remove `isGovernmentContext` variable and conditionals (lines 475-478, 724-730)
+6. Simplify executeToolCall call to remove context/dataCategory (line 787)
+
+### Step 3: Deploy and Test
+
+1. Deploy updated `doc-aga` edge function
+2. Verify farmer chat flow works
+3. Confirm RICO handles government dashboard
 
 ---
 
@@ -167,6 +197,6 @@ After implementation:
 
 1. Update `supabase/functions/doc-aga/tools.ts` - remove government tools and helpers
 2. Update `supabase/functions/doc-aga/index.ts` - remove government prompt, schema, and context logic
-3. Update `src/components/DocAga.tsx` - remove government context handling
-4. Deploy updated `doc-aga` edge function
+3. Deploy updated `doc-aga` edge function
+4. Update plan documentation
 5. Verify both personas work independently
