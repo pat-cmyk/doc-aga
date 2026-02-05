@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
+import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 
 interface GovernmentLayoutProps {
   children: ReactNode;
@@ -16,6 +17,7 @@ export const GovernmentLayout = ({ children }: GovernmentLayoutProps) => {
             <div>
               <h1 className="text-2xl font-bold">Government Dashboard</h1>
               <p className="text-sm text-muted-foreground">Livestock industry insights for policy and program planning</p>
+              <PhilippineTimeBanner compact />
             </div>
           </div>
           <div className="flex items-center gap-2">

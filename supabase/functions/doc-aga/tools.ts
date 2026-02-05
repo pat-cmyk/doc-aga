@@ -32,6 +32,15 @@ export async function executeToolCall(
       case "get_farmer_feedback_summary":
         return await getFarmerFeedbackSummary(args, supabase);
       
+      case "get_expected_deliveries_analysis":
+        return await getExpectedDeliveriesAnalysis(args, supabase);
+      
+      case "get_delivery_risk_assessment":
+        return await getDeliveryRiskAssessment(args, supabase);
+      
+      case "get_cohort_health_analysis":
+        return await getCohortHealthAnalysis(args, supabase);
+      
       default:
         return { error: `Unknown government tool: ${toolName}` };
     }
@@ -447,6 +456,499 @@ async function getFarmerFeedbackSummary(args: any, supabase: SupabaseClient) {
     by_sentiment: sentimentCount,
     by_status: statusCount,
     by_priority: priorityCount,
+  };
+}
+
+// ============= DEEP ANALYTICS TOOLS =============
+
+async function getExpectedDeliveriesAnalysis(args: any, supabase: SupabaseClient) {
+  const targetMonth = args.target_month; // e.g., "2026-03"
+  const includeHealthRisks = args.include_health_risks !== false;
+
+  // Get all pregnant animals with expected delivery dates
+  const { data: aiRecords } = await supabase
+    .from('ai_records')
+    .select(`
+      id, expected_delivery_date, performed_date, pregnancy_confirmed,
+      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality))
+    `)
+    .eq('pregnancy_confirmed', true)
+    .not('expected_delivery_date', 'is', null)
+    .order('expected_delivery_date', { ascending: true });
+
+  if (!aiRecords || aiRecords.length === 0) {
+    return {
+      total_pregnant: 0,
+      message: "No pregnant animals with expected delivery dates found in the system"
+    };
+  }
+
+  // Group by month
+  const byMonth: Record<string, any[]> = {};
+  aiRecords.forEach((r: any) => {
+    const month = r.expected_delivery_date?.substring(0, 7);
+    if (month) {
+      if (!byMonth[month]) byMonth[month] = [];
+      byMonth[month].push(r);
+    }
+  });
+
+  // Helper to check if month is within 30 days
+  const isWithin30Days = (monthStr: string): boolean => {
+    const now = new Date();
+    const monthStart = new Date(monthStr + '-01');
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return monthStart <= thirtyDaysFromNow;
+  };
+
+  // Helper to count by type
+  const countByType = (animals: any[]): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    animals.forEach(a => {
+      const type = a.animals?.livestock_type || 'Unknown';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  };
+
+  // Helper to count by region
+  const countByRegion = (animals: any[]): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    animals.forEach(a => {
+      const region = a.animals?.farms?.region || 'Unknown';
+      counts[region] = (counts[region] || 0) + 1;
+    });
+    return counts;
+  };
+
+  // If specific month requested, get detailed analysis with health/BCS data
+  if (targetMonth && byMonth[targetMonth]) {
+    const monthAnimals = byMonth[targetMonth];
+    const animalIds = monthAnimals.map((r: any) => r.animals?.id).filter(Boolean);
+
+    let healthRiskSummary: any = null;
+    let bcsRiskSummary: any = null;
+    let animalsAtRisk: any[] = [];
+
+    if (includeHealthRisks && animalIds.length > 0) {
+      // Get recent health records for these animals (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data: healthRecords } = await supabase
+        .from('health_records')
+        .select('animal_id, diagnosis, visit_date')
+        .in('animal_id', animalIds)
+        .gte('visit_date', thirtyDaysAgo);
+
+      // Get latest BCS records for these animals
+      const { data: bcsRecords } = await supabase
+        .from('body_condition_scores')
+        .select('animal_id, score, assessment_date')
+        .in('animal_id', animalIds)
+        .order('assessment_date', { ascending: false });
+
+      // Calculate health risk metrics
+      const animalsWithHealthIssues = new Set(healthRecords?.map(r => r.animal_id) || []);
+      
+      // Get top diagnoses
+      const diagnosisCounts: Record<string, number> = {};
+      healthRecords?.forEach(r => {
+        const diagnosis = r.diagnosis || 'Unspecified';
+        diagnosisCounts[diagnosis] = (diagnosisCounts[diagnosis] || 0) + 1;
+      });
+      const topDiagnoses = Object.entries(diagnosisCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([diagnosis, count]) => ({ diagnosis, count }));
+
+      healthRiskSummary = {
+        animals_with_recent_health_issues: animalsWithHealthIssues.size,
+        percentage_with_issues: animalIds.length > 0 
+          ? Math.round((animalsWithHealthIssues.size / animalIds.length) * 100) 
+          : 0,
+        common_diagnoses: topDiagnoses
+      };
+
+      // Calculate BCS risk metrics - get unique latest score per animal
+      const latestBcsByAnimal: Record<string, number> = {};
+      bcsRecords?.forEach((r: any) => {
+        if (!latestBcsByAnimal[r.animal_id]) {
+          latestBcsByAnimal[r.animal_id] = r.score;
+        }
+      });
+
+      const lowBcsAnimalIds = Object.entries(latestBcsByAnimal)
+        .filter(([_, score]) => score < 2.5)
+        .map(([id]) => id);
+
+      bcsRiskSummary = {
+        animals_with_bcs_data: Object.keys(latestBcsByAnimal).length,
+        animals_with_low_bcs: lowBcsAnimalIds.length,
+        percentage_underweight: Object.keys(latestBcsByAnimal).length > 0
+          ? Math.round((lowBcsAnimalIds.length / Object.keys(latestBcsByAnimal).length) * 100)
+          : 0,
+        risk_note: "Animals with BCS < 2.5 have higher risk of delivery complications and miscarriage"
+      };
+
+      // Identify high-risk animals (either health issues OR low BCS)
+      const highRiskSet = new Set([...animalsWithHealthIssues, ...lowBcsAnimalIds]);
+      animalsAtRisk = monthAnimals
+        .filter((r: any) => highRiskSet.has(r.animals?.id))
+        .map((r: any) => ({
+          name: r.animals?.name || 'Unnamed',
+          ear_tag: r.animals?.ear_tag,
+          livestock_type: r.animals?.livestock_type,
+          farm: r.animals?.farms?.name,
+          region: r.animals?.farms?.region,
+          expected_delivery: r.expected_delivery_date,
+          has_health_issues: animalsWithHealthIssues.has(r.animals?.id),
+          has_low_bcs: lowBcsAnimalIds.includes(r.animals?.id)
+        }));
+    }
+
+    return {
+      month: targetMonth,
+      is_urgent: isWithin30Days(targetMonth),
+      total_deliveries: monthAnimals.length,
+      by_livestock_type: countByType(monthAnimals),
+      by_region: countByRegion(monthAnimals),
+      health_risk_summary: healthRiskSummary,
+      bcs_risk_summary: bcsRiskSummary,
+      animals_at_risk: animalsAtRisk,
+      animals_list: monthAnimals.slice(0, 20).map((r: any) => ({
+        name: r.animals?.name || 'Unnamed',
+        ear_tag: r.animals?.ear_tag,
+        livestock_type: r.animals?.livestock_type,
+        farm: r.animals?.farms?.name,
+        region: r.animals?.farms?.region,
+        expected_delivery: r.expected_delivery_date
+      }))
+    };
+  }
+
+  // Return monthly overview
+  return {
+    total_pregnant: aiRecords.length,
+    by_month: Object.entries(byMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, animals]) => ({
+        month,
+        month_name: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+        count: animals.length,
+        is_urgent: isWithin30Days(month),
+        by_type: countByType(animals),
+        by_region: countByRegion(animals)
+      }))
+  };
+}
+
+async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient) {
+  const daysAhead = args.days_ahead || 60;
+  const startDate = new Date().toISOString().split('T')[0];
+  const endDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Get pregnant animals due in the period
+  const { data: pregnantAnimals } = await supabase
+    .from('ai_records')
+    .select(`
+      id, expected_delivery_date, pregnancy_confirmed,
+      animals!inner(id, name, ear_tag, livestock_type, farm_id, farms!inner(name, region, municipality))
+    `)
+    .eq('pregnancy_confirmed', true)
+    .gte('expected_delivery_date', startDate)
+    .lte('expected_delivery_date', endDate)
+    .order('expected_delivery_date', { ascending: true });
+
+  if (!pregnantAnimals || pregnantAnimals.length === 0) {
+    return {
+      period_days: daysAhead,
+      total_deliveries_expected: 0,
+      message: `No deliveries expected in the next ${daysAhead} days`
+    };
+  }
+
+  const animalIds = pregnantAnimals.map((r: any) => r.animals?.id).filter(Boolean);
+
+  // Get health records for these animals (last 30 days)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const { data: healthRecords } = await supabase
+    .from('health_records')
+    .select('animal_id, diagnosis, visit_date')
+    .in('animal_id', animalIds)
+    .gte('visit_date', thirtyDaysAgo);
+
+  // Get BCS records
+  const { data: bcsRecords } = await supabase
+    .from('body_condition_scores')
+    .select('animal_id, score, assessment_date')
+    .in('animal_id', animalIds)
+    .order('assessment_date', { ascending: false });
+
+  // Calculate risk factors
+  const animalsWithHealthIssues = new Set(healthRecords?.map(r => r.animal_id) || []);
+
+  // Get latest BCS per animal
+  const latestBcsByAnimal: Record<string, number> = {};
+  bcsRecords?.forEach((r: any) => {
+    if (!latestBcsByAnimal[r.animal_id]) {
+      latestBcsByAnimal[r.animal_id] = r.score;
+    }
+  });
+
+  const lowBcsAnimals = Object.entries(latestBcsByAnimal)
+    .filter(([_, score]) => score < 2.5);
+
+  // Check for regional outbreaks (multiple health events in same region)
+  const regionHealthCounts: Record<string, number> = {};
+  pregnantAnimals.forEach((r: any) => {
+    if (animalsWithHealthIssues.has(r.animals?.id)) {
+      const region = r.animals?.farms?.region || 'Unknown';
+      regionHealthCounts[region] = (regionHealthCounts[region] || 0) + 1;
+    }
+  });
+
+  const potentialOutbreakRegions = Object.entries(regionHealthCounts)
+    .filter(([_, count]) => count >= 3)
+    .map(([region, count]) => ({ region, affected_pregnant_animals: count }));
+
+  // Group by urgency (within 30 days vs beyond)
+  const within30Days = pregnantAnimals.filter((r: any) => {
+    const dueDate = new Date(r.expected_delivery_date);
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return dueDate <= thirtyDaysFromNow;
+  });
+
+  // Count by livestock type
+  const countByType = (animals: any[]): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    animals.forEach(a => {
+      const type = a.animals?.livestock_type || 'Unknown';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  };
+
+  return {
+    period_days: daysAhead,
+    analysis_date: startDate,
+    total_deliveries_expected: pregnantAnimals.length,
+    urgent_deliveries: within30Days.length,
+    by_livestock_type: countByType(pregnantAnimals),
+    
+    risk_factors: {
+      animals_with_recent_health_issues: animalsWithHealthIssues.size,
+      health_issue_percentage: Math.round((animalsWithHealthIssues.size / animalIds.length) * 100),
+      
+      animals_with_low_bcs: lowBcsAnimals.length,
+      low_bcs_percentage: Object.keys(latestBcsByAnimal).length > 0
+        ? Math.round((lowBcsAnimals.length / Object.keys(latestBcsByAnimal).length) * 100)
+        : 0,
+      bcs_data_coverage: `${Object.keys(latestBcsByAnimal).length}/${animalIds.length} animals have BCS data`,
+      
+      potential_outbreak_regions: potentialOutbreakRegions
+    },
+    
+    high_risk_animals: pregnantAnimals
+      .filter((r: any) => 
+        animalsWithHealthIssues.has(r.animals?.id) || 
+        (latestBcsByAnimal[r.animals?.id] && latestBcsByAnimal[r.animals?.id] < 2.5)
+      )
+      .map((r: any) => ({
+        name: r.animals?.name || 'Unnamed',
+        ear_tag: r.animals?.ear_tag,
+        livestock_type: r.animals?.livestock_type,
+        farm: r.animals?.farms?.name,
+        region: r.animals?.farms?.region,
+        expected_delivery: r.expected_delivery_date,
+        risk_factors: [
+          animalsWithHealthIssues.has(r.animals?.id) ? 'Recent health issue' : null,
+          (latestBcsByAnimal[r.animals?.id] && latestBcsByAnimal[r.animals?.id] < 2.5) 
+            ? `Low BCS (${latestBcsByAnimal[r.animals?.id]})` 
+            : null
+        ].filter(Boolean)
+      })),
+    
+    recommendations: [
+      lowBcsAnimals.length > 0 
+        ? `Focus nutritional intervention on ${lowBcsAnimals.length} underweight animal(s)` 
+        : null,
+      potentialOutbreakRegions.length > 0 
+        ? `Monitor health situation in ${potentialOutbreakRegions.map(r => r.region).join(', ')}` 
+        : null,
+      animalsWithHealthIssues.size > 0 
+        ? `${animalsWithHealthIssues.size} pregnant animal(s) with recent health issues need monitoring` 
+        : null
+    ].filter(Boolean)
+  };
+}
+
+async function getCohortHealthAnalysis(args: any, supabase: SupabaseClient) {
+  const cohortFilter = args.cohort_filter; // 'due_month', 'region', 'livestock_type'
+  const filterValue = args.filter_value;
+
+  let animalIds: string[] = [];
+  let cohortDescription = '';
+
+  if (cohortFilter === 'due_month' && filterValue) {
+    // Get animals due in specific month
+    const { data: aiRecords } = await supabase
+      .from('ai_records')
+      .select('animals!inner(id)')
+      .eq('pregnancy_confirmed', true)
+      .like('expected_delivery_date', `${filterValue}%`);
+
+    animalIds = aiRecords?.map((r: any) => r.animals?.id).filter(Boolean) || [];
+    const monthName = new Date(filterValue + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    cohortDescription = `Pregnant animals due in ${monthName}`;
+
+  } else if (cohortFilter === 'region' && filterValue) {
+    // Get animals in specific region
+    const { data: animals } = await supabase
+      .from('animals')
+      .select('id, farms!inner(region)')
+      .eq('farms.region', filterValue)
+      .eq('is_deleted', false);
+
+    animalIds = animals?.map((a: any) => a.id) || [];
+    cohortDescription = `Animals in ${filterValue}`;
+
+  } else if (cohortFilter === 'livestock_type' && filterValue) {
+    // Get animals of specific type
+    const { data: animals } = await supabase
+      .from('animals')
+      .select('id')
+      .eq('livestock_type', filterValue)
+      .eq('is_deleted', false);
+
+    animalIds = animals?.map((a: any) => a.id) || [];
+    cohortDescription = `All ${filterValue}`;
+
+  } else {
+    return { error: "Please provide cohort_filter ('due_month', 'region', 'livestock_type') and filter_value" };
+  }
+
+  if (animalIds.length === 0) {
+    return {
+      cohort: cohortDescription,
+      cohort_size: 0,
+      message: "No animals found matching the criteria"
+    };
+  }
+
+  // Get health records for last 90 days
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const { data: healthRecords } = await supabase
+    .from('health_records')
+    .select('animal_id, diagnosis, visit_date')
+    .in('animal_id', animalIds)
+    .gte('visit_date', ninetyDaysAgo);
+
+  // Health events breakdown
+  const last30Days = healthRecords?.filter(r => r.visit_date >= thirtyDaysAgo) || [];
+  const last90Days = healthRecords || [];
+
+  // Top diagnoses
+  const diagnosisCounts: Record<string, number> = {};
+  healthRecords?.forEach(r => {
+    const diagnosis = r.diagnosis || 'Unspecified';
+    diagnosisCounts[diagnosis] = (diagnosisCounts[diagnosis] || 0) + 1;
+  });
+  const topDiagnoses = Object.entries(diagnosisCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([diagnosis, count]) => ({ diagnosis, count }));
+
+  // Get BCS records
+  const { data: bcsRecords } = await supabase
+    .from('body_condition_scores')
+    .select('animal_id, score, assessment_date')
+    .in('animal_id', animalIds)
+    .order('assessment_date', { ascending: false });
+
+  // Latest BCS per animal
+  const latestBcsByAnimal: Record<string, number> = {};
+  bcsRecords?.forEach((r: any) => {
+    if (!latestBcsByAnimal[r.animal_id]) {
+      latestBcsByAnimal[r.animal_id] = r.score;
+    }
+  });
+
+  // BCS distribution
+  const bcsDistribution = {
+    underweight: 0, // < 2.5
+    optimal: 0,     // 2.5 - 3.5
+    overweight: 0   // > 3.5
+  };
+  Object.values(latestBcsByAnimal).forEach(score => {
+    if (score < 2.5) bcsDistribution.underweight++;
+    else if (score <= 3.5) bcsDistribution.optimal++;
+    else bcsDistribution.overweight++;
+  });
+
+  // Get mortality data
+  const { data: exitedAnimals } = await supabase
+    .from('animals')
+    .select('exit_reason, exit_date')
+    .in('id', animalIds)
+    .not('exit_date', 'is', null)
+    .gte('exit_date', ninetyDaysAgo);
+
+  const exitReasons: Record<string, number> = {};
+  let mortalityCount = 0;
+  exitedAnimals?.forEach(a => {
+    const reason = a.exit_reason || 'Unknown';
+    exitReasons[reason] = (exitReasons[reason] || 0) + 1;
+    if (reason.toLowerCase().includes('death') || reason.toLowerCase().includes('died') || reason.toLowerCase().includes('mortality')) {
+      mortalityCount++;
+    }
+  });
+
+  return {
+    cohort: cohortDescription,
+    cohort_filter: cohortFilter,
+    filter_value: filterValue,
+    cohort_size: animalIds.length,
+    
+    health_summary: {
+      health_events_last_30_days: last30Days.length,
+      health_events_last_90_days: last90Days.length,
+      unique_animals_with_issues_30d: new Set(last30Days.map(r => r.animal_id)).size,
+      unique_animals_with_issues_90d: new Set(last90Days.map(r => r.animal_id)).size,
+      morbidity_rate_30d: Math.round((new Set(last30Days.map(r => r.animal_id)).size / animalIds.length) * 100),
+      top_diagnoses: topDiagnoses
+    },
+    
+    bcs_summary: {
+      animals_with_bcs_data: Object.keys(latestBcsByAnimal).length,
+      coverage_percentage: Math.round((Object.keys(latestBcsByAnimal).length / animalIds.length) * 100),
+      distribution: bcsDistribution,
+      underweight_percentage: Object.keys(latestBcsByAnimal).length > 0
+        ? Math.round((bcsDistribution.underweight / Object.keys(latestBcsByAnimal).length) * 100)
+        : 0
+    },
+    
+    mortality_summary: {
+      exits_last_90_days: exitedAnimals?.length || 0,
+      mortality_count: mortalityCount,
+      mortality_rate: Math.round((mortalityCount / animalIds.length) * 100),
+      exit_reasons: exitReasons
+    },
+    
+    risk_assessment: {
+      overall_risk_level: 
+        (mortalityCount / animalIds.length >= 0.2) ? 'Critical' :
+        (mortalityCount / animalIds.length >= 0.1) ? 'High' :
+        (mortalityCount / animalIds.length >= 0.05) ? 'Moderate' : 'Low',
+      concerns: [
+        bcsDistribution.underweight > 0 ? `${bcsDistribution.underweight} underweight animal(s) need nutritional attention` : null,
+        mortalityCount > 0 ? `${mortalityCount} mortality case(s) in last 90 days` : null,
+        new Set(last30Days.map(r => r.animal_id)).size > animalIds.length * 0.1 
+          ? `High morbidity: ${new Set(last30Days.map(r => r.animal_id)).size} animals with health issues in last 30 days` 
+          : null
+      ].filter(Boolean)
+    }
   };
 }
 

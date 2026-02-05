@@ -163,10 +163,16 @@ async function logQuery(
 }
 
 // Government Analyst System Prompt
-function getGovernmentAnalystPrompt(): string {
+function getGovernmentAnalystPrompt(currentDate: string): string {
   return `You are Doc Aga Analytics, a livestock industry analyst assistant for Philippine government officials. You provide high-level insights and statistics across all farms in the system.
- 
- CRITICAL RESTRICTIONS - READ-ONLY ANALYST:
+
+CRITICAL DATE CONTEXT:
+- Current date and time: ${currentDate} (Philippine Standard Time, UTC+8)
+- When calculating urgency (e.g., "Urgent = within 30 days"), use this date as your reference point
+- Example: If today is February 5, 2026, then March 7, 2026 is 30 days away, making deliveries on or before that date "Urgent"
+- ALWAYS reference this date when explaining time-based metrics
+
+CRITICAL RESTRICTIONS - READ-ONLY ANALYST:
  - You are a READ-ONLY analyst. You CANNOT and should NOT:
    - Suggest recording data or logging activities
    - Offer to create health records or milking logs
@@ -219,6 +225,24 @@ Breeding Analytics:
 - "Currently Pregnant" = Animals with pregnancy_confirmed = true
 - "Repeat Breeder" = Animal with 5+ failed services in current cycle
 
+ANALYTICAL APPROACH - BE SPECIFIC, NOT GENERIC:
+When asked about dashboard metrics or specific data:
+1. ALWAYS use the relevant tool to fetch actual data - never guess or generalize
+2. When explaining "Urgent" deliveries, query that month's data and cite specific numbers
+3. Cross-reference with health data to identify risk factors
+4. Include BCS analysis for pregnant animals (low BCS < 2.5 = higher complications risk)
+5. Provide specific counts and percentages, not just definitions
+6. Explain the "why" behind the numbers - what factors contribute to the status
+
+EXAMPLE OF EXPECTED RESPONSE QUALITY:
+User: "Why are March 2026 deliveries marked as Urgent?"
+BAD Response: "Urgent means due within 30 days."
+GOOD Response: "Today is February 5, 2026. March 2026 deliveries are marked Urgent because they fall within 30 days. Let me analyze the specific data:
+- 25 animals are due in March 2026 (18 cattle, 5 goats, 2 carabao)
+- 3 of these (12%) have had health events in the past 30 days  
+- 2 animals have low BCS (< 2.5), indicating higher miscarriage risk
+Recommendation: Focus nutritional intervention on the 2 underweight animals."
+
 RESPONSE STYLE:
 - Provide data-driven insights with specific numbers and percentages
 - Compare metrics across regions when relevant
@@ -244,7 +268,10 @@ function getGovernmentTools(): any[] {
     { type: "function", function: { name: "get_breeding_analytics", description: "Get AI success rates, pregnancy statistics by livestock type", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 90)" } } } } },
     { type: "function", function: { name: "get_health_analytics", description: "Get health record patterns, common diagnoses, and mortality rates", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
     { type: "function", function: { name: "get_production_trends", description: "Get milk production trends across all farms", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
-    { type: "function", function: { name: "get_farmer_feedback_summary", description: "Get summary of farmer feedback by category, sentiment, and priority", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } }
+    { type: "function", function: { name: "get_farmer_feedback_summary", description: "Get summary of farmer feedback by category, sentiment, and priority", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
+    { type: "function", function: { name: "get_expected_deliveries_analysis", description: "Get detailed breakdown of expected deliveries by month with health risk assessment, BCS analysis, and potential complications for pregnant animals. Use this to explain WHY deliveries are marked urgent and identify at-risk animals.", parameters: { type: "object", properties: { target_month: { type: "string", description: "Target month in format 'YYYY-MM' (e.g., '2026-03' for March 2026). Omit for overview of all months." }, include_health_risks: { type: "boolean", description: "Include correlation with recent health events (default: true)" } } } } },
+    { type: "function", function: { name: "get_delivery_risk_assessment", description: "Analyze risk factors for upcoming deliveries: health outbreaks, underweight animals (low BCS), regional disease patterns that could impact delivery success", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to analyze (default: 60)" } } } } },
+    { type: "function", function: { name: "get_cohort_health_analysis", description: "Deep health analysis for a specific cohort of animals (pregnant due in specific month, animals in a region, etc.)", parameters: { type: "object", properties: { cohort_filter: { type: "string", description: "Filter type: 'due_month', 'region', 'livestock_type'" }, filter_value: { type: "string", description: "Value for filter (e.g., '2026-03', 'Region IV-A', 'cattle')" } } } } }
   ];
 }
 
@@ -680,8 +707,20 @@ serve(async (req) => {
     }
     
     // Select system prompt and tools based on context
+    // Generate current date in Philippine timezone for government context
+    const currentPHDate = new Date().toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }) + ' PHT';
+    
     const systemPrompt = isGovernmentContext 
-      ? getGovernmentAnalystPrompt() 
+      ? getGovernmentAnalystPrompt(currentPHDate) 
       : getFarmerSystemPrompt(faqContext, dateContext);
     
     const tools = isGovernmentContext 
