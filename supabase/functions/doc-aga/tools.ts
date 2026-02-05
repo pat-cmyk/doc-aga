@@ -6,6 +6,128 @@ type DataCategory = 'live' | 'demo' | 'all';
 // Maximum IDs per batch to avoid PostgREST URL length limits
 const MAX_IDS_PER_BATCH = 200;
 
+// ============= PRE-CALVING RISK SCORE (PCRS) CALCULATIONS =============
+// Based on veterinary research from Penn State, UGA Extension, Merck Vet Manual
+
+interface PCRSBreakdown {
+  timeline: number;
+  bcs: number;
+  parity: number;
+  health: number;
+  dataFreshness: number;
+}
+
+interface PCRSResult {
+  totalScore: number;
+  tier: 'critical' | 'high' | 'moderate' | 'low';
+  tierLabel: string;
+  breakdown: PCRSBreakdown;
+  factors: string[];
+}
+
+/**
+ * Calculate timeline proximity score (0-35 pts)
+ */
+function calculateTimelineScore(daysUntilDelivery: number): number {
+  if (daysUntilDelivery < 7) return 35;
+  if (daysUntilDelivery <= 14) return 25;
+  if (daysUntilDelivery <= 30) return 15;
+  if (daysUntilDelivery <= 60) return 5;
+  return 0;
+}
+
+/**
+ * Calculate BCS risk score (0-25 pts)
+ * Ideal BCS at calving: 2.5-3.5 (on 5-point scale)
+ */
+function calculateBCSScore(bcs: number | null): number {
+  if (bcs === null) return 5; // Missing data = slight penalty
+  if (bcs < 2.0) return 25;
+  if (bcs < 2.5) return 15;
+  if (bcs > 4.5) return 25;
+  if (bcs > 4.0) return 10;
+  return 0; // Ideal range
+}
+
+/**
+ * Calculate parity risk score (0-15 pts)
+ * Primiparous (first-calf) have 3-4x higher dystocia risk
+ */
+function calculateParityScore(parity: number | null): number {
+  if (parity === null) return 5; // Unknown parity = slight penalty
+  if (parity === 0) return 15; // First calving
+  if (parity <= 2) return 5;
+  return 0; // Experienced
+}
+
+/**
+ * Calculate health history score (0-15 pts)
+ * Based on number of health issues in last 90 days
+ */
+function calculateHealthHistoryScore(issueCount: number): number {
+  if (issueCount >= 3) return 15;
+  if (issueCount === 2) return 10;
+  if (issueCount === 1) return 5;
+  return 0;
+}
+
+/**
+ * Calculate data freshness score (0-10 pts)
+ * Based on days since last BCS assessment
+ */
+function calculateDataFreshnessScore(daysSinceLastBCS: number | null): number {
+  if (daysSinceLastBCS === null) return 10; // No BCS data = high penalty
+  if (daysSinceLastBCS > 60) return 10;
+  if (daysSinceLastBCS > 30) return 5;
+  return 0;
+}
+
+/**
+ * Get PCRS tier based on total score
+ */
+function getPCRSTier(score: number): { tier: 'critical' | 'high' | 'moderate' | 'low'; label: string } {
+  if (score >= 75) return { tier: 'critical', label: 'Critical' };
+  if (score >= 50) return { tier: 'high', label: 'High' };
+  if (score >= 25) return { tier: 'moderate', label: 'Moderate' };
+  return { tier: 'low', label: 'Low' };
+}
+
+/**
+ * Calculate complete Pre-Calving Risk Score
+ */
+function calculatePCRS(input: {
+  daysUntilDelivery: number;
+  latestBCS: number | null;
+  parity: number | null;
+  healthIssueCount: number;
+  daysSinceLastBCS: number | null;
+}): PCRSResult {
+  const timeline = calculateTimelineScore(input.daysUntilDelivery);
+  const bcs = calculateBCSScore(input.latestBCS);
+  const parity = calculateParityScore(input.parity);
+  const health = calculateHealthHistoryScore(input.healthIssueCount);
+  const dataFreshness = calculateDataFreshnessScore(input.daysSinceLastBCS);
+
+  const totalScore = timeline + bcs + parity + health + dataFreshness;
+  const { tier, label } = getPCRSTier(totalScore);
+
+  // Build factor explanations
+  const factors: string[] = [];
+  if (timeline >= 25) factors.push(`Delivery imminent (${input.daysUntilDelivery} days)`);
+  if (bcs >= 15) factors.push(input.latestBCS !== null ? `BCS concern (${input.latestBCS})` : 'No BCS data');
+  if (parity >= 10) factors.push('First-time calving (primiparous)');
+  if (health >= 10) factors.push(`Recent health issues (${input.healthIssueCount})`);
+  if (dataFreshness >= 5) factors.push('BCS data needs update');
+
+  return {
+    totalScore,
+    tier,
+    tierLabel: label,
+    breakdown: { timeline, bcs, parity, health, dataFreshness },
+    factors,
+  };
+}
+
 /**
  * Batch large ID arrays and combine results (avoids PostgREST URL limits)
  */
@@ -1173,6 +1295,84 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
   const lowBcsAnimals = Object.entries(latestBcsByAnimal)
     .filter(([_, score]) => score < 2.5);
 
+  // Get BCS assessment dates for data freshness calculation
+  const latestBcsDateByAnimal: Record<string, string> = {};
+  bcsRecords?.forEach((r: any) => {
+    if (!latestBcsDateByAnimal[r.animal_id]) {
+      latestBcsDateByAnimal[r.animal_id] = r.assessment_date;
+    }
+  });
+
+  // Get animal parity data
+  const { data: animalParityData } = await supabase
+    .from('animals')
+    .select('id, parity')
+    .in('id', pregnantAnimalIds);
+
+  const parityByAnimal: Record<string, number | null> = {};
+  animalParityData?.forEach((a: any) => {
+    parityByAnimal[a.id] = a.parity;
+  });
+
+  // Get health issue counts (last 90 days for PCRS)
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const { data: healthRecords90 } = await supabase
+    .from('health_records')
+    .select('animal_id')
+    .in('animal_id', pregnantAnimalIds)
+    .gte('visit_date', ninetyDaysAgo);
+
+  const healthIssueCountByAnimal: Record<string, number> = {};
+  healthRecords90?.forEach((r: any) => {
+    healthIssueCountByAnimal[r.animal_id] = (healthIssueCountByAnimal[r.animal_id] || 0) + 1;
+  });
+
+  // Calculate PCRS for each pregnant animal
+  const now = Date.now();
+  const pcrsResults = pregnantAnimals.map((r: any) => {
+    const animalId = r.animals?.id;
+    const deliveryDate = new Date(r.expected_delivery_date);
+    const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - now) / (24 * 60 * 60 * 1000));
+    
+    // Calculate days since last BCS
+    let daysSinceLastBCS: number | null = null;
+    if (latestBcsDateByAnimal[animalId]) {
+      const bcsDate = new Date(latestBcsDateByAnimal[animalId]);
+      daysSinceLastBCS = Math.ceil((now - bcsDate.getTime()) / (24 * 60 * 60 * 1000));
+    }
+    
+    const pcrs = calculatePCRS({
+      daysUntilDelivery,
+      latestBCS: latestBcsByAnimal[animalId] ?? null,
+      parity: parityByAnimal[animalId] ?? null,
+      healthIssueCount: healthIssueCountByAnimal[animalId] || 0,
+      daysSinceLastBCS,
+    });
+    
+    return {
+      animalId,
+      name: r.animals?.name || 'Unnamed',
+      ear_tag: r.animals?.ear_tag,
+      livestock_type: r.animals?.livestock_type,
+      farm: r.animals?.farms?.name,
+      region: r.animals?.farms?.region,
+      expected_delivery: r.expected_delivery_date,
+      daysUntilDelivery,
+      pcrs,
+    };
+  });
+
+  // Sort by PCRS score (highest risk first)
+  pcrsResults.sort((a, b) => b.pcrs.totalScore - a.pcrs.totalScore);
+
+  // PCRS tier summary
+  const pcrsSummary = {
+    critical: pcrsResults.filter(r => r.pcrs.tier === 'critical').length,
+    high: pcrsResults.filter(r => r.pcrs.tier === 'high').length,
+    moderate: pcrsResults.filter(r => r.pcrs.tier === 'moderate').length,
+    low: pcrsResults.filter(r => r.pcrs.tier === 'low').length,
+  };
+
   // Check for regional outbreaks (multiple health events in same region)
   const regionHealthCounts: Record<string, number> = {};
   pregnantAnimals.forEach((r: any) => {
@@ -1210,6 +1410,43 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
     urgent_deliveries: within30Days.length,
     by_livestock_type: countByType(pregnantAnimals),
     
+    // NEW: Pre-Calving Risk Score (PCRS) analysis
+    pcrs_analysis: {
+      summary: pcrsSummary,
+      critical_animals: pcrsResults
+        .filter(r => r.pcrs.tier === 'critical')
+        .slice(0, 10)
+        .map(r => ({
+          name: r.name,
+          ear_tag: r.ear_tag,
+          livestock_type: r.livestock_type,
+          farm: r.farm,
+          region: r.region,
+          expected_delivery: r.expected_delivery,
+          days_until_delivery: r.daysUntilDelivery,
+          risk_score: r.pcrs.totalScore,
+          risk_tier: r.pcrs.tierLabel,
+          risk_factors: r.pcrs.factors,
+          score_breakdown: r.pcrs.breakdown,
+        })),
+      high_risk_animals: pcrsResults
+        .filter(r => r.pcrs.tier === 'high')
+        .slice(0, 10)
+        .map(r => ({
+          name: r.name,
+          ear_tag: r.ear_tag,
+          livestock_type: r.livestock_type,
+          farm: r.farm,
+          region: r.region,
+          expected_delivery: r.expected_delivery,
+          days_until_delivery: r.daysUntilDelivery,
+          risk_score: r.pcrs.totalScore,
+          risk_tier: r.pcrs.tierLabel,
+          risk_factors: r.pcrs.factors,
+        })),
+      scoring_explanation: "PCRS (0-100): Timeline (35pts), BCS Risk (25pts), Parity (15pts), Health History (15pts), Data Freshness (10pts). Critical>=75, High>=50, Moderate>=25, Low<25",
+    },
+
     risk_factors: {
       animals_with_recent_health_issues: animalsWithHealthIssues.size,
        health_issue_percentage: pregnantAnimalIds.length > 0 ? Math.round((animalsWithHealthIssues.size / pregnantAnimalIds.length) * 100) : 0,
@@ -1244,6 +1481,12 @@ async function getDeliveryRiskAssessment(args: any, supabase: SupabaseClient, da
       })),
     
     recommendations: [
+      pcrsSummary.critical > 0
+        ? `🔴 ${pcrsSummary.critical} animal(s) at CRITICAL risk level require immediate veterinary review`
+        : null,
+      pcrsSummary.high > 0
+        ? `🟠 ${pcrsSummary.high} animal(s) at HIGH risk level need priority monitoring`
+        : null,
       lowBcsAnimals.length > 0 
         ? `Focus nutritional intervention on ${lowBcsAnimals.length} underweight animal(s)` 
         : null,
