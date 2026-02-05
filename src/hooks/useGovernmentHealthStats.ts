@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface GovernmentHealthStats {
   // Preventive Health
@@ -36,8 +37,6 @@ export interface GovernmentHealthStats {
 interface UseGovernmentHealthStatsOptions {
   enabled?: boolean;
 }
-
-export type DataCategory = 'live' | 'demo' | 'all';
 
 export function useGovernmentHealthStats(
   startDate: string,

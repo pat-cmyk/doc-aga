@@ -15,7 +15,7 @@ import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { useRole } from "@/hooks/useRole";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
  import { Globe, TrendingUp as TrendingUpIcon } from "lucide-react";
 
 interface Message {
@@ -63,9 +63,13 @@ const DocAga = () => {
   const { roles, hasRole } = useRole();
   const { hasAccess: hasGovernmentAccess } = useGovernmentAccess();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   
   // Detect if user is on government dashboard
   const isGovernmentContext = hasGovernmentAccess && location.pathname.startsWith('/government');
+  
+  // Get data category from URL params (for government context)
+  const dataCategory = searchParams.get('data_source') || 'live';
 
    // Set initial welcome message based on context
    useEffect(() => {
@@ -282,6 +286,7 @@ const DocAga = () => {
         body: JSON.stringify({ 
           messages: messagesToSend, 
           context: isGovernmentContext ? 'government' : 'farmer',
+          dataCategory: isGovernmentContext ? dataCategory : undefined,
           conversationId 
         }),
       });
