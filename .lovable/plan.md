@@ -1,396 +1,139 @@
 
-# SSOT Architecture: Complete Data Category Migration Audit and Fix
+# Fix Doc Aga AI Query Failure on ai_records
 
-## Executive Summary
+## Problem Identified
 
-Following the `data_category` migration on the `farms` table, there's a systemic disconnect where **only some components respect the Live/Demo data source filter**. This creates data inconsistencies between the dashboard and Doc Aga AI, and between different dashboard cards.
+The Doc Aga AI correctly retrieves 65 demo farms and 765 demo animals, but returns **0 pregnant animals** from `ai_records` despite 120 pregnant records existing in the database.
 
-This plan implements a **scalable SSOT (Single Source of Truth) architecture** that ensures all data flows from a single `dataCategory` state through every layer of the application.
-
----
-
-## Architecture Overview
-
-```text
-                    URL Parameter (data_source)
-                            |
-                            v
-               +------------------------+
-               |  GovernmentDashboard   |
-               |  dataCategory state    |  <-- SINGLE SOURCE OF TRUTH
-               +------------------------+
-                     |         |
-         +-----------+         +-----------+
-         v                                 v
-+------------------+             +------------------+
-|  Dashboard Hooks |             |    Doc Aga AI    |
-|  (all 15 hooks)  |             |  (edge function) |
-+------------------+             +------------------+
-         |                                 |
-         v                                 v
-+------------------+             +------------------+
-|  RPC Functions   |             |  tools.ts        |
-|  (data_category_ |             |  (getFiltered... |
-|   filter param)  |             |   helpers)       |
-+------------------+             +------------------+
-         |                                 |
-         +-------------+-------------------+
-                       |
-                       v
-              +------------------+
-              |    farms table   |
-              | data_category    |
-              | ('live'/'demo')  |
-              +------------------+
-```
-
----
-
-## Layer 1: Type Definition (Already Implemented)
-
-**File: `src/types/government.ts`**
+### Root Cause
+All `ai_records` queries in `tools.ts` **silently ignore errors**:
 
 ```typescript
-export type DataCategory = 'live' | 'demo' | 'all';
-export const DEFAULT_DATA_CATEGORY: DataCategory = 'live';
+// Current code - error is discarded
+const { data: aiRecords } = await aiQuery;
 ```
 
-Status: COMPLETE
+The query is failing, but we don't know why because the error is never logged.
+
+### Suspected Causes
+1. PostgREST complexity with nested `!inner` relations combined with RLS
+2. Large `.in()` clause (765 IDs) exceeding query limits
+3. Auth context issues specific to complex joins
 
 ---
 
-## Layer 2: Database RLS Policies (CRITICAL GAP)
+## Solution: Two-Part Fix
 
-### Problem
-Tables queried by Doc Aga AI lack government SELECT policies, causing queries to return 0 results even when data exists.
+### Part 1: Add Error Logging (Diagnostic)
+Add error handling to all `ai_records` queries to capture the actual failure reason.
 
-### Current State
-
-| Table | Government Policy | Status |
-|-------|-------------------|--------|
-| `farms` | government_view_farms | OK |
-| `animals` | government_view_animals | OK |
-| `health_records` | government_view_health_records | OK |
-| `heat_records` | Government can view all heat records | OK |
-| `body_condition_scores` | Government can view all BCS | OK |
-| `ai_records` | NONE | MISSING |
-| `milking_records` | NONE | MISSING |
-| `feeding_records` | NONE | MISSING |
-| `weight_records` | NONE | MISSING |
-
-### Fix Required
-
-Create new migration to add missing RLS policies:
-
-```sql
--- ai_records: Needed for breeding/pregnancy analytics
-CREATE POLICY "government_view_ai_records" ON public.ai_records
-  FOR SELECT USING (has_role(auth.uid(), 'government'::user_role));
-
--- milking_records: Needed for milk production analytics
-CREATE POLICY "government_view_milking_records" ON public.milking_records
-  FOR SELECT USING (has_role(auth.uid(), 'government'::user_role));
-
--- feeding_records: Needed for feed security analytics
-CREATE POLICY "government_view_feeding_records" ON public.feeding_records
-  FOR SELECT USING (has_role(auth.uid(), 'government'::user_role));
-
--- weight_records: Needed for growth analytics
-CREATE POLICY "government_view_weight_records" ON public.weight_records
-  FOR SELECT USING (has_role(auth.uid(), 'government'::user_role));
-```
+### Part 2: Simplify Query Pattern
+Replace complex nested relation queries with simpler two-stage queries:
+- **Stage 1**: Query `ai_records` with simple column filters (no nested relations)
+- **Stage 2**: Fetch related `animals` and `farms` data separately if needed
 
 ---
 
-## Layer 3: RPC Functions (4 Need Update)
+## Files to Modify
 
-### Problem
-These RPCs don't accept `data_category_filter` parameter:
-
-| RPC Function | Current Params | Status |
-|--------------|----------------|--------|
-| `get_government_milk_analytics` | date, region, province, municipality | MISSING `data_category_filter` |
-| `get_regional_feed_security` | region, province, municipality | MISSING `data_category_filter` |
-| `get_regional_market_prices` | date, region | MISSING `data_category_filter` |
-| `get_farm_compliance_metrics` | date, region, province | MISSING `data_category_filter` |
-
-### Fix Required
-
-Update each RPC to:
-1. Accept `data_category_filter TEXT DEFAULT 'live'` parameter
-2. Add filter: `AND (data_category_filter IS NULL OR f.data_category = data_category_filter)`
-
-Example fix for `get_government_milk_analytics`:
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_government_milk_analytics(
-  start_date DATE,
-  end_date DATE,
-  region_filter TEXT DEFAULT NULL,
-  province_filter TEXT DEFAULT NULL,
-  municipality_filter TEXT DEFAULT NULL,
-  data_category_filter TEXT DEFAULT 'live'  -- NEW PARAMETER
-)
--- ... existing return type ...
-AS $$
-BEGIN
-  RETURN QUERY
-  WITH daily_milk AS (
-    SELECT ...
-    FROM milking_records mr
-    JOIN animals a ON mr.animal_id = a.id
-    JOIN farms f ON a.farm_id = f.id
-    WHERE mr.milking_date >= start_date
-      AND mr.milking_date <= end_date
-      AND a.is_deleted = false
-      AND f.is_deleted = false
-      AND (data_category_filter IS NULL OR f.data_category = data_category_filter)  -- NEW FILTER
-      AND (region_filter IS NULL OR f.region = region_filter)
-      ...
-  )
-  ...
-END;
-$$;
-```
+| File | Changes |
+|------|---------|
+| `supabase/functions/doc-aga/tools.ts` | Add error handling + simplify queries |
 
 ---
 
-## Layer 4: Frontend Hooks (8 Need Update)
+## Implementation Details
 
-### Problem
-These hooks don't accept or pass `dataCategory`:
-
-| Hook | Calls | Status |
-|------|-------|--------|
-| `useGovernmentMilkAnalytics` | `get_government_milk_analytics` RPC | MISSING |
-| `useRegionalFeedSecurity` | `get_regional_feed_security` RPC | MISSING |
-| `useRegionalMarketPrices` | `get_regional_market_prices` RPC | MISSING |
-| `useFarmComplianceMetrics` | `get_farm_compliance_metrics` RPC | MISSING |
-| `useGrantEffectiveness` | Direct table queries | MISSING |
-| `useRegionalInvestment` | Direct table queries | MISSING |
-| `useVeterinaryExpenseHeatmap` | Direct table queries | MISSING |
-| `useFarmerQueries` | `doc_aga_queries` table | MISSING (should filter by farm context) |
-
-### Fix Pattern
-
-Update each hook to:
-1. Import `DataCategory` from `@/types/government`
-2. Add `dataCategory: DataCategory = 'live'` parameter
-3. Include `dataCategory` in `queryKey` for cache separation
-4. Pass `data_category_filter` to RPC or apply filter to direct queries
-
-Example for `useGovernmentMilkAnalytics`:
+### Pattern: Before (Complex Nested Query)
 
 ```typescript
-import { DataCategory } from "@/types/government";
+let aiQuery = supabase
+  .from('ai_records')
+  .select(`
+    id, expected_delivery_date, performed_date, pregnancy_confirmed,
+    animals!inner(id, name, ear_tag, livestock_type, farm_id, 
+      farms!inner(name, region, municipality, data_category))
+  `)
+  .eq('pregnancy_confirmed', true)
+  .not('expected_delivery_date', 'is', null);
 
-export const useGovernmentMilkAnalytics = (
-  startDate: Date,
-  endDate: Date,
-  region?: string,
-  province?: string,
-  municipality?: string,
-  dataCategory: DataCategory = 'live',  // NEW PARAMETER
-  options?: { enabled?: boolean }
-) => {
-  return useQuery<MilkAnalyticsSummary>({
-    queryKey: [
-      "government-milk-analytics",
-      format(startDate, "yyyy-MM-dd"),
-      format(endDate, "yyyy-MM-dd"),
-      region || "all",
-      province || "all",
-      municipality || "all",
-      dataCategory,  // ADD TO QUERY KEY
-    ],
-    ...
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_government_milk_analytics", {
-        start_date: format(startDate, "yyyy-MM-dd"),
-        end_date: format(endDate, "yyyy-MM-dd"),
-        region_filter: region || null,
-        province_filter: province || null,
-        municipality_filter: municipality || null,
-        data_category_filter: dataCategory === 'all' ? null : dataCategory,  // NEW
-      });
-      ...
-    },
-  });
-};
-```
-
-For hooks with direct queries (e.g., `useRegionalInvestment`):
-
-```typescript
-export const useRegionalInvestment = (
-  region?: string,
-  province?: string,
-  municipality?: string,
-  dataCategory: DataCategory = 'live',  // NEW
-  options?: { enabled?: boolean }
-) => {
-  return useQuery<RegionalInvestmentData>({
-    queryKey: ["regional-investment", region || "all", province || "all", municipality || "all", dataCategory],
-    queryFn: async () => {
-      let farmsQuery = supabase
-        .from("farms")
-        .select("id")
-        .eq("is_deleted", false);
-
-      // Apply data category filter
-      if (dataCategory !== 'all') {
-        farmsQuery = farmsQuery.eq('data_category', dataCategory);  // NEW
-      }
-      
-      if (region) farmsQuery = farmsQuery.eq("region", region);
-      ...
-    },
-  });
-};
-```
-
----
-
-## Layer 5: Dashboard Components (9 Need Update)
-
-### Problem
-Components don't receive or pass `dataCategory` prop:
-
-| Component | Hook Used | Status |
-|-----------|-----------|--------|
-| `MilkProductionBySpeciesChart` | `useGovernmentMilkAnalytics` | MISSING prop |
-| `FeedSecurityCard` | `useRegionalFeedSecurity` | MISSING prop |
-| `MarketPriceAnalyticsCard` | `useRegionalMarketPrices` | MISSING prop |
-| `FarmOperationalHealthCard` | `useFarmComplianceMetrics` | MISSING prop |
-| `GrantDistributionCard` | `useGrantAnalytics` | MISSING prop |
-| `GrantEffectivenessPanel` | `useGrantEffectiveness` | MISSING prop |
-| `RegionalInvestmentCards` | `useRegionalInvestment` | MISSING prop |
-| `VeterinaryExpenseHeatmap` | `useVeterinaryExpenseHeatmap` | MISSING prop |
-| `RegionalDetailPanel` | Multiple hooks | HARDCODED 'live' |
-
-### Fix Pattern
-
-1. Add `dataCategory` prop to each component interface
-2. Pass prop to hook call
-
-Example for `MilkProductionBySpeciesChart`:
-
-```typescript
-import { DataCategory } from "@/types/government";
-
-interface MilkProductionBySpeciesChartProps {
-  startDate: Date;
-  endDate: Date;
-  region?: string;
-  province?: string;
-  municipality?: string;
-  dataCategory?: DataCategory;  // NEW PROP
+if (animalIds) {
+  aiQuery = aiQuery.in('animal_id', animalIds);
 }
 
-export const MilkProductionBySpeciesChart = ({
-  startDate,
-  endDate,
-  region,
-  province,
-  municipality,
-  dataCategory = 'live',  // DEFAULT
-}: MilkProductionBySpeciesChartProps) => {
-  const { data, isLoading, error } = useGovernmentMilkAnalytics(
-    startDate,
-    endDate,
-    region,
-    province,
-    municipality,
-    dataCategory  // PASS TO HOOK
-  );
-  ...
-};
+const { data: aiRecords } = await aiQuery;  // ❌ Error ignored!
+```
+
+### Pattern: After (Simple Two-Stage Query)
+
+```typescript
+// Stage 1: Get ai_records with simple filter
+let aiQuery = supabase
+  .from('ai_records')
+  .select('id, animal_id, expected_delivery_date, performed_date, pregnancy_confirmed')
+  .eq('pregnancy_confirmed', true)
+  .not('expected_delivery_date', 'is', null);
+
+if (animalIds) {
+  aiQuery = aiQuery.in('animal_id', animalIds);
+}
+
+const { data: aiRecords, error: aiError } = await aiQuery;
+
+// Log any errors
+if (aiError) {
+  console.error('[getExpectedDeliveriesAnalysis] ai_records query error:', aiError.message);
+  return {
+    total_pregnant: 0,
+    message: `Query error: ${aiError.message}`,
+    error: true
+  };
+}
+
+if (!aiRecords || aiRecords.length === 0) {
+  return {
+    total_pregnant: 0,
+    message: "No pregnant animals with expected delivery dates found"
+  };
+}
+
+// Stage 2: Get animal details separately
+const animalIdsWithRecords = [...new Set(aiRecords.map(r => r.animal_id))];
+const { data: animalDetails } = await supabase
+  .from('animals')
+  .select('id, name, ear_tag, livestock_type, farm_id')
+  .in('id', animalIdsWithRecords);
+
+// Stage 3: Get farm details
+const farmIdsForAnimals = [...new Set(animalDetails?.map(a => a.farm_id) || [])];
+const { data: farmDetails } = await supabase
+  .from('farms')
+  .select('id, name, region, municipality, data_category')
+  .in('id', farmIdsForAnimals);
+
+// Combine data
+const animalMap = new Map(animalDetails?.map(a => [a.id, a]) || []);
+const farmMap = new Map(farmDetails?.map(f => [f.id, f]) || []);
+
+const enrichedRecords = aiRecords.map(record => ({
+  ...record,
+  animal: animalMap.get(record.animal_id),
+  farm: farmMap.get(animalMap.get(record.animal_id)?.farm_id)
+}));
 ```
 
 ---
 
-## Layer 6: GovernmentDashboard (Props Passing)
+## Affected Functions
 
-### Problem
-Dashboard has `dataCategory` state but doesn't pass to all components.
+All government tools that query `ai_records` need this fix:
 
-### Current (Lines 1177-1221)
-```tsx
-<MilkProductionBySpeciesChart
-  startDate={primaryDateRange.start}
-  endDate={primaryDateRange.end}
-  region={primaryRegion}
-  province={primaryProvince}
-  municipality={primaryMunicipality}
-  // dataCategory NOT PASSED
-/>
-```
-
-### Fix Required
-```tsx
-<MilkProductionBySpeciesChart
-  startDate={primaryDateRange.start}
-  endDate={primaryDateRange.end}
-  region={primaryRegion}
-  province={primaryProvince}
-  municipality={primaryMunicipality}
-  dataCategory={dataCategory}  // ADD THIS
-/>
-```
-
-Apply same pattern to all 9 components listed above.
-
----
-
-## Layer 7: Doc Aga AI (Already Implemented)
-
-Status: The edge function already receives `dataCategory` and uses `getFilteredFarmIds`/`getFilteredAnimalIds` helpers.
-
-However, queries fail due to missing RLS policies (Layer 2).
-
----
-
-## Implementation Order
-
-### Phase 1: Database (Unblocks everything)
-1. Create migration for RLS policies on `ai_records`, `milking_records`, `feeding_records`, `weight_records`
-2. Update 4 RPCs to accept `data_category_filter`
-
-### Phase 2: Hooks (8 files)
-1. `useGovernmentMilkAnalytics.ts`
-2. `useRegionalFeedSecurity.ts`
-3. `useRegionalMarketPrices.ts`
-4. `useFarmComplianceMetrics.ts`
-5. `useGrantEffectiveness.ts`
-6. `useRegionalInvestment.ts`
-7. `useVeterinaryExpenseHeatmap.ts`
-8. `useFarmerQueries` in `useGovernmentStats.ts`
-
-### Phase 3: Components (9 files)
-1. `MilkProductionBySpeciesChart.tsx`
-2. `FeedSecurityCard.tsx`
-3. `MarketPriceAnalyticsCard.tsx`
-4. `FarmOperationalHealthCard.tsx`
-5. `GrantDistributionCard.tsx`
-6. `GrantEffectivenessPanel.tsx`
-7. `RegionalInvestmentCards.tsx`
-8. `VeterinaryExpenseHeatmap.tsx`
-9. `RegionalDetailPanel.tsx`
-
-### Phase 4: Dashboard
-1. Update `GovernmentDashboard.tsx` to pass `dataCategory` to all components
-
----
-
-## Files Summary
-
-| Layer | Action | Count |
-|-------|--------|-------|
-| Database Migration | CREATE | 1 (RLS + RPC updates) |
-| Hooks | MODIFY | 8 |
-| Components | MODIFY | 9 |
-| Dashboard | MODIFY | 1 |
-| **Total** | | **19 files** |
+| Function | Line | Status |
+|----------|------|--------|
+| `getBreedingAnalytics` | ~389-399 | Needs fix |
+| `getExpectedDeliveriesAnalysis` | ~659-673 | Needs fix |
+| `getDeliveryRiskAssessment` | ~858-880 | Needs fix |
+| `getCohortHealthAnalysis` | ~1012-1030 | Needs fix |
 
 ---
 
@@ -398,23 +141,35 @@ However, queries fail due to missing RLS policies (Layer 2).
 
 After implementation:
 
-1. **Dashboard** shows correct data based on Live/Demo toggle
-2. **Doc Aga AI** analyzes the same dataset visible in dashboard
-3. **All cards** respect the data source filter
-4. **RegionalDetailPanel** inherits dataCategory from parent
-5. **Cache isolation** prevents stale data when switching modes
-6. **Scalable pattern** - new features just need to accept and pass dataCategory
+1. **Diagnostic phase**: Error messages will reveal the actual failure reason
+2. **Production fix**: Simplified queries will bypass PostgREST/RLS complexity issues
+3. **Doc Aga AI** will correctly report "25 animals due in March 2026" matching the dashboard
 
 ---
 
-## SSOT Compliance Checklist
+## Testing Plan
 
-| Principle | Implementation |
-|-----------|----------------|
-| Single Type Definition | `src/types/government.ts` |
-| Single State Source | URL `data_source` param -> `dataCategory` state |
-| Consistent RPC Pattern | All use `data_category_filter` param |
-| Consistent Hook Pattern | All accept `dataCategory` param |
-| Consistent Component Pattern | All accept `dataCategory` prop |
-| Cache Key Isolation | `dataCategory` in all queryKeys |
-| Default Value | `'live'` at every layer |
+1. Deploy updated edge function
+2. Test via curl: Query "How many animals are due for delivery in March 2026?"
+3. Check edge function logs for:
+   - Any error messages from the diagnostic logging
+   - Successful data retrieval: "120 pregnant records found"
+4. Verify AI response matches dashboard data
+
+---
+
+## Technical Notes
+
+### Why Nested Relations May Fail
+PostgREST translates nested `.select()` with `!inner` into SQL JOINs. When combined with:
+- RLS policies on multiple tables
+- Large `.in()` clauses
+- Complex join paths
+
+The query can fail silently or return unexpected results. Using separate queries avoids this complexity.
+
+### SSOT Compliance
+This fix maintains the SSOT architecture:
+- `dataCategory` still flows from URL → component → edge function → tools
+- The change is purely in how the database is queried, not in the data flow
+
