@@ -16,6 +16,7 @@ interface BreedingStats {
     total: number;
     by_type: Record<string, number>;
   }>;
+  unique_semen_count: number;
 }
 
 export type DataCategory = 'live' | 'demo' | 'all';
@@ -56,6 +57,7 @@ export const useBreedingStats = (
         carabao_success_rate: 0,
         sheep_success_rate: 0,
         expected_deliveries_by_month: {},
+        unique_semen_count: 0,
       };
 
       return stats as BreedingStats;

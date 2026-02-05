@@ -4143,6 +4143,7 @@ export type Database = {
               total_ai_performed: number
               total_ai_scheduled: number
               total_pregnancies_confirmed: number
+              unique_semen_count: number
             }[]
           }
       get_government_health_stats:
