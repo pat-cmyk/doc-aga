@@ -56,9 +56,7 @@ const docAgaRequestSchema = z.object({
     imageUrl: z.string().url().nullish() // Allow null, undefined, or string
   })).min(1, 'At least one message required'),
   farmId: z.string().uuid().optional(),
-  context: z.enum(['farmer', 'government']).optional().default('farmer'),
   conversationId: z.string().uuid().optional(), // For persistent memory
-  dataCategory: z.enum(['live', 'demo', 'all']).optional().default('live') // Data category for government context
 });
 
 // Helper: Find matching FAQ based on user question
