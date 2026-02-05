@@ -1,282 +1,172 @@
 
-
-# RICO: Government AI Persona Separation Plan
-
-## ✅ PHASE 1 COMPLETE (Backend + Frontend Separation)
-
-**Completed:**
-- Created `supabase/functions/_shared/analyst-tools.ts` with all 9 government analytics tools
-- Created `supabase/functions/rico/index.ts` with RICO persona
-- Created `src/components/government/RicoChat.tsx` with blue branding
-- Updated `src/components/government/GovernmentFab.tsx` (blue FAB, Landmark icon)
-- Updated `supabase/config.toml` with `[functions.rico]`
-- Deployed RICO edge function
-
-**Remaining (Phase 2):**
-- Remove government context from `doc-aga/index.ts` and `tools.ts`
-- Remove government context from `src/components/DocAga.tsx`
-
----
+# Phase 2: Clean Up Legacy Government Code from Doc Aga
 
 ## Overview
 
-Create **RICO** (Reporting & Intelligence Compliance Officer) as a completely separate AI persona for the government dashboard, implementing Option C (Microservice Architecture) with distinct branding, personality, and visual identity.
-
----
-
-## RICO Persona Definition
-
-### Identity
-| Attribute | Value |
-|-----------|-------|
-| **Full Name** | RICO - Reporting & Intelligence Compliance Officer |
-| **Role** | Government livestock sector intelligence analyst |
-| **Personality** | Fast-paced, modern, high-energy, "ma-diskarte" (resourceful) |
-| **Core Focus** | Audit Defense - validating data integrity, no ghost beneficiaries |
-| **Tone** | Professional authority with Filipino resourcefulness |
-
-### Key Differentiators from Doc Aga
-
-| Aspect | Doc Aga (Farmer) | RICO (Government) |
-|--------|------------------|-------------------|
-| **Personality** | Warm, barangay vet, trusted friend | Sharp, modern analyst, authority figure |
-| **Language** | Taglish, casual | Professional English/Tagalog, data-driven |
-| **Focus** | Farm operations, animal health | Data validation, compliance, policy insights |
-| **Tone** | Supportive, nurturing | Confident, analytical, action-oriented |
-| **Icon** | Stethoscope (green/primary) | Shield/Landmark (blue) |
-| **Color** | Primary (green) | Blue |
-
-### RICO System Prompt Highlights
-
-```
-You are RICO (Reporting & Intelligence Compliance Officer), a high-energy 
-livestock sector intelligence analyst for Philippine government officials.
-
-Your approach:
-- "Audit Defense" mindset - validate before trusting data
-- Identify discrepancies, ghost beneficiaries, data integrity issues
-- Cross-reference geo-tagged data with expected patterns
-- Quick, decisive analysis with actionable recommendations
-
-Personality:
-- Ma-diskarte (resourceful) - find insights others miss
-- Professional authority - data speaks for itself
-- Fast-paced - get to the point quickly
-- Modern - use contemporary Filipino/English business language
-```
-
----
-
-## Architecture: Microservice with Shared Tools
-
-```text
-supabase/functions/
-├── _shared/
-│   ├── stt-prompts.ts          (existing)
-│   └── analyst-tools.ts        (NEW - shared government analytics)
-├── doc-aga/
-│   ├── index.ts                (farmer-only, simplified)
-│   └── tools.ts                (farmer tools only)
-└── rico/                        (NEW)
-    └── index.ts                 (government analyst)
-```
-
----
-
-## Files to Create
-
-### 1. `supabase/functions/_shared/analyst-tools.ts`
-
-Move all 9 government tools from `doc-aga/tools.ts`:
-
-| Tool | Description |
-|------|-------------|
-| `get_national_overview` | Total farms, animals, regional distribution |
-| `get_regional_stats` | Region-specific statistics |
-| `get_breeding_analytics` | AI success rates, pregnancy stats |
-| `get_health_analytics` | Health patterns, mortality rates |
-| `get_production_trends` | Milk production trends |
-| `get_farmer_feedback_summary` | Feedback by category/sentiment |
-| `get_expected_deliveries_analysis` | Monthly deliveries with PCRS |
-| `get_delivery_risk_assessment` | Risk factors for upcoming deliveries |
-| `get_cohort_health_analysis` | Deep health analysis for cohorts |
-
-Also move:
-- `DataCategory` type
-- `getFilteredFarmIds()` helper
-- `getFilteredAnimalIds()` helper
-- `batchQuery()` helper
-- PCRS calculation functions
-
-### 2. `supabase/functions/rico/index.ts`
-
-New edge function with:
-- RICO system prompt (personality, restrictions, analytical approach)
-- Import tools from `../_shared/analyst-tools.ts`
-- Same rate limiting and logging infrastructure
-- Government-only context (no farmer mode)
-
-### 3. `src/components/government/RicoChat.tsx`
-
-New chat component with:
-- RICO branding (blue theme, shield/landmark icon)
-- Government-specific welcome message
-- Quick actions for common analytics queries
-- No voice/image input (read-only analyst)
-
-### 4. Update `src/components/government/GovernmentFab.tsx`
-
-- Change FAB color from primary (green) to blue
-- Change icon from Stethoscope to Landmark/Shield
-- Replace DocAga with RicoChat component
-- Update action labels to reference RICO
+Remove all government context handling from the Doc Aga edge function and frontend component, making Doc Aga purely a farmer-focused "barangay vet" persona. RICO is now the dedicated government analyst (already deployed in Phase 1).
 
 ---
 
 ## Files to Modify
 
-### 1. `supabase/functions/doc-aga/tools.ts`
-- Remove government tools (moved to `_shared/analyst-tools.ts`)
-- Keep farmer tools only
-- Remove `executeToolCall` government context branch
+| File | Action | Lines Affected |
+|------|--------|----------------|
+| `supabase/functions/doc-aga/index.ts` | MODIFY | Remove ~200+ lines of gov code |
+| `supabase/functions/doc-aga/tools.ts` | MODIFY | Remove ~1100+ lines of gov tools |
+| `src/components/DocAga.tsx` | MODIFY | Remove ~50+ lines of gov context |
 
-### 2. `supabase/functions/doc-aga/index.ts`
-- Remove `getGovernmentAnalystPrompt()` function
-- Remove `getGovernmentTools()` function
-- Remove government context handling
-- Simplify to farmer-only mode
+---
+
+## Detailed Changes
+
+### 1. `supabase/functions/doc-aga/index.ts`
+
+**Remove:**
+
+| Section | Lines | Description |
+|---------|-------|-------------|
+| Schema validation | ~59-62 | Remove `context` enum and `dataCategory` from schema |
+| `getGovernmentAnalystPrompt()` | 166-262 | Full function removal (~100 lines) |
+| `getGovernmentTools()` | 264-277 | Full function removal (~15 lines) |
+| Government role check | 519-534 | Remove government access verification block |
+| Context branching | 477-478, 724-730 | Remove `isGovernmentContext` logic |
+
+**Keep unchanged:**
+- Rate limiting infrastructure
+- Farmer tools and prompt
+- FAQ matching
+- Date context building
+- Tool execution for farmer context
+- Logging infrastructure
+
+**After cleanup:** 
+- `docAgaRequestSchema` removes `context` and `dataCategory` 
+- Main handler only builds farmer system prompt
+- `executeToolCall` only handles farmer context
+
+### 2. `supabase/functions/doc-aga/tools.ts`
+
+**Remove:**
+
+| Section | Lines | Description |
+|---------|-------|-------------|
+| PCRS calculations | 9-129 | Moved to `_shared/analyst-tools.ts` |
+| `batchQuery()` helper | 131-168 | Moved to shared |
+| `getFilteredFarmIds()` | 170-193 | Moved to shared |
+| `getFilteredAnimalIds()` | 195-224 | Moved to shared |
+| Government context branch | 238-271 | Remove entire `if (context === 'government')` block |
+| `getNationalOverview()` | 370-460 | Moved to shared |
+| `getRegionalStats()` | 462-510+ | Moved to shared |
+| `getBreedingAnalytics()` | ~390-520 | Moved to shared |
+| `getHealthAnalytics()` | ~520-650 | Moved to shared |
+| `getProductionTrends()` | ~650-750 | Moved to shared |
+| `getFarmerFeedbackSummary()` | ~750-850 | Moved to shared |
+| `getExpectedDeliveriesAnalysis()` | ~850-1000 | Moved to shared |
+| `getDeliveryRiskAssessment()` | ~1000-1200 | Moved to shared |
+| `getCohortHealthAnalysis()` | ~1200-1400 | Moved to shared |
+
+**Keep:**
+- All farmer tools (animal profiles, health records, milking, breeding, etc.)
+- `executeToolCall` but only with farmer switch cases
+
+**After cleanup:**
+- File reduces from ~3656 lines to ~2400 lines
+- Only farmer-related database operations remain
+- Remove `DataCategory` type and related helpers (now in shared)
 
 ### 3. `src/components/DocAga.tsx`
-- Remove `isGovernmentContext` logic
-- Remove government quick actions
-- Remove government welcome message
-- Simplify to farmer-only component
 
-### 4. `supabase/config.toml`
-- Add `[functions.rico]` configuration with `verify_jwt = true`
+**Remove:**
 
----
+| Section | Lines | Description |
+|---------|-------|-------------|
+| Imports | 16, 19 | `useGovernmentAccess`, government icons |
+| Government context detection | 64, 68-72 | `hasGovernmentAccess`, `isGovernmentContext`, `dataCategory` |
+| Government welcome message | 84-93 | `governmentWelcomeMessage` constant |
+| Welcome message conditional | 76-82 | Simplify to always use farmer message |
+| Government quick actions | 109-117 | Remove government-specific quick actions array |
+| Force chat mode for gov | 138-143 | Remove `useEffect` that forces chat mode |
+| Mode label for gov | 475-477 | Remove government `getModeLabel()` case |
+| Mode color for gov | 486-488 | Remove government `getModeColor()` case |
+| Input tabs conditional | 507-508 | Remove `!isGovernmentContext` conditional |
+| Voice mode conditional | 639 | Remove `!isGovernmentContext` check |
+| API call context param | 288-290 | Remove `context` and `dataCategory` from request body |
 
-## Visual Changes
+**Keep:**
+- All farmer functionality (voice, image, chat)
+- TTS queue
+- Intent parsing
+- Quick actions for farmers
 
-### FAB Styling (GovernmentFab)
-
-| Element | Before | After |
-|---------|--------|-------|
-| Main Button Color | `bg-primary` (green) | `bg-blue-600` |
-| Main Icon | `Stethoscope` | `Landmark` (government building) |
-| Panel Header Color | `bg-primary` | `bg-blue-600` |
-| Panel Title | "Doc Aga - Analyst" | "RICO - Intelligence" |
-| Action Label | "Ask Doc Aga" | "Ask RICO" |
-| Description | "Policy insights & analytics help" | "Audit & compliance analysis" |
-
-### Chat Component (RicoChat)
-
-- Header: Blue gradient with Landmark icon
-- Mode Badge: "Intelligence Mode" (blue)
-- Quick Actions:
-  1. "Compliance Check" - Validate regional data integrity
-  2. "National Overview" - Aggregate statistics
-  3. "Risk Assessment" - Delivery and health risks
-  4. "Audit Discrepancies" - Find data anomalies
+**After cleanup:**
+- Component becomes simpler farmer-only chat
+- Remove `useGovernmentAccess` import
+- Remove `useLocation` and `useSearchParams` if only used for gov context
 
 ---
 
-## RICO System Prompt (Full)
+## Cleanup Summary
 
+```text
+Before Phase 2:
+┌─────────────────────────────────────────────┐
+│  doc-aga edge function                      │
+│  ├── Farmer Tools (~2500 lines)             │
+│  ├── Government Tools (~1100 lines)   ❌    │
+│  ├── Gov Prompt (~100 lines)           ❌    │
+│  └── Context switching (~50 lines)     ❌    │
+└─────────────────────────────────────────────┘
+
+After Phase 2:
+┌─────────────────────────────────────────────┐
+│  doc-aga edge function (FARMER ONLY)        │
+│  └── Farmer Tools (~2500 lines)             │
+└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  rico edge function (GOVERNMENT ONLY)       │
+│  └── Imports from _shared/analyst-tools.ts  │
+└─────────────────────────────────────────────┘
 ```
-You are RICO (Reporting & Intelligence Compliance Officer), a high-energy 
-livestock sector intelligence analyst for Philippine government officials.
 
-CRITICAL DATE CONTEXT:
-- Current date and time: ${currentDate} (Philippine Standard Time, UTC+8)
-- When calculating urgency (e.g., "Urgent = within 30 days"), use this date
+---
 
-YOUR APPROACH - "AUDIT DEFENSE":
-1. **Data Validation First**: Before presenting statistics, assess data quality
-   - Check for unusual patterns that might indicate data entry issues
-   - Flag potential "ghost beneficiaries" (farms with no activity)
-   - Validate geo-tagged data against expected regional patterns
-   
-2. **Quick, Decisive Analysis**: Get to the point fast
-   - Lead with the key insight, then provide supporting data
-   - Highlight anomalies and discrepancies
-   - Recommend specific actions for policy makers
+## Code Size Impact
 
-3. **Cross-Reference Everything**: No single metric in isolation
-   - Compare regional performance against national averages
-   - Track trends over time to identify sudden changes
-   - Correlate health data with production outcomes
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| `doc-aga/index.ts` | ~908 lines | ~650 lines | ~28% |
+| `doc-aga/tools.ts` | ~3656 lines | ~2400 lines | ~34% |
+| `DocAga.tsx` | ~702 lines | ~620 lines | ~12% |
 
-PERSONALITY:
-- "Ma-diskarte" (Resourceful): Find insights that others miss
-- Professional Authority: Let the data speak, but interpret it clearly
-- Fast-Paced: Decision-makers need quick answers
-- Modern: Use contemporary Filipino business language when appropriate
+---
 
-CRITICAL RESTRICTIONS - READ-ONLY ANALYST:
-- You are a READ-ONLY analyst - CANNOT suggest recording data
-- CANNOT create health records, milking logs, or farm-level entries
-- If asked to record something: "RICO is for intelligence analysis only. 
-  For data entry, please use the farm dashboard directly."
+## Verification Checklist
 
-RESPONSE STYLE:
-- Start with the key finding (don't bury the lead)
-- Use bullet points for clarity
-- Include specific numbers and percentages
-- Compare against benchmarks when available
-- End with actionable recommendation
+After implementation:
 
-AVAILABLE TOOLS:
-[Same 9 government analytics tools]
-```
+1. **Doc Aga (Farmer):**
+   - [ ] Voice input works
+   - [ ] Image upload works
+   - [ ] Animal queries work
+   - [ ] Health record creation works
+   - [ ] No government-related code paths
+
+2. **RICO (Government):**
+   - [ ] Already working from Phase 1
+   - [ ] Uses shared tools from `_shared/analyst-tools.ts`
+   - [ ] Blue FAB with Landmark icon
+
+3. **No regressions:**
+   - [ ] Deploy `doc-aga` function
+   - [ ] Test farmer chat flow
+   - [ ] Verify government dashboard uses RICO (not Doc Aga)
 
 ---
 
 ## Implementation Order
 
-### Phase 1: Backend Separation (Edge Functions)
-1. Create `supabase/functions/_shared/analyst-tools.ts`
-2. Create `supabase/functions/rico/index.ts`
-3. Update `supabase/config.toml`
-4. Remove government code from `doc-aga/index.ts` and `doc-aga/tools.ts`
-5. Deploy both functions
-
-### Phase 2: Frontend Separation (Components)
-1. Create `src/components/government/RicoChat.tsx`
-2. Update `src/components/government/GovernmentFab.tsx` (blue, Landmark icon)
-3. Remove government context from `src/components/DocAga.tsx`
-
-### Phase 3: Testing
-1. Test RICO on government dashboard
-2. Test Doc Aga on farmer dashboard
-3. Verify both use correct personas and tools
-
----
-
-## Files Summary
-
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/_shared/analyst-tools.ts` | CREATE | Shared government analytics tools + helpers |
-| `supabase/functions/rico/index.ts` | CREATE | RICO edge function |
-| `src/components/government/RicoChat.tsx` | CREATE | RICO chat component |
-| `supabase/config.toml` | MODIFY | Add `[functions.rico]` |
-| `supabase/functions/doc-aga/index.ts` | MODIFY | Remove government context |
-| `supabase/functions/doc-aga/tools.ts` | MODIFY | Remove government tools |
-| `src/components/DocAga.tsx` | MODIFY | Remove government context |
-| `src/components/government/GovernmentFab.tsx` | MODIFY | Blue FAB, Landmark icon, RICO branding |
-
----
-
-## Expected Outcome
-
-After implementation:
-
-1. **Doc Aga** remains the warm, trusted barangay vet for farmers
-2. **RICO** becomes the sharp, modern intelligence analyst for government
-3. **Clear separation** - each persona has dedicated edge function
-4. **Shared tools** in `_shared/` folder for maintainability
-5. **Visual distinction** - Blue FAB with Landmark icon for government
-6. **No confusion** - completely different personalities and branding
-
+1. Update `supabase/functions/doc-aga/tools.ts` - remove government tools and helpers
+2. Update `supabase/functions/doc-aga/index.ts` - remove government prompt, schema, and context logic
+3. Update `src/components/DocAga.tsx` - remove government context handling
+4. Deploy updated `doc-aga` edge function
+5. Verify both personas work independently
