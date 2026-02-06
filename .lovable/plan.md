@@ -1,278 +1,200 @@
 
-# Implementation Plan: Data Quality Dashboard & Regional PCRS Aggregation
 
-## Overview
+# Programs & Insights Dashboard: Technical Assessment & Fix Plan
 
-This plan implements two complementary features for the government dashboard:
-1. **Data Quality Dashboard** - Shows GPS coverage, weight data completeness, and production tracking rates by region
-2. **Regional PCRS Aggregation** - Pre-Calving Risk Scores aggregated by region and month for veterinary resource planning
+## Executive Summary
 
-Both features will be placed in the **Programs & Insights** tab under a new "Data Quality & Risk Management" section.
+This assessment identifies **3 critical RPC failures** due to incorrect column name references, plus **2 major demo data gaps** that prevent the dashboard from telling a complete story.
 
 ---
 
-## Feature 1: Data Quality Dashboard
+## Part 1: Dataset Connection Failures (Critical)
 
-### Purpose
-Enable government officials to identify regions with data gaps that require extension support, prioritize training resources, and monitor adoption quality across the program.
+### Failure 1: `get_regional_data_quality` RPC
+**Error**: `column mr.record_datetime does not exist`
 
-### Data Quality Metrics to Track
+| Issue | Location | Current | Correct |
+|-------|----------|---------|---------|
+| Milking records column | Line 70 | `mr.record_datetime` | `mr.record_date` |
+| Health records column | Line 82 | `hr.record_date` | `hr.visit_date` |
 
-| Metric | Definition | Source Tables |
-|--------|------------|---------------|
-| GPS Coverage | % of farms with valid gps_lat/gps_lng | farms |
-| Weight Data Completeness | % of animals with entry/birth weight recorded | animals |
-| Production Tracking | % of farms with milking logs in last 30 days | milking_records |
-| Health Recording | % of farms with health/vaccination logs | health_records, preventive_health_schedules |
-
-### Components Created
-
-**1. New RPC Function: `get_regional_data_quality`**
-- Location: Database migration
-- Parameters: `region_filter`, `province_filter`, `municipality_filter`, `data_category_filter`
-- Returns: Regional breakdown of data quality metrics
-
-**2. New Hook: `useRegionalDataQuality`**
-- Location: `src/hooks/useRegionalDataQuality.ts`
-- Calls the RPC with dataCategory propagation
-- Returns typed summary with regional breakdown
-
-**3. New Component: `DataQualityDashboardCard`**
-- Location: `src/components/government/DataQualityDashboardCard.tsx`
-- Shows:
-  - Overall Data Quality Score (0-100%)
-  - Four metric cards (GPS, Weight, Production, Health)
-  - Regional breakdown with color-coded status
-  - Expandable list of regions needing attention
+**Impact**: DataQualityDashboardCard displays error message instead of metrics
 
 ---
 
-## Feature 2: Regional PCRS Aggregation
+### Failure 2: `get_regional_pcrs_summary` RPC
+**Error**: `column hr.record_date does not exist`
 
-### Purpose
-Aggregate Pre-Calving Risk Scores by region and month to enable proactive veterinary resource planning, identify high-risk regions before calving season peaks, and allocate intervention resources effectively.
+| Issue | Location | Current | Correct |
+|-------|----------|---------|---------|
+| Health records column | Line 52 (in CTE `animal_health_issues`) | `hr.record_date` | `hr.visit_date` |
 
-### PCRS Aggregation Logic
-
-Uses existing PCRS scoring from `src/lib/urgencyGlossary.ts`:
-- **Critical (75-100)**: Immediate veterinary review
-- **High (50-74)**: Priority monitoring needed
-- **Moderate (25-49)**: Standard close-up protocols
-- **Low (0-24)**: Routine monitoring
-
-### Regional Aggregation Strategy
-
-| Aggregation Level | Calculation |
-|-------------------|-------------|
-| By Region | Sum of animals in each PCRS tier |
-| By Month | Expected deliveries grouped by month with PCRS tier distribution |
-| Risk Score | Weighted average: (critical * 4 + high * 3 + moderate * 2 + low * 1) / total |
-
-### Components Created
-
-**1. New RPC Function: `get_regional_pcrs_summary`**
-- Location: Database migration
-- Parameters: `region_filter`, `province_filter`, `municipality_filter`, `data_category_filter`
-- Returns: Per-region PCRS tier counts, monthly breakdown, risk scores
-
-**2. New Hook: `useRegionalPCRS`**
-- Location: `src/hooks/useRegionalPCRS.ts`
-- Calls the RPC with dataCategory propagation
-- Enriches with PCRS calculations client-side for accuracy
-
-**3. New Component: `RegionalPCRSCard`**
-- Location: `src/components/government/RegionalPCRSCard.tsx`
-- Shows:
-  - National PCRS summary (total by tier with icons)
-  - Regional risk heatmap (sorted by risk score)
-  - Monthly timeline showing expected delivery peaks with risk distribution
-  - Expandable details per region
+**Impact**: RegionalPCRSCard displays error message instead of pre-calving risk data
 
 ---
 
-## Technical Implementation Details
+### Failure 3: `get_farm_compliance_metrics` RPC
+**Error**: `column mr.milking_date does not exist`
 
-### Database Migration
+| Issue | Location | Current | Correct |
+|-------|----------|---------|---------|
+| Milking records column | Lines 306-311 | `mr.milking_date` | `mr.record_date` |
+| Health records column | Lines 323-325 | `hr.check_date` | `hr.visit_date` |
 
-```sql
--- Function 1: get_regional_data_quality
-CREATE OR REPLACE FUNCTION get_regional_data_quality(
-  region_filter TEXT DEFAULT NULL,
-  province_filter TEXT DEFAULT NULL,
-  municipality_filter TEXT DEFAULT NULL,
-  data_category_filter TEXT DEFAULT NULL
-) RETURNS TABLE (
-  region TEXT,
-  province TEXT,
-  total_farms BIGINT,
-  farms_with_gps BIGINT,
-  gps_coverage_pct NUMERIC,
-  total_animals BIGINT,
-  animals_with_weight BIGINT,
-  weight_completeness_pct NUMERIC,
-  farms_with_production_logs BIGINT,
-  production_tracking_pct NUMERIC,
-  farms_with_health_logs BIGINT,
-  health_recording_pct NUMERIC,
-  overall_quality_score NUMERIC
-) AS $$ ... $$;
-
--- Function 2: get_regional_pcrs_summary  
-CREATE OR REPLACE FUNCTION get_regional_pcrs_summary(
-  region_filter TEXT DEFAULT NULL,
-  province_filter TEXT DEFAULT NULL,
-  municipality_filter TEXT DEFAULT NULL,
-  data_category_filter TEXT DEFAULT NULL
-) RETURNS TABLE (
-  region TEXT,
-  province TEXT,
-  total_pregnant BIGINT,
-  critical_count BIGINT,
-  high_count BIGINT,
-  moderate_count BIGINT,
-  low_count BIGINT,
-  avg_pcrs_score NUMERIC,
-  monthly_breakdown JSONB
-) AS $$ ... $$;
-```
-
-### Hook Implementation Pattern
-
-Following existing patterns from `useRegionalFeedSecurity`:
-
-```typescript
-// src/hooks/useRegionalDataQuality.ts
-export const useRegionalDataQuality = (
-  region?: string,
-  province?: string,
-  municipality?: string,
-  dataCategory: DataCategory = 'live'
-) => {
-  return useQuery<DataQualitySummary>({
-    queryKey: ["regional-data-quality", region, province, municipality, dataCategory],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_regional_data_quality", {
-        region_filter: region || null,
-        province_filter: province || null,
-        municipality_filter: municipality || null,
-        data_category_filter: dataCategory === 'all' ? null : dataCategory,
-      });
-      // ... process and return
-    },
-  });
-};
-```
-
-### Component UI Pattern
-
-Following `FeedSecurityCard` layout:
-- Header with icon and title
-- Summary stat cards in 2x2 grid
-- Progress bars for each metric
-- Regional breakdown list with status indicators
+**Impact**: FarmOperationalHealthCard displays error message instead of compliance metrics
 
 ---
 
-## Files to Create
+## Part 2: Demo Data Completeness Assessment
 
-| File | Type | Purpose |
-|------|------|---------|
-| `src/hooks/useRegionalDataQuality.ts` | Hook | Fetch data quality metrics |
-| `src/hooks/useRegionalPCRS.ts` | Hook | Fetch regional PCRS aggregation |
-| `src/components/government/DataQualityDashboardCard.tsx` | Component | Data quality visualization |
-| `src/components/government/RegionalPCRSCard.tsx` | Component | PCRS regional aggregation display |
-| Database migration | SQL | Two new RPC functions |
+### Current Demo Dataset State
 
-## Files to Modify
+| Entity | Total | Complete | Coverage |
+|--------|-------|----------|----------|
+| Farms with GPS | 65 | 65 | 100% |
+| Animals with weight data | 711 | 7 | **1%** |
+| Pregnant animals with BCS | 111 | 36 | 32% |
+| Milking records (last 30 days) | 21,255 | 21,255 | 100% |
+| Health records (last 90 days) | 1,131 | 220 | 19% |
+| Feeding records | 610 | 610 | N/A |
+| Vaccination schedules | 205 | 205 | N/A |
 
-| File | Change |
-|------|--------|
-| `src/pages/GovernmentDashboard.tsx` | Add new section and components in Programs tab |
+### Critical Data Gaps Identified
+
+| Gap | Impact | Priority |
+|-----|--------|----------|
+| **704 animals missing weight data** | Data Quality score shows ~1% weight completeness instead of realistic 60-80% | High |
+| **75 pregnant animals missing BCS** | PCRS calculations use "missing BCS" penalty score, skewing risk tiers | High |
+| **Only 220 recent health records** | Health recording metric shows low adoption rates | Medium |
+| **No recent feeding records date check** | Production tracking may appear incomplete | Medium |
 
 ---
 
-## Integration into Government Dashboard
+## Part 3: Fix Implementation Plan
 
-Location: **Programs & Insights** tab, new section "Data Quality & Risk Management"
+### Step 1: Fix RPC Column References (Database Migration)
+
+Create a new migration to update all three RPC functions with correct column names:
 
 ```text
-Programs & Insights Tab
-├── Grant Program Analytics (existing)
-├── Farmer Queries Analysis (existing)
-├── Production Trends (existing)
-├── Economic & Feed Security (existing)
-├── Operational Compliance (existing)
-├── **NEW: Data Quality & Risk Management**
-│   ├── DataQualityDashboardCard
-│   └── RegionalPCRSCard
-└── Coming Soon sections (existing)
+Files Modified:
+- New migration file: supabase/migrations/[timestamp]_fix_rpc_column_names.sql
+
+Column Corrections:
+1. get_regional_data_quality:
+   - mr.record_datetime -> mr.record_date
+   - hr.record_date -> hr.visit_date
+
+2. get_regional_pcrs_summary:
+   - hr.record_date -> hr.visit_date
+
+3. get_farm_compliance_metrics:
+   - mr.milking_date -> mr.record_date  
+   - hr.check_date -> hr.visit_date
 ```
 
-### Dashboard Integration Code
+### Step 2: Seed Missing Demo Data (Data Migration)
 
-```tsx
-{/* Data Quality & Risk Management */}
-<div className="space-y-4">
-  <div className="flex items-center gap-2 pb-2 border-b">
-    <DatabaseIcon className="h-5 w-5 text-primary" />
-    <h3 className="text-lg font-semibold">Data Quality & Risk Management</h3>
-    <span className="text-sm text-muted-foreground">
-      Monitoring data completeness and pre-calving risk
-    </span>
-  </div>
-  
-  <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-    <DataQualityDashboardCard
-      region={primaryRegion}
-      province={primaryProvince}
-      municipality={primaryMunicipality}
-      dataCategory={dataCategory}
-    />
-    <RegionalPCRSCard
-      region={primaryRegion}
-      province={primaryProvince}
-      municipality={primaryMunicipality}
-      dataCategory={dataCategory}
-    />
-  </div>
-</div>
+```text
+Data Operations:
+1. Update ~700 demo animals with realistic entry_weight_kg values:
+   - Cattle: 350-550 kg range
+   - Goats: 25-45 kg range
+   - Carabao: 400-600 kg range
+
+2. Insert BCS records for 75 pregnant animals without BCS:
+   - Scores: 2.5-4.0 range (healthy)
+   - Assessment dates: within last 60 days
+
+3. Insert additional health records for demo farms:
+   - Target: 500+ records in last 90 days
+   - Diagnoses: routine checkups, vaccinations, deworming
 ```
+
+---
+
+## Part 4: Component Status Matrix
+
+### Programs & Insights Tab Components
+
+| Component | RPC/Hook | Status | Issue |
+|-----------|----------|--------|-------|
+| GrantDistributionCard | Direct query | Working | N/A |
+| RegionalInvestmentCards | Direct query | Working | N/A |
+| GrantEffectivenessPanel | Direct query | Working | N/A |
+| FarmerQueriesTopics | useFarmerQueries | Working | N/A |
+| MilkProductionBySpeciesChart | useGovernmentMilkAnalytics | Working | N/A |
+| MarketPriceAnalyticsCard | useMarketPrices | Working | N/A |
+| FeedSecurityCard | useRegionalFeedSecurity | Working | N/A |
+| FarmOperationalHealthCard | useFarmComplianceMetrics | **FAILING** | Wrong column names |
+| DataQualityDashboardCard | useRegionalDataQuality | **FAILING** | Wrong column names |
+| RegionalPCRSCard | useRegionalPCRS | **FAILING** | Wrong column names |
+
+---
+
+## Part 5: Demo Data Seeding Recommendations
+
+To enable meaningful dashboard storytelling, seed the following data:
+
+### Weight Data (High Priority)
+- **Purpose**: Show realistic data quality progression across regions
+- **Target**: 70% of demo animals should have weight data
+- **Distribution**: 
+  - Region IV-A: 90% complete (model region)
+  - Other regions: 50-70% complete (improvement opportunities)
+
+### BCS Records (High Priority)
+- **Purpose**: Enable accurate PCRS tier calculations
+- **Target**: All 111 pregnant animals should have at least 1 BCS record
+- **Distribution**:
+  - 80% with BCS 2.5-3.5 (healthy)
+  - 15% with BCS 2.0-2.5 (thin, higher risk)
+  - 5% with BCS 4.0+ (overconditioned, higher risk)
+
+### Health Records (Medium Priority)
+- **Purpose**: Demonstrate health recording adoption rates
+- **Target**: 500+ records in last 90 days
+- **Types**: Routine checkups, vaccination records, treatments
+
+### Feeding Records (Medium Priority)
+- **Purpose**: Show feeding log compliance
+- **Target**: Recent feeding logs for 50% of demo farms
+- **Dates**: Spread across last 30 days
+
+---
+
+## Part 6: Testing Checklist
+
+After implementation, verify:
+
+- [ ] DataQualityDashboardCard loads with GPS, Weight, Production, Health metrics
+- [ ] RegionalPCRSCard shows tier distribution (Critical/High/Moderate/Low)
+- [ ] FarmOperationalHealthCard displays compliance rates
+- [ ] Data Quality score shows realistic 50-70% (not ~25% due to missing weights)
+- [ ] PCRS shows distribution across all tiers (not just "moderate" due to missing BCS penalty)
+- [ ] Switch between Live/Demo/All modes works correctly
+- [ ] Regional filtering updates all cards
 
 ---
 
 ## Change Impact Summary
 
 **Modified Files:**
-- `src/pages/GovernmentDashboard.tsx` - Add import and section
+- New migration: Fix 3 RPC functions with correct column names
+- Data seeding: ~700 animal weight updates, ~75 BCS inserts
 
 **Data Flow:**
-- `farms` + `animals` + `milking_records` + `health_records` -> `get_regional_data_quality` RPC -> `useRegionalDataQuality` -> `DataQualityDashboardCard`
-- `ai_records` + `animals` + `farms` + `bcs_records` -> `get_regional_pcrs_summary` RPC -> `useRegionalPCRS` -> `RegionalPCRSCard`
+- `milking_records` (record_date) -> RPCs -> hooks -> components
+- `health_records` (visit_date) -> RPCs -> hooks -> components
+- `animals` (entry_weight_kg) -> RPCs -> hooks -> DataQualityDashboardCard
+- `body_condition_scores` -> RPCs -> hooks -> RegionalPCRSCard
 
-**Consumers Verified:**
-- Both new components receive `dataCategory` prop from GovernmentDashboard
-- Hooks follow SSOT pattern with `data_category_filter` parameter
-- Existing PCRS glossary functions reused for tier calculations
-
-**Breaking Changes:** None
+**Breaking Changes:** None (fixes existing broken functionality)
 
 **Testing Points:**
 - Navigate to Government Dashboard > Programs & Insights tab
-- Verify Data Quality card shows GPS, Weight, Production, Health metrics
-- Verify PCRS card shows tier distribution and monthly breakdown
-- Test with Live/Demo/All data source toggle
-- Test regional filtering works correctly
+- Scroll to "Operational Compliance" section
+- Scroll to "Data Quality & Risk Management" section
+- Toggle data source to Demo and verify cards load
+- Check console for [DataQuality] and [PCRS] log prefixes
 
----
-
-## QA Checklist
-
-- [ ] TypeScript compiles without errors
-- [ ] Both hooks handle loading states correctly
-- [ ] Both hooks handle empty/null data gracefully
-- [ ] Error boundaries display failures appropriately
-- [ ] Console logs include `[DataQuality]` and `[PCRS]` prefixes
-- [ ] Data category filter propagates correctly through the chain
-- [ ] Regional filters cascade properly
-- [ ] PCRS tier colors match urgencyGlossary definitions
-- [ ] Mobile responsiveness verified
