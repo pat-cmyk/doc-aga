@@ -266,17 +266,17 @@
        ...messages.map(m => ({ role: m.role, content: m.content }))
      ];
  
-     // Get AI API key
-     const LOVABLE_AI_URL = Deno.env.get('LOVABLE_AI_URL') || "https://ai-gateway.lovable.ai";
-     const LOVABLE_AI_KEY = Deno.env.get('LOVABLE_AI_KEY');
-     
-     if (!LOVABLE_AI_KEY) {
-       console.error('[RICO] Missing LOVABLE_AI_KEY');
-       return new Response(
-         JSON.stringify({ error: 'AI service unavailable' }),
-         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
-     }
+    // Get AI API key
+    const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!LOVABLE_API_KEY) {
+      console.error('[RICO] Missing LOVABLE_API_KEY');
+      return new Response(
+        JSON.stringify({ error: 'AI service unavailable' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
  
      const tools = getAnalystTools();
      let finalResponse = "";
@@ -299,10 +299,10 @@
          while (toolIterations < MAX_TOOL_ITERATIONS) {
            const response = await fetch(`${LOVABLE_AI_URL}/chat/completions`, {
              method: "POST",
-             headers: {
-               "Content-Type": "application/json",
-               "Authorization": `Bearer ${LOVABLE_AI_KEY}`
-             },
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`
+              },
              body: JSON.stringify({
                model: "google/gemini-2.5-flash",
                messages: aiMessages,
