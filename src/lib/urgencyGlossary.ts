@@ -287,51 +287,143 @@
    },
  };
  
- // ============================================
- // FARMER FEEDBACK SENTIMENT
- // ============================================
- export const FEEDBACK_SENTIMENT: Record<string, UrgencyDefinition> = {
-   urgent: {
-     level: 'urgent',
-     label: 'Urgent',
-     labelTagalog: 'Kagyat',
-     description: 'Requires immediate government attention',
-     descriptionTagalog: 'Nangangailangan ng agarang atensiyon ng gobyerno',
-     threshold: 'sentiment = urgent',
-     textClass: 'text-destructive',
-     bgClass: 'bg-destructive/10',
-   },
-   negative: {
-     level: 'negative',
-     label: 'Negative',
-     labelTagalog: 'Negatibo',
-     description: 'Concern or complaint from farmer',
-     descriptionTagalog: 'Alalahanin o reklamo mula sa magsasaka',
-     threshold: 'sentiment = negative',
-     textClass: 'text-orange-600',
-     bgClass: 'bg-orange-50',
-   },
-   neutral: {
-     level: 'neutral',
-     label: 'Neutral',
-     labelTagalog: 'Neutral',
-     description: 'General inquiry or observation',
-     descriptionTagalog: 'General na tanong o obserbasyon',
-     threshold: 'sentiment = neutral',
-     textClass: 'text-muted-foreground',
-     bgClass: 'bg-muted',
-   },
-   positive: {
-     level: 'positive',
-     label: 'Positive',
-     labelTagalog: 'Positibo',
-     description: 'Appreciation or success story',
-     descriptionTagalog: 'Pasasalamat o success story',
-     threshold: 'sentiment = positive',
-     textClass: 'text-green-600',
-     bgClass: 'bg-green-50',
-   },
- };
+// ============================================
+// FARMER FEEDBACK SENTIMENT
+// ============================================
+export const FEEDBACK_SENTIMENT: Record<string, UrgencyDefinition> = {
+  urgent: {
+    level: 'urgent',
+    label: 'Urgent',
+    labelTagalog: 'Kagyat',
+    description: 'Requires immediate government attention',
+    descriptionTagalog: 'Nangangailangan ng agarang atensiyon ng gobyerno',
+    threshold: 'sentiment = urgent',
+    textClass: 'text-destructive',
+    bgClass: 'bg-destructive/10',
+  },
+  negative: {
+    level: 'negative',
+    label: 'Negative',
+    labelTagalog: 'Negatibo',
+    description: 'Concern or complaint from farmer',
+    descriptionTagalog: 'Alalahanin o reklamo mula sa magsasaka',
+    threshold: 'sentiment = negative',
+    textClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
+  },
+  neutral: {
+    level: 'neutral',
+    label: 'Neutral',
+    labelTagalog: 'Neutral',
+    description: 'General inquiry or observation',
+    descriptionTagalog: 'General na tanong o obserbasyon',
+    threshold: 'sentiment = neutral',
+    textClass: 'text-muted-foreground',
+    bgClass: 'bg-muted',
+  },
+  positive: {
+    level: 'positive',
+    label: 'Positive',
+    labelTagalog: 'Positibo',
+    description: 'Appreciation or success story',
+    descriptionTagalog: 'Pasasalamat o success story',
+    threshold: 'sentiment = positive',
+    textClass: 'text-green-600',
+    bgClass: 'bg-green-50',
+  },
+};
+
+// ============================================
+// FEEDBACK PRIORITY (Government Dashboard)
+// ============================================
+export const FEEDBACK_PRIORITY_URGENCY: Record<string, UrgencyDefinition> = {
+  critical: {
+    level: 'critical',
+    label: 'Critical',
+    labelTagalog: 'Kritikal',
+    description: 'Disease outbreak, animal death, or system-wide issue affecting multiple farms. Requires immediate escalation.',
+    descriptionTagalog: 'Outbreak ng sakit, pagkamatay ng hayop, o malawakang problema. Kailangan ng agarang aksyon.',
+    threshold: 'priority = critical',
+    textClass: 'text-destructive',
+    bgClass: 'bg-destructive/10',
+  },
+  high: {
+    level: 'high',
+    label: 'High',
+    labelTagalog: 'Mataas',
+    description: 'Feed shortage, veterinary emergency, or time-sensitive concern. Needs attention within 24 hours.',
+    descriptionTagalog: 'Kakulangan ng feeds, emergency sa beterinaryo, o madaliang alalahanin. Kailangan ng atensiyon sa loob ng 24 oras.',
+    threshold: 'priority = high',
+    textClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
+  },
+  medium: {
+    level: 'medium',
+    label: 'Medium',
+    labelTagalog: 'Katamtaman',
+    description: 'General inquiry, program feedback, or non-urgent request. Standard response time.',
+    descriptionTagalog: 'General na tanong, feedback sa programa, o hindi madaliang kahilingan.',
+    threshold: 'priority = medium',
+    textClass: 'text-yellow-600',
+    bgClass: 'bg-yellow-50',
+  },
+  low: {
+    level: 'low',
+    label: 'Low',
+    labelTagalog: 'Mababa',
+    description: 'Positive feedback, suggestions, or general observations. Informational only.',
+    descriptionTagalog: 'Positibong feedback, suhestiyon, o pangkalahatang obserbasyon.',
+    threshold: 'priority = low',
+    textClass: 'text-blue-600',
+    bgClass: 'bg-blue-50',
+  },
+};
+
+// ============================================
+// VETERINARY COST SEVERITY (Government Dashboard)
+// ============================================
+export const VETERINARY_COST_SEVERITY: Record<string, UrgencyDefinition> = {
+  critical: {
+    level: 'critical',
+    label: 'Critical',
+    labelTagalog: 'Kritikal',
+    description: 'Cost per animal is 2x or more the regional average. Indicates potential disease outbreak or systemic issue.',
+    descriptionTagalog: '2x o higit pa sa average ng rehiyon. Posibleng may outbreak o systemic issue.',
+    threshold: 'ratio >= 2.0',
+    textClass: 'text-destructive',
+    bgClass: 'bg-destructive/10',
+  },
+  high: {
+    level: 'high',
+    label: 'High',
+    labelTagalog: 'Mataas',
+    description: 'Cost per animal is 1.5x to 2x the regional average. Above normal veterinary expenses.',
+    descriptionTagalog: '1.5x hanggang 2x sa average ng rehiyon. Mataas na gastos sa beterinaryo.',
+    threshold: 'ratio >= 1.5',
+    textClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
+  },
+  moderate: {
+    level: 'moderate',
+    label: 'Moderate',
+    labelTagalog: 'Katamtaman',
+    description: 'Cost per animal is at or slightly above the regional average.',
+    descriptionTagalog: 'Katumbas o bahagyang mataas sa average ng rehiyon.',
+    threshold: 'ratio >= 1.0',
+    textClass: 'text-yellow-600',
+    bgClass: 'bg-yellow-50',
+  },
+  low: {
+    level: 'low',
+    label: 'Low',
+    labelTagalog: 'Mababa',
+    description: 'Cost per animal is below the regional average. Healthy herd with minimal veterinary needs.',
+    descriptionTagalog: 'Mas mababa sa average ng rehiyon. Malusog na kawan.',
+    threshold: 'ratio < 1.0',
+    textClass: 'text-green-600',
+    bgClass: 'bg-green-50',
+  },
+};
  
  // ============================================
  // BREEDING ANALYTICS DEFINITIONS

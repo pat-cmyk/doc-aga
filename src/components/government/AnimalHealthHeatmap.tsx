@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, AlertTriangle } from "lucide-react";
+import { PriorityLegend } from "@/components/government/PriorityLegend";
 interface AnimalHealthHeatmapProps {
   data?: HeatmapData[];
   comparisonData?: HeatmapData[];
@@ -157,6 +158,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
         <CardDescription>
           Health event density by municipality (last 7 days)
         </CardDescription>
+        <PriorityLegend type="health" className="mt-2" />
       </CardHeader>
       <CardContent>
         {comparisonMode && comparisonData ? (

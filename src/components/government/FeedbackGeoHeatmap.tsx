@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { MapPin, AlertTriangle } from "lucide-react";
+import { PriorityLegend } from "@/components/government/PriorityLegend";
 
 export const FeedbackGeoHeatmap = () => {
   const { feedbackList, isLoading } = useGovernmentFeedback({});
@@ -124,13 +125,7 @@ export const FeedbackGeoHeatmap = () => {
         </div>
 
         <div className="mt-6 pt-4 border-t">
-          <p className="text-xs text-muted-foreground mb-2">Priority Legend:</p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="destructive" className="text-xs">Critical</Badge>
-            <Badge className="text-xs bg-orange-500">High</Badge>
-            <Badge className="text-xs bg-yellow-500 text-black">Medium</Badge>
-            <Badge variant="secondary" className="text-xs">Low</Badge>
-          </div>
+          <PriorityLegend type="feedback" />
         </div>
       </CardContent>
     </Card>

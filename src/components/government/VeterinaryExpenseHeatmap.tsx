@@ -5,6 +5,7 @@ import { useVeterinaryExpenseHeatmap } from "@/hooks/useVeterinaryExpenseHeatmap
 import { Stethoscope, Pill, AlertTriangle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataCategory } from "@/types/government";
+import { PriorityLegend } from "@/components/government/PriorityLegend";
 import {
   Table,
   TableBody,
@@ -165,26 +166,8 @@ export const VeterinaryExpenseHeatmap = ({
           </Card>
         </div>
 
-        {/* Severity Legend */}
-        <div className="flex items-center gap-4 text-xs">
-          <span className="text-muted-foreground">Cost Level:</span>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-green-500" />
-            <span>Low</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-yellow-500" />
-            <span>Moderate</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-orange-500" />
-            <span>High</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-red-500" />
-            <span>Critical</span>
-          </div>
-        </div>
+        {/* Severity Legend with Tooltips */}
+        <PriorityLegend type="veterinary_cost" />
 
         {/* Heatmap Table */}
         <div className="rounded-md border overflow-hidden">
