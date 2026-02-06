@@ -2324,12 +2324,112 @@ export async function getFarmComplianceMetrics(args: any, supabase: SupabaseClie
   };
 }
 
+// ============= PERSISTENT MEMORY TOOLS =============
+
+/**
+ * Helper to extract topic patterns from user questions
+ */
+function extractTopics(questions: string[]): string[] {
+  const topicKeywords = [
+    'semen', 'breeding', 'AI', 'genetics',
+    'grant', 'program', 'ROI',
+    'feed', 'security', 'shortage',
+    'vaccination', 'health', 'mortality',
+    'market', 'price', 'revenue',
+    'compliance', 'audit', 'discrepancy',
+    'Region', 'province', 'national',
+    'delivery', 'pregnant', 'calving', 'PCRS',
+    'lactating', 'milk', 'production'
+  ];
+  
+  const found = new Set<string>();
+  questions.forEach(q => {
+    topicKeywords.forEach(keyword => {
+      if (q.toLowerCase().includes(keyword.toLowerCase())) {
+        found.add(keyword);
+      }
+    });
+  });
+  
+  return Array.from(found);
+}
+
+/**
+ * Tool: get_user_conversation_context
+ * Purpose: Retrieve recent conversation history for the current user
+ * This enables RICO to remember previous discussions across sessions
+ */
+export async function getUserConversationContext(
+  args: any,
+  supabase: SupabaseClient,
+  userId: string,
+  _dataCategory?: DataCategory // Not used but kept for SSOT consistency
+) {
+  const hours = args.hours || 168; // Default 7 days
+  const topicKeywords = args.topic_keywords;
+  const sinceTime = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  console.log(`[RICO] getUserConversationContext: Fetching last ${hours} hours for user ${userId.slice(0, 8)}...`);
+
+  // Build query for RICO conversations (farm_id is null for government-level queries)
+  let query = supabase
+    .from('doc_aga_queries')
+    .select('question, answer, created_at, conversation_id')
+    .eq('user_id', userId)
+    .is('farm_id', null) // RICO conversations have null farm_id
+    .gte('created_at', sinceTime)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  // Optional keyword filter
+  if (topicKeywords) {
+    query = query.or(`question.ilike.%${topicKeywords}%,answer.ilike.%${topicKeywords}%`);
+  }
+
+  const { data: recentQueries, error } = await query;
+
+  if (error) {
+    console.error('[RICO] getUserConversationContext error:', error);
+    return { error: error.message };
+  }
+
+  if (!recentQueries || recentQueries.length === 0) {
+    console.log('[RICO] No recent conversation context found for user');
+    return {
+      has_recent_context: false,
+      message: "This appears to be a new user or no recent RICO conversations found in the last " + hours + " hours."
+    };
+  }
+
+  // Extract topic patterns from questions
+  const topicPatterns = extractTopics(recentQueries.map(q => q.question));
+  
+  // Count unique sessions
+  const uniqueSessions = new Set(recentQueries.map(q => q.conversation_id).filter(Boolean));
+
+  console.log(`[RICO] Found ${recentQueries.length} conversations, ${uniqueSessions.size} sessions, topics: ${topicPatterns.join(', ')}`);
+
+  return {
+    has_recent_context: true,
+    hours_covered: hours,
+    total_conversations: recentQueries.length,
+    unique_sessions: uniqueSessions.size,
+    topics_discussed: topicPatterns,
+    recent_conversations: recentQueries.slice(0, 5).map(q => ({
+      question: q.question.slice(0, 200),
+      answer_preview: q.answer?.slice(0, 300) || null,
+      date: q.created_at
+    }))
+  };
+}
+
 // Tool execution dispatcher
 export async function executeAnalystToolCall(
   toolName: string,
   args: any,
   supabase: SupabaseClient,
-  dataCategory?: DataCategory
+  dataCategory?: DataCategory,
+  userId?: string // Added for user-specific tools like conversation context
 ) {
   console.log(`[RICO] Executing tool: ${toolName}`, args);
 
@@ -2361,7 +2461,7 @@ export async function executeAnalystToolCall(
     case "get_cohort_health_analysis":
       return await getCohortHealthAnalysis(args, supabase, dataCategory);
     
-    // NEW POLICY INTELLIGENCE TOOLS
+    // POLICY INTELLIGENCE TOOLS
     case "get_semen_analytics":
       return await getSemenAnalytics(args, supabase, dataCategory);
     
@@ -2379,6 +2479,13 @@ export async function executeAnalystToolCall(
     
     case "get_farm_compliance_metrics":
       return await getFarmComplianceMetrics(args, supabase, dataCategory);
+    
+    // PERSISTENT MEMORY TOOL
+    case "get_user_conversation_context":
+      if (!userId) {
+        return { error: "User ID required for conversation context" };
+      }
+      return await getUserConversationContext(args, supabase, userId, dataCategory);
     
     default:
       return { error: `Unknown analyst tool: ${toolName}` };
@@ -2403,6 +2510,8 @@ export function getAnalystTools(): any[] {
     { type: "function", function: { name: "get_market_price_intelligence", description: "Analyze regional market price trends for livestock and estimate revenue. Tracks price changes over time and identifies rising/falling/stable trends by species.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 30)" }, region: { type: "string", description: "Optional region filter" } } } } },
     { type: "function", function: { name: "get_feed_security_status", description: "Identify regional feed shortage hotspots. Classifies farms as Critical (<7 days stock), Low (7-30 days), or Adequate (>30 days). Calculates security index and identifies regions at risk.", parameters: { type: "object", properties: { region: { type: "string", description: "Optional region filter" } } } } },
     { type: "function", function: { name: "get_vaccination_compliance", description: "Track vaccination and deworming program compliance. Shows completed, overdue, urgent (within 2 days), and upcoming schedules. Calculates compliance rates by schedule type.", parameters: { type: "object", properties: { region: { type: "string", description: "Optional region filter" }, days: { type: "number", description: "Analysis period in days (default: 90)" } } } } },
-    { type: "function", function: { name: "get_farm_compliance_metrics", description: "Track record-keeping compliance across farms. Measures milking log, feeding log, and health record activity. Identifies high and low compliance farms by region.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 30)" }, region: { type: "string", description: "Optional region filter" } } } } }
+    { type: "function", function: { name: "get_farm_compliance_metrics", description: "Track record-keeping compliance across farms. Measures milking log, feeding log, and health record activity. Identifies high and low compliance farms by region.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 30)" }, region: { type: "string", description: "Optional region filter" } } } } },
+    // PERSISTENT MEMORY TOOL
+    { type: "function", function: { name: "get_user_conversation_context", description: "Get the current user's recent RICO conversation history. Use this when the user references previous discussions (e.g., 'remember when we discussed', 'like we talked about', 'following up on', 'continue from before'). Also useful at the start of sessions to understand the user's focus areas and provide continuity.", parameters: { type: "object", properties: { hours: { type: "number", description: "Lookback period in hours (default: 168 = 7 days)" }, topic_keywords: { type: "string", description: "Optional: filter by topic like 'breeding', 'feed security', 'Region VIII'" } } } } }
   ];
 }
