@@ -1,455 +1,305 @@
 
-# RICO Policy Intelligence Enhancement: SSOT-Compliant Tool Expansion
+# RICO Persistent Memory Implementation Plan
 
-## Executive Summary
+## Problem Statement
 
-This plan expands RICO's analytical capabilities to answer policy-level questions that government officials would ask, while strictly adhering to the project's Single Source of Truth (SSOT) architecture patterns.
+RICO currently has **no persistent memory** across sessions. Each time a government user opens the RICO chat panel, a fresh `conversationId` is generated and previous discussions are lost. This is problematic because:
 
----
-
-## 1. Current State Analysis
-
-### 1.1 RICO's Current Capabilities (9 Tools)
-
-| Tool | Purpose | SSOT Compliance |
-|------|---------|-----------------|
-| `get_national_overview` | Farm/animal totals | Uses `getFilteredFarmIds()` |
-| `get_regional_stats` | Region-specific stats | Uses `getFilteredFarmIds()` |
-| `get_breeding_analytics` | AI success rates | Uses `getFilteredAnimalIds()` + batch pattern |
-| `get_health_analytics` | Health patterns, mortality | Uses `getFilteredAnimalIds()` |
-| `get_production_trends` | Milk production | Uses `getFilteredAnimalIds()` |
-| `get_farmer_feedback_summary` | Feedback sentiment | Uses `getFilteredFarmIds()` |
-| `get_expected_deliveries_analysis` | Pregnant animals | Uses batch + Map enrichment |
-| `get_delivery_risk_assessment` | PCRS risk scoring | Uses batch + Map enrichment |
-| `get_cohort_health_analysis` | Cohort deep-dive | Uses `getFilteredAnimalIds()` |
-
-### 1.2 Identified Gaps (Policy Questions RICO Cannot Answer)
-
-| Gap Category | Policy Question Example | Dashboard Has It? |
-|--------------|------------------------|-------------------|
-| **Genetics/Semen** | "What semen sources are being used?" | No hook exists |
-| **Grant Programs** | "How are grant animals performing?" | `useGrantEffectiveness` |
-| **Market Prices** | "What are regional milk prices?" | `useRegionalMarketPrices` |
-| **Feed Security** | "Which regions have critical shortages?" | `useRegionalFeedSecurity` |
-| **Farm Compliance** | "Which farms have poor record-keeping?" | `useFarmComplianceMetrics` |
-| **Vaccination** | "What's our vaccination coverage?" | `preventive_health_schedules` |
+1. **Multiple government users** will use RICO for different oversight areas
+2. **Users expect continuity** - "Remember we discussed Region VIII feed issues yesterday?"
+3. **Topic specialization** - A user monitoring breeding programs shouldn't re-explain their focus each session
 
 ---
 
-## 2. SSOT Architecture Compliance Requirements
-
-### 2.1 Core SSOT Principles (From Memory)
-
-All new RICO tools MUST follow these established patterns:
+## Current Architecture
 
 ```text
-SSOT COMPLIANCE CHECKLIST
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. DataCategory Propagation                                     │
-│    - All tools accept dataCategory parameter                    │
-│    - Type imported from _shared/analyst-tools.ts                │
-│    - Values: 'live' | 'demo' | 'all'                           │
-├─────────────────────────────────────────────────────────────────┤
-│ 2. Two-Stage Fetching Pattern                                   │
-│    - Stage 1: Get filtered farm/animal IDs                     │
-│    - Stage 2: Query records with .in() filter                  │
-│    - Stage 3: Enrich with Map-based lookups                    │
-├─────────────────────────────────────────────────────────────────┤
-│ 3. Batch Query Pattern (for large ID sets)                      │
-│    - Use batchQuery() helper for >200 IDs                      │
-│    - Avoid PostgREST URL length limits                         │
-├─────────────────────────────────────────────────────────────────┤
-│ 4. Helper Function Usage                                        │
-│    - getFilteredFarmIds(supabase, dataCategory)                │
-│    - getFilteredAnimalIds(supabase, dataCategory)              │
-│    - batchQuery(ids, queryFn)                                  │
-├─────────────────────────────────────────────────────────────────┤
-│ 5. No Direct RPC Calls (for new tools)                          │
-│    - Tools should query tables directly                        │
-│    - RPC functions are for frontend hooks, not RICO            │
-│    - This ensures dataCategory filter is applied consistently  │
-├─────────────────────────────────────────────────────────────────┤
-│ 6. Console Logging                                              │
-│    - Prefix all logs with [RICO]                               │
-│    - Log data counts for debugging                             │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CURRENT STATE                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  RicoChat Component                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ conversationId = crypto.randomUUID() ← NEW EACH MOUNT       │   │
+│  │ messages = [] ← STARTS EMPTY                                │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                              │                                      │
+│                              ▼                                      │
+│  RICO Edge Function                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ Receives: messages[], conversationId, dataCategory          │   │
+│  │ Logs to: doc_aga_queries                                    │   │
+│  │ NO TOOL to retrieve past conversations                      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Terminology Alignment (From Memory: urgency-glossary-ssot)
-
-New tools must use consistent terminology:
-
-| Term | Definition | Source |
-|------|------------|--------|
-| "Critical" (Feed) | <7 days stock | `urgencyGlossary.ts` |
-| "Low" (Feed) | 7-30 days stock | `urgencyGlossary.ts` |
-| "Overdue" (Vaccination) | Past scheduled date | `urgencyGlossary.ts` |
-| "Urgent" (Vaccination) | Due within 2 days | `urgencyGlossary.ts` |
+**Gap**: Data is logged but never retrieved. RICO cannot access previous user discussions.
 
 ---
 
-## 3. New Tools to Implement
+## Proposed Solution
 
-### Phase 1: High-Priority Policy Tools
+### Phase 1: Add Conversation Context Tool (Immediate)
 
-#### 3.1 `get_semen_analytics`
+Add a `get_user_conversation_context` tool to RICO (similar to Doc Aga's `get_conversation_context`).
 
-**Purpose:** Answer questions about genetic diversity and AI technician performance.
-
-**Database Fields Used:**
-- `ai_records.semen_code` (text)
-- `ai_records.technician` (text)
-- `ai_records.pregnancy_confirmed` (boolean)
-
-**SSOT Implementation Pattern:**
+**New Tool Definition:**
 ```text
-Step 1: getFilteredAnimalIds(supabase, dataCategory)
-Step 2: Query ai_records with .in('animal_id', filteredIds)
-Step 3: Aggregate by semen_code and technician
-Step 4: Calculate success rates per source/technician
+get_user_conversation_context
+├── Description: Retrieve recent conversation history for the current user
+├── Parameters:
+│   ├── hours: number (default: 168 = 7 days)
+│   └── topic_keywords: string (optional filter)
+└── Returns:
+    ├── has_recent_context: boolean
+    ├── total_conversations: number
+    ├── topics_discussed: string[] (extracted from questions)
+    └── recent_conversations: Array<{question, answer_preview, date}>
 ```
 
-**Returns:**
-```typescript
-{
-  period_days: number;
-  unique_semen_sources: number;
-  total_procedures: number;
-  top_semen_sources: Array<{
-    semen_code: string;
-    procedures: number;
-    confirmed: number;
-    success_rate: number;
-  }>;
-  technician_performance: Array<{
-    technician: string;
-    procedures: number;
-    success_rate: number;
-  }>;
-}
-```
+**SSOT Compliance:**
+- Queries `doc_aga_queries` filtered by `user_id` only
+- No dataCategory filter needed (conversations are user-specific, not farm-specific)
+- Returns summarized context, not raw data
 
----
+### Phase 2: Update System Prompt
 
-#### 3.2 `get_grant_program_analytics`
+Add context awareness to RICO's system prompt:
 
-**Purpose:** Compare performance of grant-distributed vs purchased animals.
-
-**Database Fields Used:**
-- `animals.acquisition_type` ("grant" | "purchased" | "born_on_farm")
-- `animals.grant_source` (text)
-- `animals.exit_date`, `animals.exit_reason`
-- Related: `health_records`, `milking_records`, `ai_records`
-
-**SSOT Implementation Pattern:**
 ```text
-Step 1: getFilteredFarmIds(supabase, dataCategory)
-Step 2: Query animals with .in('farm_id', filteredIds)
-Step 3: Group by acquisition_type
-Step 4: Fetch related records (health, milking, AI)
-Step 5: Calculate metrics per group using Map lookups
+CONVERSATION CONTINUITY:
+- You have access to the user's previous discussions via get_user_conversation_context
+- When a user references past topics ("like we discussed" / "remember the Region VIII issue"), 
+  use this tool to recall context
+- Acknowledge returning users: "Welcome back! Last time we discussed X..."
+- Track the user's areas of focus to provide more relevant insights
 ```
 
-**Mirrors:** `useGrantEffectiveness` hook logic
+### Phase 3: Session Persistence (Frontend)
 
-**Returns:**
-```typescript
-{
-  total_animals: number;
-  by_acquisition_type: {
-    grant: { count, mortality_rate, breeding_success, avg_milk };
-    purchased: { count, mortality_rate, breeding_success, avg_milk };
-    born_on_farm: { count, mortality_rate, breeding_success, avg_milk };
-  };
-  grant_sources: Array<{
-    source: string;
-    count: number;
-    mortality_rate: number;
-    breeding_success: number;
-  }>;
-  comparison_summary: string;
-}
-```
+Update `RicoChat.tsx` to optionally load previous conversation from the same user:
+
+**Option A: Auto-load recent context**
+- On mount, fetch last 3 Q&A pairs from `doc_aga_queries` for this user
+- Pre-populate messages array with context
+
+**Option B: Offer to continue**
+- On mount, check if user has recent conversations
+- Show "Continue previous discussion?" button
 
 ---
 
-### Phase 2: Intelligence Enhancement Tools
+## Technical Implementation
 
-#### 3.3 `get_market_price_intelligence`
+### File: `supabase/functions/_shared/analyst-tools.ts`
 
-**Purpose:** Analyze regional price trends and estimate revenue.
-
-**Database Fields Used:**
-- `market_prices` table (livestock_type, price_per_kg, region, effective_date)
-- Related: `farms.region`, `farms.data_category`
-
-**SSOT Implementation Pattern:**
-```text
-Step 1: getFilteredFarmIds(supabase, dataCategory)
-Step 2: Query market_prices for farms in filtered set
-Step 3: Calculate trends (rising/falling/stable) per region/species
-Step 4: Estimate revenue from production data
-```
-
-**Mirrors:** `useRegionalMarketPrices` hook logic
-
----
-
-#### 3.4 `get_feed_security_status`
-
-**Purpose:** Identify regional feed shortage hotspots.
-
-**Database Fields Used:**
-- `dashboard_stats.feed_stock_days` (or computed from `feed_inventory`)
-- `farms.region`, `farms.province`
-
-**SSOT Implementation Pattern:**
-```text
-Step 1: getFilteredFarmIds(supabase, dataCategory)
-Step 2: Query dashboard_stats or feed_inventory for filtered farms
-Step 3: Classify: Critical (<7 days), Low (7-30), Adequate (>30)
-Step 4: Aggregate by region
-```
-
-**Terminology Alignment:** Uses `urgencyGlossary.ts` definitions
-
-**Mirrors:** `useRegionalFeedSecurity` hook logic
-
----
-
-### Phase 3: Operational Intelligence Tools
-
-#### 3.5 `get_vaccination_compliance`
-
-**Purpose:** Track preventive health program effectiveness.
-
-**Database Fields Used:**
-- `preventive_health_schedules.schedule_type` (vaccination/deworming)
-- `preventive_health_schedules.status` (pending/completed/overdue)
-- `preventive_health_schedules.scheduled_date`, `completed_date`
-
-**SSOT Implementation Pattern:**
-```text
-Step 1: getFilteredFarmIds(supabase, dataCategory)
-Step 2: Query preventive_health_schedules with .in('farm_id', filteredIds)
-Step 3: Classify by status and schedule_type
-Step 4: Calculate compliance rates
-```
-
----
-
-#### 3.6 `get_farm_compliance_metrics`
-
-**Purpose:** Track record-keeping compliance across farms.
-
-**Database Fields Used:**
-- `milking_records`, `feeding_records`, `health_records` - activity counts
-- `farms` - total farm counts
-
-**SSOT Implementation Pattern:**
-```text
-Step 1: getFilteredFarmIds(supabase, dataCategory)
-Step 2: Count distinct farms with activity in date range
-Step 3: Calculate completion percentages
-Step 4: Identify high vs low compliance farms
-```
-
-**Mirrors:** `useFarmComplianceMetrics` hook logic
-
----
-
-## 4. Implementation Details
-
-### 4.1 File Changes
-
-| File | Changes |
-|------|---------|
-| `supabase/functions/_shared/analyst-tools.ts` | Add 6 new tool functions (~500 lines) |
-| `supabase/functions/rico/index.ts` | Update system prompt with new tool descriptions |
-
-### 4.2 Code Structure for New Tools
-
-Each new tool will follow this template:
+Add new function:
 
 ```typescript
-export async function getSemenAnalytics(
-  args: any, 
-  supabase: SupabaseClient, 
-  dataCategory?: DataCategory
+async function getUserConversationContext(
+  args: any,
+  supabase: SupabaseClient,
+  userId: string,
+  _dataCategory?: DataCategory // Not used but kept for SSOT consistency
 ) {
-  const days = args.days || 90;
-  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-    .toISOString().split('T')[0];
+  const hours = args.hours || 168; // Default 7 days
+  const topicKeywords = args.topic_keywords;
+  const sinceTime = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-  // SSOT Step 1: Get filtered animal IDs
-  const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
-  
-  // Handle empty filter results
-  if (animalIds && animalIds.length === 0) {
+  console.log(`[RICO] getUserConversationContext: Fetching last ${hours} hours for user`);
+
+  let query = supabase
+    .from('doc_aga_queries')
+    .select('question, answer, created_at, conversation_id')
+    .eq('user_id', userId)
+    .is('farm_id', null) // RICO conversations have null farm_id
+    .gte('created_at', sinceTime)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  // Optional keyword filter
+  if (topicKeywords) {
+    query = query.or(`question.ilike.%${topicKeywords}%,answer.ilike.%${topicKeywords}%`);
+  }
+
+  const { data: recentQueries, error } = await query;
+
+  if (error) {
+    console.error('[RICO] getUserConversationContext error:', error);
+    return { error: error.message };
+  }
+
+  if (!recentQueries || recentQueries.length === 0) {
     return {
-      period_days: days,
-      unique_semen_sources: 0,
-      total_procedures: 0,
-      top_semen_sources: [],
-      technician_performance: [],
-      message: `No animals found for data category '${dataCategory}'`
+      has_recent_context: false,
+      message: "This appears to be a new user or no recent RICO conversations found."
     };
   }
 
-  // SSOT Step 2: Query with batch pattern if needed
-  let aiRecords: any[] = [];
-  if (animalIds && animalIds.length > MAX_IDS_PER_BATCH) {
-    const result = await batchQuery(animalIds, async (batchIds) => {
-      return await supabase
-        .from('ai_records')
-        .select('semen_code, technician, pregnancy_confirmed, animal_id')
-        .gte('performed_date', startDate)
-        .not('semen_code', 'is', null)
-        .in('animal_id', batchIds);
-    });
-    aiRecords = result.data;
-  } else {
-    let query = supabase
-      .from('ai_records')
-      .select('semen_code, technician, pregnancy_confirmed, animal_id')
-      .gte('performed_date', startDate)
-      .not('semen_code', 'is', null);
-    
-    if (animalIds) {
-      query = query.in('animal_id', animalIds);
-    }
-    
-    const { data } = await query;
-    aiRecords = data || [];
-  }
+  // Extract topic patterns from questions
+  const topicPatterns = extractTopics(recentQueries.map(q => q.question));
 
-  console.log(`[RICO] getSemenAnalytics: Found ${aiRecords.length} AI records with semen data`);
-
-  // SSOT Step 3: Aggregate with Map-based lookups
-  const semenStats = new Map<string, { count: number; confirmed: number }>();
-  const techStats = new Map<string, { count: number; confirmed: number }>();
-
-  aiRecords.forEach(r => {
-    // Semen aggregation
-    const code = r.semen_code || 'Unknown';
-    const current = semenStats.get(code) || { count: 0, confirmed: 0 };
-    current.count++;
-    if (r.pregnancy_confirmed) current.confirmed++;
-    semenStats.set(code, current);
-    
-    // Technician aggregation
-    const tech = r.technician || 'Unknown';
-    const techCurrent = techStats.get(tech) || { count: 0, confirmed: 0 };
-    techCurrent.count++;
-    if (r.pregnancy_confirmed) techCurrent.confirmed++;
-    techStats.set(tech, techCurrent);
-  });
-
-  // Build response
   return {
-    period_days: days,
-    unique_semen_sources: semenStats.size,
-    total_procedures: aiRecords.length,
-    top_semen_sources: Array.from(semenStats.entries())
-      .map(([code, stats]) => ({
-        semen_code: code,
-        procedures: stats.count,
-        confirmed: stats.confirmed,
-        success_rate: stats.count > 0 
-          ? Math.round((stats.confirmed / stats.count) * 100) 
-          : 0
-      }))
-      .sort((a, b) => b.procedures - a.procedures)
-      .slice(0, 10),
-    technician_performance: Array.from(techStats.entries())
-      .map(([name, stats]) => ({
-        technician: name,
-        procedures: stats.count,
-        success_rate: stats.count > 0 
-          ? Math.round((stats.confirmed / stats.count) * 100) 
-          : 0
-      }))
-      .sort((a, b) => b.procedures - a.procedures)
-      .slice(0, 10),
+    has_recent_context: true,
+    hours_covered: hours,
+    total_conversations: recentQueries.length,
+    unique_sessions: new Set(recentQueries.map(q => q.conversation_id)).size,
+    topics_discussed: topicPatterns,
+    recent_conversations: recentQueries.slice(0, 5).map(q => ({
+      question: q.question.slice(0, 200),
+      answer_preview: q.answer?.slice(0, 300),
+      date: q.created_at
+    }))
   };
+}
+
+// Helper to extract topic patterns
+function extractTopics(questions: string[]): string[] {
+  const topicKeywords = [
+    'semen', 'breeding', 'AI', 'genetics',
+    'grant', 'program', 'ROI',
+    'feed', 'security', 'shortage',
+    'vaccination', 'health', 'mortality',
+    'market', 'price', 'revenue',
+    'compliance', 'audit', 'discrepancy',
+    'Region', 'province', 'national'
+  ];
+  
+  const found = new Set<string>();
+  questions.forEach(q => {
+    topicKeywords.forEach(keyword => {
+      if (q.toLowerCase().includes(keyword.toLowerCase())) {
+        found.add(keyword);
+      }
+    });
+  });
+  
+  return Array.from(found);
 }
 ```
 
-### 4.3 Tool Definitions Update
+### File: `supabase/functions/rico/index.ts`
 
-Add to `getAnalystTools()`:
+**1. Add tool to `getAnalystTools()`:**
 
 ```typescript
-{ 
-  type: "function", 
-  function: { 
-    name: "get_semen_analytics", 
-    description: "Get semen source distribution, genetic diversity metrics, and AI technician success rates. Use this to answer questions about breeding program quality and technician performance.", 
-    parameters: { 
-      type: "object", 
-      properties: { 
-        days: { type: "number", description: "Analysis period in days (default: 90)" },
-        region: { type: "string", description: "Optional region filter" }
-      } 
-    } 
-  } 
-},
-// ... similar for other 5 tools
+{
+  type: "function",
+  function: {
+    name: "get_user_conversation_context",
+    description: "Get the current user's recent RICO conversation history. Use this when the user references previous discussions, says 'remember when we discussed', or asks to continue from before. Also use at the start to understand the user's focus areas.",
+    parameters: {
+      type: "object",
+      properties: {
+        hours: { type: "number", description: "Lookback period in hours (default: 168 = 7 days)" },
+        topic_keywords: { type: "string", description: "Optional: filter by topic like 'breeding', 'feed security', 'Region VIII'" }
+      }
+    }
+  }
+}
 ```
 
-### 4.4 RICO System Prompt Update
+**2. Update System Prompt:**
 
-Add to `YOUR AVAILABLE TOOLS` section:
+Add to RICO's personality:
 
 ```text
-10. get_semen_analytics - Semen source distribution, genetic diversity, technician performance
-11. get_grant_program_analytics - Compare grant vs purchased animal performance, ROI analysis
-12. get_market_price_intelligence - Regional price trends, revenue estimates
-13. get_feed_security_status - Regional feed shortage hotspots, critical farms
-14. get_vaccination_compliance - Vaccination/deworming coverage rates
-15. get_farm_compliance_metrics - Record-keeping compliance rates
+CONVERSATION MEMORY & CONTINUITY:
+- You have access to the user's previous RICO discussions via get_user_conversation_context
+- When a user references past topics ("like we discussed", "remember the Region VIII issue", "following up on..."), use this tool to recall context
+- For returning users, acknowledge continuity: "Based on our previous discussions about X..."
+- Track the user's areas of focus (breeding, feed security, regional monitoring) to provide more relevant insights
+- If a question seems to reference prior context but is ambiguous, use the tool to clarify before answering
+```
+
+**3. Add to `executeAnalystToolCall()`:**
+
+```typescript
+case 'get_user_conversation_context':
+  return await getUserConversationContext(args, supabase, userId, dataCategory);
 ```
 
 ---
 
-## 5. Testing Plan
+## Database Considerations
 
-### 5.1 Sample Policy Questions to Validate
+### Current `doc_aga_queries` Schema (No Changes Needed)
 
-| Question | Expected Tool | Expected Data |
-|----------|--------------|---------------|
-| "What semen sources are being used?" | `get_semen_analytics` | Unique sources, top performers |
-| "How are grant animals performing?" | `get_grant_program_analytics` | Grant vs purchased comparison |
-| "Which regions have feed shortages?" | `get_feed_security_status` | Critical/Low farm counts |
-| "What's our vaccination coverage?" | `get_vaccination_compliance` | Compliance percentages |
-| "What are current milk prices?" | `get_market_price_intelligence` | Regional price trends |
+| Column | Type | Usage |
+|--------|------|-------|
+| `user_id` | uuid | ✅ User isolation |
+| `farm_id` | uuid | NULL for RICO (government-level) |
+| `question` | text | ✅ Stores user query |
+| `answer` | text | ✅ Stores RICO response |
+| `conversation_id` | uuid | ✅ Session grouping |
+| `message_index` | integer | ✅ Order within session |
+| `created_at` | timestamp | ✅ Time-based queries |
 
-### 5.2 SSOT Compliance Verification
-
-For each new tool:
-1. Test with `dataCategory: 'live'` - should return only live farm data
-2. Test with `dataCategory: 'demo'` - should return only demo farm data
-3. Test with `dataCategory: 'all'` - should return combined data
-4. Verify counts match corresponding frontend hooks
+The existing schema supports user-specific memory retrieval without modification.
 
 ---
 
-## 6. Deployment Steps
+## Optional Enhancement: User Focus Areas
 
-1. Update `supabase/functions/_shared/analyst-tools.ts` with new tools
-2. Update `supabase/functions/rico/index.ts` system prompt
-3. Deploy RICO edge function
-4. Test with sample policy questions
-5. Verify dataCategory filtering works correctly
+For deeper personalization, consider adding a `government_user_context` table:
+
+```sql
+CREATE TABLE government_user_context (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users NOT NULL,
+  focus_areas text[] DEFAULT '{}', -- e.g., ['breeding', 'Region VIII']
+  preferred_regions text[] DEFAULT '{}',
+  last_active_at timestamptz DEFAULT now(),
+  conversation_summary text, -- AI-generated summary of interests
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id)
+);
+
+-- RLS: Users can only see/update their own context
+ALTER TABLE government_user_context ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own context" ON government_user_context
+  FOR ALL USING (auth.uid() = user_id);
+```
+
+This would allow RICO to:
+- Remember "This user always focuses on Region VIII and breeding programs"
+- Auto-filter recommendations to their areas of interest
+- Provide personalized greetings: "Good morning! Ready to check on Region VIII breeding stats?"
 
 ---
 
-## Technical Summary
+## Files to Modify
 
-| Metric | Value |
-|--------|-------|
-| New tools | 6 |
-| Lines added | ~500 |
-| Files modified | 2 |
-| SSOT patterns used | getFilteredFarmIds, getFilteredAnimalIds, batchQuery, Map enrichment |
-| Breaking changes | None |
+| File | Changes |
+|------|---------|
+| `supabase/functions/_shared/analyst-tools.ts` | Add `getUserConversationContext()` function (~60 lines) |
+| `supabase/functions/rico/index.ts` | Add tool definition, update system prompt, add case to dispatcher |
+
+---
+
+## Testing Plan
+
+1. **First-time user test**: RICO should note "no recent context"
+2. **Returning user test**: After asking about feed security, close chat, reopen, ask "what did we discuss?" - RICO should recall
+3. **Topic filter test**: Ask RICO to recall "breeding discussions" - should filter appropriately
+4. **Multi-user isolation**: Ensure User A cannot see User B's conversations
+
+---
+
+## Summary
+
+| Feature | Current | After Implementation |
+|---------|---------|---------------------|
+| Session memory | ✅ | ✅ |
+| Cross-session memory | ❌ | ✅ via tool |
+| Topic tracking | ❌ | ✅ extracted from history |
+| User focus areas | ❌ | ✅ (optional table) |
+| Data isolation | N/A | ✅ by user_id |
+
+This implementation follows SSOT principles by:
+- Querying the existing `doc_aga_queries` table (single source)
+- Using user_id filtering (not dataCategory, as conversations are user-specific)
+- Logging all interactions for future context retrieval
