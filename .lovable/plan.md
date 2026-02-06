@@ -1,93 +1,89 @@
 
-# Add Definition Tooltips to Expected Deliveries Timeline
+# Fix Color Alignment in Animal Health Heatmap
 
 ## Problem
 
-The Expected Deliveries Timeline shows risk tier badges (Critical, High, Moderate) next to months, but these badges don't show definition pop-outs on hover like the other dashboard components. Users need to understand what these risk levels mean.
+The "High" and "Moderate" severity badges in the heatmap list items use green (default variant) and gray (secondary variant) colors respectively, while the PriorityLegend shows them as orange and yellow.
 
-## Current State
+## Root Cause
 
-Looking at `ExpectedDeliveriesTimeline.tsx` lines 213-220:
-```tsx
-{riskTier && riskTier.tier !== 'low' && (
-  <Badge
-    variant={riskTier.badgeVariant}
-    className={`text-xs ${riskTier.textClass}`}
-  >
-    {riskTier.label}
-  </Badge>
-)}
+The `getSeverityLevel` function in `AnimalHealthHeatmap.tsx` returns standard Badge variants:
+```typescript
+if (rate >= 10) return { label: "High", variant: "default" as const };     // Renders GREEN
+if (rate >= 5) return { label: "Moderate", variant: "secondary" as const }; // Renders GRAY
 ```
 
-The badge is rendered without any tooltip wrapper.
+But PriorityLegend uses custom class overrides:
+```typescript
+{ key: "high", badgeClass: "bg-orange-500 hover:bg-orange-500/80" }        // ORANGE
+{ key: "moderate", badgeClass: "bg-yellow-500 hover:bg-yellow-500/80" }    // YELLOW
+```
 
 ## Solution
 
-Replace the plain `Badge` with `DefinitionBadge` (which includes tooltip functionality) using the PCRS tier definitions from `urgencyGlossary.ts`.
+Update the `getSeverityLevel` function to return custom className strings that match the PriorityLegend colors, then apply those classes to the Badge components.
 
 ---
 
 ## Technical Changes
 
-### File: `src/components/government/ExpectedDeliveriesTimeline.tsx`
+### File: `src/components/government/AnimalHealthHeatmap.tsx`
 
-**1. Update imports (line 5):**
-Add import for `PCRS_TIERS`:
-```tsx
-import { getPCRSTier, PCRS_TIERS, type PCRSTier } from "@/lib/urgencyGlossary";
+**1. Update `getSeverityLevel` function (lines 147-152):**
+
+```typescript
+const getSeverityLevel = (rate: number) => {
+  if (rate >= 20) return { 
+    label: "Critical", 
+    variant: "destructive" as const,
+    badgeClass: ""
+  };
+  if (rate >= 10) return { 
+    label: "High", 
+    variant: "default" as const,
+    badgeClass: "bg-orange-500 hover:bg-orange-500/80 text-white border-orange-500"
+  };
+  if (rate >= 5) return { 
+    label: "Moderate", 
+    variant: "default" as const,
+    badgeClass: "bg-yellow-500 hover:bg-yellow-500/80 text-primary-foreground border-yellow-500"
+  };
+  return { 
+    label: "Low", 
+    variant: "default" as const,
+    badgeClass: "bg-green-500 hover:bg-green-500/80 text-white border-green-500"
+  };
+};
 ```
 
-Add import for `DefinitionBadge`:
+**2. Update Badge usages to include badgeClass:**
+
+All instances where `<Badge variant={severity.variant}>` is used need to add the className:
+
 ```tsx
-import { DefinitionBadge } from "@/components/ui/definition-badge";
+<Badge 
+  variant={severity.variant} 
+  className={`w-fit ${severity.badgeClass}`}
+>
+  {severity.label}
+</Badge>
 ```
 
-**2. Replace Badge with DefinitionBadge (lines 213-220):**
-
-Before:
-```tsx
-{riskTier && riskTier.tier !== 'low' && (
-  <Badge
-    variant={riskTier.badgeVariant}
-    className={`text-xs ${riskTier.textClass}`}
-  >
-    {riskTier.label}
-  </Badge>
-)}
-```
-
-After:
-```tsx
-{riskTier && riskTier.tier !== 'low' && (
-  <DefinitionBadge
-    label={riskTier.label}
-    description={`${riskTier.description}. Score range: ${riskTier.minScore}-${riskTier.maxScore} points.`}
-    variant={riskTier.badgeVariant}
-    className={`text-xs ${riskTier.textClass}`}
-  />
-)}
-```
+Locations to update:
+- Line 186-188 (comparison mode - primary section)
+- Line 232-234 (comparison mode - comparison section)
+- Line 277-279 (main list view)
 
 ---
 
-## Tooltip Content
+## Color Alignment Summary
 
-The PCRS tier definitions from `urgencyGlossary.ts` will be displayed:
-
-| Tier | Description | Score Range |
-|------|-------------|-------------|
-| Critical | Immediate veterinary review required | 75-100 points |
-| High | Priority monitoring, prep calving area | 50-74 points |
-| Moderate | Standard close-up protocols | 25-49 points |
-| Low | Routine monitoring | 0-24 points |
-
----
-
-## Expected Result
-
-Hovering over the "High" or "Critical" badges next to months (e.g., "February 2026") will display a tooltip explaining:
-- What the risk level means
-- The PCRS score range that triggers this tier
+| Level | Legend Color | Heatmap Badge (After Fix) |
+|-------|--------------|---------------------------|
+| Critical | Red (`destructive`) | Red (`destructive`) |
+| High | Orange (`bg-orange-500`) | Orange (`bg-orange-500`) |
+| Moderate | Yellow (`bg-yellow-500`) | Yellow (`bg-yellow-500`) |
+| Low | Green (`bg-green-500`) | Green (`bg-green-500`) |
 
 ---
 
@@ -95,7 +91,7 @@ Hovering over the "High" or "Critical" badges next to months (e.g., "February 20
 
 | Metric | Value |
 |--------|-------|
-| Files modified | 1 (`ExpectedDeliveriesTimeline.tsx`) |
-| Changes | 2 (imports + badge replacement) |
+| Files modified | 1 (`AnimalHealthHeatmap.tsx`) |
+| Changes | 4 (1 function update + 3 Badge className updates) |
 | Breaking changes | None |
-| Testing | Hover over risk badges in Expected Deliveries Timeline |
+| Visual impact | Badge colors now match legend colors exactly |
