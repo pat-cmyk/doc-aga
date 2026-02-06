@@ -244,48 +244,48 @@
  // ============================================
  // HEALTH STATUS SEVERITY (Regional Analytics)
  // ============================================
- export const HEALTH_STATUS_SEVERITY: Record<string, UrgencyDefinition> = {
-   critical: {
-     level: 'critical',
-     label: 'Critical',
-     labelTagalog: 'Kritikal',
-     description: 'Mortality or morbidity rate 20% or higher',
-     descriptionTagalog: 'Mortality o morbidity rate na 20% o higit pa',
-     threshold: 'rate >= 20%',
-     textClass: 'text-destructive',
-     bgClass: 'bg-destructive/10',
-   },
-   high: {
-     level: 'high',
-     label: 'High',
-     labelTagalog: 'Mataas',
-     description: 'Mortality or morbidity rate 10% or higher',
-     descriptionTagalog: 'Mortality o morbidity rate na 10% o higit pa',
-     threshold: 'rate >= 10%',
-     textClass: 'text-orange-600',
-     bgClass: 'bg-orange-50',
-   },
-   moderate: {
-     level: 'moderate',
-     label: 'Moderate',
-     labelTagalog: 'Katamtaman',
-     description: 'Mortality or morbidity rate 5% or higher',
-     descriptionTagalog: 'Mortality o morbidity rate na 5% o higit pa',
-     threshold: 'rate >= 5%',
-     textClass: 'text-yellow-600',
-     bgClass: 'bg-yellow-50',
-   },
-   low: {
-     level: 'low',
-     label: 'Low',
-     labelTagalog: 'Mababa',
-     description: 'Mortality or morbidity rate below 5%',
-     descriptionTagalog: 'Mortality o morbidity rate na mas mababa sa 5%',
-     threshold: 'rate < 5%',
-     textClass: 'text-green-600',
-     bgClass: 'bg-green-50',
-   },
- };
+export const HEALTH_STATUS_SEVERITY: Record<string, UrgencyDefinition> = {
+  critical: {
+    level: 'critical',
+    label: 'Critical',
+    labelTagalog: 'Kritikal',
+    description: 'Health event prevalence rate 20% or higher. High density of reported health concerns relative to animal population.',
+    descriptionTagalog: 'Health event prevalence rate na 20% o higit pa. Mataas na dami ng naiulat na health concerns kumpara sa bilang ng hayop.',
+    threshold: 'rate >= 20%',
+    textClass: 'text-destructive',
+    bgClass: 'bg-destructive/10',
+  },
+  high: {
+    level: 'high',
+    label: 'High',
+    labelTagalog: 'Mataas',
+    description: 'Health event prevalence rate 10% or higher. Elevated health concern activity in the area.',
+    descriptionTagalog: 'Health event prevalence rate na 10% o higit pa. Mataas na aktibidad ng health concerns sa lugar.',
+    threshold: 'rate >= 10%',
+    textClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
+  },
+  moderate: {
+    level: 'moderate',
+    label: 'Moderate',
+    labelTagalog: 'Katamtaman',
+    description: 'Health event prevalence rate 5% or higher. Some health concerns present but manageable.',
+    descriptionTagalog: 'Health event prevalence rate na 5% o higit pa. May mga health concerns pero kayang hawakan.',
+    threshold: 'rate >= 5%',
+    textClass: 'text-yellow-600',
+    bgClass: 'bg-yellow-50',
+  },
+  low: {
+    level: 'low',
+    label: 'Low',
+    labelTagalog: 'Mababa',
+    description: 'Health event prevalence rate below 5%. Minimal health concerns reported.',
+    descriptionTagalog: 'Health event prevalence rate na mas mababa sa 5%. Kaunti lamang ang naiulat na health concerns.',
+    threshold: 'rate < 5%',
+    textClass: 'text-green-600',
+    bgClass: 'bg-green-50',
+  },
+};
  
 // ============================================
 // FARMER FEEDBACK SENTIMENT
