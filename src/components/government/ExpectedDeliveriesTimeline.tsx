@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, AlertTriangle, TrendingUp } from "lucide-react";
 import { format, parseISO, differenceInDays, isAfter, addDays } from "date-fns";
 import { getPCRSTier, type PCRSTier } from "@/lib/urgencyGlossary";
+import { DefinitionBadge } from "@/components/ui/definition-badge";
 import {
   Tooltip,
   TooltipContent,
@@ -211,12 +212,12 @@ export const ExpectedDeliveriesTimeline = ({
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">{format(monthDate, "MMMM yyyy")}</span>
                     {riskTier && riskTier.tier !== 'low' && (
-                      <Badge
+                      <DefinitionBadge
+                        label={riskTier.label}
+                        description={`${riskTier.description}. Score range: ${riskTier.minScore}-${riskTier.maxScore} points.`}
                         variant={riskTier.badgeVariant}
                         className={`text-xs ${riskTier.textClass}`}
-                      >
-                        {riskTier.label}
-                      </Badge>
+                      />
                     )}
                   </div>
                   <Badge variant="secondary">{delivery.total} total</Badge>
