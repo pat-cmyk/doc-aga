@@ -1523,59 +1523,886 @@
    };
  }
  
- // Tool execution dispatcher
- export async function executeAnalystToolCall(
-   toolName: string,
-   args: any,
-   supabase: SupabaseClient,
-   dataCategory?: DataCategory
- ) {
-   console.log(`[RICO] Executing tool: ${toolName}`, args);
- 
-   switch (toolName) {
-     case "get_national_overview":
-       return await getNationalOverview(supabase, dataCategory);
-     
-     case "get_regional_stats":
-       return await getRegionalStats(args, supabase, dataCategory);
-     
-     case "get_breeding_analytics":
-       return await getBreedingAnalytics(args, supabase, dataCategory);
-     
-     case "get_health_analytics":
-       return await getHealthAnalytics(args, supabase, dataCategory);
-     
-     case "get_production_trends":
-       return await getProductionTrends(args, supabase, dataCategory);
-     
-     case "get_farmer_feedback_summary":
-       return await getFarmerFeedbackSummary(args, supabase, dataCategory);
-     
-     case "get_expected_deliveries_analysis":
-       return await getExpectedDeliveriesAnalysis(args, supabase, dataCategory);
-     
-     case "get_delivery_risk_assessment":
-       return await getDeliveryRiskAssessment(args, supabase, dataCategory);
-     
-     case "get_cohort_health_analysis":
-       return await getCohortHealthAnalysis(args, supabase, dataCategory);
-     
-     default:
-       return { error: `Unknown analyst tool: ${toolName}` };
-   }
- }
- 
- // Government Analytics Tools definitions
- export function getAnalystTools(): any[] {
-   return [
-     { type: "function", function: { name: "get_national_overview", description: "Get national-level statistics: total farms, total animals by type, regional distribution, today's total milk production", parameters: { type: "object", properties: {} } } },
-     { type: "function", function: { name: "get_regional_stats", description: "Get statistics for a specific region including farm counts, animal populations, and production", parameters: { type: "object", properties: { region: { type: "string", description: "Region name to filter by (optional - omit for all regions)" } } } } },
-     { type: "function", function: { name: "get_breeding_analytics", description: "Get AI success rates, pregnancy statistics by livestock type", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 90)" } } } } },
-     { type: "function", function: { name: "get_health_analytics", description: "Get health record patterns, common diagnoses, and mortality rates", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
-     { type: "function", function: { name: "get_production_trends", description: "Get milk production trends across all farms", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
-     { type: "function", function: { name: "get_farmer_feedback_summary", description: "Get summary of farmer feedback by category, sentiment, and priority", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
-     { type: "function", function: { name: "get_expected_deliveries_analysis", description: "Get detailed breakdown of expected deliveries by month with health risk assessment, BCS analysis, and potential complications for pregnant animals. Use this to explain WHY deliveries are marked urgent and identify at-risk animals.", parameters: { type: "object", properties: { target_month: { type: "string", description: "Target month in format 'YYYY-MM' (e.g., '2026-03' for March 2026). Omit for overview of all months." }, include_health_risks: { type: "boolean", description: "Include correlation with recent health events (default: true)" } } } } },
-     { type: "function", function: { name: "get_delivery_risk_assessment", description: "Analyze risk factors for upcoming deliveries: health outbreaks, underweight animals (low BCS), regional disease patterns that could impact delivery success", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to analyze (default: 60)" } } } } },
-     { type: "function", function: { name: "get_cohort_health_analysis", description: "Deep health analysis for a specific cohort of animals (pregnant due in specific month, animals in a region, etc.)", parameters: { type: "object", properties: { cohort_filter: { type: "string", description: "Filter type: 'due_month', 'region', 'livestock_type'" }, filter_value: { type: "string", description: "Value for filter (e.g., '2026-03', 'Region IV-A', 'cattle')" } } } } }
-   ];
- }
+// ============= NEW POLICY INTELLIGENCE TOOLS (SSOT-Compliant) =============
+
+/**
+ * Tool: get_semen_analytics
+ * Purpose: Analyze genetic diversity, semen sources, and AI technician performance
+ * SSOT Pattern: Uses getFilteredAnimalIds + batch query + Map aggregation
+ */
+export async function getSemenAnalytics(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const days = args.days || 90;
+  const region = args.region;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  console.log(`[RICO] getSemenAnalytics: Analyzing last ${days} days, region: ${region || 'all'}`);
+
+  // SSOT Step 1: Get filtered animal IDs
+  const animalIds = await getFilteredAnimalIds(supabase, dataCategory);
+  
+  if (animalIds && animalIds.length === 0) {
+    return {
+      period_days: days,
+      unique_semen_sources: 0,
+      total_procedures: 0,
+      top_semen_sources: [],
+      technician_performance: [],
+      message: `No animals found for data category '${dataCategory}'`
+    };
+  }
+
+  // SSOT Step 2: Query AI records with batch pattern
+  let aiRecords: any[] = [];
+  
+  if (animalIds && animalIds.length > MAX_IDS_PER_BATCH) {
+    const result = await batchQuery(animalIds, async (batchIds) => {
+      return await supabase
+        .from('ai_records')
+        .select('semen_code, technician, pregnancy_confirmed, animal_id, performed_date')
+        .gte('performed_date', startDate)
+        .not('performed_date', 'is', null)
+        .in('animal_id', batchIds);
+    });
+    aiRecords = result.data;
+  } else {
+    let query = supabase
+      .from('ai_records')
+      .select('semen_code, technician, pregnancy_confirmed, animal_id, performed_date')
+      .gte('performed_date', startDate)
+      .not('performed_date', 'is', null);
+    
+    if (animalIds) {
+      query = query.in('animal_id', animalIds);
+    }
+    
+    const { data } = await query;
+    aiRecords = data || [];
+  }
+
+  console.log(`[RICO] getSemenAnalytics: Found ${aiRecords.length} AI records`);
+
+  // If region filter, get animal farms and filter
+  if (region && aiRecords.length > 0) {
+    const recordAnimalIds = [...new Set(aiRecords.map(r => r.animal_id))];
+    const { data: animals } = await supabase
+      .from('animals')
+      .select('id, farm_id')
+      .in('id', recordAnimalIds);
+    
+    const farmIds = [...new Set(animals?.map(a => a.farm_id) || [])];
+    const { data: farms } = await supabase
+      .from('farms')
+      .select('id, region')
+      .in('id', farmIds)
+      .eq('region', region);
+    
+    const regionFarmIds = new Set(farms?.map(f => f.id) || []);
+    const regionAnimalIds = new Set(animals?.filter(a => regionFarmIds.has(a.farm_id)).map(a => a.id) || []);
+    aiRecords = aiRecords.filter(r => regionAnimalIds.has(r.animal_id));
+  }
+
+  // SSOT Step 3: Aggregate with Map-based lookups
+  const semenStats = new Map<string, { count: number; confirmed: number }>();
+  const techStats = new Map<string, { count: number; confirmed: number }>();
+
+  aiRecords.forEach(r => {
+    // Semen aggregation
+    const code = r.semen_code || 'Unknown';
+    const current = semenStats.get(code) || { count: 0, confirmed: 0 };
+    current.count++;
+    if (r.pregnancy_confirmed) current.confirmed++;
+    semenStats.set(code, current);
+    
+    // Technician aggregation
+    const tech = r.technician || 'Unknown';
+    const techCurrent = techStats.get(tech) || { count: 0, confirmed: 0 };
+    techCurrent.count++;
+    if (r.pregnancy_confirmed) techCurrent.confirmed++;
+    techStats.set(tech, techCurrent);
+  });
+
+  // Build response
+  return {
+    period_days: days,
+    region_filter: region || 'all',
+    unique_semen_sources: semenStats.size - (semenStats.has('Unknown') ? 1 : 0),
+    total_procedures: aiRecords.length,
+    top_semen_sources: Array.from(semenStats.entries())
+      .filter(([code]) => code !== 'Unknown')
+      .map(([code, stats]) => ({
+        semen_code: code,
+        procedures: stats.count,
+        confirmed: stats.confirmed,
+        success_rate: stats.count > 0 ? Math.round((stats.confirmed / stats.count) * 100) : 0
+      }))
+      .sort((a, b) => b.procedures - a.procedures)
+      .slice(0, 10),
+    technician_performance: Array.from(techStats.entries())
+      .filter(([name]) => name !== 'Unknown')
+      .map(([name, stats]) => ({
+        technician: name,
+        procedures: stats.count,
+        confirmed: stats.confirmed,
+        success_rate: stats.count > 0 ? Math.round((stats.confirmed / stats.count) * 100) : 0
+      }))
+      .sort((a, b) => b.procedures - a.procedures)
+      .slice(0, 10),
+    unknown_semen_count: semenStats.get('Unknown')?.count || 0,
+    unknown_technician_count: techStats.get('Unknown')?.count || 0
+  };
+}
+
+/**
+ * Tool: get_grant_program_analytics
+ * Purpose: Compare performance of grant-distributed vs purchased animals
+ * SSOT Pattern: Uses getFilteredFarmIds + multi-table joins + Map enrichment
+ */
+export async function getGrantProgramAnalytics(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const region = args.region;
+
+  console.log(`[RICO] getGrantProgramAnalytics: region: ${region || 'all'}`);
+
+  // SSOT Step 1: Get filtered farm IDs
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+  
+  // Build farm query
+  let farmsQuery = supabase
+    .from('farms')
+    .select('id, region')
+    .eq('is_deleted', false);
+  
+  if (farmIds) {
+    farmsQuery = farmsQuery.in('id', farmIds);
+  }
+  if (region) {
+    farmsQuery = farmsQuery.eq('region', region);
+  }
+  
+  const { data: farms } = await farmsQuery;
+  const targetFarmIds = farms?.map(f => f.id) || [];
+  
+  if (targetFarmIds.length === 0) {
+    return {
+      total_animals: 0,
+      message: `No farms found for criteria`
+    };
+  }
+
+  // SSOT Step 2: Get animals grouped by acquisition type
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, acquisition_type, grant_source, exit_date, exit_reason, farm_id')
+    .in('farm_id', targetFarmIds)
+    .eq('is_deleted', false);
+
+  console.log(`[RICO] getGrantProgramAnalytics: Found ${animals?.length || 0} animals`);
+
+  if (!animals || animals.length === 0) {
+    return {
+      total_animals: 0,
+      message: "No animals found"
+    };
+  }
+
+  // Group by acquisition type
+  const byAcquisition: Record<string, any[]> = {
+    grant: [],
+    purchased: [],
+    born_on_farm: [],
+    unknown: []
+  };
+
+  animals.forEach(a => {
+    const type = a.acquisition_type || 'unknown';
+    if (byAcquisition[type]) {
+      byAcquisition[type].push(a);
+    } else {
+      byAcquisition['unknown'].push(a);
+    }
+  });
+
+  // Get animal IDs for each group
+  const allAnimalIds = animals.map(a => a.id);
+
+  // SSOT Step 3: Fetch related data for metrics
+  // AI records for breeding success
+  const { data: aiRecords } = await supabase
+    .from('ai_records')
+    .select('animal_id, pregnancy_confirmed')
+    .in('animal_id', allAnimalIds);
+
+  // Milking records for milk production (last 90 days)
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const { data: milkRecords } = await supabase
+    .from('milking_records')
+    .select('animal_id, liters')
+    .in('animal_id', allAnimalIds)
+    .gte('record_date', ninetyDaysAgo);
+
+  // Build lookup maps
+  const aiByAnimal = new Map<string, { total: number; confirmed: number }>();
+  aiRecords?.forEach(r => {
+    const current = aiByAnimal.get(r.animal_id) || { total: 0, confirmed: 0 };
+    current.total++;
+    if (r.pregnancy_confirmed) current.confirmed++;
+    aiByAnimal.set(r.animal_id, current);
+  });
+
+  const milkByAnimal = new Map<string, number>();
+  milkRecords?.forEach(r => {
+    const current = milkByAnimal.get(r.animal_id) || 0;
+    milkByAnimal.set(r.animal_id, current + Number(r.liters));
+  });
+
+  // Calculate metrics for each acquisition type
+  const calculateMetrics = (group: any[]) => {
+    const count = group.length;
+    const exitedCount = group.filter(a => a.exit_date).length;
+    const mortalityCount = group.filter(a => 
+      a.exit_reason?.toLowerCase().includes('death') || 
+      a.exit_reason?.toLowerCase().includes('died')
+    ).length;
+
+    let totalAI = 0, confirmedAI = 0;
+    group.forEach(a => {
+      const ai = aiByAnimal.get(a.id);
+      if (ai) {
+        totalAI += ai.total;
+        confirmedAI += ai.confirmed;
+      }
+    });
+
+    let totalMilk = 0, milkingAnimals = 0;
+    group.forEach(a => {
+      const milk = milkByAnimal.get(a.id);
+      if (milk) {
+        totalMilk += milk;
+        milkingAnimals++;
+      }
+    });
+
+    return {
+      count,
+      exited: exitedCount,
+      mortality_count: mortalityCount,
+      mortality_rate: count > 0 ? Math.round((mortalityCount / count) * 100) : 0,
+      ai_procedures: totalAI,
+      pregnancies_confirmed: confirmedAI,
+      breeding_success_rate: totalAI > 0 ? Math.round((confirmedAI / totalAI) * 100) : 0,
+      total_milk_liters: Math.round(totalMilk),
+      avg_milk_per_animal: milkingAnimals > 0 ? Math.round(totalMilk / milkingAnimals) : 0
+    };
+  };
+
+  // Grant source breakdown
+  const grantSources = new Map<string, any[]>();
+  byAcquisition['grant'].forEach(a => {
+    const source = a.grant_source || 'Unknown';
+    const current = grantSources.get(source) || [];
+    current.push(a);
+    grantSources.set(source, current);
+  });
+
+  const grantSourceMetrics = Array.from(grantSources.entries())
+    .map(([source, group]) => ({
+      source,
+      ...calculateMetrics(group)
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    region_filter: region || 'all',
+    total_animals: animals.length,
+    by_acquisition_type: {
+      grant: calculateMetrics(byAcquisition['grant']),
+      purchased: calculateMetrics(byAcquisition['purchased']),
+      born_on_farm: calculateMetrics(byAcquisition['born_on_farm']),
+      unknown: calculateMetrics(byAcquisition['unknown'])
+    },
+    grant_percentage: Math.round((byAcquisition['grant'].length / animals.length) * 100),
+    grant_sources: grantSourceMetrics,
+    comparison_summary: byAcquisition['grant'].length > 0 && byAcquisition['purchased'].length > 0
+      ? `Grant animals: ${calculateMetrics(byAcquisition['grant']).breeding_success_rate}% AI success, ${calculateMetrics(byAcquisition['grant']).mortality_rate}% mortality. Purchased: ${calculateMetrics(byAcquisition['purchased']).breeding_success_rate}% AI success, ${calculateMetrics(byAcquisition['purchased']).mortality_rate}% mortality.`
+      : "Insufficient data for comparison"
+  };
+}
+
+/**
+ * Tool: get_market_price_intelligence
+ * Purpose: Analyze regional price trends and estimate revenue
+ * SSOT Pattern: Uses getFilteredFarmIds + market_prices table
+ */
+export async function getMarketPriceIntelligence(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const days = args.days || 30;
+  const region = args.region;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  console.log(`[RICO] getMarketPriceIntelligence: last ${days} days, region: ${region || 'all'}`);
+
+  // SSOT Step 1: Get filtered farm IDs
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
+  // Get market prices
+  let pricesQuery = supabase
+    .from('market_prices')
+    .select('livestock_type, price_per_kg, effective_date, region, source')
+    .gte('effective_date', startDate)
+    .order('effective_date', { ascending: false });
+
+  if (region) {
+    pricesQuery = pricesQuery.eq('region', region);
+  }
+
+  const { data: prices } = await pricesQuery;
+
+  console.log(`[RICO] getMarketPriceIntelligence: Found ${prices?.length || 0} price records`);
+
+  if (!prices || prices.length === 0) {
+    return {
+      period_days: days,
+      region_filter: region || 'all',
+      avg_prices_by_species: {},
+      price_trends: [],
+      regional_prices: [],
+      message: "No market price data found for the period"
+    };
+  }
+
+  // Aggregate prices by species
+  const pricesBySpecies = new Map<string, number[]>();
+  const pricesByRegionSpecies = new Map<string, { prices: number[]; latest: number; region: string; species: string }>();
+
+  prices.forEach(p => {
+    const species = p.livestock_type || 'Unknown';
+    const priceList = pricesBySpecies.get(species) || [];
+    priceList.push(Number(p.price_per_kg));
+    pricesBySpecies.set(species, priceList);
+
+    const key = `${p.region || 'Unknown'}-${species}`;
+    const current = pricesByRegionSpecies.get(key) || { prices: [], latest: 0, region: p.region || 'Unknown', species };
+    current.prices.push(Number(p.price_per_kg));
+    current.latest = current.prices[0]; // First is latest due to order
+    pricesByRegionSpecies.set(key, current);
+  });
+
+  // Calculate averages and trends
+  const avgPrices: Record<string, number> = {};
+  const trends: any[] = [];
+
+  pricesBySpecies.forEach((priceList, species) => {
+    const avg = priceList.reduce((a, b) => a + b, 0) / priceList.length;
+    avgPrices[species] = Math.round(avg * 100) / 100;
+
+    // Trend: compare first half vs second half
+    const mid = Math.floor(priceList.length / 2);
+    if (priceList.length >= 4) {
+      const recentAvg = priceList.slice(0, mid).reduce((a, b) => a + b, 0) / mid;
+      const olderAvg = priceList.slice(mid).reduce((a, b) => a + b, 0) / (priceList.length - mid);
+      const change = ((recentAvg - olderAvg) / olderAvg) * 100;
+      
+      trends.push({
+        species,
+        trend: change > 3 ? 'rising' : change < -3 ? 'falling' : 'stable',
+        change_pct: Math.round(change * 10) / 10,
+        sample_count: priceList.length
+      });
+    }
+  });
+
+  // Regional breakdown
+  const regionalPrices = Array.from(pricesByRegionSpecies.values())
+    .map(v => ({
+      region: v.region,
+      species: v.species,
+      latest_price: Math.round(v.latest * 100) / 100,
+      avg_price: Math.round((v.prices.reduce((a, b) => a + b, 0) / v.prices.length) * 100) / 100,
+      sample_count: v.prices.length
+    }))
+    .sort((a, b) => b.sample_count - a.sample_count);
+
+  // Estimate revenue (if we have production data)
+  let revenueEstimate = null;
+  if (farmIds || !dataCategory || dataCategory === 'all') {
+    const { data: milkRecords } = await supabase
+      .from('milking_records')
+      .select('liters')
+      .gte('record_date', startDate);
+
+    const totalLiters = milkRecords?.reduce((sum, r) => sum + Number(r.liters), 0) || 0;
+    const dairyPrice = avgPrices['Dairy Cattle'] || avgPrices['cattle'] || 0;
+    
+    if (totalLiters > 0 && dairyPrice > 0) {
+      // Rough estimate: milk price per liter is ~5% of meat price per kg
+      const estimatedMilkPrice = dairyPrice * 0.05;
+      revenueEstimate = {
+        total_milk_liters: Math.round(totalLiters),
+        estimated_milk_price_per_liter: Math.round(estimatedMilkPrice * 100) / 100,
+        estimated_revenue: Math.round(totalLiters * estimatedMilkPrice)
+      };
+    }
+  }
+
+  return {
+    period_days: days,
+    region_filter: region || 'all',
+    avg_prices_by_species: avgPrices,
+    price_trends: trends,
+    regional_prices: regionalPrices.slice(0, 20),
+    revenue_estimate: revenueEstimate
+  };
+}
+
+/**
+ * Tool: get_feed_security_status
+ * Purpose: Identify regional feed shortage hotspots
+ * SSOT Pattern: Uses getFilteredFarmIds + feed_inventory aggregation
+ * Terminology: Critical (<7 days), Low (7-30 days), Adequate (>30 days) per urgencyGlossary.ts
+ */
+export async function getFeedSecurityStatus(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const region = args.region;
+
+  console.log(`[RICO] getFeedSecurityStatus: region: ${region || 'all'}`);
+
+  // SSOT Step 1: Get filtered farm IDs
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
+  // Get farms with region info
+  let farmsQuery = supabase
+    .from('farms')
+    .select('id, name, region, province')
+    .eq('is_deleted', false);
+
+  if (farmIds) {
+    farmsQuery = farmsQuery.in('id', farmIds);
+  }
+  if (region) {
+    farmsQuery = farmsQuery.eq('region', region);
+  }
+
+  const { data: farms } = await farmsQuery;
+  const targetFarmIds = farms?.map(f => f.id) || [];
+
+  if (targetFarmIds.length === 0) {
+    return {
+      total_farms: 0,
+      message: "No farms found"
+    };
+  }
+
+  // Get feed inventory for farms
+  const { data: feedInventory } = await supabase
+    .from('feed_inventory')
+    .select('farm_id, quantity_kg, category')
+    .in('farm_id', targetFarmIds);
+
+  // Get animals per farm for consumption calculation
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('farm_id')
+    .in('farm_id', targetFarmIds)
+    .eq('is_deleted', false);
+
+  // Build farm lookup
+  const farmMap = new Map(farms?.map(f => [f.id, f]) || []);
+  const animalCountByFarm = new Map<string, number>();
+  animals?.forEach(a => {
+    animalCountByFarm.set(a.farm_id, (animalCountByFarm.get(a.farm_id) || 0) + 1);
+  });
+
+  // Calculate stock days per farm (focusing on roughage - animals can survive on roughage alone)
+  const stockDaysByFarm = new Map<string, number>();
+  const ROUGHAGE_KG_PER_ANIMAL_PER_DAY = 15; // Average roughage consumption
+
+  feedInventory?.forEach(f => {
+    if (f.category?.toLowerCase() === 'roughage') {
+      const current = stockDaysByFarm.get(f.farm_id) || 0;
+      stockDaysByFarm.set(f.farm_id, current + Number(f.quantity_kg));
+    }
+  });
+
+  // Convert to days
+  const farmStockDays: Array<{ farm_id: string; days: number; region: string }> = [];
+  targetFarmIds.forEach(farmId => {
+    const totalKg = stockDaysByFarm.get(farmId) || 0;
+    const animalCount = animalCountByFarm.get(farmId) || 1;
+    const days = Math.floor(totalKg / (animalCount * ROUGHAGE_KG_PER_ANIMAL_PER_DAY));
+    const farm = farmMap.get(farmId);
+    farmStockDays.push({
+      farm_id: farmId,
+      days,
+      region: farm?.region || 'Unknown'
+    });
+  });
+
+  // Classify using urgencyGlossary.ts definitions
+  const critical = farmStockDays.filter(f => f.days < 7);
+  const low = farmStockDays.filter(f => f.days >= 7 && f.days < 30);
+  const adequate = farmStockDays.filter(f => f.days >= 30);
+
+  // Regional hotspots
+  const regionStats = new Map<string, { total: number; critical: number; low: number }>();
+  farmStockDays.forEach(f => {
+    const stats = regionStats.get(f.region) || { total: 0, critical: 0, low: 0 };
+    stats.total++;
+    if (f.days < 7) stats.critical++;
+    else if (f.days < 30) stats.low++;
+    regionStats.set(f.region, stats);
+  });
+
+  const hotspots = Array.from(regionStats.entries())
+    .map(([r, stats]) => ({
+      region: r,
+      total_farms: stats.total,
+      critical_farms: stats.critical,
+      low_farms: stats.low,
+      critical_percentage: Math.round((stats.critical / stats.total) * 100)
+    }))
+    .filter(h => h.critical_farms > 0)
+    .sort((a, b) => b.critical_percentage - a.critical_percentage);
+
+  // Security index (0-100, higher is better)
+  const securityIndex = targetFarmIds.length > 0
+    ? Math.round(((adequate.length + low.length * 0.5) / targetFarmIds.length) * 100)
+    : 0;
+
+  return {
+    region_filter: region || 'all',
+    total_farms: targetFarmIds.length,
+    critical_farms: critical.length,
+    low_farms: low.length,
+    adequate_farms: adequate.length,
+    critical_percentage: Math.round((critical.length / targetFarmIds.length) * 100),
+    low_percentage: Math.round((low.length / targetFarmIds.length) * 100),
+    adequate_percentage: Math.round((adequate.length / targetFarmIds.length) * 100),
+    security_index: securityIndex,
+    hotspot_regions: hotspots.slice(0, 10),
+    terminology_note: "Critical = <7 days stock, Low = 7-30 days, Adequate = >30 days (based on roughage)"
+  };
+}
+
+/**
+ * Tool: get_vaccination_compliance
+ * Purpose: Track preventive health program effectiveness
+ * SSOT Pattern: Uses getFilteredFarmIds + preventive_health_schedules
+ * Terminology: Overdue (past date), Urgent (within 2 days), Soon (within 7 days)
+ */
+export async function getVaccinationCompliance(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const region = args.region;
+  const days = args.days || 90;
+
+  console.log(`[RICO] getVaccinationCompliance: region: ${region || 'all'}, days: ${days}`);
+
+  // SSOT Step 1: Get filtered farm IDs
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
+  // Get farms
+  let farmsQuery = supabase
+    .from('farms')
+    .select('id, region')
+    .eq('is_deleted', false);
+
+  if (farmIds) {
+    farmsQuery = farmsQuery.in('id', farmIds);
+  }
+  if (region) {
+    farmsQuery = farmsQuery.eq('region', region);
+  }
+
+  const { data: farms } = await farmsQuery;
+  const targetFarmIds = farms?.map(f => f.id) || [];
+
+  if (targetFarmIds.length === 0) {
+    return {
+      total_schedules: 0,
+      message: "No farms found"
+    };
+  }
+
+  // Get preventive health schedules
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const { data: schedules } = await supabase
+    .from('preventive_health_schedules')
+    .select('id, schedule_type, status, scheduled_date, completed_date, farm_id')
+    .in('farm_id', targetFarmIds)
+    .gte('scheduled_date', startDate);
+
+  console.log(`[RICO] getVaccinationCompliance: Found ${schedules?.length || 0} schedules`);
+
+  if (!schedules || schedules.length === 0) {
+    return {
+      total_schedules: 0,
+      message: "No preventive health schedules found"
+    };
+  }
+
+  // Classify schedules
+  const byType: Record<string, { total: number; completed: number; overdue: number; urgent: number; soon: number }> = {
+    vaccination: { total: 0, completed: 0, overdue: 0, urgent: 0, soon: 0 },
+    deworming: { total: 0, completed: 0, overdue: 0, urgent: 0, soon: 0 },
+    other: { total: 0, completed: 0, overdue: 0, urgent: 0, soon: 0 }
+  };
+
+  schedules.forEach(s => {
+    const type = s.schedule_type === 'vaccination' || s.schedule_type === 'deworming' 
+      ? s.schedule_type 
+      : 'other';
+    
+    byType[type].total++;
+    
+    if (s.status === 'completed' || s.completed_date) {
+      byType[type].completed++;
+    } else if (s.scheduled_date < today) {
+      byType[type].overdue++;
+    } else if (s.scheduled_date <= twoDaysFromNow) {
+      byType[type].urgent++;
+    } else if (s.scheduled_date <= sevenDaysFromNow) {
+      byType[type].soon++;
+    }
+  });
+
+  const totalCompleted = schedules.filter(s => s.status === 'completed' || s.completed_date).length;
+  const totalOverdue = schedules.filter(s => !s.completed_date && s.scheduled_date < today).length;
+
+  return {
+    region_filter: region || 'all',
+    period_days: days,
+    total_schedules: schedules.length,
+    completed_count: totalCompleted,
+    overdue_count: totalOverdue,
+    compliance_rate: Math.round((totalCompleted / schedules.length) * 100),
+    by_schedule_type: byType,
+    terminology_note: "Overdue = past scheduled date, Urgent = within 2 days, Soon = within 7 days"
+  };
+}
+
+/**
+ * Tool: get_farm_compliance_metrics
+ * Purpose: Track record-keeping compliance across farms
+ * SSOT Pattern: Uses getFilteredFarmIds + activity counts from records tables
+ */
+export async function getFarmComplianceMetrics(args: any, supabase: SupabaseClient, dataCategory?: DataCategory) {
+  const days = args.days || 30;
+  const region = args.region;
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  console.log(`[RICO] getFarmComplianceMetrics: last ${days} days, region: ${region || 'all'}`);
+
+  // SSOT Step 1: Get filtered farm IDs
+  const farmIds = await getFilteredFarmIds(supabase, dataCategory);
+
+  // Get farms
+  let farmsQuery = supabase
+    .from('farms')
+    .select('id, name, region')
+    .eq('is_deleted', false);
+
+  if (farmIds) {
+    farmsQuery = farmsQuery.in('id', farmIds);
+  }
+  if (region) {
+    farmsQuery = farmsQuery.eq('region', region);
+  }
+
+  const { data: farms } = await farmsQuery;
+  const targetFarmIds = farms?.map(f => f.id) || [];
+
+  if (targetFarmIds.length === 0) {
+    return {
+      total_farms: 0,
+      message: "No farms found"
+    };
+  }
+
+  // Get animals per farm
+  const { data: animals } = await supabase
+    .from('animals')
+    .select('id, farm_id')
+    .in('farm_id', targetFarmIds)
+    .eq('is_deleted', false);
+
+  const animalsByFarm = new Map<string, string[]>();
+  animals?.forEach(a => {
+    const list = animalsByFarm.get(a.farm_id) || [];
+    list.push(a.id);
+    animalsByFarm.set(a.farm_id, list);
+  });
+
+  const allAnimalIds = animals?.map(a => a.id) || [];
+
+  // Get activity counts
+  const [milkResult, feedResult, healthResult] = await Promise.all([
+    supabase
+      .from('milking_records')
+      .select('animal_id')
+      .in('animal_id', allAnimalIds)
+      .gte('record_date', startDate),
+    supabase
+      .from('feeding_records')
+      .select('animal_id')
+      .in('animal_id', allAnimalIds)
+      .gte('record_datetime', startDate),
+    supabase
+      .from('health_records')
+      .select('animal_id')
+      .in('animal_id', allAnimalIds)
+      .gte('visit_date', startDate)
+  ]);
+
+  // Count unique farms with activity
+  const farmWithMilking = new Set<string>();
+  const farmWithFeeding = new Set<string>();
+  const farmWithHealth = new Set<string>();
+
+  const animalToFarm = new Map<string, string>();
+  animals?.forEach(a => animalToFarm.set(a.id, a.farm_id));
+
+  milkResult.data?.forEach(r => {
+    const farmId = animalToFarm.get(r.animal_id);
+    if (farmId) farmWithMilking.add(farmId);
+  });
+
+  feedResult.data?.forEach(r => {
+    const farmId = animalToFarm.get(r.animal_id);
+    if (farmId) farmWithFeeding.add(farmId);
+  });
+
+  healthResult.data?.forEach(r => {
+    const farmId = animalToFarm.get(r.animal_id);
+    if (farmId) farmWithHealth.add(farmId);
+  });
+
+  // Calculate compliance
+  const highCompliance = targetFarmIds.filter(id => 
+    farmWithMilking.has(id) && farmWithFeeding.has(id)
+  ).length;
+
+  const lowCompliance = targetFarmIds.filter(id => 
+    !farmWithMilking.has(id) && !farmWithFeeding.has(id) && !farmWithHealth.has(id)
+  ).length;
+
+  // Regional breakdown
+  const farmMap = new Map(farms?.map(f => [f.id, f]) || []);
+  const regionStats = new Map<string, { total: number; high: number; low: number }>();
+
+  targetFarmIds.forEach(id => {
+    const farm = farmMap.get(id);
+    const r = farm?.region || 'Unknown';
+    const stats = regionStats.get(r) || { total: 0, high: 0, low: 0 };
+    stats.total++;
+    if (farmWithMilking.has(id) && farmWithFeeding.has(id)) stats.high++;
+    if (!farmWithMilking.has(id) && !farmWithFeeding.has(id) && !farmWithHealth.has(id)) stats.low++;
+    regionStats.set(r, stats);
+  });
+
+  const byRegion = Array.from(regionStats.entries())
+    .map(([r, stats]) => ({
+      region: r,
+      total_farms: stats.total,
+      high_compliance: stats.high,
+      low_compliance: stats.low,
+      compliance_rate: Math.round((stats.high / stats.total) * 100)
+    }))
+    .sort((a, b) => b.total_farms - a.total_farms);
+
+  return {
+    region_filter: region || 'all',
+    period_days: days,
+    total_farms: targetFarmIds.length,
+    farms_with_milking_logs: farmWithMilking.size,
+    farms_with_feeding_logs: farmWithFeeding.size,
+    farms_with_health_logs: farmWithHealth.size,
+    high_compliance_farms: highCompliance,
+    low_compliance_farms: lowCompliance,
+    milking_completion_rate: Math.round((farmWithMilking.size / targetFarmIds.length) * 100),
+    feeding_completion_rate: Math.round((farmWithFeeding.size / targetFarmIds.length) * 100),
+    overall_compliance_rate: Math.round((highCompliance / targetFarmIds.length) * 100),
+    by_region: byRegion
+  };
+}
+
+// Tool execution dispatcher
+export async function executeAnalystToolCall(
+  toolName: string,
+  args: any,
+  supabase: SupabaseClient,
+  dataCategory?: DataCategory
+) {
+  console.log(`[RICO] Executing tool: ${toolName}`, args);
+
+  switch (toolName) {
+    case "get_national_overview":
+      return await getNationalOverview(supabase, dataCategory);
+    
+    case "get_regional_stats":
+      return await getRegionalStats(args, supabase, dataCategory);
+    
+    case "get_breeding_analytics":
+      return await getBreedingAnalytics(args, supabase, dataCategory);
+    
+    case "get_health_analytics":
+      return await getHealthAnalytics(args, supabase, dataCategory);
+    
+    case "get_production_trends":
+      return await getProductionTrends(args, supabase, dataCategory);
+    
+    case "get_farmer_feedback_summary":
+      return await getFarmerFeedbackSummary(args, supabase, dataCategory);
+    
+    case "get_expected_deliveries_analysis":
+      return await getExpectedDeliveriesAnalysis(args, supabase, dataCategory);
+    
+    case "get_delivery_risk_assessment":
+      return await getDeliveryRiskAssessment(args, supabase, dataCategory);
+    
+    case "get_cohort_health_analysis":
+      return await getCohortHealthAnalysis(args, supabase, dataCategory);
+    
+    // NEW POLICY INTELLIGENCE TOOLS
+    case "get_semen_analytics":
+      return await getSemenAnalytics(args, supabase, dataCategory);
+    
+    case "get_grant_program_analytics":
+      return await getGrantProgramAnalytics(args, supabase, dataCategory);
+    
+    case "get_market_price_intelligence":
+      return await getMarketPriceIntelligence(args, supabase, dataCategory);
+    
+    case "get_feed_security_status":
+      return await getFeedSecurityStatus(args, supabase, dataCategory);
+    
+    case "get_vaccination_compliance":
+      return await getVaccinationCompliance(args, supabase, dataCategory);
+    
+    case "get_farm_compliance_metrics":
+      return await getFarmComplianceMetrics(args, supabase, dataCategory);
+    
+    default:
+      return { error: `Unknown analyst tool: ${toolName}` };
+  }
+}
+
+// Government Analytics Tools definitions
+export function getAnalystTools(): any[] {
+  return [
+    { type: "function", function: { name: "get_national_overview", description: "Get national-level statistics: total farms, total animals by type, regional distribution, today's total milk production", parameters: { type: "object", properties: {} } } },
+    { type: "function", function: { name: "get_regional_stats", description: "Get statistics for a specific region including farm counts, animal populations, and production", parameters: { type: "object", properties: { region: { type: "string", description: "Region name to filter by (optional - omit for all regions)" } } } } },
+    { type: "function", function: { name: "get_breeding_analytics", description: "Get AI success rates, pregnancy statistics by livestock type", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 90)" } } } } },
+    { type: "function", function: { name: "get_health_analytics", description: "Get health record patterns, common diagnoses, and mortality rates", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
+    { type: "function", function: { name: "get_production_trends", description: "Get milk production trends across all farms", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
+    { type: "function", function: { name: "get_farmer_feedback_summary", description: "Get summary of farmer feedback by category, sentiment, and priority", parameters: { type: "object", properties: { days: { type: "number", description: "Number of days to analyze (default: 30)" } } } } },
+    { type: "function", function: { name: "get_expected_deliveries_analysis", description: "Get detailed breakdown of expected deliveries by month with health risk assessment, BCS analysis, and potential complications for pregnant animals. Use this to explain WHY deliveries are marked urgent and identify at-risk animals.", parameters: { type: "object", properties: { target_month: { type: "string", description: "Target month in format 'YYYY-MM' (e.g., '2026-03' for March 2026). Omit for overview of all months." }, include_health_risks: { type: "boolean", description: "Include correlation with recent health events (default: true)" } } } } },
+    { type: "function", function: { name: "get_delivery_risk_assessment", description: "Analyze risk factors for upcoming deliveries: health outbreaks, underweight animals (low BCS), regional disease patterns that could impact delivery success", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to analyze (default: 60)" } } } } },
+    { type: "function", function: { name: "get_cohort_health_analysis", description: "Deep health analysis for a specific cohort of animals (pregnant due in specific month, animals in a region, etc.)", parameters: { type: "object", properties: { cohort_filter: { type: "string", description: "Filter type: 'due_month', 'region', 'livestock_type'" }, filter_value: { type: "string", description: "Value for filter (e.g., '2026-03', 'Region IV-A', 'cattle')" } } } } },
+    // NEW POLICY INTELLIGENCE TOOLS
+    { type: "function", function: { name: "get_semen_analytics", description: "Get semen source distribution, genetic diversity metrics, and AI technician performance. Use this to answer questions about breeding program quality, semen brands/types being used, and technician effectiveness.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 90)" }, region: { type: "string", description: "Optional region filter" } } } } },
+    { type: "function", function: { name: "get_grant_program_analytics", description: "Compare performance of grant-distributed animals vs purchased animals. Tracks mortality rates, breeding success, and milk production by acquisition type and grant source. Use this to evaluate government livestock distribution program effectiveness.", parameters: { type: "object", properties: { region: { type: "string", description: "Optional region filter" } } } } },
+    { type: "function", function: { name: "get_market_price_intelligence", description: "Analyze regional market price trends for livestock and estimate revenue. Tracks price changes over time and identifies rising/falling/stable trends by species.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 30)" }, region: { type: "string", description: "Optional region filter" } } } } },
+    { type: "function", function: { name: "get_feed_security_status", description: "Identify regional feed shortage hotspots. Classifies farms as Critical (<7 days stock), Low (7-30 days), or Adequate (>30 days). Calculates security index and identifies regions at risk.", parameters: { type: "object", properties: { region: { type: "string", description: "Optional region filter" } } } } },
+    { type: "function", function: { name: "get_vaccination_compliance", description: "Track vaccination and deworming program compliance. Shows completed, overdue, urgent (within 2 days), and upcoming schedules. Calculates compliance rates by schedule type.", parameters: { type: "object", properties: { region: { type: "string", description: "Optional region filter" }, days: { type: "number", description: "Analysis period in days (default: 90)" } } } } },
+    { type: "function", function: { name: "get_farm_compliance_metrics", description: "Track record-keeping compliance across farms. Measures milking log, feeding log, and health record activity. Identifies high and low compliance farms by region.", parameters: { type: "object", properties: { days: { type: "number", description: "Analysis period in days (default: 30)" }, region: { type: "string", description: "Optional region filter" } } } } }
+  ];
+}

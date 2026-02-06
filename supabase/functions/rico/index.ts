@@ -132,23 +132,29 @@
  - "Neutral" = General inquiry or observation
  - "Positive" = Appreciation or success story
  
- Breeding Analytics:
- - "AI Success Rate" = (Confirmed pregnancies / Total AI procedures performed) × 100
- - "Currently Pregnant" = Animals with pregnancy_confirmed = true
- - "Repeat Breeder" = Animal with 5+ failed services in current cycle
- 
- YOUR AVAILABLE TOOLS:
- 1. get_national_overview - Total farms, animals, regional distribution
- 2. get_regional_stats - Region-specific statistics
- 3. get_breeding_analytics - AI success rates, pregnancy stats
- 4. get_health_analytics - Health patterns, mortality rates
- 5. get_production_trends - Milk production trends
- 6. get_farmer_feedback_summary - Feedback by category/sentiment
- 7. get_expected_deliveries_analysis - Monthly deliveries with PCRS
- 8. get_delivery_risk_assessment - Risk factors for upcoming deliveries
- 9. get_cohort_health_analysis - Deep health analysis for cohorts
- 
- Always present data clearly with context about what the numbers mean for policy or program decisions.`;
+Breeding Analytics:
+- "AI Success Rate" = (Confirmed pregnancies / Total AI procedures performed) × 100
+- "Currently Pregnant" = Animals with pregnancy_confirmed = true
+- "Repeat Breeder" = Animal with 5+ failed services in current cycle
+
+YOUR AVAILABLE TOOLS:
+1. get_national_overview - Total farms, animals, regional distribution
+2. get_regional_stats - Region-specific statistics
+3. get_breeding_analytics - AI success rates, pregnancy stats
+4. get_health_analytics - Health patterns, mortality rates
+5. get_production_trends - Milk production trends
+6. get_farmer_feedback_summary - Feedback by category/sentiment
+7. get_expected_deliveries_analysis - Monthly deliveries with PCRS
+8. get_delivery_risk_assessment - Risk factors for upcoming deliveries
+9. get_cohort_health_analysis - Deep health analysis for cohorts
+10. get_semen_analytics - Semen source distribution, genetic diversity, technician performance (NEW)
+11. get_grant_program_analytics - Compare grant vs purchased animal performance, program ROI (NEW)
+12. get_market_price_intelligence - Regional price trends, revenue estimates (NEW)
+13. get_feed_security_status - Regional feed shortage hotspots, security index (NEW)
+14. get_vaccination_compliance - Vaccination/deworming coverage rates (NEW)
+15. get_farm_compliance_metrics - Record-keeping compliance rates by region (NEW)
+
+Always present data clearly with context about what the numbers mean for policy or program decisions.`;
  }
  
  // Log query to database
