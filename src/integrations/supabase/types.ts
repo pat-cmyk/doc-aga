@@ -4400,6 +4400,29 @@ export type Database = {
           source: string
         }[]
       }
+      get_regional_data_quality: {
+        Args: {
+          data_category_filter?: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+        }
+        Returns: {
+          animals_with_weight: number
+          farms_with_gps: number
+          farms_with_health_logs: number
+          farms_with_production_logs: number
+          gps_coverage_pct: number
+          health_recording_pct: number
+          overall_quality_score: number
+          production_tracking_pct: number
+          province: string
+          region: string
+          total_animals: number
+          total_farms: number
+          weight_completeness_pct: number
+        }[]
+      }
       get_regional_feed_security:
         | {
             Args: {
@@ -4482,6 +4505,25 @@ export type Database = {
               sample_count: number
             }[]
           }
+      get_regional_pcrs_summary: {
+        Args: {
+          data_category_filter?: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+        }
+        Returns: {
+          avg_risk_score: number
+          critical_count: number
+          high_count: number
+          low_count: number
+          moderate_count: number
+          monthly_breakdown: Json
+          province: string
+          region: string
+          total_pregnant: number
+        }[]
+      }
       get_stt_analytics: {
         Args: { end_date?: string; start_date?: string }
         Returns: Json
