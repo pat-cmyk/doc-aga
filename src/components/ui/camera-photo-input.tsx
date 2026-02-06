@@ -141,7 +141,6 @@ export function CameraPhotoInput({
         ref={fileInputRef}
         type="file"
         accept={accept}
-        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />
