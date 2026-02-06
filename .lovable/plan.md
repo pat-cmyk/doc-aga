@@ -1,93 +1,94 @@
 
 
-# Phase 2 Completion: Remove Unused Government Functions
+# Fix RICO Edge Function API Key Configuration
 
-## Summary
+## Problem Identified
 
-The `doc-aga/index.ts` file still contains two unused government functions that were left behind after the cleanup. These need to be removed to complete the Phase 2 refactor.
+The RICO edge function is failing with the error "Missing LOVABLE_AI_KEY" because:
 
----
+| What's Configured | What RICO is Looking For |
+|-------------------|-------------------------|
+| `LOVABLE_API_KEY` | `LOVABLE_AI_KEY` |
 
-## Current State Analysis
-
-The file is 868 lines, with lines 164-275 containing legacy code:
-
-| Lines | Function | Status |
-|-------|----------|--------|
-| 164-260 | `getGovernmentAnalystPrompt()` | **UNUSED** - Remove |
-| 262-275 | `getGovernmentTools()` | **UNUSED** - Remove |
-
-The main handler (lines 688-690) already correctly uses only farmer functions:
-```typescript
-const systemPrompt = getFarmerSystemPrompt(faqContext, dateContext);
-const tools = getFarmerTools();
-```
+The secret name is `LOVABLE_API_KEY` (standard Lovable AI gateway key), but the RICO function code uses `LOVABLE_AI_KEY`.
 
 ---
 
-## Changes to Make
+## Root Cause
 
-### `supabase/functions/doc-aga/index.ts`
+When the RICO edge function was created, it used incorrect environment variable names:
+- Line 270: `LOVABLE_AI_URL` (incorrect)
+- Line 271: `LOVABLE_AI_KEY` (incorrect)
 
-**Remove lines 164-275** (~112 lines):
+The correct names (matching Lovable AI documentation) are:
+- Lovable AI Gateway URL: `https://ai.gateway.lovable.dev/v1/chat/completions` (hardcoded)
+- API Key: `LOVABLE_API_KEY`
+
+---
+
+## Fix Required
+
+**File: `supabase/functions/rico/index.ts`**
+
+| Line | Current | Fix |
+|------|---------|-----|
+| 270 | `Deno.env.get('LOVABLE_AI_URL') \|\| "https://ai-gateway.lovable.ai"` | Use correct URL: `"https://ai.gateway.lovable.dev/v1/chat/completions"` |
+| 271 | `Deno.env.get('LOVABLE_AI_KEY')` | Change to `Deno.env.get('LOVABLE_API_KEY')` |
+| 273-274 | Error message | Update to reflect correct variable name |
+
+---
+
+## Code Changes
 
 ```typescript
-// ❌ DELETE: getGovernmentAnalystPrompt() - lines 164-260
-function getGovernmentAnalystPrompt(currentDate: string): string {
-  return `You are Doc Aga Analytics...`;
+// Before (lines 269-275):
+const LOVABLE_AI_URL = Deno.env.get('LOVABLE_AI_URL') || "https://ai-gateway.lovable.ai";
+const LOVABLE_AI_KEY = Deno.env.get('LOVABLE_AI_KEY');
+
+if (!LOVABLE_AI_KEY) {
+  console.error('[RICO] Missing LOVABLE_AI_KEY');
+  ...
 }
 
-// ❌ DELETE: getGovernmentTools() - lines 262-275
-function getGovernmentTools(): any[] {
-  return [...];
+// After:
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+if (!LOVABLE_API_KEY) {
+  console.error('[RICO] Missing LOVABLE_API_KEY');
+  ...
 }
 ```
 
-**Keep everything else intact:**
-- Rate limiting (lines 11-46)
-- Request schema (lines 49-60)
-- FAQ matching (lines 63-116)
-- Query logging (lines 118-162)
-- DateContext interface (lines 277-282)
-- `getFarmerSystemPrompt()` (lines 285-402)
-- `getFarmerTools()` (lines 405-437)
-- Main handler (lines 440-868)
+Also update line 304:
+```typescript
+// Before:
+"Authorization": `Bearer ${LOVABLE_AI_KEY}`
 
----
-
-## File Size Impact
-
-| Metric | Before | After |
-|--------|--------|-------|
-| Total Lines | 868 | ~756 |
-| Reduction | - | ~13% |
-
----
-
-## After This Change
-
-The Doc Aga edge function will be completely farmer-focused:
-
-```text
-doc-aga/index.ts structure:
-├── Rate limiting (35 lines)
-├── Schema validation (12 lines)
-├── FAQ matching (54 lines)
-├── Query logging (45 lines)
-├── DateContext interface (6 lines)
-├── getFarmerSystemPrompt() (118 lines)
-├── getFarmerTools() (33 lines)
-└── Main handler (428 lines)
+// After:
+"Authorization": `Bearer ${LOVABLE_API_KEY}`
 ```
 
-All government analytics are now handled exclusively by the RICO edge function.
+---
+
+## Implementation Steps
+
+1. Update `supabase/functions/rico/index.ts`:
+   - Line 270: Use correct Lovable AI gateway URL
+   - Line 271: Change `LOVABLE_AI_KEY` to `LOVABLE_API_KEY`
+   - Line 274: Update error message
+   - Line 304: Update Authorization header variable
+
+2. Deploy the updated RICO edge function
+
+3. Test the RICO chat on the government dashboard
 
 ---
 
 ## Verification
 
 After deployment:
-1. ✅ Farmer dashboard - Doc Aga works (voice, image, chat)
-2. ✅ Government dashboard - RICO handles analytics (blue FAB)
-3. ✅ No unused code in doc-aga function
+- [ ] RICO responds to queries without "AI service unavailable" error
+- [ ] Government dashboard analytics work correctly
+- [ ] No console errors about missing API keys
 
