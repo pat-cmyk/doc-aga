@@ -37,6 +37,8 @@ import { VeterinaryExpenseHeatmap } from "@/components/government/VeterinaryExpe
 import { MilkProductionBySpeciesChart } from "@/components/government/MilkProductionBySpeciesChart";
 import { FeedSecurityCard } from "@/components/government/FeedSecurityCard";
 import { MarketPriceAnalyticsCard } from "@/components/government/MarketPriceAnalyticsCard";
+import { DataQualityDashboardCard } from "@/components/government/DataQualityDashboardCard";
+import { RegionalPCRSCard } from "@/components/government/RegionalPCRSCard";
 import { FarmOperationalHealthCard } from "@/components/government/FarmOperationalHealthCard";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
@@ -1227,6 +1229,30 @@ const GovernmentDashboard = () => {
                 province={primaryProvince}
                 dataCategory={dataCategory}
               />
+            </div>
+
+            {/* Data Quality & Risk Management */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <DatabaseIcon className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Data Quality & Risk Management</h3>
+                <span className="text-sm text-muted-foreground">Monitoring data completeness and pre-calving risk</span>
+              </div>
+              
+              <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                <DataQualityDashboardCard
+                  region={primaryRegion}
+                  province={primaryProvince}
+                  municipality={primaryMunicipality}
+                  dataCategory={dataCategory}
+                />
+                <RegionalPCRSCard
+                  region={primaryRegion}
+                  province={primaryProvince}
+                  municipality={primaryMunicipality}
+                  dataCategory={dataCategory}
+                />
+              </div>
             </div>
 
             {/* Coming Soon Sections */}
