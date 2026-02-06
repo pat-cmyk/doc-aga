@@ -624,11 +624,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => setEditWeightDialogOpen(true)}
+                      onClick={() => setEditAnimalDialogOpen(true)}
                       disabled={!isOnline}
                     >
                       <Pencil className="h-4 w-4 mr-1" />
-                      Edit Details
+                      Edit All Details
                     </Button>
                     <RecordAnimalExitDialog 
                       animalId={animalId}
