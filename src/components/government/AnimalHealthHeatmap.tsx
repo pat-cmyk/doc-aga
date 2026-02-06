@@ -145,10 +145,26 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
   };
 
   const getSeverityLevel = (rate: number) => {
-    if (rate >= 20) return { label: "Critical", variant: "destructive" as const };
-    if (rate >= 10) return { label: "High", variant: "default" as const };
-    if (rate >= 5) return { label: "Moderate", variant: "secondary" as const };
-    return { label: "Low", variant: "outline" as const };
+    if (rate >= 20) return { 
+      label: "Critical", 
+      variant: "destructive" as const,
+      badgeClass: ""
+    };
+    if (rate >= 10) return { 
+      label: "High", 
+      variant: "default" as const,
+      badgeClass: "bg-orange-500 hover:bg-orange-500/80 text-white border-orange-500"
+    };
+    if (rate >= 5) return { 
+      label: "Moderate", 
+      variant: "default" as const,
+      badgeClass: "bg-yellow-500 hover:bg-yellow-500/80 text-primary-foreground border-yellow-500"
+    };
+    return { 
+      label: "Low", 
+      variant: "default" as const,
+      badgeClass: "bg-green-500 hover:bg-green-500/80 text-white border-green-500"
+    };
   };
 
   return (
@@ -183,7 +199,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                             <p className="font-medium truncate">{item.municipality}</p>
                             <p className="text-sm text-muted-foreground">{item.region}</p>
                           </div>
-                          <Badge variant={severity.variant} className="w-fit">
+                          <Badge variant={severity.variant} className={`w-fit ${severity.badgeClass}`}>
                             {severity.label}
                           </Badge>
                         </div>
@@ -229,7 +245,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                             <p className="font-medium truncate">{item.municipality}</p>
                             <p className="text-sm text-muted-foreground">{item.region}</p>
                           </div>
-                          <Badge variant={severity.variant} className="w-fit">
+                          <Badge variant={severity.variant} className={`w-fit ${severity.badgeClass}`}>
                             {severity.label}
                           </Badge>
                         </div>
@@ -274,7 +290,7 @@ export const AnimalHealthHeatmap = ({ data, comparisonData, isLoading, error, co
                       <p className="font-medium truncate">{item.municipality}</p>
                       <p className="text-sm text-muted-foreground">{item.region}</p>
                     </div>
-                    <Badge variant={severity.variant} className="w-fit">
+                    <Badge variant={severity.variant} className={`w-fit ${severity.badgeClass}`}>
                       {severity.label}
                     </Badge>
                   </div>
