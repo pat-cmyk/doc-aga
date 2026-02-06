@@ -1,88 +1,136 @@
 
-# Fix Plan: Allow Camera or Gallery Selection on Mobile Web
 
-## Problem
+# Fix Plan: Unify Animal Profile Editing Experience for Mobile and Desktop
 
-When farmers tap "Upload Logo" or "Change Logo" on Samsung Internet browser (or other mobile web browsers), it directly opens the camera. There's no option to select photos from the gallery/photo library.
+## Problem Summary
 
-## Root Cause
+The animal profile page has different editing capabilities on mobile vs desktop:
 
-The hidden file input in `CameraPhotoInput` component has the `capture="environment"` attribute:
+| View | Current Button | Dialog Used | Capabilities |
+|------|----------------|-------------|--------------|
+| **Desktop** | "Edit All Details" | `EditAnimalDialog` | Full editing: Name, Ear Tag, Livestock Type, Gender, Breed, Birth Date, Farm Entry Date, Milking Start Date, Parentage (Mother/Father), Entry/Birth/Current Weight, Acquisition Type, Purchase Price, Grant Source, Lactation Status, Delete Animal |
+| **Mobile** | "Edit Details" | `EditAcquisitionWeightDialog` | Limited: Entry/Birth Weight, Acquisition Type, Purchase Price, Grant Source only |
 
-```html
-<input
-  type="file"
-  accept="image/*"
-  capture="environment"  ← This forces camera-only on mobile browsers
-/>
-```
+This creates an inconsistent user experience where farmers on mobile devices cannot edit basic animal information like name, ear tag, breed, gender, or dates.
 
-This HTML attribute tells mobile browsers to bypass the file picker and go directly to the camera.
+---
 
 ## Solution
 
-Remove the `capture` attribute from the file input. Without this attribute, mobile browsers will show their native file picker dialog that gives users the choice to either:
-- Take a new photo with the camera
-- Choose an existing photo from the gallery
+Replace the mobile "Edit Details" button (which opens `EditAcquisitionWeightDialog`) with the same "Edit All Details" button that desktop uses (which opens `EditAnimalDialog`).
+
+---
 
 ## File to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/ui/camera-photo-input.tsx` | Remove `capture="environment"` from the input element |
+| `src/components/AnimalDetails.tsx` | Update mobile action buttons section (lines 622-654) |
 
-## Code Change
+---
 
-**Before (Line 140-147):**
+## Code Changes
+
+### Current Mobile Implementation (Lines 622-654)
+
+The mobile layout shows "Edit Details" button that opens the limited weight/acquisition dialog:
+
 ```tsx
-<input
-  ref={fileInputRef}
-  type="file"
-  accept={accept}
-  capture="environment"
-  className="hidden"
-  onChange={handleFileChange}
-/>
+{!readOnly && (
+  <div className="flex flex-col gap-2 items-end">
+    <Button 
+      variant="outline" 
+      size="sm"
+      onClick={() => setEditWeightDialogOpen(true)}  // Opens limited dialog
+      disabled={!isOnline}
+    >
+      <Pencil className="h-4 w-4 mr-1" />
+      Edit Details  // Limited label
+    </Button>
+    <RecordAnimalExitDialog ... />
+    {animal.gender === 'Female' && (
+      <DryOffAnimalButton ... />
+    )}
+    <RecalculateSingleAnimalButton ... />
+  </div>
+)}
 ```
 
-**After:**
+### Updated Mobile Implementation
+
+Change to match desktop behavior:
+
 ```tsx
-<input
-  ref={fileInputRef}
-  type="file"
-  accept={accept}
-  className="hidden"
-  onChange={handleFileChange}
-/>
+{!readOnly && (
+  <div className="flex flex-col gap-2 items-end">
+    <Button 
+      variant="outline" 
+      size="sm"
+      onClick={() => setEditAnimalDialogOpen(true)}  // Opens full dialog
+      disabled={!isOnline}
+    >
+      <Pencil className="h-4 w-4 mr-1" />
+      Edit All Details  // Consistent label
+    </Button>
+    <RecordAnimalExitDialog ... />
+    {animal.gender === 'Female' && (
+      <DryOffAnimalButton ... />
+    )}
+    <RecalculateSingleAnimalButton ... />
+  </div>
+)}
 ```
 
-## Impact
+---
 
-This fix applies to **all 9 places** where `CameraPhotoInput` is used:
+## Technical Details
 
-1. Farm Logo Upload (`FarmLogoUpload.tsx`)
-2. Animal Avatar Upload (`AnimalDetails.tsx` - 2 places)
-3. Animal Profile Photo (`AnimalProfile.tsx`)
-4. Doc Aga Image Input (`DocAga.tsx`)
-5. Merchant Product Images (`ProductFormDialog.tsx`)
-6. Health Record Attachments (`AddHealthRecordDialog.tsx`)
-7. Single Health Recording Photos (`RecordSingleHealthDialog.tsx`)
-8. Merchant Profile Logo (`MerchantProfile.tsx`)
+### State Already Exists
+The `editAnimalDialogOpen` state is already defined at line 246:
+```tsx
+const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
+```
 
-## Technical Notes
+### EditAnimalDialog Already Rendered
+The `EditAnimalDialog` component is already rendered at lines 1254-1288, so no additional dialog needs to be added.
 
-- **Native Apps (Capacitor)**: This change does not affect native Android/iOS apps. The native camera flow uses Capacitor's Camera plugin with `CameraSource.Prompt` which already shows camera/gallery options.
-- **Web Browsers**: Removing `capture` allows the browser's native file picker to offer both camera and gallery options.
-- **Behavior on Different Browsers**:
-  - Samsung Internet: Will show "Camera" + "Gallery" options
-  - Chrome Mobile: Will show "Camera" + "Files" + "Gallery" options
-  - Safari iOS: Will show "Take Photo" + "Photo Library" + "Browse" options
+### EditAnimalDialog Mobile Compatibility
+The `EditAnimalDialog` component is already mobile-friendly:
+- Uses `ScrollArea` with `max-h-[calc(90vh-180px)]` for scrollable content
+- Collapsible sections to manage screen space
+- Uses `max-w-2xl` which scales appropriately on mobile
+
+---
+
+## Change Impact Summary
+
+**Modified Files:**
+- `src/components/AnimalDetails.tsx` - Change button onClick handler and label in mobile section
+
+**Data Flow:**
+- No data flow changes - using existing `EditAnimalDialog` which has its own data fetching via `useEditAnimalForm` hook
+
+**Consumers Verified:**
+- `EditAnimalDialog` already handles all form validation and submission
+- State `editAnimalDialogOpen` already exists and is managed
+- Dialog component already rendered in the component
+
+**Breaking Changes:** None
+
+---
 
 ## Testing Points
 
-After implementation, verify on a mobile device with Samsung Internet browser:
-1. Navigate to Farm Settings → Farm Logo section
-2. Tap "Upload Logo" or "Change Logo"
-3. Confirm a picker appears with options for both Camera and Gallery
-4. Test selecting from Gallery works correctly
-5. Test taking a new photo still works correctly
+1. Open animal profile on a mobile device or narrow browser window
+2. Verify "Edit All Details" button appears (not "Edit Details")
+3. Tap the button and confirm the full `EditAnimalDialog` opens with:
+   - Basic Information section (Name, Ear Tag, Livestock Type, Gender, Breed)
+   - Dates section (Birth Date, Farm Entry Date, Milking Start Date)
+   - Parentage section (Mother, Father)
+   - Weight section (Entry/Birth/Current Weight)
+   - Acquisition section (if applicable)
+   - Lactation section (if female)
+   - Delete Animal option at bottom
+4. Make a change and save - verify it persists
+5. Test on desktop to ensure no regression
+
