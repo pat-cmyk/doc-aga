@@ -156,7 +156,7 @@ export function EditAnimalDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[calc(90vh-180px)] px-6">
+          <ScrollArea className="max-h-[calc(90dvh-180px)] px-6">
             <div className="space-y-4 py-4">
               {/* Basic Information Section */}
               <Collapsible open={openSections.basic} onOpenChange={() => toggleSection("basic")}>
@@ -258,7 +258,7 @@ export function EditAnimalDialog({
 
                   {/* Mix Breed selectors */}
                   {formData.breed === "Mix Breed" && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <BilingualLabel english="First Breed" filipino="Unang Lahi" required />
                         <Select
@@ -664,7 +664,7 @@ export function EditAnimalDialog({
             </div>
           </ScrollArea>
 
-          <DialogFooter className="px-6 py-4 border-t">
+          <DialogFooter className="px-6 py-4 border-t pb-safe">
             <div className="flex flex-col gap-3 w-full">
               {/* Validation summary */}
               {!isFormValid && hasChanges && (
@@ -677,40 +677,22 @@ export function EditAnimalDialog({
                   </span>
                 </div>
               )}
-              <div className="flex items-center justify-between w-full">
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={saving || deleting}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={resetForm}
-                    disabled={!hasChanges || saving || deleting}
-                    className="gap-1"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Reset
-                  </Button>
-                </div>
-                <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+                {/* Primary actions first on mobile (Save/Cancel), last on desktop */}
+                <div className="flex gap-2 order-first sm:order-last">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleClose}
                     disabled={saving || deleting}
+                    className="flex-1 sm:flex-none"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
                     disabled={saving || deleting || !hasChanges || !isFormValid}
+                    className="flex-1 sm:flex-none"
                   >
                     {saving ? (
                       <>
@@ -720,6 +702,31 @@ export function EditAnimalDialog({
                     ) : (
                       "Save Changes"
                     )}
+                  </Button>
+                </div>
+                {/* Secondary actions second on mobile (Delete/Reset), first on desktop */}
+                <div className="flex gap-2 order-last sm:order-first">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={saving || deleting}
+                    className="sm:h-10 sm:px-4 sm:py-2"
+                  >
+                    <Trash2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetForm}
+                    disabled={!hasChanges || saving || deleting}
+                    className="sm:h-10 sm:px-4 sm:py-2"
+                  >
+                    <RotateCcw className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Reset</span>
                   </Button>
                 </div>
               </div>
