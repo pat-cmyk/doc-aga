@@ -1,45 +1,52 @@
 
-# AI Learning & Feedback Enhancement Plan
+# Enhancement: Trending Topics & Topic-Based FAQ Curation
 
 ## Overview
 
-This plan implements two interconnected learning features for Doc Aga:
+This plan enhances the existing Admin Dashboard's Doc Aga Management section by adding trending topic analysis and topic-based FAQ curation. This avoids duplication with existing features while filling the gap of category-level insights for knowledge base enrichment.
 
-1. **Thumbs Up/Down Feedback** - Farmers rate AI responses for quality tracking
-2. **Automatic FAQ Candidate Extraction** - System identifies frequent unmatched questions for knowledge base enrichment
+## Current State Analysis
+
+The admin dashboard already has:
+- **FAQ Candidates Tab**: Auto-clusters similar questions by text similarity
+- **Analytics Tab**: Shows unmatched queries list (first 10)
+- **FAQ Management Tab**: CRUD for the knowledge base
+
+What's missing is the ability to see **which topic areas** have the most unmatched queries and need FAQ coverage.
+
+---
 
 ## Architecture
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Farmer Interface                            │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  DocAgaConsultation.tsx                                 │   │
-│  │  [AI Response] [👍] [👎]                                │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Database Layer                               │
-│  ┌──────────────────────┐    ┌─────────────────────────────┐   │
-│  │ doc_aga_queries      │    │ faq_candidates              │   │
-│  │ + feedback_rating    │    │ (NEW TABLE)                 │   │
-│  │ + feedback_comment   │    │ - question_text             │   │
-│  │ + feedback_at        │    │ - similar_count             │   │
-│  └──────────────────────┘    │ - sample_query_ids          │   │
-│                              │ - status (pending/approved) │   │
-│                              └─────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  Admin Dashboard                                │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  DocAgaManagement.tsx                                   │   │
-│  │  - Feedback Analytics Tab                               │   │
-│  │  - FAQ Candidates Tab (review & approve)                │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│                   Doc Aga Management                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Tabs: Analytics | Feedback | FAQ Candidates | ...              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │           ENHANCED Analytics Tab                          │  │
+│  │                                                           │  │
+│  │  ┌─────────────────┐  ┌─────────────────┐               │  │
+│  │  │ Query Timeline  │  │ Trending Topics │  <-- NEW      │  │
+│  │  │     Chart       │  │   Bar Chart     │               │  │
+│  │  └─────────────────┘  └─────────────────┘               │  │
+│  │                                                           │  │
+│  │  ┌────────────────────────────────────────────────────┐  │  │
+│  │  │        Topic Coverage Analysis (NEW)                │  │  │
+│  │  │  Shows topics with most unmatched vs matched       │  │  │
+│  │  │  queries - identifies knowledge gaps               │  │  │
+│  │  └────────────────────────────────────────────────────┘  │  │
+│  │                                                           │  │
+│  │  ┌────────────────────────────────────────────────────┐  │  │
+│  │  │     Browse by Topic (NEW)                          │  │  │
+│  │  │  [Mastitis] [Breeding] [Feeding] [Digestive]...    │  │  │
+│  │  │  Click topic -> Filtered unmatched queries         │  │  │
+│  │  │  -> Quick "Create FAQ" action per query            │  │  │
+│  │  └────────────────────────────────────────────────────┘  │  │
+│  │                                                           │  │
+│  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -47,221 +54,220 @@ This plan implements two interconnected learning features for Doc Aga:
 
 ## Changes Overview
 
-| Component | Changes |
-|-----------|---------|
-| Database Migration | Add feedback columns to `doc_aga_queries`, create `faq_candidates` table |
-| Edge Function | New `extract-faq-candidates` for clustering similar questions |
-| DocAgaConsultation.tsx | Add thumbs up/down buttons after AI responses |
-| DocAgaManagement.tsx | Add Feedback Analytics tab and FAQ Candidates review tab |
-| New Hook | `useDocAgaFeedback.ts` for submitting ratings |
+| Component | Action | Description |
+|-----------|--------|-------------|
+| `src/lib/queryTopicCategorizer.ts` | Create | Shared topic categorization logic (extracted from FarmerQueriesTopics) |
+| `src/components/admin/TrendingTopicsCard.tsx` | Create | Bar chart showing query distribution by topic |
+| `src/components/admin/TopicCoverageCard.tsx` | Create | Shows matched vs unmatched ratio per topic |
+| `src/components/admin/TopicBrowseCard.tsx` | Create | Topic pills + filtered query list with quick FAQ create |
+| `DocAgaManagement.tsx` | Modify | Add new cards to Analytics tab |
 
 ---
 
-## Part 1: Thumbs Up/Down Feedback Mechanism
+## Part 1: Shared Topic Categorization Utility
 
-### 1.1 Database Schema Changes
+### File: `src/lib/queryTopicCategorizer.ts`
 
-Add columns to `doc_aga_queries`:
-
-```sql
-ALTER TABLE public.doc_aga_queries
-ADD COLUMN feedback_rating text CHECK (feedback_rating IN ('positive', 'negative')),
-ADD COLUMN feedback_comment text,
-ADD COLUMN feedback_at timestamptz;
-```
-
-RLS policies already allow users to update their own queries.
-
-### 1.2 UI Component Changes
-
-**File: `src/components/farmhand/DocAgaConsultation.tsx`**
-
-Add to Message interface:
-```typescript
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  audioUrl?: string;
-  showText?: boolean;
-  queryId?: string;        // NEW: Links to doc_aga_queries.id
-  feedbackRating?: 'positive' | 'negative' | null;  // NEW
-}
-```
-
-Add feedback buttons below each assistant message:
-```typescript
-{message.role === "assistant" && message.queryId && (
-  <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50">
-    <span className="text-xs text-muted-foreground mr-2">Nakatulong ba?</span>
-    <Button
-      size="sm"
-      variant={message.feedbackRating === 'positive' ? 'default' : 'ghost'}
-      className="h-7 w-7 p-0"
-      onClick={() => handleFeedback(index, 'positive')}
-    >
-      <ThumbsUp className="h-3.5 w-3.5" />
-    </Button>
-    <Button
-      size="sm"
-      variant={message.feedbackRating === 'negative' ? 'destructive' : 'ghost'}
-      className="h-7 w-7 p-0"
-      onClick={() => handleFeedback(index, 'negative')}
-    >
-      <ThumbsDown className="h-3.5 w-3.5" />
-    </Button>
-  </div>
-)}
-```
-
-Visual result:
-```text
-┌────────────────────────────────────────┐
-│ 🤖 Dok Aga                             │
-│ Ang mastitis ay infection sa udder...  │
-│ ───────────────────────────────────    │
-│ Nakatulong ba?  [👍] [👎]              │
-└────────────────────────────────────────┘
-```
-
-### 1.3 Feedback Hook
-
-**New File: `src/hooks/useDocAgaFeedback.ts`**
+Extract the categorization logic from `FarmerQueriesTopics.tsx` into a reusable utility:
 
 ```typescript
-export const useDocAgaFeedback = () => {
-  const submitFeedback = async (queryId: string, rating: 'positive' | 'negative') => {
-    const { error } = await supabase
-      .from('doc_aga_queries')
-      .update({
-        feedback_rating: rating,
-        feedback_at: new Date().toISOString()
-      })
-      .eq('id', queryId);
-    
-    if (error) throw error;
-  };
+export const TOPIC_CATEGORIES = [
+  { key: 'mastitis', label: 'Mastitis & Udder Health', keywords: ['mastitis', 'udder', 'milk infection', 'teat'] },
+  { key: 'breeding', label: 'Pregnancy & Breeding', keywords: ['pregnan', 'calving', 'breeding', 'heat', 'insemination'] },
+  { key: 'feeding', label: 'Feeding & Nutrition', keywords: ['feed', 'nutrition', 'diet', 'forage', 'supplement'] },
+  { key: 'digestive', label: 'Digestive Issues', keywords: ['diarrhea', 'scours', 'digestive', 'loose stool'] },
+  { key: 'bloat', label: 'Bloat & Stomach Issues', keywords: ['bloat', 'gas', 'stomach', 'rumen'] },
+  { key: 'lameness', label: 'Lameness & Hoof Care', keywords: ['lame', 'hoof', 'leg', 'limping', 'foot rot'] },
+  { key: 'vaccination', label: 'Vaccination & Treatment', keywords: ['vaccine', 'injection', 'medicine', 'deworming'] },
+  { key: 'milk', label: 'Milk Production', keywords: ['milk yield', 'low milk', 'milking'] },
+  { key: 'general', label: 'General Health & Management', keywords: [] }
+] as const;
+
+export function categorizeQuery(question: string): string {
+  const lower = question.toLowerCase();
   
-  return { submitFeedback };
-};
-```
-
-### 1.4 Edge Function Update
-
-**File: `supabase/functions/doc-aga/index.ts`**
-
-Modify `logQuery` to return the inserted record ID so the frontend can track which query to update:
-
-```typescript
-async function logQuery(...) {
-  const { data, error } = await supabase
-    .from('doc_aga_queries')
-    .insert({...})
-    .select('id')
-    .single();
-  
-  return data?.id;  // Return ID for feedback tracking
+  for (const category of TOPIC_CATEGORIES) {
+    if (category.keywords.some(kw => lower.includes(kw))) {
+      return category.label;
+    }
+  }
+  return 'General Health & Management';
 }
-```
 
-Return the query ID in the response so the frontend can link it to the message.
-
----
-
-## Part 2: Automatic FAQ Candidate Extraction
-
-### 2.1 New Database Table
-
-```sql
-CREATE TABLE public.faq_candidates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  question_pattern text NOT NULL,
-  normalized_text text NOT NULL,
-  occurrence_count integer DEFAULT 1,
-  sample_query_ids uuid[] DEFAULT '{}',
-  suggested_answer text,
-  suggested_category text,
-  status text DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'converted')),
-  converted_faq_id uuid REFERENCES doc_aga_faqs(id),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  reviewed_by uuid REFERENCES auth.users(id),
-  reviewed_at timestamptz
-);
-
--- RLS: Only admins can manage
-ALTER TABLE public.faq_candidates ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "admins_manage_candidates" ON public.faq_candidates
-FOR ALL USING (has_role(auth.uid(), 'admin'::user_role));
-```
-
-### 2.2 Edge Function: FAQ Candidate Extraction
-
-**New File: `supabase/functions/extract-faq-candidates/index.ts`**
-
-This function runs on-demand (or can be scheduled) to:
-1. Fetch unmatched queries from the last 30 days
-2. Normalize questions (lowercase, remove punctuation, stem common words)
-3. Group similar questions using text similarity
-4. Create/update FAQ candidates for patterns appearing 3+ times
-
-```typescript
-// Pseudocode for clustering logic
-const unmatched = await supabase
-  .from('doc_aga_queries')
-  .select('id, question')
-  .is('matched_faq_id', null)
-  .gte('created_at', thirtyDaysAgo);
-
-// Normalize and cluster
-const clusters = clusterSimilarQuestions(unmatched);
-
-// Upsert candidates for clusters with 3+ occurrences
-for (const cluster of clusters.filter(c => c.count >= 3)) {
-  await supabase.from('faq_candidates').upsert({
-    question_pattern: cluster.representative,
-    normalized_text: cluster.normalized,
-    occurrence_count: cluster.count,
-    sample_query_ids: cluster.queryIds.slice(0, 5),
+export function categorizeQueries(queries: { question: string; [key: string]: any }[]) {
+  const grouped: Record<string, typeof queries> = {};
+  
+  queries.forEach(q => {
+    const topic = categorizeQuery(q.question);
+    if (!grouped[topic]) grouped[topic] = [];
+    grouped[topic].push(q);
   });
+  
+  return grouped;
 }
 ```
 
-### 2.3 Admin Dashboard Updates
+This will also be used to refactor `FarmerQueriesTopics.tsx` to use the shared utility.
 
-**File: `src/components/admin/DocAgaManagement.tsx`**
+---
 
-Add new tabs:
+## Part 2: Trending Topics Visualization
 
-#### Feedback Analytics Tab
-- Positive vs negative feedback ratio (pie chart)
-- Questions with most negative feedback (table)
-- Feedback trend over time (line chart)
+### File: `src/components/admin/TrendingTopicsCard.tsx`
 
-#### FAQ Candidates Tab
-- List of pending candidates with:
-  - Question pattern
-  - Occurrence count
-  - Sample queries (expandable)
-  - Actions: Approve → Convert to FAQ, Reject, Edit
+A horizontal bar chart showing query volume by topic category:
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│ FAQ Candidates                                          [Run Extraction] │
-├─────────────────────────────────────────────────────────────────┤
-│ Question Pattern                    │ Count │ Status  │ Actions │
-├─────────────────────────────────────┼───────┼─────────┼─────────┤
-│ "Paano magpagamot ng mastitis?"     │  12   │ Pending │ ✓ ✗ 📝  │
-│ "Ano ang magandang feeds para sa..."│   8   │ Pending │ ✓ ✗ 📝  │
-│ "Kailan dapat i-breed ang baka?"    │   5   │ Pending │ ✓ ✗ 📝  │
-└─────────────────────────────────────┴───────┴─────────┴─────────┘
+┌────────────────────────────────────────────────┐
+│ Trending Topics (Last 30 Days)                 │
+├────────────────────────────────────────────────┤
+│ Mastitis & Udder Health     ████████████  45   │
+│ Pregnancy & Breeding        █████████    38    │
+│ Feeding & Nutrition         ███████      28    │
+│ Digestive Issues            █████        20    │
+│ Vaccination & Treatment     ████         16    │
+│ General Health              ███          12    │
+└────────────────────────────────────────────────┘
 ```
 
-**Convert to FAQ Flow:**
-1. Admin clicks "Approve" on a candidate
-2. Dialog opens with pre-filled question and AI-suggested answer
-3. Admin reviews/edits the answer
-4. On save: creates new FAQ entry, marks candidate as `converted`
+Features:
+- Uses Recharts BarChart (horizontal layout)
+- Pulls from `doc_aga_queries` for last 30 days
+- Color-coded bars for visual clarity
+
+---
+
+## Part 3: Topic Coverage Analysis
+
+### File: `src/components/admin/TopicCoverageCard.tsx`
+
+Shows which topics have FAQ coverage gaps:
+
+```text
+┌────────────────────────────────────────────────────────────────┐
+│ Topic Coverage Analysis                            [Refresh]   │
+├────────────────────────────────────────────────────────────────┤
+│ Topic                    │ Total │ Matched │ Unmatched │ Gap % │
+├──────────────────────────┼───────┼─────────┼───────────┼───────┤
+│ Mastitis & Udder Health  │  45   │   30    │    15     │  33%  │
+│ Digestive Issues         │  20   │    5    │    15     │  75%  │ ⚠️
+│ Bloat & Stomach Issues   │  18   │    3    │    15     │  83%  │ ⚠️
+│ Pregnancy & Breeding     │  38   │   35    │     3     │   8%  │
+└──────────────────────────┴───────┴─────────┴───────────┴───────┘
+
+⚠️ = High gap percentage (>50%) - needs more FAQs
+```
+
+This helps admins prioritize which topic areas need knowledge base enrichment.
+
+---
+
+## Part 4: Topic-Based Query Browser
+
+### File: `src/components/admin/TopicBrowseCard.tsx`
+
+Interactive topic pills with filtered query browsing:
+
+```text
+┌────────────────────────────────────────────────────────────────┐
+│ Browse Unmatched Queries by Topic                              │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│ [🏷️ Mastitis (15)] [🏷️ Digestive (15)] [🏷️ Bloat (15)]       │
+│ [Breeding (3)] [Feeding (8)] [Vaccination (5)] [General (10)]  │
+│                                                                │
+├────────────────────────────────────────────────────────────────┤
+│ Selected: Digestive Issues (15 unmatched)                      │
+├────────────────────────────────────────────────────────────────┤
+│ • "Ang baka ko may diarrhea na 3 days na..."      [+ Create]   │
+│ • "Bakit madalas magkasakit ng tiyan ang..."      [+ Create]   │
+│ • "Paano magagamot ang loose stool?"              [+ Create]   │
+│ • "Ano ang pwedeng ibigay sa may scours?"         [+ Create]   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+Features:
+- Topic pills with unmatched count badges
+- Pills with high counts (>10) are highlighted
+- Click pill to filter the query list below
+- Each query has "Create FAQ" button that pre-fills the FAQ dialog
+
+---
+
+## Part 5: DocAgaManagement.tsx Updates
+
+Modify the Analytics tab to include the new components:
+
+```typescript
+<TabsContent value="analytics" className="space-y-4">
+  {/* Existing: Query Timeline */}
+  <Card>...</Card>
+  
+  {/* NEW: Trending Topics Chart */}
+  <TrendingTopicsCard queries={recentQueries} />
+  
+  {/* NEW: Topic Coverage Analysis */}
+  <TopicCoverageCard />
+  
+  {/* NEW: Browse by Topic */}
+  <TopicBrowseCard 
+    onCreateFaq={(query) => {
+      setFormData({
+        question: query.question,
+        answer: query.answer || "",
+        category: categorizeQuery(query.question),
+        is_active: true,
+      });
+      setIsDialogOpen(true);
+    }}
+  />
+  
+  {/* EXISTING: Unmatched Queries (keep as fallback) */}
+  <Card>...</Card>
+</TabsContent>
+```
+
+---
+
+## Part 6: Refactor FarmerQueriesTopics.tsx
+
+Update the government dashboard component to use the shared utility:
+
+```typescript
+import { categorizeQueries, TOPIC_CATEGORIES } from "@/lib/queryTopicCategorizer";
+
+// Replace inline categorization with:
+const topTopics = useMemo(() => {
+  if (!queries || !Array.isArray(queries)) return [];
+  return categorizeQueries(queries);
+}, [queries]);
+```
+
+This ensures consistency between admin and government dashboards.
+
+---
+
+## Data Flow
+
+```text
+doc_aga_queries table
+        │
+        ├──> TrendingTopicsCard
+        │       Fetches last 30 days
+        │       Groups by topic using categorizeQuery()
+        │       Displays bar chart
+        │
+        ├──> TopicCoverageCard
+        │       Fetches all queries
+        │       Calculates matched_faq_id ratio per topic
+        │       Highlights gaps
+        │
+        └──> TopicBrowseCard
+                Fetches unmatched queries
+                Groups by topic
+                Allows filtered browsing
+                Links to FAQ creation
+```
 
 ---
 
@@ -269,50 +275,40 @@ Add new tabs:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `supabase/migrations/xxx.sql` | Create | Add feedback columns, create faq_candidates table |
-| `src/hooks/useDocAgaFeedback.ts` | Create | Hook for submitting feedback ratings |
-| `src/components/farmhand/DocAgaConsultation.tsx` | Modify | Add thumbs up/down UI, track queryId per message |
-| `supabase/functions/doc-aga/index.ts` | Modify | Return query ID after logging |
-| `supabase/functions/extract-faq-candidates/index.ts` | Create | Question clustering and candidate extraction |
-| `src/components/admin/DocAgaManagement.tsx` | Modify | Add Feedback Analytics and FAQ Candidates tabs |
+| `src/lib/queryTopicCategorizer.ts` | Create | Shared categorization logic with keyword definitions |
+| `src/components/admin/TrendingTopicsCard.tsx` | Create | Bar chart of query volume by topic |
+| `src/components/admin/TopicCoverageCard.tsx` | Create | Table showing FAQ coverage gaps per topic |
+| `src/components/admin/TopicBrowseCard.tsx` | Create | Interactive topic pills + filtered query list |
+| `src/components/admin/DocAgaManagement.tsx` | Modify | Add new cards to Analytics tab |
+| `src/components/government/FarmerQueriesTopics.tsx` | Modify | Refactor to use shared utility |
 
 ---
 
-## Technical Details
+## Technical Notes
 
-### Question Similarity Algorithm
+### Query Efficiency
+- TrendingTopicsCard: Single query for last 30 days (~1000 rows max)
+- TopicCoverageCard: Uses count queries per topic (efficient)
+- TopicBrowseCard: Fetches only unmatched queries (~200-500 typical)
 
-For clustering similar questions, we'll use a lightweight approach suitable for Tagalog/Taglish:
+### Mobile Responsiveness
+- Topic pills wrap on mobile
+- Tables become scrollable horizontally
+- Bar chart adjusts to container width
 
-1. **Normalization**: Lowercase, remove punctuation, common stopwords
-2. **Tokenization**: Split on whitespace
-3. **Jaccard Similarity**: Compare word sets (threshold: 0.6 similarity)
-4. **Grouping**: Union-find clustering for transitive similarity
-
-This runs efficiently in an edge function without external ML dependencies.
-
-### Mobile Considerations
-
-The thumbs up/down buttons are designed for touch:
-- Minimum 44px touch target (7x7 units with padding)
-- Clear visual feedback on selection
-- No text required (icons are universally understood)
-
-### Data Privacy
-
-- Feedback is anonymous (no farmer identifying info exposed to admins)
-- Candidates show question patterns, not specific user details
-- Sample queries are displayed without user attribution
+### Integration with Existing Features
+- "Create FAQ" action uses the same dialog as existing FAQ Management
+- Category field auto-populated based on topic selection
+- Works alongside FAQ Candidates tab (which focuses on similar text patterns, not topics)
 
 ---
 
 ## Testing Points
 
-1. Send a message to Doc Aga
-2. Verify thumbs up/down buttons appear below the response
-3. Click thumbs up - verify it highlights and persists on page refresh
-4. Click thumbs down - verify it switches from thumbs up
-5. Check admin dashboard for feedback analytics
-6. Run FAQ extraction and verify candidates appear
-7. Approve a candidate and verify it creates a new FAQ
-8. Send a new query that matches the new FAQ - verify it gets matched
+1. Navigate to Admin Dashboard > Doc Aga > Analytics tab
+2. Verify Trending Topics chart shows correct category distribution
+3. Verify Topic Coverage table highlights high-gap categories
+4. Click a topic pill - verify query list filters correctly
+5. Click "Create FAQ" on a query - verify form pre-fills with question and auto-category
+6. Verify the new FAQ appears in FAQ Management tab
+7. Check government dashboard still works after refactor
