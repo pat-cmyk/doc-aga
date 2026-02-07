@@ -4,8 +4,13 @@ import { FarmOversight } from "../FarmOversight";
 import MerchantOversight from "../MerchantOversight";
 import { SupportTicketsTab } from "../SupportTicketsTab";
 import { useSearchParams } from "react-router-dom";
+import { DataCategory } from "@/types/government";
 
-export const OperationsTab = () => {
+interface OperationsTabProps {
+  dataCategory?: DataCategory;
+}
+
+export const OperationsTab = ({ dataCategory = 'all' }: OperationsTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const subtab = searchParams.get("subtab") || "farms";
 
@@ -34,7 +39,7 @@ export const OperationsTab = () => {
         </TabsList>
 
         <TabsContent value="farms" className="mt-6">
-          <FarmOversight />
+          <FarmOversight dataCategory={dataCategory} />
         </TabsContent>
 
         <TabsContent value="merchants" className="mt-6">

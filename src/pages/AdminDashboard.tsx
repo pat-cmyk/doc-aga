@@ -10,6 +10,7 @@ import { SystemTab } from "@/components/admin/tabs/SystemTab";
 import { TabsContent } from "@/components/ui/tabs";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Loader2 } from "lucide-react";
+import { DataCategory, DEFAULT_DATA_CATEGORY } from "@/types/government";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -21,6 +22,9 @@ const AdminDashboard = () => {
   const isLoading = adminLoading || rolesLoading;
   
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [dataCategory, setDataCategory] = useState<DataCategory>(() =>
+    (searchParams.get("data_source") as DataCategory) || DEFAULT_DATA_CATEGORY
+  );
 
   // Initialize state from URL params on mount
   useEffect(() => {
@@ -40,12 +44,13 @@ const AdminDashboard = () => {
     
     const params = new URLSearchParams(searchParams);
     params.set('tab', activeTab);
+    params.set('data_source', dataCategory);
     // Clear subtab when switching main tabs
     if (!params.get('subtab')) {
       params.delete('subtab');
     }
     setSearchParams(params, { replace: true });
-  }, [activeTab, setSearchParams]);
+  }, [activeTab, dataCategory, setSearchParams]);
 
   // Smart routing based on all user roles
   useEffect(() => {
@@ -85,9 +90,14 @@ const AdminDashboard = () => {
   }
 
   return (
-    <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
+    <AdminLayout 
+      activeTab={activeTab} 
+      onTabChange={setActiveTab}
+      dataCategory={dataCategory}
+      onDataCategoryChange={setDataCategory}
+    >
       <TabsContent value="dashboard">
-        <SystemOverview />
+        <SystemOverview dataCategory={dataCategory} />
       </TabsContent>
       
       <TabsContent value="people">
@@ -95,11 +105,11 @@ const AdminDashboard = () => {
       </TabsContent>
       
       <TabsContent value="operations">
-        <OperationsTab />
+        <OperationsTab dataCategory={dataCategory} />
       </TabsContent>
 
       <TabsContent value="ai-voice">
-        <AIVoiceTab />
+        <AIVoiceTab dataCategory={dataCategory} />
       </TabsContent>
       
       <TabsContent value="system">

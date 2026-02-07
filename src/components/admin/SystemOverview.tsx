@@ -12,9 +12,14 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "rec
 import { format, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { DataCategory } from "@/types/government";
 
-export const SystemOverview = () => {
-  const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth();
+interface SystemOverviewProps {
+  dataCategory?: DataCategory;
+}
+
+export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) => {
+  const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth(dataCategory);
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const { fontSize } = useResponsiveChart({ size: 'small' });

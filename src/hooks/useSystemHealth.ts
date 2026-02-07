@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataCategory } from "@/types/government";
 
 export interface SystemHealthMetrics {
   users: {
@@ -63,11 +64,13 @@ export interface SystemHealthMetrics {
   last_updated: string;
 }
 
-export function useSystemHealth() {
+export function useSystemHealth(dataCategory: DataCategory = 'all') {
   return useQuery({
-    queryKey: ["admin-system-health"],
+    queryKey: ["admin-system-health", dataCategory],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_system_health_metrics");
+      const { data, error } = await supabase.rpc("get_system_health_metrics", {
+        data_category_filter: dataCategory
+      });
       if (error) throw error;
       return data as unknown as SystemHealthMetrics;
     },

@@ -1,5 +1,10 @@
 import { DocAgaManagement } from "../DocAgaManagement";
+import { DataCategory } from "@/types/government";
 
-export const AIVoiceTab = () => {
-  return <DocAgaManagement />;
+interface AIVoiceTabProps {
+  dataCategory?: DataCategory;
+}
+
+export const AIVoiceTab = ({ dataCategory = 'all' }: AIVoiceTabProps) => {
+  return <DocAgaManagement dataCategory={dataCategory} />;
 };
