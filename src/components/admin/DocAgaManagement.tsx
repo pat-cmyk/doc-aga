@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic } from "lucide-react";
+import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic, ThumbsUp, Lightbulb } from "lucide-react";
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { STTAnalyticsDashboard } from "./STTAnalyticsDashboard";
+import { FeedbackAnalyticsTab } from "./FeedbackAnalyticsTab";
+import { FaqCandidatesTab } from "./FaqCandidatesTab";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 export const DocAgaManagement = () => {
@@ -350,8 +352,16 @@ export const DocAgaManagement = () => {
 
       {/* Tabs for Different Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="feedback" className="flex items-center gap-1">
+            <ThumbsUp className="h-3 w-3" />
+            Feedback
+          </TabsTrigger>
+          <TabsTrigger value="candidates" className="flex items-center gap-1">
+            <Lightbulb className="h-3 w-3" />
+            FAQ Candidates
+          </TabsTrigger>
           <TabsTrigger value="queries">Recent Queries</TabsTrigger>
           <TabsTrigger value="faqs">FAQ Management</TabsTrigger>
           <TabsTrigger value="voice-stt" className="flex items-center gap-1">
@@ -427,6 +437,16 @@ export const DocAgaManagement = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Feedback Analytics Tab */}
+        <TabsContent value="feedback" className="space-y-4">
+          <FeedbackAnalyticsTab />
+        </TabsContent>
+
+        {/* FAQ Candidates Tab */}
+        <TabsContent value="candidates" className="space-y-4">
+          <FaqCandidatesTab />
         </TabsContent>
 
         {/* Recent Queries Tab */}

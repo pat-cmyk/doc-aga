@@ -1136,6 +1136,9 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           farm_id: string | null
+          feedback_at: string | null
+          feedback_comment: string | null
+          feedback_rating: string | null
           id: string
           image_url: string | null
           matched_faq_id: string | null
@@ -1148,6 +1151,9 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           farm_id?: string | null
+          feedback_at?: string | null
+          feedback_comment?: string | null
+          feedback_rating?: string | null
           id?: string
           image_url?: string | null
           matched_faq_id?: string | null
@@ -1160,6 +1166,9 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           farm_id?: string | null
+          feedback_at?: string | null
+          feedback_comment?: string | null
+          feedback_rating?: string | null
           id?: string
           image_url?: string | null
           matched_faq_id?: string | null
@@ -1194,6 +1203,62 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faq_candidates: {
+        Row: {
+          converted_faq_id: string | null
+          created_at: string | null
+          id: string
+          normalized_text: string
+          occurrence_count: number | null
+          question_pattern: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sample_query_ids: string[] | null
+          status: string | null
+          suggested_answer: string | null
+          suggested_category: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          converted_faq_id?: string | null
+          created_at?: string | null
+          id?: string
+          normalized_text: string
+          occurrence_count?: number | null
+          question_pattern: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_query_ids?: string[] | null
+          status?: string | null
+          suggested_answer?: string | null
+          suggested_category?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          converted_faq_id?: string | null
+          created_at?: string | null
+          id?: string
+          normalized_text?: string
+          occurrence_count?: number | null
+          question_pattern?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_query_ids?: string[] | null
+          status?: string | null
+          suggested_answer?: string | null
+          suggested_category?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faq_candidates_converted_faq_id_fkey"
+            columns: ["converted_faq_id"]
+            isOneToOne: false
+            referencedRelation: "doc_aga_faqs"
             referencedColumns: ["id"]
           },
         ]

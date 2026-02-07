@@ -116,6 +116,7 @@ function findMatchingFaq(question: string, faqs: any[]): string | null {
 }
 
 // Helper: Log query to database with conversation tracking
+// Returns the query ID for feedback tracking
 async function logQuery(
   supabase: any,
   userId: string,
@@ -125,7 +126,7 @@ async function logQuery(
   imageUrl: string | null,
   matchedFaqId: string | null,
   conversationId?: string
-) {
+): Promise<string | null> {
   try {
     // Get the current message index for this conversation
     let messageIndex = 0;
@@ -138,7 +139,7 @@ async function logQuery(
       messageIndex = (count || 0);
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('doc_aga_queries')
       .insert({
         user_id: userId,
@@ -149,15 +150,20 @@ async function logQuery(
         matched_faq_id: matchedFaqId,
         conversation_id: conversationId || null,
         message_index: messageIndex,
-      });
+      })
+      .select('id')
+      .single();
     
     if (error) {
       console.error('Failed to log query:', error);
-    } else {
-      console.log('✅ Query logged successfully', { conversationId, messageIndex });
+      return null;
     }
+    
+    console.log('✅ Query logged successfully', { queryId: data?.id, conversationId, messageIndex });
+    return data?.id || null;
   } catch (error) {
     console.error('Error in logQuery:', error);
+    return null;
   }
 }
 
@@ -670,8 +676,10 @@ serve(async (req) => {
         });
       }
       
-      // Create a passthrough stream that logs after completion
+      // Create a passthrough stream that logs after completion and sends query ID
       let accumulatedResponse = '';
+      let queryIdSent = false;
+      
       const loggingStream = new TransformStream({
         transform(chunk, controller) {
           controller.enqueue(chunk);
@@ -692,18 +700,32 @@ serve(async (req) => {
             }
           });
         },
-        flush() {
-          if (accumulatedResponse) {
-            logQuery(
-              supabase,
-              user.id,
-              farmId || null,
-              userQuestion,
-              accumulatedResponse,
-              userImageUrl,
-              matchedFaqId,
-              conversationId
-            ).catch(err => console.error('Query logging failed:', err));
+        async flush(controller) {
+          if (accumulatedResponse && !queryIdSent) {
+            queryIdSent = true;
+            try {
+              const queryId = await logQuery(
+                supabase,
+                user.id,
+                farmId || null,
+                userQuestion,
+                accumulatedResponse,
+                userImageUrl,
+                matchedFaqId,
+                conversationId
+              );
+              
+              // Send query ID as final metadata event before [DONE]
+              if (queryId) {
+                const metaEvent = `data: ${JSON.stringify({ 
+                  type: 'metadata', 
+                  queryId 
+                })}\n\n`;
+                controller.enqueue(new TextEncoder().encode(metaEvent));
+              }
+            } catch (err) {
+              console.error('Query logging failed:', err);
+            }
           }
         }
       });
@@ -719,8 +741,8 @@ serve(async (req) => {
     // No tool calls, convert to streaming response
     const aiResponseText = data.choices?.[0]?.message?.content || '';
     
-    // Log query asynchronously (don't block response)
-    logQuery(
+    // Log query and get ID for feedback tracking
+    const queryId = await logQuery(
       supabase,
       user.id,
       farmId || null,
@@ -729,14 +751,25 @@ serve(async (req) => {
       userImageUrl,
       matchedFaqId,
       conversationId
-    ).catch(err => console.error('Query logging failed:', err));
+    );
     
     const stream = new ReadableStream({
       start(controller) {
+        // Send content
         const chunk = `data: ${JSON.stringify({
           choices: [{ delta: { content: aiResponseText } }]
         })}\n\n`;
         controller.enqueue(new TextEncoder().encode(chunk));
+        
+        // Send query ID as metadata for feedback tracking
+        if (queryId) {
+          const metaEvent = `data: ${JSON.stringify({ 
+            type: 'metadata', 
+            queryId 
+          })}\n\n`;
+          controller.enqueue(new TextEncoder().encode(metaEvent));
+        }
+        
         controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
         controller.close();
       }

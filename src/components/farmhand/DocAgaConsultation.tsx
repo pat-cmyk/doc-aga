@@ -9,12 +9,16 @@ import { useToast } from "@/hooks/use-toast";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
+import { DocAgaFeedbackButtons } from "./DocAgaFeedbackButtons";
+import type { FeedbackRating } from "@/hooks/useDocAgaFeedback";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   audioUrl?: string;
   showText?: boolean;
+  queryId?: string;
+  feedbackRating?: FeedbackRating | null;
 }
 
 interface DocAgaConsultationProps {
@@ -130,6 +134,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
       let textBuffer = "";
       let streamDone = false;
       let assistantResponse = "";
+      let capturedQueryId: string | null = null;
 
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
 
@@ -155,6 +160,14 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
 
           try {
             const parsed = JSON.parse(jsonStr);
+            
+            // Check for metadata event with queryId
+            if (parsed.type === 'metadata' && parsed.queryId) {
+              capturedQueryId = parsed.queryId;
+              console.log('[DocAgaConsultation] Captured queryId:', capturedQueryId);
+              continue;
+            }
+            
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantResponse += content;
@@ -162,7 +175,8 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
                 const newMessages = [...prev];
                 newMessages[newMessages.length - 1] = {
                   role: "assistant",
-                  content: assistantResponse
+                  content: assistantResponse,
+                  queryId: capturedQueryId || undefined
                 };
                 return newMessages;
               });
@@ -174,7 +188,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
         }
       }
 
-      // Final flush
+      // Final flush - also check for metadata
       if (textBuffer.trim()) {
         for (let raw of textBuffer.split("\n")) {
           if (!raw) continue;
@@ -185,6 +199,13 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           if (jsonStr === "[DONE]") continue;
           try {
             const parsed = JSON.parse(jsonStr);
+            
+            // Check for metadata event
+            if (parsed.type === 'metadata' && parsed.queryId) {
+              capturedQueryId = parsed.queryId;
+              continue;
+            }
+            
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantResponse += content;
@@ -192,13 +213,28 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
                 const newMessages = [...prev];
                 newMessages[newMessages.length - 1] = {
                   role: "assistant",
-                  content: assistantResponse
+                  content: assistantResponse,
+                  queryId: capturedQueryId || undefined
                 };
                 return newMessages;
               });
             }
           } catch { /* ignore partial leftovers */ }
         }
+      }
+
+      // Update final message with queryId if captured
+      if (capturedQueryId) {
+        setMessages(prev => {
+          const newMessages = [...prev];
+          if (newMessages[newMessages.length - 1]?.role === "assistant") {
+            newMessages[newMessages.length - 1] = {
+              ...newMessages[newMessages.length - 1],
+              queryId: capturedQueryId!
+            };
+          }
+          return newMessages;
+        });
       }
 
       // Generate audio for the response
@@ -214,14 +250,16 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           );
           const audioUrl = URL.createObjectURL(audioBlob);
           
-          // Update the message with audio - show text first for typed input, audio first for voice input
+          // Update the message with audio - preserve queryId
           setMessages(prev => {
             const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
             newMessages[newMessages.length - 1] = {
               role: "assistant",
               content: assistantResponse,
               audioUrl,
-              showText: !isVoiceInput
+              showText: !isVoiceInput,
+              queryId: lastMessage?.queryId || capturedQueryId || undefined
             };
             return newMessages;
           });
@@ -309,6 +347,19 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
                 )}
                 {(message.role === "user" || !message.audioUrl || message.showText === true) && (
                   <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                )}
+                
+                {/* Feedback buttons for assistant messages with queryId */}
+                {message.role === "assistant" && message.queryId && !loading && (
+                  <DocAgaFeedbackButtons
+                    queryId={message.queryId}
+                    initialRating={message.feedbackRating}
+                    onFeedbackSubmitted={(rating) => {
+                      setMessages(prev => prev.map((m, i) => 
+                        i === index ? { ...m, feedbackRating: rating } : m
+                      ));
+                    }}
+                  />
                 )}
               </Card>
               {message.role === "user" && (
