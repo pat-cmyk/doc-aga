@@ -18,7 +18,11 @@ import { format } from "date-fns";
 import { STTAnalyticsDashboard } from "./STTAnalyticsDashboard";
 import { FeedbackAnalyticsTab } from "./FeedbackAnalyticsTab";
 import { FaqCandidatesTab } from "./FaqCandidatesTab";
+import { TrendingTopicsCard } from "./TrendingTopicsCard";
+import { TopicCoverageCard } from "./TopicCoverageCard";
+import { TopicBrowseCard } from "./TopicBrowseCard";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { categorizeQuery } from "@/lib/queryTopicCategorizer";
 
 export const DocAgaManagement = () => {
   const queryClient = useQueryClient();
@@ -396,10 +400,32 @@ export const DocAgaManagement = () => {
             </CardContent>
           </Card>
 
+          {/* NEW: Trending Topics Chart */}
+          <TrendingTopicsCard queries={recentQueries} />
+
+          {/* NEW: Topic Coverage Analysis */}
+          <TopicCoverageCard queries={recentQueries} />
+
+          {/* NEW: Browse by Topic */}
+          <TopicBrowseCard 
+            queries={recentQueries}
+            onCreateFaq={(query) => {
+              setEditingFaq(null);
+              setFormData({
+                question: query.question,
+                answer: query.answer || "",
+                category: categorizeQuery(query.question),
+                is_active: true,
+              });
+              setIsDialogOpen(true);
+              setActiveTab("faqs");
+            }}
+          />
+
           <Card>
             <CardHeader>
-              <CardTitle>Unmatched Queries</CardTitle>
-              <CardDescription>Questions that didn't match any FAQ - consider adding these to knowledge base</CardDescription>
+              <CardTitle>Recent Unmatched Queries</CardTitle>
+              <CardDescription>Quick access to latest questions without FAQ matches</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -419,7 +445,7 @@ export const DocAgaManagement = () => {
                         setFormData({
                           question: query.question,
                           answer: query.answer || "",
-                          category: "",
+                          category: categorizeQuery(query.question),
                           is_active: true,
                         });
                         setIsDialogOpen(true);

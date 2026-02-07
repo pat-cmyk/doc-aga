@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare } from "lucide-react";
 import { useMemo } from "react";
+import { categorizeQuery } from "@/lib/queryTopicCategorizer";
 
 interface FarmerQueriesTopicsProps {
   startDate: Date;
@@ -32,32 +33,8 @@ export const FarmerQueriesTopics = ({
   const topTopics = useMemo(() => {
     if (!queries || !Array.isArray(queries)) return [];
 
-    // Simple keyword-based categorization
+    // Use shared categorization utility
     const categories: Record<string, { count: number; examples: string[] }> = {};
-
-    const categorizeQuery = (question: string) => {
-      const lower = question.toLowerCase();
-      
-      if (lower.includes("mastitis") || lower.includes("udder") || lower.includes("milk infection")) {
-        return "Mastitis & Udder Health";
-      } else if (lower.includes("pregnan") || lower.includes("calving") || lower.includes("breeding")) {
-        return "Pregnancy & Breeding";
-      } else if (lower.includes("feed") || lower.includes("nutrition") || lower.includes("diet")) {
-        return "Feeding & Nutrition";
-      } else if (lower.includes("diarrhea") || lower.includes("scours") || lower.includes("digestive")) {
-        return "Digestive Issues";
-      } else if (lower.includes("bloat") || lower.includes("gas") || lower.includes("stomach")) {
-        return "Bloat & Stomach Issues";
-      } else if (lower.includes("lame") || lower.includes("hoof") || lower.includes("leg")) {
-        return "Lameness & Hoof Care";
-      } else if (lower.includes("vaccine") || lower.includes("injection") || lower.includes("medicine")) {
-        return "Vaccination & Treatment";
-      } else if (lower.includes("milk") && !lower.includes("mastitis")) {
-        return "Milk Production";
-      } else {
-        return "General Health & Management";
-      }
-    };
 
     queries.forEach((query) => {
       const topic = categorizeQuery(query.question);
@@ -83,31 +60,8 @@ export const FarmerQueriesTopics = ({
   const comparisonTopTopics = useMemo(() => {
     if (!comparisonQueries || !Array.isArray(comparisonQueries)) return [];
 
+    // Use shared categorization utility
     const categories: Record<string, { count: number; examples: string[] }> = {};
-
-    const categorizeQuery = (question: string) => {
-      const lower = question.toLowerCase();
-      
-      if (lower.includes("mastitis") || lower.includes("udder") || lower.includes("milk infection")) {
-        return "Mastitis & Udder Health";
-      } else if (lower.includes("pregnan") || lower.includes("calving") || lower.includes("breeding")) {
-        return "Pregnancy & Breeding";
-      } else if (lower.includes("feed") || lower.includes("nutrition") || lower.includes("diet")) {
-        return "Feeding & Nutrition";
-      } else if (lower.includes("diarrhea") || lower.includes("scours") || lower.includes("digestive")) {
-        return "Digestive Issues";
-      } else if (lower.includes("bloat") || lower.includes("gas") || lower.includes("stomach")) {
-        return "Bloat & Stomach Issues";
-      } else if (lower.includes("lame") || lower.includes("hoof") || lower.includes("leg")) {
-        return "Lameness & Hoof Care";
-      } else if (lower.includes("vaccine") || lower.includes("injection") || lower.includes("medicine")) {
-        return "Vaccination & Treatment";
-      } else if (lower.includes("milk") && !lower.includes("mastitis")) {
-        return "Milk Production";
-      } else {
-        return "General Health & Management";
-      }
-    };
 
     comparisonQueries.forEach((query) => {
       const topic = categorizeQuery(query.question);
