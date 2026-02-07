@@ -1,273 +1,429 @@
 
-# Enhancement: Trending Topics & Topic-Based FAQ Curation
+# Admin Dashboard Data Category Toggle Enhancement
 
 ## Overview
 
-This plan enhances the existing Admin Dashboard's Doc Aga Management section by adding trending topic analysis and topic-based FAQ curation. This avoids duplication with existing features while filling the gap of category-level insights for knowledge base enrichment.
+This enhancement adds a Live/Demo data toggle to the Admin Dashboard header, similar to the Government Dashboard. The toggle will filter all analytics data across all tabs (Dashboard, Operations, AI & Voice) so admins can clearly distinguish between production and demo data.
 
-## Current State Analysis
+## Current State
 
-The admin dashboard already has:
-- **FAQ Candidates Tab**: Auto-clusters similar questions by text similarity
-- **Analytics Tab**: Shows unmatched queries list (first 10)
-- **FAQ Management Tab**: CRUD for the knowledge base
-
-What's missing is the ability to see **which topic areas** have the most unmatched queries and need FAQ coverage.
-
----
+- **Government Dashboard**: Already has a data category selector (`live` | `demo` | `all`) in the filter controls that affects all analytics via the `dataCategory` state variable
+- **Admin Dashboard**: No data category filtering - shows all data combined
+- **FarmOversight**: Already shows `data_category` column per farm and allows editing, but doesn't filter the view
+- **SystemOverview**: Uses `get_system_health_metrics` RPC which doesn't support data category filtering
+- **DocAgaManagement**: Fetches all queries without data category filtering
 
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                   Doc Aga Management                            │
-├─────────────────────────────────────────────────────────────────┤
-│  Tabs: Analytics | Feedback | FAQ Candidates | ...              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │           ENHANCED Analytics Tab                          │  │
-│  │                                                           │  │
-│  │  ┌─────────────────┐  ┌─────────────────┐               │  │
-│  │  │ Query Timeline  │  │ Trending Topics │  <-- NEW      │  │
-│  │  │     Chart       │  │   Bar Chart     │               │  │
-│  │  └─────────────────┘  └─────────────────┘               │  │
-│  │                                                           │  │
-│  │  ┌────────────────────────────────────────────────────┐  │  │
-│  │  │        Topic Coverage Analysis (NEW)                │  │  │
-│  │  │  Shows topics with most unmatched vs matched       │  │  │
-│  │  │  queries - identifies knowledge gaps               │  │  │
-│  │  └────────────────────────────────────────────────────┘  │  │
-│  │                                                           │  │
-│  │  ┌────────────────────────────────────────────────────┐  │  │
-│  │  │     Browse by Topic (NEW)                          │  │  │
-│  │  │  [Mastitis] [Breeding] [Feeding] [Digestive]...    │  │  │
-│  │  │  Click topic -> Filtered unmatched queries         │  │  │
-│  │  │  -> Quick "Create FAQ" action per query            │  │  │
-│  │  └────────────────────────────────────────────────────┘  │  │
-│  │                                                           │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AdminLayout Header                               │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  [Shield Icon] Admin Dashboard      [Live ▼] [Search] [Network] │  │
+│  │                System Administration            ↑                │  │
+│  │                                           Data Toggle            │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ dataCategory prop propagates down
+┌─────────────────────────────────────────────────────────────────────────┐
+│  AdminDashboard.tsx (state owner: dataCategory in URL params)           │
+│                                                                         │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ │
+│  │ Dashboard │ │  People   │ │Operations │ │ AI & Voice│ │  System   │ │
+│  │   Tab     │ │   Tab     │ │    Tab    │ │    Tab    │ │   Tab     │ │
+│  │     ✓     │ │    N/A    │ │     ✓     │ │     ✓     │ │    N/A    │ │
+│  └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘ │
+│       │                            │              │                     │
+│       ▼                            ▼              ▼                     │
+│  SystemOverview            FarmOversight    DocAgaManagement           │
+│  (filtered metrics)        (filtered list)  (filtered queries)          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Changes Overview
 
 | Component | Action | Description |
 |-----------|--------|-------------|
-| `src/lib/queryTopicCategorizer.ts` | Create | Shared topic categorization logic (extracted from FarmerQueriesTopics) |
-| `src/components/admin/TrendingTopicsCard.tsx` | Create | Bar chart showing query distribution by topic |
-| `src/components/admin/TopicCoverageCard.tsx` | Create | Shows matched vs unmatched ratio per topic |
-| `src/components/admin/TopicBrowseCard.tsx` | Create | Topic pills + filtered query list with quick FAQ create |
-| `DocAgaManagement.tsx` | Modify | Add new cards to Analytics tab |
+| `AdminDashboard.tsx` | Modify | Add `dataCategory` state synced to URL params |
+| `AdminLayout.tsx` | Modify | Add data category selector in header |
+| `useSystemHealth.ts` | Modify | Accept optional `dataCategory` parameter |
+| `get_system_health_metrics` RPC | Modify | Add `data_category_filter` parameter |
+| `FarmOversight.tsx` | Modify | Accept `dataCategory` prop and filter farms |
+| `DocAgaManagement.tsx` | Modify | Accept `dataCategory` prop and filter queries by farm data category |
+| `OperationsTab.tsx` | Modify | Pass `dataCategory` prop to child components |
+| `AIVoiceTab.tsx` | Modify | Pass `dataCategory` prop to DocAgaManagement |
 
 ---
 
-## Part 1: Shared Topic Categorization Utility
+## Part 1: State Management in AdminDashboard
 
-### File: `src/lib/queryTopicCategorizer.ts`
+**File: `src/pages/AdminDashboard.tsx`**
 
-Extract the categorization logic from `FarmerQueriesTopics.tsx` into a reusable utility:
+Add data category state synced to URL params:
 
 ```typescript
-export const TOPIC_CATEGORIES = [
-  { key: 'mastitis', label: 'Mastitis & Udder Health', keywords: ['mastitis', 'udder', 'milk infection', 'teat'] },
-  { key: 'breeding', label: 'Pregnancy & Breeding', keywords: ['pregnan', 'calving', 'breeding', 'heat', 'insemination'] },
-  { key: 'feeding', label: 'Feeding & Nutrition', keywords: ['feed', 'nutrition', 'diet', 'forage', 'supplement'] },
-  { key: 'digestive', label: 'Digestive Issues', keywords: ['diarrhea', 'scours', 'digestive', 'loose stool'] },
-  { key: 'bloat', label: 'Bloat & Stomach Issues', keywords: ['bloat', 'gas', 'stomach', 'rumen'] },
-  { key: 'lameness', label: 'Lameness & Hoof Care', keywords: ['lame', 'hoof', 'leg', 'limping', 'foot rot'] },
-  { key: 'vaccination', label: 'Vaccination & Treatment', keywords: ['vaccine', 'injection', 'medicine', 'deworming'] },
-  { key: 'milk', label: 'Milk Production', keywords: ['milk yield', 'low milk', 'milking'] },
-  { key: 'general', label: 'General Health & Management', keywords: [] }
-] as const;
+import { DataCategory, DEFAULT_DATA_CATEGORY } from "@/types/government";
 
-export function categorizeQuery(question: string): string {
-  const lower = question.toLowerCase();
-  
-  for (const category of TOPIC_CATEGORIES) {
-    if (category.keywords.some(kw => lower.includes(kw))) {
-      return category.label;
-    }
-  }
-  return 'General Health & Management';
-}
+// Add state initialization from URL
+const [dataCategory, setDataCategory] = useState<DataCategory>(() => 
+  (searchParams.get("data_source") as DataCategory) || DEFAULT_DATA_CATEGORY
+);
 
-export function categorizeQueries(queries: { question: string; [key: string]: any }[]) {
-  const grouped: Record<string, typeof queries> = {};
-  
-  queries.forEach(q => {
-    const topic = categorizeQuery(q.question);
-    if (!grouped[topic]) grouped[topic] = [];
-    grouped[topic].push(q);
-  });
-  
-  return grouped;
-}
+// Sync to URL when changed
+useEffect(() => {
+  const params = new URLSearchParams(searchParams);
+  params.set('tab', activeTab);
+  params.set('data_source', dataCategory);
+  setSearchParams(params, { replace: true });
+}, [activeTab, dataCategory, setSearchParams]);
 ```
 
-This will also be used to refactor `FarmerQueriesTopics.tsx` to use the shared utility.
-
----
-
-## Part 2: Trending Topics Visualization
-
-### File: `src/components/admin/TrendingTopicsCard.tsx`
-
-A horizontal bar chart showing query volume by topic category:
-
-```text
-┌────────────────────────────────────────────────┐
-│ Trending Topics (Last 30 Days)                 │
-├────────────────────────────────────────────────┤
-│ Mastitis & Udder Health     ████████████  45   │
-│ Pregnancy & Breeding        █████████    38    │
-│ Feeding & Nutrition         ███████      28    │
-│ Digestive Issues            █████        20    │
-│ Vaccination & Treatment     ████         16    │
-│ General Health              ███          12    │
-└────────────────────────────────────────────────┘
-```
-
-Features:
-- Uses Recharts BarChart (horizontal layout)
-- Pulls from `doc_aga_queries` for last 30 days
-- Color-coded bars for visual clarity
-
----
-
-## Part 3: Topic Coverage Analysis
-
-### File: `src/components/admin/TopicCoverageCard.tsx`
-
-Shows which topics have FAQ coverage gaps:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ Topic Coverage Analysis                            [Refresh]   │
-├────────────────────────────────────────────────────────────────┤
-│ Topic                    │ Total │ Matched │ Unmatched │ Gap % │
-├──────────────────────────┼───────┼─────────┼───────────┼───────┤
-│ Mastitis & Udder Health  │  45   │   30    │    15     │  33%  │
-│ Digestive Issues         │  20   │    5    │    15     │  75%  │ ⚠️
-│ Bloat & Stomach Issues   │  18   │    3    │    15     │  83%  │ ⚠️
-│ Pregnancy & Breeding     │  38   │   35    │     3     │   8%  │
-└──────────────────────────┴───────┴─────────┴───────────┴───────┘
-
-⚠️ = High gap percentage (>50%) - needs more FAQs
-```
-
-This helps admins prioritize which topic areas need knowledge base enrichment.
-
----
-
-## Part 4: Topic-Based Query Browser
-
-### File: `src/components/admin/TopicBrowseCard.tsx`
-
-Interactive topic pills with filtered query browsing:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ Browse Unmatched Queries by Topic                              │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│ [🏷️ Mastitis (15)] [🏷️ Digestive (15)] [🏷️ Bloat (15)]       │
-│ [Breeding (3)] [Feeding (8)] [Vaccination (5)] [General (10)]  │
-│                                                                │
-├────────────────────────────────────────────────────────────────┤
-│ Selected: Digestive Issues (15 unmatched)                      │
-├────────────────────────────────────────────────────────────────┤
-│ • "Ang baka ko may diarrhea na 3 days na..."      [+ Create]   │
-│ • "Bakit madalas magkasakit ng tiyan ang..."      [+ Create]   │
-│ • "Paano magagamot ang loose stool?"              [+ Create]   │
-│ • "Ano ang pwedeng ibigay sa may scours?"         [+ Create]   │
-└────────────────────────────────────────────────────────────────┘
-```
-
-Features:
-- Topic pills with unmatched count badges
-- Pills with high counts (>10) are highlighted
-- Click pill to filter the query list below
-- Each query has "Create FAQ" button that pre-fills the FAQ dialog
-
----
-
-## Part 5: DocAgaManagement.tsx Updates
-
-Modify the Analytics tab to include the new components:
+Pass to child components:
 
 ```typescript
-<TabsContent value="analytics" className="space-y-4">
-  {/* Existing: Query Timeline */}
-  <Card>...</Card>
+<AdminLayout 
+  activeTab={activeTab} 
+  onTabChange={setActiveTab}
+  dataCategory={dataCategory}
+  onDataCategoryChange={setDataCategory}
+>
+  <TabsContent value="dashboard">
+    <SystemOverview dataCategory={dataCategory} />
+  </TabsContent>
   
-  {/* NEW: Trending Topics Chart */}
-  <TrendingTopicsCard queries={recentQueries} />
+  <TabsContent value="operations">
+    <OperationsTab dataCategory={dataCategory} />
+  </TabsContent>
+
+  <TabsContent value="ai-voice">
+    <AIVoiceTab dataCategory={dataCategory} />
+  </TabsContent>
+  ...
+</AdminLayout>
+```
+
+---
+
+## Part 2: AdminLayout Header Toggle
+
+**File: `src/components/admin/AdminLayout.tsx`**
+
+Add data category selector to header:
+
+```typescript
+interface AdminLayoutProps {
+  children: ReactNode;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  dataCategory: DataCategory;
+  onDataCategoryChange: (category: DataCategory) => void;
+}
+
+// In the header, add selector before AdminGlobalSearch:
+<Select value={dataCategory} onValueChange={onDataCategoryChange}>
+  <SelectTrigger className="w-[130px]">
+    <Database className="h-4 w-4 mr-2" />
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="live">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-green-500" />
+        Live Data
+      </div>
+    </SelectItem>
+    <SelectItem value="demo">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-blue-500" />
+        Demo Data
+      </div>
+    </SelectItem>
+    <SelectItem value="all">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-gray-500" />
+        All Data
+      </div>
+    </SelectItem>
+  </SelectContent>
+</Select>
+```
+
+Visual layout in header:
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ [Shield] Admin Dashboard          [Live Data ▼] [🔍] [●] [user@...]  │
+│          System Administration                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Part 3: Database Migration - Update RPC
+
+**New Migration**
+
+Update `get_system_health_metrics` to accept a data category filter:
+
+```sql
+DROP FUNCTION IF EXISTS public.get_system_health_metrics(text);
+DROP FUNCTION IF EXISTS public.get_system_health_metrics();
+
+CREATE OR REPLACE FUNCTION public.get_system_health_metrics(
+  data_category_filter text DEFAULT 'all'
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result jsonb;
+  farm_filter text;
+BEGIN
+  -- Build farm filter based on data category
+  IF data_category_filter = 'all' THEN
+    farm_filter := '';
+  ELSE
+    farm_filter := format(' AND f.data_category = %L', data_category_filter);
+  END IF;
+
+  SELECT jsonb_build_object(
+    'users', jsonb_build_object(
+      'total', (SELECT COUNT(*) FROM profiles),
+      'new_24h', (SELECT COUNT(*) FROM profiles WHERE created_at > now() - interval '24 hours'),
+      'new_7d', (SELECT COUNT(*) FROM profiles WHERE created_at > now() - interval '7 days'),
+      'new_30d', (SELECT COUNT(*) FROM profiles WHERE created_at > now() - interval '30 days'),
+      'active_24h', (SELECT COUNT(DISTINCT user_id) FROM user_activity_logs WHERE created_at > now() - interval '24 hours'),
+      'disabled', COALESCE((SELECT COUNT(*) FROM profiles WHERE is_disabled = true), 0)
+    ),
+    'farms', jsonb_build_object(
+      'total', (
+        SELECT COUNT(*) FROM farms 
+        WHERE is_deleted = false 
+          AND (data_category_filter = 'all' OR data_category = data_category_filter)
+      ),
+      'new_7d', (
+        SELECT COUNT(*) FROM farms 
+        WHERE created_at > now() - interval '7 days' 
+          AND is_deleted = false
+          AND (data_category_filter = 'all' OR data_category = data_category_filter)
+      ),
+      'new_30d', (
+        SELECT COUNT(*) FROM farms 
+        WHERE created_at > now() - interval '30 days' 
+          AND is_deleted = false
+          AND (data_category_filter = 'all' OR data_category = data_category_filter)
+      )
+    ),
+    'animals', jsonb_build_object(
+      'total', (
+        SELECT COUNT(*) FROM animals a
+        JOIN farms f ON a.farm_id = f.id
+        WHERE a.is_deleted = false
+          AND (data_category_filter = 'all' OR f.data_category = data_category_filter)
+      ),
+      'new_7d', (
+        SELECT COUNT(*) FROM animals a
+        JOIN farms f ON a.farm_id = f.id
+        WHERE a.created_at > now() - interval '7 days' 
+          AND a.is_deleted = false
+          AND (data_category_filter = 'all' OR f.data_category = data_category_filter)
+      ),
+      'exits_30d', (
+        SELECT COUNT(*) FROM animals a
+        JOIN farms f ON a.farm_id = f.id
+        WHERE a.exit_date > now() - interval '30 days'
+          AND (data_category_filter = 'all' OR f.data_category = data_category_filter)
+      )
+    ),
+    -- doc_aga, stt, approvals, support, feedback, sync, activity_trend 
+    -- remain unchanged (user-centric, not farm-data-centric)
+    ...
+  ) INTO result;
   
-  {/* NEW: Topic Coverage Analysis */}
-  <TopicCoverageCard />
-  
-  {/* NEW: Browse by Topic */}
-  <TopicBrowseCard 
-    onCreateFaq={(query) => {
-      setFormData({
-        question: query.question,
-        answer: query.answer || "",
-        category: categorizeQuery(query.question),
-        is_active: true,
+  RETURN result;
+END;
+$$;
+```
+
+---
+
+## Part 4: Update useSystemHealth Hook
+
+**File: `src/hooks/useSystemHealth.ts`**
+
+Accept optional data category parameter:
+
+```typescript
+import { DataCategory } from "@/types/government";
+
+export function useSystemHealth(dataCategory: DataCategory = 'all') {
+  return useQuery({
+    queryKey: ["admin-system-health", dataCategory],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_system_health_metrics", {
+        data_category_filter: dataCategory
       });
-      setIsDialogOpen(true);
-    }}
-  />
-  
-  {/* EXISTING: Unmatched Queries (keep as fallback) */}
-  <Card>...</Card>
-</TabsContent>
+      if (error) throw error;
+      return data as unknown as SystemHealthMetrics;
+    },
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+}
 ```
 
 ---
 
-## Part 6: Refactor FarmerQueriesTopics.tsx
+## Part 5: Update SystemOverview
 
-Update the government dashboard component to use the shared utility:
+**File: `src/components/admin/SystemOverview.tsx`**
+
+Accept dataCategory prop:
 
 ```typescript
-import { categorizeQueries, TOPIC_CATEGORIES } from "@/lib/queryTopicCategorizer";
+interface SystemOverviewProps {
+  dataCategory?: DataCategory;
+}
 
-// Replace inline categorization with:
-const topTopics = useMemo(() => {
-  if (!queries || !Array.isArray(queries)) return [];
-  return categorizeQueries(queries);
-}, [queries]);
+export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) => {
+  const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth(dataCategory);
+  // ... rest unchanged
+};
 ```
-
-This ensures consistency between admin and government dashboards.
 
 ---
 
-## Data Flow
+## Part 6: Update OperationsTab & FarmOversight
 
-```text
-doc_aga_queries table
-        │
-        ├──> TrendingTopicsCard
-        │       Fetches last 30 days
-        │       Groups by topic using categorizeQuery()
-        │       Displays bar chart
-        │
-        ├──> TopicCoverageCard
-        │       Fetches all queries
-        │       Calculates matched_faq_id ratio per topic
-        │       Highlights gaps
-        │
-        └──> TopicBrowseCard
-                Fetches unmatched queries
-                Groups by topic
-                Allows filtered browsing
-                Links to FAQ creation
+**File: `src/components/admin/tabs/OperationsTab.tsx`**
+
+```typescript
+interface OperationsTabProps {
+  dataCategory?: DataCategory;
+}
+
+export const OperationsTab = ({ dataCategory = 'all' }: OperationsTabProps) => {
+  return (
+    <div className="space-y-6">
+      <Tabs value={subtab} onValueChange={handleSubtabChange}>
+        ...
+        <TabsContent value="farms" className="mt-6">
+          <FarmOversight dataCategory={dataCategory} />
+        </TabsContent>
+        ...
+      </Tabs>
+    </div>
+  );
+};
 ```
+
+**File: `src/components/admin/FarmOversight.tsx`**
+
+Add dataCategory prop and filter:
+
+```typescript
+interface FarmOversightProps {
+  dataCategory?: DataCategory;
+}
+
+export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
+  const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
+    queryKey: ["admin-farms", statusFilter, dataCategory],
+    queryFn: async (): Promise<FarmWithDetails[]> => {
+      let query = supabase.from("farms").select(`...`);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        query = query.eq("data_category", dataCategory);
+      }
+
+      // Apply status filter
+      if (statusFilter === "active") {
+        query = query.eq("is_deleted", false);
+      } else if (statusFilter === "deactivated") {
+        query = query.eq("is_deleted", true);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      // ...
+    },
+  });
+};
+```
+
+---
+
+## Part 7: Update AIVoiceTab & DocAgaManagement
+
+**File: `src/components/admin/tabs/AIVoiceTab.tsx`**
+
+```typescript
+interface AIVoiceTabProps {
+  dataCategory?: DataCategory;
+}
+
+export const AIVoiceTab = ({ dataCategory = 'all' }: AIVoiceTabProps) => {
+  return <DocAgaManagement dataCategory={dataCategory} />;
+};
+```
+
+**File: `src/components/admin/DocAgaManagement.tsx`**
+
+Filter queries by farm data category:
+
+```typescript
+interface DocAgaManagementProps {
+  dataCategory?: DataCategory;
+}
+
+export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps) => {
+  // Modify queries to filter by farm data category
+  const { data: recentQueries } = useQuery({
+    queryKey: ["admin-recent-queries", dataCategory],
+    queryFn: async () => {
+      // First get farm IDs matching the category
+      let farmQuery = supabase.from("farms").select("id");
+      if (dataCategory !== 'all') {
+        farmQuery = farmQuery.eq("data_category", dataCategory);
+      }
+      const { data: farms } = await farmQuery;
+      const farmIds = farms?.map(f => f.id) || [];
+
+      // Then filter queries by those farm IDs
+      let query = supabase
+        .from("doc_aga_queries")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (dataCategory !== 'all' && farmIds.length > 0) {
+        query = query.in("farm_id", farmIds);
+      } else if (dataCategory !== 'all' && farmIds.length === 0) {
+        return []; // No farms match the category
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Similarly update queryStats, queryTimeline, etc.
+};
+```
+
+---
+
+## Tabs Not Requiring Data Category Filtering
+
+The following tabs/components don't need data category filtering as they are user-centric rather than farm-data-centric:
+
+- **People Tab**: User management, activity logs, role debugger - not tied to farm data
+- **System Tab**: System-wide settings, not farm-specific
+- **Support Tickets**: User support tickets, not filtered by farm data category
+- **Merchant Oversight**: Merchants are separate from farm data categories
 
 ---
 
@@ -275,40 +431,25 @@ doc_aga_queries table
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/lib/queryTopicCategorizer.ts` | Create | Shared categorization logic with keyword definitions |
-| `src/components/admin/TrendingTopicsCard.tsx` | Create | Bar chart of query volume by topic |
-| `src/components/admin/TopicCoverageCard.tsx` | Create | Table showing FAQ coverage gaps per topic |
-| `src/components/admin/TopicBrowseCard.tsx` | Create | Interactive topic pills + filtered query list |
-| `src/components/admin/DocAgaManagement.tsx` | Modify | Add new cards to Analytics tab |
-| `src/components/government/FarmerQueriesTopics.tsx` | Modify | Refactor to use shared utility |
-
----
-
-## Technical Notes
-
-### Query Efficiency
-- TrendingTopicsCard: Single query for last 30 days (~1000 rows max)
-- TopicCoverageCard: Uses count queries per topic (efficient)
-- TopicBrowseCard: Fetches only unmatched queries (~200-500 typical)
-
-### Mobile Responsiveness
-- Topic pills wrap on mobile
-- Tables become scrollable horizontally
-- Bar chart adjusts to container width
-
-### Integration with Existing Features
-- "Create FAQ" action uses the same dialog as existing FAQ Management
-- Category field auto-populated based on topic selection
-- Works alongside FAQ Candidates tab (which focuses on similar text patterns, not topics)
+| `src/pages/AdminDashboard.tsx` | Modify | Add dataCategory state, sync to URL, pass as props |
+| `src/components/admin/AdminLayout.tsx` | Modify | Add data category selector in header |
+| `src/hooks/useSystemHealth.ts` | Modify | Accept dataCategory parameter |
+| `supabase/migrations/xxx.sql` | Create | Update RPC to filter by data category |
+| `src/components/admin/SystemOverview.tsx` | Modify | Accept dataCategory prop |
+| `src/components/admin/tabs/OperationsTab.tsx` | Modify | Accept and pass dataCategory prop |
+| `src/components/admin/FarmOversight.tsx` | Modify | Filter farms by dataCategory |
+| `src/components/admin/tabs/AIVoiceTab.tsx` | Modify | Accept and pass dataCategory prop |
+| `src/components/admin/DocAgaManagement.tsx` | Modify | Filter queries by farm dataCategory |
 
 ---
 
 ## Testing Points
 
-1. Navigate to Admin Dashboard > Doc Aga > Analytics tab
-2. Verify Trending Topics chart shows correct category distribution
-3. Verify Topic Coverage table highlights high-gap categories
-4. Click a topic pill - verify query list filters correctly
-5. Click "Create FAQ" on a query - verify form pre-fills with question and auto-category
-6. Verify the new FAQ appears in FAQ Management tab
-7. Check government dashboard still works after refactor
+1. Navigate to Admin Dashboard - verify toggle appears in header
+2. Switch to "Demo Data" - verify farm counts, animal counts change on Dashboard tab
+3. Navigate to Operations > Farms - verify only demo farms are shown
+4. Switch to "Live Data" - verify farms list updates to show only live farms
+5. Navigate to AI & Voice - verify Doc Aga queries are filtered by farm category
+6. Switch to "All Data" - verify all data is shown across all tabs
+7. Refresh page - verify the selected filter persists in URL
+8. People tab should remain unchanged (user data, not filtered)
