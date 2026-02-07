@@ -1,35 +1,34 @@
 
 
-# Fix: Missing `stt_requests` Table Error
+# Fix: Missing `pending_record_changes` Table Error
 
 ## Problem Analysis
 
 The Admin Dashboard is showing the error:
-> "Failed to load system metrics - relation 'stt_requests' does not exist"
+> "Failed to load system metrics - relation 'pending_record_changes' does not exist"
 
-This is because the recently created `get_system_health_metrics` RPC function incorrectly references a table called `stt_requests`, when the actual table is `stt_analytics`.
+This is because the `get_system_health_metrics` RPC function incorrectly references a table called `pending_record_changes`, when the actual table is `pending_activities`.
 
 ## Root Cause
 
-In the migration `20260207061943_fdd1c893-199d-4c0a-8e23-09b6bfceae68.sql`, the STT section queries:
+In the current RPC function (lines 108-111), the approvals section queries:
 ```sql
-'stt', jsonb_build_object(
-  'total_requests', (SELECT COUNT(*) FROM stt_requests),  -- WRONG TABLE
+'approvals', jsonb_build_object(
+  'pending', (SELECT COUNT(*) FROM pending_record_changes WHERE status = 'pending'),
   ...
 )
 ```
 
-But the correct table (created in an earlier migration) is `stt_analytics` with a different schema:
+But the correct table is `pending_activities` with these status values: `pending`, `approved`, `rejected`.
 
 | Wrong Reference | Correct Reference |
 |-----------------|-------------------|
-| `stt_requests` | `stt_analytics` |
-| `success = true` | `status = 'success'` |
-| `processing_time_ms` | `latency_ms` |
+| `pending_record_changes` | `pending_activities` |
+| `status = 'auto_approved'` | Not needed (doesn't exist) |
 
 ## Solution
 
-Create a new migration to fix the RPC function by replacing all `stt_requests` references with `stt_analytics` and updating the column names.
+Create a new migration to fix the RPC function by replacing `pending_record_changes` with `pending_activities` and removing the reference to `auto_approved` status.
 
 ---
 
@@ -37,32 +36,14 @@ Create a new migration to fix the RPC function by replacing all `stt_requests` r
 
 ### Database Migration
 
-Update the `get_system_health_metrics` function:
+Update the `get_system_health_metrics` function approvals section:
 
 ```sql
-'stt', jsonb_build_object(
-  'total_requests', (SELECT COUNT(*) FROM stt_analytics),
-  'requests_24h', (SELECT COUNT(*) FROM stt_analytics WHERE created_at > now() - interval '24 hours'),
-  'success_rate', (
-    SELECT COALESCE(
-      ROUND(
-        (COUNT(*) FILTER (WHERE status = 'success')::numeric / NULLIF(COUNT(*)::numeric, 0)) * 100,
-        1
-      ),
-      0
-    )
-    FROM stt_analytics
-  ),
-  'avg_latency_ms', (
-    SELECT COALESCE(ROUND(AVG(latency_ms)::numeric, 0), 0)
-    FROM stt_analytics
-    WHERE status = 'success'
-  ),
-  'failed_24h', (
-    SELECT COUNT(*) FROM stt_analytics 
-    WHERE created_at > now() - interval '24 hours' 
-      AND status IN ('error', 'rate_limited')
-  )
+'approvals', jsonb_build_object(
+  'pending', (SELECT COUNT(*) FROM pending_activities WHERE status = 'pending'),
+  'approved_7d', (SELECT COUNT(*) FROM pending_activities WHERE status = 'approved' AND reviewed_at > now() - interval '7 days'),
+  'rejected_7d', (SELECT COUNT(*) FROM pending_activities WHERE status = 'rejected' AND reviewed_at > now() - interval '7 days'),
+  'auto_approved_7d', 0  -- Not used in current schema
 )
 ```
 
@@ -72,16 +53,16 @@ Update the `get_system_health_metrics` function:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `supabase/migrations/xxx.sql` | Create | Fix `get_system_health_metrics` to use `stt_analytics` table |
+| `supabase/migrations/xxx.sql` | Create | Fix `get_system_health_metrics` to use `pending_activities` table |
 
 ---
 
 ## Data Flow Verification
 
-**Modified**: `get_system_health_metrics` RPC function
-**Data Flow**: `stt_analytics` table → RPC → `useSystemHealth` hook → `SystemOverview` component
-**Consumers Verified**: `useSystemHealth.ts`, `SystemOverview.tsx`
-**Breaking Changes**: None - fixes existing broken functionality
+**Modified**: `get_system_health_metrics` RPC function  
+**Data Flow**: `pending_activities` table -> RPC -> `useSystemHealth` hook -> `SystemOverview` component  
+**Consumers Verified**: `useSystemHealth.ts`, `SystemOverview.tsx`  
+**Breaking Changes**: None - fixes existing broken functionality  
 **Testing Points**: Admin Dashboard > Dashboard tab should load without errors
 
 ---
@@ -90,6 +71,6 @@ Update the `get_system_health_metrics` function:
 
 1. Navigate to Admin Dashboard - verify the error is gone
 2. Dashboard tab should display system health metrics
-3. STT metrics section should show correct counts from `stt_analytics`
+3. Approvals metrics section should show correct counts from `pending_activities`
 4. Switch between Live/Demo/All data - verify dashboard loads correctly for each
 
