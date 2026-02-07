@@ -1,76 +1,99 @@
 
+## What’s happening (root cause)
 
-# Fix: Missing `pending_record_changes` Table Error
+The current Admin “System metrics” backend function `public.get_system_health_metrics(text)` is still querying the **farmer feedback** table (`farmer_feedback`) using an invalid enum value:
 
-## Problem Analysis
+- Column: `farmer_feedback.status` is type `public.feedback_status` (ENUM)
+- Valid values (confirmed from DB):  
+  `submitted, acknowledged, under_review, action_taken, resolved, closed`
+- The function currently does: `WHERE status = 'pending'`  
+  Postgres tries to cast `'pending'` to the enum type and throws:  
+  **invalid input value for enum feedback_status: "pending"**
 
-The Admin Dashboard is showing the error:
-> "Failed to load system metrics - relation 'pending_record_changes' does not exist"
+This is why you’re seeing “Failed to load system metrics” when on `/admin?tab=dashboard&data_source=demo`.
 
-This is because the `get_system_health_metrics` RPC function incorrectly references a table called `pending_record_changes`, when the actual table is `pending_activities`.
+---
 
-## Root Cause
+## Thorough check (to stop these recurring “relation/enum does not exist” errors)
 
-In the current RPC function (lines 108-111), the approvals section queries:
+### A) Audit `get_system_health_metrics` for hardcoded table/enum literals
+We’ll review every section in the function for:
+1. **Table existence** (no more `stt_requests`, `pending_record_changes`, etc.)
+2. **Enum literals** (no more `'pending'` on `feedback_status`, etc.)
+3. **Column names** (`sync_logs.status`, `stt_analytics.latency_ms`, etc.)
+4. **Data-category filtering** stays consistent (demo/live/all via `filtered_farm_ids`)
+
+Current findings from the DB + latest migration:
+- `stt`: now correctly uses `stt_analytics` and valid fields.
+- `approvals`: now correctly uses `pending_activities` and valid statuses.
+- `support`: uses `support_tickets` with `ticket_status/ticket_priority` enums; the values referenced are valid.
+- `feedback`: **still wrong** → uses `status = 'pending'` (must be `submitted`).
+
+### B) Add a “schema compatibility” checklist for future edits to this RPC
+When we update this function again, we will:
+- Validate enums via `pg_enum` (as done here)
+- Validate table/columns via `information_schema.columns`
+- Avoid introducing new literals unless verified
+
+This prevents the repeated cycle you’re experiencing.
+
+---
+
+## Fix to implement (DB migration)
+
+### 1) Create a new migration that updates ONLY the `feedback` section
+Update the `feedback` JSON block from:
+
+- `pending` → **`submitted`** (correct enum value)
+
+Proposed revised block (also expands coverage so the dashboard is more accurate and less likely to need future edits):
+
 ```sql
-'approvals', jsonb_build_object(
-  'pending', (SELECT COUNT(*) FROM pending_record_changes WHERE status = 'pending'),
-  ...
+'feedback', jsonb_build_object(
+  'submitted', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'submitted' AND farm_id = ANY(filtered_farm_ids)),
+  'acknowledged', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'acknowledged' AND farm_id = ANY(filtered_farm_ids)),
+  'under_review', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'under_review' AND farm_id = ANY(filtered_farm_ids)),
+  'action_taken', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'action_taken' AND farm_id = ANY(filtered_farm_ids)),
+  'resolved', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'resolved' AND farm_id = ANY(filtered_farm_ids)),
+  'closed', (SELECT COUNT(*) FROM farmer_feedback WHERE status = 'closed' AND farm_id = ANY(filtered_farm_ids)),
+  'total', (SELECT COUNT(*) FROM farmer_feedback WHERE farm_id = ANY(filtered_farm_ids))
 )
 ```
 
-But the correct table is `pending_activities` with these status values: `pending`, `approved`, `rejected`.
+Notes:
+- We do not compare to any invalid enum value.
+- We keep the `filtered_farm_ids` approach, so the demo/live/all toggle continues to work.
 
-| Wrong Reference | Correct Reference |
-|-----------------|-------------------|
-| `pending_record_changes` | `pending_activities` |
-| `status = 'auto_approved'` | Not needed (doesn't exist) |
+### 2) Confirm the function signature remains unchanged
+DB confirms the currently deployed function signature is:
+- `get_system_health_metrics(text) -> jsonb`
 
-## Solution
-
-Create a new migration to fix the RPC function by replacing `pending_record_changes` with `pending_activities` and removing the reference to `auto_approved` status.
-
----
-
-## Changes Required
-
-### Database Migration
-
-Update the `get_system_health_metrics` function approvals section:
-
-```sql
-'approvals', jsonb_build_object(
-  'pending', (SELECT COUNT(*) FROM pending_activities WHERE status = 'pending'),
-  'approved_7d', (SELECT COUNT(*) FROM pending_activities WHERE status = 'approved' AND reviewed_at > now() - interval '7 days'),
-  'rejected_7d', (SELECT COUNT(*) FROM pending_activities WHERE status = 'rejected' AND reviewed_at > now() - interval '7 days'),
-  'auto_approved_7d', 0  -- Not used in current schema
-)
-```
+We will keep this stable to avoid breaking frontend calls.
 
 ---
 
-## File Changes Summary
+## Verification / QA steps (end-to-end)
 
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/migrations/xxx.sql` | Create | Fix `get_system_health_metrics` to use `pending_activities` table |
-
----
-
-## Data Flow Verification
-
-**Modified**: `get_system_health_metrics` RPC function  
-**Data Flow**: `pending_activities` table -> RPC -> `useSystemHealth` hook -> `SystemOverview` component  
-**Consumers Verified**: `useSystemHealth.ts`, `SystemOverview.tsx`  
-**Breaking Changes**: None - fixes existing broken functionality  
-**Testing Points**: Admin Dashboard > Dashboard tab should load without errors
+1. Open Admin Dashboard on:
+   - `/admin?tab=dashboard&data_source=demo`
+2. Confirm the dashboard loads (no “Failed to load system metrics”)
+3. Switch header toggle:
+   - Demo → Live → All
+   - Confirm metrics still load for each
+4. Sanity-check “Feedback” numbers:
+   - Submitted count should appear instead of “pending”
+5. Quick regression scan:
+   - No new “relation does not exist”
+   - No new “invalid input value for enum …”
 
 ---
 
-## Testing Points
+## Change Impact Summary
 
-1. Navigate to Admin Dashboard - verify the error is gone
-2. Dashboard tab should display system health metrics
-3. Approvals metrics section should show correct counts from `pending_activities`
-4. Switch between Live/Demo/All data - verify dashboard loads correctly for each
+**Modified (planned)**: one new SQL migration that recreates `public.get_system_health_metrics(text)` with corrected feedback-status filters.
 
+**Data Flow**: `farmer_feedback` (enum `feedback_status`) → `get_system_health_metrics` → `useSystemHealth` → Admin Dashboard “System Overview”
+
+**Breaking Changes**: None (same RPC name + same argument type)
+
+**Primary testing point**: Admin Dashboard > Dashboard tab, especially in `data_source=demo` mode where you encountered the error.
