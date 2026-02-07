@@ -23,8 +23,13 @@ import { TopicCoverageCard } from "./TopicCoverageCard";
 import { TopicBrowseCard } from "./TopicBrowseCard";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { categorizeQuery } from "@/lib/queryTopicCategorizer";
+import { DataCategory } from "@/types/government";
 
-export const DocAgaManagement = () => {
+interface DocAgaManagementProps {
+  dataCategory?: DataCategory;
+}
+
+export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps) => {
   const queryClient = useQueryClient();
   const { fontSize, xAxisProps } = useResponsiveChart({ size: 'medium' });
   const [activeTab, setActiveTab] = useState("analytics");
@@ -53,59 +58,105 @@ export const DocAgaManagement = () => {
     },
   });
 
+  // Helper to get farm IDs for the current data category
+  const getFarmIdsForCategory = async () => {
+    if (dataCategory === 'all') return null; // No filtering needed
+    
+    const { data: farms } = await supabase
+      .from("farms")
+      .select("id")
+      .eq("data_category", dataCategory);
+    
+    return farms?.map(f => f.id) || [];
+  };
+
   const { data: queryStats } = useQuery({
-    queryKey: ["admin-query-stats"],
+    queryKey: ["admin-query-stats", dataCategory],
     queryFn: async () => {
-      const { count: totalCount } = await supabase
+      const farmIds = await getFarmIdsForCategory();
+      
+      let totalQuery = supabase
         .from("doc_aga_queries")
         .select("*", { count: "exact", head: true });
-
-      const { count: unmatchedCount } = await supabase
+      
+      let unmatchedQuery = supabase
         .from("doc_aga_queries")
         .select("*", { count: "exact", head: true })
         .is("matched_faq_id", null);
-
-      const { count: imageCount } = await supabase
+      
+      let imageQuery = supabase
         .from("doc_aga_queries")
         .select("*", { count: "exact", head: true })
         .not("image_url", "is", null);
 
+      // Apply farm ID filter if not 'all'
+      if (farmIds !== null) {
+        if (farmIds.length === 0) {
+          return { totalQueries: 0, unmatchedQueries: 0, queriesWithImages: 0 };
+        }
+        totalQuery = totalQuery.in("farm_id", farmIds);
+        unmatchedQuery = unmatchedQuery.in("farm_id", farmIds);
+        imageQuery = imageQuery.in("farm_id", farmIds);
+      }
+
+      const [totalResult, unmatchedResult, imageResult] = await Promise.all([
+        totalQuery,
+        unmatchedQuery,
+        imageQuery
+      ]);
+
       return { 
-        totalQueries: totalCount || 0,
-        unmatchedQueries: unmatchedCount || 0,
-        queriesWithImages: imageCount || 0,
+        totalQueries: totalResult.count || 0,
+        unmatchedQueries: unmatchedResult.count || 0,
+        queriesWithImages: imageResult.count || 0,
       };
     },
   });
 
   const { data: recentQueries } = useQuery({
-    queryKey: ["admin-recent-queries"],
+    queryKey: ["admin-recent-queries", dataCategory],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const farmIds = await getFarmIdsForCategory();
+      
+      let query = supabase
         .from("doc_aga_queries")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
 
+      if (farmIds !== null) {
+        if (farmIds.length === 0) return [];
+        query = query.in("farm_id", farmIds);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: queryTimeline } = useQuery({
-    queryKey: ["admin-query-timeline"],
+    queryKey: ["admin-query-timeline", dataCategory],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const farmIds = await getFarmIdsForCategory();
+      
+      let query = supabase
         .from("doc_aga_queries")
         .select("created_at")
         .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: true });
 
+      if (farmIds !== null) {
+        if (farmIds.length === 0) return [];
+        query = query.in("farm_id", farmIds);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       // Group by date
-      const grouped = data?.reduce((acc: any, query) => {
-        const date = format(new Date(query.created_at), "MMM dd");
+      const grouped = data?.reduce((acc: any, q) => {
+        const date = format(new Date(q.created_at), "MMM dd");
         acc[date] = (acc[date] || 0) + 1;
         return acc;
       }, {});

@@ -61,7 +61,12 @@ interface FarmWithDetails {
   program_group: string | null;
   data_category: 'live' | 'demo';
 }
-export const FarmOversight = () => {
+
+interface FarmOversightProps {
+  dataCategory?: 'live' | 'demo' | 'all';
+}
+
+export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [confirmationInput, setConfirmationInput] = useState<Record<string, string>>({});
@@ -71,7 +76,7 @@ export const FarmOversight = () => {
   const [selectedFarmForDetail, setSelectedFarmForDetail] = useState<FarmWithDetails | null>(null);
 
   const { data: farms, isLoading } = useQuery<FarmWithDetails[]>({
-    queryKey: ["admin-farms", statusFilter],
+    queryKey: ["admin-farms", statusFilter, dataCategory],
     queryFn: async (): Promise<FarmWithDetails[]> => {
       let query = supabase
         .from("farms")
@@ -96,6 +101,11 @@ export const FarmOversight = () => {
           profiles:owner_id (full_name, phone, email),
           farm_memberships:farm_memberships(count)
         `);
+
+      // Apply data category filter
+      if (dataCategory !== 'all') {
+        query = query.eq("data_category", dataCategory);
+      }
 
       // Apply filter based on status
       if (statusFilter === "active") {

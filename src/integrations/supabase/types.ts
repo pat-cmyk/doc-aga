@@ -4593,7 +4593,10 @@ export type Database = {
         Args: { end_date?: string; start_date?: string }
         Returns: Json
       }
-      get_system_health_metrics: { Args: never; Returns: Json }
+      get_system_health_metrics: {
+        Args: { data_category_filter?: string }
+        Returns: Json
+      }
       get_team_members: {
         Args: { p_farm_id: string }
         Returns: {

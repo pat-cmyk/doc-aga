@@ -2,20 +2,24 @@ import { ReactNode, useState } from "react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useRole } from "@/hooks/useRole";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Building2, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Shield, Users, Building2, MessageSquare, LayoutDashboard, Database } from "lucide-react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { AdminGlobalSearch } from "./AdminGlobalSearch";
 import { FarmDetailPanel } from "./FarmDetailPanel";
 import { useNavigate } from "react-router-dom";
+import { DataCategory } from "@/types/government";
 
 interface AdminLayoutProps {
   children: ReactNode;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  dataCategory: DataCategory;
+  onDataCategoryChange: (category: DataCategory) => void;
 }
 
-export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutProps) => {
+export const AdminLayout = ({ children, activeTab, onTabChange, dataCategory, onDataCategoryChange }: AdminLayoutProps) => {
   const { isLoading } = useAdminAccess();
   const { isAdmin } = useRole();
   const navigate = useNavigate();
@@ -47,6 +51,32 @@ export const AdminLayout = ({ children, activeTab, onTabChange }: AdminLayoutPro
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Select value={dataCategory} onValueChange={(value) => onDataCategoryChange(value as DataCategory)}>
+              <SelectTrigger className="w-[130px]">
+                <Database className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="live">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    Live Data
+                  </div>
+                </SelectItem>
+                <SelectItem value="demo">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-blue-500" />
+                    Demo Data
+                  </div>
+                </SelectItem>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-gray-500" />
+                    All Data
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <AdminGlobalSearch onSelectFarm={handleSelectFarm} />
             <NetworkStatusIndicator />
             <UserEmailDropdown />
