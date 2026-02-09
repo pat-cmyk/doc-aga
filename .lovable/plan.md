@@ -1,147 +1,144 @@
 
 
-# Comprehensive Fix: All Remaining `get_system_health_metrics` Errors
+# Initialize `/docs/data-relationships-map.md` — Living DRM
 
-## Complete Problem Audit
+## Overview
 
-After thorough database schema verification, here are ALL remaining issues in the `get_system_health_metrics` function:
+This task creates the foundational Data Relationships Map (DRM) document at `/docs/data-relationships-map.md`, populated from the **actual current database schema** (not guesses). It covers all 70+ public tables, 8 public enums, 30+ edge functions, and the offline sync architecture.
 
-| Section | Line | Issue | Correct Schema |
-|---------|------|-------|----------------|
-| **stt** | 53, 55 | Uses `success` column (boolean) | Column is `status` (text: 'success', 'error') |
-| **support** | 64-67 | Uses `farm_id` column | Column is `linked_farm_id` |
-| **sync** | 76-79 | References `sync_logs` table | Table doesn't exist - use `sync_queue` |
+## What Will Be Created
+
+A single file: `/docs/data-relationships-map.md` with all 9 required sections.
 
 ---
 
-## Root Cause Analysis
+## Section-by-Section Content Plan
 
-The current migration incorrectly references:
+### 1) Entities Index
 
-```sql
--- Line 53: WRONG - 'success' column doesn't exist
-'success_rate', COALESCE((SELECT ROUND(AVG(CASE WHEN success THEN 100 ELSE 0 END)::numeric, 1)...
+Compact table listing all 70+ tables grouped by domain:
 
--- Line 55: WRONG - 'success' column doesn't exist  
-'failed_24h', (SELECT COUNT(*) FROM stt_analytics WHERE success = false...
+| Domain | Tables |
+|--------|--------|
+| **Core** | farms, animals, profiles, farm_memberships, user_roles |
+| **Production** | milking_records, milk_inventory, feeding_records, feed_inventory, feed_stock_transactions, weight_records, body_condition_scores |
+| **Health** | health_records, health_symptom_categories, injection_records, preventive_health_protocols, preventive_health_schedules |
+| **Breeding** | ai_records, heat_records, heat_observation_checks, breeding_events, animal_events |
+| **Finance** | farm_expenses, farm_revenues, biological_asset_valuations |
+| **Marketplace** | merchants, products, product_categories, orders, order_items, invoices, distributors, market_prices |
+| **Ads** | ad_campaigns, ad_impressions |
+| **Government** | farmer_feedback, coverage_reports, gov_analytics_access_audit_log, gov_farm_analytics |
+| **Support** | support_tickets, ticket_comments, ticket_attachments |
+| **AI/Voice** | doc_aga_queries, doc_aga_faqs, faq_candidates, stt_analytics, transcription_corrections, voice_training_samples |
+| **Sync** | sync_queue, sync_conflicts, farm_sync_checkpoints, pending_activities, farm_approval_settings |
+| **Admin/System** | admin_actions, admin_animal_edits, admin_farm_edits, admin_profile_edits, user_roles_audit, user_activity_logs, platform_settings, notifications, messages, stats_job_runs, daily_farm_stats, monthly_farm_stats, integrity_fix_log, test_runs, test_results, daily_farm_checklists, animal_ovr_cache, animal_photos |
 
--- Lines 64-67: WRONG - 'farm_id' doesn't exist in support_tickets
-WHERE ... AND farm_id = ANY(filtered_farm_ids)
+Each entry will include: purpose, tenant key (farm_id / global / user-scoped), role access summary, and primary screens/functions.
 
--- Lines 76-79: WRONG - 'sync_logs' table doesn't exist
-(SELECT COUNT(*) FROM sync_logs WHERE...
+### 2) Entity Specs
+
+Full column-level documentation for every table, sourced from `information_schema.columns`. Includes:
+- Column name, type, nullable, default, constraints
+- Primary keys and unique constraints
+- Foreign key relationships with cardinality and ON DELETE rules
+- Required tenancy fields verification (farm_id, created_by, created_at)
+- Soft delete flags (e.g., `animals.is_deleted`)
+
+### 3) Relationship Matrix
+
+Compact cross-reference table format:
+
+```text
+Table A             | Table B          | Card. | FK Column     | Delete Rule | Tenant
+--------------------|------------------|-------|---------------|-------------|--------
+animals             | farms            | M:1   | farm_id       | (none)      | farm_id
+milking_records     | animals          | M:1   | animal_id     | (none)      | via animal
+health_records      | animals          | M:1   | animal_id     | (none)      | via animal
+ai_records          | animals          | M:1   | animal_id     | (none)      | via animal
+farm_memberships    | farms            | M:1   | farm_id       | (none)      | farm_id
+...
 ```
 
----
+### 4) RLS and Tenancy Rules
 
-## Verified Database Schema
+**Key finding from drift scan**: All 70+ tables have RLS **enabled**. Document per-table:
+- Policy names and operations (SELECT/INSERT/UPDATE/DELETE)
+- Tenant enforcement method (direct `farm_id` check vs. `can_access_farm()` via animal join)
+- Admin/government exception policies (e.g., `government_view_*` policies)
+- Helper functions: `can_access_farm()`, `is_farm_owner()`, `is_farm_manager()`, `has_role()`, `is_super_admin()`
 
-### stt_analytics table
-| Column | Type | Note |
-|--------|------|------|
-| status | text | Values: 'success', 'error' |
-| latency_ms | integer | ✓ Correct |
-| farm_id | uuid | ✓ Correct |
+### 5) Role Model
 
-### support_tickets table
-| Column | Type | Note |
-|--------|------|------|
-| linked_farm_id | uuid | NOT farm_id |
-| status | ticket_status enum | Values: 'open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed' |
-| priority | ticket_priority enum | ✓ Correct |
+Document from actual schema:
 
-### sync_queue table (replaces non-existent sync_logs)
-| Column | Type | Note |
-|--------|------|------|
-| sync_status | sync_status enum | Values: 'pending', 'syncing', 'synced', 'conflict', 'error' |
-| farm_id | uuid | ✓ Correct |
-| processed_at | timestamptz | Use for duration calculation |
-| created_at | timestamptz | ✓ Correct |
+**`user_role` enum values**: `farmer_owner`, `farmhand`, `merchant`, `vet`, `admin`, `distributor`, `government`
 
----
+**`farm_memberships.role_in_farm`**: Uses same `user_role` enum for farm-level subroles.
 
-## Solution: Single Comprehensive Migration
+**Enforcement layers**:
+- DB: RLS policies using `has_role()`, `is_farm_owner()`, `is_farm_manager()`, `can_access_farm()`
+- Edge Functions: Service-role bypass with manual role checks
+- Client: `useUnifiedPermissions()` hook (UI guard only, not security boundary)
 
-Create ONE migration that fixes ALL three sections:
+### 6) Offline + Sync Model
 
-### 1. STT Section Fix
-```sql
-'stt', jsonb_build_object(
-  'total_requests', (SELECT COUNT(*) FROM stt_analytics WHERE farm_id = ANY(filtered_farm_ids)),
-  'requests_24h', (SELECT COUNT(*) FROM stt_analytics WHERE created_at > now() - interval '24 hours' AND farm_id = ANY(filtered_farm_ids)),
-  'success_rate', COALESCE((
-    SELECT ROUND(AVG(CASE WHEN status = 'success' THEN 100 ELSE 0 END)::numeric, 1) 
-    FROM stt_analytics WHERE farm_id = ANY(filtered_farm_ids)
-  ), 0),
-  'avg_latency_ms', COALESCE((
-    SELECT ROUND(AVG(latency_ms)::numeric, 0) 
-    FROM stt_analytics WHERE status = 'success' AND farm_id = ANY(filtered_farm_ids)
-  ), 0),
-  'failed_24h', (
-    SELECT COUNT(*) FROM stt_analytics 
-    WHERE status = 'error' AND created_at > now() - interval '24 hours' AND farm_id = ANY(filtered_farm_ids)
-  )
-)
-```
+Document from actual `sync_queue` table columns:
+- `id`, `farm_id`, `user_id`, `entity_type`, `entity_id`, `action`, `payload`, `client_timestamp`, `sync_status` (enum: pending/syncing/synced/conflict/error), `processed_at`, `server_entity_id`, `error_message`, `retry_count`, `created_at`
 
-### 2. Support Section Fix
-```sql
-'support', jsonb_build_object(
-  'open', (SELECT COUNT(*) FROM support_tickets WHERE status = 'open' AND linked_farm_id = ANY(filtered_farm_ids)),
-  'in_progress', (SELECT COUNT(*) FROM support_tickets WHERE status = 'in_progress' AND linked_farm_id = ANY(filtered_farm_ids)),
-  'urgent', (SELECT COUNT(*) FROM support_tickets WHERE priority = 'urgent' AND status NOT IN ('resolved', 'closed') AND linked_farm_id = ANY(filtered_farm_ids)),
-  'resolved_7d', (SELECT COUNT(*) FROM support_tickets WHERE status = 'resolved' AND updated_at > now() - interval '7 days' AND linked_farm_id = ANY(filtered_farm_ids))
-)
-```
+Plus:
+- `sync_conflicts` table for conflict records
+- `farm_sync_checkpoints` for per-farm sync state
+- IndexedDB caches (offlineQueue.ts, offlineAudioQueue, dataCache)
+- Workbox service worker routes and background sync config
+- CacheManager invalidation dependencies
 
-### 3. Sync Section Fix
-```sql
-'sync', jsonb_build_object(
-  'total_syncs_24h', (SELECT COUNT(*) FROM sync_queue WHERE created_at > now() - interval '24 hours' AND farm_id = ANY(filtered_farm_ids)),
-  'success_rate', COALESCE((
-    SELECT ROUND(AVG(CASE WHEN sync_status = 'synced' THEN 100 ELSE 0 END)::numeric, 1) 
-    FROM sync_queue WHERE farm_id = ANY(filtered_farm_ids)
-  ), 100),
-  'avg_duration_ms', COALESCE((
-    SELECT ROUND(AVG(EXTRACT(EPOCH FROM (processed_at - created_at)) * 1000)::numeric, 0) 
-    FROM sync_queue WHERE sync_status = 'synced' AND processed_at IS NOT NULL AND farm_id = ANY(filtered_farm_ids)
-  ), 0),
-  'failed_24h', (
-    SELECT COUNT(*) FROM sync_queue 
-    WHERE sync_status = 'error' AND created_at > now() - interval '24 hours' AND farm_id = ANY(filtered_farm_ids)
-  )
-)
-```
+### 7) Edge Functions Data Contracts
+
+Document all 31 edge functions with inputs/outputs/tables/role checks:
+- `doc-aga` (AI chat), `rico` (analytics AI), `process-animal-voice`, `voice-to-text`, `text-to-speech`
+- `process-farmhand-activity`, `review-pending-activity`, `process-auto-approvals`
+- `admin-create-user`, `admin-permanent-delete-farm`
+- `merchant-signup`, `send-team-invitation`
+- `calculate-daily-stats`, `calculate-ovr-scores`, `generate-predictive-insights`
+- etc.
+
+### 8) Change Log + Consistency Check
+
+Initial entry documenting this bootstrap and any drift findings.
+
+### 9) Assumptions and Open Questions
+
+Document known gaps found during audit (e.g., vet role RLS gap, ai_records missing direct farm_id column).
 
 ---
 
-## File Changes Summary
+## Drift Scan Findings (Initial)
 
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/migrations/xxx.sql` | Create | Complete rewrite of `get_system_health_metrics` with all fixes |
+From comparing actual schema vs. existing project memories:
 
----
-
-## Data Flow Verification
-
-**Modified**: `get_system_health_metrics` RPC function  
-**Data Flow**: 
-- `stt_analytics` → RPC → `useSystemHealth` → Dashboard STT metrics
-- `support_tickets` → RPC → `useSystemHealth` → Dashboard Support metrics  
-- `sync_queue` → RPC → `useSystemHealth` → Dashboard Sync metrics
-
-**Consumers Verified**: `useSystemHealth.ts`, `SystemOverview.tsx`  
-**Breaking Changes**: None - same return interface  
+| Finding | Severity | Detail |
+|---------|----------|--------|
+| `ai_records` has no `farm_id` column | Info | Tenant isolation via `animal_id` join to `animals.farm_id` — by design but worth documenting |
+| `milking_records`, `health_records`, `feeding_records`, `weight_records` — same pattern | Info | No direct `farm_id`; isolated via animal join |
+| `heat_records`, `injection_records` — same pattern | Info | Via animal join |
+| Vet role RLS gap | Warn | Previously documented — `is_vet()` function may not exist |
+| Foreign key query returned empty | Warn | FKs may use different constraint types or be absent — needs investigation |
+| `gov_farm_analytics` purpose unclear | Info | Needs documentation |
 
 ---
 
-## Testing Points
+## Implementation Steps
 
-1. Navigate to `/admin?tab=dashboard&data_source=demo` - verify no errors
-2. Switch data source toggle: Demo → Live → All - all should load
-3. Verify STT metrics section displays correct data
-4. Verify Support section shows ticket counts
-5. Verify Sync section shows queue statistics
-6. Confirm System Health Score calculates without errors
+1. Create `/docs/data-relationships-map.md` with all 9 sections
+2. Populate Entities Index from the 70+ tables grouped by domain
+3. Write Entity Specs for core/production/health/breeding/finance tables first, then remaining domains
+4. Build Relationship Matrix from FK and join patterns found in RLS policies
+5. Document all RLS policies per table
+6. Document role model with enum values and enforcement layers
+7. Document offline/sync architecture from `sync_queue` schema + `offlineQueue.ts` + `sw.ts`
+8. Document edge function contracts (inputs/outputs/tables/roles)
+9. Add initial Change Log entry and Drift Scan findings
+10. Add Open Questions section with known gaps
+
+**Estimated size**: ~1500-2000 lines of structured markdown
 
