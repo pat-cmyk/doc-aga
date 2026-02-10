@@ -1,22 +1,21 @@
 
 
-# Clean Up Stale Vet Role Warning in DRM
+# Update Reply-To Address
 
 ## Change
 
-Single line edit in `docs/data-relationships-map.md` at line 626:
+**File:** `supabase/functions/send-team-invitation/index.ts` (line 54)
 
-**Before:**
+Update the `resend.emails.send()` call:
+
 ```
-| `vet` | Veterinarian | Farm-scoped (⚠️ see open questions) |
+Before:
+  from: "GoldenForage <onboarding@resend.dev>",
+
+After:
+  from: "Doc Aga <updates@doc-aga.goldenforage.com>",
+  reply_to: "support@goldenforage.com",
 ```
 
-**After:**
-```
-| `vet` | Veterinarian | Farm-scoped (via `is_vet()` helper) |
-```
-
-This removes the outdated warning and replaces it with a reference to the `is_vet()` function that was created in the earlier migration, consistent with how other roles reference their helpers.
-
-No other files affected.
+Single edit. No other files affected.
 
