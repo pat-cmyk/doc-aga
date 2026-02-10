@@ -876,6 +876,64 @@ Dropped 8 redundant policies:
 | C) API/Edge Contracts ↔ DRM | ✅ |
 | D) Offline/Sync ↔ DRM | ✅ |
 
+### Entry 4: Milking Approval Bug Fix & Data Repair
+
+**Date**: 2026-02-10
+
+**What changed**: Fixed two bugs in `approve_pending_activity` RPC, added auto-approval cron job, repaired corrupted milking data, and hardened frontend submission.
+
+**Bug 1 — Wrong Record Date**:
+
+| Before | After |
+|--------|-------|
+| `_record_date := COALESCE(validated_date, CURRENT_DATE)` | `_record_date := COALESCE((_activity_data->>'validated_date')::DATE, _pending.created_at::DATE)` |
+
+When `validated_date` was missing from farmhand submission, records were stamped with the approval date instead of the original submission date (e.g., Jan 30 entry approved on Feb 10 → recorded as Feb 10).
+
+**Bug 2 — Inflated Bulk Milking Volume (250L instead of 50L)**:
+
+| Before | After |
+|--------|-------|
+| Loop: insert `_quantity` (total) for each animal | Check `distributions_by_type`: extract per-animal liters from distribution data |
+
+For bulk milking with 5 animals and 50L total, the old code inserted 50L × 5 = 250L. The fix reads `distributions_by_type` JSON to get individual animal amounts.
+
+**New: `process-auto-approvals` Cron Job**:
+
+- Scheduled via `pg_cron` every 15 minutes using `pg_net` extension
+- Calls the `process-auto-approvals` edge function
+- Auto-approves pending activities past their `auto_approve_at` timestamp
+
+**Frontend Change**:
+
+- `src/components/farmhand/ActivityConfirmation.tsx`: `buildActivityData()` now always includes `validated_date` and `validated_datetime` at submission time, preventing reliance on date fallback logic
+
+**Data Repair Performed**:
+
+| Action | Records | Detail |
+|--------|---------|--------|
+| DELETE | 5 records | Removed incorrect 50L entries on 2026-02-10 (created_at `2026-02-10 01:53:02.379633+00`) |
+| VERIFY | 5 animals on Jan 30 | All animals (Tsibato, Tag G002, Tita Barbecue, Bessie, Tag 2722) confirmed with correct per-animal liters on 2026-01-30 |
+
+**Data Flow Affected**:
+
+```text
+pending_activities.activity_data → approve_pending_activity RPC → milking_records
+                                                                → daily_farm_stats (via cron)
+                                                                → MilkDayDetailDialog (popup)
+                                                                → useMilkData (chart)
+```
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ |
+| B) RLS ↔ DRM | ✅ No RLS changes |
+| C) API/Edge Contracts ↔ DRM | ✅ `process-auto-approvals` documented |
+| D) Offline/Sync ↔ DRM | ✅ No sync changes |
+| E) Data integrity | ✅ Feb 10 cleared, Jan 30 verified |
+
 ---
 
 ## 9) Assumptions & Open Questions
