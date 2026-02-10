@@ -1,60 +1,78 @@
 
 
-# Fix: Auto-Approval Not Triggering
+# Fix: Milking Approval - Wrong Date and Inflated Liters
 
-## Problem
+## Problem Summary
 
-The pending milking entry you see was submitted by **Este Farmer** (a farmhand) on Jan 30. This is correct behavior -- farmhand submissions require manager approval. The `auto_approve_at` was set to Feb 1, but **the auto-approval never fired** because there is no scheduled job calling the `process-auto-approvals` function.
+Two bugs in the `approve_pending_activity` database function caused a 250L milking record on the wrong date:
 
-The function exists and works correctly, but nothing triggers it on a schedule.
+1. **Wrong date**: When `validated_date` is missing from the farmhand's submission, it falls back to `CURRENT_DATE` (the approval date) instead of the original submission date. The entry submitted Jan 30 was recorded as Feb 10.
+
+2. **Inflated liters (250L instead of 50L)**: For bulk milking submissions, the function ignores the per-animal distribution data (`distributions_by_type`) and instead inserts the **total** quantity (50L) for **each** of the 5 animals, producing 5 x 50 = 250L.
+
+### Chart vs Popup Discrepancy
+The chart uses `daily_farm_stats` (pre-aggregated, not yet calculated for today), while the popup queries `milking_records` directly. Both will show 250L once stats refresh -- the real fix is correcting the data at the source.
 
 ## Solution
 
-Add a **pg_cron job** (same pattern used for daily stats) that runs every 15 minutes to invoke the `process-auto-approvals` edge function. This uses the existing `pg_cron` and `pg_net` extensions already enabled in the database.
+### 1. Fix the `approve_pending_activity` RPC (Database Migration)
 
-## What Changes
+Update the milking case to:
 
-### 1. Database Migration (new)
+- **Date fallback**: Use the `created_at` timestamp of the pending activity (the original submission time) instead of `CURRENT_DATE` when `validated_date` is missing
+- **Bulk milking support**: When `distributions_by_type` exists in `activity_data`, extract individual liters per animal from the distribution data instead of using the flat `quantity` field
 
-Create a cron job that calls the `process-auto-approvals` edge function every 15 minutes:
+```text
+Date logic (before):
+  _record_date := COALESCE(validated_date, CURRENT_DATE)
 
-```sql
-SELECT cron.schedule(
-  'process-auto-approvals',
-  '*/15 * * * *',   -- Every 15 minutes
-  $$
-  SELECT net.http_post(
-    url := '<supabase-url>/functions/v1/process-auto-approvals',
-    headers := jsonb_build_object(
-      'Authorization', 'Bearer <service-role-key>',
-      'Content-Type', 'application/json'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+Date logic (after):
+  _record_date := COALESCE(validated_date, _pending.created_at::DATE)
+
+Milking logic (before):
+  FOREACH animal_id IN animal_ids LOOP
+    INSERT ... VALUES (animal_id, record_date, quantity, ...)  -- 50L per animal!
+  END LOOP
+
+Milking logic (after):
+  IF distributions_by_type exists THEN
+    -- Extract per-animal liters from distribution data
+    INSERT ... SELECT animal_id, milk_liters FROM distributions
+  ELSE
+    -- Single animal: use quantity directly (existing behavior)
+    INSERT ... VALUES (animal_id, record_date, quantity, ...)
+  END IF
 ```
 
-This will:
-- Check every 15 minutes for pending activities past their `auto_approve_at` time
-- Auto-approve them (including feed inventory deduction for feeding activities)
-- Log results for debugging
+### 2. Data Repair Query
 
-### 2. Immediate Fix for the Stuck Entry
+Fix the 5 incorrect milking records created today:
 
-After the cron job is deployed, the existing stuck entry (11 days old, auto-approve overdue by 9 days) will be picked up and auto-approved on the next 15-minute cycle.
+- Delete the 5 records with 50L each on Feb 10 (created by this auto-approval)
+- Re-insert with correct per-animal liters from the original distribution data, dated Jan 30
 
-Alternatively, you can manually trigger it right now by calling the function once.
+### 3. Submission Validation (Frontend)
 
-## Technical Notes
-
-- The `process-auto-approvals` function already handles all the logic correctly (checks farm settings, calls `approve_pending_activity` RPC, deducts feed inventory)
-- The `requires_approval` SQL function correctly exempts owners/managers -- only farmhand submissions enter the queue
-- The 15-minute interval balances responsiveness with resource usage
-- No frontend changes needed
+Update the farmhand milking submission flow to always include `validated_date` in `activity_data`, defaulting to the current date at submission time. This prevents reliance on the fallback logic entirely.
 
 ## Files Affected
 
-- **New migration**: Adds the cron schedule
-- No other files modified
+- **New migration**: Updates `approve_pending_activity` RPC
+- **New migration**: Data repair for the 5 incorrect records  
+- **Frontend**: Farmhand milking submission component (to always include `validated_date`)
+
+## Data Flow
+
+```text
+pending_activities.activity_data --> approve_pending_activity RPC --> milking_records
+                                                                  --> daily_farm_stats (via cron)
+                                                                  --> MilkDayDetailDialog (popup)
+                                                                  --> useMilkData (chart)
+```
+
+## Testing Points
+
+- Submit a bulk milking as farmhand, wait for auto-approval, verify correct date and per-animal liters
+- Verify the popup and chart show matching totals after the fix
+- Check that single-animal milking submissions still work correctly
 
