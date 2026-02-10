@@ -1,79 +1,70 @@
 
+# Fix: Delete Duplicate Revenue Entries and Add Prevention Constraint
 
-# Fix: Complete Data Repair and DRM Update
+## Problem Identified
 
-## Problem
+The Finance tab is inflated by **₱11,324.40** due to 4 duplicate `farm_revenues` entries. Each duplicate pair has:
+- **Entry A (correct)**: Amount matches `milking_records.sale_amount`, correct transaction date
+- **Entry B (inflated)**: Much larger amount, often a different date
 
-Two issues remain from the previous fix:
+| Milk Log ID | Correct Amount | Duplicate Amount | Inflation |
+|-------------|---------------|-----------------|-----------|
+| `1b1e4c3b...` | 166.38 | 1,274.40 | +1,108.02 |
+| `4dbde4db...` | 27.60 | 1,880.00 | +1,852.40 |
+| `d30db7e1...` | 771.60 | 4,970.00 | +4,198.40 |
+| `f7ff1067...` | 620.80 | 3,200.00 | +2,579.20 |
+| **Totals** | **1,586.38** | **11,324.40** | **+9,738.02** |
 
-1. **Data repair incomplete**: The 5 incorrect milking records (50L each, dated Feb 10) were never deleted. Only 2 of 5 corrected records were inserted for Jan 30. The chart still shows 250L on Feb 10.
+**Current total Milk Sales revenue**: 190,499.88 (inflated)
+**Corrected total after fix**: ~179,175.48
 
-2. **DRM not updated**: The `approve_pending_activity` RPC changes (date fallback, bulk milking distribution) were not documented in the Data Relationships Map changelog, violating project governance rules.
+## Root Cause
 
-## Current State in Database
-
-**Feb 10 (should NOT exist):**
-| Animal | Liters | Status |
-|--------|--------|--------|
-| Tag 2722 | 50L | Bad - should be 0L on Jan 30 |
-| Tita Barbecue | 50L | Bad - should be 24.14L on Jan 30 |
-| Bessie | 50L | Bad - should be 25.86L on Jan 30 |
-| Tsibato | 50L | Bad - already corrected on Jan 30 |
-| Tag G002 | 50L | Bad - already corrected on Jan 30 |
-
-**Jan 30 (corrected, partially done):**
-| Animal | Liters | Status |
-|--------|--------|--------|
-| Tag G002 | 32.54L | Inserted correctly |
-| Tsibato | 17.46L | Inserted correctly |
-| Tita Barbecue | 24.14L | MISSING |
-| Bessie | 25.86L | MISSING |
-| Tag 2722 | 0L | MISSING (0L per distribution, no record needed) |
+The `RecordMilkSaleDialog` creates a revenue entry on every sale submission but does not check whether one already exists for the same `linked_milk_log_id`. There is no database constraint preventing this.
 
 ## Plan
 
-### Step 1: Data Repair (SQL via insert tool)
+### Step 1: Delete 4 Duplicate Revenue Entries (SQL)
 
-Delete the 5 bad records from Feb 10:
+Delete only the second (inflated) entry in each pair, identified by their specific IDs:
+
+| ID to Delete | Inflated Amount | linked_milk_log_id |
+|---|---|---|
+| `76d98e90...` | 1,274.40 | `1b1e4c3b...` |
+| `f8928c9c...` | 1,880.00 | `4dbde4db...` |
+| `76bdbddc...` | 4,970.00 | `d30db7e1...` |
+| `c44e259a...` | 3,200.00 | `f7ff1067...` |
+
+### Step 2: Add Unique Partial Index (Migration)
+
+Create a partial unique index on `farm_revenues` to prevent future duplicates:
 
 ```text
-DELETE FROM milking_records 
-WHERE record_date = '2026-02-10' 
-AND animal_id IN (5 specific UUIDs)
-AND liters = 50.00
-AND created_at = '2026-02-10 01:53:02.379633+00'
+CREATE UNIQUE INDEX idx_farm_revenues_unique_milk_log 
+ON farm_revenues (linked_milk_log_id) 
+WHERE linked_milk_log_id IS NOT NULL AND is_deleted = false;
 ```
 
-Insert the 2 missing corrected records for Jan 30:
+This uses a partial index (not a full unique constraint) so that:
+- NULL values for `linked_milk_log_id` are still allowed (non-milk revenues)
+- Soft-deleted entries don't block new entries
 
-```text
-INSERT INTO milking_records (animal_id, record_date, liters)
-VALUES 
-  ('61eefe8a-...', '2026-01-30', 24.14),  -- Tita Barbecue
-  ('d8a96511-...', '2026-01-30', 25.86);  -- Bessie
-```
+### Step 3: Add Defensive Check in Code
 
-Note: Tag 2722 had 0L in the distribution, so no record is needed.
+Update `RecordMilkSaleDialog.tsx` to check for existing revenue before inserting, as a belt-and-suspenders approach alongside the DB constraint.
 
-### Step 2: Update DRM Changelog
+### Step 4: Update DRM
 
-Add a new entry (Entry 4) to `docs/data-relationships-map.md` documenting:
+Add Entry 5 to `docs/data-relationships-map.md` documenting the duplicate cleanup, new constraint, and code fix.
 
-- The `approve_pending_activity` RPC changes:
-  - Date fallback changed from `CURRENT_DATE` to `created_at::DATE`
-  - Bulk milking now reads `distributions_by_type` for per-animal liters
-- The `process-auto-approvals` cron job addition (every 15 minutes via pg_cron)
-- The data repair performed
-- Frontend change: `ActivityConfirmation.tsx` now always sends `validated_date`
+### Step 5: Verify
 
-### Step 3: Verify
-
-- Confirm Feb 10 shows 0L in the chart
-- Confirm Jan 30 totals reflect the corrected ~100L (existing records + 24.14 + 25.86 + 32.54 + 17.46)
+- Query to confirm only 4 correct entries remain (one per milk log)
+- Confirm total Milk Sales revenue decreased by ~₱11,324
+- Confirm the Finance tab reflects accurate totals
 
 ## Files Affected
 
-- **Data repair**: SQL execution (no file changes)
-- **`docs/data-relationships-map.md`**: New changelog entry (Entry 4)
-- No other code changes needed
-
+- **SQL**: DELETE 4 rows from `farm_revenues` + CREATE UNIQUE INDEX migration
+- **`src/components/milk-inventory/RecordMilkSaleDialog.tsx`**: Add duplicate-prevention check before insert
+- **`docs/data-relationships-map.md`**: New changelog Entry 5
