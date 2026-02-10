@@ -208,6 +208,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
   // Build activity data for queuing
   const buildActivityData = useCallback((): Record<string, unknown> => {
     const feedsToProcess = editableFeeds.length > 0 ? editableFeeds : data.feeds;
+    const now = new Date();
     
     return {
       activity_type: data.activity_type,
@@ -226,7 +227,10 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
       feeds: feedsToProcess,
       distributions: data.distributions,
       distributions_by_type: data.distributions_by_type,
-      animal_identifier: data.animal_identifier
+      animal_identifier: data.animal_identifier,
+      // Always include validated_date so the RPC never has to guess
+      validated_date: now.toISOString().split('T')[0],
+      validated_datetime: now.toISOString(),
     };
   }, [data, editableFeeds]);
 
