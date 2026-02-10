@@ -152,16 +152,28 @@ export function RecordMilkSaleDialog({
         }
       }
 
-      // STEP 3: Create single revenue record for the bulk sale
+      // STEP 3: Create single revenue record (with duplicate prevention)
       const speciesLabel = filterSpecies ? SPECIES_LABELS[filterSpecies] || filterSpecies : "Mixed";
-      await addRevenue.mutateAsync({
-        farm_id: farmId,
-        amount: totalAmount,
-        source: "Milk Sales",
-        transaction_date: format(new Date(), "yyyy-MM-dd"),
-        linked_milk_log_id: fifoPreview.records[0].record.milking_record_id,
-        notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
-      });
+      const linkedMilkLogId = fifoPreview.records[0].record.milking_record_id;
+
+      // Check if a revenue entry already exists for this milk log (belt-and-suspenders with DB unique index)
+      const { data: existingRevenue } = await supabase
+        .from("farm_revenues")
+        .select("id")
+        .eq("linked_milk_log_id", linkedMilkLogId)
+        .eq("is_deleted", false)
+        .maybeSingle();
+
+      if (!existingRevenue) {
+        await addRevenue.mutateAsync({
+          farm_id: farmId,
+          amount: totalAmount,
+          source: "Milk Sales",
+          transaction_date: format(new Date(), "yyyy-MM-dd"),
+          linked_milk_log_id: linkedMilkLogId,
+          notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
+        });
+      }
 
       // STEP 4: Refetch to sync with server
       await queryClient.refetchQueries({ 

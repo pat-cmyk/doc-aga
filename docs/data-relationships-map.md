@@ -934,6 +934,50 @@ pending_activities.activity_data → approve_pending_activity RPC → milking_re
 | D) Offline/Sync ↔ DRM | ✅ No sync changes |
 | E) Data integrity | ✅ Feb 10 cleared, Jan 30 verified |
 
+### Entry 5 — Duplicate Milk Revenue Cleanup & Prevention
+
+**Date**: 2026-02-10
+
+**What changed**: Deleted 4 duplicate `farm_revenues` entries inflating Milk Sales by ₱11,324.40. Added partial unique index and frontend guard to prevent recurrence.
+
+**Data Repair Performed**:
+
+| Action | IDs Deleted | Amount Removed |
+|--------|-------------|----------------|
+| DELETE | `76d98e90-cc67-...` | ₱1,274.40 |
+| DELETE | `f8928c9c-e535-...` | ₱1,880.00 |
+| DELETE | `76bdbddc-da75-...` | ₱4,970.00 |
+| DELETE | `c44e259a-c6d8-...` | ₱3,200.00 |
+| **Total** | 4 rows | **₱11,324.40** |
+
+Corrected total Milk Sales for farm: ₱179,175.48 (was ₱190,499.88).
+
+**Schema Change**:
+
+```sql
+CREATE UNIQUE INDEX idx_farm_revenues_unique_milk_log
+ON farm_revenues (linked_milk_log_id)
+WHERE linked_milk_log_id IS NOT NULL AND is_deleted = false;
+```
+
+Partial unique index ensures only one active revenue per milk log. NULLs (non-milk revenues) and soft-deleted rows are excluded.
+
+**Code Change**:
+
+- `src/components/milk-inventory/RecordMilkSaleDialog.tsx`: Added pre-insert check — queries `farm_revenues` for existing entry with same `linked_milk_log_id` before inserting. Skips insert if one exists.
+
+**Root Cause**: `RecordMilkSaleDialog` created a revenue entry on every submission without checking for existing records. No DB constraint prevented duplicates.
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ New index documented |
+| B) RLS ↔ DRM | ✅ No RLS changes |
+| C) API/Edge Contracts ↔ DRM | ✅ No edge function changes |
+| D) Offline/Sync ↔ DRM | ✅ No sync changes |
+| E) Data integrity | ✅ 4 duplicates removed, totals verified |
+
 ---
 
 ## 9) Assumptions & Open Questions
