@@ -1,117 +1,151 @@
 
 
-# Resolve All 7 DRM Open Questions
+# RLS Drift Remediation — Full Phased Plan
 
-## Summary of Resolutions
+## Overview
 
-| # | Question | Resolution | Action |
-|---|----------|-----------|--------|
-| 1 | Vet Role RLS Gap | Create `is_vet()` function + add vet INSERT policies on health_records, injection_records, preventive_health_schedules | **DB Migration** |
-| 2 | Duplicate RLS Policies | Drop all duplicates across distributors, doc_aga_faqs, invoices, orders, products, messages | **DB Migration** |
-| 3 | farm_expenses DELETE | Add DELETE policy for farm owners | **DB Migration** |
-| 4 | Animals missing CASCADE | DRM was wrong -- cascades ARE in place. Update DRM only | **DRM Update** |
-| 5 | gov_farm_analytics | Already resolved (VIEW, not table) | **No action** |
-| 6 | Offline queue farm_id | By design -- client-side queue is local, server-side sync_queue enforces farm_id NOT NULL | **DRM Update** |
-| 7 | milking_records duplicate INSERT | Drop `milking_insert` (superseded by `farmhand_milking_insert`) | **DB Migration** |
+This plan resolves **all findings** from the RLS drift scan in 4 phases, ordered by risk (security gaps first, then cleanup, then hardening). Each phase is a single DB migration + corresponding DRM update.
 
 ---
 
-## DB Migration (Single Migration)
+## Phase 1 — Security Gaps (Critical)
 
-### Step 1: Create `is_vet()` function
+Fix missing policies and overly permissive access that could allow unintended data operations.
 
-```sql
-CREATE OR REPLACE FUNCTION public.is_vet(_user_id uuid, _farm_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.farm_memberships
-    WHERE user_id = _user_id
-      AND farm_id = _farm_id
-      AND role_in_farm = 'vet'
-      AND invitation_status = 'accepted'
-  )
-$$;
-```
+### 1A. Replace `milk_inventory` ALL policy with granular policies
 
-### Step 2: Add vet INSERT policies (health_records, injection_records, preventive_health_schedules)
+The current single `ALL` policy (`can_access_farm(farm_id)`) lets farmhands DELETE inventory -- unintended.
 
-For `health_records` -- update existing `health_insert` policy to include vet:
-```sql
-DROP POLICY IF EXISTS "health_insert" ON health_records;
-CREATE POLICY "health_insert" ON health_records FOR INSERT
-  WITH CHECK (EXISTS (
-    SELECT 1 FROM animals a
-    WHERE a.id = health_records.animal_id
-      AND (is_farm_owner(auth.uid(), a.farm_id)
-        OR is_farm_manager(auth.uid(), a.farm_id)
-        OR is_farmhand(auth.uid(), a.farm_id)
-        OR is_vet(auth.uid(), a.farm_id))
-  ));
-```
+- **Drop**: `"Users can access their farm's inventory"` (ALL)
+- **Create**:
+  - SELECT: `can_access_farm(farm_id)` -- all farm members can view
+  - INSERT: `is_farm_owner() OR is_farm_manager() OR is_farmhand()` -- members can add
+  - UPDATE: `is_farm_owner() OR is_farm_manager()` -- only owner/manager can adjust
+  - DELETE: `is_farm_owner()` -- only owner can delete
 
-Same pattern for `injection_records` and `preventive_health_schedules`.
+### 1B. Add missing UPDATE policies for health tables
 
-### Step 3: Drop duplicate RLS policies
-
-Tables affected: `distributors`, `doc_aga_faqs`, `invoices`, `orders`, `products`, `milking_records`
-
-For each, drop the redundant policy name (keeping the cleanest-named version).
-
-### Step 4: Add farm_expenses DELETE policy
-
-```sql
-CREATE POLICY "Farm owners can delete expenses"
-  ON farm_expenses FOR DELETE
-  USING (is_farm_owner(auth.uid(), farm_id));
-```
-
-### Step 5: Drop milking_records superseded INSERT policy
-
-```sql
-DROP POLICY IF EXISTS "milking_insert" ON milking_records;
-```
-
----
-
-## DRM File Update
-
-Update `/docs/data-relationships-map.md` Section 9 to mark all 7 questions as resolved with documented rationale, and correct the CASCADE information in Section 2/3.
-
----
-
-## Technical Details
-
-### Tables with RLS Changes
+Vets can INSERT but cannot UPDATE their own records -- they should be able to correct entries.
 
 | Table | Change |
 |-------|--------|
-| health_records | Recreate INSERT policy with vet role |
-| injection_records | Add/update INSERT policy with vet role |
-| preventive_health_schedules | Add/update INSERT policy with vet role |
-| farm_expenses | Add DELETE policy for owners |
-| milking_records | Drop redundant `milking_insert` |
-| distributors | Drop 4 duplicate policies |
-| doc_aga_faqs | Drop ~4 duplicate policies |
-| invoices | Drop 1 duplicate SELECT + 1 duplicate INSERT |
-| orders | Drop duplicates (to be identified) |
-| products | Drop duplicates (to be identified) |
+| `health_records` | Add UPDATE policy: owner, manager, farmhand, **vet** |
+| `injection_records` | Add UPDATE policy: owner, manager, farmhand, **vet** |
+| `preventive_health_schedules` | Update existing UPDATE policy to include **vet** |
 
-### Files Modified
+### 1C. Add vet INSERT on `health_symptom_categories`
 
-| File | Change |
-|------|--------|
-| `docs/data-relationships-map.md` | Update Sections 2, 3, 4, and 9 with resolved questions + corrected CASCADE info |
-| New migration SQL | Single migration with all RLS fixes |
+Currently only owner/manager/farmhand can tag symptoms. Vets diagnosing animals need this too.
 
-### Testing Points
+- **Drop** existing INSERT policy
+- **Recreate** with vet added (via join: `health_record_id -> health_records -> animals.farm_id`)
 
-1. Log in as a vet user -- verify you can add health records, injections, and preventive schedules
-2. Log in as a farm owner -- verify you can delete expenses
-3. Verify no regression on existing farm owner/manager/farmhand operations
-4. Check admin dashboard loads without RLS errors
+### 1D. Add government SELECT on `injection_records`
+
+Government users need vaccination data for compliance analytics. Currently missing.
+
+- **Create**: `"government_view_injection_records"` SELECT policy using `has_role(auth.uid(), 'government')`
+
+---
+
+## Phase 2 — Missing Operation Policies (Medium)
+
+Add DELETE and UPDATE policies where tables currently lack them, preventing owners from cleaning up their own data.
+
+### 2A. Add DELETE policies
+
+| Table | Who Can Delete | Enforcement |
+|-------|---------------|-------------|
+| `ad_campaigns` | Merchant owner | via `merchant_id -> merchants.user_id` |
+| `ai_records` | Farm owner | via `animal_id -> animals.farm_id` |
+| `animal_events` | Farm owner | via `animal_id -> animals.farm_id` |
+| `animal_photos` | Farm owner/manager | via `animal_id -> animals.farm_id` |
+| `daily_farm_checklists` | Farm owner | direct `farm_id` |
+| `health_records` | Farm owner | via `animal_id -> animals.farm_id` |
+| `injection_records` | Farm owner | via `animal_id -> animals.farm_id` |
+
+### 2B. Add missing UPDATE policies
+
+| Table | Who Can Update | Enforcement |
+|-------|---------------|-------------|
+| `animal_events` | Farm owner/manager | via `animal_id -> animals.farm_id` |
+| `animal_photos` | Farm owner/manager | via `animal_id -> animals.farm_id` |
+
+---
+
+## Phase 3 — Duplicate Cleanup (Low Risk)
+
+Drop redundant policies that add no security value but slow down policy evaluation.
+
+| Table | Drop (Redundant) | Keep (Canonical) |
+|-------|-------------------|------------------|
+| `ad_campaigns` | `"Merchants create campaigns"` | `"Merchants can create campaigns"` |
+| `ad_campaigns` | `"Merchants update campaigns"` | `"Merchants can update own campaigns"` |
+| `ad_impressions` | `"Merchants view impressions"` | `"Merchants can view campaign impressions"` |
+| `order_items` | `"Farmers insert order items"` | `"Farmers can insert order items"` |
+| `order_items` | `"Order items visible to parties"` | `"Order items visible to order parties"` |
+| `product_categories` | `"Categories visible to authenticated"` | `"Categories visible to all authenticated users"` |
+| `test_results` | `"admins_view_test_results"` | `"Admins can view test results"` |
+| `test_runs` | `"admins_view_test_runs"` | `"Admins can view test runs"` |
+
+**Total**: 8 duplicate policies to drop.
+
+---
+
+## Phase 4 — Hardening and Consistency (Improvement)
+
+### 4A. Fix `notifications` overlapping SELECT policies
+
+Two SELECT policies exist:
+- `"Users can view their own notifications"` -- includes farm_id membership check
+- `"users_select_own_notifications"` -- simpler `auth.uid() = user_id`
+
+**Resolution**: Drop the simpler one; keep the farm-aware version which is more restrictive and correct.
+
+### 4B. Fix `stats_job_runs` inline query
+
+Current policy uses a raw subquery against `user_roles` instead of the `has_role()` helper function. Replace with:
+
+```sql
+DROP POLICY "Admins can view stats job runs" ON stats_job_runs;
+CREATE POLICY "Admins can view stats job runs" ON stats_job_runs
+  FOR SELECT USING (has_role(auth.uid(), 'admin'::user_role));
+```
+
+### 4C. Audit `TO public` vs `TO authenticated`
+
+All current policies use `TO public` (Supabase default). While RLS checks like `auth.uid()` effectively require authentication, explicitly setting `TO authenticated` is a defense-in-depth measure. This is a low-priority improvement that could be done table-by-table over time.
+
+**Recommendation**: Document as future improvement in the DRM but do not change now to avoid a massive migration touching all 150+ policies.
+
+---
+
+## DRM Updates (After Each Phase)
+
+After each migration, update `/docs/data-relationships-map.md`:
+- **Section 4** (RLS and Tenancy Rules): Update policy listings for all affected tables
+- **Section 8** (Change Log): Add entry per phase with tables affected and policies changed
+- **Section 9** (Open Questions): Remove resolved items, add any new findings
+
+---
+
+## Summary
+
+| Phase | Scope | Policies Changed | Risk |
+|-------|-------|-----------------|------|
+| 1 | Security gaps | ~10 new/modified | Critical -- fix first |
+| 2 | Missing DELETE/UPDATE | ~9 new | Medium -- data management gaps |
+| 3 | Duplicate cleanup | 8 dropped | Low -- no behavior change |
+| 4 | Hardening | 2 replaced + documentation | Low -- consistency |
+
+**Total**: ~29 policy operations across 4 phases.
+
+---
+
+## Testing Points (Per Phase)
+
+- **Phase 1**: Test vet can update health/injection records; test farmhand CANNOT delete milk inventory; test government can view injection records
+- **Phase 2**: Test farm owner can delete their own AI records, animal events, health records; test non-owners cannot delete
+- **Phase 3**: Verify no regressions on ad campaigns, order items, product categories, test results
+- **Phase 4**: Verify notifications still filter correctly; verify stats_job_runs visible to admins only
 
