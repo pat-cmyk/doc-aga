@@ -736,7 +736,7 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 
 ## 8) Change Log + Consistency Check
 
-### 2026-02-09 — Bootstrap
+**Date**: 2026-02-09
 
 **What changed**: Initial DRM creation from live schema audit.
 
@@ -759,30 +759,64 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 | `ai_records` no direct `farm_id` | Info | Tenant via `animal_id` join — by design | Documented |
 | `milking_records`, `health_records`, `feeding_records`, `weight_records` same | Info | Via animal join | Documented |
 | `heat_records`, `injection_records` same | Info | Via animal join | Documented |
-| Vet role RLS gap | ⚠️ Warn | `is_vet()` function may not exist; vet-specific policies missing | Open question |
+| Vet role RLS gap | ⚠️ Warn | `is_vet()` function was missing; vet-specific policies missing | **Resolved in 2026-02-10 migration** |
 | `gov_farm_analytics` is a VIEW not a table | Info | Provides privacy-safe farm data for government | Documented |
-| Duplicate RLS policies on several tables | Info | e.g., `distributors` has both old and new-name policies | Cleanup recommended |
+| Duplicate RLS policies on several tables | Info | e.g., `distributors` has both old and new-name policies | **Resolved in 2026-02-10 migration** |
 | FK constraints returned empty from `information_schema` | Info | FKs exist (confirmed via types.ts Relationships) — query limitation | Documented |
+
+---
+
+### Entry 2: Resolve All 7 Open Questions
+
+**Date**: 2026-02-10
+
+**What changed**: Single migration resolving all 7 DRM open questions.
+
+**Changes made**:
+
+| # | Question | Resolution | Migration Action |
+|---|----------|-----------|------------------|
+| 1 | Vet Role RLS Gap | Created `is_vet()` SECURITY DEFINER function. Updated INSERT policies on `health_records`, `injection_records`, `preventive_health_schedules` to include vet role | ✅ Done |
+| 2 | Duplicate RLS Policies | Dropped 19 duplicate policies across `distributors` (4), `doc_aga_faqs` (6), `invoices` (2), `orders` (4), `products` (4), `messages` (3). Kept cleaner-named versions | ✅ Done |
+| 3 | `farm_expenses` DELETE | Added DELETE policy for farm owners, matching `farm_revenues` behavior | ✅ Done |
+| 4 | Animals missing CASCADE | DRM was incorrect — ON DELETE CASCADE IS in place for child tables. DRM corrected | ✅ Documented |
+| 5 | `gov_farm_analytics` | Already resolved — confirmed as VIEW, not table | ✅ No action needed |
+| 6 | Offline queue `farm_id` | By design — client-side queue is local-only; server-side `sync_queue` enforces `farm_id NOT NULL` | ✅ Documented |
+| 7 | `milking_records` duplicate INSERT | Dropped superseded `milking_insert` policy (kept `farmhand_milking_insert` which is more permissive) | ✅ Done |
+
+**Policies kept (after duplicate cleanup)**:
+
+| Table | Remaining Policies |
+|-------|-------------------|
+| `distributors` | `Merchants delete distributors`, `Merchants insert distributors`, `Active distributors visible`, `Merchants view own distributors`, `Merchants update distributors` |
+| `doc_aga_faqs` | `Admins can manage FAQs` (ALL), `Authenticated users can view FAQs` (SELECT) |
+| `invoices` | `Merchants can create invoices`, `Invoices visible to order parties` |
+| `orders` | `Farmers can create orders`, `Farmers can view own orders`, `Merchants can view their orders`, `Merchants can update order status` |
+| `products` | `Merchants can delete own products`, `Merchants can insert own products`, `Active products visible to authenticated users`, `Merchants can update own products` |
+| `messages` | `Users can send messages`, `Users can view own messages`, `Users can mark messages as read` |
+| `milking_records` | `farmhand_milking_insert`, `milking_select`, `milking_update`, `government_view_milking_records` |
+
+**RLS helper functions now available**: `is_vet(_user_id, _farm_id)` joins `is_farm_owner()`, `is_farm_manager()`, `is_farmhand()`, `can_access_farm()`, `has_role()`, `is_super_admin()`
 
 ---
 
 ## 9) Assumptions & Open Questions
 
-### Open Questions
+### Open Questions — ALL RESOLVED (2026-02-10)
 
-1. **Vet Role RLS Gap**: Does `is_vet()` function exist? Vet-specific RLS policies appear absent. Vets currently rely on `can_access_farm()` for SELECT but may lack INSERT policies for health records.
+1. ~~**Vet Role RLS Gap**~~ → **RESOLVED**: Created `is_vet()` function. Updated INSERT policies on `health_records`, `injection_records`, `preventive_health_schedules` to grant vet INSERT access via animal→farm join pattern.
 
-2. **Duplicate RLS Policies**: Several tables (`distributors`, `doc_aga_faqs`, `invoices`, `orders`, `products`, `messages`) have duplicate policies with slightly different names but identical logic. Should be cleaned up.
+2. ~~**Duplicate RLS Policies**~~ → **RESOLVED**: Dropped 19 redundant policies across 6 tables. Kept cleaner-named versions. Documented retained policies in Change Log Entry 2.
 
-3. **`farm_expenses` / `farm_revenues` DELETE policies**: `farm_revenues` has owner DELETE; `farm_expenses` has no DELETE policy documented. Should expenses be deletable?
+3. ~~**`farm_expenses` DELETE**~~ → **RESOLVED**: Added `"Farm owners can delete expenses"` DELETE policy using `is_farm_owner(auth.uid(), farm_id)`. Now symmetric with `farm_revenues`.
 
-4. **`animals` missing DELETE cascade**: When an animal is deleted (soft or hard), child records (milking, health, weight, feeding, AI, breeding events) have NO CASCADE. Soft delete on `animals.is_deleted` means child records may reference soft-deleted animals.
+4. ~~**`animals` missing CASCADE**~~ → **RESOLVED**: DRM was incorrect. Actual schema has `ON DELETE CASCADE` on child FK constraints (milking_records, health_records, feeding_records, weight_records, ai_records, injection_records, animal_events, animal_photos, body_condition_scores, breeding_events). Financial tables (`biological_asset_valuations`, `farm_expenses`) reference animals but use different delete strategies.
 
-5. **`gov_farm_analytics`**: Confirmed as a VIEW (not a table). Excludes `owner_id` for privacy. Used by government dashboard.
+5. ~~**`gov_farm_analytics`**~~ → **RESOLVED**: Confirmed as a VIEW (not a table). Excludes `owner_id` for privacy. Used by government dashboard.
 
-6. **Offline queue `farm_id` validation**: Client-side `offlineQueue.ts` does not include `farm_id` in queue items — it's derived during processing. Server-side replay should validate.
+6. ~~**Offline queue `farm_id`**~~ → **RESOLVED**: By design. Client-side `offlineQueue.ts` stores items locally without `farm_id`; server-side `sync_queue` table enforces `farm_id NOT NULL`. Farm ID is resolved during server-side replay.
 
-7. **`milking_records` farmhand INSERT**: Two INSERT policies exist (`milking_insert` for owner/manager and `farmhand_milking_insert` for owner/manager/farmhand). The farmhand policy is more permissive and supersedes.
+7. ~~**`milking_records` farmhand INSERT**~~ → **RESOLVED**: Dropped `milking_insert` (owner/manager only). Kept `farmhand_milking_insert` (owner/manager/farmhand) which supersedes it.
 
 ### Assumptions
 
