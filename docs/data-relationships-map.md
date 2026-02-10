@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-09 (Bootstrap)
+Last updated: 2026-02-10 (RLS Drift Remediation — All 4 Phases)
 
 ---
 
@@ -533,6 +533,7 @@ _(Remaining entity specs follow same pattern — marketplace, ads, government, s
 | `is_farm_owner_or_manager(user_id, farm_id)` | Combined check |
 | `is_farmhand(user_id, farm_id)` | Checks membership with `farmhand` role |
 | `is_farm_member(farm_id)` | Checks any accepted membership or ownership |
+| `is_vet(user_id, farm_id)` | Checks membership with `vet` role |
 | `has_role(user_id, role)` | Checks `user_roles` table for app-level role |
 | `is_super_admin(user_id)` | Checks `has_role(user_id, 'admin')` |
 | `has_government_access(user_id)` | Checks government role |
@@ -561,9 +562,16 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 | `milking_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand (via animal) | Owner/manager (via animal) | — |
 | `feeding_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand (via animal) | — | — |
 | `weight_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand (via animal) | Owner/manager (via animal) | — |
-| `health_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand (via animal) | — | — |
-| `ai_records` | `can_access_farm(via animal)` OR government | Owner/manager (via animal) | Owner/manager (via animal) | — |
+| `health_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand/**vet** (via animal) | Owner/manager/farmhand/**vet** (via animal) | Owner (via animal) |
+| `injection_records` | `can_access_farm(via animal)` OR government | Owner/manager/farmhand/**vet** (via animal) | Owner/manager/farmhand/**vet** (via animal) | Owner (via animal) |
+| `ai_records` | `can_access_farm(via animal)` OR government | Owner/manager (via animal) | Owner/manager (via animal) | Owner (via animal) |
+| `animal_events` | `can_access_farm(via animal)` | Owner/manager (via animal) | Owner/manager (via animal) | Owner (via animal) |
+| `animal_photos` | `can_access_farm(via animal)` | Owner/manager (via animal) | Owner/manager (via animal) | Owner/manager (via animal) |
+| `milk_inventory` | `can_access_farm(farm_id)` | Owner/manager/farmhand | Owner/manager | Owner |
 | `feed_inventory` | `can_access_farm(farm_id)` | Owner/manager | Owner/manager/farmhand | Owner |
+| `preventive_health_schedules` | `can_access_farm(farm_id)` OR government | Owner/manager/farmhand/**vet** | Owner/manager/**vet** | Owner |
+| `health_symptom_categories` | `can_access_farm(via health_record→animal)` | Owner/manager/farmhand/**vet** | — | — |
+| `daily_farm_checklists` | `can_access_farm(farm_id)` OR government | Owner/manager/farmhand | Owner/manager/farmhand | Owner |
 | `body_condition_scores` | `can_access_farm(farm_id)` OR government | Owner/manager/farmhand | Owner/manager | Owner |
 | `breeding_events` | `can_access_farm(farm_id)` OR government | Owner/manager/farmhand | Owner/manager | Owner |
 | `heat_records` | `can_access_farm(farm_id)` OR government | Owner/manager/farmhand | Owner/manager | Owner |
@@ -577,6 +585,8 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 | `orders` | Farmer (own) OR merchant (own) | Farmer | Merchant (status update) | — |
 | `order_items` | Order parties | Farmer (own order) | — | — |
 | `invoices` | Order parties | Merchant | — | — |
+| `ad_campaigns` | Merchant (own) OR admin | Merchant owner | Merchant owner | Merchant owner |
+| `ad_impressions` | Merchant (via campaign) | Farmer/system | — | — |
 
 #### Sync Tables
 
@@ -597,8 +607,11 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 | `admin_profile_edits` | Super admin | Super admin | — | — |
 | `platform_settings` | All authenticated | Super admin | Super admin | — |
 | `support_tickets` | Super admin | Super admin | Super admin | Super admin |
-| `notifications` | Self (`user_id`) | Self | Self | Self |
+| `notifications` | Self (`user_id`) + farm membership check | Self | Self | Self |
 | `messages` | Sender OR recipient | Sender (`sender_id`) | Recipient (mark read) | — |
+| `stats_job_runs` | Admin (`has_role()`) | — | — | — |
+| `test_results` | Admin (`has_role()`) | Admin | — | — |
+| `test_runs` | Admin (`has_role()`) | Admin | — | — |
 
 ---
 
@@ -623,7 +636,7 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 | **Owner** | `farms.owner_id` | Full CRUD on farm + animals, team management, deletion |
 | **Manager** | `farm_memberships.role_in_farm = 'farmer_owner'` | Add/edit animals, approve submissions, edit farm settings |
 | **Farmhand** | `farm_memberships.role_in_farm = 'farmhand'` | Create daily records (milking, feeding, health obs), requires approval |
-| **Vet** | `farm_memberships.role_in_farm = 'vet'` | ⚠️ Read animal data + health records (RLS gap — see open questions) |
+| **Vet** | `farm_memberships.role_in_farm = 'vet'` | Read animal data, INSERT/UPDATE health records, injection records, preventive schedules, symptom categories |
 
 ### Enforcement Layers
 
@@ -800,6 +813,71 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 
 ---
 
+### Entry 3: RLS Drift Remediation — All 4 Phases
+
+**Date**: 2026-02-10
+
+**What changed**: Single migration resolving all findings from the comprehensive RLS drift scan.
+
+**Phase 1 — Security Gaps (Critical)**:
+
+| Change | Table | Detail |
+|--------|-------|--------|
+| Replace ALL → granular | `milk_inventory` | Dropped `"Users can access their farm's inventory"` (ALL). Created `inventory_select`, `inventory_insert`, `inventory_update`, `inventory_delete` with role-appropriate access |
+| Add UPDATE policies | `health_records` | `health_update`: owner/manager/farmhand/vet (via animal) |
+| Add UPDATE policies | `injection_records` | `injection_update`: owner/manager/farmhand/vet (via animal) |
+| Replace UPDATE policy | `preventive_health_schedules` | Dropped `"Farm owners and managers can update schedules"`, created `schedules_update` adding vet |
+| Replace INSERT policy | `health_symptom_categories` | Dropped `"Farm members can insert symptom categories"`, created `symptom_categories_insert` adding vet |
+| Add government SELECT | `injection_records` | `government_view_injection_records`: vaccination analytics access |
+
+**Phase 2 — Missing DELETE/UPDATE Policies (Medium)**:
+
+| Change | Table | Policy Name |
+|--------|-------|-------------|
+| Add DELETE | `ad_campaigns` | `campaigns_delete` (merchant owner) |
+| Add DELETE | `ai_records` | `ai_records_delete` (farm owner) |
+| Add DELETE | `animal_events` | `events_delete` (farm owner) |
+| Add DELETE | `animal_photos` | `photos_delete` (farm owner/manager) |
+| Add DELETE | `daily_farm_checklists` | `checklists_delete` (farm owner) |
+| Add DELETE | `health_records` | `health_delete` (farm owner) |
+| Add DELETE | `injection_records` | `injection_delete` (farm owner) |
+| Add UPDATE | `animal_events` | `events_update` (farm owner/manager) |
+| Add UPDATE | `animal_photos` | `photos_update` (farm owner/manager) |
+
+**Phase 3 — Duplicate Cleanup (Low Risk)**:
+
+Dropped 8 redundant policies:
+
+| Table | Dropped Policy | Kept Policy |
+|-------|---------------|-------------|
+| `ad_campaigns` | `"Merchants create campaigns"` | `"Merchants can create campaigns"` |
+| `ad_campaigns` | `"Merchants update campaigns"` | `"Merchants can update own campaigns"` |
+| `ad_impressions` | `"Merchants view impressions"` | `"Merchants can view campaign impressions"` |
+| `order_items` | `"Farmers insert order items"` | `"Farmers can insert order items"` |
+| `order_items` | `"Order items visible to parties"` | `"Order items visible to order parties"` |
+| `product_categories` | `"Categories visible to authenticated"` | `"Categories visible to all authenticated users"` |
+| `test_results` | `"admins_view_test_results"` | `"Admins can view test results"` |
+| `test_runs` | `"admins_view_test_runs"` | `"Admins can view test runs"` |
+
+**Phase 4 — Hardening & Consistency**:
+
+| Change | Table | Detail |
+|--------|-------|--------|
+| Drop overlapping SELECT | `notifications` | Dropped `"users_select_own_notifications"` (simple). Kept `"Users can view their own notifications"` (farm-aware) |
+| Replace inline query | `stats_job_runs` | Recreated `"Admins can view stats job runs"` using `has_role()` helper instead of raw subquery |
+| Document only | All tables | `TO public` vs `TO authenticated` audit deferred as future hardening (150+ policies) |
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ |
+| B) RLS ↔ DRM | ✅ All policies now match live database |
+| C) API/Edge Contracts ↔ DRM | ✅ |
+| D) Offline/Sync ↔ DRM | ✅ |
+
+---
+
 ## 9) Assumptions & Open Questions
 
 ### Open Questions — ALL RESOLVED (2026-02-10)
@@ -817,6 +895,12 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 6. ~~**Offline queue `farm_id`**~~ → **RESOLVED**: By design. Client-side `offlineQueue.ts` stores items locally without `farm_id`; server-side `sync_queue` table enforces `farm_id NOT NULL`. Farm ID is resolved during server-side replay.
 
 7. ~~**`milking_records` farmhand INSERT**~~ → **RESOLVED**: Dropped `milking_insert` (owner/manager only). Kept `farmhand_milking_insert` (owner/manager/farmhand) which supersedes it.
+
+8. ~~**RLS Drift Scan — All 4 Phases**~~ → **RESOLVED (Entry 3)**: Phase 1 fixed `milk_inventory` ALL→granular, added vet UPDATE on health tables, vet INSERT on `health_symptom_categories`, government SELECT on `injection_records`. Phase 2 added 7 DELETE + 2 UPDATE policies. Phase 3 dropped 8 duplicate policies. Phase 4 consolidated `notifications` SELECT, replaced `stats_job_runs` inline query with `has_role()`.
+
+### Future Improvement (Deferred)
+
+- **`TO public` vs `TO authenticated`**: All 150+ policies currently use `TO public` (Supabase default). While `auth.uid()` checks effectively require authentication, switching to `TO authenticated` would add defense-in-depth. Deferred to avoid massive single migration.
 
 ### Assumptions
 
