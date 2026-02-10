@@ -4671,6 +4671,7 @@ export type Database = {
       }
       is_merchant: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_vet: { Args: { _farm_id: string; _user_id: string }; Returns: boolean }
       log_user_activity: {
         Args: {
           _activity_category: string
