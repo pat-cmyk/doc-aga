@@ -51,7 +51,8 @@ const handler = async (req: Request): Promise<Response> => {
     const acceptUrl = `${appUrl}/invite/accept/${invitationToken}`;
 
     const emailResponse = await resend.emails.send({
-      from: "GoldenForage <onboarding@resend.dev>",
+      from: "Doc Aga <updates@doc-aga.goldenforage.com>",
+      reply_to: "support@goldenforage.com",
       to: [invitedEmail],
       subject: `You've been invited to join ${farmName}`,
       html: `
