@@ -1,78 +1,79 @@
 
 
-# Fix: Milking Approval - Wrong Date and Inflated Liters
+# Fix: Complete Data Repair and DRM Update
 
-## Problem Summary
+## Problem
 
-Two bugs in the `approve_pending_activity` database function caused a 250L milking record on the wrong date:
+Two issues remain from the previous fix:
 
-1. **Wrong date**: When `validated_date` is missing from the farmhand's submission, it falls back to `CURRENT_DATE` (the approval date) instead of the original submission date. The entry submitted Jan 30 was recorded as Feb 10.
+1. **Data repair incomplete**: The 5 incorrect milking records (50L each, dated Feb 10) were never deleted. Only 2 of 5 corrected records were inserted for Jan 30. The chart still shows 250L on Feb 10.
 
-2. **Inflated liters (250L instead of 50L)**: For bulk milking submissions, the function ignores the per-animal distribution data (`distributions_by_type`) and instead inserts the **total** quantity (50L) for **each** of the 5 animals, producing 5 x 50 = 250L.
+2. **DRM not updated**: The `approve_pending_activity` RPC changes (date fallback, bulk milking distribution) were not documented in the Data Relationships Map changelog, violating project governance rules.
 
-### Chart vs Popup Discrepancy
-The chart uses `daily_farm_stats` (pre-aggregated, not yet calculated for today), while the popup queries `milking_records` directly. Both will show 250L once stats refresh -- the real fix is correcting the data at the source.
+## Current State in Database
 
-## Solution
+**Feb 10 (should NOT exist):**
+| Animal | Liters | Status |
+|--------|--------|--------|
+| Tag 2722 | 50L | Bad - should be 0L on Jan 30 |
+| Tita Barbecue | 50L | Bad - should be 24.14L on Jan 30 |
+| Bessie | 50L | Bad - should be 25.86L on Jan 30 |
+| Tsibato | 50L | Bad - already corrected on Jan 30 |
+| Tag G002 | 50L | Bad - already corrected on Jan 30 |
 
-### 1. Fix the `approve_pending_activity` RPC (Database Migration)
+**Jan 30 (corrected, partially done):**
+| Animal | Liters | Status |
+|--------|--------|--------|
+| Tag G002 | 32.54L | Inserted correctly |
+| Tsibato | 17.46L | Inserted correctly |
+| Tita Barbecue | 24.14L | MISSING |
+| Bessie | 25.86L | MISSING |
+| Tag 2722 | 0L | MISSING (0L per distribution, no record needed) |
 
-Update the milking case to:
+## Plan
 
-- **Date fallback**: Use the `created_at` timestamp of the pending activity (the original submission time) instead of `CURRENT_DATE` when `validated_date` is missing
-- **Bulk milking support**: When `distributions_by_type` exists in `activity_data`, extract individual liters per animal from the distribution data instead of using the flat `quantity` field
+### Step 1: Data Repair (SQL via insert tool)
+
+Delete the 5 bad records from Feb 10:
 
 ```text
-Date logic (before):
-  _record_date := COALESCE(validated_date, CURRENT_DATE)
-
-Date logic (after):
-  _record_date := COALESCE(validated_date, _pending.created_at::DATE)
-
-Milking logic (before):
-  FOREACH animal_id IN animal_ids LOOP
-    INSERT ... VALUES (animal_id, record_date, quantity, ...)  -- 50L per animal!
-  END LOOP
-
-Milking logic (after):
-  IF distributions_by_type exists THEN
-    -- Extract per-animal liters from distribution data
-    INSERT ... SELECT animal_id, milk_liters FROM distributions
-  ELSE
-    -- Single animal: use quantity directly (existing behavior)
-    INSERT ... VALUES (animal_id, record_date, quantity, ...)
-  END IF
+DELETE FROM milking_records 
+WHERE record_date = '2026-02-10' 
+AND animal_id IN (5 specific UUIDs)
+AND liters = 50.00
+AND created_at = '2026-02-10 01:53:02.379633+00'
 ```
 
-### 2. Data Repair Query
+Insert the 2 missing corrected records for Jan 30:
 
-Fix the 5 incorrect milking records created today:
+```text
+INSERT INTO milking_records (animal_id, record_date, liters)
+VALUES 
+  ('61eefe8a-...', '2026-01-30', 24.14),  -- Tita Barbecue
+  ('d8a96511-...', '2026-01-30', 25.86);  -- Bessie
+```
 
-- Delete the 5 records with 50L each on Feb 10 (created by this auto-approval)
-- Re-insert with correct per-animal liters from the original distribution data, dated Jan 30
+Note: Tag 2722 had 0L in the distribution, so no record is needed.
 
-### 3. Submission Validation (Frontend)
+### Step 2: Update DRM Changelog
 
-Update the farmhand milking submission flow to always include `validated_date` in `activity_data`, defaulting to the current date at submission time. This prevents reliance on the fallback logic entirely.
+Add a new entry (Entry 4) to `docs/data-relationships-map.md` documenting:
+
+- The `approve_pending_activity` RPC changes:
+  - Date fallback changed from `CURRENT_DATE` to `created_at::DATE`
+  - Bulk milking now reads `distributions_by_type` for per-animal liters
+- The `process-auto-approvals` cron job addition (every 15 minutes via pg_cron)
+- The data repair performed
+- Frontend change: `ActivityConfirmation.tsx` now always sends `validated_date`
+
+### Step 3: Verify
+
+- Confirm Feb 10 shows 0L in the chart
+- Confirm Jan 30 totals reflect the corrected ~100L (existing records + 24.14 + 25.86 + 32.54 + 17.46)
 
 ## Files Affected
 
-- **New migration**: Updates `approve_pending_activity` RPC
-- **New migration**: Data repair for the 5 incorrect records  
-- **Frontend**: Farmhand milking submission component (to always include `validated_date`)
-
-## Data Flow
-
-```text
-pending_activities.activity_data --> approve_pending_activity RPC --> milking_records
-                                                                  --> daily_farm_stats (via cron)
-                                                                  --> MilkDayDetailDialog (popup)
-                                                                  --> useMilkData (chart)
-```
-
-## Testing Points
-
-- Submit a bulk milking as farmhand, wait for auto-approval, verify correct date and per-animal liters
-- Verify the popup and chart show matching totals after the fix
-- Check that single-animal milking submissions still work correctly
+- **Data repair**: SQL execution (no file changes)
+- **`docs/data-relationships-map.md`**: New changelog entry (Entry 4)
+- No other code changes needed
 
