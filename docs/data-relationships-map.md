@@ -623,7 +623,7 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 |------|---------|-------|
 | `farmer_owner` | Farm owner/manager | Farm-scoped (via `farm_memberships`) |
 | `farmhand` | Farm worker, limited write access | Farm-scoped |
-| `vet` | Veterinarian | Farm-scoped (⚠️ see open questions) |
+| `vet` | Veterinarian | Farm-scoped (via `is_vet()` helper) |
 | `merchant` | Marketplace seller | Own merchant data |
 | `admin` | Platform administrator | Global |
 | `distributor` | Product distributor | Merchant-scoped |
