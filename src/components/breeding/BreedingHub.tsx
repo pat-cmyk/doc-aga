@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Plus, Calendar, Baby, AlertTriangle, BarChart3 } from 'lucide-react';
+import { Heart, Plus, Calendar, Baby, AlertTriangle, BarChart3, Search } from 'lucide-react';
+import { BreedingAnimalSearchDialog } from './BreedingAnimalSearchDialog';
 import { useBreedingHub } from '@/hooks/useBreedingHub';
 import { BreedingHubStatCard } from './BreedingHubStatCard';
 import { BreedingActionCard } from './BreedingActionCard';
@@ -38,6 +39,7 @@ export function BreedingHub({
 }: BreedingHubProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
   const {
     stats,
@@ -111,6 +113,14 @@ export function BreedingHub({
         </div>
         
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="h-4 w-4 mr-1" />
+            Search
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -347,6 +357,13 @@ export function BreedingHub({
         statusLabel={selectedStatus ? STATUS_LABELS[selectedStatus]?.label || '' : ''}
         statusIcon={selectedStatus ? STATUS_LABELS[selectedStatus]?.icon || '' : ''}
         animals={filteredAnimals}
+      />
+
+      {/* Animal Search Dialog */}
+      <BreedingAnimalSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        animals={animals}
       />
     </div>
   );

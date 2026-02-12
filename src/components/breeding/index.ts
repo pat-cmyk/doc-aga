@@ -5,6 +5,7 @@
  */
 
 export { BreedingHub } from './BreedingHub';
+export { BreedingAnimalSearchDialog } from './BreedingAnimalSearchDialog';
 export { BreedingTimeline } from './BreedingTimeline';
 export { BreedingActionCard } from './BreedingActionCard';
 export { BreedingHubStatCard } from './BreedingHubStatCard';
