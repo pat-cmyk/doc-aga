@@ -19,6 +19,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import FarmSetup from "@/components/FarmSetup";
 import { FeedInventoryTab } from "@/components/FeedInventoryTab";
 import { MilkInventoryTab } from "@/components/milk-inventory/MilkInventoryTab";
+import { BreedingHub } from "@/components/breeding";
 import { generateFeedForecast } from "@/lib/feedForecast";
 import { QueueStatus } from "@/components/QueueStatus";
 import { SyncConflictResolution, SyncStatusSheet } from "@/components/sync";
@@ -299,7 +300,7 @@ const Dashboard = () => {
     if (tab === 'feed' || tab === 'operations') {
       setActiveTab('operations');
       const subtab = params.get('subtab');
-      if (subtab === 'feed' || subtab === 'milk') {
+      if (subtab === 'feed' || subtab === 'milk' || subtab === 'breeding') {
         setOperationsSubtab(subtab);
       } else if (tab === 'feed') {
         // Legacy 'feed' tab param should go to feed subtab
@@ -556,6 +557,7 @@ const Dashboard = () => {
                 <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
                   <TabsTrigger value="milk">Milk Inventory</TabsTrigger>
                   <TabsTrigger value="feed">Feed Stock</TabsTrigger>
+                  <TabsTrigger value="breeding">Breeding</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="milk">
@@ -570,6 +572,10 @@ const Dashboard = () => {
                     prefillFeedType={prefillFeedType}
                     onPrefillUsed={() => setPrefillFeedType(undefined)}
                   />
+                </TabsContent>
+
+                <TabsContent value="breeding">
+                  <BreedingHub farmId={farmId} />
                 </TabsContent>
               </Tabs>
             )}

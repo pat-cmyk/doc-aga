@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-10 (RLS Drift Remediation — All 4 Phases)
+Last updated: 2026-02-12 (Option D: BreedingHub + Animal Lifecycle Actions Integration)
 
 ---
 
@@ -1120,3 +1120,37 @@ erDiagram
     
     sync_queue ||--o{ sync_conflicts : "sync_queue_id"
 ```
+
+---
+
+## Entry 7: Breeding Lifecycle UI Integration (Option D)
+
+**Date:** 2026-02-12
+
+### Integration Point 1: Operations → Breeding Sub-tab
+- **File:** `src/pages/Dashboard.tsx`
+- **Change:** Added 3rd sub-tab `"breeding"` under Operations (alongside Milk, Feed)
+- **Component:** `<BreedingHub farmId={farmId} />`
+- **Deep-link:** `/?tab=operations&subtab=breeding`
+
+### Integration Point 2: Animal AI/Breeding Tab → Lifecycle Actions
+- **File:** `src/components/AIRecords.tsx`
+- **New prop:** `livestockType` (passed from `AnimalDetails.tsx → animal.livestock_type`)
+- **Components added** (for female animals, below AI Records/Heat Detection tabs):
+  - `RecordCalvingDialog` — inserts `calving` breeding_event, registers calf, restarts lactation
+  - `MarkNonReturnButton` — inserts `non_return` breeding_event (→ suspected_pregnant)
+  - `RecordHeatReturnButton` — inserts `heat_return` breeding_event (→ open_cycling)
+  - `MarkVWPEndedButton` — inserts `vwp_ended` breeding_event (→ open_cycling)
+- All actions call `onSuccess={loadRecords}` to refresh the view
+
+### Props Flow
+```
+AnimalDetails.tsx → animal.livestock_type → AIRecords (livestockType prop)
+  → RecordCalvingDialog (animalId, farmId, animalName, livestockType)
+  → MarkNonReturnButton (animalId, farmId, animalName)
+  → RecordHeatReturnButton (animalId, farmId, animalName)
+  → MarkVWPEndedButton (animalId, farmId, animalName)
+```
+
+### Data Flow
+All lifecycle action buttons → `insertBreedingEvent()` → `breeding_events` table → DB trigger `update_animal_fertility_status` → updates `animals.fertility_status`

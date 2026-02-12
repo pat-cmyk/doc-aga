@@ -1226,6 +1226,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             farmId={farmId}
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
+            livestockType={animal?.livestock_type || undefined}
             readOnly={readOnly}
           />
         </TabsContent>
