@@ -16,6 +16,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Plus, Calendar, Baby, AlertTriangle, BarChart3, Search } from 'lucide-react';
 import { BreedingAnimalSearchDialog } from './BreedingAnimalSearchDialog';
+import { FarmRecordHeatDialog } from './FarmRecordHeatDialog';
+import { FarmScheduleAIDialog } from './FarmScheduleAIDialog';
 import { useBreedingHub } from '@/hooks/useBreedingHub';
 import { BreedingHubStatCard } from './BreedingHubStatCard';
 import { BreedingActionCard } from './BreedingActionCard';
@@ -25,21 +27,17 @@ import { FERTILITY_STATUS_CONFIG } from '@/types/fertility';
 interface BreedingHubProps {
   farmId: string | null;
   livestockType?: string;
-  onRecordHeat?: (animalId?: string) => void;
-  onScheduleAI?: (animalId?: string) => void;
-  onConfirmPregnancy?: (animalId?: string) => void;
 }
 
 export function BreedingHub({
   farmId,
   livestockType = 'cattle',
-  onRecordHeat,
-  onScheduleAI,
-  onConfirmPregnancy,
 }: BreedingHubProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [heatDialogOpen, setHeatDialogOpen] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const navigate = useNavigate();
   const {
     stats,
@@ -124,14 +122,14 @@ export function BreedingHub({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onRecordHeat?.()}
+            onClick={() => setHeatDialogOpen(true)}
           >
             <Plus className="h-4 w-4 mr-1" />
             Record Heat
           </Button>
           <Button
             size="sm"
-            onClick={() => onScheduleAI?.()}
+            onClick={() => setAiDialogOpen(true)}
           >
             <Calendar className="h-4 w-4 mr-1" />
             Schedule AI
@@ -243,9 +241,9 @@ export function BreedingHub({
                       key={`${action.animal.id}-${action.type}-${idx}`}
                       action={action}
                       onViewAnimal={handleViewAnimal}
-                      onScheduleAI={onScheduleAI}
-                      onRecordHeat={onRecordHeat}
-                      onConfirmPregnancy={onConfirmPregnancy}
+                      onScheduleAI={() => setAiDialogOpen(true)}
+                      onRecordHeat={() => setHeatDialogOpen(true)}
+                      onConfirmPregnancy={() => {}}
                     />
                   ))}
                   {actionsToday.length > 5 && (
@@ -364,6 +362,22 @@ export function BreedingHub({
         open={searchOpen}
         onOpenChange={setSearchOpen}
         animals={animals}
+      />
+
+      {/* Farm-level Record Heat Dialog */}
+      <FarmRecordHeatDialog
+        open={heatDialogOpen}
+        onOpenChange={setHeatDialogOpen}
+        animals={animals}
+        farmId={farmId}
+      />
+
+      {/* Farm-level Schedule AI Dialog */}
+      <FarmScheduleAIDialog
+        open={aiDialogOpen}
+        onOpenChange={setAiDialogOpen}
+        animals={animals}
+        farmId={farmId}
       />
     </div>
   );

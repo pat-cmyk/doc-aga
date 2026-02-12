@@ -14,6 +14,8 @@ export { FertilityStateBadge } from './FertilityStateBadge';
 export { BreedingAlertsSection } from './BreedingAlertsSection';
 export { RecordCalvingDialog } from './RecordCalvingDialog';
 export { MarkNonReturnButton, RecordHeatReturnButton, MarkVWPEndedButton } from './BreedingEventActions';
+export { FarmRecordHeatDialog } from './FarmRecordHeatDialog';
+export { FarmScheduleAIDialog } from './FarmScheduleAIDialog';
 
 // Analytics components
 export { 
