@@ -157,6 +157,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.openCycling}
               label="Open"
+              description={FERTILITY_STATUS_CONFIG.open_cycling.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.open_cycling.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.open_cycling.icon}
               colorClass="text-green-600 dark:text-green-400"
               bgClass="bg-green-50 dark:bg-green-900/20"
@@ -165,6 +167,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.inHeat}
               label="In Heat"
+              description={FERTILITY_STATUS_CONFIG.in_heat.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.in_heat.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.in_heat.icon}
               colorClass="text-orange-600 dark:text-orange-400"
               bgClass="bg-orange-50 dark:bg-orange-900/20"
@@ -174,6 +178,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.bredWaiting}
               label="Waiting"
+              description={FERTILITY_STATUS_CONFIG.bred_waiting.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.bred_waiting.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.bred_waiting.icon}
               colorClass="text-blue-600 dark:text-blue-400"
               bgClass="bg-blue-50 dark:bg-blue-900/20"
@@ -182,6 +188,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.pregCheckDue}
               label="Preg Check"
+              description="28-35 days post-AI, needs pregnancy verification"
+              descriptionTagalog="28-35 araw pagkatapos ng AI, kailangan ng kumpirmasyon ng pagbubuntis"
               icon="🔍"
               colorClass="text-purple-600 dark:text-purple-400"
               bgClass="bg-purple-50 dark:bg-purple-900/20"
@@ -191,6 +199,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.suspectedPregnant}
               label="Suspected"
+              description={FERTILITY_STATUS_CONFIG.suspected_pregnant.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.suspected_pregnant.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.suspected_pregnant.icon}
               colorClass="text-purple-600 dark:text-purple-400"
               bgClass="bg-purple-50 dark:bg-purple-900/20"
@@ -199,6 +209,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.confirmedPregnant}
               label="Pregnant"
+              description={FERTILITY_STATUS_CONFIG.confirmed_pregnant.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.confirmed_pregnant.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.confirmed_pregnant.icon}
               colorClass="text-pink-600 dark:text-pink-400"
               bgClass="bg-pink-50 dark:bg-pink-900/20"
@@ -207,6 +219,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.freshPostpartum}
               label="Fresh"
+              description={FERTILITY_STATUS_CONFIG.fresh_postpartum.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.fresh_postpartum.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.fresh_postpartum.icon}
               colorClass="text-teal-600 dark:text-teal-400"
               bgClass="bg-teal-50 dark:bg-teal-900/20"
@@ -215,6 +229,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.notEligible}
               label="Not Ready"
+              description={FERTILITY_STATUS_CONFIG.not_eligible.description}
+              descriptionTagalog={FERTILITY_STATUS_CONFIG.not_eligible.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.not_eligible.icon}
               colorClass="text-muted-foreground"
               bgClass="bg-muted/50"
