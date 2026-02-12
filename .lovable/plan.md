@@ -1,86 +1,77 @@
 
 
-# Add Animal Search to Breeding Hub
+# Fix: "Record Heat" and "Schedule AI" Buttons Not Working in Breeding Hub
 
-## What It Does
+## Problem
 
-Adds a search bar to the Breeding Hub (Operations > Breeding tab) that lets you search for any female animal by name or ear tag. When you select a result, a pop-out dialog shows that animal's breeding records (AI records, heat history, fertility status, lifecycle actions) with a "Go to Animal Profile" link at the bottom.
+The "Record Heat" and "Schedule AI" buttons in Operations > Breeding do nothing when clicked. This is because:
+
+1. `Dashboard.tsx` renders `<BreedingHub farmId={farmId} />` without passing `onRecordHeat` or `onScheduleAI` callbacks
+2. Both existing dialogs (`RecordHeatDialog` and `ScheduleAIDialog`) require an `animalId` upfront, so they can't be opened from a farm-level view without first selecting an animal
+
+## Solution
+
+Create two new farm-level dialog components that add an **animal picker step** before the existing forms, then wire them into `BreedingHub` directly (no need to pass callbacks from Dashboard).
 
 ## File Changes
 
-### 1. `src/components/breeding/BreedingAnimalSearchDialog.tsx` (NEW)
+### 1. `src/components/breeding/FarmRecordHeatDialog.tsx` (NEW)
 
-A new component with two parts:
-- **Search input with results dropdown**: Filters the `animals` array from `useBreedingHub` by name or ear tag as the user types. Shows matching results in a dropdown list.
-- **Breeding Record Pop-out**: When an animal is selected, opens a Dialog showing:
-  - Animal name, ear tag, livestock type, and fertility status badge
-  - Latest AI record details (scheduled/performed date, semen code, pregnancy status, expected delivery)
-  - Latest heat detection info (last heat date)
-  - Lifecycle action summary (parity, services this cycle, VWP end date)
-  - A "View Full Profile" button at the bottom that navigates to `/?tab=animals&animalId={id}`
+A wrapper dialog with two steps:
+- **Step 1 - Pick Animal:** Search/select from breeding-eligible female animals (reuses the `animals` array from `useBreedingHub`)
+- **Step 2 - Record Heat:** Once selected, renders the existing heat recording form fields inline (date, detection method, intensity, standing heat, notes)
 
-### 2. `src/components/breeding/BreedingHub.tsx` (EDIT)
+### 2. `src/components/breeding/FarmScheduleAIDialog.tsx` (NEW)
 
-- Import the new `BreedingAnimalSearchDialog` component
-- Add a Search button (with Search icon) next to the existing "Record Heat" and "Schedule AI" buttons in the header
-- Pass `animals` and `farmId` to the search component
+Same two-step pattern:
+- **Step 1 - Pick Animal:** Search/select from breeding-eligible female animals
+- **Step 2 - Schedule AI:** Renders the existing AI scheduling form fields (date, technician, semen code, notes)
 
-### 3. `src/components/breeding/index.ts` (EDIT)
+### 3. `src/components/breeding/BreedingHub.tsx` (EDIT)
 
-- Export the new `BreedingAnimalSearchDialog` component
+- Remove the `onRecordHeat`, `onScheduleAI`, `onConfirmPregnancy` props (they were never being passed)
+- Import and render the two new farm-level dialogs, controlled by state (`heatDialogOpen`, `aiDialogOpen`)
+- Wire the header buttons to open these dialogs
+- Pass `animals` and `farmId` to the new dialogs
+
+### 4. `src/components/breeding/index.ts` (EDIT)
+
+- Export the two new dialog components
 
 ## Technical Details
 
-### Search Behavior
+### Animal Picker Step
 
-- Uses the `animals` array already loaded by `useBreedingHub` (no extra queries for the search itself)
-- Filters client-side using case-insensitive matching on `name` and `ear_tag`
-- Shows up to 10 results in a scrollable list
-- Debounced or instant filter (array is small enough for instant)
-
-### Pop-out Dialog Content
-
-When an animal is selected from search results, a second Dialog opens with:
+Both dialogs will include a search input that filters the `animals` array by name or ear tag (same pattern as `BreedingAnimalSearchDialog`). Once an animal is selected, the dialog transitions to the form step.
 
 ```
 +------------------------------------------+
-| [Name]  [Ear Tag]  [Fertility Badge]     |
+| Record Heat / Schedule AI                |
 +------------------------------------------+
-| Latest AI Record                         |
-|   Scheduled: 2026-01-15                  |
-|   Performed: 2026-01-16                  |
-|   Semen Code: ABC123                     |
-|   Status: Performed / Pregnant           |
-|   Expected Delivery: 2026-10-20          |
+| Step 1: Select Animal                    |
+|   [Search by name or ear tag...]         |
+|   - Bessie (ET-001) - Open              |
+|   - Daisy (ET-003) - In Heat            |
 +------------------------------------------+
-| Breeding Info                            |
-|   Last Heat: 2026-01-10                  |
-|   Parity: 3                              |
-|   Services This Cycle: 2                 |
+|          ↓ on select ↓                   |
 +------------------------------------------+
-| [    Go to Animal Profile    ]           |
+| Step 2: Fill Form                        |
+|   Selected: Bessie (ET-001)  [Change]   |
+|   [existing form fields...]              |
+|   [Submit]                               |
 +------------------------------------------+
 ```
-
-The AI records for the selected animal are fetched on-demand (single query) when the pop-out opens.
 
 ### Data Flow
 
-```
-BreedingHub
-  -> animals[] (from useBreedingHub)
-  -> BreedingAnimalSearchDialog
-     -> Search input filters animals[]
-     -> On select: fetch ai_records + heat_records for that animal
-     -> Display in Dialog
-     -> "View Full Profile" -> navigate('/?tab=animals&animalId=...')
-```
+The new dialogs receive `animals` and `farmId` directly from `BreedingHub` -- no need to thread callbacks through Dashboard. On successful submission, they invalidate the breeding hub queries to refresh the data.
 
 ## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/breeding/BreedingAnimalSearchDialog.tsx` | Create - search + pop-out breeding record viewer |
-| `src/components/breeding/BreedingHub.tsx` | Edit - add search button to header |
-| `src/components/breeding/index.ts` | Edit - export new component |
+| `src/components/breeding/FarmRecordHeatDialog.tsx` | Create - heat dialog with animal picker |
+| `src/components/breeding/FarmScheduleAIDialog.tsx` | Create - AI scheduling dialog with animal picker |
+| `src/components/breeding/BreedingHub.tsx` | Edit - replace callback props with self-contained dialogs |
+| `src/components/breeding/index.ts` | Edit - export new components |
 
