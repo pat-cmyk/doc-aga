@@ -10,6 +10,8 @@ export { BreedingActionCard } from './BreedingActionCard';
 export { BreedingHubStatCard } from './BreedingHubStatCard';
 export { FertilityStateBadge } from './FertilityStateBadge';
 export { BreedingAlertsSection } from './BreedingAlertsSection';
+export { RecordCalvingDialog } from './RecordCalvingDialog';
+export { MarkNonReturnButton, RecordHeatReturnButton, MarkVWPEndedButton } from './BreedingEventActions';
 
 // Analytics components
 export { 

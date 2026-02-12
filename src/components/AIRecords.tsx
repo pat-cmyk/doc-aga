@@ -67,6 +67,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
           {!readOnly && (
             <ScheduleAIDialog 
               animalId={animalId} 
+              farmId={farmId}
               onSuccess={loadRecords} 
               disabled={!isOnline}
             />
@@ -157,6 +158,8 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
                       <div className="mt-2">
                         <MarkAIPerformedDialog 
                           recordId={r.id}
+                          animalId={animalId}
+                          farmId={farmId || ''}
                           scheduledDate={r.scheduled_date}
                           onSuccess={loadRecords}
                         />
@@ -167,6 +170,8 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
                       <div className="mt-2">
                         <ConfirmPregnancyDialog 
                           recordId={r.id}
+                          animalId={animalId}
+                          farmId={farmId || ''}
                           performedDate={r.performed_date}
                           onSuccess={loadRecords}
                         />
