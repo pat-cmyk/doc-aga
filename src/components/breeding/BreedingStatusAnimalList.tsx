@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FERTILITY_STATUS_CONFIG } from '@/types/fertility';
 import {
   Dialog,
   DialogContent,
@@ -73,9 +74,16 @@ export function BreedingStatusAnimalList({
                       </span>
                     )}
                   </div>
-                  <Badge variant="outline" className="ml-2 shrink-0 text-xs">
-                    {animal.livestock_type}
-                  </Badge>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    {animal.fertility_status && FERTILITY_STATUS_CONFIG[animal.fertility_status] && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {FERTILITY_STATUS_CONFIG[animal.fertility_status].icon} {FERTILITY_STATUS_CONFIG[animal.fertility_status].label}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {animal.livestock_type}
+                    </Badge>
+                  </div>
                 </button>
               ))}
             </div>
