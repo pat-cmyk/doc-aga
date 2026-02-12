@@ -1,33 +1,41 @@
 
-# Add Tooltip Definitions to Breeding Hub Stat Cards
+# Merge "Waiting", "Preg Check", and "Suspected" into a Single Card
 
 ## What Changes
 
-Each of the 8 status boxes (Open, In Heat, Waiting, Preg Check, Suspected, Pregnant, Fresh, Not Ready) will show a tooltip on hover explaining what that status means.
-
-The definitions already exist in `src/types/fertility.ts` -- for example, "In Heat" = "Optimal breeding window active", "Open" = "Eligible, awaiting heat detection", etc.
+The three middle status boxes -- Waiting, Preg Check, and Suspected -- will be combined into one card labeled **"Bred"** (or similar). This reduces the grid from 8 cards to 6, simplifying the overview.
 
 ## How It Works
 
-- Wrap each stat card button in a Tooltip (same pattern used elsewhere in the app with `DefinitionBadge`)
-- Hovering over any card will show a short English + Tagalog description
+- The merged card shows a combined count: `bredWaiting + pregCheckDue + suspectedPregnant`
+- Clicking it opens the drill-down list showing all animals from those three statuses, with a sub-label or badge indicating which sub-status each animal belongs to (Waiting / Preg Check / Suspected)
+- The tooltip will explain: "Animals that have been bred and are awaiting pregnancy confirmation"
+- The card will be highlighted if `pregCheckDue > 0` (actionable items)
+
+## Visual Result
+
+Before (8 cards):
+`Open | In Heat | Waiting | Preg Check | Suspected | Pregnant | Fresh | Not Ready`
+
+After (6 cards):
+`Open | In Heat | Bred | Pregnant | Fresh | Not Ready`
 
 ## Technical Details
 
-### 1. Edit `src/components/breeding/BreedingHubStatCard.tsx`
+### 1. Edit `src/components/breeding/BreedingHub.tsx`
 
-- Add a `description` prop (and optional `descriptionTagalog` prop) to the component
-- Wrap the existing button with a `Tooltip` from the existing Radix tooltip components
-- Display the description text in the tooltip content
+- Add a new combined filter key `bred_pipeline` to `STATUS_FILTER_MAP` that matches animals with `bred_waiting`, `suspected_pregnant` status, or those in `pregCheckAnimalIds`
+- Add a corresponding entry in `STATUS_LABELS` with label "Bred" and a suitable icon
+- Replace the three separate `BreedingHubStatCard` instances (Waiting, Preg Check, Suspected) with one card using count `stats.bredWaiting + stats.pregCheckDue + stats.suspectedPregnant`
+- Update the grid from `lg:grid-cols-8` to `lg:grid-cols-6`
 
-### 2. Edit `src/components/breeding/BreedingHub.tsx`
+### 2. Edit `src/components/breeding/BreedingStatusAnimalList.tsx` (minor)
 
-- Pass `description` (and `descriptionTagalog`) to each `BreedingHubStatCard` using values from `FERTILITY_STATUS_CONFIG`
-- For the "Preg Check" card (which isn't a fertility status), add a manual description: "28-35 days post-AI, needs pregnancy verification"
+- No changes needed if the drill-down list already shows `fertility_status` per animal. If not, ensure each animal row shows its sub-status so users can distinguish Waiting vs Preg Check vs Suspected within the merged list.
 
 ## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/breeding/BreedingHubStatCard.tsx` | Edit - add tooltip with description prop |
-| `src/components/breeding/BreedingHub.tsx` | Edit - pass description strings to each card |
+| `src/components/breeding/BreedingHub.tsx` | Edit - merge 3 cards into 1, update grid layout |
+| `src/components/breeding/BreedingStatusAnimalList.tsx` | Review - ensure sub-status is visible in drill-down |
