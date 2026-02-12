@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useHeatRecords } from '@/hooks/useHeatRecords';
 import { DETECTION_METHODS, HEAT_INTENSITY } from '@/lib/bcsDefinitions';
+import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { VoiceInputButton } from '@/components/ui/voice-input-button';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -44,6 +45,17 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
       standing_heat: standingHeat,
       notes: notes || undefined,
     });
+
+    // Bridge to breeding_events state machine (GAP 1 fix)
+    await insertBreedingEvent({
+      animalId,
+      farmId,
+      eventType: 'heat_detected',
+      eventDate: detectedAt.toISOString(),
+      notes: notes || undefined,
+      metadata: { detection_method: detectionMethod, intensity, standing_heat: standingHeat },
+    });
+
     setOpen(false);
     resetForm();
   };

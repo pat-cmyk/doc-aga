@@ -5,23 +5,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { insertBreedingEvent } from "@/lib/breedingEventBridge";
 import { useToast } from "@/hooks/use-toast";
 import { addDays } from "date-fns";
+import { GESTATION_DAYS } from "@/types/fertility";
 
 interface ConfirmPregnancyDialogProps {
   recordId: string;
+  animalId: string;
+  farmId: string;
+  livestockType?: string;
   performedDate: string | null;
   onSuccess: () => void;
 }
 
-const ConfirmPregnancyDialog = ({ recordId, performedDate, onSuccess }: ConfirmPregnancyDialogProps) => {
+const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'cattle', performedDate, onSuccess }: ConfirmPregnancyDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Calculate expected delivery date (283 days gestation period for cattle)
+  // Use species-specific gestation (GAP 8 fix)
+  const gestationDays = GESTATION_DAYS[livestockType] || 283;
   const expectedDeliveryDate = performedDate 
-    ? addDays(new Date(performedDate), 283).toISOString().split('T')[0]
+    ? addDays(new Date(performedDate), gestationDays).toISOString().split('T')[0]
     : "";
 
   const handleConfirm = async () => {
@@ -38,6 +44,16 @@ const ConfirmPregnancyDialog = ({ recordId, performedDate, onSuccess }: ConfirmP
         .eq("id", recordId);
 
       if (error) throw error;
+
+      // Bridge to breeding_events state machine (GAP 1 fix)
+      await insertBreedingEvent({
+        animalId,
+        farmId,
+        eventType: 'pregnancy_confirmed',
+        eventDate: new Date().toISOString(),
+        relatedAiRecordId: recordId,
+        metadata: { expected_delivery_date: expectedDeliveryDate, gestation_days: gestationDays },
+      });
 
       toast({
         title: "Pregnancy Confirmed!",
@@ -82,7 +98,7 @@ const ConfirmPregnancyDialog = ({ recordId, performedDate, onSuccess }: ConfirmP
               {expectedDeliveryDate ? new Date(expectedDeliveryDate).toLocaleDateString() : "Not available"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Based on 283 days gestation period
+              Based on {gestationDays} days gestation period ({livestockType})
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-4">

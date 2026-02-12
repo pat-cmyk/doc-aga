@@ -6,17 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { insertBreedingEvent } from "@/lib/breedingEventBridge";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface ScheduleAIDialogProps {
   animalId: string;
+  farmId?: string;
   onSuccess: () => void;
   disabled?: boolean;
 }
 
-export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDialogProps) {
+export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: ScheduleAIDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
@@ -43,16 +45,28 @@ export function ScheduleAIDialog({ animalId, onSuccess, disabled }: ScheduleAIDi
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { error } = await supabase.from("ai_records").insert({
+      const { data: insertedData, error } = await supabase.from("ai_records").insert({
         animal_id: animalId,
         scheduled_date: scheduledDate,
         technician: technician || null,
         semen_code: semenCode || null,
         notes: notes || null,
         created_by: user?.id
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      // Bridge to breeding_events state machine (GAP 1 fix)
+      if (farmId && insertedData) {
+        await insertBreedingEvent({
+          animalId,
+          farmId,
+          eventType: 'ai_scheduled',
+          eventDate: scheduledDate,
+          relatedAiRecordId: insertedData.id,
+          notes: notes || undefined,
+        });
+      }
 
       toast({
         title: "Success!",

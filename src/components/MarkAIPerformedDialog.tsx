@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { insertBreedingEvent } from "@/lib/breedingEventBridge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 interface MarkAIPerformedDialogProps {
   recordId: string;
+  animalId: string;
+  farmId: string;
   scheduledDate: string | null;
   onSuccess: () => void;
 }
 
-const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPerformedDialogProps) => {
+const MarkAIPerformedDialog = ({ recordId, animalId, farmId, scheduledDate, onSuccess }: MarkAIPerformedDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [performedDate, setPerformedDate] = useState("");
@@ -45,6 +48,16 @@ const MarkAIPerformedDialog = ({ recordId, scheduledDate, onSuccess }: MarkAIPer
       console.error('Update AI record error:', error);
       toast({ title: "Error", description: "Unable to update AI record. Please try again.", variant: "destructive" });
     } else {
+      // Bridge to breeding_events state machine (GAP 1 fix)
+      await insertBreedingEvent({
+        animalId,
+        farmId,
+        eventType: 'ai_performed',
+        eventDate: performedDate,
+        relatedAiRecordId: recordId,
+        metadata: semenCode ? { semen_code: semenCode } : undefined,
+      });
+
       toast({ title: "Success", description: "AI breeding marked as performed" });
       setOpen(false);
       setPerformedDate("");

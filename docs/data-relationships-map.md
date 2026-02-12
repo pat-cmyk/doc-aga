@@ -978,6 +978,61 @@ Partial unique index ensures only one active revenue per milk log. NULLs (non-mi
 | D) Offline/Sync ↔ DRM | ✅ No sync changes |
 | E) Data integrity | ✅ 4 duplicates removed, totals verified |
 
+### Entry 6 — Fertility State Machine Bridge & Calving UI (GAPs 1-5, 8)
+
+**Date**: 2026-02-12
+
+**What changed**: Connected all breeding UI dialogs to the `breeding_events` table, activating the dormant fertility state machine. Created new calving and lifecycle action UIs.
+
+**Problem**: The DB trigger `update_animal_fertility_status` on `breeding_events` was fully functional but never triggered because no UI component inserted into `breeding_events`. All animals were stuck at `not_eligible`.
+
+**Code Changes (GAP 1 — State Machine Bridge)**:
+
+| File | Change |
+|------|--------|
+| `src/lib/breedingEventBridge.ts` | **NEW** — Utility to insert `breeding_events` rows alongside legacy writes |
+| `src/components/heat-detection/RecordHeatDialog.tsx` | Added `insertBreedingEvent('heat_detected')` after heat record insert |
+| `src/components/ScheduleAIDialog.tsx` | Added `farmId` prop + `insertBreedingEvent('ai_scheduled')` after AI record insert |
+| `src/components/MarkAIPerformedDialog.tsx` | Added `animalId`, `farmId` props + `insertBreedingEvent('ai_performed')` after update |
+| `src/components/ConfirmPregnancyDialog.tsx` | Added `animalId`, `farmId`, `livestockType` props + `insertBreedingEvent('pregnancy_confirmed')` + species-specific gestation (GAP 8) |
+| `src/components/AIRecords.tsx` | Updated to pass `animalId`, `farmId` to MarkAI and ConfirmPregnancy dialogs |
+
+**Code Changes (GAP 2 — Record Calving)**:
+
+| File | Change |
+|------|--------|
+| `src/components/breeding/RecordCalvingDialog.tsx` | **NEW** — Full calving dialog: inserts `calving` breeding event, optionally registers calf, restarts dam lactation |
+
+**Code Changes (GAPs 3, 4, 5 — Lifecycle Actions)**:
+
+| File | Change |
+|------|--------|
+| `src/components/breeding/BreedingEventActions.tsx` | **NEW** — `MarkNonReturnButton` (→suspected_pregnant), `RecordHeatReturnButton` (→open_cycling), `MarkVWPEndedButton` (→open_cycling) |
+| `src/components/breeding/index.ts` | Added exports for all new components |
+
+**State Machine Transitions Enabled**:
+
+```
+heat_detected    → in_heat
+ai_performed     → bred_waiting (increments services_this_cycle)
+non_return       → suspected_pregnant
+pregnancy_confirmed → confirmed_pregnant
+heat_return      → open_cycling
+pregnancy_failed → open_cycling
+calving          → fresh_postpartum (increments parity, sets VWP, resets services)
+vwp_ended        → open_cycling
+```
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ No schema changes (trigger already existed) |
+| B) RLS ↔ DRM | ✅ No RLS changes (breeding_events RLS already in place) |
+| C) API/Edge Contracts ↔ DRM | ✅ No edge function changes |
+| D) Offline/Sync ↔ DRM | ⚠️ breeding_events not in offline queue yet (deferred) |
+| E) Data integrity | ✅ Bridge is additive — existing data unaffected |
+
 ---
 
 ## 9) Assumptions & Open Questions
