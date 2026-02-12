@@ -1,93 +1,58 @@
 
 
-# Option D: Mount BreedingHub + Animal-Level Breeding Actions
+# Add Click-to-Drill-Down on Breeding Hub Stat Cards
 
-## Overview
+## What Changes
 
-Two integration points:
-1. **Operations tab** -- add "Breeding" as a 3rd sub-tab alongside Milk and Feed, rendering `BreedingHub`
-2. **Animal AI/Breeding tab** -- add `RecordCalvingDialog` and `BreedingEventActions` buttons to `AIRecords.tsx`
+When you click any status box (e.g., "In Heat", "Pregnant"), a popover/sheet appears showing the list of animals in that status. Clicking an animal navigates to their profile page.
 
----
+## Approach
 
-## Changes
+Use a Dialog (modal) that opens on stat card click, filters the `animals` array by the clicked status, and renders a clickable list. This follows the existing "smart navigation" pattern already used in the Dashboard's "Today At A Glance" section.
 
-### File 1: `src/pages/Dashboard.tsx`
+## File Changes
 
-- Import `BreedingHub` from `@/components/breeding`
-- Add a 3rd `TabsTrigger` for `"breeding"` in the Operations sub-tabs (after Feed Stock)
-- Add corresponding `TabsContent` rendering `<BreedingHub farmId={farmId} />`
-- Update the URL deep-linking logic to recognize `subtab=breeding`
+### 1. `src/components/breeding/BreedingHub.tsx`
 
-### File 2: `src/components/AIRecords.tsx`
+- Add state: `selectedStatus` (string | null) to track which box was clicked
+- Pass `onClick` handlers to each `BreedingHubStatCard` that set `selectedStatus`
+- Render a new `BreedingStatusAnimalList` dialog when `selectedStatus` is set
+- Filter `animals` array by `fertility_status === selectedStatus` (special case for "Preg Check" which uses `bred_waiting` + days-since-AI logic)
 
-- Import `RecordCalvingDialog`, `MarkNonReturnButton`, `RecordHeatReturnButton`, `MarkVWPEndedButton` from `@/components/breeding`
-- Add a new `livestockType` prop (passed through from AnimalDetails)
-- Below the AI records list (inside the female layout), add a "Lifecycle Actions" section with:
-  - `RecordCalvingDialog` button (always shown for females with farmId)
-  - `MarkNonReturnButton` -- contextual action
-  - `RecordHeatReturnButton` -- contextual action  
-  - `MarkVWPEndedButton` -- contextual action
-- These are rendered as a horizontal button row wrapped in a Card with title "Lifecycle Actions"
+### 2. `src/components/breeding/BreedingStatusAnimalList.tsx` (NEW)
 
-### File 3: `src/components/AnimalDetails.tsx`
+A simple Dialog component that:
+- Receives: `open`, `onClose`, `statusLabel`, `statusIcon`, `animals[]`, `onSelectAnimal(id)`
+- Renders: A list of animals with name/ear_tag, each clickable
+- On click: calls `navigate(/animal/{id})` and closes the dialog
+- Empty state: "No animals in this status"
 
-- Pass `livestockType` prop to `AIRecords` (already has `animal.livestock_type` available)
+### 3. Status-to-filter mapping
 
-### File 4: `docs/data-relationships-map.md`
+| Card Label | Filter Logic |
+|---|---|
+| Open | `fertility_status === 'open_cycling'` |
+| In Heat | `fertility_status === 'in_heat'` |
+| Waiting | `fertility_status === 'bred_waiting'` |
+| Preg Check | `fertility_status === 'bred_waiting'` + 28-45 days post-AI |
+| Suspected | `fertility_status === 'suspected_pregnant'` |
+| Pregnant | `fertility_status === 'confirmed_pregnant'` |
+| Fresh | `fertility_status === 'fresh_postpartum'` |
+| Not Ready | `fertility_status === 'not_eligible'` |
 
-- Add Entry 7 documenting the two new integration points
+"Preg Check" is a computed sub-status. To filter for it, we'll reuse the same AI records lookup already in `useBreedingHub` and expose a `pregCheckDueAnimalIds` set from the hook data.
 
----
+## Technical Detail
 
-## Technical Details
+The `useBreedingHub` hook already computes `actionsToday` which includes `preg_check_due` actions with animal IDs. We can derive the preg-check animal list from `actionsToday.filter(a => a.type === 'preg_check_due')` rather than re-querying.
 
-### Operations Sub-tab Addition (Dashboard.tsx)
+For all other statuses, it's a simple `animals.filter(a => a.fertility_status === status)`.
 
-```text
-TabsList:
-  [Milk Inventory] [Feed Stock] [Breeding]   <-- NEW
+## Files Summary
 
-TabsContent value="breeding":
-  <BreedingHub farmId={farmId} />
-```
+| File | Action |
+|---|---|
+| `src/components/breeding/BreedingStatusAnimalList.tsx` | Create - dialog with animal list |
+| `src/components/breeding/BreedingHub.tsx` | Edit - add onClick handlers + render dialog |
+| `src/components/breeding/index.ts` | Edit - export new component |
 
-Deep-link support: `/?tab=operations&subtab=breeding` will navigate directly to the Breeding Hub.
-
-### Animal-Level Actions (AIRecords.tsx)
-
-The lifecycle actions section will appear below the existing AI Records/Heat Detection tabs for female animals:
-
-```text
-+------------------------------------------+
-| AI Records / Heat Detection    [tabs]    |
-|   ... existing content ...               |
-+------------------------------------------+
-| Lifecycle Actions                        |
-| [Record Calving] [Suspected Pregnant]    |
-| [Heat Returned]  [VWP Complete]          |
-+------------------------------------------+
-```
-
-All buttons pass `animalId`, `farmId`, `animalName`, `livestockType`, and `onSuccess={loadRecords}` so the view refreshes after any action.
-
-### Props Flow
-
-```text
-AnimalDetails.tsx
-  -> animal.livestock_type
-  -> AIRecords (new prop: livestockType)
-    -> RecordCalvingDialog (animalId, farmId, animalName, livestockType)
-    -> MarkNonReturnButton (animalId, farmId, animalName)
-    -> RecordHeatReturnButton (animalId, farmId, animalName)
-    -> MarkVWPEndedButton (animalId, farmId, animalName)
-```
-
-## Files Modified
-
-| File | Change |
-|------|--------|
-| `src/pages/Dashboard.tsx` | Add Breeding sub-tab + deep-link support |
-| `src/components/AIRecords.tsx` | Add lifecycle action buttons section |
-| `src/components/AnimalDetails.tsx` | Pass `livestockType` to AIRecords |
-| `docs/data-relationships-map.md` | Entry 7: UI integration points |
