@@ -12,16 +12,18 @@ import { EditAIRecordDialog } from "./breeding/EditAIRecordDialog";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { HeatHistoryTab } from "./heat-detection/HeatHistoryTab";
+import { RecordCalvingDialog, MarkNonReturnButton, RecordHeatReturnButton, MarkVWPEndedButton } from "./breeding";
 
 interface AIRecordsProps {
   animalId: string;
   farmId?: string;
   animalName?: string;
   gender?: string;
+  livestockType?: string;
   readOnly?: boolean;
 }
 
-const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: AIRecordsProps) => {
+const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOnly = false }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
@@ -227,6 +229,44 @@ const AIRecords = ({ animalId, farmId, animalName, gender, readOnly = false }: A
             gender={gender}
           />
         </TabsContent>
+
+        {/* Lifecycle Actions - GAPs 2-5 */}
+        {!readOnly && (
+          <Card className="mt-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Lifecycle Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <RecordCalvingDialog
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  livestockType={livestockType}
+                  onSuccess={loadRecords}
+                />
+                <MarkNonReturnButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <RecordHeatReturnButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <MarkVWPEndedButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </Tabs>
     );
   }
