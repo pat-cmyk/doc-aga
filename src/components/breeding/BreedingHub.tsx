@@ -58,9 +58,7 @@ export function BreedingHub({
   const STATUS_FILTER_MAP: Record<string, (a: typeof animals[0]) => boolean> = useMemo(() => ({
     open_cycling: (a) => a.fertility_status === 'open_cycling',
     in_heat: (a) => a.fertility_status === 'in_heat',
-    bred_waiting: (a) => a.fertility_status === 'bred_waiting',
-    preg_check: (a) => pregCheckAnimalIds.has(a.id),
-    suspected_pregnant: (a) => a.fertility_status === 'suspected_pregnant',
+    bred_pipeline: (a) => a.fertility_status === 'bred_waiting' || a.fertility_status === 'suspected_pregnant' || pregCheckAnimalIds.has(a.id),
     confirmed_pregnant: (a) => a.fertility_status === 'confirmed_pregnant',
     fresh_postpartum: (a) => a.fertility_status === 'fresh_postpartum',
     not_eligible: (a) => !a.fertility_status || a.fertility_status === 'not_eligible',
@@ -69,9 +67,7 @@ export function BreedingHub({
   const STATUS_LABELS: Record<string, { label: string; icon: string }> = {
     open_cycling: { label: 'Open', icon: FERTILITY_STATUS_CONFIG.open_cycling.icon },
     in_heat: { label: 'In Heat', icon: FERTILITY_STATUS_CONFIG.in_heat.icon },
-    bred_waiting: { label: 'Waiting', icon: FERTILITY_STATUS_CONFIG.bred_waiting.icon },
-    preg_check: { label: 'Preg Check Due', icon: '🔍' },
-    suspected_pregnant: { label: 'Suspected Pregnant', icon: FERTILITY_STATUS_CONFIG.suspected_pregnant.icon },
+    bred_pipeline: { label: 'Bred', icon: '🧬' },
     confirmed_pregnant: { label: 'Pregnant', icon: FERTILITY_STATUS_CONFIG.confirmed_pregnant.icon },
     fresh_postpartum: { label: 'Fresh', icon: FERTILITY_STATUS_CONFIG.fresh_postpartum.icon },
     not_eligible: { label: 'Not Ready', icon: FERTILITY_STATUS_CONFIG.not_eligible.icon },
@@ -153,7 +149,7 @@ export function BreedingHub({
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-4">
           {/* Status Summary Grid */}
-          <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2">
             <BreedingHubStatCard
               count={stats.openCycling}
               label="Open"
@@ -176,35 +172,15 @@ export function BreedingHub({
               onClick={() => setSelectedStatus('in_heat')}
             />
             <BreedingHubStatCard
-              count={stats.bredWaiting}
-              label="Waiting"
-              description={FERTILITY_STATUS_CONFIG.bred_waiting.description}
-              descriptionTagalog={FERTILITY_STATUS_CONFIG.bred_waiting.descriptionTagalog}
-              icon={FERTILITY_STATUS_CONFIG.bred_waiting.icon}
+              count={stats.bredWaiting + stats.pregCheckDue + stats.suspectedPregnant}
+              label="Bred"
+              description="Animals that have been bred and are awaiting pregnancy confirmation"
+              descriptionTagalog="Mga hayop na na-breed at naghihintay ng kumpirmasyon ng pagbubuntis"
+              icon="🧬"
               colorClass="text-blue-600 dark:text-blue-400"
               bgClass="bg-blue-50 dark:bg-blue-900/20"
-              onClick={() => setSelectedStatus('bred_waiting')}
-            />
-            <BreedingHubStatCard
-              count={stats.pregCheckDue}
-              label="Preg Check"
-              description="28-35 days post-AI, needs pregnancy verification"
-              descriptionTagalog="28-35 araw pagkatapos ng AI, kailangan ng kumpirmasyon ng pagbubuntis"
-              icon="🔍"
-              colorClass="text-purple-600 dark:text-purple-400"
-              bgClass="bg-purple-50 dark:bg-purple-900/20"
               isHighlighted={stats.pregCheckDue > 0}
-              onClick={() => setSelectedStatus('preg_check')}
-            />
-            <BreedingHubStatCard
-              count={stats.suspectedPregnant}
-              label="Suspected"
-              description={FERTILITY_STATUS_CONFIG.suspected_pregnant.description}
-              descriptionTagalog={FERTILITY_STATUS_CONFIG.suspected_pregnant.descriptionTagalog}
-              icon={FERTILITY_STATUS_CONFIG.suspected_pregnant.icon}
-              colorClass="text-purple-600 dark:text-purple-400"
-              bgClass="bg-purple-50 dark:bg-purple-900/20"
-              onClick={() => setSelectedStatus('suspected_pregnant')}
+              onClick={() => setSelectedStatus('bred_pipeline')}
             />
             <BreedingHubStatCard
               count={stats.confirmedPregnant}
@@ -409,8 +385,8 @@ function BreedingHubSkeleton() {
           <Skeleton className="h-4 w-48 mt-1" />
         </div>
       </div>
-      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-lg" />
         ))}
       </div>
