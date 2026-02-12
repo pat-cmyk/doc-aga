@@ -5,8 +5,9 @@
  * and quick access to common breeding operations.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BreedingStatusAnimalList } from './BreedingStatusAnimalList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,14 +37,51 @@ export function BreedingHub({
   onConfirmPregnancy,
 }: BreedingHubProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const navigate = useNavigate();
   const {
     stats,
     actionsToday,
     expectedHeatNext7Days,
     expectedDeliveriesNext30Days,
+    animals,
     isLoading,
   } = useBreedingHub(farmId);
+
+  // Build preg-check animal IDs from actionsToday
+  const pregCheckAnimalIds = useMemo(
+    () => new Set(actionsToday.filter(a => a.type === 'preg_check_due').map(a => a.animal.id)),
+    [actionsToday],
+  );
+
+  // Status-to-filter mapping
+  const STATUS_FILTER_MAP: Record<string, (a: typeof animals[0]) => boolean> = useMemo(() => ({
+    open_cycling: (a) => a.fertility_status === 'open_cycling',
+    in_heat: (a) => a.fertility_status === 'in_heat',
+    bred_waiting: (a) => a.fertility_status === 'bred_waiting',
+    preg_check: (a) => pregCheckAnimalIds.has(a.id),
+    suspected_pregnant: (a) => a.fertility_status === 'suspected_pregnant',
+    confirmed_pregnant: (a) => a.fertility_status === 'confirmed_pregnant',
+    fresh_postpartum: (a) => a.fertility_status === 'fresh_postpartum',
+    not_eligible: (a) => !a.fertility_status || a.fertility_status === 'not_eligible',
+  }), [pregCheckAnimalIds]);
+
+  const STATUS_LABELS: Record<string, { label: string; icon: string }> = {
+    open_cycling: { label: 'Open', icon: FERTILITY_STATUS_CONFIG.open_cycling.icon },
+    in_heat: { label: 'In Heat', icon: FERTILITY_STATUS_CONFIG.in_heat.icon },
+    bred_waiting: { label: 'Waiting', icon: FERTILITY_STATUS_CONFIG.bred_waiting.icon },
+    preg_check: { label: 'Preg Check Due', icon: '🔍' },
+    suspected_pregnant: { label: 'Suspected Pregnant', icon: FERTILITY_STATUS_CONFIG.suspected_pregnant.icon },
+    confirmed_pregnant: { label: 'Pregnant', icon: FERTILITY_STATUS_CONFIG.confirmed_pregnant.icon },
+    fresh_postpartum: { label: 'Fresh', icon: FERTILITY_STATUS_CONFIG.fresh_postpartum.icon },
+    not_eligible: { label: 'Not Ready', icon: FERTILITY_STATUS_CONFIG.not_eligible.icon },
+  };
+
+  const filteredAnimals = useMemo(() => {
+    if (!selectedStatus) return [];
+    const filterFn = STATUS_FILTER_MAP[selectedStatus];
+    return filterFn ? animals.filter(filterFn) : [];
+  }, [selectedStatus, animals, STATUS_FILTER_MAP]);
 
   const handleViewAnimal = (animalId: string) => {
     navigate(`/animal/${animalId}`);
@@ -114,6 +152,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.open_cycling.icon}
               colorClass="text-green-600 dark:text-green-400"
               bgClass="bg-green-50 dark:bg-green-900/20"
+              onClick={() => setSelectedStatus('open_cycling')}
             />
             <BreedingHubStatCard
               count={stats.inHeat}
@@ -122,6 +161,7 @@ export function BreedingHub({
               colorClass="text-orange-600 dark:text-orange-400"
               bgClass="bg-orange-50 dark:bg-orange-900/20"
               isHighlighted={stats.inHeat > 0}
+              onClick={() => setSelectedStatus('in_heat')}
             />
             <BreedingHubStatCard
               count={stats.bredWaiting}
@@ -129,6 +169,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.bred_waiting.icon}
               colorClass="text-blue-600 dark:text-blue-400"
               bgClass="bg-blue-50 dark:bg-blue-900/20"
+              onClick={() => setSelectedStatus('bred_waiting')}
             />
             <BreedingHubStatCard
               count={stats.pregCheckDue}
@@ -137,6 +178,7 @@ export function BreedingHub({
               colorClass="text-purple-600 dark:text-purple-400"
               bgClass="bg-purple-50 dark:bg-purple-900/20"
               isHighlighted={stats.pregCheckDue > 0}
+              onClick={() => setSelectedStatus('preg_check')}
             />
             <BreedingHubStatCard
               count={stats.suspectedPregnant}
@@ -144,6 +186,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.suspected_pregnant.icon}
               colorClass="text-purple-600 dark:text-purple-400"
               bgClass="bg-purple-50 dark:bg-purple-900/20"
+              onClick={() => setSelectedStatus('suspected_pregnant')}
             />
             <BreedingHubStatCard
               count={stats.confirmedPregnant}
@@ -151,6 +194,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.confirmed_pregnant.icon}
               colorClass="text-pink-600 dark:text-pink-400"
               bgClass="bg-pink-50 dark:bg-pink-900/20"
+              onClick={() => setSelectedStatus('confirmed_pregnant')}
             />
             <BreedingHubStatCard
               count={stats.freshPostpartum}
@@ -158,6 +202,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.fresh_postpartum.icon}
               colorClass="text-teal-600 dark:text-teal-400"
               bgClass="bg-teal-50 dark:bg-teal-900/20"
+              onClick={() => setSelectedStatus('fresh_postpartum')}
             />
             <BreedingHubStatCard
               count={stats.notEligible}
@@ -165,6 +210,7 @@ export function BreedingHub({
               icon={FERTILITY_STATUS_CONFIG.not_eligible.icon}
               colorClass="text-muted-foreground"
               bgClass="bg-muted/50"
+              onClick={() => setSelectedStatus('not_eligible')}
             />
           </div>
 
@@ -293,6 +339,15 @@ export function BreedingHub({
           />
         </TabsContent>
       </Tabs>
+
+      {/* Drill-down dialog */}
+      <BreedingStatusAnimalList
+        open={!!selectedStatus}
+        onClose={() => setSelectedStatus(null)}
+        statusLabel={selectedStatus ? STATUS_LABELS[selectedStatus]?.label || '' : ''}
+        statusIcon={selectedStatus ? STATUS_LABELS[selectedStatus]?.icon || '' : ''}
+        animals={filteredAnimals}
+      />
     </div>
   );
 }
