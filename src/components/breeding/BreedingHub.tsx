@@ -84,7 +84,7 @@ export function BreedingHub({
   }, [selectedStatus, animals, STATUS_FILTER_MAP]);
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/animal/${animalId}`);
+    navigate(`/?tab=animals&animalId=${animalId}`);
   };
 
   if (isLoading) {
