@@ -135,6 +135,9 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date()
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
     const sevenDaysAgo = new Date(now)
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     const thirtyDaysAgo = new Date(now)
@@ -202,7 +205,7 @@ Deno.serve(async (req) => {
 
         // Milking: only for lactating females, single "Full Day" record per day
         if (isLactating && isFemale) {
-          for (let d = 0; d < 7; d++) {
+          for (let d = 1; d <= 7; d++) {
             const date = new Date(now)
             date.setDate(date.getDate() - d)
             const dateStr = date.toISOString().split('T')[0]
@@ -232,7 +235,7 @@ Deno.serve(async (req) => {
           weightInserts.push({
             animal_id: animal.id,
             weight_kg: weight,
-            measurement_date: now.toISOString().split('T')[0],
+            measurement_date: yesterdayStr,
             measurement_method: 'Estimated',
             notes: 'Auto-seeded demo data',
           })
@@ -242,7 +245,7 @@ Deno.serve(async (req) => {
         if (!animalsWithHealth.has(animal.id)) {
           const checkIdx = Math.floor(seededRandom(`${animal.id}_health`) * HEALTH_CHECKS.length)
           const check = HEALTH_CHECKS[checkIdx]
-          const visitDate = new Date(now)
+          const visitDate = new Date(yesterday)
           visitDate.setDate(visitDate.getDate() - Math.floor(seededRandom(`${animal.id}_hdate`) * 14))
           healthInserts.push({
             animal_id: animal.id,
@@ -262,13 +265,13 @@ Deno.serve(async (req) => {
             animal_id: animal.id,
             farm_id: farm.id,
             score: roundedScore,
-            assessment_date: now.toISOString().split('T')[0],
+            assessment_date: yesterdayStr,
             notes: 'Auto-seeded demo data',
           })
         }
 
         // Feeding: daily for last 7 days
-        for (let d = 0; d < 7; d++) {
+        for (let d = 1; d <= 7; d++) {
           const date = new Date(now)
           date.setDate(date.getDate() - d)
           const dateStr = date.toISOString().split('T')[0]
