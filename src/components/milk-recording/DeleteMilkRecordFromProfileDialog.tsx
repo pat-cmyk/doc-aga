@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { format, parseISO } from "date-fns";
-import { Loader2, Sun, Moon } from "lucide-react";
+import { Loader2, Sun, Moon, Clock } from "lucide-react";
 import { hapticNotification } from "@/lib/haptics";
 
 interface MilkRecord {
@@ -18,7 +18,7 @@ interface MilkRecord {
   animal_id: string;
   record_date: string;
   liters: number;
-  session: 'AM' | 'PM';
+  session: 'AM' | 'PM' | 'Full Day';
 }
 
 interface DeleteMilkRecordFromProfileDialogProps {
@@ -47,8 +47,8 @@ export function DeleteMilkRecordFromProfileDialog({
   };
 
   const formattedDate = format(parseISO(record.record_date), "MMMM d, yyyy");
-  const sessionLabel = record.session === 'AM' ? 'Morning' : 'Evening';
-  const SessionIcon = record.session === 'AM' ? Sun : Moon;
+  const sessionLabel = record.session === 'AM' ? 'Morning' : record.session === 'PM' ? 'Evening' : 'Full Day';
+  const SessionIcon = record.session === 'AM' ? Sun : record.session === 'PM' ? Moon : Clock;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

@@ -12,14 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Pencil, CalendarIcon, Sun, Moon } from "lucide-react";
+import { Loader2, Pencil, CalendarIcon, Sun, Moon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
@@ -29,7 +29,7 @@ interface MilkRecord {
   animal_id: string;
   record_date: string;
   liters: number;
-  session: 'AM' | 'PM';
+  session: 'AM' | 'PM' | 'Full Day';
 }
 
 interface EditMilkRecordDialogProps {
@@ -51,7 +51,7 @@ export function EditMilkRecordDialog({
 }: EditMilkRecordDialogProps) {
   const [liters, setLiters] = useState(record.liters.toString());
   const [recordDate, setRecordDate] = useState<Date>(new Date(record.record_date));
-  const [session, setSession] = useState<'AM' | 'PM'>(record.session);
+  const [session, setSession] = useState<'AM' | 'PM' | 'Full Day'>(record.session);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -75,7 +75,7 @@ export function EditMilkRecordDialog({
 
   const handleSessionChange = (value: string) => {
     hapticSelection();
-    setSession(value as 'AM' | 'PM');
+    setSession(value as 'AM' | 'PM' | 'Full Day');
   };
 
   const handleClose = () => {
@@ -202,29 +202,34 @@ export function EditMilkRecordDialog({
             </Popover>
           </div>
 
-          {/* AM/PM Session */}
+          {/* Session Selection */}
           <div className="space-y-2">
             <Label>Session</Label>
-            <RadioGroup
-              value={session}
-              onValueChange={handleSessionChange}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="AM" id="edit-am" />
-                <Label htmlFor="edit-am" className="flex items-center gap-1.5 cursor-pointer">
-                  <Sun className="h-4 w-4 text-amber-500" />
-                  Morning
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="PM" id="edit-pm" />
-                <Label htmlFor="edit-pm" className="flex items-center gap-1.5 cursor-pointer">
-                  <Moon className="h-4 w-4 text-indigo-500" />
-                  Evening
-                </Label>
-              </div>
-            </RadioGroup>
+            <Select value={session} onValueChange={handleSessionChange}>
+              <SelectTrigger className="min-h-[48px]">
+                <SelectValue placeholder="Select session" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="AM">
+                  <span className="flex items-center gap-2">
+                    <Sun className="h-4 w-4 text-amber-500" />
+                    Morning (AM)
+                  </span>
+                </SelectItem>
+                <SelectItem value="PM">
+                  <span className="flex items-center gap-2">
+                    <Moon className="h-4 w-4 text-indigo-500" />
+                    Evening (PM)
+                  </span>
+                </SelectItem>
+                <SelectItem value="Full Day">
+                  <span className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-blue-500" />
+                    Full Day
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Liters Input */}

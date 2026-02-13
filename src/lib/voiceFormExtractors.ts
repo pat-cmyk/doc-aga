@@ -13,7 +13,7 @@ import { findBestMatch, findAllMatches, normalizeEarTag } from './fuzzyMatch';
 
 export interface ExtractedMilkData {
   totalLiters?: number;
-  session?: 'AM' | 'PM';
+  session?: 'AM' | 'PM' | 'Full Day';
   animalSelection?: string; // 'all-lactating' | 'individual:<id>' | 'species:<type>'
   matchedAnimalName?: string; // For toast feedback
   recordDate?: Date; // Extracted date from voice input
@@ -343,11 +343,14 @@ export function extractMilkData(
     result.warnings = warnings;
   }
 
-  // Extract session (AM/PM)
+  // Extract session (AM/PM/Full Day)
+  const fullDayKeywords = ['full day', 'fullday', 'whole day', 'buong araw', 'all day', 'buong maghapon'];
   const morningKeywords = ['morning', 'umaga', 'am', 'a.m.', 'breakfast', 'early'];
   const eveningKeywords = ['evening', 'gabi', 'hapon', 'pm', 'p.m.', 'afternoon', 'night'];
 
-  if (morningKeywords.some(kw => lowerText.includes(kw))) {
+  if (fullDayKeywords.some(kw => lowerText.includes(kw))) {
+    result.session = 'Full Day';
+  } else if (morningKeywords.some(kw => lowerText.includes(kw))) {
     result.session = 'AM';
   } else if (eveningKeywords.some(kw => lowerText.includes(kw))) {
     result.session = 'PM';

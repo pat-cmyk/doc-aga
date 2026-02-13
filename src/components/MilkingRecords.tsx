@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Loader2, Sun, Moon, Pencil, ChevronDown, ChevronUp, History, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Loader2, Sun, Moon, Clock, Pencil, ChevronDown, ChevronUp, History, Trash2, RotateCcw } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -24,7 +24,7 @@ interface MilkRecord {
   animal_id: string;
   record_date: string;
   liters: number;
-  session: 'AM' | 'PM';
+  session: 'AM' | 'PM' | 'Full Day';
   created_at: string;
 }
 
@@ -346,8 +346,10 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
                           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
                             {record.session === 'AM' ? (
                               <Sun className="h-4 w-4 text-amber-500" />
-                            ) : (
+                            ) : record.session === 'PM' ? (
                               <Moon className="h-4 w-4 text-indigo-500" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-blue-500" />
                             )}
                           </div>
                           <div>
@@ -355,7 +357,7 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
                               {format(new Date(record.record_date), "MMM d, yyyy")}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {record.session === 'AM' ? 'Morning' : 'Evening'}
+                              {record.session === 'AM' ? 'Morning' : record.session === 'PM' ? 'Evening' : 'Full Day'}
                             </div>
                           </div>
                         </div>

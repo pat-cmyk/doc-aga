@@ -6,7 +6,7 @@ export interface AnimalMissingMilking {
   animalId: string;
   animalName: string | null;
   earTag: string | null;
-  missingSessions: ('AM' | 'PM')[];
+  missingSessions: ('AM' | 'PM' | 'Full Day')[];
 }
 
 export interface FarmhandActivity {
@@ -123,17 +123,22 @@ export function useDailyActivityCompliance(farmId: string | null) {
       const pmMilkingAnimalIds = new Set(
         milkingRecords.filter(r => r.session === 'PM').map(r => r.animal_id)
       );
+      const fullDayAnimalIds = new Set(
+        milkingRecords.filter(r => r.session === 'Full Day').map(r => r.animal_id)
+      );
 
       const completedMilkingSessions = {
-        AM: amMilkingAnimalIds.size,
-        PM: pmMilkingAnimalIds.size,
-        total: amMilkingAnimalIds.size + pmMilkingAnimalIds.size
+        AM: amMilkingAnimalIds.size + fullDayAnimalIds.size,
+        PM: pmMilkingAnimalIds.size + fullDayAnimalIds.size,
+        total: amMilkingAnimalIds.size + pmMilkingAnimalIds.size + (fullDayAnimalIds.size * 2)
       };
 
-      // Find animals missing milking
+      // Find animals missing milking (Full Day covers both AM and PM)
       const animalsMissingMilking: AnimalMissingMilking[] = lactatingAnimals
         .map(animal => {
-          const missingSessions: ('AM' | 'PM')[] = [];
+          if (fullDayAnimalIds.has(animal.id)) return null; // Full Day covers both sessions
+          
+          const missingSessions: ('AM' | 'PM' | 'Full Day')[] = [];
           if (!amMilkingAnimalIds.has(animal.id)) missingSessions.push('AM');
           if (!pmMilkingAnimalIds.has(animal.id) && isAfternoon) missingSessions.push('PM');
           
