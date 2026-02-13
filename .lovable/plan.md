@@ -1,41 +1,43 @@
 
-# Merge "Waiting", "Preg Check", and "Suspected" into a Single Card
+
+# Add Name/Ear Tag Display Toggle to Animal List
 
 ## What Changes
 
-The three middle status boxes -- Waiting, Preg Check, and Suspected -- will be combined into one card labeled **"Bred"** (or similar). This reduces the grid from 8 cards to 6, simplifying the overview.
-
-## How It Works
-
-- The merged card shows a combined count: `bredWaiting + pregCheckDue + suspectedPregnant`
-- Clicking it opens the drill-down list showing all animals from those three statuses, with a sub-label or badge indicating which sub-status each animal belongs to (Waiting / Preg Check / Suspected)
-- The tooltip will explain: "Animals that have been bred and are awaiting pregnancy confirmation"
-- The card will be highlighted if `pregCheckDue > 0` (actionable items)
+A small toggle button will be placed next to the "Filters" button that lets the user switch the card's highlighted (primary) text between the animal's **Name** and **Ear Tag**. The preference is saved to localStorage so it persists across sessions.
 
 ## Visual Result
 
-Before (8 cards):
-`Open | In Heat | Waiting | Preg Check | Suspected | Pregnant | Fresh | Not Ready`
+```text
+[ Filters ]  [ Name | Tag ]          9 of 9 animals
+```
 
-After (6 cards):
-`Open | In Heat | Bred | Pregnant | Fresh | Not Ready`
+When "Tag" is selected, cards will show the ear tag as the bold title and the name in the subtitle line (swapped from default).
 
 ## Technical Details
 
-### 1. Edit `src/components/breeding/BreedingHub.tsx`
+### 1. Edit `src/lib/localStorage.ts`
 
-- Add a new combined filter key `bred_pipeline` to `STATUS_FILTER_MAP` that matches animals with `bred_waiting`, `suspected_pregnant` status, or those in `pregCheckAnimalIds`
-- Add a corresponding entry in `STATUS_LABELS` with label "Bred" and a suitable icon
-- Replace the three separate `BreedingHubStatCard` instances (Waiting, Preg Check, Suspected) with one card using count `stats.bredWaiting + stats.pregCheckDue + stats.suspectedPregnant`
-- Update the grid from `lg:grid-cols-8` to `lg:grid-cols-6`
+- Add a `displayPrimary: 'name' | 'ear_tag'` preference
+- Add getter/setter functions: `getAnimalDisplayPrimary()` and `setAnimalDisplayPrimary()`
 
-### 2. Edit `src/components/breeding/BreedingStatusAnimalList.tsx` (minor)
+### 2. Edit `src/components/AnimalList.tsx`
 
-- No changes needed if the drill-down list already shows `fertility_status` per animal. If not, ensure each animal row shows its sub-status so users can distinguish Waiting vs Preg Check vs Suspected within the merged list.
+- Add state: `const [displayPrimary, setDisplayPrimary] = useState(getAnimalDisplayPrimary())`
+- Place a small toggle (using the existing `ToggleGroup` component or two compact buttons) next to the Filters button in the toolbar row (line ~474)
+- On toggle change, update state and persist via `setAnimalDisplayPrimary()`
+- In the desktop card rendering (~line 755): swap the CardTitle and CardDescription content based on `displayPrimary`
+- Pass the preference as a prop to `AnimalCard` for mobile rendering
+
+### 3. Edit `src/components/animal-list/AnimalCard.tsx`
+
+- Add an optional `displayPrimary?: 'name' | 'ear_tag'` prop
+- In both mobile and desktop card layouts, swap the bold title text and subtitle text based on the prop (defaulting to `'name'`)
 
 ## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/breeding/BreedingHub.tsx` | Edit - merge 3 cards into 1, update grid layout |
-| `src/components/breeding/BreedingStatusAnimalList.tsx` | Review - ensure sub-status is visible in drill-down |
+| `src/lib/localStorage.ts` | Edit - add display preference getter/setter |
+| `src/components/AnimalList.tsx` | Edit - add toggle UI + swap card content |
+| `src/components/animal-list/AnimalCard.tsx` | Edit - accept displayPrimary prop, swap title/subtitle |
