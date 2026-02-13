@@ -56,7 +56,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [operationsSubtab, setOperationsSubtab] = useState<string>("milk");
+  const [operationsSubtab, setOperationsSubtab] = useState<string>("breeding");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [showFarmSetup, setShowFarmSetup] = useState(false);
   const [forecastData, setForecastData] = useState<any[]>([]);
