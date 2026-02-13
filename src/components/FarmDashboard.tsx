@@ -335,6 +335,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         onTimePeriodChange={setTimePeriod}
         onYearChange={setSelectedYear}
         farmId={farmId}
+        averageMilk={stats.avgDailyMilk}
         showFeedOverlay={showFeedOverlay}
         onToggleFeedOverlay={() => setShowFeedOverlay(!showFeedOverlay)}
       />
