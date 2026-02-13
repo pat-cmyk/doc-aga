@@ -149,7 +149,8 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
             .from("animals")
             .select("*", { count: "exact", head: true })
             .eq("farm_id", farm.id)
-            .eq("is_deleted", false),
+            .eq("is_deleted", false)
+            .is("exit_date", null),
           supabase
             .from("animals")
             .select("*", { count: "exact", head: true })

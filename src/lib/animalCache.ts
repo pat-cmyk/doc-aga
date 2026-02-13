@@ -54,7 +54,8 @@ export async function updateAnimalCache(farmId: string, isOnline: boolean): Prom
       .from('animals')
       .select('id, name, ear_tag, breed, livestock_type, gender, birth_date')
       .eq('farm_id', farmId)
-      .eq('is_deleted', false);
+      .eq('is_deleted', false)
+      .is('exit_date', null);
 
     if (error) throw error;
 

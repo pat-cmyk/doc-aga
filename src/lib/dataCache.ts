@@ -499,6 +499,7 @@ export async function updateAnimalCache(farmId: string, emitProgressUpdates = fa
       .select('*')
       .eq('farm_id', farmId)
       .eq('is_deleted', false)
+      .is('exit_date', null)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
