@@ -1,10 +1,11 @@
 import { format, parseISO } from "date-fns";
-import { Droplets, TrendingUp, TrendingDown, Users, Banknote } from "lucide-react";
+import { Droplets, TrendingUp, TrendingDown, Users, Banknote, Wheat } from "lucide-react";
 
 interface MilkChartTooltipProps {
   active?: boolean;
   payload?: Array<{
     value: number;
+    dataKey: string;
     payload: {
       date: string;
       rawDate: string;
@@ -12,6 +13,8 @@ interface MilkChartTooltipProps {
       prevDayMilk?: number;
       animalsCount?: number;
       revenue?: number;
+      feedTotalKg?: number;
+      feedAnimalCount?: number;
     };
   }>;
   label?: string;
@@ -25,10 +28,17 @@ export const MilkChartTooltip = ({ active, payload }: MilkChartTooltipProps) => 
   const prevDayMilk = data.prevDayMilk;
   const animalsCount = data.animalsCount || 0;
   const revenue = data.revenue || 0;
+  const feedTotalKg = data.feedTotalKg || 0;
+  const feedAnimalCount = data.feedAnimalCount || 0;
 
   // Calculate difference from previous day
   const diff = prevDayMilk !== undefined ? milkTotal - prevDayMilk : null;
   const isPositive = diff !== null && diff >= 0;
+
+  // Feed-to-milk ratio
+  const feedMilkRatio = milkTotal > 0 && feedTotalKg > 0
+    ? (feedTotalKg / milkTotal).toFixed(1)
+    : null;
 
   // Format the full date
   let formattedDate = data.date;
@@ -50,11 +60,32 @@ export const MilkChartTooltip = ({ active, payload }: MilkChartTooltipProps) => 
         {/* Total Milk */}
         <div className="flex items-center gap-2">
           <Droplets className="h-4 w-4 text-chart-1" />
-          <span className="text-sm text-muted-foreground">Total:</span>
+          <span className="text-sm text-muted-foreground">Milk:</span>
           <span className="text-sm font-semibold text-foreground ml-auto">
             {milkTotal.toFixed(1)} L
           </span>
         </div>
+
+        {/* Feed Total */}
+        {feedTotalKg > 0 && (
+          <div className="flex items-center gap-2">
+            <Wheat className="h-4 w-4 text-orange-500" />
+            <span className="text-sm text-muted-foreground">Feed:</span>
+            <span className="text-sm font-semibold text-foreground ml-auto">
+              {feedTotalKg.toFixed(1)} kg
+            </span>
+          </div>
+        )}
+
+        {/* Feed-to-Milk Ratio */}
+        {feedMilkRatio && (
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-xs text-muted-foreground">Feed:Milk ratio:</span>
+            <span className="text-xs font-medium text-foreground ml-auto">
+              {feedMilkRatio}:1
+            </span>
+          </div>
+        )}
 
         {/* Comparison to previous day */}
         {diff !== null && (
@@ -78,6 +109,7 @@ export const MilkChartTooltip = ({ active, payload }: MilkChartTooltipProps) => 
             <span className="text-sm text-muted-foreground">Animals:</span>
             <span className="text-sm font-medium text-foreground ml-auto">
               {animalsCount} milked
+              {feedAnimalCount > 0 && ` · ${feedAnimalCount} fed`}
             </span>
           </div>
         )}

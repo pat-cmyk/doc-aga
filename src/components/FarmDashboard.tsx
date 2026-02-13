@@ -30,6 +30,7 @@ interface FarmDashboardProps {
 const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails }: FarmDashboardProps) => {
   const [feedForecast, setFeedForecast] = useState<MonthlyFeedForecast[]>([]);
   const [showFeedForecast, setShowFeedForecast] = useState(false);
+  const [showFeedOverlay, setShowFeedOverlay] = useState(false);
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<"last30" | "ytd">("last30");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -334,6 +335,8 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
         onTimePeriodChange={setTimePeriod}
         onYearChange={setSelectedYear}
         farmId={farmId}
+        showFeedOverlay={showFeedOverlay}
+        onToggleFeedOverlay={() => setShowFeedOverlay(!showFeedOverlay)}
       />
 
       <LazyHeadcountChart

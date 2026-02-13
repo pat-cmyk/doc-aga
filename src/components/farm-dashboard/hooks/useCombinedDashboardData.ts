@@ -169,6 +169,26 @@ export const useCombinedDashboardData = (
           });
         });
 
+        // ========== STEP 3b: Fetch feed data in parallel ==========
+        const { data: feedRecords } = await supabase
+          .from("feeding_records")
+          .select("record_datetime, animal_id, kilograms, animals!inner(farm_id)")
+          .eq("animals.farm_id", farmId)
+          .gte("record_datetime", startDate.toISOString())
+          .lte("record_datetime", endDate.toISOString());
+
+        // Aggregate feed by date
+        const feedByDate: Record<string, { totalKg: number; animals: Set<string> }> = {};
+        feedRecords?.forEach((record: any) => {
+          const date = record.record_datetime?.split('T')[0];
+          if (!date) return;
+          if (!feedByDate[date]) {
+            feedByDate[date] = { totalKg: 0, animals: new Set() };
+          }
+          feedByDate[date].totalKg += Number(record.kilograms || 0);
+          feedByDate[date].animals.add(record.animal_id);
+        });
+
         // ========== STEP 4: Merge server with local pending data ==========
         // For today's date, prefer local cache if it has pending data (higher value wins)
         const today = new Date().toISOString().split('T')[0];
@@ -189,6 +209,8 @@ export const useCombinedDashboardData = (
             date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawDate: date,
             milkTotal: mergedDailyMilk[date] || 0,
+            feedTotalKg: feedByDate[date]?.totalKg || 0,
+            feedAnimalCount: feedByDate[date]?.animals.size || 0,
           };
         });
 

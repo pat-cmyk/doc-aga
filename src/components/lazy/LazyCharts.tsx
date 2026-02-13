@@ -57,6 +57,8 @@ interface LazyMilkProductionChartProps {
   onYearChange: (year: number) => void;
   farmId: string;
   averageMilk?: number;
+  showFeedOverlay?: boolean;
+  onToggleFeedOverlay?: () => void;
 }
 
 export const LazyMilkProductionChart = (props: LazyMilkProductionChartProps) => (
