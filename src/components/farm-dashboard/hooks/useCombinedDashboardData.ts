@@ -71,6 +71,45 @@ export const useCombinedDashboardData = (
     }));
   }, [dateArray]);
 
+  // Independent feed fetch that runs regardless of cache freshness
+  const fetchAndMergeFeedData = useCallback(async () => {
+    if (!isOnline) return;
+    try {
+      const { data: feedRecords } = await supabase
+        .from("feeding_records")
+        .select("record_datetime, animal_id, kilograms, animals!inner(farm_id)")
+        .eq("animals.farm_id", farmId)
+        .gte("record_datetime", startDate.toISOString())
+        .lte("record_datetime", endDate.toISOString());
+
+      const feedByDate: Record<string, { totalKg: number; animals: Set<string> }> = {};
+      feedRecords?.forEach((record: any) => {
+        const date = record.record_datetime?.split('T')[0];
+        if (!date) return;
+        if (!feedByDate[date]) {
+          feedByDate[date] = { totalKg: 0, animals: new Set() };
+        }
+        feedByDate[date].totalKg += Number(record.kilograms || 0);
+        feedByDate[date].animals.add(record.animal_id);
+      });
+
+      // Merge feed data into current combinedData state
+      setCombinedData(prev => prev.map(item => {
+        const rawDate = item.rawDate;
+        if (rawDate && feedByDate[rawDate]) {
+          return {
+            ...item,
+            feedTotalKg: feedByDate[rawDate].totalKg,
+            feedAnimalCount: feedByDate[rawDate].animals.size,
+          };
+        }
+        return { ...item, feedTotalKg: item.feedTotalKg || 0, feedAnimalCount: item.feedAnimalCount || 0 };
+      }));
+    } catch (err) {
+      console.warn('[Dashboard] Feed fetch failed, feed overlay will be empty:', err);
+    }
+  }, [farmId, startDate, endDate, isOnline]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -101,9 +140,11 @@ export const useCombinedDashboardData = (
         return;
       }
 
-      // If cache is fresh and we have data, skip server fetch (but data is already displayed from step 1)
+      // If cache is fresh and we have data, skip heavy RPC but still fetch feed
       if (cacheIsFresh && cachedStats) {
-        console.log('[Dashboard] Cache is fresh, skipping server fetch');
+        console.log('[Dashboard] Cache is fresh, skipping server fetch — fetching feed independently');
+        // Fetch feed data even when cache is fresh (lightweight query)
+        await fetchAndMergeFeedData();
         return; // Already set loading=false above when showing cached data
       }
 
@@ -321,7 +362,7 @@ export const useCombinedDashboardData = (
     } finally {
       setLoading(false);
     }
-  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray, isOnline, buildCombinedDataFromCache]);
+  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray, isOnline, buildCombinedDataFromCache, fetchAndMergeFeedData]);
 
   useEffect(() => {
     loadData();
