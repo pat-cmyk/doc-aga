@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, Scale, Database } from "lucide-react";
+import { Plus, Loader2, Search, Filter, Scale, Database, Tag, Type } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { getAnimalDisplayPrimary, setAnimalDisplayPrimary, type AnimalDisplayPrimary } from "@/lib/localStorage";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -165,6 +167,14 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   const [weightDataFilter, setWeightDataFilter] = useState<string>(weightFilter === 'missing' ? 'missing' : 'all');
   const [cachedAnimalIds, setCachedAnimalIds] = useState<Set<string>>(new Set());
   const [downloadingAnimalIds, setDownloadingAnimalIds] = useState<Set<string>>(new Set());
+  const [displayPrimary, setDisplayPrimaryState] = useState<AnimalDisplayPrimary>(getAnimalDisplayPrimary());
+  
+  const handleDisplayPrimaryChange = (value: string) => {
+    if (value === 'name' || value === 'ear_tag') {
+      setDisplayPrimaryState(value);
+      setAnimalDisplayPrimary(value);
+    }
+  };
   
   // Bio-Card Quick View Sheet state
   const [bioCardSheetOpen, setBioCardSheetOpen] = useState(false);
@@ -472,6 +482,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
 
       {/* Filter Button and Results Count */}
       <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="relative">
@@ -612,6 +623,24 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
             </div>
           </SheetContent>
         </Sheet>
+          <ToggleGroup
+            type="single"
+            value={displayPrimary}
+            onValueChange={handleDisplayPrimaryChange}
+            size="sm"
+            variant="outline"
+            className="h-9"
+          >
+            <ToggleGroupItem value="name" aria-label="Show name" className="text-xs px-2 h-8 gap-1">
+              <Type className="h-3.5 w-3.5" />
+              Name
+            </ToggleGroupItem>
+            <ToggleGroupItem value="ear_tag" aria-label="Show ear tag" className="text-xs px-2 h-8 gap-1">
+              <Tag className="h-3.5 w-3.5" />
+              Tag
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         
         {/* Results count shown inline on larger screens */}
         <p className="text-sm text-muted-foreground hidden sm:block">
@@ -719,6 +748,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   statusDot={ovrData?.status}
                   statusReason={ovrData?.statusReason}
                   alertCount={ovrData?.alertCount}
+                  displayPrimary={displayPrimary}
                 />
               );
             }
@@ -738,11 +768,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                       <Avatar className="h-12 w-12">
                         <AvatarImage 
                           src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
-                          alt={animal.name || animal.ear_tag || "Animal"}
+                          alt={displayPrimary === 'ear_tag' ? (animal.ear_tag || 'Animal') : (animal.name || 'Animal')}
                           loading="lazy"
                         />
                         <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                          {(animal.name || animal.ear_tag || "?").charAt(0).toUpperCase()}
+                          {(displayPrimary === 'ear_tag' ? (animal.ear_tag || '?') : (animal.name || animal.ear_tag || '?')).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       {ovrData?.status && (
@@ -753,12 +783,12 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                     </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg flex items-center gap-1.5">
-                        {animal.name || "Unnamed"}
+                        {displayPrimary === 'ear_tag' ? (animal.ear_tag || 'No Tag') : (animal.name || 'Unnamed')}
                         <GenderSymbol gender={animal.gender} />
                       </CardTitle>
                       <CardDescription className="flex items-center">
                         <span>
-                          {livestockIcon} {animal.breed || "Unknown breed"} • Tag: {animal.ear_tag || "N/A"}
+                          {livestockIcon} {animal.breed || "Unknown breed"} • {displayPrimary === 'ear_tag' ? (animal.name || 'Unnamed') : `Tag: ${animal.ear_tag || "N/A"}`}
                         </span>
                         {getCacheIcon(animal.id)}
                       </CardDescription>

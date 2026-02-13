@@ -91,3 +91,28 @@ export function shouldShowOnboarding(): boolean {
 export function setPreferredInputMethod(method: InputMethod): void {
   setDocAgaPreferences({ preferredInputMethod: method });
 }
+
+/**
+ * Animal display primary field preference
+ */
+export type AnimalDisplayPrimary = 'name' | 'ear_tag';
+
+const ANIMAL_DISPLAY_KEY = 'animal_display_primary';
+
+export function getAnimalDisplayPrimary(): AnimalDisplayPrimary {
+  try {
+    const val = localStorage.getItem(ANIMAL_DISPLAY_KEY);
+    if (val === 'ear_tag') return 'ear_tag';
+    return 'name';
+  } catch {
+    return 'name';
+  }
+}
+
+export function setAnimalDisplayPrimary(value: AnimalDisplayPrimary): void {
+  try {
+    localStorage.setItem(ANIMAL_DISPLAY_KEY, value);
+  } catch (error) {
+    console.error('Error saving animal display preference:', error);
+  }
+}

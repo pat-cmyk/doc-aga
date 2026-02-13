@@ -12,6 +12,8 @@ import { StatusDot, type StatusDotType, type StatusReason } from "./StatusDot";
 import type { Animal } from "./hooks/useAnimalList";
 import { getEffectiveWeight } from "@/lib/animalWeightUtils";
 
+type AnimalDisplayPrimary = 'name' | 'ear_tag';
+
 interface AnimalCardProps {
   animal: Animal;
   isCached: boolean;
@@ -31,6 +33,7 @@ interface AnimalCardProps {
   statusDot?: StatusDotType;
   statusReason?: StatusReason;
   alertCount?: number;
+  displayPrimary?: AnimalDisplayPrimary;
 }
 
 export const AnimalCard = ({
@@ -51,9 +54,13 @@ export const AnimalCard = ({
   statusDot,
   statusReason,
   alertCount,
+  displayPrimary = 'name',
 }: AnimalCardProps) => {
   const isMobile = useIsMobile();
   const effectiveWeight = getEffectiveWeight(animal);
+  const primaryText = displayPrimary === 'ear_tag' ? (animal.ear_tag || 'No Tag') : (animal.name || 'Unnamed');
+  const secondaryLabel = displayPrimary === 'ear_tag' ? animal.name : animal.ear_tag;
+  const fallbackChar = primaryText.charAt(0).toUpperCase();
   
   const getCacheIcon = () => {
     if (isDownloading) {
@@ -108,8 +115,8 @@ export const AnimalCard = ({
           {/* Avatar with status dot overlay */}
           <div className="relative shrink-0">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
-              <AvatarFallback className="text-sm">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+              <AvatarImage src={animal.avatar_url || undefined} alt={primaryText} />
+              <AvatarFallback className="text-sm">{fallbackChar}</AvatarFallback>
             </Avatar>
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
@@ -123,16 +130,16 @@ export const AnimalCard = ({
             {/* Name row with gender, livestock icon and cache status */}
             <div className="flex items-center gap-1.5">
               <h3 className="font-semibold text-sm truncate max-w-[120px]">
-                {animal.name || "Unnamed"}
+                {primaryText}
               </h3>
               <GenderSymbol gender={animal.gender} />
               <span className="text-sm shrink-0">{livestockIcon}</span>
               {getCacheIcon()}
             </div>
             
-            {/* Breed and ear tag - single line truncated */}
+            {/* Secondary info line */}
             <p className="text-xs text-muted-foreground truncate">
-              {animal.breed} • {animal.ear_tag}
+              {animal.breed}{secondaryLabel ? ` • ${secondaryLabel}` : ''}
             </p>
           </div>
           
@@ -198,8 +205,8 @@ export const AnimalCard = ({
           {/* Avatar with status dot overlay */}
           <div className="relative shrink-0">
             <Avatar className="h-14 w-14">
-              <AvatarImage src={animal.avatar_url || undefined} alt={animal.name || "Animal"} />
-              <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
+              <AvatarImage src={animal.avatar_url || undefined} alt={primaryText} />
+              <AvatarFallback className="text-lg">{fallbackChar}</AvatarFallback>
             </Avatar>
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
@@ -209,13 +216,13 @@ export const AnimalCard = ({
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="font-semibold text-base truncate">{animal.name || "Unnamed"}</h3>
+              <h3 className="font-semibold text-base truncate">{primaryText}</h3>
               <GenderSymbol gender={animal.gender} />
               <span className="text-lg">{livestockIcon}</span>
               {getCacheIcon()}
             </div>
             <p className="text-sm text-muted-foreground truncate">
-              {animal.breed} • {animal.ear_tag}
+              {animal.breed}{secondaryLabel ? ` • ${secondaryLabel}` : ''}
             </p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {/* OVR Indicator for desktop - only show if cached (score > 0) */}
