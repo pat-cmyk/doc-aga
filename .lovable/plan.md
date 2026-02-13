@@ -1,123 +1,79 @@
 
-# Add "Full Day" Session Option to Milk Recording
 
-## Overview
+# Fix Demo Data Seeder: Per-Animal Species + Full Day Sessions
 
-Add a third session option -- "Full Day" -- to milk recording, signifying that the recorded amount covers the entire day (not just a morning or evening session). This requires changes across the database constraint, backend RPCs, edge functions, and multiple UI components.
+## Problems Found
 
-## Impact Analysis
+1. **Wrong species config**: The seeder uses `farm.livestock_type` for ALL animals on a farm, but **128 out of ~713 demo animals** have a different `livestock_type` than their farm. For example, RUM-2601-57406456 is cattle on a goat farm, so it got goat-level milk values (0.5-3L instead of 4-15L).
 
-The `session` field flows through this chain:
+2. **Still using AM/PM sessions**: The seeder still generates two separate AM/PM milking records instead of a single "Full Day" record per the recent migration.
 
-```text
-DB constraint (CHECK) --> RPC (approve_pending_activity) --> Edge Functions (seed-demo-data, process-farmhand-activity, doc-aga, stt-prompts) --> Hooks (useDailyActivityCompliance, useMissingActivityAlerts) --> UI Components (RecordSingleMilkDialog, RecordBulkMilkDialog, EditMilkRecordDialog, MilkingRecords, ActivityConfirmation) --> Type definitions (offlineQueue, voiceFormExtractors)
-```
+3. **Milk volumes are per-session, not daily totals**: Since Full Day represents the whole day, the ranges need to reflect combined output.
 
-## Changes
+## Changes (single file)
 
-### 1. Database Migration
+**File: `supabase/functions/seed-demo-data/index.ts`**
 
-Update the CHECK constraint on `milking_records.session` to accept 'Full Day':
+### A. Add `livestock_type` to animal query (line 165)
 
-```sql
-ALTER TABLE milking_records DROP CONSTRAINT IF EXISTS milking_records_session_check;
-ALTER TABLE milking_records ADD CONSTRAINT milking_records_session_check 
-  CHECK (session IN ('AM', 'PM', 'Full Day'));
-```
-
-### 2. RPC: `approve_pending_activity`
-
-Update the session normalization logic (~line 42-48) to recognize "Full Day" variants:
-
-```sql
-_session := CASE 
-  WHEN _raw_session IN ('am', 'morning', 'umaga') THEN 'AM'
-  WHEN _raw_session IN ('pm', 'afternoon', 'evening', 'hapon', 'gabi') THEN 'PM'
-  WHEN _raw_session IN ('full day', 'fullday', 'whole day', 'buong araw', 'all day') THEN 'Full Day'
-  WHEN _raw_session = '' THEN 
-    CASE WHEN EXTRACT(HOUR FROM _record_datetime) < 12 THEN 'AM' ELSE 'PM' END
-  ELSE 'AM'
-END;
-```
-
-### 3. UI Components (Radio buttons to Select dropdown)
-
-Convert AM/PM radio groups to a Select dropdown with three options in these files:
-
-| File | Current UI |
-|------|-----------|
-| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | RadioGroup AM/PM |
-| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | RadioGroup AM/PM |
-| `src/components/milk-recording/EditMilkRecordDialog.tsx` | RadioGroup AM/PM |
-
-Each will use a `<Select>` component with options:
-- Morning (AM) -- with Sun icon
-- Evening (PM) -- with Moon icon
-- Full Day -- with Clock icon
-
-### 4. Type Definitions
-
-Update the session type union from `'AM' | 'PM'` to `'AM' | 'PM' | 'Full Day'` in:
-
-| File | Location |
-|------|----------|
-| `src/components/milk-recording/EditMilkRecordDialog.tsx` | `MilkRecord.session` interface |
-| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | `useState` type |
-| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | `useState` type |
-| `src/components/MilkingRecords.tsx` | `MilkingRecord.session` interface |
-| `src/components/milk-recording/DeleteMilkRecordFromProfileDialog.tsx` | `MilkRecord.session` |
-| `src/lib/offlineQueue.ts` | `session` field (2 places) |
-| `src/lib/voiceFormExtractors.ts` | `ExtractedMilkData.session` |
-| `src/hooks/useDailyActivityCompliance.ts` | `missingSessions` type |
-| `src/hooks/useMissingActivityAlerts.ts` | `session` type |
-
-### 5. Daily Activity Compliance Logic
-
-In `useDailyActivityCompliance.ts`: A "Full Day" record should count as covering BOTH AM and PM sessions for that animal. Update the compliance check so that animals with a "Full Day" record are not flagged as missing either session:
-
+Add `livestock_type` to the SELECT so each animal's own species is available:
 ```typescript
-const fullDayAnimalIds = new Set(
-  milkingRecords.filter(r => r.session === 'Full Day').map(r => r.animal_id)
-);
-// When checking missing sessions, skip animals that have a Full Day record
-if (!fullDayAnimalIds.has(animal.id)) {
-  if (!amMilkingAnimalIds.has(animal.id)) missingSessions.push('AM');
-  if (!pmMilkingAnimalIds.has(animal.id) && isAfternoon) missingSessions.push('PM');
+.select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code, livestock_type')
+```
+
+### B. Use per-animal species config (inside animal loop, line 199)
+
+Move the species config lookup inside the animal loop so each animal uses its own `livestock_type`:
+```typescript
+for (const animal of animals) {
+  const animalSpecies = (animal.livestock_type || farm.livestock_type || 'cattle').toLowerCase()
+  const config = SPECIES_CONFIG[animalSpecies] || SPECIES_CONFIG.cattle
+  // ... rest of animal processing
 }
 ```
 
-### 6. Edge Functions
+Remove the farm-level `const species = ...` and `const config = ...` from line 158-160.
 
-| Function | Change |
-|----------|--------|
-| `supabase/functions/seed-demo-data/index.ts` | No change needed (keeps seeding AM/PM which is fine) |
-| `supabase/functions/process-farmhand-activity/index.ts` | Update auto-session logic to keep defaulting AM/PM (farmhand voice flow); no breaking change needed |
-| `supabase/functions/doc-aga/index.ts` | Update `update_milking_record` tool description to mention "Full Day" option |
-| `supabase/functions/_shared/stt-prompts.ts` | Add 'full day', 'buong araw', 'whole day' to session detection keywords |
+### C. Update milk ranges for Full Day daily totals
 
-### 7. Farmhand Activity Confirmation
+| Species | Old (per session) | New (Full Day) |
+|---------|-------------------|----------------|
+| Cattle  | 4-15L             | 8-25L          |
+| Goat    | 0.5-3L            | 1-5L           |
+| Carabao | 2-6L              | 4-10L          |
 
-In `src/components/farmhand/ActivityConfirmation.tsx`: The auto-detected session (hour-based AM/PM) stays as the default. No change needed since farmhands can't select "Full Day" from voice -- only manual recording supports it.
+### D. Switch milking from AM/PM loop to single Full Day record (lines 204-222)
 
-### 8. Display in MilkingRecords
+Replace the `for (const session of ['AM', 'PM'])` inner loop with a single Full Day insert. The dedup check will look for ANY existing session (AM, PM, or Full Day) for that animal+date to avoid double-ups on farms with pre-existing AM/PM history:
 
-In `src/components/MilkingRecords.tsx`: The session badge already renders the session text. "Full Day" will display naturally. May add a distinct badge color (e.g., blue) to differentiate from AM (amber) and PM (indigo).
+```typescript
+// Check if ANY session exists for this animal+date
+const hasAM = existingMilk.has(`${animal.id}_${dateStr}_AM`)
+const hasPM = existingMilk.has(`${animal.id}_${dateStr}_PM`)
+const hasFullDay = existingMilk.has(`${animal.id}_${dateStr}_Full Day`)
 
-## Files Summary
+if (!hasAM && !hasPM && !hasFullDay) {
+  const liters = roundTo(randBetween(config.milkMin, config.milkMax, `${animal.id}_${dateStr}_FD`), 1)
+  milkInserts.push({
+    animal_id: animal.id,
+    record_date: dateStr,
+    session: 'Full Day',
+    liters,
+  })
+}
+```
 
-| File | Action |
+### E. No other files need changes
+
+The UI, compliance hooks, database constraint, and RPC already support "Full Day" from the previous migration. This is a single-file fix confined to the edge function.
+
+## Summary
+
+| What | Detail |
 |------|--------|
-| Database migration | Add 'Full Day' to CHECK constraint |
-| RPC `approve_pending_activity` | Recognize 'Full Day' variants |
-| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | Select dropdown + type update |
-| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | Select dropdown + type update |
-| `src/components/milk-recording/EditMilkRecordDialog.tsx` | Select dropdown + type update |
-| `src/components/MilkingRecords.tsx` | Type update + badge color |
-| `src/components/milk-recording/DeleteMilkRecordFromProfileDialog.tsx` | Type update |
-| `src/lib/offlineQueue.ts` | Type update |
-| `src/lib/voiceFormExtractors.ts` | Type update |
-| `src/hooks/useDailyActivityCompliance.ts` | Type + compliance logic |
-| `src/hooks/useMissingActivityAlerts.ts` | Type update |
-| `supabase/functions/_shared/stt-prompts.ts` | Add keywords |
-| `supabase/functions/doc-aga/index.ts` | Update tool description |
-| `docs/data-relationships-map.md` | Document new session value |
+| Root cause | Seeder used farm species instead of animal species; 128 animals affected |
+| Fix | Use `animal.livestock_type` for per-animal species config |
+| Session fix | Switch from AM/PM to single "Full Day" record |
+| Volume fix | Adjust ranges to daily totals (e.g., cattle 8-25L) |
+| Files changed | `supabase/functions/seed-demo-data/index.ts` only |
+
