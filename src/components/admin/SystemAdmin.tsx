@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Database, FileText, AlertCircle, RefreshCw, ArrowRight, Zap } from "lucide-react";
+import { Database, FileText, AlertCircle, RefreshCw, ArrowRight, Zap, Sprout } from "lucide-react";
+import { SeedDemoDataButton } from "./SeedDemoDataButton";
 import { toast } from "@/hooks/use-toast";
 import { RecalculateStatsButton } from "./RecalculateStatsButton";
 import { RecalculateHistoricalStatsButton } from "./RecalculateHistoricalStatsButton";
@@ -175,6 +176,16 @@ export const SystemAdmin = () => {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Demo Data Management</CardTitle>
+          <CardDescription>Keep demo farms presentation-ready with realistic data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SeedDemoDataButton />
         </CardContent>
       </Card>
 

@@ -94,3 +94,6 @@ verify_jwt = true
 
 [functions.extract-faq-candidates]
 verify_jwt = true
+
+[functions.seed-demo-data]
+verify_jwt = false
