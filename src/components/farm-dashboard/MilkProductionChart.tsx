@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartConfig, ChartTooltip } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, ReferenceLine, Brush, XAxis, YAxis } from "recharts";
+import { Area, Line, ComposedChart, CartesianGrid, ReferenceLine, Brush, XAxis, YAxis } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Wheat } from "lucide-react";
 import { MilkChartTooltip } from "./MilkChartTooltip";
 import { MilkDayDetailDialog } from "./MilkDayDetailDialog";
 import type { CombinedDailyData } from "./hooks/useMilkData";
@@ -17,11 +20,14 @@ interface MilkProductionChartProps {
   onYearChange: (year: number) => void;
   farmId: string;
   averageMilk?: number;
+  showFeedOverlay?: boolean;
+  onToggleFeedOverlay?: () => void;
 }
 
 /**
  * Interactive chart component displaying daily milk production over time
  * Features: custom tooltip, clickable data points, zoom/pan brush, reference lines
+ * Optional: feed consumption overlay on right Y-axis
  */
 export const MilkProductionChart = ({
   data,
@@ -31,6 +37,8 @@ export const MilkProductionChart = ({
   onYearChange,
   farmId,
   averageMilk = 0,
+  showFeedOverlay = false,
+  onToggleFeedOverlay,
 }: MilkProductionChartProps) => {
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -44,6 +52,11 @@ export const MilkProductionChart = ({
     dataLength: data?.length || 0,
     brushThreshold: 14,
   });
+
+  // Check if feed data exists in the dataset
+  const hasFeedData = useMemo(() => {
+    return data?.some(d => (d.feedTotalKg || 0) > 0) ?? false;
+  }, [data]);
 
   // Find min/max dates for navigation
   const { minDate, maxDate, highestDay, lowestDay } = useMemo(() => {
@@ -143,7 +156,13 @@ export const MilkProductionChart = ({
       label: "Milk (Liters)",
       color: "hsl(var(--chart-1))",
     },
+    feedTotalKg: {
+      label: "Feed (kg)",
+      color: "hsl(30 80% 55%)",
+    },
   };
+
+  const feedVisible = showFeedOverlay && hasFeedData;
 
   return (
     <>
@@ -151,9 +170,13 @@ export const MilkProductionChart = ({
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <CardTitle>Daily Milk Production</CardTitle>
+              <CardTitle>
+                {feedVisible ? "Milk Production & Feed Intake" : "Daily Milk Production"}
+              </CardTitle>
               <CardDescription>
-                Liters of milk produced daily
+                {feedVisible
+                  ? "Liters of milk vs kilograms of feed daily"
+                  : "Liters of milk produced daily"}
                 {averageMilk > 0 && (
                   <span className="ml-2 text-chart-1">
                     (Avg: {averageMilk.toFixed(1)}L)
@@ -161,7 +184,22 @@ export const MilkProductionChart = ({
                 )}
               </CardDescription>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
+              {/* Feed overlay toggle */}
+              {hasFeedData && onToggleFeedOverlay && (
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="feed-toggle"
+                    checked={showFeedOverlay}
+                    onCheckedChange={onToggleFeedOverlay}
+                    className="data-[state=checked]:bg-orange-500"
+                  />
+                  <Label htmlFor="feed-toggle" className="text-xs flex items-center gap-1 cursor-pointer">
+                    <Wheat className="h-3.5 w-3.5 text-orange-500" />
+                    <span className="hidden sm:inline">Feed</span>
+                  </Label>
+                </div>
+              )}
               <Tabs value={timePeriod} onValueChange={(v) => onTimePeriodChange(v as "last30" | "ytd")}>
                 <TabsList>
                   <TabsTrigger value="last30">Last 30 Days</TabsTrigger>
@@ -193,9 +231,9 @@ export const MilkProductionChart = ({
               config={chartConfig}
               className={`aspect-auto w-full ${heightClass}`}
             >
-              <AreaChart 
+              <ComposedChart 
                 data={data} 
-                margin={{ ...margin, bottom: isMobile ? 80 : 50 }}
+                margin={{ ...margin, right: feedVisible ? 50 : margin.right, bottom: isMobile ? 80 : 50 }}
                 onClick={handleChartClick}
                 style={{ cursor: 'pointer' }}
               >
@@ -217,16 +255,35 @@ export const MilkProductionChart = ({
                   className="text-muted-foreground"
                 />
                 <YAxis 
+                  yAxisId="left"
                   width={40}
                   tick={{ fontSize: isMobile ? 9 : 11 }}
                   tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
                   className="text-muted-foreground"
                 />
+                {feedVisible && (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    width={45}
+                    tick={{ fontSize: isMobile ? 9 : 11, fill: 'hsl(30 80% 55%)' }}
+                    tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}`)}
+                    label={{
+                      value: 'Feed (kg)',
+                      angle: 90,
+                      position: 'insideRight',
+                      fontSize: isMobile ? 8 : 10,
+                      fill: 'hsl(30 80% 55%)',
+                      offset: 10,
+                    }}
+                  />
+                )}
                 <ChartTooltip content={<MilkChartTooltip />} />
                 
                 {/* Average reference line */}
                 {averageMilk > 0 && (
                   <ReferenceLine
+                    yAxisId="left"
                     y={averageMilk}
                     stroke="hsl(var(--muted-foreground))"
                     strokeDasharray="5 5"
@@ -241,6 +298,7 @@ export const MilkProductionChart = ({
                 )}
                 
                 <Area
+                  yAxisId="left"
                   type="monotone"
                   dataKey="milkTotal"
                   name="Milk (Liters)"
@@ -250,6 +308,19 @@ export const MilkProductionChart = ({
                   dot={renderDot}
                   activeDot={renderActiveDot}
                 />
+
+                {feedVisible && (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="feedTotalKg"
+                    name="Feed (kg)"
+                    stroke="hsl(30 80% 55%)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, fill: 'hsl(30 80% 55%)', stroke: 'hsl(var(--background))', strokeWidth: 2 }}
+                  />
+                )}
                 
                 {shouldShowBrush && (
                   <Brush
@@ -260,7 +331,7 @@ export const MilkProductionChart = ({
                     tickFormatter={() => ''}
                   />
                 )}
-              </AreaChart>
+              </ComposedChart>
             </ChartContainer>
           )}
         </CardContent>

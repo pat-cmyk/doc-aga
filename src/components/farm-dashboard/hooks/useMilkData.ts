@@ -8,6 +8,8 @@ export interface CombinedDailyData {
   prevDayMilk?: number;
   animalsCount?: number;
   revenue?: number;
+  feedTotalKg?: number;
+  feedAnimalCount?: number;
   [key: string]: string | number | undefined;
 }
 

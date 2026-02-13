@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-13 (Shift seed-demo-data window from T-0→T-6 to T-1→T-7)
+Last updated: 2026-02-13 (Add feed intake overlay to Milk Production Chart)
 
 ---
 
@@ -1198,3 +1198,34 @@ Shifted the `seed-demo-data` Edge Function seeding window from **T-0 through T-6
 - **Weight, Health, BCS**: Record dates changed from `now` (today) to `yesterday` (T-1)
 - **Health visit_date offset**: Base shifted from today to yesterday; random 0-14 day offset still applies
 - **Rationale**: Avoids creating records for the current day which is still in progress, ensuring all demo data represents complete days
+
+---
+
+## Entry 9: Feed Intake Overlay on Milk Production Chart
+
+**Date:** 2026-02-13
+
+### Data Flow
+```
+feeding_records (record_datetime, kilograms, animal_id)
+  → useCombinedDashboardData.ts (fetched alongside RPC, aggregated by date)
+  → CombinedDailyData.feedTotalKg / feedAnimalCount
+  → MilkProductionChart.tsx (ComposedChart with dual Y-axes)
+  → MilkChartTooltip.tsx (shows feed kg, animal count, feed:milk ratio)
+```
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `hooks/useMilkData.ts` | Added `feedTotalKg`, `feedAnimalCount` to `CombinedDailyData` interface |
+| `hooks/useCombinedDashboardData.ts` | Added parallel `feeding_records` query, aggregated by date, merged into dailyDataMap |
+| `MilkProductionChart.tsx` | Converted `AreaChart` → `ComposedChart`, added right Y-axis for feed, toggle switch |
+| `MilkChartTooltip.tsx` | Added feed kg, feed animal count, feed:milk ratio display |
+| `LazyCharts.tsx` | Added `showFeedOverlay`, `onToggleFeedOverlay` to props interface |
+| `FarmDashboard.tsx` | Added `showFeedOverlay` state, passed toggle to chart |
+
+### UI Behavior
+- Feed overlay is **off by default** (toggle switch in chart header)
+- Toggle only appears when feed data exists for the period
+- Left Y-axis: Milk (Liters, blue area); Right Y-axis: Feed (kg, orange line)
+- Tooltip shows feed:milk ratio when both values present
