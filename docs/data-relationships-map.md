@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-13 (Add "Full Day" session option to milking_records)
+Last updated: 2026-02-13 (Fix seed-demo-data: per-animal species config + Full Day sessions)
 
 ---
 
@@ -751,6 +751,20 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 
 **Date**: 2026-02-13
 
+**What changed**: Fixed seed-demo-data to use per-animal species config + Full Day sessions.
+
+**Details**:
+- Edge Function `seed-demo-data`: Now fetches `livestock_type` from each animal record (not farm-level), fixing 128 animals that had mismatched species configs (e.g., cattle on goat farms getting goat-level milk volumes)
+- Session: Switched from generating separate AM/PM records to a single "Full Day" record per animal per day
+- Milk ranges updated to daily totals: Cattle 8-25L, Goat 1-5L, Carabao 4-10L (previously per-session values)
+- Dedup: Checks for ANY existing session (AM, PM, or Full Day) before inserting to avoid duplicates on farms with mixed history
+
+**Files modified**: `supabase/functions/seed-demo-data/index.ts`, `docs/data-relationships-map.md`
+
+---
+
+**Date**: 2026-02-13
+
 **What changed**: Added "Full Day" session option to milking_records.
 
 **Details**:
@@ -763,8 +777,6 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 - Edge Functions: Updated doc-aga tool description, stt-prompts session output type
 
 **Files modified**: 14 files across DB, RPC, UI, hooks, types, edge functions, DRM
-
----
 
 **Date**: 2026-02-09
 

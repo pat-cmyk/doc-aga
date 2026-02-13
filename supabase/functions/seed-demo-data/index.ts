@@ -38,7 +38,7 @@ interface SpeciesConfig {
 
 const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
   cattle: {
-    milkMin: 4, milkMax: 15,
+    milkMin: 8, milkMax: 25,
     feedMin: 8, feedMax: 15,
     feedTypes: ['Napier Grass', 'Concentrate Feed', 'Rice Straw', 'Corn Silage'],
     bcsMin: 2.5, bcsMax: 4.0,
@@ -49,7 +49,7 @@ const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
     },
   },
   goat: {
-    milkMin: 0.5, milkMax: 3,
+    milkMin: 1, milkMax: 5,
     feedMin: 2, feedMax: 5,
     feedTypes: ['Forage Mix', 'Pellets', 'Ipil-ipil Leaves', 'Sweet Potato Vines'],
     bcsMin: 2.5, bcsMax: 3.5,
@@ -59,7 +59,7 @@ const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
     },
   },
   carabao: {
-    milkMin: 2, milkMax: 6,
+    milkMin: 4, milkMax: 10,
     feedMin: 10, feedMax: 20,
     feedTypes: ['Grass', 'Rice Straw', 'Corn Stover', 'Concentrate'],
     bcsMin: 2.5, bcsMax: 4.0,
@@ -156,13 +156,11 @@ Deno.serve(async (req) => {
 
     // Process each farm
     for (const farm of demoFarms) {
-      const species = (farm.livestock_type || 'cattle').toLowerCase()
-      const config = SPECIES_CONFIG[species] || SPECIES_CONFIG.cattle
 
       // Fetch active animals for this farm
       const { data: animals, error: animErr } = await supabase
         .from('animals')
-        .select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code')
+        .select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code, livestock_type')
         .eq('farm_id', farm.id)
         .eq('is_deleted', false)
         .is('exit_date', null)
@@ -197,27 +195,31 @@ Deno.serve(async (req) => {
       const feedInserts: any[] = []
 
       for (const animal of animals) {
+        const animalSpecies = (animal.livestock_type || farm.livestock_type || 'cattle').toLowerCase()
+        const config = SPECIES_CONFIG[animalSpecies] || SPECIES_CONFIG.cattle
         const isFemale = animal.gender === 'Female' || animal.gender === 'female'
         const isLactating = animal.is_currently_lactating || (isFemale && (animal.life_stage || '').match(/Cow|Doe|Carabao|Mature/i))
 
-        // Milking: only for lactating females
+        // Milking: only for lactating females, single "Full Day" record per day
         if (isLactating && isFemale) {
           for (let d = 0; d < 7; d++) {
             const date = new Date(now)
             date.setDate(date.getDate() - d)
             const dateStr = date.toISOString().split('T')[0]
 
-            for (const session of ['AM', 'PM']) {
-              const key = `${animal.id}_${dateStr}_${session}`
-              if (!existingMilk.has(key)) {
-                const liters = roundTo(randBetween(config.milkMin, config.milkMax, `${animal.id}_${dateStr}_${session}`), 1)
-                milkInserts.push({
-                  animal_id: animal.id,
-                  record_date: dateStr,
-                  session,
-                  liters,
-                })
-              }
+            // Skip if any session already exists for this animal+date
+            const hasAM = existingMilk.has(`${animal.id}_${dateStr}_AM`)
+            const hasPM = existingMilk.has(`${animal.id}_${dateStr}_PM`)
+            const hasFullDay = existingMilk.has(`${animal.id}_${dateStr}_Full Day`)
+
+            if (!hasAM && !hasPM && !hasFullDay) {
+              const liters = roundTo(randBetween(config.milkMin, config.milkMax, `${animal.id}_${dateStr}_FD`), 1)
+              milkInserts.push({
+                animal_id: animal.id,
+                record_date: dateStr,
+                session: 'Full Day',
+                liters,
+              })
             }
           }
         }
