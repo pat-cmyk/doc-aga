@@ -494,7 +494,7 @@ ${FEED_TYPE_UNIT_RULES}
 **MILKING LOGIC**:
 - Extract livestock_type if mentioned: 'cattle', 'goat', 'carabao', 'sheep'
 - Extract quantity in liters
-- Detect session: AM (morning/umaga) or PM (afternoon/gabi/hapon)
+- Detect session: AM (morning/umaga), PM (afternoon/gabi/hapon), or Full Day (full day/buong araw/whole day/all day)
 
 **ANIMAL IDENTIFICATION**:
 - If farmhand mentions SPECIFIC animals (ear tag, name), extract animal_identifier
@@ -513,7 +513,7 @@ ${FEED_TYPE_UNIT_RULES}
   "notes": string | null,
   "medicine_name": string | null,
   "dosage": string | null,
-  "session": "AM" | "PM" | null
+  "session": "AM" | "PM" | "Full Day" | null
 }
 `.trim();
 }

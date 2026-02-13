@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-12 (Option D: BreedingHub + Animal Lifecycle Actions Integration)
+Last updated: 2026-02-13 (Add "Full Day" session option to milking_records)
 
 ---
 
@@ -267,7 +267,7 @@ Last updated: 2026-02-12 (Option D: BreedingHub + Animal Lifecycle Actions Integ
 | `animal_id` | uuid | NO | — | FK → `animals.id` |
 | `liters` | numeric | NO | — | |
 | `record_date` | date | NO | — | |
-| `session` | text | YES | — | `'AM'` / `'PM'` |
+| `session` | text | YES | — | `'AM'` / `'PM'` / `'Full Day'` — CHECK constraint enforced |
 | `created_by` | uuid | YES | — | |
 | `client_generated_id` | text | YES | — | Offline support |
 | `created_at` | timestamptz | NO | `now()` | |
@@ -748,6 +748,23 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 ---
 
 ## 8) Change Log + Consistency Check
+
+**Date**: 2026-02-13
+
+**What changed**: Added "Full Day" session option to milking_records.
+
+**Details**:
+- DB: Updated CHECK constraint on `milking_records.session` to accept `'AM' | 'PM' | 'Full Day'`
+- RPC: Updated `approve_pending_activity` to normalize 'full day', 'fullday', 'whole day', 'buong araw', 'all day' → `'Full Day'`
+- UI: Converted AM/PM RadioGroup to Select dropdown with 3 options (Morning/Evening/Full Day) in RecordSingleMilkDialog, RecordBulkMilkDialog, EditMilkRecordDialog
+- Types: Updated session type union to `'AM' | 'PM' | 'Full Day'` across offlineQueue, voiceFormExtractors, MilkingRecords, DeleteMilkRecordFromProfileDialog, useDailyActivityCompliance, useMissingActivityAlerts
+- Compliance: "Full Day" record now satisfies both AM and PM sessions for an animal in `useDailyActivityCompliance`
+- Voice: Added 'full day', 'buong araw', 'whole day' keywords to voiceFormExtractors and stt-prompts
+- Edge Functions: Updated doc-aga tool description, stt-prompts session output type
+
+**Files modified**: 14 files across DB, RPC, UI, hooks, types, edge functions, DRM
+
+---
 
 **Date**: 2026-02-09
 

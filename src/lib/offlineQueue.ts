@@ -105,7 +105,7 @@ interface QueueItem {
       animalName: string;
       liters: number;
       recordDate: string;
-      session: 'AM' | 'PM';
+      session: 'AM' | 'PM' | 'Full Day';
     }>;
     // Single milk recording (from animal profile)
     singleMilk?: {
@@ -114,7 +114,7 @@ interface QueueItem {
       earTag: string | null;
       liters: number;
       recordDate: string;
-      session: 'AM' | 'PM';
+      session: 'AM' | 'PM' | 'Full Day';
     };
     // Bulk feed recording
     feedRecords?: Array<{

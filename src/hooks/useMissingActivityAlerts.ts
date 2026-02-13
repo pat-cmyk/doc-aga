@@ -9,7 +9,7 @@ export interface MissingActivityAlert {
   animalId?: string;
   animalName?: string;
   farmhandName?: string;
-  session?: 'AM' | 'PM';
+  session?: 'AM' | 'PM' | 'Full Day';
   urgency: 'urgent' | 'warning' | 'info';
 }
 

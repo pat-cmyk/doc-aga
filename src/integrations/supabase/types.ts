@@ -3983,10 +3983,19 @@ export type Database = {
         }
         Returns: undefined
       }
-      approve_pending_activity: {
-        Args: { _approved_by: string; _is_auto?: boolean; _pending_id: string }
-        Returns: Json
-      }
+      approve_pending_activity:
+        | {
+            Args: {
+              _approved_by: string
+              _is_auto?: boolean
+              _pending_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: { p_activity_id: string; p_approver_id: string }
+            Returns: Json
+          }
       batch_calculate_ovr_scores: {
         Args: { p_farm_id?: string }
         Returns: Json

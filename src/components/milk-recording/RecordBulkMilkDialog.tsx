@@ -12,14 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select as SessionSelect, SelectContent as SessionSelectContent, SelectItem as SessionSelectItem, SelectTrigger as SessionSelectTrigger, SelectValue as SessionSelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Milk, Scale, TrendingUp, CalendarIcon, Sun, Moon, WifiOff } from "lucide-react";
+import { Loader2, Milk, Scale, TrendingUp, CalendarIcon, Sun, Moon, Clock, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -53,7 +53,7 @@ export function RecordBulkMilkDialog({
   const [selectedOption, setSelectedOption] = useState("");
   const [totalLiters, setTotalLiters] = useState("");
   const [recordDate, setRecordDate] = useState<Date>(new Date());
-  const [session, setSession] = useState<'AM' | 'PM'>(
+  const [session, setSession] = useState<'AM' | 'PM' | 'Full Day'>(
     new Date().getHours() < 12 ? 'AM' : 'PM'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,7 +110,7 @@ export function RecordBulkMilkDialog({
       setSelectedOption("");
       setTotalLiters("");
       setRecordDate(new Date());
-      setSession(new Date().getHours() < 12 ? 'AM' : 'PM');
+      setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
     }
   }, [open]);
 
@@ -155,7 +155,7 @@ export function RecordBulkMilkDialog({
 
   const handleSessionChange = (value: string) => {
     hapticSelection();
-    setSession(value as 'AM' | 'PM');
+    setSession(value as 'AM' | 'PM' | 'Full Day');
   };
 
   const handleAnimalChange = (value: string) => {
@@ -494,29 +494,34 @@ export function RecordBulkMilkDialog({
               </Popover>
             </div>
 
-            {/* AM/PM Session */}
+            {/* Session Selection */}
             <div className="space-y-2">
               <Label>Session</Label>
-              <RadioGroup
-                value={session}
-                onValueChange={handleSessionChange}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="AM" id="am" />
-                  <Label htmlFor="am" className="flex items-center gap-1.5 cursor-pointer">
-                    <Sun className="h-4 w-4 text-amber-500" />
-                    Morning
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="PM" id="pm" />
-                  <Label htmlFor="pm" className="flex items-center gap-1.5 cursor-pointer">
-                    <Moon className="h-4 w-4 text-indigo-500" />
-                    Evening
-                  </Label>
-                </div>
-              </RadioGroup>
+              <SessionSelect value={session} onValueChange={handleSessionChange}>
+                <SessionSelectTrigger className="min-h-[48px]">
+                  <SessionSelectValue placeholder="Select session" />
+                </SessionSelectTrigger>
+                <SessionSelectContent>
+                  <SessionSelectItem value="AM">
+                    <span className="flex items-center gap-2">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      Morning (AM)
+                    </span>
+                  </SessionSelectItem>
+                  <SessionSelectItem value="PM">
+                    <span className="flex items-center gap-2">
+                      <Moon className="h-4 w-4 text-indigo-500" />
+                      Evening (PM)
+                    </span>
+                  </SessionSelectItem>
+                  <SessionSelectItem value="Full Day">
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-500" />
+                      Full Day
+                    </span>
+                  </SessionSelectItem>
+                </SessionSelectContent>
+              </SessionSelect>
             </div>
 
             {/* Animal Selection - Searchable Combobox */}
