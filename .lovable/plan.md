@@ -1,113 +1,123 @@
 
-# Auto-Seed Demo Farm Data
+# Add "Full Day" Session Option to Milk Recording
 
 ## Overview
 
-Create a backend function that assesses all 65 demo farms, identifies missing/stale data, and seeds realistic records to keep them presentation-ready. The function runs daily via cron and can also be triggered manually from the Admin System tab.
+Add a third session option -- "Full Day" -- to milk recording, signifying that the recorded amount covers the entire day (not just a morning or evening session). This requires changes across the database constraint, backend RPCs, edge functions, and multiple UI components.
 
-## Current State
+## Impact Analysis
 
-- **65 demo farms**: 38 cattle, 18 goat, 9 carabao (~713 active animals)
-- **Data gaps**: Almost all farms have 0 recent milking records, 0 recent weights, and minimal health/AI records
-- **Existing pattern**: The `populate-weights` edge function already seeds weight data per-farm using species-specific logic -- we'll follow this same architecture
-
-## What Gets Seeded
-
-For each demo farm, the function will assess what's missing in the **last 7 days** and fill gaps:
-
-| Data Type | Logic | Frequency |
-|-----------|-------|-----------|
-| **Milking Records** | For lactating females (cattle: 5-15L, goat: 1-4L, carabao: 3-8L). AM/PM sessions with realistic daily variance | Daily for last 7 days if missing |
-| **Weight Records** | Estimated from age/species using existing `populate-weights` logic. Monthly cadence | If no record in last 30 days |
-| **Health Records** | Routine checkups (deworming, vaccination, general exam) | If no record in last 30 days |
-| **Body Condition Scores** | Score 2.5-4.0 based on species and stage | If no BCS in last 30 days |
-| **Feeding Records** | Species-appropriate feed types and amounts | Daily for last 7 days if missing |
-
-The function will NOT overwrite existing data -- it only fills gaps.
-
-## Technical Plan
-
-### 1. New Edge Function: `seed-demo-data/index.ts`
-
-A single comprehensive edge function that:
-
-1. Fetches all farms where `data_category = 'demo'`
-2. For each farm, fetches active animals (not deleted, no exit date)
-3. For each animal, checks what records exist in the recent window
-4. Inserts realistic records to fill gaps using species-specific parameters
-5. Returns a summary of what was seeded
-
-**Key design decisions:**
-- Uses `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS (admin-only function)
-- Authentication enforced: verifies JWT + `is_super_admin` check
-- Batch inserts per farm to minimize round trips
-- Deterministic seeding: uses animal ID as seed for consistent "random" variance so re-runs don't create wildly different data
-- `created_by` set to the admin user running it
-
-**Species-specific realistic ranges:**
+The `session` field flows through this chain:
 
 ```text
-Milking (liters/session):
-  Cattle:  4-15L (avg ~8L)
-  Goat:    0.5-3L (avg ~1.5L)  
-  Carabao: 2-6L (avg ~3.5L)
-
-Weight (kg):
-  Uses existing populate-weights ranges per life stage
-
-Feed (kg/day):
-  Cattle:  8-15kg (napier, concentrate)
-  Goat:    2-5kg (forage, pellets)
-  Carabao: 10-20kg (grass, rice straw)
-
-BCS: 2.5-4.0 (species-adjusted)
+DB constraint (CHECK) --> RPC (approve_pending_activity) --> Edge Functions (seed-demo-data, process-farmhand-activity, doc-aga, stt-prompts) --> Hooks (useDailyActivityCompliance, useMissingActivityAlerts) --> UI Components (RecordSingleMilkDialog, RecordBulkMilkDialog, EditMilkRecordDialog, MilkingRecords, ActivityConfirmation) --> Type definitions (offlineQueue, voiceFormExtractors)
 ```
 
-### 2. Config: `supabase/config.toml`
+## Changes
 
-Add entry:
-```toml
-[functions.seed-demo-data]
-verify_jwt = false
-```
-(JWT validated in code, not at gateway)
+### 1. Database Migration
 
-### 3. Daily Cron Job (SQL)
+Update the CHECK constraint on `milking_records.session` to accept 'Full Day':
 
-Schedule via `pg_cron` + `pg_net` to run at 2 AM UTC daily:
 ```sql
-SELECT cron.schedule(
-  'seed-demo-data-daily',
-  '0 2 * * *',
-  $$ SELECT net.http_post(
-    url := 'https://sxorybjlxyquxteptdyk.supabase.co/functions/v1/seed-demo-data',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer <service_role_key>"}'::jsonb,
-    body := '{"source":"cron"}'::jsonb
-  ) $$
-);
+ALTER TABLE milking_records DROP CONSTRAINT IF EXISTS milking_records_session_check;
+ALTER TABLE milking_records ADD CONSTRAINT milking_records_session_check 
+  CHECK (session IN ('AM', 'PM', 'Full Day'));
 ```
-Note: The cron call uses service role key directly so it bypasses the JWT admin check (the function will detect `source: cron` and allow it).
 
-### 4. Admin UI: Button in `SystemAdmin.tsx`
+### 2. RPC: `approve_pending_activity`
 
-Add a new card section "Demo Data Management" with:
-- **"Seed Demo Farm Data"** button that invokes the edge function
-- Shows a results dialog with farm-by-farm summary (records created per type)
-- Loading state while running
+Update the session normalization logic (~line 42-48) to recognize "Full Day" variants:
 
-### Files Changed
+```sql
+_session := CASE 
+  WHEN _raw_session IN ('am', 'morning', 'umaga') THEN 'AM'
+  WHEN _raw_session IN ('pm', 'afternoon', 'evening', 'hapon', 'gabi') THEN 'PM'
+  WHEN _raw_session IN ('full day', 'fullday', 'whole day', 'buong araw', 'all day') THEN 'Full Day'
+  WHEN _raw_session = '' THEN 
+    CASE WHEN EXTRACT(HOUR FROM _record_datetime) < 12 THEN 'AM' ELSE 'PM' END
+  ELSE 'AM'
+END;
+```
+
+### 3. UI Components (Radio buttons to Select dropdown)
+
+Convert AM/PM radio groups to a Select dropdown with three options in these files:
+
+| File | Current UI |
+|------|-----------|
+| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | RadioGroup AM/PM |
+| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | RadioGroup AM/PM |
+| `src/components/milk-recording/EditMilkRecordDialog.tsx` | RadioGroup AM/PM |
+
+Each will use a `<Select>` component with options:
+- Morning (AM) -- with Sun icon
+- Evening (PM) -- with Moon icon
+- Full Day -- with Clock icon
+
+### 4. Type Definitions
+
+Update the session type union from `'AM' | 'PM'` to `'AM' | 'PM' | 'Full Day'` in:
+
+| File | Location |
+|------|----------|
+| `src/components/milk-recording/EditMilkRecordDialog.tsx` | `MilkRecord.session` interface |
+| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | `useState` type |
+| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | `useState` type |
+| `src/components/MilkingRecords.tsx` | `MilkingRecord.session` interface |
+| `src/components/milk-recording/DeleteMilkRecordFromProfileDialog.tsx` | `MilkRecord.session` |
+| `src/lib/offlineQueue.ts` | `session` field (2 places) |
+| `src/lib/voiceFormExtractors.ts` | `ExtractedMilkData.session` |
+| `src/hooks/useDailyActivityCompliance.ts` | `missingSessions` type |
+| `src/hooks/useMissingActivityAlerts.ts` | `session` type |
+
+### 5. Daily Activity Compliance Logic
+
+In `useDailyActivityCompliance.ts`: A "Full Day" record should count as covering BOTH AM and PM sessions for that animal. Update the compliance check so that animals with a "Full Day" record are not flagged as missing either session:
+
+```typescript
+const fullDayAnimalIds = new Set(
+  milkingRecords.filter(r => r.session === 'Full Day').map(r => r.animal_id)
+);
+// When checking missing sessions, skip animals that have a Full Day record
+if (!fullDayAnimalIds.has(animal.id)) {
+  if (!amMilkingAnimalIds.has(animal.id)) missingSessions.push('AM');
+  if (!pmMilkingAnimalIds.has(animal.id) && isAfternoon) missingSessions.push('PM');
+}
+```
+
+### 6. Edge Functions
+
+| Function | Change |
+|----------|--------|
+| `supabase/functions/seed-demo-data/index.ts` | No change needed (keeps seeding AM/PM which is fine) |
+| `supabase/functions/process-farmhand-activity/index.ts` | Update auto-session logic to keep defaulting AM/PM (farmhand voice flow); no breaking change needed |
+| `supabase/functions/doc-aga/index.ts` | Update `update_milking_record` tool description to mention "Full Day" option |
+| `supabase/functions/_shared/stt-prompts.ts` | Add 'full day', 'buong araw', 'whole day' to session detection keywords |
+
+### 7. Farmhand Activity Confirmation
+
+In `src/components/farmhand/ActivityConfirmation.tsx`: The auto-detected session (hour-based AM/PM) stays as the default. No change needed since farmhands can't select "Full Day" from voice -- only manual recording supports it.
+
+### 8. Display in MilkingRecords
+
+In `src/components/MilkingRecords.tsx`: The session badge already renders the session text. "Full Day" will display naturally. May add a distinct badge color (e.g., blue) to differentiate from AM (amber) and PM (indigo).
+
+## Files Summary
 
 | File | Action |
 |------|--------|
-| `supabase/functions/seed-demo-data/index.ts` | **New** -- Main edge function |
-| `supabase/config.toml` | **Edit** -- Add function config |
-| `src/components/admin/SystemAdmin.tsx` | **Edit** -- Add trigger button + results UI |
-| Database (pg_cron) | **SQL insert** -- Schedule daily job |
-
-### Safety Guardrails
-
-- Only processes farms where `data_category = 'demo'` -- live farms are never touched
-- Only inserts new records, never updates or deletes existing ones
-- All seeded records tagged with notes like "Auto-seeded demo data" for traceability
-- Rate-limited to prevent accidental spam
-- Admin-only access (super admin check)
+| Database migration | Add 'Full Day' to CHECK constraint |
+| RPC `approve_pending_activity` | Recognize 'Full Day' variants |
+| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | Select dropdown + type update |
+| `src/components/milk-recording/RecordBulkMilkDialog.tsx` | Select dropdown + type update |
+| `src/components/milk-recording/EditMilkRecordDialog.tsx` | Select dropdown + type update |
+| `src/components/MilkingRecords.tsx` | Type update + badge color |
+| `src/components/milk-recording/DeleteMilkRecordFromProfileDialog.tsx` | Type update |
+| `src/lib/offlineQueue.ts` | Type update |
+| `src/lib/voiceFormExtractors.ts` | Type update |
+| `src/hooks/useDailyActivityCompliance.ts` | Type + compliance logic |
+| `src/hooks/useMissingActivityAlerts.ts` | Type update |
+| `supabase/functions/_shared/stt-prompts.ts` | Add keywords |
+| `supabase/functions/doc-aga/index.ts` | Update tool description |
+| `docs/data-relationships-map.md` | Document new session value |
