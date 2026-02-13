@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-13 (Fix seed-demo-data: per-animal species config + Full Day sessions)
+Last updated: 2026-02-13 (Shift seed-demo-data window from T-0→T-6 to T-1→T-7)
 
 ---
 
@@ -1183,3 +1183,18 @@ AnimalDetails.tsx → animal.livestock_type → AIRecords (livestockType prop)
 
 ### Data Flow
 All lifecycle action buttons → `insertBreedingEvent()` → `breeding_events` table → DB trigger `update_animal_fertility_status` → updates `animals.fertility_status`
+
+---
+
+## Entry 8: Seed Demo Data — T-1 Date Shift
+
+**Date:** 2026-02-13
+
+### Change
+Shifted the `seed-demo-data` Edge Function seeding window from **T-0 through T-6** to **T-1 through T-7** so records are only generated for completed days.
+
+### Details
+- **Milking & Feeding loops**: `for (let d = 0; d < 7; d++)` → `for (let d = 1; d <= 7; d++)`
+- **Weight, Health, BCS**: Record dates changed from `now` (today) to `yesterday` (T-1)
+- **Health visit_date offset**: Base shifted from today to yesterday; random 0-14 day offset still applies
+- **Rationale**: Avoids creating records for the current day which is still in progress, ensuring all demo data represents complete days
