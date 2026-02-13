@@ -1,42 +1,56 @@
 
 
-# Clean Up Duplicate Feeding Records
+# Fill Two Missing Feed Dates (Jan 23 and Jan 30)
 
-## Baseline
+## Problem
 
-12 duplicate feeding records exist on two dates for 6 animals each:
+The feed chart shows two sharp dips to zero caused by missing records on Jan 23 and Jan 30. All other dates are properly normalized.
 
-| Date | Animal | Duplicate IDs (keep first, delete second) | kg values |
-|------|--------|-------------------------------------------|-----------|
-| Jan 15 | 61eefe8a (Cattle) | keep `45e275f9`, delete `30355eda` | 13.8, 13.8 |
-| Jan 15 | 752c6654 (Goat) | keep `c3dc2be9`, delete `d36852bf` | 2.2, 2.0 |
-| Jan 15 | d4a6c57b (Goat) | keep `c5bf215f`, delete `5478fbb1` | 3.0, 2.8 |
-| Jan 15 | d8a96511 (Cattle) | keep `7d9bf0d1`, delete `773c0a10` | 14.5, 14.5 |
-| Jan 15 | ded13129 (Bull) | keep `5a550e4c`, delete `58b60f20` | 10.2, 10.2 |
-| Jan 15 | fdc6fc6c (Cattle) | keep `af44a7a8`, delete `6ca7d2cc` | 11.2, 11.2 |
-| Jan 24 | 61eefe8a (Cattle) | keep `0175c50b`, delete `2d3cfbb4` | 13.5, 13.5 |
-| Jan 24 | 752c6654 (Goat) | keep `a97d2162`, delete `c1906d10` | 1.8, 1.8 |
-| Jan 24 | d4a6c57b (Goat) | keep `b86c8574`, delete `737807d2` | 3.2, 3.0 |
-| Jan 24 | d8a96511 (Cattle) | keep `13f15bc3`, delete `18e9b553` | 14.0, 14.0 |
-| Jan 24 | ded13129 (Bull) | keep `7d6987f6`, delete `35f41df7` | 10.0, 10.0 |
-| Jan 24 | fdc6fc6c (Cattle) | keep `1a37d27a`, delete `a12d44fd` | 11.5, 11.5 |
+## Fix
 
-No duplicate expenses exist for these dates, so no financial cleanup is needed.
+### Jan 23 (Phase 1: 6 animals)
+Insert 6 feeding records matching the established per-animal ranges:
 
-## Execution
+| Animal | Ear Tag | Type | kg |
+|--------|---------|------|-----|
+| Cattle F (A002) | d8a96511 | Bag Corn Silage | 14.5 |
+| Cattle F (C0001) | 61eefe8a | Bag Corn Silage | 13.8 |
+| Cattle F (C0002) | fdc6fc6c | Bag Corn Silage | 11.2 |
+| Bull M (C0010) | ded13129 | Bag Corn Silage | 10.0 |
+| Goat F (G001) | 752c6654 | Bag Corn Silage | 2.0 |
+| Goat F (G002) | d4a6c57b | Bag Corn Silage | 3.0 |
+| **Total** | | | **54.5** |
 
-Single DELETE statement removing the 12 duplicate feeding record IDs (keeping the first of each pair).
+### Jan 30 (Phase 2: 9 animals, 3 new cattle arrived this date)
+Insert 9 feeding records:
 
-## Verification
+| Animal | Ear Tag | Type | kg |
+|--------|---------|------|-----|
+| Cattle F (A002) | d8a96511 | Bag Corn Silage | 14.2 |
+| Cattle F (C0001) | 61eefe8a | Bag Corn Silage | 14.0 |
+| Cattle F (C0002) | fdc6fc6c | Bag Corn Silage | 11.5 |
+| Bull M (C0010) | ded13129 | Bag Corn Silage | 10.2 |
+| Goat F (G001) | 752c6654 | Bag Corn Silage | 2.0 |
+| Goat F (G002) | d4a6c57b | Bag Corn Silage | 3.2 |
+| New Cattle F (57406456) | | Bag Corn Silage | 13.0 |
+| New Cattle F (62757488) | | Bag Corn Silage | 12.0 |
+| New Heifer (73077546) | | Bag Corn Silage | 10.0 |
+| **Total** | | | **90.1** |
 
-Re-run the duplicate check query to confirm 0 duplicates remain across all tables.
+All records use `cost_per_kg_at_time = 6` (PHP), matching existing data.
+
+### Financial Sync
+Insert corresponding `farm_expenses` entries for each new feeding record (category = "Feed & Supplements", amount = kg x 6 PHP).
+
+### Verification
+- Confirm no gaps remain (every date Jan 14 - Feb 13 has feed records)
+- Confirm daily totals stay within expected ranges (54-56 for Phase 1, 87-91 for Phase 2)
 
 ## Scope
 
 | Target | Action |
 |--------|--------|
-| `feeding_records` | Delete 12 duplicate rows |
-| `farm_expenses` | No changes needed (no duplicates) |
-| `milking_records` | No changes needed (no duplicates) |
-| `farm_revenues` | No changes needed (no duplicates) |
+| `feeding_records` | Insert 15 new records (6 for Jan 23, 9 for Jan 30) |
+| `farm_expenses` | Insert 15 matching expense entries |
+| `daily_farm_stats` | Delete cached entries for Jan 23 and Jan 30 |
 
