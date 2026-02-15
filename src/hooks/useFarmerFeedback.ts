@@ -79,7 +79,8 @@ export const useFarmerFeedback = (farmId?: string) => {
         .from('animals')
         .select('*', { count: 'exact', head: true })
         .eq('farm_id', farmId)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .is('exit_date', null);
 
       const farmSnapshot = {
         farm_name: farm?.name,

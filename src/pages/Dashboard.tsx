@@ -327,7 +327,8 @@ const Dashboard = () => {
         .from("animals")
         .select("id, birth_date, gender, life_stage, milking_stage, current_weight_kg")
         .eq("farm_id", farmId)
-        .eq("is_deleted", false);
+        .eq("is_deleted", false)
+        .is("exit_date", null);
 
       if (animals) {
         const forecast = generateFeedForecast(animals);

@@ -42,6 +42,7 @@ export const QueueStatus = () => {
         .select('id, ear_tag, name, current_weight_kg, farm_id')
         .in('farm_id', farmIds)
         .eq('is_deleted', false)
+        .is('exit_date', null)
         .order('ear_tag');
 
       setAnimals(data || []);

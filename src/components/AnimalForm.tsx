@@ -16,7 +16,8 @@ import { getOfflineMessage, translateError } from "@/lib/errorMessages";
 import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { GenderSelector } from "@/components/animal-form/GenderSelector";
-import { LactatingToggle, calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
+import { LactatingToggle } from "@/components/animal-form/LactatingToggle";
+import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { WeightEstimateButton } from "@/components/animal-form/WeightEstimateButton";
 import { QuickAddToggle } from "@/components/animal-form/QuickAddToggle";
 import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSuccessScreen";
@@ -87,8 +88,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
     ai_bull_breed: "",
     farm_entry_date: new Date().toISOString().split("T")[0],
     birth_date_unknown: false,
-    mother_unknown: false,
-    father_unknown: false,
     entry_weight: "",
     entry_weight_unknown: false,
     birth_weight: "",
@@ -155,8 +154,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       ai_bull_breed: "",
       farm_entry_date: new Date().toISOString().split("T")[0],
       birth_date_unknown: false,
-      mother_unknown: false,
-      father_unknown: false,
       entry_weight: "",
       entry_weight_unknown: false,
       birth_weight: "",
@@ -275,7 +272,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       && formData.is_currently_lactating;
     
     const calculatedMilkingStage = shouldSetMilkingStage 
-      ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
+      ? calculateMilkingStageFromDays(null, formData.estimated_days_in_milk)
       : null;
     
     // Calculate life stage for new animal
@@ -309,13 +306,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       breed: finalBreed || null,
       gender: formData.gender || null,
       birth_date: formData.birth_date_unknown ? null : (formData.birth_date || null),
-      mother_id: formData.mother_unknown ? null : (formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null),
-      father_id: formData.father_unknown ? null : (formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null)),
+      mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
+      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
       unique_code: null as string | null,
       farm_entry_date: formData.animal_type === "new_entrant" ? (formData.farm_entry_date || null) : null,
       birth_date_unknown: formData.animal_type === "new_entrant" ? formData.birth_date_unknown : false,
-      mother_unknown: formData.animal_type === "new_entrant" ? formData.mother_unknown : false,
-      father_unknown: formData.animal_type === "new_entrant" ? formData.father_unknown : false,
+      mother_unknown: false,
+      father_unknown: false,
       entry_weight_kg: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight 
         ? parseFloat(formData.entry_weight) 
         : null,

@@ -106,7 +106,8 @@ export function useBreedingAnalytics(
         .from('animals')
         .select('id, name, ear_tag, livestock_type, gender, fertility_status, parity, last_calving_date, services_this_cycle')
         .eq('farm_id', farmId)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .is('exit_date', null);
       
       if (error) throw error;
       return data || [];

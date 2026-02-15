@@ -759,6 +759,7 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
         .select('livestock_type')
         .eq('farm_id', farmId)
         .eq('is_deleted', false)
+        .is('exit_date', null)
     ]);
 
     if (feedRes.error) throw feedRes.error;
