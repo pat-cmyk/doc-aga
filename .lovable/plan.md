@@ -1,83 +1,69 @@
 
-
-# Fix: Link Demo Feeding Data to Farm Inventory (with Cost Tracking)
+# Fix: Clean Up 261 Historical Untracked Feeding Records in Estehanon Farm
 
 ## Problem
 
-The `seed-demo-data` edge function currently generates feeding records using **hardcoded feed types** from `SPECIES_CONFIG` (e.g., "Napier Grass", "Concentrate Feed") with **no connection** to the farm's actual `feed_inventory`. This means:
+The audit shows **162 issues** (out of 200 displayed). The full breakdown across ALL Estehanon feeding records:
 
-1. `feed_inventory_id` is always NULL on seeded feeding records
-2. `cost_per_kg_at_time` is always NULL -- no cost data flows through
-3. Feed types in records don't match what the farm actually has in stock
-4. Inventory quantities are never deducted, creating an unrealistic picture
+| Issue Type | Feed Type | Count | Total kg |
+|---|---|---|---|
+| Has cost (₱6/kg) but no inventory link | Bag Corn Silage | 231 | 2,212 kg |
+| No cost AND no inventory link | Rice Straw | 7 | 75.7 kg |
+| No cost AND no inventory link | Concentrate Feed | 5 | 61.1 kg |
+| No cost AND no inventory link | Corn Silage | 5 | 50.8 kg |
+| No cost AND no inventory link | Fresh Cut and Carry | 5 | 60.0 kg |
+| No cost AND no inventory link | Pellets | 4 | 11.2 kg |
+| No cost AND no inventory link | Napier Grass | 4 | 46.5 kg |
 
-## Current State
+These are all **historical records** created before the cron job was updated with inventory linkage.
 
-- **12 demo farms** have inventory (4-8 items each, with real cost_per_unit values)
-- **53 demo farms** have zero inventory items
-- Feeding records are inserted with only `animal_id`, `record_datetime`, `feed_type`, `kilograms`, `notes` -- missing `feed_inventory_id` and `cost_per_kg_at_time`
+## Cron Job Status (Going Forward)
 
-## Solution
+The `seed-demo-data` edge function is already fixed. It:
+- Fetches farm inventory and uses FIFO roughage-first selection via `pickFeedSource()`
+- Sets `feed_inventory_id` and `cost_per_kg_at_time` on every new feeding record
+- Falls back to "Fresh Cut & Carry" at ₱0 when inventory is empty
+- Deducts consumed amounts from `feed_inventory` balances
 
-Modify the feeding logic in `seed-demo-data/index.ts` to:
+No changes needed to the cron job -- it will not produce untracked records going forward.
 
-### For farms WITH inventory:
-1. Fetch `feed_inventory` items (where `quantity_kg > 0`) for the farm, ordered by `created_at` (FIFO)
-2. Pick an inventory item using the seeded random (preferring roughage category)
-3. Set `feed_inventory_id` to the matched item's ID
-4. Set `cost_per_kg_at_time` to the item's `cost_per_unit`
-5. Deduct `kilograms` from the inventory item's `quantity_kg` (batch update after all animals processed)
-6. If the selected item runs out mid-seeding, move to the next available item (FIFO)
+## Data Cleanup Plan
 
-### For farms WITHOUT inventory (fallback):
-1. Use feed_type = `"Fresh Cut & Carry"` (realistic zero-cost forage)
-2. Set `feed_inventory_id` = NULL (no inventory to link)
-3. Set `cost_per_kg_at_time` = 0 (zero cost -- free forage)
+### Group 1: 231 Bag Corn Silage records (have cost, missing inventory link)
 
-## Technical Changes
+These were from the Estehanon normalization seeding. They already have the correct `cost_per_kg_at_time = 6`. We just need to link them to the existing Bag Corn Silage inventory item (`241b6314-03a0-4449-832f-f82a53dc3eb3`).
 
-**File: `supabase/functions/seed-demo-data/index.ts`**
-
-1. **Add inventory fetch** (inside the per-farm loop, alongside the existing bulk queries):
-```typescript
-const invRes = await supabase
-  .from('feed_inventory')
-  .select('id, feed_type, category, quantity_kg, cost_per_unit')
-  .eq('farm_id', farm.id)
-  .gt('quantity_kg', 0)
-  .order('created_at', { ascending: true });
+```sql
+UPDATE feeding_records
+SET feed_inventory_id = '241b6314-03a0-4449-832f-f82a53dc3eb3'
+WHERE animal_id IN (SELECT id FROM animals WHERE farm_id = '0ffc89c8-152d-42a3-a0f5-67cf772860cc')
+  AND feed_inventory_id IS NULL
+  AND cost_per_kg_at_time IS NOT NULL
+  AND feed_type = 'Bag Corn Silage';
 ```
 
-2. **Replace the feeding insert logic** (lines 273-291):
-   - If inventory exists: pick from available items (prefer roughage), track remaining quantity in a local map, include `feed_inventory_id` and `cost_per_kg_at_time`
-   - If no inventory: use "Fresh Cut & Carry" with `cost_per_kg_at_time: 0`
+### Group 2: 30 untracked records (no cost, no link, various feed types)
 
-3. **Add inventory deduction batch** after feeding inserts:
-   - For each inventory item that was consumed, issue a single UPDATE to reduce `quantity_kg`
-   - No `feed_stock_transactions` needed for demo data (keeps it simple)
+These use feed types that don't exist in Estehanon's inventory (Napier Grass, Rice Straw, Pellets, Concentrate Feed, Corn Silage). Convert them to "Fresh Cut & Carry" with zero cost (matching the cron job's fallback logic).
 
-4. **Remove hardcoded `feedTypes` from `SPECIES_CONFIG`** -- these are no longer used since we source from actual inventory or fallback
+The 5 existing "Fresh Cut and Carry" records (note: slightly different name with "and") also get cost set to 0.
 
-## Inventory Selection Logic (Detail)
-
-```text
-For each animal + day:
-  1. Filter farm inventory items with remaining qty > 0
-  2. Prefer roughage items (category = 'roughage') -- animals survive on roughage
-  3. Use seeded random to pick among available roughage items
-  4. If no roughage left, pick from any remaining inventory
-  5. If all inventory exhausted, fall back to "Fresh Cut & Carry" at zero cost
-  6. Deduct kg from local tracking map (not DB yet)
-
-After all animals processed:
-  Batch UPDATE feed_inventory SET quantity_kg = newBalance for each changed item
+```sql
+UPDATE feeding_records
+SET feed_type = 'Fresh Cut & Carry',
+    cost_per_kg_at_time = 0
+WHERE animal_id IN (SELECT id FROM animals WHERE farm_id = '0ffc89c8-152d-42a3-a0f5-67cf772860cc')
+  AND feed_inventory_id IS NULL
+  AND cost_per_kg_at_time IS NULL;
 ```
 
-## Summary Output Enhancement
+## Expected Result After Cleanup
 
-Add `inventory_linked` and `zero_cost_fallback` counts to the per-farm summary so we can verify the linkage worked.
+- **0 untracked records** (down from 162 issues)
+- **Properly Linked** jumps from 19% to near 100%
+- All historical records have either an inventory link or are marked as zero-cost "Fresh Cut & Carry"
 
-## Governance
+## Verification
 
-- Update `docs/data-relationships-map.md` to document that demo feeding records now link to inventory
-- Update `changelog.md`
+1. Re-query: confirm zero rows with `feed_inventory_id IS NULL AND cost_per_kg_at_time IS NULL`
+2. Confirm audit page shows 0 issues and near-100% linked rate
