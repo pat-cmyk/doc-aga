@@ -25,7 +25,7 @@ export const SystemTab = () => {
   return (
     <div className="space-y-6">
       <Tabs value={subtab} onValueChange={handleSubtabChange}>
-        <TabsList className="flex-wrap">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
           <TabsTrigger value="maintenance" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Maintenance

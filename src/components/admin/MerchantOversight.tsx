@@ -101,6 +101,7 @@ export const MerchantOversight = () => {
         </CardHeader>
         <CardContent>
           {merchants && merchants.length > 0 ? (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -167,6 +168,7 @@ export const MerchantOversight = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               No merchants registered yet

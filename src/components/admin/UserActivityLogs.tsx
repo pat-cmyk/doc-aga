@@ -199,7 +199,7 @@ export const UserActivityLogs = () => {
         )}
 
         {/* Activity logs table */}
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
