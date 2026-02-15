@@ -94,7 +94,7 @@ export function InventoryAuditReport({ farmId }: { farmId: string }) {
 
       // Process records and determine status
       const auditResults: AuditRecord[] = (feedingRecords || []).map(record => {
-        const isFreshCut = record.feed_type === 'Fresh Cut and Carry';
+        const isFreshCut = record.feed_type === 'Fresh Cut & Carry' || record.feed_type === 'Fresh Cut and Carry';
         const hasInventoryLink = !!record.feed_inventory_id;
         const hasCostLock = record.cost_per_kg_at_time !== null;
 
