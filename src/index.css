@@ -13,6 +13,27 @@
   }
 }
 
+/* Force visible scrollbar for table containers */
+.scrollbar-visible {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.scrollbar-visible::-webkit-scrollbar {
+  height: 8px;
+  display: block;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
 /* Hide scrollbar but allow scrolling */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -153,19 +174,20 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Global viewport constraints for Android */
+  /* Global viewport constraints */
   html, body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
-    max-width: 100vw;
     width: 100%;
+  }
+  body {
+    overflow-x: hidden;
   }
 
   /* Responsive Typography */
   html {
     font-size: 16px;
   }
-  
+
   @media (max-width: 640px) {
     html {
       font-size: 15px;

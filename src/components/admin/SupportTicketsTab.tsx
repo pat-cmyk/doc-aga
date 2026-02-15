@@ -122,7 +122,7 @@ export const SupportTicketsTab = () => {
       </div>
 
       {/* Main Tickets Card */}
-      <Card className="overflow-x-auto">
+      <Card className="scrollbar-visible">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
