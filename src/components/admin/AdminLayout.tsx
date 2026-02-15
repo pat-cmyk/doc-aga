@@ -100,7 +100,7 @@ export const AdminLayout = ({ children, activeTab, onTabChange, dataCategory, on
         }}
       />
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 overflow-hidden">
         <Tabs value={activeTab} onValueChange={onTabChange}>
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
             {isAdmin && (
