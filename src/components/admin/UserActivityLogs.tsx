@@ -199,7 +199,7 @@ export const UserActivityLogs = () => {
         )}
 
         {/* Activity logs table */}
-        <div className="border rounded-lg scrollbar-visible">
+        <div className="border rounded-lg">
           <Table style={{ minWidth: '800px' }}>
             <TableHeader>
               <TableRow>
