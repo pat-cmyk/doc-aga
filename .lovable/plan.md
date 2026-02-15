@@ -1,66 +1,69 @@
 
 
-# Fix: Admin Table Horizontal Scrollbar (Root Cause Verified via Browser)
+# Fix: Force Visible Scrollbars on Admin Table Containers
 
-## Verified Problem
+## The REAL Problem (verified via browser DOM inspection)
 
-I navigated to `/admin?tab=operations` at 768px and 390px viewports and confirmed:
-- Table columns are clipped at the right edge
-- No horizontal scrollbar appears anywhere
-- Attempting to scroll the table wrapper element does nothing
+The horizontal scroll **is actually working** — the DOM confirms:
+- Table wrapper `offsetWidth`: constrained (smaller than table)
+- Table `offsetWidth`: 1200px (correctly forced by inline style)
+- `scrollWidth` > `offsetWidth` = scrollable = **true**
 
-## Root Cause (confirmed via DOM inspection)
+The scrollbar is **invisible** because macOS and iOS use overlay scrollbars that only appear during active touch/trackpad scrolling. On a phone or Mac with no active scroll gesture, there is zero visual indication that the table extends beyond the viewport.
 
-Two issues are combining to prevent scrollbars:
+## The Fix (two parts)
 
-1. `overflow-hidden` on the Card element clips EVERYTHING that overflows, including the scrollbar that `overflow-auto` on the inner Table wrapper would produce. The Card is the outermost constraint, and its `overflow-hidden` prevents any scrolling behavior from being visible or interactive.
+### 1. Add a CSS class in `src/index.css` that forces always-visible scrollbars
 
-2. CSS `min-width` on `<table>` elements can be ignored by the table layout algorithm. Tables size based on their content and column distribution, not standard block-level min-width rules. So `min-w-[1200px]` on the table may not actually force the table to 1200px.
+```css
+/* Force visible scrollbar for table containers */
+.scrollbar-visible {
+  overflow-x: auto;
+  scrollbar-width: thin; /* Firefox: show thin persistent scrollbar */
+}
+.scrollbar-visible::-webkit-scrollbar {
+  height: 8px;
+  display: block;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+```
 
-## Fix
+### 2. Apply `scrollbar-visible` class to the Table component's internal wrapper div
 
-Two changes per component:
+This is the single point of control. Instead of modifying every admin component file, we change the Table component's wrapper div in `src/components/ui/table.tsx` (line 7):
 
-### A. Change Card from `overflow-hidden` to `overflow-x-auto`
-This makes the Card itself the scroll container instead of a clipping container.
+From:
+```tsx
+<div className="relative w-full overflow-auto">
+```
+To:
+```tsx
+<div className="relative w-full scrollbar-visible">
+```
 
-### B. Use inline `style` for minWidth instead of Tailwind class
-Inline styles on table elements are more reliably enforced than Tailwind utility classes for table sizing.
+This ensures ALL tables across the entire app get visible scrollbars when they overflow, not just admin tables.
 
 ## Files to Change
 
-### 1. `src/components/admin/FarmOversight.tsx`
-- Line 329: `<Card className="overflow-hidden">` to `<Card className="overflow-x-auto">`
-- Line 349: `<Table className="min-w-[1200px]">` to `<Table style={{ minWidth: '1200px' }}>`
+| File | Change |
+|------|--------|
+| `src/index.css` | Add `.scrollbar-visible` CSS class with forced visible scrollbar styles |
+| `src/components/ui/table.tsx` (line 7) | Replace `overflow-auto` with `scrollbar-visible` |
 
-### 2. `src/components/admin/UserManagement.tsx`
-- Card: `overflow-hidden` to `overflow-x-auto`
-- Table: `className="min-w-[1000px]"` to `style={{ minWidth: '1000px' }}`
+## No other files need changes
+The existing `overflow-x-auto` on Cards and `style={{ minWidth }}` on Tables from previous fixes remain correct and stay in place.
 
-### 3. `src/components/admin/MerchantOversight.tsx`
-- Card (line ~117): `overflow-hidden` to `overflow-x-auto`
-- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
-
-### 4. `src/components/admin/SupportTicketsTab.tsx`
-- Card: `overflow-hidden` to `overflow-x-auto`
-- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
-
-### 5. `src/components/admin/UserActivityLogs.tsx`
-- The Card wrapping the table (has `overflow-hidden` on a wrapping div at line ~181): change to `overflow-x-auto`
-- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
-
-### 6. `src/components/admin/DocAgaManagement.tsx`
-- Both Card wrappers with `overflow-hidden`: change to `overflow-x-auto`
-- Both Tables: `className="min-w-[700px]"` to `style={{ minWidth: '700px' }}`
-
-## Verification Plan (mandatory per protocol)
-
-After implementation:
+## Verification Plan
 1. Navigate to `/admin?tab=operations` at 390x844 viewport
-2. Screenshot the Farm Oversight table
-3. Confirm horizontal scrollbar is visible
-4. Attempt to scroll right and screenshot again to confirm remaining columns (Status, Created, Actions) are accessible
-5. If scrollbar still missing: STOP, report failure, diagnose via DOM inspection
-
-## No database changes, no new dependencies.
-
+2. Screenshot to confirm a visible horizontal scrollbar appears below the table
+3. Scroll right and screenshot to confirm all remaining columns are accessible
