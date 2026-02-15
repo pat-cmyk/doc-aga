@@ -1,83 +1,106 @@
 
 
-# Fix: Admin Table Horizontal Scrollbar Not Appearing
+# Farm Oversight Table Optimization: Fit Within One Screen
 
-## Root Cause Analysis
+## Current Problem
 
-The DOM chain from viewport to table is:
+The table has **11 columns**: Farm Name, Owner, Email, Phone, Region, Animals, Team Members, Category, Status, Created, Actions. This forces horizontal scrolling on all viewports.
+
+---
+
+## Option A: Merge Owner/Email/Phone as Subtitles Under Farm Name (User's Suggestion)
+
+**Layout:**
+```text
+| Farm & Owner Info              | Region   | Animals | Team | Category | Status | Created  | Actions |
+|--------------------------------|----------|---------|------|----------|--------|----------|---------|
+| SSG Cattle                     | IV-A     | 9 / 0   | 2    | Live v   | Active | 2/15/26  | ...     |
+|   Rolando Giangan              |          |         |      |          |        |          |         |
+|   rtgiangan@yahoo.com | N/A     |          |         |      |          |        |          |         |
+```
+
+**Pros:**
+- Eliminates 3 columns (Owner, Email, Phone) -- down to 8 columns
+- All contact info is contextually grouped under the farm it belongs to
+- Matches common admin dashboard patterns (e.g., Shopify order lists)
+- Farm name becomes the primary anchor for scanning
+
+**Cons:**
+- Rows become taller (3 lines per row vs 1-2), reducing visible farms per screen
+- Cannot sort by Owner name, Email, or Phone independently
+- Harder to visually scan a single field (e.g., "find all N/A phone numbers") since data is stacked
+- Long emails + phone on the same subtitle line may still wrap on narrow screens
+
+---
+
+## Option B: Card-Based Layout (No Table)
+
+Replace the table with responsive cards showing key info at a glance, with a "View Details" expansion.
+
+**Pros:**
+- Fully responsive -- no horizontal scroll at any viewport
+- Can show summary stats prominently, hide secondary info behind expand/click
+- Mobile-native feel
+
+**Cons:**
+- Loses the dense, scannable grid that admins expect for oversight
+- Harder to compare farms side-by-side
+- Significant UI rewrite
+
+---
+
+## Option C: Hybrid -- Merge Subtitles + Hide Low-Value Columns (Recommended)
+
+Combine Option A (merge owner info) with hiding columns that have low information density:
+
+1. **Merge** Owner, Email, Phone as subtitles under Farm Name (removes 3 columns)
+2. **Remove "Created" column** -- available in the detail dialog, rarely needed in the list
+3. **Remove "Team Members" column** -- low-value for oversight scanning, available in detail dialog
+4. **Keep**: Farm Name (with subtitles), Region, Animals, Category, Status, Actions
+
+**Result: 6 columns** -- fits comfortably on a 1024px+ screen without any horizontal scroll.
 
 ```text
-body (overflow-x: hidden)          <-- PROBLEM #1: Creates clipping context
-  #root (max-width: 1280px)        <-- Constrains width on desktop
-    AdminLayout div
-      container div (px-4/px-8)    <-- Adds padding
-        Tabs > TabsContent
-          OperationsTab > Tabs > TabsContent
-            Card                   <-- No overflow constraint (correct)
-              CardContent (p-6)    <-- Adds 48px total padding
-                Table wrapper div  <-- overflow-x: auto + scrollbar-visible
-                  table            <-- minWidth: 1200px via inline style
+| Farm & Owner                   | Region | Animals | Category | Status | Actions    |
+|--------------------------------|--------|---------|----------|--------|------------|
+| SSG Cattle                     | IV-A   | 9 / 0   | Live v   | Active | [icons]    |
+|   Rolando Giangan              |        |         |          |        |            |
+|   rtgiangan@yahoo.com          |        |         |          |        |            |
 ```
 
-**Problem 1: `body { overflow-x: hidden }` in `src/index.css` (line 183)**
-This creates a Block Formatting Context that suppresses nested scrollbar rendering in certain browser/OS combinations (notably macOS with overlay scrollbar settings). Per the project's own memory note on admin table standards, global overflow constraints "create clipping contexts that suppress nested scrollbars."
+**Pros:**
+- Only 6 columns -- no scroll needed even on tablet (768px)
+- All critical oversight data visible: which farm, where, how many animals, live/demo, active/deactivated
+- Contact details still visible inline for quick reference
+- Detail dialog already exists for Created date, Team Members, etc.
 
-**Problem 2: Tight margin between table minWidth and viewport**
-On desktop (1280px viewport), after container padding (32-64px) and card padding (48px), available width is ~1170px. The table `minWidth: 1200px` only overflows by ~30px -- barely enough for a visible scrollbar thumb.
+**Cons:**
+- Taller rows (mitigated by using smaller text for subtitles)
+- Created date and Team count move to detail-only
 
-## Fix Plan
+---
 
-### File 1: `src/index.css` (line 183)
-Replace `body { overflow-x: hidden; }` with `overflow-x: clip`. The `clip` value prevents page-level horizontal overflow (same visual result) but does NOT create a formatting context, so nested `overflow-x: auto` containers retain their independent scroll behavior.
+## Recommendation: Option C (Hybrid)
 
-```css
-/* Before */
-body {
-  overflow-x: hidden;
-}
+This is the cleanest path: merge 3 contact columns into subtitles, drop 2 low-value columns, and remove the `minWidth` constraint entirely so the table flows naturally.
 
-/* After */
-body {
-  overflow-x: clip;
-}
-```
+### Implementation Details
 
-### File 2: `src/components/admin/FarmOversight.tsx` (line 349)
-Increase the table `minWidth` to `1400px` to ensure clear overflow on both desktop and mobile viewports, producing a visible scrollbar thumb.
+**File: `src/components/admin/FarmOversight.tsx`**
 
-```tsx
-/* Before */
-<Table style={{ minWidth: '1200px' }}>
+1. Remove `style={{ minWidth: '1400px' }}` from the Table element
+2. Replace 3 column headers (Owner, Email, Phone) with single "Farm & Owner" header
+3. Remove "Created" and "Team Members" column headers
+4. In each TableRow:
+   - First cell becomes a stacked layout:
+     ```
+     <div class="font-medium">SSG Cattle</div>
+     <div class="text-xs text-muted-foreground">Rolando Giangan</div>
+     <div class="text-xs text-muted-foreground truncate">rtgiangan@yahoo.com · N/A</div>
+     ```
+   - Remove the 3 old cells (Owner, Email, Phone)
+   - Remove the Created and Team Members cells
+5. Actions column: keep as-is (icon buttons are compact)
 
-/* After */
-<Table style={{ minWidth: '1400px' }}>
-```
-
-### File 3: `src/index.css` (scrollbar-visible class)
-Strengthen the scrollbar-visible styles to force persistent visibility across all platforms, including macOS overlay scrollbar mode:
-
-```css
-.scrollbar-visible {
-  overflow-x: auto;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
-}
-.scrollbar-visible::-webkit-scrollbar {
-  height: 10px;         /* Increased from 8px for better grab target */
-  display: block !important;
-}
-```
-
-### Verification
-After changes:
-1. Navigate to `/admin?tab=operations` at desktop (1280px), tablet (768px), and mobile (390px) viewports
-2. Screenshot each to confirm a visible, draggable horizontal scrollbar beneath the Farm Oversight table
-3. Confirm no horizontal page-level scroll on any viewport
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `src/index.css` | `overflow-x: hidden` to `overflow-x: clip` on body; increase scrollbar height to 10px |
-| `src/components/admin/FarmOversight.tsx` | Table minWidth `1200px` to `1400px` |
+**No other files changed** -- this is a single-component refactor.
 
