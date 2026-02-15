@@ -243,6 +243,7 @@ export const UserManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -376,6 +377,7 @@ export const UserManagement = () => {
             ))}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
 
       {/* User Detail Panel */}

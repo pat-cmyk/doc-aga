@@ -407,7 +407,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
 
       {/* Tabs for Different Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto gap-1">
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="feedback" className="flex items-center gap-1">
             <ThumbsUp className="h-3 w-3" />
@@ -561,6 +561,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
               </div>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -606,6 +607,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -638,6 +640,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
             </div>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -681,6 +684,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
