@@ -528,7 +528,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
 
         {/* Recent Queries Tab */}
         <TabsContent value="queries" className="space-y-4">
-          <Card className="overflow-hidden">
+          <Card className="overflow-x-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -561,7 +561,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
               </div>
             </CardHeader>
             <CardContent>
-              <Table className="min-w-[700px]">
+              <Table style={{ minWidth: '700px' }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Question</TableHead>
@@ -612,7 +612,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
 
         {/* FAQ Management Tab */}
         <TabsContent value="faqs" className="space-y-4">
-          <Card className="overflow-hidden">
+          <Card className="overflow-x-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -638,7 +638,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
             </div>
             </CardHeader>
             <CardContent>
-              <Table className="min-w-[700px]">
+              <Table style={{ minWidth: '700px' }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Question</TableHead>

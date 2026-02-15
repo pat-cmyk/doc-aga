@@ -326,7 +326,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
 
   return (
     <TooltipProvider>
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
@@ -346,7 +346,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table className="min-w-[1200px]">
+          <Table style={{ minWidth: '1200px' }}>
             <TableHeader>
               <TableRow>
                 <TableHead>Farm Name</TableHead>

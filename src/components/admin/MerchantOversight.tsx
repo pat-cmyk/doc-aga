@@ -95,13 +95,13 @@ export const MerchantOversight = () => {
       </div>
 
       {/* Merchants Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <CardHeader>
           <CardTitle>Merchant Management</CardTitle>
         </CardHeader>
         <CardContent>
           {merchants && merchants.length > 0 ? (
-            <Table className="min-w-[800px]">
+            <Table style={{ minWidth: '800px' }}>
               <TableHeader>
                 <TableRow>
                   <TableHead>Business Name</TableHead>

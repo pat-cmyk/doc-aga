@@ -199,8 +199,8 @@ export const UserActivityLogs = () => {
         )}
 
         {/* Activity logs table */}
-        <div className="border rounded-lg overflow-hidden">
-          <Table className="min-w-[800px]">
+        <div className="border rounded-lg overflow-x-auto">
+          <Table style={{ minWidth: '800px' }}>
             <TableHeader>
               <TableRow>
                 <TableHead>Timestamp</TableHead>
