@@ -128,7 +128,7 @@ export async function getCacheDebugData(farmId: string): Promise<CacheDebugData>
       getCachedDashboardStats(farmId),
       getCachedAnimals(farmId),
       supabase.from('feed_inventory').select('*').eq('farm_id', farmId),
-      supabase.from('animals').select('livestock_type').eq('farm_id', farmId).eq('is_deleted', false),
+      supabase.from('animals').select('livestock_type').eq('farm_id', farmId).eq('is_deleted', false).is('exit_date', null),
     ]);
 
     // Feed Inventory

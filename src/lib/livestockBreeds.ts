@@ -3,7 +3,7 @@
  * 
  * Contains breed options for cattle, goats, sheep, and carabao (water buffalo).
  * Includes international breeds common in the Philippines as well as native breeds.
- * "Not Sure" and "Mix Breed" options accommodate farmers who don't know exact breeds.
+ * "Mix Breed" option accommodates farmers who have crossbred animals.
  * 
  * @constant
  * @example
@@ -118,7 +118,7 @@ export type LivestockType = keyof typeof LIVESTOCK_BREEDS;
  * ```typescript
  * // Get goat breeds
  * const goatBreeds = getBreedsByLivestockType('goat');
- * console.log(goatBreeds); // ['Not Sure', 'Boer', 'Saanen', ...]
+ * console.log(goatBreeds); // ['Boer', 'Saanen', ...]
  * 
  * // Use in dynamic form
  * const [livestockType, setLivestockType] = useState<LivestockType>('cattle');

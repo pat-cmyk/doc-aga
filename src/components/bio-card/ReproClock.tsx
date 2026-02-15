@@ -175,7 +175,7 @@ export function ReproClock({
           </text>
         </svg>
         <p className="text-xs text-muted-foreground mt-1">
-          Walang Data ng Siklo
+          No Data ng Siklo
         </p>
       </div>
     );

@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
-import { calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
+import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 
 export interface AnimalFormData {
   animal_type: string;
@@ -25,8 +25,6 @@ export interface AnimalFormData {
   // New fields for new entrants
   farm_entry_date: string;
   birth_date_unknown: boolean;
-  mother_unknown: boolean;
-  father_unknown: boolean;
   // Weight fields
   entry_weight: string;
   entry_weight_unknown: boolean;
@@ -66,8 +64,6 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     // Initialize new fields
     farm_entry_date: new Date().toISOString().split("T")[0], // Default to today
     birth_date_unknown: false,
-    mother_unknown: false,
-    father_unknown: false,
     // Weight fields
     entry_weight: "",
     entry_weight_unknown: false,
@@ -182,7 +178,7 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       && formData.is_currently_lactating;
     
     const calculatedMilkingStage = shouldSetMilkingStage 
-      ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
+      ? calculateMilkingStageFromDays(null, formData.estimated_days_in_milk)
       : null;
     
     const animalData = {
@@ -193,14 +189,14 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
       breed: finalBreed || null,
       gender: formData.gender || null,
       birth_date: formData.birth_date_unknown ? null : (formData.birth_date || null),
-      mother_id: formData.mother_unknown ? null : (formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null),
-      father_id: formData.father_unknown ? null : (formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null)),
+      mother_id: formData.mother_id && formData.mother_id !== "none" ? formData.mother_id : null,
+      father_id: formData.is_father_ai ? null : (formData.father_id && formData.father_id !== "none" ? formData.father_id : null),
       unique_code: null as string | null,
       // New entrant specific fields (always include, nulls are fine for offspring)
       farm_entry_date: formData.animal_type === "new_entrant" ? (formData.farm_entry_date || null) : null,
       birth_date_unknown: formData.animal_type === "new_entrant" ? formData.birth_date_unknown : false,
-      mother_unknown: formData.animal_type === "new_entrant" ? formData.mother_unknown : false,
-      father_unknown: formData.animal_type === "new_entrant" ? formData.father_unknown : false,
+      mother_unknown: false,
+      father_unknown: false,
       // Weight fields
       entry_weight_kg: formData.animal_type === "new_entrant" && !formData.entry_weight_unknown && formData.entry_weight 
         ? parseFloat(formData.entry_weight) 

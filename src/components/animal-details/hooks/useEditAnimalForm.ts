@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { calculateMilkingStageFromDays } from "@/components/animal-form/LactatingToggle";
+import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { translateError } from "@/lib/errorMessages";
 
 export interface EditAnimalFormData {
@@ -23,9 +23,7 @@ export interface EditAnimalFormData {
 
   // Parentage
   mother_id: string;
-  mother_unknown: boolean;
   father_id: string;
-  father_unknown: boolean;
   is_father_ai: boolean;
   ai_bull_brand: string;
   ai_bull_reference: string;
@@ -132,9 +130,7 @@ export const useEditAnimalForm = (
     farm_entry_date: "",
     milking_start_date: "",
     mother_id: "",
-    mother_unknown: false,
     father_id: "",
-    father_unknown: false,
     is_father_ai: false,
     ai_bull_brand: "",
     ai_bull_reference: "",
@@ -235,9 +231,7 @@ export const useEditAnimalForm = (
         farm_entry_date: animal.farm_entry_date || "",
         milking_start_date: animal.milking_start_date || "",
         mother_id: animal.mother_id || "",
-        mother_unknown: animal.mother_unknown || false,
         father_id: animal.father_id || "",
-        father_unknown: animal.father_unknown || false,
         is_father_ai: aiData.is_father_ai,
         ai_bull_brand: aiData.ai_bull_brand,
         ai_bull_reference: aiData.ai_bull_reference,
@@ -356,7 +350,7 @@ export const useEditAnimalForm = (
       // Calculate milking stage if lactating
       const shouldSetMilkingStage = formData.gender === "Female" && formData.is_currently_lactating;
       const calculatedMilkingStage = shouldSetMilkingStage 
-        ? calculateMilkingStageFromDays(formData.estimated_days_in_milk)
+        ? calculateMilkingStageFromDays(null, formData.estimated_days_in_milk)
         : null;
 
       const updates: Record<string, any> = {
@@ -372,10 +366,10 @@ export const useEditAnimalForm = (
         milking_start_date: formData.milking_start_date || null,
         
         // Parentage
-        mother_id: formData.mother_unknown ? null : (formData.mother_id || null),
-        mother_unknown: formData.mother_unknown,
-        father_id: formData.father_unknown ? null : (formData.father_id || null),
-        father_unknown: formData.father_unknown,
+        mother_id: formData.mother_id || null,
+        mother_unknown: false,
+        father_id: formData.father_id || null,
+        father_unknown: false,
         
         // Current Weight (always updateable)
         current_weight_kg: formData.current_weight_kg ? parseFloat(formData.current_weight_kg) : null,

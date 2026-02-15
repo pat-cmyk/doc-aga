@@ -3,6 +3,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Droplets, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 
 interface LactatingToggleProps {
   isLactating: boolean;
@@ -11,20 +12,13 @@ interface LactatingToggleProps {
   onDaysChange: (days: number) => void;
 }
 
-// Calculate milking stage from days in milk
-export function calculateMilkingStageFromDays(days: number): string {
-  if (days <= 100) return "Early Lactation";
-  if (days <= 200) return "Mid-Lactation";
-  return "Late Lactation";
-}
-
 export function LactatingToggle({ 
   isLactating, 
   onLactatingChange, 
   daysInMilk, 
   onDaysChange 
 }: LactatingToggleProps) {
-  const stage = calculateMilkingStageFromDays(daysInMilk);
+  const stage = calculateMilkingStageFromDays(null, daysInMilk) || "Early Lactation";
   
   const stageColors: Record<string, string> = {
     "Early Lactation": "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",

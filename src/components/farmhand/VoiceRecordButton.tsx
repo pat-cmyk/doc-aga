@@ -410,7 +410,8 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
               .from('animals')
               .select('id, ear_tag, name, current_weight_kg, livestock_type, milking_stage, is_currently_lactating')
               .in('id', selection)
-              .eq('is_deleted', false);
+              .eq('is_deleted', false)
+              .is('exit_date', null);
             animals = data || [];
           }
           
