@@ -229,7 +229,7 @@ export const UserManagement = () => {
   }
 
   return (
-    <Card className="overflow-x-auto">
+    <Card className="scrollbar-visible">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
