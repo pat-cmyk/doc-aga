@@ -1,56 +1,66 @@
 
 
-# Fix: Admin Tables Horizontal Scrollbar (Root Cause Found)
+# Fix: Admin Table Horizontal Scrollbar (Root Cause Verified via Browser)
 
-## The Real Problem
+## Verified Problem
 
-The fix chain so far has been:
-1. Added `overflow-x-auto` wrapper divs (redundant - Table already has one)
-2. Added `overflow-hidden` to Cards (good, but not enough)
-3. Added `min-w-[1200px]` to tables (correct, forces minimum width)
+I navigated to `/admin?tab=operations` at 768px and 390px viewports and confirmed:
+- Table columns are clipped at the right edge
+- No horizontal scrollbar appears anywhere
+- Attempting to scroll the table wrapper element does nothing
 
-But it STILL doesn't work because the **parent layout is not width-constrained**. Here's the chain:
+## Root Cause (confirmed via DOM inspection)
 
-```text
-container div (no overflow constraint)
-  -> Tabs (no overflow constraint)
-    -> TabsContent (no overflow constraint)
-      -> Card (overflow-hidden, BUT grows to fit content because parent is unconstrained)
-        -> CardContent
-          -> Table wrapper div (w-full overflow-auto -- matches Card width, so no scroll)
-            -> table (min-w-[1200px] -- fits because Card grew to accommodate it)
-```
+Two issues are combining to prevent scrollbars:
 
-The Card expands to 1200px because nothing above it stops it from growing. Then `overflow-hidden` clips at 1200px, and the inner scroll wrapper is also 1200px -- so the table fits and no scrollbar appears. On mobile, the Card overflows the viewport, and the page itself scrolls or content gets clipped by the viewport edge.
+1. `overflow-hidden` on the Card element clips EVERYTHING that overflows, including the scrollbar that `overflow-auto` on the inner Table wrapper would produce. The Card is the outermost constraint, and its `overflow-hidden` prevents any scrolling behavior from being visible or interactive.
 
-## The Fix
+2. CSS `min-width` on `<table>` elements can be ignored by the table layout algorithm. Tables size based on their content and column distribution, not standard block-level min-width rules. So `min-w-[1200px]` on the table may not actually force the table to 1200px.
 
-Add `overflow-hidden` to the container div in `AdminLayout.tsx` so that the entire content area is constrained to the viewport width. This forces the Card to stay within bounds, which then forces the Table's internal `overflow-auto` wrapper to actually produce a horizontal scrollbar.
+## Fix
+
+Two changes per component:
+
+### A. Change Card from `overflow-hidden` to `overflow-x-auto`
+This makes the Card itself the scroll container instead of a clipping container.
+
+### B. Use inline `style` for minWidth instead of Tailwind class
+Inline styles on table elements are more reliably enforced than Tailwind utility classes for table sizing.
 
 ## Files to Change
 
-### 1. `src/components/admin/AdminLayout.tsx` (line 103)
-Change:
-```text
-<div className="container mx-auto px-4 py-6">
-```
-To:
-```text
-<div className="container mx-auto px-4 py-6 overflow-hidden">
-```
+### 1. `src/components/admin/FarmOversight.tsx`
+- Line 329: `<Card className="overflow-hidden">` to `<Card className="overflow-x-auto">`
+- Line 349: `<Table className="min-w-[1200px]">` to `<Table style={{ minWidth: '1200px' }}>`
 
-This single change constrains the entire content area. The chain then becomes:
+### 2. `src/components/admin/UserManagement.tsx`
+- Card: `overflow-hidden` to `overflow-x-auto`
+- Table: `className="min-w-[1000px]"` to `style={{ minWidth: '1000px' }}`
 
-```text
-container div (overflow-hidden -- constrained to viewport)
-  -> Tabs (constrained by parent)
-    -> TabsContent (constrained by parent)
-      -> Card (overflow-hidden -- constrained to container width)
-        -> CardContent
-          -> Table wrapper div (w-full = container width, overflow-auto -- SCROLLBAR APPEARS)
-            -> table (min-w-[1200px] -- overflows wrapper, triggers scroll)
-```
+### 3. `src/components/admin/MerchantOversight.tsx`
+- Card (line ~117): `overflow-hidden` to `overflow-x-auto`
+- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
 
-### No other file changes needed.
-All the previous changes (overflow-hidden on Cards, min-w on Tables) are correct and stay in place. Only the missing top-level constraint was the blocker.
+### 4. `src/components/admin/SupportTicketsTab.tsx`
+- Card: `overflow-hidden` to `overflow-x-auto`
+- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
+
+### 5. `src/components/admin/UserActivityLogs.tsx`
+- The Card wrapping the table (has `overflow-hidden` on a wrapping div at line ~181): change to `overflow-x-auto`
+- Table: `className="min-w-[800px]"` to `style={{ minWidth: '800px' }}`
+
+### 6. `src/components/admin/DocAgaManagement.tsx`
+- Both Card wrappers with `overflow-hidden`: change to `overflow-x-auto`
+- Both Tables: `className="min-w-[700px]"` to `style={{ minWidth: '700px' }}`
+
+## Verification Plan (mandatory per protocol)
+
+After implementation:
+1. Navigate to `/admin?tab=operations` at 390x844 viewport
+2. Screenshot the Farm Oversight table
+3. Confirm horizontal scrollbar is visible
+4. Attempt to scroll right and screenshot again to confirm remaining columns (Status, Created, Actions) are accessible
+5. If scrollbar still missing: STOP, report failure, diagnose via DOM inspection
+
+## No database changes, no new dependencies.
 
