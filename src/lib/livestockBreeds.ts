@@ -25,7 +25,6 @@ export const LIVESTOCK_BREEDS = {
    * Includes major dairy breeds (Holstein, Jersey) and beef breeds (Angus, Brahman)
    */
   cattle: [
-    "Not Sure",
     "Holstein",                    // Top dairy breed
     "Jersey",                      // High butterfat dairy
     "Guernsey",                   // Golden milk dairy
@@ -50,7 +49,6 @@ export const LIVESTOCK_BREEDS = {
    * Includes Boer (meat) and Saanen (dairy) along with local breeds
    */
   goat: [
-    "Not Sure",
     "Boer",                       // Premier meat goat
     "Saanen",                     // Top dairy goat
     "Alpine",                     // French dairy
@@ -70,7 +68,6 @@ export const LIVESTOCK_BREEDS = {
    * Includes Merino (wool) and Dorper (meat) breeds
    */
   sheep: [
-    "Not Sure",
     "Merino",                     // Fine wool
     "Suffolk",                    // Meat breed
     "Dorper",                     // Hair sheep, meat
@@ -88,7 +85,6 @@ export const LIVESTOCK_BREEDS = {
    * Specific to Philippines and Southeast Asia
    */
   carabao: [
-    "Not Sure",
     "Swamp Buffalo (Philippine Carabao)",  // Local working breed
     "River Buffalo (Murrah)",              // Indian dairy breed
     "River Buffalo (Nili-Ravi)",          // Pakistani dairy breed

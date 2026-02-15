@@ -1271,3 +1271,32 @@ ai_records (animal_id, semen_code, notes)
 | `src/components/animal-details/hooks/useEditAnimalForm.ts` | Added AI records query on form init |
 | `src/components/AnimalForm.test.tsx` | Added parity test cases |
 | `docs/ssot-architecture.md` | New: SSOT Architecture reference document |
+
+---
+
+### Entry 11: App-Wide Dropdown Text Standardization (2026-02-15)
+
+Unified all "no data / unknown" dropdown and checkbox labels to a single SSOT label: **"No Data / Hindi Alam"**.
+
+### Changes Applied
+
+| Before | After | Where |
+|--------|-------|-------|
+| "No Data / Walang Data" | "No Data / Hindi Alam" | Breed selects, AI bull breed selects, entry weight checkboxes |
+| "Unknown / Hindi Alam" | "No Data / Hindi Alam" | Birth date checkboxes |
+| "None / Wala" | "No Data / Hindi Alam" | Mother/Father parent dropdowns |
+| "Not Sure" (breed arrays) | **Removed** | `livestockBreeds.ts` — all 4 breed arrays |
+| Mother/Father "Unknown" checkboxes | **Removed** | Both Add and Edit forms — redundant with dropdown option |
+
+### What Was Kept
+- Birth date "No Data / Hindi Alam" checkbox — date input has no dropdown
+- Entry weight "No Data / Hindi Alam" checkbox — numeric input has no dropdown
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/lib/livestockBreeds.ts` | Removed "Not Sure" from all 4 breed arrays |
+| `src/lib/filipinoLabels.ts` | Updated `unknown` and `noData` labels to "No Data / Hindi Alam" |
+| `src/components/AnimalForm.tsx` | Unified labels; removed mother/father unknown checkboxes |
+| `src/components/animal-details/EditAnimalDialog.tsx` | Unified labels; removed mother/father unknown checkboxes |
+| `src/components/AnimalForm.test.tsx` | Updated test assertion to "No Data / Hindi Alam" |
