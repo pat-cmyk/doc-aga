@@ -101,7 +101,7 @@ export const MerchantOversight = () => {
         </CardHeader>
         <CardContent>
           {merchants && merchants.length > 0 ? (
-            <Table>
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Business Name</TableHead>

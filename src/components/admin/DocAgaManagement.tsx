@@ -561,7 +561,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Question</TableHead>
@@ -638,7 +638,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
             </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Question</TableHead>

@@ -243,7 +243,7 @@ export const UserManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table className="min-w-[1000px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

@@ -200,7 +200,7 @@ export const UserActivityLogs = () => {
 
         {/* Activity logs table */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Timestamp</TableHead>
