@@ -346,19 +346,14 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table style={{ minWidth: '1400px' }}>
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Farm Name</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead className="min-w-[200px]">Farm & Owner</TableHead>
                 <TableHead>Region</TableHead>
-                <TableHead>Animals (Active/Deleted)</TableHead>
-                <TableHead>Team Members</TableHead>
+                <TableHead>Animals</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -370,10 +365,13 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
               
               return (
                 <TableRow key={farm.id}>
-                  <TableCell className="font-medium">{farm.name}</TableCell>
-                  <TableCell>{farm.owner_name}</TableCell>
-                  <TableCell>{farm.owner_email}</TableCell>
-                  <TableCell>{farm.owner_phone}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{farm.name}</div>
+                    <div className="text-xs text-muted-foreground">{farm.owner_name}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[250px]">
+                      {farm.owner_email} · {farm.owner_phone || "N/A"}
+                    </div>
+                  </TableCell>
                   <TableCell>{farm.region || "N/A"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -382,7 +380,6 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
                       <span className="text-red-500">{farm.deleted_animal_count}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{farm.team_members_count}</TableCell>
                   <TableCell>
                     <Select
                       value={farm.data_category}
@@ -413,9 +410,6 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
                     <Badge variant={farm.is_deleted ? "destructive" : "default"}>
                       {farm.is_deleted ? "Deactivated" : "Active"}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(farm.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
