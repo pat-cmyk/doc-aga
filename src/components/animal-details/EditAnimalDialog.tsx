@@ -434,8 +434,14 @@ export function EditAnimalDialog({
                           </div>
                         </div>
                         <Select
-                          value={formData.father_id || "none"}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, father_id: value === "none" ? "" : value }))}
+                          value={formData.is_father_ai ? "ai" : (formData.father_id || "none")}
+                          onValueChange={(value) => {
+                            if (value === "ai") {
+                              setFormData(prev => ({ ...prev, is_father_ai: true, father_id: "" }));
+                            } else {
+                              setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value === "none" ? "" : value }));
+                            }
+                          }}
                           disabled={formData.father_unknown}
                         >
                           <SelectTrigger className={formData.father_unknown ? "opacity-50" : ""}>
@@ -443,6 +449,7 @@ export function EditAnimalDialog({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None / Wala</SelectItem>
+                            <SelectItem value="ai">🧬 AI / Artificial Insemination</SelectItem>
                             {fathers.map((father) => (
                               <SelectItem key={father.id} value={father.id}>
                                 {getParentDisplayName(father)}
@@ -450,6 +457,37 @@ export function EditAnimalDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                        {formData.is_father_ai && !formData.father_unknown && (
+                          <div className="space-y-3 mt-2 p-3 bg-muted/30 rounded-lg">
+                            <div className="space-y-2">
+                              <BilingualLabel english="Bull Semen Brand" filipino="Brand ng Semen" htmlFor="edit-ai-bull-brand" />
+                              <Input
+                                id="edit-ai-bull-brand"
+                                value={formData.ai_bull_brand}
+                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_brand: e.target.value }))}
+                                placeholder="Enter bull semen brand"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <BilingualLabel english="Bull Reference/Name" filipino="Pangalan ng Toro" htmlFor="edit-ai-bull-reference" />
+                              <Input
+                                id="edit-ai-bull-reference"
+                                value={formData.ai_bull_reference}
+                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_reference: e.target.value }))}
+                                placeholder="Enter bull reference or name"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <BilingualLabel english="AI Bull Breed" filipino="Lahi ng Toro (AI)" htmlFor="edit-ai-bull-breed" />
+                              <Input
+                                id="edit-ai-bull-breed"
+                                value={formData.ai_bull_breed}
+                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_breed: e.target.value }))}
+                                placeholder="Enter AI bull breed"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
