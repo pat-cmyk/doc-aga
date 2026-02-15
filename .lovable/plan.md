@@ -1,73 +1,80 @@
 
 
-# Fix: Remove Nested Scroll Containers — Single Scroll Point Strategy
+# Clean Fix: Admin Table Horizontal Scrollbars (From Scratch)
 
-## Root Cause (confirmed via browser DOM inspection)
+## Root Cause (FINAL)
 
-There are **three** nested scroll containers fighting each other:
+The entire overflow chain has been blocking table scrollbars across all previous attempts. Here is the full ancestor chain and the problem at each level:
 
-1. The **Card** component has `scrollbar-visible` (overflow-x: auto)
-2. The **Table wrapper div** (inside `table.tsx`) also has `scrollbar-visible` (overflow-x: auto)
-3. In FarmOversight, there's a `div style={{ width: 1200px }}` between them that forces the Card content to 1200px, but the Table wrapper inside it is ALSO 1200px — so the inner scroll container thinks it doesn't need to scroll, while the outer Card scroll is fighting with CardHeader and padding.
-
-The browser sees the Card as the scroll container, but the CardHeader sits at narrow width while CardContent has a 1200px child — this creates an inconsistent layout where the scrollbar may render but is effectively invisible or non-functional.
-
-## The Fix: Single Scroll Container
-
-Remove `scrollbar-visible` from ALL Card/wrapper elements. The Table component's internal wrapper div (in `table.tsx`) is already the correct scroll container with `scrollbar-visible`. Just pass `style={{ minWidth: '1200px' }}` to the Table component so the `<table>` element forces the overflow inside its own wrapper.
-
-### Files and Changes
-
-**1. `src/components/admin/FarmOversight.tsx`**
-- Line 329: `<Card className="scrollbar-visible">` → `<Card>`
-- Lines 349/618: Remove the `<div style={{ width: '1200px' }}>` wrapper and its closing `</div>`
-- Line 350: `<Table>` → `<Table style={{ minWidth: '1200px' }}>`
-
-**2. `src/components/admin/UserManagement.tsx`**
-- Line 232: `<Card className="scrollbar-visible">` → `<Card>`
-- Table already has `style={{ minWidth: '1000px' }}` — keep it
-
-**3. `src/components/admin/MerchantOversight.tsx`**
-- Line 98: `<Card className="scrollbar-visible">` → `<Card>`
-- Table already has `style={{ minWidth: '800px' }}` — keep it
-
-**4. `src/components/admin/SupportTicketsTab.tsx`**
-- Line 125: `<Card className="scrollbar-visible">` → `<Card>`
-- Table already has `style={{ minWidth: '800px' }}` — keep it
-
-**5. `src/components/admin/UserActivityLogs.tsx`**
-- Line 202: `<div className="border rounded-lg scrollbar-visible">` → `<div className="border rounded-lg">`
-- Table already has `style={{ minWidth: '800px' }}` — keep it
-
-**6. `src/components/admin/DocAgaManagement.tsx`**
-- Line 531: `<Card className="scrollbar-visible">` → `<Card>`
-- Line 615: `<Card className="scrollbar-visible">` → `<Card>`
-- Tables already have `style={{ minWidth: '700px' }}` — keep them
-
-## Why This Works
-
-The Table component in `table.tsx` already has:
-```tsx
-<div className="relative w-full overflow-x-auto scrollbar-visible">
-  <table ... style={{ minWidth: '1200px' }} />
-</div>
+```text
+body          overflow-x: hidden  (index.css line 183) -- clips descendants
+  #root       overflow-x: hidden  (App.css line 7)     -- clips descendants AGAIN
+    .container  (no overflow set)
+      Card      (no overflow set -- good after previous fixes)
+        Table wrapper div  overflow-x: auto + scrollbar-visible  (table.tsx)
+          <table style="min-width: 1200px">
 ```
 
-This wrapper div is constrained by its parent (CardContent, which is constrained by Card, which is constrained by the viewport). The `<table>` inside it has `minWidth: 1200px`, forcing it wider than the wrapper. The wrapper's `overflow-x: auto` + `scrollbar-visible` creates the visible scrollbar. There's only ONE scroll container — no nesting conflicts.
+The Table wrapper correctly has `overflow-x: auto` and `scrollbar-visible`. The `<table>` element correctly has `minWidth: 1200px` via inline style. But the scrollbar is invisible because `#root` (and `body`) both have `overflow-x: hidden`, which creates clipping contexts that prevent ANY descendant from rendering a visible scrollbar.
 
-## Technical Detail
+## The Fix: 2 Files Only
 
-| Element | Role | overflow-x |
-|---------|------|-----------|
-| Card | Visual container only | visible (default) |
-| CardContent | Padding wrapper | visible (default) |
-| Table wrapper div (table.tsx) | **THE scroll container** | auto (scrollbar-visible) |
-| table element | Content, forced to minWidth | n/a |
+### 1. `src/App.css` -- Remove `overflow-x: hidden` from `#root`
+
+The `#root` element should NOT clip overflow. It should allow nested scroll containers to work. Change:
+
+```css
+#root {
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+}
+
+@media (min-width: 769px) {
+  #root {
+    max-width: 1280px;
+  }
+}
+```
+
+Key changes:
+- Remove `overflow-x: hidden` (the blocker)
+- Remove `max-width: 100vw` (redundant -- body already constrains width, and this can also interfere with nested scroll containers)
+
+### 2. `src/index.css` -- Keep `body { overflow-x: hidden }` but confirm it does NOT clip nested scroll
+
+`body { overflow-x: hidden }` prevents the page itself from scrolling horizontally (which is correct -- we don't want the whole page to slide left/right). Crucially, `overflow-x: hidden` on `body` does NOT clip nested scroll containers inside `#root` as long as `#root` itself does not also have `overflow-x: hidden`.
+
+No changes needed to `index.css` -- the current body rule is correct.
+
+### No changes to any admin component files
+
+The previous fixes to table components are all correct:
+- `table.tsx` wrapper div has `scrollbar-visible` (single scroll point) -- correct
+- All admin tables pass `style={{ minWidth: '...' }}` to `<Table>` -- correct  
+- All Cards have no overflow classes -- correct
+
+## Why Previous Attempts Failed
+
+Every previous fix correctly addressed the Table/Card level, but the `#root` ancestor with `overflow-x: hidden` was always clipping the scrollbar from above. This is the foundational constraint that was never removed.
+
+## Responsive Behavior (all viewports)
+
+| Viewport | Behavior |
+|----------|----------|
+| Desktop (1280px+) | Table fits naturally, no scrollbar needed (1200px table fits in ~1280px container) |
+| Tablet (769-1279px) | Table may overflow slightly, scrollbar appears when needed |
+| Mobile (< 769px) | Table overflows significantly, persistent visible scrollbar via `scrollbar-visible` CSS |
 
 ## Verification Plan
 
-1. Navigate to `/admin?tab=operations` at 390x844 viewport
-2. Screenshot to confirm visible scrollbar below the table
-3. Scroll right to confirm hidden columns (Status, Created, Actions) are accessible
-4. If scrollbar still missing: STOP, report failure, inspect DOM
+1. Navigate to `/admin?tab=operations` at 390x844 (mobile) viewport
+2. Screenshot to confirm visible horizontal scrollbar below the Farm Oversight table
+3. Navigate at 768px (tablet) viewport and screenshot
+4. Navigate at 1280px (desktop) viewport to confirm table fits without scrollbar
+5. If scrollbar still missing at mobile: STOP, report failure, inspect DOM to find the next ancestor clipping
 
+## Summary
+
+One single CSS change in `App.css`: remove `overflow-x: hidden` and `max-width: 100vw` from `#root`. That is the entire fix.
