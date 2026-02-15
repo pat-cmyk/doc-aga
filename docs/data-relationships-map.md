@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-15 (Add/Edit Animal Form SSOT Parity Alignment)
+Last updated: 2026-02-16 (Fix double-booking feed expenses in Finance)
 
 ---
 
@@ -1300,3 +1300,35 @@ Unified all "no data / unknown" dropdown and checkbox labels to a single SSOT la
 | `src/components/AnimalForm.tsx` | Unified labels; removed mother/father unknown checkboxes |
 | `src/components/animal-details/EditAnimalDialog.tsx` | Unified labels; removed mother/father unknown checkboxes |
 | `src/components/AnimalForm.test.tsx` | Updated test assertion to "No Data / Hindi Alam" |
+
+---
+
+**Date**: 2026-02-16
+
+**What changed**: Fix double-booking of feed expenses in Finance tab.
+
+**Problem**: Every feeding event created a `farm_expenses` row (per-animal cost allocation) in addition to the actual feed purchase expense. This inflated Finance P&L feed expenses by ~3x (e.g., Estehanon farm: ₱9,100 actual → ₱26,130 reported).
+
+**Root Cause**: `syncService.ts` (syncBulkFeeding + syncSingleFeed) and `RecordBulkFeedDialog.tsx` all inserted `farm_expenses` rows with description pattern `"<feed> feeding: X.XX kg"` for every feeding event. These are internal cost allocations, not cash outflows.
+
+**Fix**:
+- Removed expense creation blocks from `syncBulkFeeding()`, `syncSingleFeed()`, and `RecordBulkFeedDialog.tsx`
+- Soft-deleted 273 existing feeding allocation entries (₱73,644.30) across all farms
+- Per-animal feed costs remain tracked via `feeding_records.cost_per_kg_at_time` (SSOT for Herd Investment / Animal Cost Analysis)
+- `farm_expenses` now only contains actual cash purchases
+
+**SSOT Data Flow (Post-Fix)**:
+```
+Finance P&L (Money-In/Money-Out):
+  feed_inventory purchase → farm_expenses (category: Feed & Supplements, allocation: Capital)
+
+Per-Animal Cost Tracking (Herd Investment):
+  feeding_records.cost_per_kg_at_time → useAnimalExpenses → AnimalCostAnalysis
+```
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/lib/syncService.ts` | Removed feeding expense creation in syncBulkFeeding (lines 645-662) and syncSingleFeed (lines 735-748) |
+| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Removed feeding expense creation block (lines 304-328) |
+| `docs/data-relationships-map.md` | This entry |
