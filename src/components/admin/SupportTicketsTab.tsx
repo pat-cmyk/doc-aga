@@ -122,7 +122,7 @@ export const SupportTicketsTab = () => {
       </div>
 
       {/* Main Tickets Card */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -185,7 +185,6 @@ export const SupportTicketsTab = () => {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -244,7 +243,6 @@ export const SupportTicketsTab = () => {
                 )}
               </TableBody>
             </Table>
-            </div>
           )}
         </CardContent>
       </Card>
