@@ -1,83 +1,50 @@
 
 
-# Admin Dashboard Overflow Assessment and Fix Plan
+# Fix: Admin Dashboard Tables Not Scrolling on Mobile
 
-## Problems Found
+## Root Cause
 
-### 1. Main Navigation Tabs (all views, critical on mobile)
-The 5 main tabs (Dashboard, People, Operations, AI & Voice, System) use a `grid-cols-5` layout that squeezes on mobile, with text becoming truncated. No horizontal scroll is provided.
+The `Table` UI component already includes its own `overflow-auto` wrapper div internally (in `src/components/ui/table.tsx`, line 7). However, the parent `Card` component has **no overflow constraint** — it simply grows to fit its content. This means:
 
-**Fix**: Wrap the `TabsList` in a horizontally scrollable container on mobile with `overflow-x-auto` and gradient fade indicators on the edges.
+1. The table expands to its natural width
+2. The Card expands with it
+3. The Card overflows the viewport, but no scrollbar appears because `overflow-auto` only works when the container has a bounded width
 
-### 2. User Management Table (People > Users)
-On mobile, only Name and Email columns are visible. Phone, Roles, Farms, Joined, and Actions columns are completely hidden with no way to access them - no horizontal scroll wrapper exists.
+The extra `overflow-x-auto` wrapper divs added in the last edit are redundant because the Table component already has one built-in. The real fix is constraining the Card so the table's built-in scroll wrapper kicks in.
 
-**Fix**: Wrap the `Table` in a `div` with `overflow-x-auto` so users can scroll horizontally to see all columns.
+## Solution
 
-### 3. Farm Oversight Table (Operations > Farms)
-Same issue - 11 columns (Farm Name, Owner, Email, Phone, Region, Animals, Team Members, Category, Status, Created, Actions) are cut off on mobile with no scroll.
+Add `overflow-hidden` to each `Card` that contains a data table. This constrains the Card's width to its parent container, which in turn makes the Table's built-in `overflow-auto` wrapper produce a horizontal scrollbar.
 
-**Fix**: Wrap the `Table` in a `div` with `overflow-x-auto`.
+Also remove the redundant outer `overflow-x-auto` wrapper divs since the Table component already handles scrolling internally.
 
-### 4. Merchant Oversight Table (Operations > Merchants)
-6 columns with action buttons - same overflow issue on mobile.
-
-**Fix**: Wrap the `Table` in a `div` with `overflow-x-auto`.
-
-### 5. Support Tickets Table (Operations > Tickets)
-6 columns - same overflow issue.
-
-**Fix**: Wrap the `Table` in a `div` with `overflow-x-auto`.
-
-### 6. User Activity Logs Table (People > Activity Logs)
-6 columns including timestamps and descriptions - cut off on mobile.
-
-**Fix**: Wrap the `Table` in a `div` with `overflow-x-auto`.
-
-### 7. DocAga Management Sub-tabs (AI & Voice)
-6 sub-tabs (Analytics, Feedback, FAQ Candidates, Recent Queries, FAQ Management, Voice STT) use `flex-wrap` which causes them to flow onto multiple lines. The "Voice STT" tab may be hidden below the fold.
-
-**Fix**: Replace `flex-wrap` with `overflow-x-auto` and `flex-nowrap` for a horizontal scroll behavior, matching the pattern used elsewhere.
-
-### 8. System Tab Sub-tabs
-5 sub-tabs (Maintenance, Data Integrity, Sync Monitoring, QA & Tests, Configuration) also wrap onto two lines on mobile.
-
-**Fix**: Add `overflow-x-auto` to the TabsList for horizontal scroll.
-
-### 9. DocAga FAQ Management Table and Recent Queries Table
-These inner tables within DocAga also lack horizontal scroll wrappers.
-
-**Fix**: Wrap in `overflow-x-auto` containers.
-
-## Technical Details
-
-### Files to modify:
+## Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/admin/AdminLayout.tsx` | Make main `TabsList` horizontally scrollable on mobile (replace `grid-cols-5` with flex + `overflow-x-auto`) |
-| `src/components/admin/UserManagement.tsx` | Wrap `Table` in `overflow-x-auto` div |
-| `src/components/admin/FarmOversight.tsx` | Wrap `Table` in `overflow-x-auto` div |
-| `src/components/admin/MerchantOversight.tsx` | Wrap `Table` in `overflow-x-auto` div |
-| `src/components/admin/SupportTicketsTab.tsx` | Wrap `Table` in `overflow-x-auto` div |
-| `src/components/admin/UserActivityLogs.tsx` | Wrap `Table` in `overflow-x-auto` div |
-| `src/components/admin/DocAgaManagement.tsx` | Make inner `TabsList` scrollable; wrap FAQ and query tables in `overflow-x-auto` |
-| `src/components/admin/tabs/SystemTab.tsx` | Make `TabsList` horizontally scrollable |
+| `src/components/admin/FarmOversight.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
+| `src/components/admin/UserManagement.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
+| `src/components/admin/MerchantOversight.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
+| `src/components/admin/SupportTicketsTab.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
+| `src/components/admin/UserActivityLogs.tsx` | Add `overflow-hidden` to the border wrapper div |
+| `src/components/admin/DocAgaManagement.tsx` | Add `overflow-hidden` to Cards with tables; remove redundant `overflow-x-auto` divs |
 
-### Pattern to apply for tables:
+## Pattern
+
+Before (not working):
 ```text
-<div className="overflow-x-auto">
-  <Table>...</Table>
-</div>
+<Card>                          <!-- no width constraint, grows freely -->
+  <CardContent>
+    <div className="overflow-x-auto">   <!-- redundant -->
+      <Table>                           <!-- has built-in overflow-auto wrapper -->
 ```
 
-### Pattern to apply for tab lists:
+After (working):
 ```text
-<TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
-  ...tabs...
-</TabsList>
+<Card className="overflow-hidden">    <!-- constrains width to parent -->
+  <CardContent>
+    <Table>                            <!-- built-in overflow-auto now activates -->
 ```
 
-### No database changes required.
-### No new dependencies required.
+## No database changes, no new dependencies.
 
