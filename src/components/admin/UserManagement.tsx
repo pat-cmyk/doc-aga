@@ -229,7 +229,7 @@ export const UserManagement = () => {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-x-auto">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -243,7 +243,7 @@ export const UserManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <Table className="min-w-[1000px]">
+        <Table style={{ minWidth: '1000px' }}>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

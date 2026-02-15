@@ -122,7 +122,7 @@ export const SupportTicketsTab = () => {
       </div>
 
       {/* Main Tickets Card */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -185,7 +185,7 @@ export const SupportTicketsTab = () => {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <Table className="min-w-[800px]">
+            <Table style={{ minWidth: '800px' }}>
               <TableHeader>
                 <TableRow>
                   <TableHead>Ticket</TableHead>
