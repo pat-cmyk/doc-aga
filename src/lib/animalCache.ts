@@ -65,16 +65,14 @@ export async function updateAnimalCache(farmId: string, isOnline: boolean): Prom
     const mothers = (animals || [])
       .filter(a => 
         a.gender?.toLowerCase() === 'female' &&
-        a.birth_date &&
-        new Date(a.birth_date) <= sixteenMonthsAgo
+        (!a.birth_date || new Date(a.birth_date) <= sixteenMonthsAgo)
       )
       .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed, livestock_type: a.livestock_type }));
 
     const fathers = (animals || [])
       .filter(a => 
         a.gender?.toLowerCase() === 'male' &&
-        a.birth_date &&
-        new Date(a.birth_date) <= sixteenMonthsAgo
+        (!a.birth_date || new Date(a.birth_date) <= sixteenMonthsAgo)
       )
       .map(a => ({ id: a.id, name: a.name || '', ear_tag: a.ear_tag || '', breed: a.breed, livestock_type: a.livestock_type }));
 
