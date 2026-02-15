@@ -17,10 +17,11 @@
 .scrollbar-visible {
   overflow-x: auto;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 .scrollbar-visible::-webkit-scrollbar {
-  height: 8px;
-  display: block;
+  height: 10px;
+  display: block !important;
 }
 .scrollbar-visible::-webkit-scrollbar-track {
   background: hsl(var(--muted));
@@ -180,7 +181,7 @@ All colors MUST be HSL.
     width: 100%;
   }
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   /* Responsive Typography */

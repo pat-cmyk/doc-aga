@@ -346,7 +346,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table style={{ minWidth: '1200px' }}>
+          <Table style={{ minWidth: '1400px' }}>
             <TableHeader>
               <TableRow>
                 <TableHead>Farm Name</TableHead>
