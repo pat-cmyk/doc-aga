@@ -1305,30 +1305,36 @@ Unified all "no data / unknown" dropdown and checkbox labels to a single SSOT la
 
 **Date**: 2026-02-16
 
-**What changed**: Fix double-booking of feed expenses in Finance tab.
+**What changed**: Fix double-booking of feed expenses in Finance tab (complete fix).
 
-**Problem**: Every feeding event created a `farm_expenses` row (per-animal cost allocation) in addition to the actual feed purchase expense. This inflated Finance P&L feed expenses by ~3x (e.g., Estehanon farm: ₱9,100 actual → ₱26,130 reported).
+**Problem**: Every feeding event AND every feed purchase created duplicate `farm_expenses` rows:
+1. Feed purchases were double-entered: once by DB trigger (`trigger_feed_purchase_expense`) and once by application code (`AddFeedStockDialog.tsx`).
+2. Per-animal feeding allocations were written to `farm_expenses` by `syncService.ts`, `RecordBulkFeedDialog.tsx`, `RecordSingleFeedDialog.tsx`, and `EditFeedingRecordDialog.tsx`.
 
-**Root Cause**: `syncService.ts` (syncBulkFeeding + syncSingleFeed) and `RecordBulkFeedDialog.tsx` all inserted `farm_expenses` rows with description pattern `"<feed> feeding: X.XX kg"` for every feeding event. These are internal cost allocations, not cash outflows.
+**Root Cause**: DB trigger `trigger_feed_purchase_expense` on `feed_inventory` table duplicated purchase expenses. Multiple code paths created internal cost allocation entries in `farm_expenses`.
 
-**Fix**:
-- Removed expense creation blocks from `syncBulkFeeding()`, `syncSingleFeed()`, and `RecordBulkFeedDialog.tsx`
-- Soft-deleted 273 existing feeding allocation entries (₱73,644.30) across all farms
-- Per-animal feed costs remain tracked via `feeding_records.cost_per_kg_at_time` (SSOT for Herd Investment / Animal Cost Analysis)
-- `farm_expenses` now only contains actual cash purchases
+**Fix (3 layers)**:
+1. **Dropped DB trigger**: `trigger_feed_purchase_expense` and `create_feed_purchase_expense()` function removed via migration. `AddFeedStockDialog.tsx` is now the sole purchase expense creator.
+2. **Removed feeding allocation code** from: `syncService.ts`, `RecordBulkFeedDialog.tsx`, `RecordSingleFeedDialog.tsx`, `EditFeedingRecordDialog.tsx`
+3. **Data cleanup**: Soft-deleted all trigger-generated purchase duplicates and per-animal feeding allocation entries across all farms.
 
 **SSOT Data Flow (Post-Fix)**:
 ```
 Finance P&L (Money-In/Money-Out):
-  feed_inventory purchase → farm_expenses (category: Feed & Supplements, allocation: Capital)
+  AddFeedStockDialog → farm_expenses (category: Feed & Supplements, allocation: Capital)
+  [DB trigger removed — no longer creates duplicate entries]
 
 Per-Animal Cost Tracking (Herd Investment):
   feeding_records.cost_per_kg_at_time → useAnimalExpenses → AnimalCostAnalysis
+  [farm_expenses is NOT used for per-animal feed cost tracking]
 ```
 
 ### Files Modified
 | File | Change |
 |------|--------|
-| `src/lib/syncService.ts` | Removed feeding expense creation in syncBulkFeeding (lines 645-662) and syncSingleFeed (lines 735-748) |
-| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Removed feeding expense creation block (lines 304-328) |
+| `src/lib/syncService.ts` | Removed feeding expense creation in syncBulkFeeding and syncSingleFeed |
+| `src/components/feed-recording/RecordBulkFeedDialog.tsx` | Removed feeding expense creation block |
+| `src/components/feed-recording/RecordSingleFeedDialog.tsx` | Removed feeding expense creation block (lines 291-310) |
+| `src/components/feed-recording/EditFeedingRecordDialog.tsx` | Removed expense find/create/update block (lines 370-420) |
+| DB Migration | `DROP TRIGGER trigger_feed_purchase_expense`; `DROP FUNCTION create_feed_purchase_expense()` |
 | `docs/data-relationships-map.md` | This entry |

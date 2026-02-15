@@ -367,57 +367,8 @@ export function EditFeedingRecordDialog({
 
       if (updateError) throw updateError;
 
-      // ==========================================
-      // Step 3: Handle expense records
-      // ==========================================
-      const newCost = !isFreshCut && newCostPerKg ? Math.round(newKg * newCostPerKg * 100) / 100 : 0;
-
-      // Find existing expense record
-      const { data: existingExpenses } = await supabase
-        .from('farm_expenses')
-        .select('id')
-        .eq('animal_id', record.animal_id)
-        .eq('linked_feed_inventory_id', originalValues.feedInventoryId)
-        .ilike('description', `%${originalValues.kilograms.toFixed(2)} kg%`)
-        .limit(1);
-
-      const existingExpenseId = existingExpenses?.[0]?.id;
-
-      if (isFreshCut && existingExpenseId) {
-        // Delete expense if changed to Fresh Cut
-        await supabase
-          .from('farm_expenses')
-          .delete()
-          .eq('id', existingExpenseId);
-      } else if (!isFreshCut && newCost > 0 && user?.id) {
-        if (existingExpenseId) {
-          // Update existing expense
-          await supabase
-            .from('farm_expenses')
-            .update({
-              amount: newCost,
-              description: `${feedTypeName} feeding: ${newKg.toFixed(2)} kg`,
-              expense_date: format(recordDate, 'yyyy-MM-dd'),
-              linked_feed_inventory_id: newFeedInventoryId,
-            })
-            .eq('id', existingExpenseId);
-        } else {
-          // Create new expense
-          await supabase
-            .from('farm_expenses')
-            .insert({
-              animal_id: record.animal_id,
-              farm_id: farmId,
-              user_id: user.id,
-              category: 'Feed & Supplements',
-              amount: newCost,
-              description: `${feedTypeName} feeding: ${newKg.toFixed(2)} kg`,
-              expense_date: format(recordDate, 'yyyy-MM-dd'),
-              allocation_type: 'Operational',
-              linked_feed_inventory_id: newFeedInventoryId,
-            });
-        }
-      }
+      // NOTE: Per-animal feed costs are tracked in feeding_records.cost_per_kg_at_time (SSOT).
+      // farm_expenses is only for actual cash purchases, NOT per-animal feeding allocations.
 
       // ==========================================
       // Step 4: Invalidate queries

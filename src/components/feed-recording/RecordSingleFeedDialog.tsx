@@ -288,26 +288,8 @@ export function RecordSingleFeedDialog({
           console.error('Failed to create transaction:', txError);
         }
 
-        // Create expense record if cost data is available
-        if (cost && cost > 0 && user?.id) {
-          const { error: expenseError } = await supabase
-            .from('farm_expenses')
-            .insert({
-              animal_id: animalId,
-              farm_id: farmId,
-              user_id: user.id,
-              category: 'Feed & Supplements',
-              amount: cost,
-              description: `${feedTypeName} feeding: ${kg.toFixed(2)} kg`,
-              expense_date: format(recordDate, 'yyyy-MM-dd'),
-              allocation_type: 'Operational',
-              linked_feed_inventory_id: selectedFeedInventory.id,
-            });
-
-          if (expenseError) {
-            console.error('Failed to create expense record:', expenseError);
-          }
-        }
+            // NOTE: Per-animal feed costs are tracked in feeding_records.cost_per_kg_at_time (SSOT).
+            // farm_expenses is only for actual cash purchases, NOT per-animal feeding allocations.
       }
 
       // Invalidate queries
