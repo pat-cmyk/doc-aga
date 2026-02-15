@@ -247,7 +247,7 @@ export function EditAnimalDialog({
                         <SelectValue placeholder="Select breed / Pumili ng lahi" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no_data">No Data / Walang Data</SelectItem>
+                        <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
                         {availableBreeds.map((breed) => (
                           <SelectItem key={breed} value={breed}>
                             {breed}
@@ -321,7 +321,7 @@ export function EditAnimalDialog({
                           }))}
                         />
                         <label htmlFor="edit-birth-date-unknown" className="text-sm text-muted-foreground cursor-pointer">
-                          Unknown / Hindi Alam
+                          No Data / Hindi Alam
                         </label>
                       </div>
                     </div>
@@ -379,33 +379,16 @@ export function EditAnimalDialog({
                     <>
                       {/* Mother */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <BilingualLabel english="Mother" filipino="Ina" htmlFor="edit-mother" />
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="edit-mother-unknown"
-                              checked={formData.mother_unknown}
-                              onCheckedChange={(checked) => setFormData(prev => ({ 
-                                ...prev, 
-                                mother_unknown: checked === true,
-                                mother_id: checked === true ? "" : prev.mother_id
-                              }))}
-                            />
-                            <label htmlFor="edit-mother-unknown" className="text-sm text-muted-foreground cursor-pointer">
-                              Unknown / Hindi Alam
-                            </label>
-                          </div>
-                        </div>
+                        <BilingualLabel english="Mother" filipino="Ina" htmlFor="edit-mother" />
                         <Select
                           value={formData.mother_id || "none"}
                           onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }))}
-                          disabled={formData.mother_unknown}
                         >
-                          <SelectTrigger className={formData.mother_unknown ? "opacity-50" : ""}>
+                          <SelectTrigger>
                             <SelectValue placeholder="Select mother / Pumili ng ina" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None / Wala</SelectItem>
+                            <SelectItem value="none">No Data / Hindi Alam</SelectItem>
                             {mothers.map((mother) => (
                               <SelectItem key={mother.id} value={mother.id}>
                                 {getParentDisplayName(mother)}
@@ -417,23 +400,7 @@ export function EditAnimalDialog({
 
                       {/* Father */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <BilingualLabel english="Father" filipino="Ama" htmlFor="edit-father" />
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="edit-father-unknown"
-                              checked={formData.father_unknown}
-                              onCheckedChange={(checked) => setFormData(prev => ({ 
-                                ...prev, 
-                                father_unknown: checked === true,
-                                father_id: checked === true ? "" : prev.father_id
-                              }))}
-                            />
-                            <label htmlFor="edit-father-unknown" className="text-sm text-muted-foreground cursor-pointer">
-                              Unknown / Hindi Alam
-                            </label>
-                          </div>
-                        </div>
+                        <BilingualLabel english="Father" filipino="Ama" htmlFor="edit-father" />
                         <Select
                           value={formData.is_father_ai ? "ai" : (formData.father_id || "none")}
                           onValueChange={(value) => {
@@ -443,13 +410,12 @@ export function EditAnimalDialog({
                               setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value === "none" ? "" : value }));
                             }
                           }}
-                          disabled={formData.father_unknown}
                         >
-                          <SelectTrigger className={formData.father_unknown ? "opacity-50" : ""}>
+                          <SelectTrigger>
                             <SelectValue placeholder="Select father / Pumili ng ama" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None / Wala</SelectItem>
+                            <SelectItem value="none">No Data / Hindi Alam</SelectItem>
                             <SelectItem value="ai">🧬 AI / Artificial Insemination</SelectItem>
                             {fathers.map((father) => (
                               <SelectItem key={father.id} value={father.id}>
@@ -458,7 +424,7 @@ export function EditAnimalDialog({
                             ))}
                           </SelectContent>
                         </Select>
-                        {formData.is_father_ai && !formData.father_unknown && (
+                        {formData.is_father_ai && (
                           <div className="space-y-3 mt-2 p-3 bg-muted/30 rounded-lg">
                             <div className="space-y-2">
                               <BilingualLabel english="Bull Semen Brand" filipino="Brand ng Semen" htmlFor="edit-ai-bull-brand" />
@@ -488,7 +454,7 @@ export function EditAnimalDialog({
                                   <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="no_data">No Data / Walang Data</SelectItem>
+                                  <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
                                   {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
                                     <SelectItem key={breed} value={breed}>{breed}</SelectItem>
                                   ))}
@@ -526,7 +492,7 @@ export function EditAnimalDialog({
                             }))}
                           />
                           <label htmlFor="edit-entry-weight-unknown" className="text-sm text-muted-foreground cursor-pointer">
-                            No Data / Walang Data
+                            No Data / Hindi Alam
                           </label>
                         </div>
                       </div>

@@ -111,7 +111,7 @@ describe('AnimalForm', () => {
     await userEvent.click(breedTrigger);
 
     // The No Data option should be present
-    const noDataOption = await findByText('No Data / Walang Data');
+    const noDataOption = await findByText('No Data / Hindi Alam');
     expect(noDataOption).toBeInTheDocument();
   });
 

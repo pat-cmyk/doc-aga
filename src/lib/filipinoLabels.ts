@@ -24,8 +24,8 @@ export const labels = {
   // Dates
   birthDate: { english: "Birth Date", filipino: "Petsa ng Kapanganakan" },
   farmEntryDate: { english: "Farm Entry Date", filipino: "Petsa ng Pagpasok sa Farm" },
-  unknown: { english: "Unknown", filipino: "Hindi Alam" },
-  noData: { english: "No Data", filipino: "Walang Data" },
+  unknown: { english: "No Data", filipino: "Hindi Alam" },
+  noData: { english: "No Data", filipino: "Hindi Alam" },
   
   // Weight
   entryWeight: { english: "Entry Weight", filipino: "Timbang sa Pagpasok" },
