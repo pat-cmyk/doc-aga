@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-16 (Fix double-booking feed expenses in Finance)
+Last updated: 2026-02-16 (Link demo feeding to inventory with cost tracking)
 
 ---
 
@@ -1337,4 +1337,38 @@ Per-Animal Cost Tracking (Herd Investment):
 | `src/components/feed-recording/RecordSingleFeedDialog.tsx` | Removed feeding expense creation block (lines 291-310) |
 | `src/components/feed-recording/EditFeedingRecordDialog.tsx` | Removed expense find/create/update block (lines 370-420) |
 | DB Migration | `DROP TRIGGER trigger_feed_purchase_expense`; `DROP FUNCTION create_feed_purchase_expense()` |
+| `docs/data-relationships-map.md` | This entry |
+
+---
+
+### Entry 13: Link Demo Feeding Data to Farm Inventory (2026-02-16)
+
+**What changed**: `seed-demo-data` edge function now links feeding records to farm `feed_inventory` with proper cost tracking.
+
+**Problem**: Demo feeding records used hardcoded feed types with `feed_inventory_id = NULL` and `cost_per_kg_at_time = NULL`, breaking the cost tracking SSOT for demo farms.
+
+**Fix**:
+1. Feeding records now source from the farm's actual `feed_inventory` (FIFO, roughage-preferred).
+2. `feed_inventory_id` and `cost_per_kg_at_time` are populated from matched inventory items.
+3. Inventory `quantity_kg` is deducted after seeding (batch update).
+4. Farms with no inventory fall back to `"Fresh Cut & Carry"` with `cost_per_kg_at_time: 0`.
+5. Removed hardcoded `feedTypes` from `SPECIES_CONFIG`.
+
+**SSOT Data Flow (Demo Feeding)**:
+```
+feed_inventory (farm_id, quantity_kg > 0, FIFO by created_at)
+  → pickFeedSource() (prefer roughage category)
+  → feeding_records (feed_inventory_id, cost_per_kg_at_time, feed_type)
+  → batch UPDATE feed_inventory.quantity_kg (deduction)
+
+Fallback (no inventory):
+  → feeding_records (feed_type: "Fresh Cut & Carry", cost_per_kg_at_time: 0, feed_inventory_id: NULL)
+```
+
+**Summary output** now includes `inventory_linked` and `zero_cost_fallback` counts per farm.
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `supabase/functions/seed-demo-data/index.ts` | Replaced hardcoded feeding logic with inventory-linked selection + fallback |
 | `docs/data-relationships-map.md` | This entry |

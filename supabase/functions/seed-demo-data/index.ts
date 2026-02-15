@@ -30,7 +30,6 @@ interface SpeciesConfig {
   milkMax: number
   feedMin: number
   feedMax: number
-  feedTypes: string[]
   bcsMin: number
   bcsMax: number
   weightRanges: Record<string, [number, number]>
@@ -40,7 +39,6 @@ const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
   cattle: {
     milkMin: 8, milkMax: 25,
     feedMin: 8, feedMax: 15,
-    feedTypes: ['Napier Grass', 'Concentrate Feed', 'Rice Straw', 'Corn Silage'],
     bcsMin: 2.5, bcsMax: 4.0,
     weightRanges: {
       'Calf': [40, 120], 'Weaner': [120, 250], 'Yearling': [250, 380],
@@ -51,7 +49,6 @@ const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
   goat: {
     milkMin: 1, milkMax: 5,
     feedMin: 2, feedMax: 5,
-    feedTypes: ['Forage Mix', 'Pellets', 'Ipil-ipil Leaves', 'Sweet Potato Vines'],
     bcsMin: 2.5, bcsMax: 3.5,
     weightRanges: {
       'Kid': [3, 15], 'Yearling': [15, 30], 'Mature Doe': [30, 60],
@@ -61,7 +58,6 @@ const SPECIES_CONFIG: Record<string, SpeciesConfig> = {
   carabao: {
     milkMin: 4, milkMax: 10,
     feedMin: 10, feedMax: 20,
-    feedTypes: ['Grass', 'Rice Straw', 'Corn Stover', 'Concentrate'],
     bcsMin: 2.5, bcsMax: 4.0,
     weightRanges: {
       'Calf': [50, 150], 'Yearling': [150, 300], 'Mature Carabao': [400, 700],
@@ -77,6 +73,47 @@ const HEALTH_CHECKS = [
   { diagnosis: 'Vitamin Supplementation', treatment: 'Vitamin B complex injection administered' },
   { diagnosis: 'Hoof Trimming', treatment: 'Routine hoof maintenance performed' },
 ]
+
+interface InventoryItem {
+  id: string
+  feed_type: string
+  category: string | null
+  quantity_kg: number
+  cost_per_unit: number | null
+}
+
+/**
+ * Pick a feed source from inventory (prefer roughage), or fallback to Fresh Cut & Carry.
+ * Returns { feed_inventory_id, feed_type, cost_per_kg_at_time } and deducts from localBalances.
+ */
+function pickFeedSource(
+  inventory: InventoryItem[],
+  localBalances: Map<string, number>,
+  kg: number,
+  seed: string,
+): { feed_inventory_id: string | null; feed_type: string; cost_per_kg_at_time: number } {
+  // Filter to items with remaining balance
+  const available = inventory.filter(i => (localBalances.get(i.id) ?? 0) > 0)
+  if (available.length === 0) {
+    return { feed_inventory_id: null, feed_type: 'Fresh Cut & Carry', cost_per_kg_at_time: 0 }
+  }
+
+  // Prefer roughage
+  const roughage = available.filter(i => (i.category || '').toLowerCase() === 'roughage')
+  const pool = roughage.length > 0 ? roughage : available
+
+  const idx = Math.floor(seededRandom(seed) * pool.length)
+  const picked = pool[idx]
+  const balance = localBalances.get(picked.id) ?? 0
+  const deduct = Math.min(balance, kg)
+  localBalances.set(picked.id, balance - deduct)
+
+  return {
+    feed_inventory_id: picked.id,
+    feed_type: picked.feed_type,
+    cost_per_kg_at_time: picked.cost_per_unit ?? 0,
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -110,14 +147,12 @@ Deno.serve(async (req) => {
       }
       userId = claimsData.claims.sub as string
 
-      // Check super admin
       const { data: isAdmin } = await userClient.rpc('is_super_admin', { _user_id: userId })
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: 'Forbidden: super admin only' }), { status: 403, headers: corsHeaders })
       }
     }
 
-    // Use service role client for all data operations
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // 1. Fetch demo farms
@@ -155,12 +190,11 @@ Deno.serve(async (req) => {
       health_inserted: number
       bcs_inserted: number
       feeding_inserted: number
+      inventory_linked: number
+      zero_cost_fallback: number
     }> = []
 
-    // Process each farm
     for (const farm of demoFarms) {
-
-      // Fetch active animals for this farm
       const { data: animals, error: animErr } = await supabase
         .from('animals')
         .select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code, livestock_type')
@@ -172,13 +206,14 @@ Deno.serve(async (req) => {
 
       const animalIds = animals.map((a: any) => a.id)
 
-      // Fetch existing records in bulk
-      const [milkRes, weightRes, healthRes, bcsRes, feedRes] = await Promise.all([
+      // Fetch existing records + farm inventory in parallel
+      const [milkRes, weightRes, healthRes, bcsRes, feedRes, invRes] = await Promise.all([
         supabase.from('milking_records').select('animal_id, record_date, session').in('animal_id', animalIds).gte('record_date', sevenDaysAgoStr),
         supabase.from('weight_records').select('animal_id').in('animal_id', animalIds).gte('measurement_date', thirtyDaysAgoStr),
         supabase.from('health_records').select('animal_id').in('animal_id', animalIds).gte('visit_date', thirtyDaysAgoStr),
         supabase.from('body_condition_scores').select('animal_id').in('animal_id', animalIds).gte('assessment_date', thirtyDaysAgoStr),
         supabase.from('feeding_records').select('animal_id, record_datetime').in('animal_id', animalIds).gte('record_datetime', sevenDaysAgo.toISOString()),
+        supabase.from('feed_inventory').select('id, feed_type, category, quantity_kg, cost_per_unit').eq('farm_id', farm.id).gt('quantity_kg', 0).order('created_at', { ascending: true }),
       ])
 
       // Build sets for existing data
@@ -191,11 +226,20 @@ Deno.serve(async (req) => {
         return `${r.animal_id}_${d}`
       }))
 
+      // Inventory: build local balance tracker (FIFO deduction)
+      const farmInventory: InventoryItem[] = (invRes.data || []) as InventoryItem[]
+      const localBalances = new Map<string, number>()
+      for (const item of farmInventory) {
+        localBalances.set(item.id, Number(item.quantity_kg))
+      }
+
       const milkInserts: any[] = []
       const weightInserts: any[] = []
       const healthInserts: any[] = []
       const bcsInserts: any[] = []
       const feedInserts: any[] = []
+      let inventoryLinked = 0
+      let zeroCostFallback = 0
 
       for (const animal of animals) {
         const animalSpecies = (animal.livestock_type || farm.livestock_type || 'cattle').toLowerCase()
@@ -210,7 +254,6 @@ Deno.serve(async (req) => {
             date.setDate(date.getDate() - d)
             const dateStr = date.toISOString().split('T')[0]
 
-            // Skip if any session already exists for this animal+date
             const hasAM = existingMilk.has(`${animal.id}_${dateStr}_AM`)
             const hasPM = existingMilk.has(`${animal.id}_${dateStr}_PM`)
             const hasFullDay = existingMilk.has(`${animal.id}_${dateStr}_Full Day`)
@@ -259,7 +302,6 @@ Deno.serve(async (req) => {
         // BCS: if none in last 30 days
         if (!animalsWithBCS.has(animal.id)) {
           const score = roundTo(randBetween(config.bcsMin, config.bcsMax, `${animal.id}_bcs`), 1)
-          // Round to nearest 0.5
           const roundedScore = Math.round(score * 2) / 2
           bcsInserts.push({
             animal_id: animal.id,
@@ -270,7 +312,7 @@ Deno.serve(async (req) => {
           })
         }
 
-        // Feeding: daily for last 7 days
+        // Feeding: daily for last 7 days — linked to inventory
         for (let d = 1; d <= 7; d++) {
           const date = new Date(now)
           date.setDate(date.getDate() - d)
@@ -278,13 +320,22 @@ Deno.serve(async (req) => {
           const feedKey = `${animal.id}_${dateStr}`
 
           if (!existingFeed.has(feedKey)) {
-            const feedTypeIdx = Math.floor(seededRandom(`${animal.id}_ft_${dateStr}`) * config.feedTypes.length)
             const kg = roundTo(randBetween(config.feedMin, config.feedMax, `${animal.id}_fkg_${dateStr}`), 1)
+            const source = pickFeedSource(farmInventory, localBalances, kg, `${animal.id}_finv_${dateStr}`)
+
+            if (source.feed_inventory_id) {
+              inventoryLinked++
+            } else {
+              zeroCostFallback++
+            }
+
             feedInserts.push({
               animal_id: animal.id,
               record_datetime: `${dateStr}T07:00:00+08:00`,
-              feed_type: config.feedTypes[feedTypeIdx],
+              feed_type: source.feed_type,
               kilograms: kg,
+              feed_inventory_id: source.feed_inventory_id,
+              cost_per_kg_at_time: source.cost_per_kg_at_time,
               notes: 'Auto-seeded demo data',
             })
           }
@@ -316,6 +367,18 @@ Deno.serve(async (req) => {
         if (!error) feedCount += Math.min(batchSize, feedInserts.length - i)
       }
 
+      // Batch update inventory balances (deduct consumed amounts)
+      for (const item of farmInventory) {
+        const originalQty = Number(item.quantity_kg)
+        const newBalance = localBalances.get(item.id) ?? originalQty
+        if (newBalance < originalQty) {
+          await supabase
+            .from('feed_inventory')
+            .update({ quantity_kg: newBalance, last_updated: new Date().toISOString() })
+            .eq('id', item.id)
+        }
+      }
+
       summary.push({
         farm_id: farm.id,
         farm_name: farm.name,
@@ -326,6 +389,8 @@ Deno.serve(async (req) => {
         health_inserted: healthCount,
         bcs_inserted: bcsCount,
         feeding_inserted: feedCount,
+        inventory_linked: inventoryLinked,
+        zero_cost_fallback: zeroCostFallback,
       })
     }
 
