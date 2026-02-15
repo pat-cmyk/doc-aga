@@ -840,12 +840,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
               <BilingualLabel english="Breed" filipino="Lahi" htmlFor="breed" />
               <Select
                 value={formData.breed}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value, breed1: "", breed2: "" }))}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value === "no_data" ? "" : value, breed1: "", breed2: "" }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select breed / Pumili ng lahi" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="no_data">No Data / Walang Data</SelectItem>
                   {availableBreeds.map((breed) => (
                     <SelectItem key={breed} value={breed}>
                       {breed}
@@ -1024,7 +1025,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None / Wala</SelectItem>
-                  <SelectItem value="ai">Artificial Insemination / AI</SelectItem>
+                  <SelectItem value="ai">🧬 AI / Artificial Insemination</SelectItem>
                   {fathers.map((father) => (
                     <SelectItem key={father.id} value={father.id}>
                       {father.name || father.ear_tag || "Unnamed"}
@@ -1054,26 +1055,25 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                     placeholder="Enter bull reference or name"
                   />
                 </div>
-                {formData.animal_type === "offspring" && (
-                  <div className="space-y-2">
-                    <BilingualLabel english="Bull Breed" filipino="Lahi ng Toro" required htmlFor="ai_bull_breed" />
-                    <Select
-                      value={formData.ai_bull_breed}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                          <SelectItem key={breed} value={breed}>
-                            {breed}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <BilingualLabel english="Bull Breed" filipino="Lahi ng Toro" htmlFor="ai_bull_breed" />
+                  <Select
+                    value={formData.ai_bull_breed || "no_data"}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no_data">No Data / Walang Data</SelectItem>
+                      {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
+                        <SelectItem key={breed} value={breed}>
+                          {breed}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             )}
           </div>

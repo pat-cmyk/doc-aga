@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-13 (Add feed intake overlay to Milk Production Chart)
+Last updated: 2026-02-15 (Add/Edit Animal Form SSOT Parity Alignment)
 
 ---
 
@@ -1229,3 +1229,45 @@ feeding_records (record_datetime, kilograms, animal_id)
 - Toggle only appears when feed data exists for the period
 - Left Y-axis: Milk (Liters, blue area); Right Y-axis: Feed (kg, orange line)
 - Tooltip shows feed:milk ratio when both values present
+
+---
+
+## Entry 10: Add/Edit Animal Form SSOT Parity Alignment
+
+**Date:** 2026-02-15
+
+### Summary
+Aligned Add Animal (`AnimalForm.tsx`) and Edit Animal (`EditAnimalDialog.tsx`) forms for full field parity per SSOT Architecture standards.
+
+### Changes Applied
+
+| Gap | Fix |
+|-----|-----|
+| Add form breed Select missing "No Data / Walang Data" | Added `<SelectItem value="no_data">` with mapping to empty string |
+| AI Bull Breed only shown for offspring in Add form | Removed `animal_type === "offspring"` guard; now shown for all types when AI father selected |
+| AI Bull Breed missing "No Data" option in Add form | Added "No Data / Walang Data" option |
+| Edit form AI Bull Breed `no_data` not mapped to `""` | Added `value === "no_data" ? "" : value` mapping |
+| AI option label inconsistency | Standardized to `"🧬 AI / Artificial Insemination"` in both forms |
+| Edit form `is_father_ai` hardcoded `false` | `useEditAnimalForm` now queries `ai_records` table on load; pre-populates brand, reference, breed |
+
+### Data Flow (AI Father Detection on Edit)
+```
+ai_records (animal_id, semen_code, notes)
+  → useEditAnimalForm.ts (useEffect on animal load)
+  → EditAnimalFormData.is_father_ai / ai_bull_brand / ai_bull_reference / ai_bull_breed
+  → EditAnimalDialog.tsx (AI Bull fields rendered)
+```
+
+### Shared Component Inventory (verified)
+- `BilingualLabel`, `GenderSelector`, `LactatingToggle`, `WeightHintBadge`
+- `LIVESTOCK_BREEDS` / `getBreedsByLivestockType` constants
+- `calculateMilkingStageFromDays` function
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/components/AnimalForm.tsx` | Added "No Data" to breed & AI breed selects; removed offspring guard; standardized AI label |
+| `src/components/animal-details/EditAnimalDialog.tsx` | Fixed AI breed `no_data` → `""` mapping |
+| `src/components/animal-details/hooks/useEditAnimalForm.ts` | Added AI records query on form init |
+| `src/components/AnimalForm.test.tsx` | Added parity test cases |
+| `docs/ssot-architecture.md` | New: SSOT Architecture reference document |
