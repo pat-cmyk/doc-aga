@@ -235,10 +235,10 @@ export function EditAnimalDialog({
                   <div className="space-y-2">
                     <BilingualLabel english="Breed" filipino="Lahi" htmlFor="edit-breed" />
                     <Select
-                      value={formData.breed}
+                      value={formData.breed || "no_data"}
                       onValueChange={(value) => setFormData(prev => ({ 
                         ...prev, 
-                        breed: value, 
+                        breed: value === "no_data" ? "" : value, 
                         breed1: "", 
                         breed2: "" 
                       }))}
@@ -247,6 +247,7 @@ export function EditAnimalDialog({
                         <SelectValue placeholder="Select breed / Pumili ng lahi" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="no_data">No Data / Walang Data</SelectItem>
                         {availableBreeds.map((breed) => (
                           <SelectItem key={breed} value={breed}>
                             {breed}
@@ -479,12 +480,20 @@ export function EditAnimalDialog({
                             </div>
                             <div className="space-y-2">
                               <BilingualLabel english="AI Bull Breed" filipino="Lahi ng Toro (AI)" htmlFor="edit-ai-bull-breed" />
-                              <Input
-                                id="edit-ai-bull-breed"
+                              <Select
                                 value={formData.ai_bull_breed}
-                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_breed: e.target.value }))}
-                                placeholder="Enter AI bull breed"
-                              />
+                                onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="no_data">No Data / Walang Data</SelectItem>
+                                  {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
+                                    <SelectItem key={breed} value={breed}>{breed}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                         )}
