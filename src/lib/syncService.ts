@@ -642,24 +642,8 @@ async function syncBulkFeed(item: QueueItem): Promise<void> {
     }
   }
 
-  // Create expense records if costs are provided
-  const expenseRecords = feedRecords
-    .filter(record => record.cost && record.cost > 0)
-    .map((record) => ({
-      animal_id: record.animalId,
-      farm_id: farmId,
-      user_id: user?.id,
-      category: 'Feed & Supplements',
-      amount: record.cost!,
-      description: `${feedType} feeding: ${record.kilograms.toFixed(2)} kg`,
-      expense_date: recordDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-      allocation_type: 'Operational',
-      linked_feed_inventory_id: feedInventoryId || null,
-    }));
-
-  if (expenseRecords.length > 0 && user?.id) {
-    await supabase.from('farm_expenses').insert(expenseRecords);
-  }
+  // NOTE: Per-animal feed costs are tracked in feeding_records.cost_per_kg_at_time (SSOT).
+  // farm_expenses is only for actual cash purchases, NOT per-animal feeding allocations.
 }
 
 /**
@@ -732,20 +716,8 @@ async function syncSingleFeed(item: QueueItem): Promise<void> {
     }
   }
 
-  // Create expense record if cost data is available
-  if (singleFeed.cost && singleFeed.cost > 0 && user?.id) {
-    await supabase.from('farm_expenses').insert({
-      animal_id: singleFeed.animalId,
-      farm_id: farmId,
-      user_id: user.id,
-      category: 'Feed & Supplements',
-      amount: singleFeed.cost,
-      description: `${singleFeed.feedType} feeding: ${singleFeed.kilograms.toFixed(2)} kg`,
-      expense_date: singleFeed.recordDate.split('T')[0],
-      allocation_type: 'Operational',
-      linked_feed_inventory_id: singleFeed.feedInventoryId || null,
-    });
-  }
+  // NOTE: Per-animal feed costs are tracked in feeding_records.cost_per_kg_at_time (SSOT).
+  // farm_expenses is only for actual cash purchases, NOT per-animal feeding allocations.
 }
 
 /**
