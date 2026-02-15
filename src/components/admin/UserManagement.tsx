@@ -229,7 +229,7 @@ export const UserManagement = () => {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -243,7 +243,6 @@ export const UserManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -377,7 +376,6 @@ export const UserManagement = () => {
             ))}
           </TableBody>
         </Table>
-        </div>
       </CardContent>
 
       {/* User Detail Panel */}
