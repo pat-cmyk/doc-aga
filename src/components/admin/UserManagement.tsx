@@ -8,8 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { UserDetailPanel } from "./UserDetailPanel";
+import { EditUserDialog } from "./EditUserDialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { Eye, Ban } from "lucide-react";
+import { Eye, Ban, Pencil, CheckCircle } from "lucide-react";
 
 type UserRole = "admin" | "farmer_owner" | "farmhand" | "merchant" | "vet" | "government";
 
@@ -29,6 +42,11 @@ export const UserManagement = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserWithDetails | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false);
+  const [disableTargetUser, setDisableTargetUser] = useState<UserWithDetails | null>(null);
+  const [disableReason, setDisableReason] = useState("");
 
   useEffect(() => {
     checkSuperAdmin();
@@ -162,6 +180,35 @@ export const UserManagement = () => {
     },
   });
 
+  const toggleDisableMutation = useMutation({
+    mutationFn: async ({ userId, disable, reason }: { userId: string; disable: boolean; reason: string }) => {
+      const rpcName = disable ? "admin_disable_user" : "admin_enable_user";
+      const { data, error } = await supabase.rpc(rpcName, {
+        _profile_id: userId,
+        _reason: reason,
+      });
+      if (error) throw error;
+      return { disable };
+    },
+    onSuccess: (result) => {
+      toast({
+        title: result.disable ? "User Disabled" : "User Enabled",
+        description: `User account has been ${result.disable ? "disabled" : "enabled"}.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setDisableDialogOpen(false);
+      setDisableTargetUser(null);
+      setDisableReason("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case "admin":
@@ -253,16 +300,43 @@ export const UserManagement = () => {
                   {new Date(user.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
+                      title="View details"
                       onClick={() => {
                         setSelectedUserId(user.id);
                         setDetailPanelOpen(true);
                       }}
                     >
                       <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Edit profile"
+                      onClick={() => {
+                        setEditUser(user);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title={user.is_disabled ? "Enable user" : "Disable user"}
+                      onClick={() => {
+                        setDisableTargetUser(user);
+                        setDisableDialogOpen(true);
+                      }}
+                    >
+                      {user.is_disabled ? (
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Ban className="h-4 w-4 text-destructive" />
+                      )}
                     </Button>
                     <Select
                       disabled={addRoleMutation.isPending || removeRoleMutation.isPending}
@@ -313,6 +387,64 @@ export const UserManagement = () => {
           if (!open) setSelectedUserId(null);
         }}
       />
+
+      {/* Edit User Dialog */}
+      <EditUserDialog
+        user={editUser}
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) setEditUser(null);
+        }}
+      />
+
+      {/* Disable/Enable Confirmation Dialog */}
+      <AlertDialog open={disableDialogOpen} onOpenChange={(open) => {
+        setDisableDialogOpen(open);
+        if (!open) {
+          setDisableTargetUser(null);
+          setDisableReason("");
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {disableTargetUser?.is_disabled ? "Enable User" : "Disable User"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {disableTargetUser?.is_disabled
+                ? `Re-enable access for ${disableTargetUser?.full_name || "this user"}?`
+                : `This will prevent ${disableTargetUser?.full_name || "this user"} from logging in. Please provide a reason.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="disableReason">Reason *</Label>
+            <Textarea
+              id="disableReason"
+              value={disableReason}
+              onChange={(e) => setDisableReason(e.target.value)}
+              placeholder="Why is this action being taken?"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!disableReason.trim() || toggleDisableMutation.isPending}
+              onClick={() => {
+                if (disableTargetUser) {
+                  toggleDisableMutation.mutate({
+                    userId: disableTargetUser.id,
+                    disable: !disableTargetUser.is_disabled,
+                    reason: disableReason,
+                  });
+                }
+              }}
+            >
+              {disableTargetUser?.is_disabled ? "Enable" : "Disable"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
