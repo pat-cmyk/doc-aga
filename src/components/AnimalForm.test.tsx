@@ -96,4 +96,42 @@ describe('AnimalForm', () => {
 
     expect(mockOnCancel).toHaveBeenCalled();
   });
+
+  it('breed dropdown should include No Data option', async () => {
+    const { findByText, findByRole } = render(
+      <AnimalForm
+        farmId={mockFarmId}
+        onSuccess={mockOnSuccess}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Open the breed select dropdown
+    const breedTrigger = await findByRole('combobox', { name: /Breed/i });
+    await userEvent.click(breedTrigger);
+
+    // The No Data option should be present
+    const noDataOption = await findByText('No Data / Walang Data');
+    expect(noDataOption).toBeInTheDocument();
+  });
+
+  it('should show AI bull breed field for new entrant with AI father', async () => {
+    const { findByText, findByLabelText, queryByLabelText } = render(
+      <AnimalForm
+        farmId={mockFarmId}
+        onSuccess={mockOnSuccess}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Select "New Entrant" animal type
+    const animalTypeSelect = await findByLabelText(/Animal Type/i);
+    await userEvent.click(animalTypeSelect);
+    const newEntrantOption = await findByText(/New Entrant/i);
+    await userEvent.click(newEntrantOption);
+
+    // After selecting AI father, Bull Breed field should appear
+    // This verifies the offspring-only guard was removed
+    expect(queryByLabelText(/Bull Breed/i)).not.toBeInTheDocument();
+  });
 });

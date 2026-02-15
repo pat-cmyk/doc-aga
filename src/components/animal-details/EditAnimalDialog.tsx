@@ -482,7 +482,7 @@ export function EditAnimalDialog({
                               <BilingualLabel english="AI Bull Breed" filipino="Lahi ng Toro (AI)" htmlFor="edit-ai-bull-breed" />
                               <Select
                                 value={formData.ai_bull_breed}
-                                onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value }))}
+                                onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }))}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />

@@ -186,11 +186,42 @@ export const useEditAnimalForm = (
     loadParents();
   }, [farmId, animal?.id]);
 
-  // Initialize form data from animal
+  // Initialize form data from animal + load AI records
   useEffect(() => {
-    if (animal) {
+    if (!animal) return;
+
+    const loadFormData = async () => {
       const breedParts = parseBreed(animal.breed);
-      
+
+      // Check for existing AI records to pre-populate AI father fields
+      let aiData = { is_father_ai: false, ai_bull_brand: "", ai_bull_reference: "", ai_bull_breed: "" };
+      try {
+        const { data: aiRecords } = await supabase
+          .from("ai_records")
+          .select("semen_code, notes, technician")
+          .eq("animal_id", animal.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (aiRecords && aiRecords.length > 0) {
+          const record = aiRecords[0];
+          // Parse notes for brand/reference if stored there (format: "Brand: X | Ref: Y | Breed: Z")
+          const notes = record.notes || "";
+          const brandMatch = notes.match(/Brand:\s*([^|]+)/i);
+          const refMatch = notes.match(/Ref:\s*([^|]+)/i);
+          const breedMatch = notes.match(/Breed:\s*([^|]+)/i);
+
+          aiData = {
+            is_father_ai: true,
+            ai_bull_brand: brandMatch ? brandMatch[1].trim() : "",
+            ai_bull_reference: refMatch ? refMatch[1].trim() : (record.semen_code || ""),
+            ai_bull_breed: breedMatch ? breedMatch[1].trim() : "",
+          };
+        }
+      } catch (error) {
+        console.error("Error loading AI records:", error);
+      }
+
       const newFormData: EditAnimalFormData = {
         name: animal.name || "",
         ear_tag: animal.ear_tag || "",
@@ -207,10 +238,10 @@ export const useEditAnimalForm = (
         mother_unknown: animal.mother_unknown || false,
         father_id: animal.father_id || "",
         father_unknown: animal.father_unknown || false,
-        is_father_ai: false, // Will need to detect from AI records if needed
-        ai_bull_brand: "",
-        ai_bull_reference: "",
-        ai_bull_breed: "",
+        is_father_ai: aiData.is_father_ai,
+        ai_bull_brand: aiData.ai_bull_brand,
+        ai_bull_reference: aiData.ai_bull_reference,
+        ai_bull_breed: aiData.ai_bull_breed,
         entry_weight_kg: animal.entry_weight_kg?.toString() || "",
         entry_weight_unknown: animal.entry_weight_unknown || false,
         birth_weight_kg: animal.birth_weight_kg?.toString() || "",
@@ -222,11 +253,13 @@ export const useEditAnimalForm = (
         is_currently_lactating: animal.is_currently_lactating || false,
         estimated_days_in_milk: animal.estimated_days_in_milk || 60,
       };
-      
+
       setFormData(newFormData);
       setOriginalFormData(newFormData);
       setHasChanges(false);
-    }
+    };
+
+    loadFormData();
   }, [animal]);
 
   // Track changes
