@@ -528,7 +528,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
 
         {/* Recent Queries Tab */}
         <TabsContent value="queries" className="space-y-4">
-          <Card className="scrollbar-visible">
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -612,7 +612,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
 
         {/* FAQ Management Tab */}
         <TabsContent value="faqs" className="space-y-4">
-          <Card className="scrollbar-visible">
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>

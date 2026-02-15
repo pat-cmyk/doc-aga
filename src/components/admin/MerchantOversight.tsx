@@ -95,7 +95,7 @@ export const MerchantOversight = () => {
       </div>
 
       {/* Merchants Table */}
-      <Card className="scrollbar-visible">
+      <Card>
         <CardHeader>
           <CardTitle>Merchant Management</CardTitle>
         </CardHeader>
