@@ -1,80 +1,75 @@
 
+# Fix: Mother Dropdown Empty — Birth Date Filter Too Strict
 
-# Clean Fix: Admin Table Horizontal Scrollbars (From Scratch)
+## Root Cause (Verified via Database Query)
 
-## Root Cause (FINAL)
+The mother dropdown shows **zero animals** because of an overly strict filter in the animal cache (`src/lib/animalCache.ts`).
 
-The entire overflow chain has been blocking table scrollbars across all previous attempts. Here is the full ancestor chain and the problem at each level:
+The filter requires mothers to:
+1. Be female -- all 7 animals pass
+2. Have a `birth_date` set (not null) -- **6 out of 7 fail** (all have `birth_date: null` except SalRen)
+3. Be born at least 16 months ago -- SalRen fails (born 2025-03-10, only ~11 months old)
+
+**Result: 0 animals pass the mother filter. The dropdown is empty.**
+
+This affects the **Add Animal form** (`AnimalForm.tsx`) which uses the cache. The **Edit Animal dialog** (`EditAnimalDialog.tsx`) uses a separate query without the birth_date filter, so it should work correctly.
+
+### Database Evidence
 
 ```text
-body          overflow-x: hidden  (index.css line 183) -- clips descendants
-  #root       overflow-x: hidden  (App.css line 7)     -- clips descendants AGAIN
-    .container  (no overflow set)
-      Card      (no overflow set -- good after previous fixes)
-        Table wrapper div  overflow-x: auto + scrollbar-visible  (table.tsx)
-          <table style="min-width: 1200px">
+Name     | birth_date | Passes filter?
+---------|------------|---------------
+Balat    | null       | NO (no birth_date)
+Black    | null       | NO (no birth_date)
+Blessie  | null       | NO (no birth_date)
+Cookie   | null       | NO (no birth_date)
+Lavina   | null       | NO (no birth_date)
+Pula     | null       | NO (no birth_date)
+SalRen   | 2025-03-10 | NO (only 11 months old)
 ```
 
-The Table wrapper correctly has `overflow-x: auto` and `scrollbar-visible`. The `<table>` element correctly has `minWidth: 1200px` via inline style. But the scrollbar is invisible because `#root` (and `body`) both have `overflow-x: hidden`, which creates clipping contexts that prevent ANY descendant from rendering a visible scrollbar.
+## The Fix
 
-## The Fix: 2 Files Only
+### File: `src/lib/animalCache.ts` (lines 61-68)
 
-### 1. `src/App.css` -- Remove `overflow-x: hidden` from `#root`
+Change the mother/father filter to include animals with unknown birth dates. Animals without a `birth_date` should still be eligible as parents (the farmer entered them as adults without recording birth date).
 
-The `#root` element should NOT clip overflow. It should allow nested scroll containers to work. Change:
-
-```css
-#root {
-  width: 100%;
-  min-width: 0;
-  margin: 0 auto;
-  padding: 0;
-}
-
-@media (min-width: 769px) {
-  #root {
-    max-width: 1280px;
-  }
-}
+**Current logic:**
+```typescript
+const mothers = (animals || [])
+  .filter(a => 
+    a.gender?.toLowerCase() === 'female' &&
+    a.birth_date &&                              // PROBLEM: excludes null
+    new Date(a.birth_date) <= sixteenMonthsAgo   // PROBLEM: excludes young
+  )
 ```
 
-Key changes:
-- Remove `overflow-x: hidden` (the blocker)
-- Remove `max-width: 100vw` (redundant -- body already constrains width, and this can also interfere with nested scroll containers)
+**Fixed logic:**
+```typescript
+const mothers = (animals || [])
+  .filter(a => 
+    a.gender?.toLowerCase() === 'female' &&
+    (!a.birth_date || new Date(a.birth_date) <= sixteenMonthsAgo)
+  )
+```
 
-### 2. `src/index.css` -- Keep `body { overflow-x: hidden }` but confirm it does NOT clip nested scroll
+The same fix applies to the `fathers` filter on lines 70-76.
 
-`body { overflow-x: hidden }` prevents the page itself from scrolling horizontally (which is correct -- we don't want the whole page to slide left/right). Crucially, `overflow-x: hidden` on `body` does NOT clip nested scroll containers inside `#root` as long as `#root` itself does not also have `overflow-x: hidden`.
+**Logic explanation:** If birth_date is unknown (null), include the animal as a potential parent. If birth_date IS known, only include if the animal is old enough (16+ months). This matches real-world usage: farmers enter adult animals without birth dates, and those animals are clearly old enough to be parents.
 
-No changes needed to `index.css` -- the current body rule is correct.
+### File: `src/components/animal-details/hooks/useEditAnimalForm.ts`
 
-### No changes to any admin component files
+No changes needed. This file already uses a simple gender-only filter (line 176), which is correct for the edit dialog.
 
-The previous fixes to table components are all correct:
-- `table.tsx` wrapper div has `scrollbar-visible` (single scroll point) -- correct
-- All admin tables pass `style={{ minWidth: '...' }}` to `<Table>` -- correct  
-- All Cards have no overflow classes -- correct
+## Files to Change
 
-## Why Previous Attempts Failed
-
-Every previous fix correctly addressed the Table/Card level, but the `#root` ancestor with `overflow-x: hidden` was always clipping the scrollbar from above. This is the foundational constraint that was never removed.
-
-## Responsive Behavior (all viewports)
-
-| Viewport | Behavior |
-|----------|----------|
-| Desktop (1280px+) | Table fits naturally, no scrollbar needed (1200px table fits in ~1280px container) |
-| Tablet (769-1279px) | Table may overflow slightly, scrollbar appears when needed |
-| Mobile (< 769px) | Table overflows significantly, persistent visible scrollbar via `scrollbar-visible` CSS |
+| File | Change |
+|------|--------|
+| `src/lib/animalCache.ts` | Update mother AND father filters to include animals with null birth_date |
 
 ## Verification Plan
 
-1. Navigate to `/admin?tab=operations` at 390x844 (mobile) viewport
-2. Screenshot to confirm visible horizontal scrollbar below the Farm Oversight table
-3. Navigate at 768px (tablet) viewport and screenshot
-4. Navigate at 1280px (desktop) viewport to confirm table fits without scrollbar
-5. If scrollbar still missing at mobile: STOP, report failure, inspect DOM to find the next ancestor clipping
-
-## Summary
-
-One single CSS change in `App.css`: remove `overflow-x: hidden` and `max-width: 100vw` from `#root`. That is the entire fix.
+1. After the fix, navigate to the farm page for SSG Cattle
+2. Open "Add Animal" form and select "Offspring" type
+3. Confirm the Mother dropdown now shows 6 female names (Balat, Black, Blessie, Cookie, Lavina, Pula) -- SalRen excluded as too young
+4. Confirm the Edit dialog also shows mothers correctly (it should already work)
