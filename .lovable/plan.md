@@ -1,50 +1,40 @@
 
+# Fix: Force Horizontal Scrollbar on Admin Data Tables
 
-# Fix: Admin Dashboard Tables Not Scrolling on Mobile
+## Root Cause (Third Time's the Charm)
 
-## Root Cause
+The `table` element in the `Table` component has `w-full`, which means it always shrinks to fit its container. CSS tables naturally compress their columns to avoid overflow. So even with `overflow-auto` on the wrapper and `overflow-hidden` on the Card, the table just squeezes its columns until they're unreadable -- it never actually overflows.
 
-The `Table` UI component already includes its own `overflow-auto` wrapper div internally (in `src/components/ui/table.tsx`, line 7). However, the parent `Card` component has **no overflow constraint** — it simply grows to fit its content. This means:
+**The fix**: Give each table a `min-width` so it cannot shrink below a readable size. Once the table is wider than the container, the existing `overflow-auto` wrapper in the Table component will produce a visible horizontal scrollbar.
 
-1. The table expands to its natural width
-2. The Card expands with it
-3. The Card overflows the viewport, but no scrollbar appears because `overflow-auto` only works when the container has a bounded width
+## Changes
 
-The extra `overflow-x-auto` wrapper divs added in the last edit are redundant because the Table component already has one built-in. The real fix is constraining the Card so the table's built-in scroll wrapper kicks in.
+### 1. `src/components/admin/FarmOversight.tsx`
+- Add `className="min-w-[1200px]"` to the `<Table>` component (11 columns, needs wide min-width)
 
-## Solution
+### 2. `src/components/admin/UserManagement.tsx`
+- Add `className="min-w-[1000px]"` to the `<Table>` component
 
-Add `overflow-hidden` to each `Card` that contains a data table. This constrains the Card's width to its parent container, which in turn makes the Table's built-in `overflow-auto` wrapper produce a horizontal scrollbar.
+### 3. `src/components/admin/MerchantOversight.tsx`
+- Add `className="min-w-[800px]"` to the `<Table>` component (6 columns)
 
-Also remove the redundant outer `overflow-x-auto` wrapper divs since the Table component already handles scrolling internally.
+### 4. `src/components/admin/SupportTicketsTab.tsx`
+- Add `className="min-w-[800px]"` to the `<Table>` component (6 columns)
 
-## Files to Change
+### 5. `src/components/admin/UserActivityLogs.tsx`
+- Add `className="min-w-[800px]"` to the `<Table>` component
 
-| File | Change |
-|------|--------|
-| `src/components/admin/FarmOversight.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
-| `src/components/admin/UserManagement.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
-| `src/components/admin/MerchantOversight.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
-| `src/components/admin/SupportTicketsTab.tsx` | Add `overflow-hidden` to Card; remove redundant `overflow-x-auto` div |
-| `src/components/admin/UserActivityLogs.tsx` | Add `overflow-hidden` to the border wrapper div |
-| `src/components/admin/DocAgaManagement.tsx` | Add `overflow-hidden` to Cards with tables; remove redundant `overflow-x-auto` divs |
+### 6. `src/components/admin/DocAgaManagement.tsx`
+- Add `className="min-w-[700px]"` to the Recent Queries table
+- Add `className="min-w-[700px]"` to the FAQ Management table
 
-## Pattern
+## How It Works
 
-Before (not working):
 ```text
-<Card>                          <!-- no width constraint, grows freely -->
-  <CardContent>
-    <div className="overflow-x-auto">   <!-- redundant -->
-      <Table>                           <!-- has built-in overflow-auto wrapper -->
-```
-
-After (working):
-```text
-<Card className="overflow-hidden">    <!-- constrains width to parent -->
-  <CardContent>
-    <Table>                            <!-- built-in overflow-auto now activates -->
+Container (Card with overflow-hidden)
+  -> Table wrapper div (overflow-auto) -- built into Table component
+    -> table (min-w-[1200px]) -- FORCES the table to be at least 1200px wide
+       -> columns stay readable, scrollbar appears when viewport < 1200px
 ```
 
 ## No database changes, no new dependencies.
-
