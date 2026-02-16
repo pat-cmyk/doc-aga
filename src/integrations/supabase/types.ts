@@ -1903,6 +1903,7 @@ export type Database = {
           feed_inventory_id: string | null
           feed_type: string | null
           id: string
+          input_method: string
           kilograms: number | null
           notes: string | null
           record_datetime: string
@@ -1916,6 +1917,7 @@ export type Database = {
           feed_inventory_id?: string | null
           feed_type?: string | null
           id?: string
+          input_method?: string
           kilograms?: number | null
           notes?: string | null
           record_datetime: string
@@ -1929,6 +1931,7 @@ export type Database = {
           feed_inventory_id?: string | null
           feed_type?: string | null
           id?: string
+          input_method?: string
           kilograms?: number | null
           notes?: string | null
           record_datetime?: string
@@ -1998,6 +2001,7 @@ export type Database = {
           created_by: string | null
           diagnosis: string | null
           id: string
+          input_method: string
           notes: string | null
           resolution_notes: string | null
           treatment: string | null
@@ -2010,6 +2014,7 @@ export type Database = {
           created_by?: string | null
           diagnosis?: string | null
           id?: string
+          input_method?: string
           notes?: string | null
           resolution_notes?: string | null
           treatment?: string | null
@@ -2022,6 +2027,7 @@ export type Database = {
           created_by?: string | null
           diagnosis?: string | null
           id?: string
+          input_method?: string
           notes?: string | null
           resolution_notes?: string | null
           treatment?: string | null
@@ -2215,6 +2221,7 @@ export type Database = {
           created_by: string | null
           dosage: string | null
           id: string
+          input_method: string
           instructions: string | null
           medicine_name: string | null
           photo_path: string | null
@@ -2226,6 +2233,7 @@ export type Database = {
           created_by?: string | null
           dosage?: string | null
           id?: string
+          input_method?: string
           instructions?: string | null
           medicine_name?: string | null
           photo_path?: string | null
@@ -2237,6 +2245,7 @@ export type Database = {
           created_by?: string | null
           dosage?: string | null
           id?: string
+          input_method?: string
           instructions?: string | null
           medicine_name?: string | null
           photo_path?: string | null
@@ -2597,6 +2606,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          input_method: string
           is_sold: boolean | null
           liters: number
           price_per_liter: number | null
@@ -2610,6 +2620,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          input_method?: string
           is_sold?: boolean | null
           liters?: number
           price_per_liter?: number | null
@@ -2623,6 +2634,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          input_method?: string
           is_sold?: boolean | null
           liters?: number
           price_per_liter?: number | null
@@ -2842,6 +2854,7 @@ export type Database = {
           created_at: string
           farm_id: string
           id: string
+          input_method: string
           rejection_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -2857,6 +2870,7 @@ export type Database = {
           created_at?: string
           farm_id: string
           id?: string
+          input_method?: string
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2872,6 +2886,7 @@ export type Database = {
           created_at?: string
           farm_id?: string
           id?: string
+          input_method?: string
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -3851,6 +3866,7 @@ export type Database = {
           client_generated_id: string | null
           created_at: string
           id: string
+          input_method: string
           measurement_date: string
           measurement_method: string | null
           notes: string | null
@@ -3862,6 +3878,7 @@ export type Database = {
           client_generated_id?: string | null
           created_at?: string
           id?: string
+          input_method?: string
           measurement_date: string
           measurement_method?: string | null
           notes?: string | null
@@ -3873,6 +3890,7 @@ export type Database = {
           client_generated_id?: string | null
           created_at?: string
           id?: string
+          input_method?: string
           measurement_date?: string
           measurement_method?: string | null
           notes?: string | null
@@ -4087,6 +4105,17 @@ export type Database = {
           p_monthly_end_date: string
           p_monthly_start_date: string
           p_start_date: string
+        }
+        Returns: Json
+      }
+      get_data_entry_analytics: {
+        Args: {
+          _data_category?: string
+          _end_date?: string
+          _municipality?: string
+          _province?: string
+          _region?: string
+          _start_date?: string
         }
         Returns: Json
       }
