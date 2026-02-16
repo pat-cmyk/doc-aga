@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
+import { MilkQualityFields } from "@/components/milk-recording/MilkQualityFields";
+import type { MilkQuality } from "@/constants/milkQuality";
 
 interface EditMilkRecordDialogProps {
   open: boolean;
@@ -28,6 +30,8 @@ export function EditMilkRecordDialog({
 }: EditMilkRecordDialogProps) {
   const [liters, setLiters] = useState(record.liters_remaining.toString());
   const [date, setDate] = useState<Date>(new Date(record.record_date));
+  const [milkQuality, setMilkQuality] = useState<MilkQuality>((record as any).milk_quality || 'good');
+  const [rejectionReason, setRejectionReason] = useState((record as any).milk_quality_rejection_reason || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
 
@@ -41,37 +45,40 @@ export function EditMilkRecordDialog({
     setIsSubmitting(true);
     try {
       const newDate = format(date, "yyyy-MM-dd");
+      const isRejected = milkQuality === 'rejected';
       
       // Update milk_inventory table directly
       const { error: invError } = await supabase
         .from("milk_inventory")
         .update({
-          liters_remaining: newLiters,
+          liters_remaining: isRejected ? 0 : newLiters,
           liters_original: newLiters,
           record_date: newDate,
+          is_available: !isRejected,
         })
         .eq("id", record.id);
       
       if (invError) throw invError;
       
-      // Also update the underlying milking_record
+      // Also update the underlying milking_record (trigger will also fire)
       const { error: mrError } = await supabase
         .from("milking_records")
         .update({
           liters: newLiters,
           record_date: newDate,
-        })
+          milk_quality: milkQuality,
+          milk_quality_rejection_reason: rejectionReason || null,
+        } as any)
         .eq("id", record.milking_record_id);
       
       if (mrError) throw mrError;
       
-      // Refetch to sync
       await queryClient.refetchQueries({ 
         queryKey: ['milk-inventory', farmId],
         type: 'active',
       });
       
-      toast.success("Milk record updated");
+      toast.success(isRejected ? "Milk record updated (Rejected)" : "Milk record updated");
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update milk record:", error);
@@ -83,12 +90,12 @@ export function EditMilkRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[400px] max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Milk Record</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="liters">Amount (Liters)</Label>
             <Input
@@ -128,13 +135,20 @@ export function EditMilkRecordDialog({
               </PopoverContent>
             </Popover>
           </div>
+
+          <MilkQualityFields
+            milkQuality={milkQuality}
+            rejectionReason={rejectionReason}
+            onQualityChange={setMilkQuality}
+            onRejectionReasonChange={setRejectionReason}
+          />
           
           <div className="text-sm text-muted-foreground">
             Animal: {record.animal_name || record.ear_tag || "Unknown"}
           </div>
         </div>
         
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

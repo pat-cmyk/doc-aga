@@ -430,6 +430,8 @@ async function syncBulkMilk(item: QueueItem): Promise<void> {
     created_by: user?.id,
     is_sold: false,
     client_generated_id: `${item.optimisticId}_milk_${index}`,
+    milk_quality: record.milkQuality || 'good',
+    milk_quality_rejection_reason: record.rejectionReason || null,
   }));
 
   const { data: insertedRecords, error } = await supabase
@@ -519,7 +521,9 @@ async function syncSingleMilk(item: QueueItem): Promise<void> {
       created_by: user?.id,
       is_sold: false,
       client_generated_id: clientId,
-    })
+      milk_quality: singleMilk.milkQuality || 'good',
+      milk_quality_rejection_reason: singleMilk.rejectionReason || null,
+    } as any)
     .select()
     .single();
 

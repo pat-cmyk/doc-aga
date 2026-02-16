@@ -2609,6 +2609,8 @@ export type Database = {
           input_method: string
           is_sold: boolean | null
           liters: number
+          milk_quality: string
+          milk_quality_rejection_reason: string | null
           price_per_liter: number | null
           record_date: string
           sale_amount: number | null
@@ -2623,6 +2625,8 @@ export type Database = {
           input_method?: string
           is_sold?: boolean | null
           liters?: number
+          milk_quality?: string
+          milk_quality_rejection_reason?: string | null
           price_per_liter?: number | null
           record_date: string
           sale_amount?: number | null
@@ -2637,6 +2641,8 @@ export type Database = {
           input_method?: string
           is_sold?: boolean | null
           liters?: number
+          milk_quality?: string
+          milk_quality_rejection_reason?: string | null
           price_per_liter?: number | null
           record_date?: string
           sale_amount?: number | null
