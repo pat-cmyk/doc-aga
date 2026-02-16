@@ -938,6 +938,16 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     )}
                   </p>
                 </div>
+                {/* Source Farm */}
+                <div>
+                  <p className="text-muted-foreground">Source Farm</p>
+                  <p className="font-medium">
+                    {animal.source_farm
+                      ? animal.source_farm
+                      : <span className="text-muted-foreground italic">No data available</span>
+                    }
+                  </p>
+                </div>
               </>
             )}
             {/* Birth Weight for offspring (no farm_entry_date) */}
