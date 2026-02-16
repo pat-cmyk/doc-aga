@@ -50,7 +50,8 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 | **Animal Weight** | `weight_records` (latest) → DB trigger → `animals.current_weight_kg` |
 | **OVR Scores** | `milking/weight/bcs/health/ai records` → `calculate_animal_ovr` SQL trigger → `animal_ovr_cache` → `useBatchOVRSummary` (list) + `useBioCardData` (BioCard/Summary) — **server-side computation ONLY, no client-side calc** |
 | **Feed Inventory** | `feeding_records` → `feed_inventory_id` + `cost_per_kg_at_time` (cost locked at consumption) |
-| **Herd Investment** | `animals.purchase_cost` + `farm_expenses` (manual) + `feeding_records` (auto-calculated) |
+| **Milk Feeding** | `milk_inventory` (good/rejected) → `FeedMilkToAnimalDialog` (FIFO) → `feeding_records` (`milk_inventory_id` + `cost_per_kg_at_time`: market price for good, ₱0 for rejected) → `useHerdInvestment` + `useAnimalExpenses` |
+| **Herd Investment** | `animals.purchase_cost` + `farm_expenses` (manual) + `feeding_records` (auto-calculated, includes milk feeding) |
 | **Feed Stock Days** | Roughage inventory only → `useFeedInventory` hook → survival buffer |
 | **Parent Eligibility** | `animals` → filter by gender + (`birth_date` is null OR age >= 16 months) → mother/father dropdowns |
 | **AI Father Detection** | `ai_records` (animal_id) → `useEditAnimalForm` → pre-populate `is_father_ai`, brand, reference, breed |

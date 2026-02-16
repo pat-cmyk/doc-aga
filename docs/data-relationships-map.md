@@ -1442,3 +1442,41 @@ DB triggers (milking/weight/BCS/health/AI records)
 | `src/lib/ovrScoreCalculator.ts` | Added deprecation notice; `calculateOVRScore()` no longer called |
 | `src/hooks/useBatchOVRSummary.ts` | Updated SSOT comment to reflect server-only computation |
 | `docs/data-relationships-map.md` | This entry |
+
+---
+
+### 2026-02-16: Milk-to-Calf Feeding + Rejected Milk Inventory
+
+**Problem:** Rejected milk was zeroed out and hidden from inventory. No way to feed milk (good or rejected) to animals with cost tracking.
+
+**SSOT Data Flow:**
+```text
+milking_records (quality: good/rejected)
+  → DB trigger: sync_milk_inventory_on_insert
+milk_inventory
+  ├── milk_quality = 'good', is_available = true   → Sellable Stock
+  └── milk_quality = 'rejected', is_available = true → Rejected Stock (feedable)
+  → FeedMilkToAnimalDialog (FIFO deduction)
+  → feeding_records
+    ├── feed_type = 'Whole Milk' (good) or 'Waste Milk' (rejected)
+    ├── milk_inventory_id = UUID (links to batch)
+    ├── cost_per_kg_at_time = price/L (good) or 0 (rejected)
+    └── kilograms = liters (1:1 approximation)
+  → useHerdInvestment (auto-sums feed costs)
+  → useAnimalExpenses (auto-sums per-animal)
+```
+
+**Schema Changes:**
+- `milk_inventory`: Added `milk_quality TEXT DEFAULT 'good'`, `milk_quality_rejection_reason TEXT`
+- `feeding_records`: Added `milk_inventory_id UUID REFERENCES milk_inventory(id)`
+- Updated triggers: `sync_milk_inventory_on_insert/update` — rejected milk stays available for feeding
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/hooks/useMilkInventory.ts` | Added `rejectedData` query for rejected milk inventory |
+| `src/components/milk-inventory/MilkInventoryTab.tsx` | Added rejected stock section with amber border |
+| `src/components/milk-inventory/MilkStockList.tsx` | Added `stockType` prop, "Feed to Animal" button |
+| `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx` | **NEW** — FIFO milk feeding with animal selector, hints, cost display |
+| `src/components/FeedingRecords.tsx` | Added milk emoji for Whole/Waste Milk feed types |
+| `docs/data-relationships-map.md` | This entry |

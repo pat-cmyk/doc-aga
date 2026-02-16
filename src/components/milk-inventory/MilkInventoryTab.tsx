@@ -16,7 +16,7 @@ interface MilkInventoryTabProps {
 export function MilkInventoryTab({ farmId, canManage = true }: MilkInventoryTabProps) {
   const [activeSubTab, setActiveSubTab] = useState("stock");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data, isLoading, refetch } = useMilkInventory(farmId);
+  const { data, rejectedData, isLoading, refetch } = useMilkInventory(farmId);
   const isOnline = useOnlineStatus();
 
   const handleRefresh = async () => {
@@ -68,12 +68,35 @@ export function MilkInventoryTab({ farmId, canManage = true }: MilkInventoryTabP
           </TabsList>
 
           <TabsContent value="stock">
+            {/* Sellable Stock */}
             <MilkStockList 
               farmId={farmId} 
               data={data} 
               isLoading={isLoading}
               canManage={canManage}
+              stockType="good"
             />
+
+            {/* Rejected Stock Section */}
+            {rejectedData && rejectedData.summary.totalLiters > 0 && (
+              <div className="mt-6">
+                <div className="rounded-lg border-2 border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 p-1">
+                  <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+                    <span className="text-lg">⚠️</span>
+                    <h3 className="font-semibold text-amber-700 dark:text-amber-400 text-sm">
+                      Rejected Milk — Not for Sale (Feedable)
+                    </h3>
+                  </div>
+                  <MilkStockList
+                    farmId={farmId}
+                    data={rejectedData}
+                    isLoading={false}
+                    canManage={canManage}
+                    stockType="rejected"
+                  />
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="history">
