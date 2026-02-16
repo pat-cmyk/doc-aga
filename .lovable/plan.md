@@ -1,47 +1,61 @@
 
 
-# Fix Avatar Upload Error + Photo Source Selection
+# Add "Source Farm" Field to Animal Acquisition
 
-## Problem
+## What This Does
 
-1. **Upload Error (22P02)**: The upload path in `AnimalDetails.tsx` (line 485) is `avatars/${fileName}` -- missing the farm UUID prefix. The RLS policy requires the first folder segment to be a valid farm UUID: `(storage.foldername(name))[1]::uuid`. This is the PRIMARY bug still causing the error.
+Adds a new open text field called **"Source Farm"** (Pinagmulan na Farm) that appears for **both** "Purchased" and "Grant" acquisition types. This lets farmers record the name of the farm where the animal originally came from.
 
-2. **Same issue in health dialog**: `RecordSingleHealthDialog.tsx` (line 174) uses `health/${fileName}` instead of `${farmId}/health/${fileName}`.
+## Technical Plan
 
-3. **Photo source selection**: On mobile/tablet, tapping the upload button should offer both Camera and Photo Library options. On desktop/laptop, it should open a standard file picker. The `CameraPhotoInput` component already handles native platforms correctly (uses `CameraSource.Prompt` which shows camera + gallery), but on mobile web browsers the file input should include the `capture` attribute option to also trigger camera access.
+### 1. Database Migration
+Add a new nullable column `source_farm` (text) to the `animals` table.
 
-## Changes
+```sql
+ALTER TABLE public.animals ADD COLUMN source_farm text;
+```
 
-### 1. `src/components/AnimalDetails.tsx` (line 485)
-- Change `const filePath = \`avatars/\${fileName}\`` to `const filePath = \`\${farmId}/avatars/\${fileName}\``
-- `farmId` is already available as a component prop (line 232)
+### 2. SSOT Data Flow
 
-### 2. `src/components/health-recording/RecordSingleHealthDialog.tsx` (line 174)
-- Change `const filePath = \`health/\${fileName}\`` to `const filePath = \`\${farmId}/health/\${fileName}\``
-- `farmId` is already available as a component prop (line 40)
+```text
+animals.source_farm (DB column)
+       |
+       v
+AnimalFormData / useAnimalForm.ts (Add form state)
+useEditAnimalForm.ts (Edit form state)
+EditAcquisitionWeightDialog.tsx (Edit acquisition dialog state)
+       |
+       v
+AnimalForm.tsx (Add form UI - new Input field)
+EditAnimalDialog sections (Edit form UI)
+EditAcquisitionWeightDialog.tsx (Quick-edit dialog UI)
+       |
+       v
+AnimalProfile.tsx (Display - optional, shows source farm in details)
+```
 
-### 3. `src/components/ui/camera-photo-input.tsx` (web file input)
-- For web (non-native), remove the single hidden file input and replace with two options shown via a small dropdown/popover:
-  - "Take Photo" (sets `capture="environment"` on the file input for mobile browsers to open camera directly)
-  - "Choose from Library" (standard file input with `accept="image/*"` for gallery/folder access)
-- On desktop browsers, the `capture` attribute is ignored, so both options effectively open the file picker -- simplify to just show one "Choose Photo" button on desktop
-- Use `Capacitor.isNativePlatform()` (already imported) to determine behavior:
-  - **Native (Android/iOS)**: Current behavior unchanged -- `CameraSource.Prompt` already shows camera + gallery picker natively
-  - **Mobile web**: Show the file input without `capture` attribute, which on most mobile browsers shows the "Camera or Photo Library" chooser by default with `accept="image/*"`
-  - **Desktop web**: Standard file picker (current behavior, unchanged)
+### 3. Files to Modify (7 files)
 
-### 4. `src/components/health-records/AddHealthRecordDialog.tsx` (line 125)
-- This component appears to be dead code (not imported anywhere). Add `farmId` prop and fix path as a preventive measure: `const filePath = \`\${farmId}/health/\${fileName}\``
+| File | Change |
+|------|--------|
+| **`src/components/animal-form/hooks/useAnimalForm.ts`** | Add `source_farm: string` to `AnimalFormData` interface, initialize to `""`, include in `animalData` payload (only for new entrants when acquisition_type is purchased or grant) |
+| **`src/components/AnimalForm.tsx`** | Add `source_farm` to initial state and `resetForm()`. Add a new `Input` field inside the acquisition section (line ~829), shown when acquisition_type is either "purchased" or "grant" |
+| **`src/components/animal-details/hooks/useEditAnimalForm.ts`** | Add `source_farm` to `EditAnimalFormData` interface, `AnimalData` interface, initial state, `loadAnimalData`, and `saveChanges` |
+| **`src/components/animal-details/EditAcquisitionWeightDialog.tsx`** | Add `source_farm` to `currentValues` interface, local state, and save logic. Add Input field in the form |
+| **`src/components/animal-details/hooks/useAnimalDetails.ts`** | Add `source_farm` to the `Animal` interface (data already fetched via `select("*")`) |
+| **`src/components/animal-form/VoiceQuickAdd.tsx`** | Add `source_farm` to the voice-parsed data interface (optional, nullable) |
+| **`docs/data-relationships-map.md`** | Document the new column in the animals table schema |
 
-## No Database Changes Needed
+### 4. UI Placement
 
-The four RLS policies (select, insert, update, delete) on `animal-photos` bucket are correctly configured. The fix is purely client-side path construction.
+The new field appears **inside** the acquisition section, just below the Purchase Price (for purchased) or Grant Source (for grant) fields:
 
-## Verification Plan
+- Label: **"Source Farm / Pinagmulan na Farm"** (using BilingualLabel)
+- Input placeholder: `"Enter farm name / Ilagay ang pangalan ng farm"`
+- Optional field (not required)
+- Visible for both `purchased` and `grant` acquisition types
 
-1. Navigate to an animal detail page at mobile viewport (390x844)
-2. Tap the avatar upload button
-3. Confirm photo source options appear (camera + library on mobile, file picker on desktop)
-4. Select a photo and confirm upload succeeds (no 22P02 error)
-5. Confirm the avatar image renders correctly with the new storage path
-6. Test health record photo upload similarly
+### 5. Form Parity (Add = Edit)
+
+Both the Add Animal form (`AnimalForm.tsx`) and Edit Animal form (`useEditAnimalForm.ts` + `EditAcquisitionWeightDialog.tsx`) will have the same field, same label, and same behavior -- maintaining SSOT form parity as required by architecture standards.
+
