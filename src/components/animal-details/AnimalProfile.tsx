@@ -87,7 +87,7 @@ export const AnimalProfile = ({
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${animal.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `${animal.farm_id}/avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('animal-photos')
