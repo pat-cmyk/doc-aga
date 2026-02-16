@@ -1513,3 +1513,98 @@ Raw Error (Supabase/PostgreSQL)
 - `src/hooks/useVoiceRecording.ts` — Internal error propagation (throws, never toasts)
 - `src/hooks/useIntegrityScan.ts` — Internal error wrapping for re-throw
 - `src/hooks/useRegionalStats.ts` — Console.error only (no toast)
+
+---
+
+## 10) Cooperative Module
+
+### Tables
+
+#### `cooperatives`
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `id` | uuid | NO | `gen_random_uuid()` | PK |
+| `name` | text | NO | — | Cooperative name |
+| `admin_user_id` | uuid | NO | — | FK → `auth.users.id` — single admin |
+| `region` | text | YES | — | |
+| `municipality` | text | YES | — | |
+| `logo_url` | text | YES | — | |
+| `created_at` | timestamptz | NO | `now()` | |
+| `updated_at` | timestamptz | NO | `now()` | |
+
+**Tenancy**: User-scoped (`admin_user_id = auth.uid()`). No farm-level tenancy.
+
+#### `cooperative_memberships`
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `id` | uuid | NO | `gen_random_uuid()` | PK |
+| `cooperative_id` | uuid | NO | — | FK → `cooperatives.id` |
+| `farm_id` | uuid | NO | — | FK → `farms.id` |
+| `invited_email` | text | NO | — | Farm owner's email |
+| `invitation_status` | text | NO | `'pending'` | `pending` / `accepted` / `declined` |
+| `invitation_token` | uuid | NO | `gen_random_uuid()` | For acceptance link |
+| `token_expires_at` | timestamptz | NO | `now() + 7 days` | |
+| `invited_at` | timestamptz | NO | `now()` | |
+| `accepted_at` | timestamptz | YES | — | Set on accept |
+| `created_at` | timestamptz | NO | `now()` | |
+
+**Tenancy**: `cooperative_id` (cooperative-scoped). Farm owners can view/update their own invitations.
+
+### RLS Policies
+
+| Table | Policy | Rule |
+|-------|--------|------|
+| `cooperatives` | Admin SELECT own | `auth.uid() = admin_user_id` |
+| `cooperatives` | Admin UPDATE own | `auth.uid() = admin_user_id` |
+| `cooperative_memberships` | Coop admin full access | `cooperative_id` in cooperatives where `admin_user_id = auth.uid()` |
+| `cooperative_memberships` | Farm owner view own | `farm_id` in farms where `owner_id = auth.uid()` |
+| `cooperative_memberships` | Farm owner update own | `farm_id` in farms where `owner_id = auth.uid()` |
+
+### Aggregation RPCs (SECURITY DEFINER)
+
+All RPCs verify the caller is the cooperative admin via `auth.uid()` before querying.
+
+| RPC | Parameters | Returns |
+|-----|-----------|---------|
+| `get_cooperative_herd_summary` | `_cooperative_id uuid` | Total animals, breed distribution, species breakdown across accepted member farms |
+| `get_cooperative_milk_production` | `_cooperative_id uuid` | Daily milk totals (last 30 days), per-farm breakdown |
+| `get_cooperative_health_overview` | `_cooperative_id uuid` | Health diagnoses, mortality count across member farms |
+| `get_cooperative_financial_summary` | `_cooperative_id uuid` | Aggregated revenue and expenses across member farms |
+| `get_cooperative_member_farms` | `_cooperative_id uuid` | List of accepted member farms with animal counts and milk totals |
+| `invite_farm_to_cooperative` | `_cooperative_id uuid, _farm_owner_email text` | Creates pending membership row; validates farm exists |
+
+### Data Flow
+
+```text
+cooperative_memberships (invitation_status = 'accepted')
+  → SECURITY DEFINER RPCs (verify admin_user_id = auth.uid())
+    → Query farm-scoped tables (animals, milking_records, health_records, farm_expenses, farm_revenues)
+      → Return aggregated JSON
+        → useCooperative hooks (src/hooks/useCooperative.ts)
+          → CooperativeDashboard tabs (Overview, MemberFarms, MilkAnalytics, HerdSummary, Health, Financials, Settings)
+```
+
+**Key isolation principle**: Cooperative reads are entirely via SECURITY DEFINER functions. No existing farm RLS policies are modified. The cooperative role has zero direct access to farm-scoped tables.
+
+### Invitation Flow
+
+```text
+1. Cooperative admin → CooperativeInviteFarmDialog → invite_farm_to_cooperative RPC
+2. RPC creates cooperative_memberships row (status: pending, token generated)
+3. Farm owner receives link → /cooperative/invite/accept/:token
+4. CooperativeInviteAccept.tsx validates token, shows Accept/Decline
+5. On accept → invitation_status = 'accepted', accepted_at = now()
+6. Dashboard RPCs now include that farm's data in aggregations
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `src/pages/CooperativeAuth.tsx` | Login page for cooperative admins |
+| `src/pages/CooperativeDashboard.tsx` | Dashboard shell with 7 tabs |
+| `src/pages/CooperativeInviteAccept.tsx` | Invitation acceptance page for farm owners |
+| `src/hooks/useCooperative.ts` | SSOT hooks for all cooperative data fetching |
+| `src/components/cooperative/*` | All dashboard tab components + invite dialog |

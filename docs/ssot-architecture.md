@@ -55,6 +55,7 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 | **Feed Stock Days** | Roughage inventory only → `useFeedInventory` hook → survival buffer |
 | **Parent Eligibility** | `animals` → filter by gender + (`birth_date` is null OR age >= 16 months) → mother/father dropdowns |
 | **AI Father Detection** | `ai_records` (animal_id) → `useEditAnimalForm` → pre-populate `is_father_ai`, brand, reference, breed |
+| **Cooperative Aggregation** | `cooperative_memberships` (accepted farms) → SECURITY DEFINER RPCs (`get_cooperative_herd_summary`, `get_cooperative_milk_production`, `get_cooperative_health_overview`, `get_cooperative_financial_summary`) → `useCooperative` hooks → `CooperativeDashboard` tabs. **Note:** Cooperative reads are entirely via SECURITY DEFINER functions and do not touch existing farm RLS policies. |
 
 ---
 
