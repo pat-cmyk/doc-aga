@@ -97,7 +97,7 @@ export function MicrophonePermissionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -117,7 +117,7 @@ export function MicrophonePermissionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <p className="text-sm font-medium">How to enable:</p>
           {getPlatformInstructions()}
         </div>

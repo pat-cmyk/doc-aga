@@ -89,11 +89,11 @@ export function AddPreventiveHealthDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Preventive Health Schedule</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4">
           <div className="space-y-2">
             <Label>Type</Label>
             <div className="flex gap-2">

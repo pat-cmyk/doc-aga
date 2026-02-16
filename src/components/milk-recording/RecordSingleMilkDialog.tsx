@@ -262,7 +262,7 @@ export function RecordSingleMilkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Milk className="h-5 w-5 text-blue-500" />
@@ -286,7 +286,7 @@ export function RecordSingleMilkDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4 px-1">
           {/* Animal Display (read-only) */}
           <div className="rounded-lg border bg-muted/30 p-3">
             <Label className="text-xs text-muted-foreground">Animal</Label>

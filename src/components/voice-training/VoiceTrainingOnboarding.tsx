@@ -24,7 +24,7 @@ export function VoiceTrainingOnboarding({
 }: VoiceTrainingOnboardingProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Mic className="h-8 w-8 text-primary" />

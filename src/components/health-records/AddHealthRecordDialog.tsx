@@ -268,12 +268,12 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
           Add Record
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-full sm:max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full sm:max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Health Record</DialogTitle>
           <DialogDescription>Record veterinary visits and treatments</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4">
           <div className="space-y-2">
             <Label htmlFor="visit_date">Visit Date *</Label>
             <Input

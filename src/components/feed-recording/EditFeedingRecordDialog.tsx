@@ -404,7 +404,7 @@ export function EditFeedingRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-5 w-5 text-primary" />
@@ -420,7 +420,7 @@ export function EditFeedingRecordDialog({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 px-1">
             {/* Date Selection */}
             <div className="space-y-2">
               <Label>Date</Label>

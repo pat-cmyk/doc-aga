@@ -59,7 +59,7 @@ export const AddToCartDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add to Cart</DialogTitle>
           <DialogDescription>
@@ -67,7 +67,7 @@ export const AddToCartDialog = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="flex gap-4">
             {product.image_url && (
               <img

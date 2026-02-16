@@ -158,7 +158,7 @@ function BreedingEventActionDialog({
           {buttonLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {icon}
@@ -168,7 +168,7 @@ function BreedingEventActionDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4">
           <div>
             <Label>Notes (Optional)</Label>
             <Textarea

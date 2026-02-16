@@ -101,14 +101,14 @@ export function AddAnimalExpenseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             Add Expense {animalName ? `for ${animalName}` : ""}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 px-1">
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
             <Select value={category} onValueChange={setCategory}>
