@@ -1419,3 +1419,26 @@ Created `src/components/ui/ovr-score.tsx` as the single source of truth for all 
 | `src/components/animal-details/BioCardSummary.tsx` | Switched to `OVRScore` variant="text" |
 | `src/components/bio-card/index.ts` | Updated exports |
 | `docs/data-relationships-map.md` | This entry |
+
+### 2026-02-16: Unified OVR Computation SSOT (Server-Side Only)
+
+Removed client-side OVR computation from `useBioCardData`. All three views (list pill, BioCard hexagon, BioCardSummary text) now read OVR scores exclusively from `animal_ovr_cache`, which is written only by the server-side `calculate_animal_ovr()` SQL function via DB triggers and a 3 AM cron job.
+
+**SSOT Flow:**
+```
+DB triggers (milking/weight/BCS/health/AI records)
+  → calculate_animal_ovr() SQL function (SINGLE computation)
+  → animal_ovr_cache table (SINGLE data source)
+  → useBatchOVRSummary (list view) — reads cache
+  → useBioCardData (BioCard/Summary) — reads cache (NO client-side calc)
+```
+
+**Why:** The client-side `calculateOVRScore()` used flat milk benchmarks and hardcoded `false` for health issues/withdrawal, producing different scores than the server which uses stage-specific benchmarks and actual health data. Opening BioCard would overwrite the trigger-computed cache, causing score drift.
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/hooks/useBioCardData.ts` | Removed `calculateOVRScore` import/usage, removed cache-write `useEffect`, added `animal_ovr_cache` query |
+| `src/lib/ovrScoreCalculator.ts` | Added deprecation notice; `calculateOVRScore()` no longer called |
+| `src/hooks/useBatchOVRSummary.ts` | Updated SSOT comment to reflect server-only computation |
+| `docs/data-relationships-map.md` | This entry |

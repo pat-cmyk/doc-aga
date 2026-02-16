@@ -282,9 +282,11 @@ interface AnimalInput {
  * Batch OVR Summary Hook
  * 
  * SSOT: This hook READS from the animal_ovr_cache table.
- * The cache is WRITTEN by useBioCardData when Bio-Card is opened.
+ * The cache is WRITTEN ONLY by the server-side `calculate_animal_ovr()` SQL function
+ * via DB triggers (on milking/weight/BCS/health/AI record changes) and a 3 AM cron job.
  * 
- * For animals without cache (never opened Bio-Card), shows placeholder.
+ * BioCard (useBioCardData) also reads from the same cache — ensuring identical scores
+ * across all views (list pill, BioCard hexagon, BioCardSummary text).
  */
 export function useBatchOVRSummary(
   farmId: string | undefined,

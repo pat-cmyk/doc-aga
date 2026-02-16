@@ -1,8 +1,16 @@
 /**
  * OVR Score Calculator for Bovine Bio-Card
  * 
- * Calculates an Overall Performance Rating (0-100) similar to FIFA/sports games.
- * Weights are adjusted based on livestock purpose (dairy vs beef).
+ * @deprecated OVR computation is now handled EXCLUSIVELY by the server-side 
+ * `calculate_animal_ovr()` PostgreSQL function, which writes to `animal_ovr_cache`.
+ * All UI views (list, BioCard, BioCardSummary) read from that cache.
+ * 
+ * DO NOT call `calculateOVRScore()` from client code — it exists only for reference.
+ * 
+ * Functions still in active use:
+ * - `calculateStatusAura()` — UI status aura (separate concern from OVR)
+ * - `getOVRTier()` — utility for tier label lookup
+ * - `getOVRTierColor()` — utility for tier color lookup
  */
 
 export interface OVRBreakdown {
