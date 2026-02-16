@@ -8,6 +8,7 @@ import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet, Pencil, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
@@ -457,11 +458,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         });
       }
     } catch (error: any) {
-      toast({
-        title: "Error loading animal",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "loading animal");
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 
 type FeedbackStatus = 'submitted' | 'acknowledged' | 'under_review' | 'action_taken' | 'resolved' | 'closed';
 type FeedbackCategory = 'policy_concern' | 'market_access' | 'veterinary_support' | 'training_request' | 'infrastructure' | 'financial_assistance' | 'emergency_support' | 'disease_outbreak' | 'feed_shortage';
@@ -138,7 +139,7 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
       toast.success('Feedback status updated');
     },
     onError: (error: Error) => {
-      toast.error('Failed to update: ' + error.message);
+      showErrorToast(error, "updating feedback status");
     },
   });
 

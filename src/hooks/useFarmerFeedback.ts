@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 
 export interface FarmerFeedback {
   id: string;
@@ -128,7 +129,7 @@ export const useFarmerFeedback = (farmId?: string) => {
       toast.success('Naisumite na ang iyong feedback sa gobyerno');
     },
     onError: (error: Error) => {
-      toast.error('Hindi nai-submit ang feedback: ' + error.message);
+      showErrorToast(error, "submitting feedback");
     },
   });
 

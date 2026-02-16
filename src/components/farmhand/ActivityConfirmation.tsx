@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { CheckCircle2, XCircle, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { BulkFeedingTable } from './activity-confirmation/BulkFeedingTable';
@@ -503,11 +504,7 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
     } catch (error) {
       console.error('Error saving record:', error);
       await hapticNotification('error');
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to save record',
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "saving record");
     } finally {
       setIsSaving(false);
     }

@@ -15,6 +15,7 @@ import { useCallback, useState, useRef } from 'react';
 import { useScribe, CommitStrategy } from '@elevenlabs/react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { showErrorToast } from '@/lib/errorHandling';
 
 export interface UseRealtimeTranscriptionOptions {
   /** Callback when partial transcript is available (during speech) */
@@ -162,10 +163,8 @@ export function useRealtimeTranscription(
       // Show user-friendly error
       if (error.message.includes('permission') || error.message.includes('NotAllowed')) {
         toast.error('Microphone access required for voice input');
-      } else if (error.message.includes('rate limit') || error.message.includes('429')) {
-        toast.error('Too many requests. Please try again in a moment.');
       } else {
-        toast.error('Failed to start voice input. Please try again.');
+        showErrorToast(error, "starting voice input");
       }
     } finally {
       setIsConnecting(false);

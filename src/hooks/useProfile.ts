@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 export interface Profile {
   id: string;
@@ -29,11 +30,7 @@ export const useProfile = () => {
       if (error) throw error;
       setProfile(data);
     } catch (error: any) {
-      toast({
-        title: "Error loading profile",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "loading profile");
     } finally {
       setLoading(false);
     }
@@ -59,11 +56,7 @@ export const useProfile = () => {
       await fetchProfile();
       return true;
     } catch (error: any) {
-      toast({
-        title: "Error updating profile",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "updating profile");
       return false;
     }
   };
@@ -81,11 +74,7 @@ export const useProfile = () => {
                                  error.message?.includes("leaked");
         
         if (isLeakedPassword) {
-          toast({
-            title: "Weak Password Detected",
-            description: "This password has been exposed in a data breach. Please choose a stronger, unique password.",
-            variant: "destructive"
-          });
+          showErrorToastLegacy(toast, error);
           return false;
         }
         throw error;
@@ -97,11 +86,7 @@ export const useProfile = () => {
       });
       return true;
     } catch (error: any) {
-      toast({
-        title: "Error updating password",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "updating password");
       return false;
     }
   };

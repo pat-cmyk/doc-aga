@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 
@@ -84,11 +85,7 @@ const GovernmentAuth = () => {
       navigate("/government");
     } catch (error: any) {
       console.error("Government sign in error:", error);
-      toast({
-        title: "Login failed",
-        description: error.message || "An error occurred during sign in",
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "government login");
     } finally {
       setLoading(false);
     }

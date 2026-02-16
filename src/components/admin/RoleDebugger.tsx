@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, Search, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 
 interface UserRoleData {
   id: string;
@@ -145,7 +146,7 @@ export const RoleDebugger = () => {
       toast.success("Role removed successfully");
     },
     onError: (error) => {
-      toast.error("Failed to remove role: " + error.message);
+      showErrorToast(error, "removing role");
     },
   });
 

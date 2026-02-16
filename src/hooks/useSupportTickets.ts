@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 export type TicketStatus = "open" | "in_progress" | "waiting_on_customer" | "resolved" | "closed";
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
@@ -120,11 +121,7 @@ export function useSupportTickets(filters?: {
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "creating ticket");
     },
   });
 
@@ -161,11 +158,7 @@ export function useSupportTickets(filters?: {
       queryClient.invalidateQueries({ queryKey: ["support-ticket"] });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "updating ticket");
     },
   });
 
@@ -256,11 +249,7 @@ export function useSupportTicket(ticketId: string | null) {
       queryClient.invalidateQueries({ queryKey: ["ticket-comments", ticketId] });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "adding comment");
     },
   });
 

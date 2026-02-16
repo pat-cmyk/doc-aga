@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToast } from "@/lib/errorHandling";
 import {
   Dialog,
   DialogContent,
@@ -50,15 +51,8 @@ export const RecalculateHistoricalStatsButton = () => {
       });
 
       if (error) {
-        if (error.message?.includes('Unauthorized') || error.message?.includes('403')) {
-          toast({
-            title: "Authentication Error",
-            description: "You need admin privileges to perform this action.",
-            variant: "destructive",
-          });
-          return;
-        }
-        throw error;
+        showErrorToast(error, "recalculating stats");
+        return;
       }
 
       toast({
@@ -69,11 +63,7 @@ export const RecalculateHistoricalStatsButton = () => {
       setShowDialog(false);
     } catch (error) {
       console.error("Error recalculating historical stats:", error);
-      toast({
-        title: "Error",
-        description: "Failed to recalculate historical stats. Please try again.",
-        variant: "destructive",
-      });
+      showErrorToast(error, "recalculating stats");
     } finally {
       setIsLoading(false);
     }

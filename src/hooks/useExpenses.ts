@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 export interface Expense {
@@ -77,9 +78,8 @@ export function useAddExpense() {
       }
       toast.success("Expense added successfully");
     },
-    onError: (error, variables) => {
-      console.error("Error adding expense:", error);
-      toast.error("Failed to add expense. Please try again when online.");
+    onError: (error) => {
+      showErrorToast(error, "adding expense");
     },
   });
 }
@@ -110,8 +110,7 @@ export function useUpdateExpense() {
       toast.success("Expense updated successfully");
     },
     onError: (error) => {
-      console.error("Error updating expense:", error);
-      toast.error("Failed to update expense");
+      showErrorToast(error, "updating expense");
     },
   });
 }
@@ -140,8 +139,7 @@ export function useDeleteExpense() {
       toast.success("Expense deleted successfully");
     },
     onError: (error) => {
-      console.error("Error deleting expense:", error);
-      toast.error("Failed to delete expense");
+      showErrorToast(error, "deleting expense");
     },
   });
 }

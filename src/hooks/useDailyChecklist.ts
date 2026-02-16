@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
 import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { Json } from '@/integrations/supabase/types';
@@ -250,11 +251,7 @@ export function useDailyChecklist(farmId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['daily-checklist', farmId, today] });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error, "updating checklist");
     },
   });
 

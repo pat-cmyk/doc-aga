@@ -25,6 +25,7 @@ import { getAllSyncCheckpoints, type SyncCheckpoint } from '@/lib/syncCheckpoint
 import { getConflictCount } from '@/lib/conflictDetection';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { showErrorToast } from '@/lib/errorHandling';
 
 export const SyncStatusSheet = () => {
   const { farmId } = useFarm();
@@ -74,7 +75,7 @@ export const SyncStatusSheet = () => {
       toast.success('Sync completed');
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('Sync failed');
+      showErrorToast(error, "syncing data");
     } finally {
       setIsSyncing(false);
     }

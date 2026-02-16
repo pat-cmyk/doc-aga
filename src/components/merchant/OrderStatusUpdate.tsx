@@ -1,6 +1,7 @@
 import { MerchantOrder, useMerchantOrders } from "@/hooks/useMerchantOrders";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 interface OrderStatusUpdateProps {
   order: MerchantOrder;
@@ -23,11 +24,7 @@ export const OrderStatusUpdate = ({ order, onClose }: OrderStatusUpdateProps) =>
           onClose();
         },
         onError: (error: any) => {
-          toast({
-            title: "Update Failed",
-            description: error.message,
-            variant: "destructive",
-          });
+          showErrorToastLegacy(toast, error, "updating order status");
         },
       }
     );

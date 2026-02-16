@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 
 interface DeleteMilkRecordDialogProps {
@@ -51,7 +52,7 @@ export function DeleteMilkRecordDialog({
       onOpenChange(false);
     } catch (error: any) {
       console.error("[DeleteMilk] Failed:", error);
-      toast.error(error.message || "Failed to delete record");
+      showErrorToast(error, "deleting milk record");
     } finally {
       setIsDeleting(false);
     }

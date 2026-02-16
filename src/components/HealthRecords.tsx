@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus, FileText, Syringe, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
 import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
@@ -80,11 +81,7 @@ const HealthRecords = ({
       
       if (error) {
         console.error('Error loading health records:', error);
-        toast({
-          title: "Error loading records",
-          description: error.message,
-          variant: "destructive"
-        });
+        showErrorToastLegacy(toast, error, "loading health records");
       } else {
         setRecords(data || []);
       }

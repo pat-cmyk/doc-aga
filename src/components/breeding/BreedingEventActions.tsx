@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { AlertTriangle, CheckCircle, Heart, Loader2, Search } from 'lucide-react';
 import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import type { BreedingEventType } from '@/types/fertility';
 
 interface BreedingEventActionProps {
@@ -144,7 +145,7 @@ function BreedingEventActionDialog({
       setNotes('');
       onSuccess?.();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      showErrorToastLegacy(toast, error, "recording breeding event");
     } finally {
       setLoading(false);
     }
