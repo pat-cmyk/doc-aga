@@ -1480,3 +1480,36 @@ milk_inventory
 | `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx` | **NEW** — FIFO milk feeding with animal selector, hints, cost display |
 | `src/components/FeedingRecords.tsx` | Added milk emoji for Whole/Waste Milk feed types |
 | `docs/data-relationships-map.md` | This entry |
+
+---
+
+### 2026-02-16: Error Handling SSOT Migration (Batch 1 + 2)
+
+**Problem:** 51+ files exposed raw `error.message` (PostgreSQL codes, RLS violations, etc.) directly to farmers via toast notifications.
+
+**Solution:** Centralized error translation engine in `src/lib/errorHandling.ts` with bilingual (English + Filipino) farmer-friendly messages.
+
+**SSOT Data Flow:**
+```text
+Raw Error (Supabase/PostgreSQL)
+  → translateError(error, context?)
+    ├── Pattern match: duplicate key, 23505 → "Duplicate entry (May dobleng entry)"
+    ├── Pattern match: Invalid login → "Wrong email or password (Mali ang email o password)"
+    ├── Pattern match: RLS/403 → "Permission denied (Wala kang permiso)"
+    ├── Pattern match: 23503 → "Cannot delete — linked data"
+    ├── Pattern match: network/offline → "No internet (Walang internet)"
+    ├── Pattern match: rate limit/429 → "Too many attempts"
+    └── Fallback → "Something went wrong (May problema)"
+  → showErrorToast(error, context)      // sonner toast (preferred)
+  → showErrorToastLegacy(toast, error)  // shadcn useToast (legacy)
+```
+
+**Key Files:**
+| File | Role |
+|------|------|
+| `src/lib/errorHandling.ts` | **SSOT** — `translateError`, `showErrorToast`, `showErrorToastLegacy`, `isNetworkError` |
+
+**Files NOT Changed (intentional):**
+- `src/hooks/useVoiceRecording.ts` — Internal error propagation (throws, never toasts)
+- `src/hooks/useIntegrityScan.ts` — Internal error wrapping for re-throw
+- `src/hooks/useRegionalStats.ts` — Console.error only (no toast)

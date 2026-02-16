@@ -8,6 +8,7 @@ import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { insertBreedingEvent } from "@/lib/breedingEventBridge";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
@@ -80,11 +81,7 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
       setNotes("");
       onSuccess();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "scheduling AI breeding");
     } finally {
       setLoading(false);
     }

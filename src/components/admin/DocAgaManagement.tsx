@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic, ThumbsUp, Lightbulb } from "lucide-react";
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -223,11 +224,7 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to save FAQ: " + error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "saving FAQ");
     },
   });
 

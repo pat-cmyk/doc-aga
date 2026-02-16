@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCacheManager, isCacheManagerReady } from '@/lib/cacheManager';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 
 export interface HeatRecord {
   id: string;
@@ -95,11 +96,7 @@ export function useHeatRecords(animalId: string) {
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error, "recording heat event");
     },
   });
 

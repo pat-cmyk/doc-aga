@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send, Bot, User, Volume2, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "./ui/VoiceRecordButton";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
@@ -171,11 +172,7 @@ const DocAga = () => {
 
       return signedUrlData.signedUrl;
     } catch (error: any) {
-      toast({
-        title: "Upload Error",
-        description: error.message || "Failed to upload image",
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "uploading image");
       return null;
     } finally {
       setIsUploadingImage(false);
@@ -393,11 +390,7 @@ const DocAga = () => {
 
     } catch (error: any) {
       console.error("Doc Aga error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to get response from Doc Aga",
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "getting response from Doc Aga");
       setMessages(prev => {
         const newMessages = [...prev];
         if (newMessages[newMessages.length - 1]?.content === "") {

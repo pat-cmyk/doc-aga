@@ -1,4 +1,5 @@
 import { useSystemHealth, calculateHealthScore, getHealthStatus, getTrendIndicator } from "@/hooks/useSystemHealth";
+import { translateError } from "@/lib/errorHandling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <ShieldAlert className="h-12 w-12 text-destructive mb-4" />
         <h3 className="text-lg font-semibold">Failed to load system metrics</h3>
-        <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
+        <p className="text-sm text-muted-foreground mb-4">{translateError(error).description}</p>
         <Button onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Retry

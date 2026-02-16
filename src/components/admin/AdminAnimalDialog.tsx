@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { LIVESTOCK_BREEDS } from "@/lib/livestockBreeds";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
@@ -181,11 +182,7 @@ export const AdminAnimalDialog = ({
       onOpenChange(false);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "editing animal");
     },
   });
 

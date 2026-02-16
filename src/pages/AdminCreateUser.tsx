@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 
 const AdminCreateUser = () => {
@@ -50,11 +51,7 @@ const AdminCreateUser = () => {
       setInvitationToken("");
 
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create user",
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "creating user");
     } finally {
       setLoading(false);
     }

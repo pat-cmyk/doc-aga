@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 interface InvoiceGeneratorProps {
   orderId: string;
@@ -37,11 +38,7 @@ export const InvoiceGenerator = ({ orderId, orderNumber }: InvoiceGeneratorProps
           setDueDate("");
         },
         onError: (error: any) => {
-          toast({
-            title: "Generation Failed",
-            description: error.message,
-            variant: "destructive",
-          });
+          showErrorToastLegacy(toast, error, "generating invoice");
         },
       }
     );

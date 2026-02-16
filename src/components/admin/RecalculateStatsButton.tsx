@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import {
   Dialog,
   DialogContent,
@@ -47,11 +48,7 @@ export const RecalculateStatsButton = () => {
       setShowDialog(true);
     } catch (error) {
       console.error("Error recalculating stats:", error);
-      toast({
-        title: "Error",
-        description: "Failed to recalculate animal life stages. Please try again.",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "recalculating life stages");
     } finally {
       setIsLoading(false);
     }

@@ -5,6 +5,7 @@ import { addToQueue, QueueItem } from '@/lib/offlineQueue';
 import { syncQueue } from '@/lib/syncService';
 import { useToast } from '@/hooks/use-toast';
 import { hapticNotification } from '@/lib/haptics';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 
 /**
  * Sync status for optimistic records
@@ -190,11 +191,7 @@ export function useOptimisticMutation<TData, TVariables>({
       });
 
       hapticNotification('error');
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save',
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error);
 
       options?.onError?.(error instanceof Error ? error : new Error('Unknown error'));
     } finally {

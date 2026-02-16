@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
@@ -276,11 +277,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
 
     } catch (error: any) {
       console.error("Dok Aga error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to get response from Dok Aga",
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "getting response from Dok Aga");
       setMessages(prev => {
         const newMessages = [...prev];
         if (newMessages[newMessages.length - 1]?.content === "") {

@@ -9,6 +9,7 @@ import { GenderBadge } from "@/components/ui/gender-indicator";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { formatDistanceToNow } from "date-fns";
 import type { Animal } from "./hooks/useAnimalDetails";
@@ -113,11 +114,7 @@ export const AnimalProfile = ({
 
       window.location.reload();
     } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "uploading avatar");
     } finally {
       setUploading(false);
     }

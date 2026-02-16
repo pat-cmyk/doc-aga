@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sprout, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import AnimalList from "@/components/AnimalList";
 import FarmDashboard from "@/components/FarmDashboard";
@@ -170,11 +171,7 @@ const Dashboard = () => {
       }
       
       if (ownedFarmsResult.error) {
-        toast({
-          title: "Error loading farm",
-          description: ownedFarmsResult.error.message,
-          variant: "destructive"
-        });
+        showErrorToastLegacy(toast, ownedFarmsResult.error, "loading farm");
         setLoading(false);
         return;
       }

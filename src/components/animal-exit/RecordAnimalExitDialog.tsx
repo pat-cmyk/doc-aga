@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { EXIT_REASONS, EXIT_DETAILS } from '@/lib/bcsDefinitions';
 import { useAddRevenue } from '@/hooks/useRevenues';
 import { VoiceInputButton } from '@/components/ui/voice-input-button';
@@ -112,11 +113,7 @@ export function RecordAnimalExitDialog({
       setConfirmOpen(false);
       onExitRecorded?.();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error, "recording exit");
     } finally {
       setIsSubmitting(false);
     }
