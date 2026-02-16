@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Wheat, Pencil } from "lucide-react";
 import { format } from "date-fns";
+import { formatPHP } from "@/lib/currency";
 import { RecordSingleFeedDialog } from "@/components/feed-recording/RecordSingleFeedDialog";
 import { EditFeedingRecordDialog, FeedingRecordWithDetails } from "@/components/feed-recording/EditFeedingRecordDialog";
 
@@ -151,14 +152,24 @@ export function FeedingRecords({
     }
   };
 
+  const formatRecordCost = (record: FeedingRecord) => {
+    if (record.cost_per_kg_at_time === null) return "-";
+    if (record.cost_per_kg_at_time === 0) return "Free";
+    const total = (record.kilograms || 0) * record.cost_per_kg_at_time;
+    return formatPHP(total, true);
+  };
+
   // Calculate today's total
-  const todayTotal = records
-    .filter(
-      (r) =>
-        format(new Date(r.record_datetime), "yyyy-MM-dd") ===
-        format(new Date(), "yyyy-MM-dd")
-    )
-    .reduce((sum, r) => sum + (r.kilograms || 0), 0);
+  const todayRecords = records.filter(
+    (r) =>
+      format(new Date(r.record_datetime), "yyyy-MM-dd") ===
+      format(new Date(), "yyyy-MM-dd")
+  );
+  const todayTotal = todayRecords.reduce((sum, r) => sum + (r.kilograms || 0), 0);
+  const todayCost = todayRecords.reduce((sum, r) => {
+    if (r.cost_per_kg_at_time === null || r.cost_per_kg_at_time === 0) return sum;
+    return sum + (r.kilograms || 0) * r.cost_per_kg_at_time;
+  }, 0);
 
   if (loading) {
     return (
@@ -178,6 +189,11 @@ export function FeedingRecords({
         </CardHeader>
         <CardContent className="pb-3 sm:pb-6">
           <div className="text-2xl sm:text-3xl font-bold">{todayTotal.toFixed(2)} kg</div>
+          {todayCost > 0 && (
+            <div className="text-sm font-medium text-muted-foreground mt-0.5">
+              {formatPHP(todayCost, true)}
+            </div>
+          )}
           <p className="text-xs text-muted-foreground mt-1">
             Total feed given today
           </p>
@@ -245,10 +261,13 @@ export function FeedingRecords({
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="bg-primary/10 text-primary px-3 py-1 rounded-full">
-                          <span className="font-bold text-base">
-                            {record.kilograms?.toFixed(2) || "0.00"} kg
-                          </span>
+                        <div className="text-right">
+                          <div className="bg-primary/10 text-primary px-3 py-1 rounded-full">
+                            <span className="font-bold text-base">
+                              {record.kilograms?.toFixed(2) || "0.00"} kg
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{formatRecordCost(record)}</span>
                         </div>
                         {!readOnly && (
                           <Button
@@ -280,6 +299,7 @@ export function FeedingRecords({
                     <TableHead>Time</TableHead>
                     <TableHead>Feed Type</TableHead>
                     <TableHead className="text-right">Amount (kg)</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
                     <TableHead>Notes</TableHead>
                     {!readOnly && <TableHead className="w-[60px]">Actions</TableHead>}
                   </TableRow>
@@ -298,6 +318,9 @@ export function FeedingRecords({
                       </TableCell>
                       <TableCell className="text-right">
                         {record.kilograms?.toFixed(2) || "0.00"}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatRecordCost(record)}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {record.notes || "-"}
