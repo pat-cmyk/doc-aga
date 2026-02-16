@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-16 (Add source_farm field to animal acquisition forms)
+Last updated: 2026-02-16 (Unified AnimalAvatar SSOT component)
 
 ---
 
@@ -1384,4 +1384,21 @@ Fallback (no inventory):
 | File | Change |
 |------|--------|
 | `supabase/functions/seed-demo-data/index.ts` | Replaced hardcoded feeding logic with inventory-linked selection + fallback |
+| `docs/data-relationships-map.md` | This entry |
+
+### 2026-02-16: Unified AnimalAvatar SSOT Component
+
+Created `src/components/ui/animal-avatar.tsx` as the single source of truth for all animal avatar rendering. Replaced 9 inline `<Avatar>` instances across 6 files with the unified component. Ensures consistent cache-busting, fallback hierarchy (photo → letter → emoji), and size variants.
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/components/ui/animal-avatar.tsx` | **NEW** — SSOT avatar component with cache-busting + consistent fallbacks |
+| `src/components/AnimalDetails.tsx` | Replaced 2 inline Avatars (mobile + desktop header) |
+| `src/components/AnimalList.tsx` | Replaced 1 inline Avatar (list card) |
+| `src/components/animal-list/AnimalCard.tsx` | Replaced 2 inline Avatars (mobile + desktop) |
+| `src/components/bio-card/BioCard.tsx` | Replaced 1 inline Avatar (performance card) |
+| `src/components/animal-details/AnimalProfile.tsx` | Replaced 1 inline Avatar (profile header) |
+| `src/components/approval/ActivityDetailsDialog.tsx` | Replaced 5 inline Avatars (approval flows) |
+| `docs/ssot-architecture.md` | Added to component reuse inventory |
 | `docs/data-relationships-map.md` | This entry |

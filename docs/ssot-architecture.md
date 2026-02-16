@@ -36,6 +36,7 @@ Before modifying ANY field, function, or component, you MUST:
 | `WeightHintBadge` | `src/components/animal-form/WeightHintBadge.tsx` | AnimalForm, EditAnimalDialog |
 | `LIVESTOCK_BREEDS` / `getBreedsByLivestockType` | `src/components/animal-form/breedConstants.ts` | AnimalForm, EditAnimalDialog |
 | `calculateMilkingStageFromDays` | `src/lib/animalStages.ts` | LactatingToggle, AnimalForm, useAnimalForm, useEditAnimalForm, RecordBulkMilkDialog |
+| `AnimalAvatar` | `src/components/ui/animal-avatar.tsx` | AnimalDetails, AnimalList, AnimalCard, BioCard, AnimalProfile, ActivityDetailsDialog |
 
 ---
 

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,10 +154,13 @@ export const ActivityDetailsDialog = ({
           return (
             <div key={animal.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={animal.avatar_url || undefined} />
-                  <AvatarFallback>{animal.name?.[0] || animal.ear_tag?.[0] || '?'}</AvatarFallback>
-                </Avatar>
+                <AnimalAvatar
+                  avatarUrl={animal.avatar_url}
+                  animalName={animal.name}
+                  earTag={animal.ear_tag}
+                  livestockType={animal.livestock_type}
+                  size="md"
+                />
                 <div className="flex-1">
                   <div className="font-semibold">{animal.name || 'Unnamed Animal'}</div>
                   <div className="text-sm text-muted-foreground">
@@ -286,10 +289,13 @@ export const ActivityDetailsDialog = ({
             <div className="space-y-2">
               {animals.map((animal) => (
                 <div key={animal.id} className="flex items-center gap-3 p-2 border rounded">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={animal.avatar_url || undefined} />
-                    <AvatarFallback>{animal.name?.[0] || '?'}</AvatarFallback>
-                  </Avatar>
+                  <AnimalAvatar
+                    avatarUrl={animal.avatar_url}
+                    animalName={animal.name}
+                    earTag={animal.ear_tag}
+                    livestockType={animal.livestock_type}
+                    size="xs"
+                  />
                   <div>
                     <div className="font-medium text-sm">{animal.name || 'Unnamed'}</div>
                     <div className="text-xs text-muted-foreground">{animal.ear_tag}</div>
@@ -326,10 +332,13 @@ export const ActivityDetailsDialog = ({
           {animals.map((animal) => (
             <div key={animal.id} className="border rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={animal.avatar_url || undefined} />
-                  <AvatarFallback>{animal.name?.[0] || '?'}</AvatarFallback>
-                </Avatar>
+                <AnimalAvatar
+                  avatarUrl={animal.avatar_url}
+                  animalName={animal.name}
+                  earTag={animal.ear_tag}
+                  livestockType={animal.livestock_type}
+                  size="md"
+                />
                 <div>
                   <div className="font-semibold">{animal.name || 'Unnamed Animal'}</div>
                   <div className="text-sm text-muted-foreground">
@@ -370,10 +379,13 @@ export const ActivityDetailsDialog = ({
           return (
             <div key={animal.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={animal.avatar_url || undefined} />
-                  <AvatarFallback>{animal.name?.[0] || '?'}</AvatarFallback>
-                </Avatar>
+                <AnimalAvatar
+                  avatarUrl={animal.avatar_url}
+                  animalName={animal.name}
+                  earTag={animal.ear_tag}
+                  livestockType={animal.livestock_type}
+                  size="md"
+                />
                 <div className="flex-1">
                   <div className="font-semibold">{animal.name || 'Unnamed Animal'}</div>
                   <div className="text-sm text-muted-foreground">
@@ -463,10 +475,13 @@ export const ActivityDetailsDialog = ({
           <div className="space-y-2">
             {animals.map((animal) => (
               <div key={animal.id} className="flex items-center gap-3 p-3 border rounded">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={animal.avatar_url || undefined} />
-                  <AvatarFallback>{animal.name?.[0] || '?'}</AvatarFallback>
-                </Avatar>
+                <AnimalAvatar
+                  avatarUrl={animal.avatar_url}
+                  animalName={animal.name}
+                  earTag={animal.ear_tag}
+                  livestockType={animal.livestock_type}
+                  size="sm"
+                />
                 <div>
                   <div className="font-medium">{animal.name || 'Unnamed Animal'}</div>
                   <div className="text-sm text-muted-foreground">{animal.ear_tag}</div>

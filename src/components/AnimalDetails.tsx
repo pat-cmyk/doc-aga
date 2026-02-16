@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Users, Baby, Scale, Wheat, WifiOff, Download, CheckCircle, Database, Globe, Copy, Image, Wallet, Pencil, Home, ShoppingCart, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -594,14 +594,13 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <div className="relative">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage 
-                        src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-                        alt={animal.name || "Animal"} 
-                        key={animal.avatar_url}
-                      />
-                      <AvatarFallback className="text-lg">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar
+                      avatarUrl={animal.avatar_url}
+                      animalName={animal.name}
+                      earTag={animal.ear_tag}
+                      livestockType={animal.livestock_type}
+                      size="lg"
+                    />
                     {!readOnly && (
                       uploading ? (
                         <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
@@ -728,14 +727,13 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                   <div className="relative">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage 
-                        src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-                        alt={animal.name || "Animal"} 
-                        key={animal.avatar_url}
-                      />
-                      <AvatarFallback className="text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar
+                      avatarUrl={animal.avatar_url}
+                      animalName={animal.name}
+                      earTag={animal.ear_tag}
+                      livestockType={animal.livestock_type}
+                      size="xl"
+                    />
                     {!readOnly && (
                       uploading ? (
                         <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
