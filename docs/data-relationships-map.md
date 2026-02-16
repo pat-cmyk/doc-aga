@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-16 (Link demo feeding to inventory with cost tracking)
+Last updated: 2026-02-16 (Add source_farm field to animal acquisition forms)
 
 ---
 
@@ -184,6 +184,7 @@ Last updated: 2026-02-16 (Link demo feeding to inventory with cost tracking)
 | `sale_price` | numeric | YES | — | |
 | `grant_source` | text | YES | — | |
 | `grant_source_other` | text | YES | — | |
+| `source_farm` | text | YES | — | Name of farm where animal was sourced (purchased/grant) |
 | `mother_id` | uuid | YES | — | Self-FK → `animals.id` |
 | `mother_unknown` | boolean | YES | — | |
 | `father_id` | uuid | YES | — | Self-FK → `animals.id` |
@@ -748,6 +749,18 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 ---
 
 ## 8) Change Log + Consistency Check
+
+**Date**: 2026-02-16
+
+**What changed**: Added `source_farm` text column to `animals` table for tracking the origin farm of purchased/granted animals.
+
+**Details**:
+- New nullable `source_farm` column added to `animals` table
+- Field added to Add Animal form (`AnimalForm.tsx`), Edit All Details dialog (`EditAnimalDialog.tsx`), and quick-edit Acquisition dialog (`EditAcquisitionWeightDialog.tsx`)
+- SSOT parity maintained: all three forms use identical BilingualLabel ("Source Farm / Pinagmulan na Farm") and placeholder text
+- No RLS changes needed (inherits existing `animals` table policies)
+
+---
 
 **Date**: 2026-02-13
 

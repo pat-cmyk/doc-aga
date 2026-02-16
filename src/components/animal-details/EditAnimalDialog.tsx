@@ -646,6 +646,16 @@ export function EditAnimalDialog({
                           )}
                         </>
                       )}
+                      {/* Source Farm - shown for both purchased and grant */}
+                      <div className="space-y-2">
+                        <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="edit-source-farm" />
+                        <Input
+                          id="edit-source-farm"
+                          value={formData.source_farm}
+                          onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
+                          placeholder="Enter farm name / Ilagay ang pangalan ng farm"
+                        />
+                      </div>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
