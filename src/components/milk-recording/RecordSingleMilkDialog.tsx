@@ -30,6 +30,8 @@ import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache
 import { validateRecordDate } from "@/lib/recordValidation";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
+import { MilkQualityFields } from "./MilkQualityFields";
+import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordSingleMilkDialogProps {
   open: boolean;
@@ -55,33 +57,30 @@ export function RecordSingleMilkDialog({
   const [session, setSession] = useState<'AM' | 'PM' | 'Full Day'>(
     new Date().getHours() < 12 ? 'AM' : 'PM'
   );
+  const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
+  const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
   const { maxBackdateDays } = useFarm();
 
-  // Haptic on dialog open
   useEffect(() => {
-    if (open) {
-      hapticImpact('light');
-    }
+    if (open) hapticImpact('light');
   }, [open]);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       setLiters("");
       setRecordDate(new Date());
       setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
+      setMilkQuality('good');
+      setRejectionReason('');
     }
   }, [open]);
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      hapticSelection();
-      setRecordDate(date);
-    }
+    if (date) { hapticSelection(); setRecordDate(date); }
   };
 
   const handleSessionChange = (value: string) => {
@@ -89,18 +88,11 @@ export function RecordSingleMilkDialog({
     setSession(value as 'AM' | 'PM' | 'Full Day');
   };
 
-  const handleClose = () => {
-    hapticImpact('light');
-    onOpenChange(false);
-  };
+  const handleClose = () => { hapticImpact('light'); onOpenChange(false); };
 
   const handleVoiceDataExtracted = (data: ExtractedMilkData) => {
-    if (data.totalLiters) {
-      setLiters(data.totalLiters.toString());
-    }
-    if (data.session) {
-      setSession(data.session);
-    }
+    if (data.totalLiters) setLiters(data.totalLiters.toString());
+    if (data.session) setSession(data.session);
   };
 
   const handleSubmit = async () => {
@@ -108,34 +100,25 @@ export function RecordSingleMilkDialog({
 
     const litersNum = parseFloat(liters);
     if (isNaN(litersNum) || litersNum <= 0) {
-      toast({
-        title: "Invalid Liters",
-        description: "Please enter a valid amount",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid Liters", description: "Please enter a valid amount", variant: "destructive" });
       return;
     }
 
-    // Validate record date against farm entry date
     const dateStr = format(recordDate, "yyyy-MM-dd");
     const validation = validateRecordDate(dateStr, { farm_entry_date: farmEntryDate });
     if (!validation.valid) {
-      toast({ 
-        title: "Invalid Date", 
-        description: validation.message, 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid Date", description: validation.message, variant: "destructive" });
       return;
     }
+
+    const isRejected = milkQuality === 'rejected';
 
     setIsSubmitting(true);
     const optimisticId = crypto.randomUUID();
 
     try {
-      // STEP 1: Update local dashboard cache IMMEDIATELY
       await addLocalMilkRecord(farmId, dateStr, litersNum);
 
-      // STEP 2: Update local milk inventory cache
       const clientId = `${optimisticId}_milk_0`;
       await addLocalMilkInventoryRecord(farmId, {
         id: `optimistic-${clientId}`,
@@ -143,23 +126,23 @@ export function RecordSingleMilkDialog({
         animal_id: animalId,
         animal_name: animalName || 'Unknown',
         ear_tag: earTag,
-        livestock_type: 'cattle', // Default, will be corrected on sync
+        livestock_type: 'cattle',
         record_date: dateStr,
         liters_original: litersNum,
-        liters_remaining: litersNum,
-        is_available: true,
+        liters_remaining: isRejected ? 0 : litersNum,
+        is_available: !isRejected,
         created_at: new Date().toISOString(),
         syncStatus: 'pending',
       });
 
-      // Optimistic update for React Query
       const optimisticRecord = {
         id: `optimistic-${optimisticId}`,
         animal_id: animalId,
         record_date: dateStr,
         liters: litersNum,
-        session: session,
+        session,
         is_sold: false,
+        milk_quality: milkQuality,
         created_at: new Date().toISOString(),
         optimisticId,
         syncStatus: isOnline ? 'syncing' : 'pending',
@@ -169,26 +152,18 @@ export function RecordSingleMilkDialog({
         [optimisticRecord, ...old]
       );
 
-      // Refetch milk inventory
-      await queryClient.refetchQueries({ 
-        queryKey: ['milk-inventory', farmId],
-        type: 'active',
-      });
+      await queryClient.refetchQueries({ queryKey: ['milk-inventory', farmId], type: 'active' });
 
       if (!isOnline) {
-        // Queue for offline sync
         await addToQueue({
           id: `single_milk_${Date.now()}`,
           type: 'single_milk',
           payload: {
             farmId,
             singleMilk: {
-              animalId,
-              animalName,
-              earTag,
-              liters: litersNum,
-              recordDate: dateStr,
-              session,
+              animalId, animalName, earTag,
+              liters: litersNum, recordDate: dateStr, session,
+              milkQuality, rejectionReason,
             },
           },
           createdAt: Date.now(),
@@ -198,13 +173,12 @@ export function RecordSingleMilkDialog({
         hapticNotification('success');
         toast({
           title: "Queued for Sync",
-          description: `${litersNum}L (${session}) will sync when online`,
+          description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}) will sync when online`,
         });
         onOpenChange(false);
         return;
       }
 
-      // Online: insert directly
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase
@@ -213,45 +187,33 @@ export function RecordSingleMilkDialog({
           animal_id: animalId,
           record_date: dateStr,
           liters: litersNum,
-          session: session,
+          session,
           created_by: user?.id,
           is_sold: false,
           client_generated_id: clientId,
-        });
+          milk_quality: milkQuality,
+          milk_quality_rejection_reason: rejectionReason || null,
+        } as any);
 
       if (error) throw error;
 
-      // Refetch to sync with server
-      await queryClient.refetchQueries({ 
-        queryKey: ['milking-records', animalId],
-        type: 'active',
-      });
-      await queryClient.refetchQueries({ 
-        queryKey: ['milk-inventory', farmId],
-        type: 'active',
-      });
+      await queryClient.refetchQueries({ queryKey: ['milking-records', animalId], type: 'active' });
+      await queryClient.refetchQueries({ queryKey: ['milk-inventory', farmId], type: 'active' });
 
       hapticNotification('success');
       toast({
-        title: "Milk Recorded",
-        description: `${litersNum}L (${session}) added to inventory`,
+        title: isRejected ? "Rejected Milk Recorded" : "Milk Recorded",
+        description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}) added`,
       });
 
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
-
-      // Rollback optimistic update
       queryClient.setQueryData(['milking-records', animalId], (old: any[] = []) => 
         old.filter((r: any) => r.optimisticId !== optimisticId)
       );
-
       hapticNotification('error');
-      toast({
-        title: "Error",
-        description: "Failed to record milk production",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to record milk production", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -287,7 +249,6 @@ export function RecordSingleMilkDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 px-1">
-          {/* Animal Display (read-only) */}
           <div className="rounded-lg border bg-muted/30 p-3">
             <Label className="text-xs text-muted-foreground">Animal</Label>
             <div className="font-medium">
@@ -296,38 +257,21 @@ export function RecordSingleMilkDialog({
             </div>
           </div>
 
-          {/* Date Selection */}
           <div className="space-y-2">
             <Label>Date</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left min-h-[48px]",
-                    !recordDate && "text-muted-foreground"
-                  )}
-                >
+                <Button variant="outline" className={cn("w-full justify-start text-left min-h-[48px]", !recordDate && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(recordDate, "PPP")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={recordDate}
-                  onSelect={handleDateSelect}
-                  disabled={(date) =>
-                    date > new Date() || date < subDays(new Date(), maxBackdateDays)
-                  }
-                  initialFocus
-                  className="pointer-events-auto"
-                />
+                <Calendar mode="single" selected={recordDate} onSelect={handleDateSelect} disabled={(date) => date > new Date() || date < subDays(new Date(), maxBackdateDays)} initialFocus className="pointer-events-auto" />
               </PopoverContent>
             </Popover>
           </div>
 
-          {/* Session Selection */}
           <div className="space-y-2">
             <Label>Session</Label>
             <Select value={session} onValueChange={handleSessionChange}>
@@ -335,70 +279,29 @@ export function RecordSingleMilkDialog({
                 <SelectValue placeholder="Select session" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="AM">
-                  <span className="flex items-center gap-2">
-                    <Sun className="h-4 w-4 text-amber-500" />
-                    Morning (AM)
-                  </span>
-                </SelectItem>
-                <SelectItem value="PM">
-                  <span className="flex items-center gap-2">
-                    <Moon className="h-4 w-4 text-indigo-500" />
-                    Evening (PM)
-                  </span>
-                </SelectItem>
-                <SelectItem value="Full Day">
-                  <span className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-blue-500" />
-                    Full Day
-                  </span>
-                </SelectItem>
+                <SelectItem value="AM"><span className="flex items-center gap-2"><Sun className="h-4 w-4 text-amber-500" />Morning (AM)</span></SelectItem>
+                <SelectItem value="PM"><span className="flex items-center gap-2"><Moon className="h-4 w-4 text-indigo-500" />Evening (PM)</span></SelectItem>
+                <SelectItem value="Full Day"><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-blue-500" />Full Day</span></SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Liters Input */}
           <div className="space-y-2">
             <Label htmlFor="single-liters">Liters Collected</Label>
-            <Input
-              id="single-liters"
-              type="number"
-              step="0.1"
-              min="0"
-              placeholder="e.g. 5.5"
-              value={liters}
-              onChange={(e) => setLiters(e.target.value)}
-              onFocus={() => hapticImpact('light')}
-              className="min-h-[48px]"
-            />
+            <Input id="single-liters" type="number" step="0.1" min="0" placeholder="e.g. 5.5" value={liters} onChange={(e) => setLiters(e.target.value)} onFocus={() => hapticImpact('light')} className="min-h-[48px]" />
           </div>
 
-          {/* Actions */}
+          <MilkQualityFields
+            milkQuality={milkQuality}
+            rejectionReason={rejectionReason}
+            onQualityChange={setMilkQuality}
+            onRejectionReasonChange={setRejectionReason}
+          />
+
           <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              className="flex-1 min-h-[48px]"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              className="flex-1 min-h-[48px]"
-              disabled={!canSubmit || isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isOnline ? "Recording..." : "Queuing..."}
-                </>
-              ) : (
-                <>
-                  {!isOnline && <WifiOff className="h-4 w-4 mr-2" />}
-                  {isOnline ? "Record Milk" : "Queue for Sync"}
-                </>
-              )}
+            <Button variant="outline" onClick={handleClose} className="flex-1 min-h-[48px]" disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleSubmit} className="flex-1 min-h-[48px]" disabled={!canSubmit || isSubmitting}>
+              {isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isOnline ? "Recording..." : "Queuing..."}</>) : (<>{!isOnline && <WifiOff className="h-4 w-4 mr-2" />}{isOnline ? "Record Milk" : "Queue for Sync"}</>)}
             </Button>
           </div>
         </div>

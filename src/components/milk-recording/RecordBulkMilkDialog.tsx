@@ -38,6 +38,8 @@ import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } fro
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { useFarm } from "@/contexts/FarmContext";
+import { MilkQualityFields } from "./MilkQualityFields";
+import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordBulkMilkDialogProps {
   open: boolean;
@@ -56,6 +58,8 @@ export function RecordBulkMilkDialog({
   const [session, setSession] = useState<'AM' | 'PM' | 'Full Day'>(
     new Date().getHours() < 12 ? 'AM' : 'PM'
   );
+  const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
+  const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
   const { toast } = useToast();
@@ -111,6 +115,8 @@ export function RecordBulkMilkDialog({
       setTotalLiters("");
       setRecordDate(new Date());
       setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
+      setMilkQuality('good');
+      setRejectionReason('');
     }
   }, [open]);
 
@@ -249,6 +255,8 @@ export function RecordBulkMilkDialog({
       // STEP 1: Update local dashboard cache IMMEDIATELY for instant UI feedback
       await addLocalMilkRecord(farmId, dateStr, totalLitersNum);
 
+      const isRejected = milkQuality === 'rejected';
+
       // STEP 2: Update local milk inventory cache for EACH record
       // Use consistent client_generated_id format that matches syncService
       for (let index = 0; index < splitPreview.length; index++) {
@@ -264,8 +272,8 @@ export function RecordBulkMilkDialog({
           livestock_type: split.livestockType || 'cattle',
           record_date: dateStr,
           liters_original: split.liters,
-          liters_remaining: split.liters,
-          is_available: true,
+          liters_remaining: isRejected ? 0 : split.liters,
+          is_available: !isRejected,
           created_at: new Date().toISOString(),
           syncStatus: 'pending',
         });
@@ -308,6 +316,8 @@ export function RecordBulkMilkDialog({
               liters: split.liters,
               recordDate: dateStr,
               session: session,
+              milkQuality,
+              rejectionReason,
             })),
           },
           createdAt: Date.now(),
@@ -315,9 +325,10 @@ export function RecordBulkMilkDialog({
         });
 
         hapticNotification('success');
+        
         toast({
           title: "Queued for Sync",
-          description: `${totalLiters}L (${session}) will sync when online`,
+          description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}) will sync when online`,
         });
         onOpenChange(false);
         return;
@@ -333,6 +344,8 @@ export function RecordBulkMilkDialog({
         session: session,
         created_by: user?.id,
         is_sold: false,
+        milk_quality: milkQuality,
+        milk_quality_rejection_reason: rejectionReason || null,
       }));
 
       const { error } = await supabase.from("milking_records").insert(records);
@@ -388,9 +401,10 @@ export function RecordBulkMilkDialog({
       });
 
       hapticNotification('success');
+      
       toast({
-        title: "Milk Recorded",
-        description: `${totalLiters}L (${session}) split across ${splitPreview.length} animal${splitPreview.length > 1 ? "s" : ""}`,
+        title: isRejected ? "Rejected Milk Recorded" : "Milk Recorded",
+        description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}) split across ${splitPreview.length} animal${splitPreview.length > 1 ? "s" : ""}`,
       });
 
       onOpenChange(false);
@@ -550,6 +564,14 @@ export function RecordBulkMilkDialog({
                 className="min-h-[48px]"
               />
             </div>
+
+            {/* Milk Quality */}
+            <MilkQualityFields
+              milkQuality={milkQuality}
+              rejectionReason={rejectionReason}
+              onQualityChange={setMilkQuality}
+              onRejectionReasonChange={setRejectionReason}
+            />
 
             {/* Split Preview */}
             {splitPreview.length > 0 && (

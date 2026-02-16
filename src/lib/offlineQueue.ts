@@ -106,6 +106,8 @@ interface QueueItem {
       liters: number;
       recordDate: string;
       session: 'AM' | 'PM' | 'Full Day';
+      milkQuality?: string;
+      rejectionReason?: string;
     }>;
     // Single milk recording (from animal profile)
     singleMilk?: {
@@ -115,6 +117,8 @@ interface QueueItem {
       liters: number;
       recordDate: string;
       session: 'AM' | 'PM' | 'Full Day';
+      milkQuality?: string;
+      rejectionReason?: string;
     };
     // Bulk feed recording
     feedRecords?: Array<{
