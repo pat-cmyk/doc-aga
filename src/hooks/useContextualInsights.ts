@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useFinancialHealth } from "./useFinancialHealth";
 import { useRevenueExpenseComparison } from "./useRevenueExpenseComparison";
+import { useMilkSpoilageReport } from "./useMilkSpoilageReport";
 
 export interface Insight {
   id: string;
@@ -18,6 +19,7 @@ interface DateRange {
 export function useContextualInsights(farmId: string, dateRange?: DateRange) {
   const { data: healthData, isLoading: healthLoading } = useFinancialHealth(farmId, dateRange);
   const { data: comparisonData, isLoading: comparisonLoading } = useRevenueExpenseComparison(farmId, dateRange);
+  const { data: spoilageData, isLoading: spoilageLoading } = useMilkSpoilageReport(farmId, dateRange);
 
   const insights = useMemo(() => {
     if (!healthData || !comparisonData) return [];
@@ -140,14 +142,48 @@ export function useContextualInsights(farmId: string, dateRange?: DateRange) {
       });
     }
 
+    // Milk rejection insights
+    if (spoilageData && spoilageData.totalLiters > 0) {
+      const topReason = spoilageData.reasonBreakdown[0];
+      const topReasonLabel = topReason ? topReason.label.split(' / ')[0] : '';
+
+      if (spoilageData.rejectionRate > 5) {
+        allInsights.push({
+          id: 'milk_rejection_critical',
+          type: 'critical',
+          title: `${spoilageData.rejectionRate.toFixed(1)}% of milk was rejected`,
+          description: `Check herd health${topReasonLabel ? `, especially for ${topReasonLabel}` : ''}. Industry benchmark is below 2%.`,
+          priority: 90,
+        });
+      } else if (spoilageData.rejectionRate > 2) {
+        allInsights.push({
+          id: 'milk_rejection_warning',
+          type: 'warning',
+          title: `Milk rejection rate is ${spoilageData.rejectionRate.toFixed(1)}%`,
+          description: `Top reason: ${topReasonLabel || 'Unknown'}. Target below 2% for best results.`,
+          priority: 72,
+        });
+      }
+
+      if (spoilageData.previousRejectionRate > 0 && spoilageData.rejectionRate < spoilageData.previousRejectionRate * 0.7) {
+        allInsights.push({
+          id: 'milk_rejection_improved',
+          type: 'success',
+          title: `Milk rejection rate improved`,
+          description: `Down from ${spoilageData.previousRejectionRate.toFixed(1)}% to ${spoilageData.rejectionRate.toFixed(1)}%. Great progress!`,
+          priority: 58,
+        });
+      }
+    }
+
     // Sort by priority (highest first) and return top 3
     return allInsights
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 3);
-  }, [healthData, comparisonData, dateRange]);
+  }, [healthData, comparisonData, spoilageData, dateRange]);
 
   return {
     insights,
-    isLoading: healthLoading || comparisonLoading,
+    isLoading: healthLoading || comparisonLoading || spoilageLoading,
   };
 }
