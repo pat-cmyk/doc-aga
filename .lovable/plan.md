@@ -1,98 +1,154 @@
 
-# Unify OVR Computation to a Single Source of Truth
 
-## Problem
+# Milk-to-Calf Feeding + Rejected Milk Inventory
 
-The same animal shows **three different OVR scores** (61, 73, 69) across three views because there are **two completely separate computation engines** that produce different results:
+## Overview
 
-| Engine | Location | Used By | Writes To |
-|--------|----------|---------|-----------|
-| Server-side SQL | `calculate_animal_ovr()` PostgreSQL function | DB triggers on record changes | `animal_ovr_cache` |
-| Client-side JS | `ovrScoreCalculator.ts` via `useBioCardData` hook | BioCard, BioCardSummary | Overwrites `animal_ovr_cache` |
+Add the ability to feed milk (good or rejected) from the milk inventory to any animal on the farm, with FIFO deduction, feeding history tracking, and opportunity-cost accounting. Rejected milk gets its own visible section in the inventory tab instead of being silently discarded.
 
-### Key Differences Between the Two Engines
-
-| Factor | Server SQL | Client JS |
-|--------|-----------|-----------|
-| Milk benchmark | Stage-specific (12/15/10/6) | Flat per type (cattle=15, goat=2) |
-| Active health issues | Actually queries `health_records` | Hardcoded `false` |
-| Withdrawal detection | Queries `milking_records` | Hardcoded `false` |
-| Weight selection | dairy check via `milking_stage IS NOT NULL` | Check via `isMilking` flag |
-
-The list view reads from cache (written by whichever engine ran last). The BioCard runs client-side live, then overwrites the cache -- so scores drift and conflict.
-
-## Solution: Server-Side SQL as the Single Computation SSOT
-
-Make the **server-side `calculate_animal_ovr()` SQL function** the ONLY place OVR is computed. All views -- list, BioCard, BioCardSummary -- read from `animal_ovr_cache`. No client-side recalculation.
+## SSOT Data Flow
 
 ```text
-DB triggers (milking/weight/BCS/health/AI records)
+milking_records (quality: good/rejected)
        |
-       v
-calculate_animal_ovr() SQL function  <-- SINGLE COMPUTATION SSOT
+       v (DB trigger: sync_milk_inventory_on_insert)
+milk_inventory
+  ├── is_available = true, milk_quality = 'good'   --> Sellable Stock section
+  └── is_available = true, milk_quality = 'rejected' --> Rejected Stock section (NEW)
        |
-       v
-animal_ovr_cache table  <-- SINGLE DATA SSOT
+       v  (Feed Calf dialog -- FIFO deduction)
+  milk_inventory.liters_remaining reduced
        |
-       v
-useBatchOVRSummary (list view) -- reads cache
-useBioCardData (BioCard/Summary) -- reads cache (NO MORE client-side calc)
+       v  (Insert into feeding_records)
+  feeding_records
+    ├── feed_type = 'Whole Milk' or 'Waste Milk'
+    ├── milk_inventory_id = UUID (NEW column -- links to batch)
+    ├── cost_per_kg_at_time = price/L from useLastMilkPriceBySpecies (good) or 0 (rejected)
+    └── kilograms = liters (1L milk ~ 1.03kg, use 1:1 for simplicity)
+       |
+       v  (Existing SSOT paths)
+  FeedingRecords.tsx (animal feeding history -- already shows feed_type + cost)
+  useHerdInvestment (already sums feeding_records.cost_per_kg_at_time * kilograms)
+  useAnimalExpenses (already sums per-animal feed costs)
 ```
 
-### Why Server-Side?
+No new hooks or RPCs needed. The existing `feeding_records` cost-tracking pipeline already flows into Herd Investment and the animal Costs tab.
 
-- It already queries actual health records and withdrawal status (client hardcodes these as `false`)
-- DB triggers ensure the cache updates immediately when underlying data changes
-- No race condition between client overwrite and trigger overwrite
-- One algorithm to maintain, not two
+---
 
-## Changes (4 files)
+## Database Changes (1 migration)
 
-### 1. EDIT: `src/hooks/useBioCardData.ts`
+### A. Add `milk_quality` column to `milk_inventory`
 
-**Remove client-side OVR calculation and cache-writing.** Instead, read OVR from `animal_ovr_cache` (same source as the list view).
+Currently rejected milk is set to `is_available = false, liters_remaining = 0`. We need to:
+- Add `milk_quality TEXT NOT NULL DEFAULT 'good'` to `milk_inventory`
+- Add `milk_quality_rejection_reason TEXT` to `milk_inventory`
 
-- Remove the import of `calculateOVRScore` and `OVRInputs` from `ovrScoreCalculator.ts`
-- Add a query to read from `animal_ovr_cache` for the specific animal
-- Remove the `ovrInputs` assembly block (lines 372-403)
-- Remove the `calculateOVRScore(ovrInputs)` call (line 405)
-- Remove the entire `useEffect` that writes to cache (lines 499-529)
-- Use the cached OVR result (score, tier, trend, breakdown) directly
-- Keep all other data (sparklines, repro status, immunity, market value) as-is -- those aren't duplicated
-- The radar chart data will come from `breakdown` stored in the cache (it's already a JSONB column)
+### B. Add `milk_inventory_id` column to `feeding_records`
 
-### 2. EDIT: `src/lib/ovrScoreCalculator.ts`
+- Add `milk_inventory_id UUID REFERENCES milk_inventory(id)` (nullable) to `feeding_records`
+- This mirrors the existing `feed_inventory_id` pattern for solid feed
 
-- Keep the file but add a deprecation comment at the top noting that the server-side SQL function is the SSOT
-- Keep `calculateStatusAura()` (it's still used client-side for the status aura, which is a separate concern from OVR)
-- Keep `getOVRTier()` and `getOVRTierColor()` as utility functions
-- Remove or deprecate `calculateOVRScore()` since it should no longer be called
+### C. Update trigger: `sync_milk_inventory_on_insert()`
 
-### 3. EDIT: `src/hooks/useBatchOVRSummary.ts`
+Change behavior for rejected milk:
+- **Before**: `is_available = false, liters_remaining = 0`
+- **After**: `is_available = true, liters_remaining = NEW.liters, milk_quality = 'rejected'`
 
-- No logic changes needed -- it already reads from cache correctly
-- Add a comment noting this is now the same data source as BioCard
+This keeps rejected milk in a trackable, feedable state.
 
-### 4. EDIT: `docs/data-relationships-map.md`
+### D. Update trigger: `sync_milk_inventory_on_update()`
 
-- Update OVR SSOT flow documentation to reflect single computation path
+When quality changes from good to rejected (or vice versa), update `milk_quality` on the inventory row instead of zeroing it out. Keep `is_available = true` so it can still be fed to animals.
 
-## What This Fixes
+---
 
-- All three views (list pill, BioCard hexagon, BioCardSummary text) will show the **exact same score** because they all read from the same cache row
-- No more race condition where opening BioCard overwrites the trigger-computed cache
-- Health issues and withdrawal periods are properly factored into the score (no more hardcoded `false`)
+## Frontend Changes
 
-## What This Does NOT Change
+### 1. UPDATE: `src/hooks/useMilkInventory.ts`
 
-- The `calculate_animal_ovr()` SQL function (it's already correct and more complete)
-- DB triggers that mark cache as stale
-- The edge function for batch recalculation
-- The `OVRScore` UI component (already unified)
-- Status aura calculation (remains client-side, separate concern)
-- All other BioCard data (sparklines, repro, immunity, market value)
+Add a second data set for rejected milk inventory:
+- Query `milk_inventory` WHERE `milk_quality = 'rejected'` AND `liters_remaining >= 0.05`
+- Return `rejectedItems` and `rejectedSummary` alongside the existing `items`/`summary`
+- The existing query already filters `is_available = true`, so adding `milk_quality = 'good'` to it keeps sellable stock pure
 
-## Risk Mitigation
+### 2. UPDATE: `src/components/milk-inventory/MilkInventoryTab.tsx`
 
-- Animals that have never had a trigger fire (no records at all) will show score 0 from cache. The UI already handles this with a "not yet calculated" state in the list view.
-- The 3 AM cron job already ensures all animals eventually get a cached score.
+Add a third sub-tab or a section within "Current Stock":
+- **Option A (approved)**: Separate section within the same "Current Stock" tab
+- Show "Sellable Stock" section (current behavior)
+- Show "Rejected Stock" section below it with a distinct visual (amber/warning border)
+- Each section gets its own "Feed to Animal" button instead of "Record Sale"
+
+### 3. UPDATE: `src/components/milk-inventory/MilkStockList.tsx`
+
+- Add a "Feed to Animal" button alongside "Record Sale"
+- Pass `stockType: 'good' | 'rejected'` to differentiate button labels
+- "Record Sale" only appears for good-quality stock
+- "Feed to Animal" appears for both
+
+### 4. CREATE: `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx`
+
+New dialog that mirrors `RecordMilkSaleDialog` structure:
+- **Animal selector**: Dropdown of all active farm animals (fetched via `useFarmAnimals`)
+  - Each option shows: `{name || ear_tag} - {age}` (e.g., "NDA 123 - 3 months old" or "Bessie - No data available")
+  - Age computed from `birth_date` using `differenceInMonths`
+- **Liters input**: How much milk to feed
+- **Feeding hint**: "Recommended: {X}-{Y}L/day for a {weight}kg animal (10-20% of body weight)"
+  - Uses `current_weight_kg` from the selected animal
+  - If no weight data: "No weight data -- typical calf intake is 4-6L/day"
+- **FIFO preview**: Same as sale dialog -- shows which inventory batches will be deducted
+- **Cost display**:
+  - Good milk: Shows "Opportunity cost: [price] x [liters] = [total]" using `useLastMilkPriceBySpecies`
+  - Rejected milk: Shows "Cost: Free (rejected milk)"
+- **Submit logic**:
+  1. Deduct `liters_remaining` from `milk_inventory` rows (FIFO, partial support)
+  2. Mark fully consumed rows as `is_available = false`
+  3. Insert `feeding_records` with:
+     - `feed_type`: "Whole Milk" (good) or "Waste Milk" (rejected)
+     - `milk_inventory_id`: linked batch ID
+     - `cost_per_kg_at_time`: price/L (good) or 0 (rejected)
+     - `kilograms`: liters value (1:1 approximation, industry standard)
+  4. Refetch milk inventory queries
+
+### 5. UPDATE: `src/components/FeedingRecords.tsx`
+
+- No structural changes needed -- it already displays `feed_type` and cost
+- "Whole Milk" and "Waste Milk" will naturally appear as feed types
+- Cost display already handles zero-cost as "Free"
+
+### 6. UPDATE: `docs/data-relationships-map.md`
+
+- Add Milk Feeding SSOT flow
+- Document `milk_inventory_id` in `feeding_records`
+
+---
+
+## Downstream Impact (Already Handled)
+
+These existing SSOT paths will automatically pick up milk feeding costs with zero code changes:
+
+| Component | How It Works |
+|-----------|-------------|
+| **Herd Investment** (`useHerdInvestment`) | Already sums `feeding_records.cost_per_kg_at_time * kilograms` per animal |
+| **Animal Costs Tab** (`useAnimalExpenses`) | Already aggregates per-animal feed costs |
+| **Feed Cost Analytics** (`FeedCostAnalytics`) | Already reads all `feeding_records` |
+| **Profitability Thermometer** | Already includes feed costs via expenses |
+
+Good milk fed to calves will appear as a real cost in Herd Investment (opportunity cost). Rejected milk fed to calves will appear as "Free" -- accurate since it had no market value.
+
+---
+
+## Files Summary (8 files)
+
+| File | Action |
+|------|--------|
+| `supabase/migrations/[timestamp].sql` | **CREATE** - Add columns + update triggers |
+| `src/hooks/useMilkInventory.ts` | EDIT - Add rejected inventory query |
+| `src/components/milk-inventory/MilkInventoryTab.tsx` | EDIT - Wire rejected stock section |
+| `src/components/milk-inventory/MilkStockList.tsx` | EDIT - Add "Feed to Animal" button, support stock types |
+| `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx` | **CREATE** - New FIFO milk feeding dialog |
+| `src/components/FeedingRecords.tsx` | MINOR EDIT - Add milk emoji for Whole/Waste Milk feed types |
+| `docs/data-relationships-map.md` | EDIT - Document new SSOT flow |
+| `docs/ssot-architecture.md` | EDIT - Add milk feeding to core data flows |
+
