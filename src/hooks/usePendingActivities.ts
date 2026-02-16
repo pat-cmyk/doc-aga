@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 import { useEffect, useCallback } from "react";
 
 export interface PendingActivity {
@@ -136,8 +137,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       toast.success(`Activity ${action} successfully`);
     },
     onError: (error) => {
-      console.error('Review error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to review activity');
+      showErrorToast(error, "reviewing activity");
     },
   });
 
@@ -156,8 +156,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       toast.success('Submission deleted successfully');
     },
     onError: (error) => {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete submission');
+      showErrorToast(error, "deleting submission");
     },
   });
 
@@ -195,8 +194,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       toast.success('Submission updated successfully');
     },
     onError: (error) => {
-      console.error('Update error:', error);
-      toast.error('Failed to update submission');
+      showErrorToast(error, "updating submission");
     },
   });
 
@@ -255,8 +253,7 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       toast.success('Activity resubmitted for review');
     },
     onError: (error) => {
-      console.error('Resubmit error:', error);
-      toast.error('Failed to resubmit activity');
+      showErrorToast(error, "resubmitting activity");
     },
   });
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 import { Settings, Save } from "lucide-react";
 
 interface ApprovalSettingsProps {
@@ -59,7 +60,7 @@ export const ApprovalSettings = ({ farmId }: ApprovalSettingsProps) => {
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      toast.error('Failed to load approval settings');
+      showErrorToast(error, "loading approval settings");
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export const ApprovalSettings = ({ farmId }: ApprovalSettingsProps) => {
       toast.success('Approval settings saved successfully');
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Failed to save approval settings');
+      showErrorToast(error, "saving approval settings");
     } finally {
       setSaving(false);
     }

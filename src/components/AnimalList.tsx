@@ -5,6 +5,7 @@ import { Plus, Loader2, Search, Filter, Scale, Database, Tag, Type } from "lucid
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getAnimalDisplayPrimary, setAnimalDisplayPrimary, type AnimalDisplayPrimary } from "@/lib/localStorage";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Input } from "@/components/ui/input";
@@ -330,11 +331,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
       }
     } catch (error: any) {
       console.error('[AnimalList] Error loading animals:', error);
-      toast({
-        title: "Error loading animals",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "loading animals");
       setLoading(false);
     }
   };

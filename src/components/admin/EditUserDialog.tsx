@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import {
   Dialog,
   DialogContent,
@@ -79,11 +80,7 @@ export const EditUserDialog = ({ user, open, onOpenChange }: EditUserDialogProps
       onOpenChange(false);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "updating user profile");
     },
   });
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { logAuthEvent } from "@/lib/authLogger";
@@ -96,17 +97,7 @@ const Auth = () => {
 
     if (error) {
       setLoading(false);
-      const isLeakedPassword = error.message?.includes("password has been exposed") || 
-                               error.message?.includes("breached") || 
-                               error.message?.includes("leaked");
-      
-      toast({
-        title: isLeakedPassword ? "Weak Password Detected" : "Signup failed",
-        description: isLeakedPassword 
-          ? "This password has been exposed in a data breach. Please choose a stronger, unique password."
-          : error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "signing up");
       return;
     }
 
@@ -152,11 +143,7 @@ const Auth = () => {
     });
     
     if (error) {
-      toast({
-        title: "Google sign-in failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "Google sign-in");
       setLoading(false);
     }
   };
@@ -213,11 +200,7 @@ const Auth = () => {
         navigate("/");
       }
     } catch (error: any) {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "logging in");
     } finally {
       setLoading(false);
     }
@@ -242,11 +225,7 @@ const Auth = () => {
     setResetLoading(false);
 
     if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "resetting password");
     } else {
       toast({
         title: "Check your email",

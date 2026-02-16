@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedAnimals, updateAnimalCache, getCachedAnimalDetails, getCachedRecords } from "@/lib/dataCache";
 
@@ -81,11 +82,7 @@ export const useAnimalList = (farmId: string) => {
       }
     } catch (error: any) {
       console.error('[AnimalList] Error loading animals:', error);
-      toast({
-        title: "Error loading animals",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "loading animals");
       setLoading(false);
     }
   };

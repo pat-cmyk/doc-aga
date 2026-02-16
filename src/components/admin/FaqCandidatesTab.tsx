@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Check, X, Edit, RefreshCw, Lightbulb, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -69,11 +70,7 @@ export const FaqCandidatesTab = () => {
       
       queryClient.invalidateQueries({ queryKey: ["admin-faq-candidates"] });
     } catch (error: any) {
-      toast({
-        title: "Extraction Failed",
-        description: error.message || "Could not run FAQ extraction",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "extracting FAQ candidates");
     } finally {
       setIsExtracting(false);
     }
@@ -162,11 +159,7 @@ export const FaqCandidatesTab = () => {
       toast({ title: "FAQ created successfully!" });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create FAQ",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "creating FAQ");
     },
   });
 

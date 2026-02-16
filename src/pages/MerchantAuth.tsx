@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
@@ -93,11 +94,7 @@ const MerchantAuth = () => {
       navigate("/merchant");
     } catch (error: any) {
       console.error("Sign in error:", error);
-      toast({
-        title: "Sign in failed",
-        description: error.message || "An error occurred during sign in",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "merchant sign in");
     } finally {
       setIsLoading(false);
     }
@@ -198,11 +195,7 @@ const MerchantAuth = () => {
 
     } catch (error: any) {
       console.error("Merchant signup error:", error);
-      toast({
-        title: "Sign up failed",
-        description: error.message || "An error occurred during sign up",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "merchant sign up");
     } finally {
       setIsLoading(false);
     }

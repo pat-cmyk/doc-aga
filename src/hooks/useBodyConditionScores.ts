@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { getCacheManager, isCacheManagerReady } from '@/lib/cacheManager';
 
 export interface BodyConditionScore {
@@ -76,11 +77,7 @@ export function useBodyConditionScores(animalId?: string) {
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error, "saving BCS");
     },
   });
 
@@ -114,11 +111,7 @@ export function useBodyConditionScores(animalId?: string) {
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showErrorToastLegacy(toast, error, "saving bulk BCS");
     },
   });
 

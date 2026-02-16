@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 export interface Merchant {
   id: string;
@@ -37,11 +38,7 @@ export const useMerchant = () => {
       if (error) throw error;
       setMerchant(data);
     } catch (error: any) {
-      toast({
-        title: "Error loading merchant profile",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "loading merchant profile");
     } finally {
       setLoading(false);
     }
@@ -67,11 +64,7 @@ export const useMerchant = () => {
       await fetchMerchant();
       return true;
     } catch (error: any) {
-      toast({
-        title: "Error updating profile",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "updating merchant profile");
       return false;
     }
   };

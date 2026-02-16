@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToast } from "@/lib/errorHandling";
 
 export const UserEmailDropdown = () => {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -45,11 +46,7 @@ export const UserEmailDropdown = () => {
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      toast({
-        title: "Error signing out",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToast(error, "signing out");
     } else {
       navigate("/auth");
     }
