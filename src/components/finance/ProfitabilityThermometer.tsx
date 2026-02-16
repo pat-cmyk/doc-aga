@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useProfitability } from "@/hooks/useProfitability";
+import { useMilkSpoilageReport } from "@/hooks/useMilkSpoilageReport";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +19,7 @@ interface ProfitabilityThermometerProps {
 
 export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThermometerProps) {
   const { data, isLoading } = useProfitability(farmId, dateRange);
+  const { data: spoilageData } = useMilkSpoilageReport(farmId, dateRange);
   const { isMobile, fontSize } = useResponsiveChart({ size: 'small' });
 
   const formatCurrency = (value: number) => {
@@ -192,6 +194,14 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
             <div className="flex justify-between text-muted-foreground">
               <span>📦 Other Revenue</span>
               <span className="font-medium">{formatCurrency(data?.otherRevenue || 0)}</span>
+            </div>
+          )}
+          {(spoilageData?.lostRevenue || 0) > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>🥛 Milk Rejected (Lost Revenue)</span>
+              <span className="font-medium text-red-600 dark:text-red-400">
+                -{formatCurrency(spoilageData?.lostRevenue || 0)}
+              </span>
             </div>
           )}
           <div className="flex justify-between text-muted-foreground border-t pt-2">

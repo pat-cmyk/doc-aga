@@ -8,6 +8,7 @@ import { ExpenseList } from "@/components/finance/ExpenseList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
 import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
 import { AnimalCostAnalysis } from "@/components/finance/AnimalCostAnalysis";
+import { MilkSpoilageCard } from "@/components/finance/MilkSpoilageCard";
 import { DataCompletenessIndicator } from "@/components/finance/DataCompletenessIndicator";
 import { FinanceDateRangePicker, DateRange, getPresetRange } from "@/components/finance/FinanceDateRangePicker";
 import {
@@ -79,6 +80,7 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3 space-y-4">
             <ProfitabilityThermometer farmId={farmId} dateRange={dateRange} />
+            <MilkSpoilageCard farmId={farmId} dateRange={dateRange} />
             <AnimalCostAnalysis farmId={farmId} />
           </CollapsibleContent>
         </Collapsible>
