@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Ban, Key, Trash2, CheckCircle, ClipboardList, Pencil, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -216,11 +217,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
     },
     onError: (error) => {
       console.error("Error updating data category:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update data category",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "updating data category");
     },
   });
 
@@ -241,11 +238,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
     },
     onError: (error) => {
       console.error("Error deactivating farm:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to deactivate farm",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "deactivating farm");
     },
   });
 
@@ -261,11 +254,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "resetting password");
     },
   });
 
@@ -288,11 +277,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
     },
     onError: (error: any) => {
       console.error("Error deleting farm:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete farm",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "deleting farm");
     },
   });
 
@@ -312,11 +297,7 @@ export const FarmOversight = ({ dataCategory = 'all' }: FarmOversightProps) => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "reactivating farm");
     },
   });
 

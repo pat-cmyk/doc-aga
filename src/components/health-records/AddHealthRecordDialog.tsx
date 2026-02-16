@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Loader2, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
@@ -144,11 +145,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
       });
     } catch (error: any) {
       console.error('Photo upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "uploading photo");
     } finally {
       setIsUploadingImage(false);
     }
@@ -224,11 +221,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
       setUploadedPhotos([]);
       onSuccess();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "saving health record");
     } finally {
       setSaving(false);
     }
@@ -352,7 +345,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
             )}
             <CameraPhotoInput
               onPhotoSelected={handlePhotoUpload}
-              onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
+              onError={(error) => showErrorToastLegacy(toast, error, "uploading photo")}
               variant="outline"
               label={isUploadingImage ? "Uploading..." : "Add Photo"}
               disabled={saving || isUploadingImage}

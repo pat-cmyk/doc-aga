@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { Mic, Square, Loader2, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ActivityConfirmation from './ActivityConfirmation';
@@ -346,11 +347,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
 
     } catch (error) {
       console.error('Error processing audio:', error);
-      toast({
-        title: "Processing Error",
-        description: error instanceof Error ? error.message : 'Failed to process audio',
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "processing audio");
     } finally {
       setIsProcessing(false);
     }
@@ -455,11 +452,7 @@ const VoiceRecordButton = ({ farmId, animalId }: VoiceRecordButtonProps) => {
       setNeedsAnimalSelection(false);
     } catch (error) {
       console.error('Error handling animal selection:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Could not process animal selection",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "processing animal selection");
     }
   };
 

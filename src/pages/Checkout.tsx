@@ -9,6 +9,7 @@ import { DeliveryForm } from "@/components/checkout/DeliveryForm";
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { OrderConfirmation } from "@/components/checkout/OrderConfirmation";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -95,11 +96,7 @@ export default function Checkout() {
       });
     } catch (error: any) {
       console.error("Order placement error:", error);
-      toast({
-        title: "Order Failed",
-        description: error.message || "Failed to place order. Please try again.",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "placing order");
     } finally {
       setIsProcessing(false);
     }

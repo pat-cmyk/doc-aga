@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Sprout, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Label } from "@/components/ui/label";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 
@@ -94,11 +95,7 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         description: "Farm logo updated successfully"
       });
     } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "uploading logo");
     } finally {
       setUploading(false);
     }
@@ -135,11 +132,7 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
         description: "Farm logo removed successfully"
       });
     } catch (error: any) {
-      toast({
-        title: "Failed to remove logo",
-        description: error.message,
-        variant: "destructive"
-      });
+      showErrorToastLegacy(toast, error, "removing logo");
     } finally {
       setUploading(false);
     }
@@ -168,7 +161,7 @@ export const FarmLogoUpload = ({ farmId, currentLogoUrl, onUploadSuccess }: Farm
       <div className="flex gap-2">
         <CameraPhotoInput
           onPhotoSelected={handlePhotoSelected}
-          onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
+          onError={(error) => showErrorToastLegacy(toast, error, "uploading logo")}
           variant="outline"
           label={previewUrl ? 'Change Logo' : 'Upload Logo'}
           disabled={uploading}

@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, CheckCircle2, Info, Baby } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { supabase } from "@/integrations/supabase/client";
 import { useLastMilkPriceBySpecies } from "@/hooks/useRevenues";
 import { useFarmAnimals, type FarmAnimal } from "@/hooks/useFarmAnimals";
@@ -182,11 +183,7 @@ export function FeedMilkToAnimalDialog({
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error recording milk feeding:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to record feeding",
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "recording milk feeding");
       await queryClient.refetchQueries({ queryKey: ['milk-inventory', farmId], type: 'active' });
     } finally {
       setIsSubmitting(false);

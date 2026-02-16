@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Pencil, Loader2 } from "lucide-react";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
@@ -211,12 +212,7 @@ export function EditAcquisitionWeightDialog({
       setOpen(false);
       onSaved();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to save changes";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "saving changes");
     } finally {
       setSaving(false);
     }

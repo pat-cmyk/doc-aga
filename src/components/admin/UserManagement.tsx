@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { UserDetailPanel } from "./UserDetailPanel";
 import { EditUserDialog } from "./EditUserDialog";
@@ -145,11 +146,7 @@ export const UserManagement = () => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add user role: " + error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "adding user role");
     },
   });
 
@@ -172,11 +169,7 @@ export const UserManagement = () => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to remove user role: " + error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "removing user role");
     },
   });
 
@@ -201,11 +194,7 @@ export const UserManagement = () => {
       setDisableReason("");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showErrorToastLegacy(toast, error, "updating user status");
     },
   });
 
