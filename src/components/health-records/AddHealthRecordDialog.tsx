@@ -14,12 +14,13 @@ import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 
 interface AddHealthRecordDialogProps {
   animalId: string;
+  farmId: string;
   isOnline: boolean;
   onSuccess: () => void;
   animalFarmEntryDate?: string | null;
 }
 
-export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFarmEntryDate }: AddHealthRecordDialogProps) => {
+export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, animalFarmEntryDate }: AddHealthRecordDialogProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
@@ -122,7 +123,7 @@ export const AddHealthRecordDialog = ({ animalId, isOnline, onSuccess, animalFar
       
       const fileExt = 'jpg';
       const fileName = `${animalId}-health-${Date.now()}.${fileExt}`;
-      const filePath = `health/${fileName}`;
+      const filePath = `${farmId}/health/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('animal-photos')

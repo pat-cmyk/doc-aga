@@ -171,7 +171,7 @@ export function RecordSingleHealthDialog({
       const compressedBlob = await compressImage(file);
       
       const fileName = `${animalId}-health-${Date.now()}.jpg`;
-      const filePath = `health/${fileName}`;
+      const filePath = `${farmId}/health/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('animal-photos')

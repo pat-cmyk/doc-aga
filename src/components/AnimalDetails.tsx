@@ -482,7 +482,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${animalId}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `${farmId}/avatars/${fileName}`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
