@@ -30,6 +30,7 @@ const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const GovernmentAuth = lazy(() => import("./pages/GovernmentAuth"));
 const CooperativeAuth = lazy(() => import("./pages/CooperativeAuth"));
 const CooperativeDashboard = lazy(() => import("./pages/CooperativeDashboard"));
+const CooperativeInviteAccept = lazy(() => import("./pages/CooperativeInviteAccept"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -252,6 +253,7 @@ const App = () => (
                       </ProtectedRoute>
                     } 
                   />
+                  <Route path="/cooperative/invite/accept/:token" element={<CooperativeInviteAccept />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route 
                     path="/admin" 
