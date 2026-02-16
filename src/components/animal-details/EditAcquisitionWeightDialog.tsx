@@ -37,6 +37,7 @@ interface EditAcquisitionWeightDialogProps {
     purchase_price: number | null;
     grant_source: string | null;
     grant_source_other: string | null;
+    source_farm: string | null;
   };
   isOnline: boolean;
   onSaved: () => void;
@@ -91,6 +92,9 @@ export function EditAcquisitionWeightDialog({
   const [grantSourceOther, setGrantSourceOther] = useState<string>(
     currentValues.grant_source_other || ""
   );
+  const [sourceFarm, setSourceFarm] = useState<string>(
+    currentValues.source_farm || ""
+  );
 
   // Reset form when dialog opens (for controlled mode, track when open becomes true)
   useEffect(() => {
@@ -102,6 +106,7 @@ export function EditAcquisitionWeightDialog({
       setPurchasePrice(currentValues.purchase_price?.toString() || "");
       setGrantSource(currentValues.grant_source || "");
       setGrantSourceOther(currentValues.grant_source_other || "");
+      setSourceFarm(currentValues.source_farm || "");
     }
   }, [open, currentValues]);
 
@@ -141,6 +146,7 @@ export function EditAcquisitionWeightDialog({
           updates.grant_source_other =
             grantSource === "other" ? grantSourceOther : null;
         }
+        updates.source_farm = sourceFarm || null;
       } else {
         // Birth weight for offspring
         updates.birth_weight_kg = birthWeightKg
@@ -353,6 +359,17 @@ export function EditAcquisitionWeightDialog({
                     )}
                   </div>
                 )}
+
+                {/* Source Farm - shown for both purchased and grant */}
+                <div className="space-y-2 pl-6">
+                  <Label htmlFor="source-farm">Source Farm / Pinagmulan na Farm</Label>
+                  <Input
+                    id="source-farm"
+                    placeholder="Enter farm name / Ilagay ang pangalan ng farm"
+                    value={sourceFarm}
+                    onChange={(e) => setSourceFarm(e.target.value)}
+                  />
+                </div>
               </div>
             </>
           ) : (

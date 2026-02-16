@@ -551,6 +551,7 @@ export type Database = {
           purchase_price: number | null
           sale_price: number | null
           services_this_cycle: number | null
+          source_farm: string | null
           unique_code: string
           updated_at: string
           voluntary_waiting_end_date: string | null
@@ -601,6 +602,7 @@ export type Database = {
           purchase_price?: number | null
           sale_price?: number | null
           services_this_cycle?: number | null
+          source_farm?: string | null
           unique_code: string
           updated_at?: string
           voluntary_waiting_end_date?: string | null
@@ -651,6 +653,7 @@ export type Database = {
           purchase_price?: number | null
           sale_price?: number | null
           services_this_cycle?: number | null
+          source_farm?: string | null
           unique_code?: string
           updated_at?: string
           voluntary_waiting_end_date?: string | null

@@ -22,6 +22,7 @@ export interface Animal {
   livestock_type: string | null;
   farm_entry_date: string | null;
   acquisition_type: string | null;
+  source_farm: string | null;
   farm_id: string;
 }
 

@@ -34,6 +34,7 @@ export interface AnimalFormData {
   purchase_price: string;
   grant_source: string; // "national_dairy_authority" | "local_government_unit" | "other"
   grant_source_other: string;
+  source_farm: string;
   // Enhancement 1: Lactating toggle for new entrants
   is_currently_lactating: boolean;
   estimated_days_in_milk: number;
@@ -73,6 +74,7 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
     purchase_price: "",
     grant_source: "",
     grant_source_other: "",
+    source_farm: "",
     // Enhancement 1: Lactating toggle
     is_currently_lactating: false,
     estimated_days_in_milk: 60, // Default to 60 days (Early Lactation)
@@ -221,6 +223,9 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
         : null,
       grant_source_other: formData.animal_type === "new_entrant" && formData.acquisition_type === "grant" && formData.grant_source === "other" 
         ? formData.grant_source_other 
+        : null,
+      source_farm: formData.animal_type === "new_entrant" && formData.source_farm
+        ? formData.source_farm
         : null,
       // Enhancement 1: Lactating toggle fields
       is_currently_lactating: shouldSetMilkingStage,

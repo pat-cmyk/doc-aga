@@ -200,6 +200,7 @@ interface Animal {
   purchase_price: number | null;
   grant_source: string | null;
   grant_source_other: string | null;
+  source_farm: string | null;
   is_currently_lactating: boolean | null;
   estimated_days_in_milk: number | null;
 }
@@ -896,6 +897,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                         purchase_price: animal.purchase_price,
                         grant_source: animal.grant_source,
                         grant_source_other: animal.grant_source_other,
+                        source_farm: animal.source_farm,
                       }}
                       isOnline={isOnline}
                       onSaved={loadAnimal}
@@ -954,6 +956,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       purchase_price: animal.purchase_price,
                       grant_source: animal.grant_source,
                       grant_source_other: animal.grant_source_other,
+                      source_farm: animal.source_farm,
                     }}
                     isOnline={isOnline}
                     onSaved={loadAnimal}

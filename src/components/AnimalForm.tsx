@@ -95,6 +95,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
     purchase_price: "",
     grant_source: "",
     grant_source_other: "",
+    source_farm: "",
     is_currently_lactating: false,
     estimated_days_in_milk: 60,
   });
@@ -161,6 +162,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       purchase_price: "",
       grant_source: "",
       grant_source_other: "",
+      source_farm: "",
       is_currently_lactating: false,
       estimated_days_in_milk: 60,
     });
@@ -827,6 +829,17 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                 )}
               </>
             )}
+
+            {/* Source Farm - shown for both purchased and grant */}
+            <div className="space-y-2">
+              <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="source_farm" />
+              <Input
+                id="source_farm"
+                value={formData.source_farm}
+                onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
+                placeholder="Enter farm name / Ilagay ang pangalan ng farm"
+              />
+            </div>
           </div>
         )}
         
