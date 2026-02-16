@@ -1,48 +1,100 @@
 
+# App-Wide Popup Scrollability Audit and Fix
 
-# Fix: Entry Methods Dashboard Stuck on Loading
+## Problem
+Multiple dialog, drawer, and sheet popups across the app lack proper scroll handling, causing content to overflow off-screen -- especially on mobile. The user's screenshots show the `RecordMilkSaleDialog` cutting off at the bottom with no way to scroll to the submit button.
 
-## Root Cause
+## Root Cause Categories
 
-In `DataEntryAnalytics.tsx`, the dates are computed on every render:
+There are three patterns causing the issue:
 
-```typescript
-const endDate = new Date();          // different milliseconds each render
-const startDate = subDays(endDate, 30);
+1. **No `max-h` or `overflow` at all** -- content grows beyond the viewport with no scroll mechanism
+2. **`max-h` set but no `overflow-y-auto`** -- height is capped but overflow content is simply hidden
+3. **`overflow-y-auto` on `DialogContent` directly** -- works on desktop but fights with the Radix Dialog's internal layout on mobile, preventing the footer/buttons from staying pinned
+
+## Standardized Fix Pattern
+
+Following the existing SSOT pattern established in `ResponsiveBCSContainer.tsx` and `EditAnimalDialog.tsx`, the correct structure for scrollable dialogs is:
+
+```
+DialogContent (max-h-[90vh], p-0 or flex flex-col, NO overflow)
+  DialogHeader (flex-shrink-0, sticky)
+  ScrollArea or div.overflow-y-auto (flex-1, contains form body)
+  DialogFooter (flex-shrink-0, sticky at bottom)
 ```
 
-These are passed to `useDataEntryAnalytics`, which uses `startDate.toISOString()` in the query key. Since each render produces a new `Date` object with different milliseconds, React Query sees a **new query key every render** and restarts the fetch -- keeping `isLoading` permanently `true`.
+This keeps header and footer pinned while allowing the body to scroll independently.
 
-This also explains the flood of duplicate RPC calls visible in the network tab (~10 identical requests).
+## Files Requiring Changes
 
-## Fix
+### Critical (content cut off, no scroll -- visible in screenshots):
 
-**File: `src/components/admin/DataEntryAnalytics.tsx`**
+| File | Component | Current Issue |
+|------|-----------|--------------|
+| `src/components/milk-inventory/RecordMilkSaleDialog.tsx` | Milk Sale Dialog | `sm:max-w-md` only -- no max-height, no overflow. Content overflows off-screen on mobile. |
+| `src/components/milk-recording/RecordSingleMilkDialog.tsx` | Record Milk Dialog | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/milk-recording/EditMilkRecordDialog.tsx` | Edit Milk Record | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/animal-expenses/AddAnimalExpenseDialog.tsx` | Add Expense | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/finance/AddRevenueDialog.tsx` | Add Revenue | `max-w-md` only -- no scroll handling. |
+| `src/components/breeding/BreedingEventActions.tsx` | AI Breeding Dialog | `max-w-md` only -- no scroll handling. |
+| `src/components/breeding/FarmRecordHeatDialog.tsx` | Record Heat | `max-w-md` only -- no scroll handling. |
+| `src/components/breeding/FarmScheduleAIDialog.tsx` | Schedule AI | `max-w-md` only -- no scroll handling. |
+| `src/components/breeding/BreedingStatusAnimalList.tsx` | Breeding Animal List | `max-w-sm` only -- no scroll handling. |
+| `src/components/bio-card/OVRBadge.tsx` | OVR Details | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/preventive-health/AddPreventiveHealthDialog.tsx` | Preventive Health | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/marketplace/AddToCartDialog.tsx` | Add to Cart | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/admin/EditUserDialog.tsx` | Edit User | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/admin/CreateUserDialog.tsx` | Create User | `sm:max-w-[500px]` only -- no scroll handling. |
+| `src/components/voice-training/VoiceTrainingOnboarding.tsx` | Voice Onboarding | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/MicrophonePermissionDialog.tsx` | Mic Permission | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/permissions/LocationPermissionDialog.tsx` | Location Permission | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/permissions/CameraPermissionDialog.tsx` | Camera Permission | `sm:max-w-md` only -- no scroll handling. |
+| `src/components/merchant/InvoicePreview.tsx` | Invoice Preview | `max-w-3xl` only -- no scroll handling. |
+| `src/components/OfflineOnboarding.tsx` | Offline Onboarding | `sm:max-w-md` only -- no scroll handling. |
 
-Wrap the date computation in `useMemo`, keyed only on `dateRange`, so the Date objects are stable across renders:
+### Moderate (has overflow-y-auto on DialogContent but footer not pinned):
 
-```typescript
-import { useMemo } from "react";
+| File | Current Issue |
+|------|--------------|
+| `src/components/feed-recording/RecordSingleFeedDialog.tsx` | `overflow-y-auto` on DialogContent -- footer scrolls away on long forms. |
+| `src/components/feed-recording/EditFeedingRecordDialog.tsx` | Same issue. |
+| `src/components/weight-recording/RecordSingleWeightDialog.tsx` | Same issue. |
+| `src/components/health-records/AddHealthRecordDialog.tsx` | Same issue. |
+| `src/components/breeding/RecordCalvingDialog.tsx` | Same issue. |
+| `src/components/animal-exit/RecordAnimalExitDialog.tsx` | Same issue. |
+| `src/components/feed-inventory/AddFeedStockDialog.tsx` | Same issue. |
+| `src/components/merchant/ProductFormDialog.tsx` | Same issue. |
+| `src/components/admin/EditFarmDialog.tsx` | Same issue. |
+| `src/components/admin/AdminAnimalDialog.tsx` | Same issue. |
 
-// Replace the raw computation:
-const { startDate, endDate } = useMemo(() => {
-  const end = new Date();
-  const start = dateRange === "7d"
-    ? subDays(end, 7)
-    : dateRange === "30d"
-    ? subDays(end, 30)
-    : subDays(end, 90);
-  return { startDate: start, endDate: end };
-}, [dateRange]);
-```
+### Already Correct (no changes needed):
 
-This ensures the dates only change when the user switches the date range selector, not on every render cycle.
+| File | Pattern Used |
+|------|-------------|
+| `src/components/animal-details/EditAnimalDialog.tsx` | ScrollArea with pinned header/footer |
+| `src/components/body-condition/ResponsiveBCSContainer.tsx` | Responsive Drawer/Dialog with ScrollArea |
+| `src/components/approval/ActivityDetailsDialog.tsx` | flex flex-col + ScrollArea |
+| `src/components/farmer/OrderDetails.tsx` | ScrollArea inside DialogContent |
+| `src/components/approval/EditSubmissionDialog.tsx` | flex flex-col with max-h |
+| `src/components/admin/UserDetailPanel.tsx` | flex flex-col overflow-hidden (Sheet) |
+| `src/components/admin/TicketDetailPanel.tsx` | flex flex-col overflow-hidden (Sheet) |
 
-## Verification
+## Implementation Approach
 
-After the fix, the Entry Methods subtab should:
-1. Show the 4 summary cards with real data (191 total entries, 0 voice, 191 typed)
-2. Render the daily trend line chart and activity type bar chart
-3. Display the location breakdown table (Region IV-A: Quezon 110, Laguna 81)
-4. Fire only 1 RPC call instead of 10+
+For each file in the Critical and Moderate lists, apply the standardized pattern:
 
+1. Add `max-h-[90vh] flex flex-col` to `DialogContent` (remove any `overflow-y-auto` from it)
+2. Wrap the form body (between header and footer) in a `<div className="flex-1 overflow-y-auto px-6 pb-2">` or `<ScrollArea>`
+3. Keep `DialogHeader` and `DialogFooter` outside the scroll wrapper with `flex-shrink-0`
+4. For mobile-heavy dialogs (like `RecordMilkSaleDialog`), use `max-h-[100dvh] sm:max-h-[90vh]` to account for dynamic mobile browser chrome
+
+## Data Flow Impact
+
+None -- this is a pure UI/CSS change. No database queries, RPCs, hooks, or data flows are affected. No DRM or changelog updates needed beyond noting the UI fix.
+
+## Verification Plan
+
+After implementation, each dialog will be tested at mobile viewport (390x844) using `browser--navigate_to_sandbox` and `browser--screenshot` to confirm:
+1. Content is scrollable when it exceeds viewport height
+2. Submit/Cancel buttons remain visible and accessible
+3. Dialog header stays pinned at top
