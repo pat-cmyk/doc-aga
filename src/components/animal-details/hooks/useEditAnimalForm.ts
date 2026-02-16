@@ -40,6 +40,7 @@ export interface EditAnimalFormData {
   purchase_price: string;
   grant_source: string;
   grant_source_other: string;
+  source_farm: string;
 
   // Lactation
   is_currently_lactating: boolean;
@@ -69,6 +70,7 @@ export interface AnimalData {
   purchase_price?: number | null;
   grant_source?: string | null;
   grant_source_other?: string | null;
+  source_farm?: string | null;
   is_currently_lactating?: boolean | null;
   estimated_days_in_milk?: number | null;
 }
@@ -143,6 +145,7 @@ export const useEditAnimalForm = (
     purchase_price: "",
     grant_source: "",
     grant_source_other: "",
+    source_farm: "",
     is_currently_lactating: false,
     estimated_days_in_milk: 60,
   };
@@ -244,6 +247,7 @@ export const useEditAnimalForm = (
         purchase_price: animal.purchase_price?.toString() || "",
         grant_source: animal.grant_source || "",
         grant_source_other: animal.grant_source_other || "",
+        source_farm: animal.source_farm || "",
         is_currently_lactating: animal.is_currently_lactating || false,
         estimated_days_in_milk: animal.estimated_days_in_milk || 60,
       };
@@ -395,6 +399,7 @@ export const useEditAnimalForm = (
         updates.grant_source_other = formData.acquisition_type === "grant" && formData.grant_source === "other"
           ? formData.grant_source_other
           : null;
+        updates.source_farm = formData.source_farm || null;
       } else {
         // Offspring specific
         updates.birth_weight_kg = formData.birth_weight_kg ? parseFloat(formData.birth_weight_kg) : null;

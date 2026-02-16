@@ -1,0 +1,1 @@
+ALTER TABLE public.animals ADD COLUMN source_farm text;
