@@ -1,47 +1,31 @@
 
 
-# Add "Source Farm" Field to Edit Animal Dialog + DRM Update
+# Display "Source Farm" in Animal Profile Tab
 
 ## What This Does
 
-Adds the **"Source Farm / Pinagmulan na Farm"** text field to the "Edit All Details" dialog (`EditAnimalDialog.tsx`) for SSOT form parity with the Add Animal form and the quick-edit Acquisition dialog. Also documents the `source_farm` column in the DRM.
+Adds a **"Source Farm"** data row to the animal profile details section, visible for all acquired animals (purchased or grant). Shows the farm name if available, or "No data available" if the field is empty. This completes the SSOT data flow from database to display.
 
-## Current State
+## Change (1 file)
 
-- The `source_farm` field already exists in the database, the `useEditAnimalForm` hook (state, initialization, and submit logic), and in both the Add Animal form and the quick-edit `EditAcquisitionWeightDialog`.
-- **Gap**: The "Edit All Details" dialog (`EditAnimalDialog.tsx`) renders the acquisition section (lines 559-652) but does NOT include the `source_farm` input field.
-- **Gap**: The DRM does not document the `source_farm` column.
+### `src/components/AnimalDetails.tsx` (line ~940)
 
-## Changes (2 files)
-
-### 1. `src/components/animal-details/EditAnimalDialog.tsx`
-
-Add a `source_farm` Input field inside the acquisition section (after the Purchase Price field for "purchased" and after the Grant Source fields for "grant"), visible for both acquisition types. Placement: just before the closing `</div>` of the acquisition `bg-muted/30` container (line 649).
+Insert a new row after the "Acquisition" display block (line 940), still inside the `farm_entry_date` conditional block (which covers all acquired/new entrant animals):
 
 ```tsx
-{/* Source Farm - shown for both purchased and grant */}
-<div className="space-y-2">
-  <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="edit-source-farm" />
-  <Input
-    id="edit-source-farm"
-    value={formData.source_farm}
-    onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
-    placeholder="Enter farm name / Ilagay ang pangalan ng farm"
-  />
+{/* Source Farm */}
+<div>
+  <p className="text-muted-foreground">Source Farm</p>
+  <p className="font-medium">
+    {animal.source_farm
+      ? animal.source_farm
+      : <span className="text-muted-foreground italic">No data available</span>
+    }
+  </p>
 </div>
 ```
 
-This mirrors the exact same label, placeholder, and binding used in `AnimalForm.tsx` (line 835) and `EditAcquisitionWeightDialog.tsx`.
-
-### 2. `docs/data-relationships-map.md`
-
-Add `source_farm` to the `animals` table schema (after `grant_source_other`, around line 186):
-
-```
-| `source_farm` | text | YES | --- | Name of farm where animal was sourced (purchased/grant) |
-```
-
-Update the "Last updated" date and add a changelog entry.
+This sits naturally after the Acquisition info since both relate to how the animal was sourced. Farm-born animals (no `farm_entry_date`) won't show this field since it's not applicable to them.
 
 ## SSOT Data Flow (Complete)
 
@@ -49,18 +33,18 @@ Update the "Last updated" date and add a changelog entry.
 animals.source_farm (DB column)
        |
        v
-useAnimalForm.ts (Add form hook) -- DONE
-useEditAnimalForm.ts (Edit form hook) -- DONE
+useAnimalDetails.ts (Animal interface) -- DONE
        |
        v
+AnimalDetails.tsx (Profile display) -- THIS CHANGE
 AnimalForm.tsx (Add form UI) -- DONE
-EditAnimalDialog.tsx (Edit All Details UI) -- THIS CHANGE
-EditAcquisitionWeightDialog.tsx (Quick-edit dialog UI) -- DONE
+EditAnimalDialog.tsx (Edit All Details UI) -- DONE
+EditAcquisitionWeightDialog.tsx (Quick-edit dialog) -- DONE
        |
        v
-DRM documentation -- THIS CHANGE
+DRM documentation -- DONE
 ```
 
-## No Database or Hook Changes Needed
+## No Other Changes Needed
 
-The column exists, and the hook already reads/writes `source_farm`. This is purely a UI + documentation update.
+The `Animal` interface already includes `source_farm`, and the data is already fetched via `select("*")`. This is a single-line UI addition.
