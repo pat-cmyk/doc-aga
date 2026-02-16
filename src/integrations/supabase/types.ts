@@ -1908,6 +1908,7 @@ export type Database = {
           id: string
           input_method: string
           kilograms: number | null
+          milk_inventory_id: string | null
           notes: string | null
           record_datetime: string
         }
@@ -1922,6 +1923,7 @@ export type Database = {
           id?: string
           input_method?: string
           kilograms?: number | null
+          milk_inventory_id?: string | null
           notes?: string | null
           record_datetime: string
         }
@@ -1936,6 +1938,7 @@ export type Database = {
           id?: string
           input_method?: string
           kilograms?: number | null
+          milk_inventory_id?: string | null
           notes?: string | null
           record_datetime?: string
         }
@@ -1959,6 +1962,13 @@ export type Database = {
             columns: ["feed_inventory_id"]
             isOneToOne: false
             referencedRelation: "feed_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feeding_records_milk_inventory_id_fkey"
+            columns: ["milk_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "milk_inventory"
             referencedColumns: ["id"]
           },
         ]
@@ -2541,6 +2551,8 @@ export type Database = {
           is_available: boolean
           liters_original: number
           liters_remaining: number
+          milk_quality: string
+          milk_quality_rejection_reason: string | null
           milking_record_id: string
           record_date: string
           updated_at: string | null
@@ -2554,6 +2566,8 @@ export type Database = {
           is_available?: boolean
           liters_original: number
           liters_remaining: number
+          milk_quality?: string
+          milk_quality_rejection_reason?: string | null
           milking_record_id: string
           record_date: string
           updated_at?: string | null
@@ -2567,6 +2581,8 @@ export type Database = {
           is_available?: boolean
           liters_original?: number
           liters_remaining?: number
+          milk_quality?: string
+          milk_quality_rejection_reason?: string | null
           milking_record_id?: string
           record_date?: string
           updated_at?: string | null

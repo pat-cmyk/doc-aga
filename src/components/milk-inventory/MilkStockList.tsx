@@ -3,9 +3,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Milk, AlertTriangle, DollarSign, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Milk, AlertTriangle, DollarSign, ChevronDown, ChevronRight, Pencil, Trash2, Baby } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { RecordMilkSaleDialog } from "./RecordMilkSaleDialog";
+import { FeedMilkToAnimalDialog } from "./FeedMilkToAnimalDialog";
 import { EditMilkRecordDialog } from "./EditMilkRecordDialog";
 import { DeleteMilkRecordDialog } from "./DeleteMilkRecordDialog";
 import { MilkSpeciesSummary } from "./MilkSpeciesSummary";
@@ -18,6 +19,7 @@ interface MilkStockListProps {
   data?: { items: MilkInventoryItem[]; summary: MilkInventorySummary };
   isLoading: boolean;
   canManage?: boolean;
+  stockType?: 'good' | 'rejected';
 }
 
 const SPECIES_ICONS: Record<string, string> = {
@@ -34,8 +36,9 @@ function getAgeIndicator(date: string): { label: string; variant: "default" | "s
   return { label: "Old", variant: "destructive" };
 }
 
-export function MilkStockList({ farmId, data, isLoading, canManage = true }: MilkStockListProps) {
+export function MilkStockList({ farmId, data, isLoading, canManage = true, stockType = 'good' }: MilkStockListProps) {
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [feedDialogOpen, setFeedDialogOpen] = useState(false);
   const [saleFilterSpecies, setSaleFilterSpecies] = useState<string | null>(null);
   const [expandedSpecies, setExpandedSpecies] = useState<Set<string>>(new Set());
   const [expandedAnimals, setExpandedAnimals] = useState<Set<string>>(new Set());
@@ -148,10 +151,22 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
             </div>
             
             {canManage && (
-              <Button onClick={handleSellAll} className="gap-2">
-                <DollarSign className="h-4 w-4" />
-                Record Sale
-              </Button>
+              <div className="flex gap-2">
+                {stockType === 'good' && (
+                  <Button onClick={handleSellAll} className="gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Record Sale
+                  </Button>
+                )}
+                <Button 
+                  onClick={() => setFeedDialogOpen(true)} 
+                  variant={stockType === 'rejected' ? 'default' : 'outline'}
+                  className="gap-2"
+                >
+                  <Baby className="h-4 w-4" />
+                  Feed to Animal
+                </Button>
+              </div>
             )}
           </div>
 
@@ -314,17 +329,29 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true }: Mil
         })}
         </div>
       )}
-      {/* Sale Dialog */}
-      <RecordMilkSaleDialog
+      {/* Sale Dialog (good stock only) */}
+      {stockType === 'good' && (
+        <RecordMilkSaleDialog
+          farmId={farmId}
+          open={saleDialogOpen}
+          onOpenChange={(open) => {
+            setSaleDialogOpen(open);
+            if (!open) setSaleFilterSpecies(null);
+          }}
+          availableItems={filteredSaleData.items}
+          totalAvailable={filteredSaleData.total}
+          filterSpecies={saleFilterSpecies}
+        />
+      )}
+
+      {/* Feed to Animal Dialog */}
+      <FeedMilkToAnimalDialog
         farmId={farmId}
-        open={saleDialogOpen}
-        onOpenChange={(open) => {
-          setSaleDialogOpen(open);
-          if (!open) setSaleFilterSpecies(null);
-        }}
-        availableItems={filteredSaleData.items}
-        totalAvailable={filteredSaleData.total}
-        filterSpecies={saleFilterSpecies}
+        open={feedDialogOpen}
+        onOpenChange={setFeedDialogOpen}
+        availableItems={data?.items || []}
+        totalAvailable={data?.summary.totalLiters || 0}
+        stockType={stockType}
       />
       
       {/* Edit Dialog */}

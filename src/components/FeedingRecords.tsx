@@ -253,6 +253,7 @@ export function FeedingRecords({
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <p className="font-semibold text-base">
+                          {record.feed_type === 'Whole Milk' ? '🥛 ' : record.feed_type === 'Waste Milk' ? '🥛⚠️ ' : ''}
                           {record.feed_type || "Unknown"}
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -314,6 +315,7 @@ export function FeedingRecords({
                         {format(new Date(record.record_datetime), "h:mm a")}
                       </TableCell>
                       <TableCell className="font-medium">
+                        {record.feed_type === 'Whole Milk' ? '🥛 ' : record.feed_type === 'Waste Milk' ? '🥛⚠️ ' : ''}
                         {record.feed_type || "-"}
                       </TableCell>
                       <TableCell className="text-right">

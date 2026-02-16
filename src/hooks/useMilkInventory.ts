@@ -64,7 +64,7 @@ export function useMilkInventory(farmId: string) {
     });
   }, [farmId]);
 
-  // Query the new milk_inventory table directly
+  // Query the new milk_inventory table directly (good quality only for sellable stock)
   const serverQuery = useQuery({
     queryKey: ["milk-inventory", farmId],
     queryFn: async () => {
@@ -81,10 +81,13 @@ export function useMilkInventory(farmId: string) {
           is_available,
           created_at,
           client_generated_id,
+          milk_quality,
+          milk_quality_rejection_reason,
           animals!inner(name, ear_tag, livestock_type)
         `)
         .eq("farm_id", farmId)
         .eq("is_available", true)
+        .eq("milk_quality", "good")
         .gte("liters_remaining", 0.05)
         .order("record_date", { ascending: true });
 
@@ -202,6 +205,98 @@ export function useMilkInventory(farmId: string) {
     refetchOnWindowFocus: false,
   });
 
+  // Query rejected milk inventory separately
+  const rejectedQuery = useQuery({
+    queryKey: ["milk-inventory-rejected", farmId],
+    queryFn: async () => {
+      console.log('[MilkInventory] Fetching rejected milk...');
+      const { data, error } = await supabase
+        .from("milk_inventory")
+        .select(`
+          id,
+          milking_record_id,
+          animal_id,
+          record_date,
+          liters_original,
+          liters_remaining,
+          is_available,
+          created_at,
+          client_generated_id,
+          milk_quality,
+          milk_quality_rejection_reason,
+          animals!inner(name, ear_tag, livestock_type)
+        `)
+        .eq("farm_id", farmId)
+        .eq("is_available", true)
+        .eq("milk_quality", "rejected")
+        .gte("liters_remaining", 0.05)
+        .order("record_date", { ascending: true });
+
+      if (error) throw error;
+
+      const items: MilkInventoryCacheItem[] = (data || []).map((r: any) => ({
+        id: r.id,
+        milking_record_id: r.milking_record_id,
+        animal_id: r.animal_id,
+        animal_name: r.animals?.name,
+        ear_tag: r.animals?.ear_tag,
+        livestock_type: r.animals?.livestock_type || 'cattle',
+        record_date: r.record_date,
+        liters_original: parseFloat(r.liters_original),
+        liters_remaining: parseFloat(r.liters_remaining),
+        is_available: r.is_available,
+        created_at: r.created_at,
+        client_generated_id: r.client_generated_id,
+        syncStatus: 'synced' as const,
+      }));
+
+      const totalLiters = items.reduce((sum, r) => sum + r.liters_remaining, 0);
+      const oldestDate = items.length > 0 ? items[0].record_date : null;
+
+      const bySpecies: SpeciesSummary[] = [];
+      const speciesMap = new Map<string, { total_liters: number; animal_ids: Set<string>; oldest_date: string }>();
+      items.forEach(item => {
+        const type = item.livestock_type;
+        const existing = speciesMap.get(type);
+        if (existing) {
+          existing.total_liters += item.liters_remaining;
+          existing.animal_ids.add(item.animal_id);
+          if (item.record_date < existing.oldest_date) existing.oldest_date = item.record_date;
+        } else {
+          speciesMap.set(type, { total_liters: item.liters_remaining, animal_ids: new Set([item.animal_id]), oldest_date: item.record_date });
+        }
+      });
+      speciesMap.forEach((data, livestock_type) => {
+        bySpecies.push({ livestock_type, total_liters: data.total_liters, animal_count: data.animal_ids.size, oldest_date: data.oldest_date });
+      });
+
+      const byAnimal: MilkInventorySummary['byAnimal'] = [];
+      const animalMap = new Map<string, any>();
+      items.forEach(item => {
+        const existing = animalMap.get(item.animal_id);
+        if (existing) {
+          existing.total_liters += item.liters_remaining;
+          existing.record_count += 1;
+          if (item.record_date < existing.oldest_date) existing.oldest_date = item.record_date;
+        } else {
+          animalMap.set(item.animal_id, {
+            animal_name: item.animal_name, ear_tag: item.ear_tag, livestock_type: item.livestock_type,
+            total_liters: item.liters_remaining, oldest_date: item.record_date, record_count: 1,
+          });
+        }
+      });
+      animalMap.forEach((data, animal_id) => byAnimal.push({ animal_id, ...data }));
+
+      const summary: MilkInventorySummary = { totalLiters, oldestDate, bySpecies, byAnimal };
+      console.log('[MilkInventory] Rejected:', items.length, 'items,', totalLiters.toFixed(1), 'L');
+      return { items, summary };
+    },
+    enabled: !!farmId && isOnline,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // Transform cache/server items to the consistent MilkInventoryItem type
   const transformItem = (item: any): MilkInventoryItem => ({
     id: item.id,
@@ -229,8 +324,17 @@ export function useMilkInventory(farmId: string) {
     byAnimal: [],
   };
 
+  // Rejected milk items
+  const rejectedItems: MilkInventoryItem[] = rejectedQuery.data?.items?.map(transformItem) || [];
+  const rejectedSummary: MilkInventorySummary = rejectedQuery.data?.summary || {
+    totalLiters: 0,
+    oldestDate: null,
+    bySpecies: [],
+    byAnimal: [],
+  };
+
   const refetch = async () => {
-    return serverQuery.refetch();
+    await Promise.all([serverQuery.refetch(), rejectedQuery.refetch()]);
   };
 
   // Never return undefined if we have any cached data - prevents "empty inventory" flash
@@ -239,6 +343,7 @@ export function useMilkInventory(farmId: string) {
 
   return {
     data: hasAnyData ? { items, summary } : undefined,
+    rejectedData: rejectedItems.length > 0 ? { items: rejectedItems, summary: rejectedSummary } : undefined,
     isLoading: !cacheChecked || (!cachedData && serverQuery.isLoading),
     isFetching: serverQuery.isFetching,
     isError: serverQuery.isError && !cachedData,
