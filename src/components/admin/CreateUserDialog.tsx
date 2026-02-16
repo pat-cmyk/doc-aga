@@ -95,6 +95,7 @@ export const CreateUserDialog = ({ onUserCreated, isSuperAdmin = false }: Create
     vet: "Veterinary professional",
     distributor: "Product distributor",
     government: "Government analytics access (super admin only)",
+    cooperative: "Cooperative dashboard admin",
     admin: "System administrator (super admin only)",
   };
 

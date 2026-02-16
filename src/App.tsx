@@ -28,6 +28,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const MerchantAuth = lazy(() => import("./pages/MerchantAuth"));
 const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const GovernmentAuth = lazy(() => import("./pages/GovernmentAuth"));
+const CooperativeAuth = lazy(() => import("./pages/CooperativeAuth"));
+const CooperativeDashboard = lazy(() => import("./pages/CooperativeDashboard"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -187,6 +189,8 @@ const ConditionalFloatingComponents = () => {
     '/auth/merchant',
     '/auth/admin',
     '/auth/government',
+    '/auth/cooperative',
+    '/cooperative',
     '/privacy',
     '/admin',
     '/marketplace',
@@ -239,6 +243,15 @@ const App = () => (
                   <Route path="/auth/merchant" element={<MerchantAuth />} />
                   <Route path="/auth/admin" element={<AdminAuth />} />
                   <Route path="/auth/government" element={<GovernmentAuth />} />
+                  <Route path="/auth/cooperative" element={<CooperativeAuth />} />
+                  <Route 
+                    path="/cooperative" 
+                    element={
+                      <ProtectedRoute requiredRoles={["cooperative"]}>
+                        <CooperativeDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route path="/profile" element={<Profile />} />
                   <Route 
                     path="/admin" 

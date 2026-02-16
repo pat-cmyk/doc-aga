@@ -907,6 +907,100 @@ export type Database = {
           },
         ]
       }
+      cooperative_memberships: {
+        Row: {
+          accepted_at: string | null
+          cooperative_id: string
+          created_at: string
+          farm_id: string
+          id: string
+          invitation_status: string
+          invitation_token: string
+          invited_at: string
+          invited_email: string
+          token_expires_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          cooperative_id: string
+          created_at?: string
+          farm_id: string
+          id?: string
+          invitation_status?: string
+          invitation_token?: string
+          invited_at?: string
+          invited_email: string
+          token_expires_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          cooperative_id?: string
+          created_at?: string
+          farm_id?: string
+          id?: string
+          invitation_status?: string
+          invitation_token?: string
+          invited_at?: string
+          invited_email?: string
+          token_expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cooperative_memberships_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cooperative_memberships_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cooperative_memberships_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cooperatives: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          id: string
+          logo_url: string | null
+          municipality: string | null
+          name: string
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          municipality?: string | null
+          name: string
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          municipality?: string | null
+          name?: string
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coverage_reports: {
         Row: {
           branches_covered: number
@@ -3959,6 +4053,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_cooperative_invitation: {
+        Args: { _token: string }
+        Returns: string
+      }
       accept_farm_invitation: {
         Args: { p_token: string }
         Returns: {
@@ -4091,6 +4189,10 @@ export type Database = {
             }
             Returns: string
           }
+      decline_cooperative_invitation: {
+        Args: { _token: string }
+        Returns: string
+      }
       detect_sync_conflict: {
         Args: {
           p_client_data: Json
@@ -4131,6 +4233,47 @@ export type Database = {
           p_monthly_start_date: string
           p_start_date: string
         }
+        Returns: Json
+      }
+      get_cooperative_farm_ids: {
+        Args: { _cooperative_id: string }
+        Returns: string[]
+      }
+      get_cooperative_financial_summary: {
+        Args: { _cooperative_id: string; _days?: number }
+        Returns: Json
+      }
+      get_cooperative_health_overview: {
+        Args: { _cooperative_id: string }
+        Returns: Json
+      }
+      get_cooperative_herd_summary: {
+        Args: { _cooperative_id: string }
+        Returns: Json
+      }
+      get_cooperative_invitation_public: {
+        Args: { _token: string }
+        Returns: {
+          cooperative_name: string
+          farm_name: string
+          invitation_status: string
+          token_expires_at: string
+        }[]
+      }
+      get_cooperative_member_farms: {
+        Args: { _cooperative_id: string }
+        Returns: {
+          accepted_at: string
+          animal_count: number
+          farm_id: string
+          farm_name: string
+          invitation_status: string
+          municipality: string
+          region: string
+        }[]
+      }
+      get_cooperative_milk_production: {
+        Args: { _cooperative_id: string; _days?: number }
         Returns: Json
       }
       get_data_entry_analytics: {
@@ -4683,6 +4826,7 @@ export type Database = {
           urgency: string
         }[]
       }
+      get_user_cooperative_id: { Args: { _user_id: string }; Returns: string }
       handle_merchant_signup: {
         Args: {
           _business_address: string
@@ -4710,6 +4854,14 @@ export type Database = {
       initialize_animal_fertility_status: {
         Args: { p_animal_id: string }
         Returns: Database["public"]["Enums"]["fertility_status"]
+      }
+      invite_farm_to_cooperative: {
+        Args: { _cooperative_id: string; _email: string }
+        Returns: string
+      }
+      is_cooperative_admin: {
+        Args: { _cooperative_id: string; _user_id: string }
+        Returns: boolean
       }
       is_farm_manager: {
         Args: { _farm_id: string; _user_id: string }
@@ -4839,6 +4991,7 @@ export type Database = {
         | "admin"
         | "distributor"
         | "government"
+        | "cooperative"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5053,6 +5206,7 @@ export const Constants = {
         "admin",
         "distributor",
         "government",
+        "cooperative",
       ],
     },
   },
