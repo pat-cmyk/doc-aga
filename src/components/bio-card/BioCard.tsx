@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { OVRBadge } from "./OVRBadge";
+import { OVRScore } from "@/components/ui/ovr-score";
 import { StatusAura, StatusBadge } from "./StatusAura";
 import { PerformanceRadar } from "./PerformanceRadar";
 import { TrendSparkline } from "./TrendSparkline";
@@ -90,11 +90,12 @@ export function BioCard({
                 </div>
               </div>
 
-              <OVRBadge
+              <OVRScore
                 score={bioData.ovr.score}
                 tier={bioData.ovr.tier}
                 trend={bioData.ovr.trend}
                 breakdown={bioData.ovr.breakdown}
+                variant="hexagon"
                 size="md"
               />
             </div>

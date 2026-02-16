@@ -17,7 +17,7 @@ import AnimalForm from "./AnimalForm";
 import AnimalDetails from "./AnimalDetails";
 import { AnimalCard } from "./animal-list/AnimalCard";
 import { StatusDot } from "./animal-list/StatusDot";
-import { OVRIndicator } from "./animal-list/OVRIndicator";
+import { OVRScore } from "@/components/ui/ovr-score";
 import { BioCardSheet } from "./animals/BioCardSheet";
 import { calculateLifeStage, calculateMilkingStage, getLifeStageBadgeColor, getMilkingStageBadgeColor, displayStageForSpecies } from "@/lib/animalStages";
 import { getCachedAnimals, updateAnimalCache, updateRecordsCache, getCachedRecords, getCachedAnimalDetails } from "@/lib/dataCache";
@@ -805,10 +805,11 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {/* OVR Indicator */}
                     {ovrData && (
-                      <OVRIndicator
+                      <OVRScore
                         score={ovrData.ovr}
                         tier={ovrData.tier}
                         trend={ovrData.trend}
+                        variant="pill"
                         size="sm"
                       />
                     )}

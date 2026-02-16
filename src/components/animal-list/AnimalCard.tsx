@@ -7,7 +7,7 @@ import { Scale, Database, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SwipeableAnimalCard } from "./SwipeableAnimalCard";
-import { OVRIndicator, type OVRTier, type OVRTrend } from "./OVRIndicator";
+import { OVRScore, type OVRTier, type OVRTrend } from "@/components/ui/ovr-score";
 import { StatusDot, type StatusDotType, type StatusReason } from "./StatusDot";
 import type { Animal } from "./hooks/useAnimalList";
 import { getEffectiveWeight } from "@/lib/animalWeightUtils";
@@ -151,10 +151,11 @@ export const AnimalCard = ({
             <div className="flex flex-col gap-1 items-end">
               {/* OVR Indicator - only show if cached (score > 0) */}
               {ovrScore !== undefined && ovrScore > 0 && ovrTier && (
-                <OVRIndicator
+                <OVRScore
                   score={ovrScore}
                   tier={ovrTier}
                   trend={ovrTrend}
+                  variant="pill"
                   size="xs"
                 />
               )}
@@ -234,10 +235,11 @@ export const AnimalCard = ({
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {/* OVR Indicator for desktop - only show if cached (score > 0) */}
               {ovrScore !== undefined && ovrScore > 0 && ovrTier && (
-                <OVRIndicator
+                <OVRScore
                   score={ovrScore}
                   tier={ovrTier}
                   trend={ovrTrend}
+                  variant="pill"
                   size="sm"
                 />
               )}
