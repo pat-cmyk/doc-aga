@@ -1,108 +1,98 @@
 
-
-# Unify OVR Score Display into a Single SSOT Component
+# Unify OVR Computation to a Single Source of Truth
 
 ## Problem
 
-The OVR score for the same animal is displayed using **three different approaches** across the app:
-- **Animal List / Cards**: `OVRIndicator` -- a colored pill with score + trend arrow
-- **BioCard**: `OVRBadge` -- a hexagon with score, tier label, trend, and a click-to-expand breakdown dialog
-- **BioCardSummary**: Inline text "OVR 65" -- no component at all
+The same animal shows **three different OVR scores** (61, 73, 69) across three views because there are **two completely separate computation engines** that produce different results:
 
-These duplicate the `OVRTier` type, `OVRTrend` type, tier color definitions, tier labels, and trend icon logic across two separate files.
+| Engine | Location | Used By | Writes To |
+|--------|----------|---------|-----------|
+| Server-side SQL | `calculate_animal_ovr()` PostgreSQL function | DB triggers on record changes | `animal_ovr_cache` |
+| Client-side JS | `ovrScoreCalculator.ts` via `useBioCardData` hook | BioCard, BioCardSummary | Overwrites `animal_ovr_cache` |
 
-## Solution
+### Key Differences Between the Two Engines
 
-Create a single **`OVRScore`** component in `src/components/ui/ovr-score.tsx` that serves as the SSOT for all OVR display, supporting multiple display variants through a `variant` prop.
+| Factor | Server SQL | Client JS |
+|--------|-----------|-----------|
+| Milk benchmark | Stage-specific (12/15/10/6) | Flat per type (cattle=15, goat=2) |
+| Active health issues | Actually queries `health_records` | Hardcoded `false` |
+| Withdrawal detection | Queries `milking_records` | Hardcoded `false` |
+| Weight selection | dairy check via `milking_stage IS NOT NULL` | Check via `isMilking` flag |
 
-### Variants
+The list view reads from cache (written by whichever engine ran last). The BioCard runs client-side live, then overwrites the cache -- so scores drift and conflict.
 
-| Variant | Visual | Where Used |
-|---------|--------|------------|
-| `pill` | Compact colored pill (current OVRIndicator look) | Animal list, animal cards |
-| `hexagon` | Hexagon badge with tier label (current OVRBadge look) | BioCard |
-| `text` | Inline "OVR 65" text | BioCardSummary collapsed state |
+## Solution: Server-Side SQL as the Single Computation SSOT
 
-### Shared SSOT Constants (defined once)
-- `OVRTier` and `OVRTrend` types
-- Tier color gradients (unified between pill and hexagon)
-- Tier labels (English + Filipino)
-- Trend icon mapping (TrendingUp / TrendingDown / Minus)
-
-### Component Interface
-
-```tsx
-interface OVRScoreProps {
-  score: number;
-  tier: OVRTier;
-  trend?: OVRTrend;
-  variant?: 'pill' | 'hexagon' | 'text';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
-  // Only needed for hexagon variant's breakdown dialog
-  breakdown?: OVRBreakdown;
-  className?: string;
-}
-```
-
-## SSOT Data Flow
+Make the **server-side `calculate_animal_ovr()` SQL function** the ONLY place OVR is computed. All views -- list, BioCard, BioCardSummary -- read from `animal_ovr_cache`. No client-side recalculation.
 
 ```text
-animal_ovr_cache (DB table)
+DB triggers (milking/weight/BCS/health/AI records)
        |
        v
-useAnimalOVR / useBioCardData (hooks)
+calculate_animal_ovr() SQL function  <-- SINGLE COMPUTATION SSOT
        |
        v
-OVRScore component (NEW - single SSOT)
-  variant="pill"     -> AnimalCard.tsx, AnimalList.tsx
-  variant="hexagon"  -> BioCard.tsx
-  variant="text"     -> BioCardSummary.tsx
+animal_ovr_cache table  <-- SINGLE DATA SSOT
+       |
+       v
+useBatchOVRSummary (list view) -- reads cache
+useBioCardData (BioCard/Summary) -- reads cache (NO MORE client-side calc)
 ```
 
-## Changes (7 files)
+### Why Server-Side?
 
-### 1. CREATE: `src/components/ui/ovr-score.tsx`
+- It already queries actual health records and withdrawal status (client hardcodes these as `false`)
+- DB triggers ensure the cache updates immediately when underlying data changes
+- No race condition between client overwrite and trigger overwrite
+- One algorithm to maintain, not two
 
-Single component containing:
-- All shared types (`OVRTier`, `OVRTrend`, `OVRBreakdown`) exported from one location
-- Unified tier gradients, labels, trend icons
-- Three render paths based on `variant` prop
-- The hexagon variant includes the breakdown `Dialog` (moved from OVRBadge)
+## Changes (4 files)
 
-### 2. EDIT: `src/components/animal-list/AnimalCard.tsx`
+### 1. EDIT: `src/hooks/useBioCardData.ts`
 
-- Replace `import { OVRIndicator }` with `import { OVRScore }` from `@/components/ui/ovr-score`
-- Replace `<OVRIndicator score={} tier={} trend={} size="xs" />` with `<OVRScore score={} tier={} trend={} variant="pill" size="xs" />`
-- Same for the desktop variant (size="sm")
+**Remove client-side OVR calculation and cache-writing.** Instead, read OVR from `animal_ovr_cache` (same source as the list view).
 
-### 3. EDIT: `src/components/AnimalList.tsx`
+- Remove the import of `calculateOVRScore` and `OVRInputs` from `ovrScoreCalculator.ts`
+- Add a query to read from `animal_ovr_cache` for the specific animal
+- Remove the `ovrInputs` assembly block (lines 372-403)
+- Remove the `calculateOVRScore(ovrInputs)` call (line 405)
+- Remove the entire `useEffect` that writes to cache (lines 499-529)
+- Use the cached OVR result (score, tier, trend, breakdown) directly
+- Keep all other data (sparklines, repro status, immunity, market value) as-is -- those aren't duplicated
+- The radar chart data will come from `breakdown` stored in the cache (it's already a JSONB column)
 
-- Replace `import { OVRIndicator }` with `import { OVRScore }`
-- Replace `<OVRIndicator ... size="sm" />` with `<OVRScore ... variant="pill" size="sm" />`
+### 2. EDIT: `src/lib/ovrScoreCalculator.ts`
 
-### 4. EDIT: `src/components/bio-card/BioCard.tsx`
+- Keep the file but add a deprecation comment at the top noting that the server-side SQL function is the SSOT
+- Keep `calculateStatusAura()` (it's still used client-side for the status aura, which is a separate concern from OVR)
+- Keep `getOVRTier()` and `getOVRTierColor()` as utility functions
+- Remove or deprecate `calculateOVRScore()` since it should no longer be called
 
-- Replace `import { OVRBadge }` with `import { OVRScore }`
-- Replace `<OVRBadge score={} tier={} trend={} breakdown={} size="md" />` with `<OVRScore score={} tier={} trend={} breakdown={} variant="hexagon" size="md" />`
+### 3. EDIT: `src/hooks/useBatchOVRSummary.ts`
 
-### 5. EDIT: `src/components/animal-details/BioCardSummary.tsx`
+- No logic changes needed -- it already reads from cache correctly
+- Add a comment noting this is now the same data source as BioCard
 
-- Import `OVRScore` and replace inline `OVR {bioData.ovr.score}` text with `<OVRScore score={bioData.ovr.score} tier={bioData.ovr.tier} trend={bioData.ovr.trend} variant="text" />`
+### 4. EDIT: `docs/data-relationships-map.md`
 
-### 6. DELETE (contents only): Old files become re-exports
+- Update OVR SSOT flow documentation to reflect single computation path
 
-- `src/components/animal-list/OVRIndicator.tsx` -- re-export from `@/components/ui/ovr-score` for backward compatibility (any external imports won't break)
-- `src/components/bio-card/OVRBadge.tsx` -- re-export from `@/components/ui/ovr-score`
+## What This Fixes
 
-### 7. EDIT: `docs/data-relationships-map.md`
-
-- Add `OVRScore` to the component reuse inventory
-- Note that `OVRIndicator` and `OVRBadge` are deprecated re-exports
+- All three views (list pill, BioCard hexagon, BioCardSummary text) will show the **exact same score** because they all read from the same cache row
+- No more race condition where opening BioCard overwrites the trigger-computed cache
+- Health issues and withdrawal periods are properly factored into the score (no more hardcoded `false`)
 
 ## What This Does NOT Change
 
-- No database changes
-- No hook changes (data fetching stays the same)
-- No visual changes -- each variant renders identically to the current component it replaces
-- The breakdown dialog behavior stays the same (only on hexagon variant tap)
+- The `calculate_animal_ovr()` SQL function (it's already correct and more complete)
+- DB triggers that mark cache as stale
+- The edge function for batch recalculation
+- The `OVRScore` UI component (already unified)
+- Status aura calculation (remains client-side, separate concern)
+- All other BioCard data (sparklines, repro, immunity, market value)
 
+## Risk Mitigation
+
+- Animals that have never had a trigger fire (no records at all) will show score 0 from cache. The UI already handles this with a "not yet calculated" state in the list view.
+- The 3 AM cron job already ensures all animals eventually get a cached score.
