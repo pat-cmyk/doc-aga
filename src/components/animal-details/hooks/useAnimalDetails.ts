@@ -22,6 +22,7 @@ export interface Animal {
   livestock_type: string | null;
   farm_entry_date: string | null;
   acquisition_type: string | null;
+  farm_id: string;
 }
 
 export interface ParentAnimal {
@@ -70,7 +71,7 @@ export const useAnimalDetails = (animalId: string, farmId: string) => {
       // Try cache first
       const cached = await getCachedAnimalDetails(animalId, farmId);
       if (cached) {
-        setAnimal(cached.animal as Animal);
+        setAnimal(cached.animal as unknown as Animal);
         setMother(cached.mother as ParentAnimal | null);
         setFather(cached.father as ParentAnimal | null);
         setOffspring(cached.offspring as OffspringAnimal[]);
