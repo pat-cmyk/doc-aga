@@ -1,154 +1,155 @@
 
 
-# Milk-to-Calf Feeding + Rejected Milk Inventory
+# Consolidate Error Messages into a Farmer-Friendly SSOT
 
-## Overview
+## Problem
 
-Add the ability to feed milk (good or rejected) from the milk inventory to any animal on the farm, with FIFO deduction, feeding history tracking, and opportunity-cost accounting. Rejected milk gets its own visible section in the inventory tab instead of being silently discarded.
+The app has **51+ files** that pass raw `error.message` directly to toast notifications. This means farmers see cryptic messages like:
 
-## SSOT Data Flow
+- "duplicate key value violates unique constraint \"animals_ear_tag_farm_id_key\""
+- "Invalid login credentials"
+- "new row violates row-level security policy for table \"milking_records\""
+- "JSON object requested, multiple (or no) rows returned"
+
+Meanwhile, `src/lib/errorHandling.ts` already has `sanitizeError()` and `handleDatabaseError()` utilities -- but **zero files import or use them**. They are completely dead code.
+
+## Solution
+
+1. Expand `errorHandling.ts` into a comprehensive error translation engine that pattern-matches raw Supabase/PostgreSQL error strings and returns farmer-friendly bilingual (English + Filipino) messages.
+2. Create a single `showErrorToast()` helper that wraps both toast systems (shadcn `useToast` and sonner `toast.error`) so every call site becomes a one-liner.
+3. Refactor all 51+ files to use `showErrorToast()` instead of raw `error.message`.
+
+## Error Categories & Translations
+
+| Raw Error Pattern | Farmer-Friendly Message |
+|---|---|
+| `duplicate key` / `23505` / `unique constraint` | "Duplicate entry. This record already exists. (May dobleng entry. Naka-record na ito.)" |
+| `Invalid login credentials` | "Wrong email or password. Please check and try again. (Mali ang email o password. Subukan ulit.)" |
+| `User already registered` | "This email is already registered. Please log in instead. (Naka-rehistro na ang email na ito. Mag-log in na lang.)" |
+| `password has been exposed` / `breached` / `leaked` | "This password was found in a data breach. Please choose a different, stronger password." |
+| `Email not confirmed` | "Please check your email and click the confirmation link first. (I-check ang email at i-click ang confirmation link.)" |
+| `row-level security` / `policy` / `permission denied` / `403` | "You don't have permission to do this. Contact your farm owner. (Wala kang permiso dito. Kontakin ang may-ari ng farm.)" |
+| `foreign key violation` / `23503` | "Cannot delete -- this record is linked to other data. Remove linked records first. (Hindi mabura -- may konektadong data. Alisin muna ang mga naka-link.)" |
+| `not_found` / `PGRST116` (single row) | "Record not found. It may have been deleted. (Hindi mahanap ang record. Baka na-delete na.)" |
+| `failed to fetch` / `network` / `timeout` / `offline` | "No internet connection. Check your signal and try again. (Walang internet. Suriin ang signal at subukan ulit.)" |
+| `rate limit` / `429` | "Too many attempts. Please wait a moment and try again. (Masyadong maraming pagsubok. Maghintay at subukan ulit.)" |
+| `storage` / `file too large` / `bucket` | "File upload failed. Make sure the file is under 5MB. (Hindi na-upload. Siguraduhin na wala pang 5MB ang file.)" |
+| `too many requests` | Same as rate limit above |
+| Default fallback | "Something went wrong. Please try again. (May problema. Subukan ulit.)" |
+
+## Architecture
 
 ```text
-milking_records (quality: good/rejected)
-       |
-       v (DB trigger: sync_milk_inventory_on_insert)
-milk_inventory
-  ├── is_available = true, milk_quality = 'good'   --> Sellable Stock section
-  └── is_available = true, milk_quality = 'rejected' --> Rejected Stock section (NEW)
-       |
-       v  (Feed Calf dialog -- FIFO deduction)
-  milk_inventory.liters_remaining reduced
-       |
-       v  (Insert into feeding_records)
-  feeding_records
-    ├── feed_type = 'Whole Milk' or 'Waste Milk'
-    ├── milk_inventory_id = UUID (NEW column -- links to batch)
-    ├── cost_per_kg_at_time = price/L from useLastMilkPriceBySpecies (good) or 0 (rejected)
-    └── kilograms = liters (1L milk ~ 1.03kg, use 1:1 for simplicity)
-       |
-       v  (Existing SSOT paths)
-  FeedingRecords.tsx (animal feeding history -- already shows feed_type + cost)
-  useHerdInvestment (already sums feeding_records.cost_per_kg_at_time * kilograms)
-  useAnimalExpenses (already sums per-animal feed costs)
+errorHandling.ts (SSOT -- expanded)
+  ├── ERROR_MESSAGES (expanded bilingual map)
+  ├── translateError(error) --> farmer-friendly string
+  ├── showErrorToast(error, context?) --> calls sonner toast.error()
+  └── showErrorToastLegacy(toast, error, title?) --> calls shadcn useToast
+        |
+        v
+All 51+ consumer files
+  BEFORE: toast({ title: "Error", description: error.message, variant: "destructive" })
+  AFTER:  showErrorToast(error, "loading animals")
 ```
 
-No new hooks or RPCs needed. The existing `feeding_records` cost-tracking pipeline already flows into Herd Investment and the animal Costs tab.
+### Why Two Toast Helpers?
 
----
+The codebase uses **two different toast systems**:
+- **shadcn `useToast`** (hook-based, used in ~40 files) -- requires `toast` function from the hook
+- **sonner `toast.error`** (import-based, used in ~28 files) -- can be called anywhere
 
-## Database Changes (1 migration)
+The plan provides helpers for both, with the sonner version as the preferred default going forward.
 
-### A. Add `milk_quality` column to `milk_inventory`
+## Technical Details
 
-Currently rejected milk is set to `is_available = false, liters_remaining = 0`. We need to:
-- Add `milk_quality TEXT NOT NULL DEFAULT 'good'` to `milk_inventory`
-- Add `milk_quality_rejection_reason TEXT` to `milk_inventory`
+### 1. EDIT: `src/lib/errorHandling.ts`
 
-### B. Add `milk_inventory_id` column to `feeding_records`
+Expand the file with:
+- **Bilingual `ERROR_MESSAGES`** covering all categories above (Filipino + English)
+- **`translateError(error: unknown, context?: string): { title: string; description: string }`** -- the core pattern-matching engine. The optional `context` param lets call sites add specificity (e.g., "saving milk record") which gets prepended to the message.
+- **`showErrorToast(error: unknown, context?: string)`** -- calls sonner `toast.error()` with the translated message. One-liner for any file.
+- **`showErrorToastLegacy(toastFn, error, title?)`** -- for files still using shadcn `useToast`. Accepts the toast function and calls it with the translated message + `variant: "destructive"`.
+- Keep existing `isNetworkError()`, `getRetryableError()` (used by `useNetworkError` hook)
+- Remove `sanitizeError()` and `handleDatabaseError()` (unused, replaced by `translateError`)
 
-- Add `milk_inventory_id UUID REFERENCES milk_inventory(id)` (nullable) to `feeding_records`
-- This mirrors the existing `feed_inventory_id` pattern for solid feed
+### 2. EDIT: Auth Pages (4 files)
 
-### C. Update trigger: `sync_milk_inventory_on_insert()`
+**`src/pages/Auth.tsx`** -- Replace raw `error.message` in:
+- `handleSignIn` catch: translate "Invalid login credentials" to "Wrong email or password"
+- `handleSignUp` error: already handles leaked password, add duplicate email handling
+- `handleForgotPassword` error: translate to friendly message
+- `handleGoogleSignIn` error: translate to friendly message
 
-Change behavior for rejected milk:
-- **Before**: `is_available = false, liters_remaining = 0`
-- **After**: `is_available = true, liters_remaining = NEW.liters, milk_quality = 'rejected'`
+**`src/pages/GovernmentAuth.tsx`** -- Same pattern for government login errors
 
-This keeps rejected milk in a trackable, feedable state.
+**`src/pages/MerchantAuth.tsx`** -- Same pattern, plus the "already registered" flow
 
-### D. Update trigger: `sync_milk_inventory_on_update()`
+**`src/pages/AdminAuth.tsx`** -- Same pattern for admin login
 
-When quality changes from good to rejected (or vice versa), update `milk_quality` on the inventory row instead of zeroing it out. Keep `is_available = true` so it can still be fed to animals.
+### 3. EDIT: Data Hooks (~15 files)
 
----
+Files that catch Supabase query errors and show raw `error.message`:
+- `src/hooks/useProfile.ts`
+- `src/hooks/useMerchant.ts`
+- `src/hooks/useBodyConditionScores.ts`
+- `src/hooks/useDailyChecklist.ts`
+- `src/hooks/useSupportTickets.ts`
+- `src/hooks/useExpenses.ts`
+- `src/hooks/usePendingActivities.ts`
+- `src/hooks/useGovernmentFeedback.ts`
+- `src/hooks/useFarmerFeedback.ts`
+- `src/hooks/useRealtimeTranscription.ts`
+- `src/components/animal-list/hooks/useAnimalList.ts`
 
-## Frontend Changes
+Each gets: `import { showErrorToast } from "@/lib/errorHandling"` and replaces `toast({ title: "Error", description: error.message, variant: "destructive" })` with `showErrorToast(error, "context")`.
 
-### 1. UPDATE: `src/hooks/useMilkInventory.ts`
+### 4. EDIT: Component Error Handlers (~25 files)
 
-Add a second data set for rejected milk inventory:
-- Query `milk_inventory` WHERE `milk_quality = 'rejected'` AND `liters_remaining >= 0.05`
-- Return `rejectedItems` and `rejectedSummary` alongside the existing `items`/`summary`
-- The existing query already filters `is_available = true`, so adding `milk_quality = 'good'` to it keeps sellable stock pure
+Files with inline error toasts:
+- `src/components/AnimalDetails.tsx`
+- `src/components/AnimalList.tsx`
+- `src/components/HealthRecords.tsx`
+- `src/components/FarmSetup.tsx`
+- `src/components/UserEmailDropdown.tsx`
+- `src/components/breeding/BreedingEventActions.tsx`
+- `src/components/animal-exit/RecordAnimalExitDialog.tsx`
+- `src/components/health-records/AddHealthRecordDialog.tsx`
+- `src/components/milk-inventory/EditMilkRecordDialog.tsx`
+- `src/components/milk-inventory/DeleteMilkRecordDialog.tsx`
+- `src/components/body-condition/RecordBulkBCSDialog.tsx`
+- `src/components/farmhand/ActivityConfirmation.tsx`
+- `src/components/farmhand/VoiceRecordButton.tsx`
+- `src/components/farmhand/DocAgaConsultation.tsx`
+- `src/components/government/RicoChat.tsx`
+- `src/components/merchant/OrderStatusUpdate.tsx`
+- `src/components/admin/FarmOversight.tsx`
+- `src/components/admin/EditUserDialog.tsx`
+- `src/components/admin/UserDetailPanel.tsx`
+- `src/components/admin/FaqCandidatesTab.tsx`
+- `src/components/admin/RecalculateHistoricalStatsButton.tsx`
+- `src/components/admin/RoleDebugger.tsx`
+- `src/components/approval/ApprovalSettings.tsx`
+- `src/components/sync/SyncStatusSheet.tsx`
+- `src/components/animal-form/VoiceQuickAdd.tsx`
 
-### 2. UPDATE: `src/components/milk-inventory/MilkInventoryTab.tsx`
+### 5. EDIT: `docs/data-relationships-map.md`
 
-Add a third sub-tab or a section within "Current Stock":
-- **Option A (approved)**: Separate section within the same "Current Stock" tab
-- Show "Sellable Stock" section (current behavior)
-- Show "Rejected Stock" section below it with a distinct visual (amber/warning border)
-- Each section gets its own "Feed to Animal" button instead of "Record Sale"
+- Add Error Handling SSOT entry documenting `translateError` as the single source for all user-facing error messages
 
-### 3. UPDATE: `src/components/milk-inventory/MilkStockList.tsx`
+## What This Does NOT Change
 
-- Add a "Feed to Animal" button alongside "Record Sale"
-- Pass `stockType: 'good' | 'rejected'` to differentiate button labels
-- "Record Sale" only appears for good-quality stock
-- "Feed to Animal" appears for both
+- No database changes
+- No RLS changes
+- No hook logic changes (only the error display path)
+- Console.error logging stays (translateError still logs the raw error for debugging)
+- The `NetworkError` component and `useNetworkError` hook stay as-is (they handle retry UI, not toast messages)
 
-### 4. CREATE: `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx`
+## Migration Strategy
 
-New dialog that mirrors `RecordMilkSaleDialog` structure:
-- **Animal selector**: Dropdown of all active farm animals (fetched via `useFarmAnimals`)
-  - Each option shows: `{name || ear_tag} - {age}` (e.g., "NDA 123 - 3 months old" or "Bessie - No data available")
-  - Age computed from `birth_date` using `differenceInMonths`
-- **Liters input**: How much milk to feed
-- **Feeding hint**: "Recommended: {X}-{Y}L/day for a {weight}kg animal (10-20% of body weight)"
-  - Uses `current_weight_kg` from the selected animal
-  - If no weight data: "No weight data -- typical calf intake is 4-6L/day"
-- **FIFO preview**: Same as sale dialog -- shows which inventory batches will be deducted
-- **Cost display**:
-  - Good milk: Shows "Opportunity cost: [price] x [liters] = [total]" using `useLastMilkPriceBySpecies`
-  - Rejected milk: Shows "Cost: Free (rejected milk)"
-- **Submit logic**:
-  1. Deduct `liters_remaining` from `milk_inventory` rows (FIFO, partial support)
-  2. Mark fully consumed rows as `is_available = false`
-  3. Insert `feeding_records` with:
-     - `feed_type`: "Whole Milk" (good) or "Waste Milk" (rejected)
-     - `milk_inventory_id`: linked batch ID
-     - `cost_per_kg_at_time`: price/L (good) or 0 (rejected)
-     - `kilograms`: liters value (1:1 approximation, industry standard)
-  4. Refetch milk inventory queries
-
-### 5. UPDATE: `src/components/FeedingRecords.tsx`
-
-- No structural changes needed -- it already displays `feed_type` and cost
-- "Whole Milk" and "Waste Milk" will naturally appear as feed types
-- Cost display already handles zero-cost as "Free"
-
-### 6. UPDATE: `docs/data-relationships-map.md`
-
-- Add Milk Feeding SSOT flow
-- Document `milk_inventory_id` in `feeding_records`
-
----
-
-## Downstream Impact (Already Handled)
-
-These existing SSOT paths will automatically pick up milk feeding costs with zero code changes:
-
-| Component | How It Works |
-|-----------|-------------|
-| **Herd Investment** (`useHerdInvestment`) | Already sums `feeding_records.cost_per_kg_at_time * kilograms` per animal |
-| **Animal Costs Tab** (`useAnimalExpenses`) | Already aggregates per-animal feed costs |
-| **Feed Cost Analytics** (`FeedCostAnalytics`) | Already reads all `feeding_records` |
-| **Profitability Thermometer** | Already includes feed costs via expenses |
-
-Good milk fed to calves will appear as a real cost in Herd Investment (opportunity cost). Rejected milk fed to calves will appear as "Free" -- accurate since it had no market value.
-
----
-
-## Files Summary (8 files)
-
-| File | Action |
-|------|--------|
-| `supabase/migrations/[timestamp].sql` | **CREATE** - Add columns + update triggers |
-| `src/hooks/useMilkInventory.ts` | EDIT - Add rejected inventory query |
-| `src/components/milk-inventory/MilkInventoryTab.tsx` | EDIT - Wire rejected stock section |
-| `src/components/milk-inventory/MilkStockList.tsx` | EDIT - Add "Feed to Animal" button, support stock types |
-| `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx` | **CREATE** - New FIFO milk feeding dialog |
-| `src/components/FeedingRecords.tsx` | MINOR EDIT - Add milk emoji for Whole/Waste Milk feed types |
-| `docs/data-relationships-map.md` | EDIT - Document new SSOT flow |
-| `docs/ssot-architecture.md` | EDIT - Add milk feeding to core data flows |
+Since this touches 51+ files, implementation will be done in batches:
+1. First: expand `errorHandling.ts` with the new translation engine + helpers
+2. Then: auth pages (highest user impact)
+3. Then: data hooks (most frequent errors)
+4. Then: remaining components
+5. Last: documentation update
 
