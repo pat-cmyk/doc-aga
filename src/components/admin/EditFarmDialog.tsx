@@ -142,7 +142,7 @@ export const EditFarmDialog = ({ farm, open, onOpenChange }: EditFarmDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Edit Farm Details</DialogTitle>
           <DialogDescription>
@@ -150,7 +150,7 @@ export const EditFarmDialog = ({ farm, open, onOpenChange }: EditFarmDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Farm Name</Label>

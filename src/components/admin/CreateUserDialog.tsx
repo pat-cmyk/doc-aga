@@ -113,7 +113,7 @@ export const CreateUserDialog = ({ onUserCreated, isSuperAdmin = false }: Create
           Create User
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Create New User Account</DialogTitle>
           <DialogDescription>
@@ -121,7 +121,7 @@ export const CreateUserDialog = ({ onUserCreated, isSuperAdmin = false }: Create
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleCreateUser} className="space-y-4">
+        <form onSubmit={handleCreateUser} className="flex-1 overflow-y-auto space-y-4">
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name *</Label>
             <Input

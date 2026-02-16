@@ -159,7 +159,7 @@ export function RecordCalvingDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Baby className="h-5 w-5 text-pink-500" />
@@ -168,7 +168,7 @@ export function RecordCalvingDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4">
           {/* Calving Date */}
           <div>
             <Label htmlFor="calving_date">Calving Date *</Label>

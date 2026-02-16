@@ -124,7 +124,7 @@ export function OVRBadge({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>Performance Breakdown</span>
@@ -132,7 +132,7 @@ export function OVRBadge({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {/* Overall Score */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
             <div>

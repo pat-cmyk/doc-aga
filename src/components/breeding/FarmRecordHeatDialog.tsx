@@ -120,7 +120,7 @@ export function FarmRecordHeatDialog({ open, onOpenChange, animals, farmId }: Fa
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-orange-500" />
@@ -129,7 +129,7 @@ export function FarmRecordHeatDialog({ open, onOpenChange, animals, farmId }: Fa
         </DialogHeader>
 
         {step === 'pick' ? (
-          <div className="space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -165,7 +165,7 @@ export function FarmRecordHeatDialog({ open, onOpenChange, animals, farmId }: Fa
             </ScrollArea>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4">
             {/* Selected animal header */}
             <div className="flex items-center gap-2 p-2 rounded-lg bg-muted">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setStep('pick')}>

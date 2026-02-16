@@ -57,7 +57,7 @@ export function OfflineOnboarding({ farmId }: OfflineOnboardingProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wifi className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function OfflineOnboarding({ farmId }: OfflineOnboardingProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="bg-muted p-4 rounded-lg space-y-2">
             <h4 className="font-medium text-sm">This will cache:</h4>
             <ul className="text-sm space-y-1 text-muted-foreground">
