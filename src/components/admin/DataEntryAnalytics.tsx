@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,12 +23,15 @@ export function DataEntryAnalytics({ dataCategory }: DataEntryAnalyticsProps) {
 
   const { getRegions, getProvinces, getMunicipalities } = useLocationFilters();
 
-  const endDate = new Date();
-  const startDate = dateRange === "7d"
-    ? subDays(endDate, 7)
-    : dateRange === "30d"
-    ? subDays(endDate, 30)
-    : subDays(endDate, 90);
+  const { startDate, endDate } = useMemo(() => {
+    const end = new Date();
+    const start = dateRange === "7d"
+      ? subDays(end, 7)
+      : dateRange === "30d"
+      ? subDays(end, 30)
+      : subDays(end, 90);
+    return { startDate: start, endDate: end };
+  }, [dateRange]);
 
   const { data: analytics, isLoading, error } = useDataEntryAnalytics({
     startDate,
