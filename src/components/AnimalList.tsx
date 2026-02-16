@@ -6,7 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getAnimalDisplayPrimary, setAnimalDisplayPrimary, type AnimalDisplayPrimary } from "@/lib/localStorage";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -765,16 +765,13 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                   <div className="flex items-start gap-3">
                     {/* Avatar with status dot */}
                     <div className="relative flex-shrink-0">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage 
-                          src={animal.avatar_url ? `${animal.avatar_url}?t=${Date.now()}` : undefined}
-                          alt={displayPrimary === 'ear_tag' ? (animal.ear_tag || 'Animal') : (animal.name || 'Animal')}
-                          loading="lazy"
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                          {(displayPrimary === 'ear_tag' ? (animal.ear_tag || '?') : (animal.name || animal.ear_tag || '?')).charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <AnimalAvatar
+                        avatarUrl={animal.avatar_url}
+                        animalName={animal.name}
+                        earTag={animal.ear_tag}
+                        livestockType={animal.livestock_type}
+                        size="md"
+                      />
                       {ovrData?.status && (
                         <div className="absolute -bottom-0.5 -right-0.5">
                           <StatusDot status={ovrData.status} reason={ovrData.statusReason} size="md" />

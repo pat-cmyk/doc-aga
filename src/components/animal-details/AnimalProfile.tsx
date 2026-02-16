@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Button } from "@/components/ui/button";
 import { CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -158,14 +158,14 @@ export const AnimalProfile = ({
   return (
     <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
       <div className="relative">
-        <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-          <AvatarImage 
-            src={animal.avatar_url ? `${animal.avatar_url}?t=${new Date().getTime()}` : undefined} 
-            alt={animal.name || "Animal"} 
-            key={animal.avatar_url}
-          />
-          <AvatarFallback className="text-lg sm:text-xl">{animal.name?.[0] || animal.ear_tag?.[0] || "A"}</AvatarFallback>
-        </Avatar>
+        <AnimalAvatar
+          avatarUrl={animal.avatar_url}
+          animalName={animal.name}
+          earTag={animal.ear_tag}
+          livestockType={animal.livestock_type}
+          size="lg"
+          className="h-16 w-16 sm:h-20 sm:w-20"
+        />
         <div className="absolute -bottom-1 -right-1">
           {uploading ? (
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-secondary flex items-center justify-center">

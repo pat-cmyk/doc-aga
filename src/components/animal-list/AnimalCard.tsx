@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { GenderSymbol } from "@/components/ui/gender-indicator";
@@ -114,10 +114,13 @@ export const AnimalCard = ({
         <div className="flex items-center gap-2.5">
           {/* Avatar with status dot overlay */}
           <div className="relative shrink-0">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={animal.avatar_url || undefined} alt={primaryText} />
-              <AvatarFallback className="text-sm">{fallbackChar}</AvatarFallback>
-            </Avatar>
+            <AnimalAvatar
+              avatarUrl={animal.avatar_url}
+              animalName={animal.name}
+              earTag={animal.ear_tag}
+              livestockType={animal.livestock_type}
+              size="sm"
+            />
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
                 <StatusDot status={statusDot} reason={statusReason} size="sm" />
@@ -204,10 +207,14 @@ export const AnimalCard = ({
         <div className="flex items-center gap-3">
           {/* Avatar with status dot overlay */}
           <div className="relative shrink-0">
-            <Avatar className="h-14 w-14">
-              <AvatarImage src={animal.avatar_url || undefined} alt={primaryText} />
-              <AvatarFallback className="text-lg">{fallbackChar}</AvatarFallback>
-            </Avatar>
+            <AnimalAvatar
+              avatarUrl={animal.avatar_url}
+              animalName={animal.name}
+              earTag={animal.ear_tag}
+              livestockType={animal.livestock_type}
+              size="lg"
+              className="h-14 w-14"
+            />
             {statusDot && (
               <div className="absolute -bottom-0.5 -right-0.5">
                 <StatusDot status={statusDot} reason={statusReason} size="md" />

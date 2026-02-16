@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { RotateCcw, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,15 +57,13 @@ export function BioCard({
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <StatusAura status={bioData.statusAura} size="md">
-                  <Avatar className="w-16 h-16">
-                    <AvatarImage 
-                      src={animal.avatar_url || undefined} 
-                      alt={animal.name || 'Animal'} 
-                    />
-                    <AvatarFallback className="text-2xl bg-muted">
-                      {livestockEmoji}
-                    </AvatarFallback>
-                  </Avatar>
+                  <AnimalAvatar
+                    avatarUrl={animal.avatar_url}
+                    animalName={animal.name}
+                    earTag={animal.ear_tag}
+                    livestockType={animal.livestock_type}
+                    size="lg"
+                  />
                 </StatusAura>
                 
                 <div className="space-y-1">
