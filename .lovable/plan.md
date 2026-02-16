@@ -1,101 +1,108 @@
 
-# Unify Animal Avatar into a Single SSOT Component
+
+# Unify OVR Score Display into a Single SSOT Component
 
 ## Problem
 
-The same animal (NDA 123) renders with **three different avatars** across three views:
-- **Profile header**: Cow photo (avatar_url with cache-busting)
-- **List card**: Letter "N" in gray circle (avatar_url without cache-busting, different fallback)
-- **BioCard**: Cow emoji/icon (avatar_url without cache-busting, emoji fallback)
+The OVR score for the same animal is displayed using **three different approaches** across the app:
+- **Animal List / Cards**: `OVRIndicator` -- a colored pill with score + trend arrow
+- **BioCard**: `OVRBadge` -- a hexagon with score, tier label, trend, and a click-to-expand breakdown dialog
+- **BioCardSummary**: Inline text "OVR 65" -- no component at all
 
-Root causes:
-1. Avatar rendering is **duplicated in 6+ locations** with inconsistent logic
-2. Cache-busting (`?t=timestamp`) is applied in some places but not others
-3. Fallback behavior differs: some show first letter, others show livestock emoji
+These duplicate the `OVRTier` type, `OVRTrend` type, tier color definitions, tier labels, and trend icon logic across two separate files.
 
 ## Solution
 
-Create a single `AnimalAvatar` component that is the SSOT for all animal avatar rendering, then replace every inline `<Avatar>` across the codebase.
+Create a single **`OVRScore`** component in `src/components/ui/ovr-score.tsx` that serves as the SSOT for all OVR display, supporting multiple display variants through a `variant` prop.
 
-## SSOT Data Flow
+### Variants
 
-```text
-animals.avatar_url (DB column)
-       |
-       v
-AnimalAvatar component (NEW - single SSOT)
-       |
-       v
-AnimalDetails.tsx (profile header - desktop + mobile)
-AnimalList.tsx (list card variant)
-AnimalCard.tsx (swipeable card)
-BioCard.tsx (performance summary)
-AnimalProfile.tsx (legacy profile)
-ActivityDetailsDialog.tsx (approval flow)
-```
+| Variant | Visual | Where Used |
+|---------|--------|------------|
+| `pill` | Compact colored pill (current OVRIndicator look) | Animal list, animal cards |
+| `hexagon` | Hexagon badge with tier label (current OVRBadge look) | BioCard |
+| `text` | Inline "OVR 65" text | BioCardSummary collapsed state |
 
-## Changes
+### Shared SSOT Constants (defined once)
+- `OVRTier` and `OVRTrend` types
+- Tier color gradients (unified between pill and hexagon)
+- Tier labels (English + Filipino)
+- Trend icon mapping (TrendingUp / TrendingDown / Minus)
 
-### 1. NEW: `src/components/ui/animal-avatar.tsx`
-
-A reusable component that:
-- Accepts `avatarUrl`, `animalName`, `earTag`, `livestockType`, `size`
-- Always applies cache-busting to avatar URLs (append `?t=hash` based on URL, not `Date.now()` to avoid re-renders)
-- Uses a consistent fallback hierarchy: uploaded photo, then first letter of name/tag, with livestock emoji as ultimate fallback
-- Supports size variants: `xs` (32px), `sm` (40px), `md` (48px), `lg` (64px), `xl` (80px)
+### Component Interface
 
 ```tsx
-interface AnimalAvatarProps {
-  avatarUrl?: string | null;
-  animalName?: string | null;
-  earTag?: string | null;
-  livestockType?: string | null;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+interface OVRScoreProps {
+  score: number;
+  tier: OVRTier;
+  trend?: OVRTrend;
+  variant?: 'pill' | 'hexagon' | 'text';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  // Only needed for hexagon variant's breakdown dialog
+  breakdown?: OVRBreakdown;
   className?: string;
 }
 ```
 
-### 2. Replace inline Avatars in 6 files
+## SSOT Data Flow
 
-| File | Current | Change |
-|------|---------|--------|
-| `src/components/AnimalDetails.tsx` (2 locations: mobile line 597, desktop line 731) | Inline Avatar with cache-busting, letter fallback | Replace with `<AnimalAvatar>` |
-| `src/components/AnimalList.tsx` (line 768) | Inline Avatar with cache-busting, letter fallback | Replace with `<AnimalAvatar>` |
-| `src/components/animal-list/AnimalCard.tsx` (2 locations: mobile line 117, desktop line 207) | Inline Avatar, no cache-busting, letter fallback | Replace with `<AnimalAvatar>` |
-| `src/components/bio-card/BioCard.tsx` (line 60) | Inline Avatar, no cache-busting, emoji fallback | Replace with `<AnimalAvatar>` |
-| `src/components/animal-details/AnimalProfile.tsx` (line 161) | Inline Avatar with cache-busting, letter fallback | Replace with `<AnimalAvatar>` |
-| `src/components/approval/ActivityDetailsDialog.tsx` (2 locations) | Inline Avatar, no cache-busting | Replace with `<AnimalAvatar>` |
-
-### 3. Consistent Fallback Logic (in the new component)
-
-```
-1. If avatar_url exists -> show image (with cache-busting)
-2. If no image -> show first letter of (name || ear_tag)
-3. If no name/tag -> show livestock emoji (cow/carabao/goat)
+```text
+animal_ovr_cache (DB table)
+       |
+       v
+useAnimalOVR / useBioCardData (hooks)
+       |
+       v
+OVRScore component (NEW - single SSOT)
+  variant="pill"     -> AnimalCard.tsx, AnimalList.tsx
+  variant="hexagon"  -> BioCard.tsx
+  variant="text"     -> BioCardSummary.tsx
 ```
 
-This ensures the same animal always looks the same everywhere.
+## Changes (7 files)
 
-### 4. DRM Update
+### 1. CREATE: `src/components/ui/ovr-score.tsx`
 
-Add `AnimalAvatar` to the component reuse inventory in `docs/data-relationships-map.md`.
+Single component containing:
+- All shared types (`OVRTier`, `OVRTrend`, `OVRBreakdown`) exported from one location
+- Unified tier gradients, labels, trend icons
+- Three render paths based on `variant` prop
+- The hexagon variant includes the breakdown `Dialog` (moved from OVRBadge)
+
+### 2. EDIT: `src/components/animal-list/AnimalCard.tsx`
+
+- Replace `import { OVRIndicator }` with `import { OVRScore }` from `@/components/ui/ovr-score`
+- Replace `<OVRIndicator score={} tier={} trend={} size="xs" />` with `<OVRScore score={} tier={} trend={} variant="pill" size="xs" />`
+- Same for the desktop variant (size="sm")
+
+### 3. EDIT: `src/components/AnimalList.tsx`
+
+- Replace `import { OVRIndicator }` with `import { OVRScore }`
+- Replace `<OVRIndicator ... size="sm" />` with `<OVRScore ... variant="pill" size="sm" />`
+
+### 4. EDIT: `src/components/bio-card/BioCard.tsx`
+
+- Replace `import { OVRBadge }` with `import { OVRScore }`
+- Replace `<OVRBadge score={} tier={} trend={} breakdown={} size="md" />` with `<OVRScore score={} tier={} trend={} breakdown={} variant="hexagon" size="md" />`
+
+### 5. EDIT: `src/components/animal-details/BioCardSummary.tsx`
+
+- Import `OVRScore` and replace inline `OVR {bioData.ovr.score}` text with `<OVRScore score={bioData.ovr.score} tier={bioData.ovr.tier} trend={bioData.ovr.trend} variant="text" />`
+
+### 6. DELETE (contents only): Old files become re-exports
+
+- `src/components/animal-list/OVRIndicator.tsx` -- re-export from `@/components/ui/ovr-score` for backward compatibility (any external imports won't break)
+- `src/components/bio-card/OVRBadge.tsx` -- re-export from `@/components/ui/ovr-score`
+
+### 7. EDIT: `docs/data-relationships-map.md`
+
+- Add `OVRScore` to the component reuse inventory
+- Note that `OVRIndicator` and `OVRBadge` are deprecated re-exports
 
 ## What This Does NOT Change
 
 - No database changes
-- No hook changes
-- Avatar upload logic stays in AnimalDetails/AnimalProfile (the upload button wraps around `AnimalAvatar`)
-- The `StatusAura` wrapper in BioCard and `StatusDot` overlay in cards remain as parent wrappers -- `AnimalAvatar` just handles the avatar itself
+- No hook changes (data fetching stays the same)
+- No visual changes -- each variant renders identically to the current component it replaces
+- The breakdown dialog behavior stays the same (only on hexagon variant tap)
 
-## Files Summary (8 files)
-
-| File | Action |
-|------|--------|
-| `src/components/ui/animal-avatar.tsx` | **CREATE** - SSOT avatar component |
-| `src/components/AnimalDetails.tsx` | EDIT - replace 2 inline Avatars |
-| `src/components/AnimalList.tsx` | EDIT - replace 1 inline Avatar |
-| `src/components/animal-list/AnimalCard.tsx` | EDIT - replace 2 inline Avatars |
-| `src/components/bio-card/BioCard.tsx` | EDIT - replace 1 inline Avatar |
-| `src/components/animal-details/AnimalProfile.tsx` | EDIT - replace 1 inline Avatar |
-| `src/components/approval/ActivityDetailsDialog.tsx` | EDIT - replace 2 inline Avatars |
-| `docs/data-relationships-map.md` | EDIT - add to component reuse inventory |
