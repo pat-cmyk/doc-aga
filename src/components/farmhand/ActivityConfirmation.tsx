@@ -162,7 +162,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
           activity_data: activityData as unknown as import('@/integrations/supabase/types').Json,
           animal_ids: animalIds,
           status: 'pending' as const,
-          auto_approve_at: autoApproveTime
+          auto_approve_at: autoApproveTime,
+          input_method: 'voice' as const
         }]);
 
       if (error) {
@@ -320,9 +321,10 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               }))
             );
             
+            const allRecordsWithMethod = allRecords.map(r => ({ ...r, input_method: 'voice' as const }));
             const { error: bulkError } = await supabase
               .from('milking_records')
-              .insert(allRecords);
+              .insert(allRecordsWithMethod);
             
             if (bulkError) throw bulkError;
             
@@ -343,7 +345,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               record_date: today,
               liters: dist.milk_liters || 0,
               session: legacySession,
-              created_by: user.id
+              created_by: user.id,
+              input_method: 'voice' as const
             }));
             
             const { error: bulkError } = await supabase
@@ -365,7 +368,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               record_date: today,
               liters: data.quantity || 0,
               session: singleSession,
-              created_by: user.id
+              created_by: user.id,
+              input_method: 'voice' as const
             });
           }
           break;
@@ -380,7 +384,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
                 kilograms: dist.feed_amount,
                 feed_type: feed.feed_type,
                 notes: `${feed.notes || ''} [Bulk: ${feed.quantity} ${feed.unit} = ${feed.total_kg.toFixed(2)}kg]`.trim(),
-                created_by: user.id
+                created_by: user.id,
+                input_method: 'voice' as const
               }));
               
               const { error: bulkError } = await supabase
@@ -403,7 +408,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               kilograms: dist.feed_amount,
               feed_type: data.feed_type,
               notes: `${data.notes || ''} [Bulk: ${data.original_quantity} ${data.original_unit} = ${data.total_kg?.toFixed(2)}kg distributed]`.trim(),
-              created_by: user.id
+              created_by: user.id,
+              input_method: 'voice' as const
             }));
             
             const { error: bulkError } = await supabase
@@ -423,7 +429,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
               kilograms: data.quantity,
               feed_type: data.feed_type,
               notes: data.notes,
-              created_by: user.id
+              created_by: user.id,
+              input_method: 'voice' as const
             });
           }
           break;
@@ -435,7 +442,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             visit_date: today,
             diagnosis: 'Routine observation',
             notes: data.notes,
-            created_by: user.id
+            created_by: user.id,
+            input_method: 'voice' as const
           });
           break;
 
@@ -449,7 +457,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             weight_kg: weight,
             measurement_method: 'visual_estimate',
             notes: data.notes,
-            recorded_by: user.id
+            recorded_by: user.id,
+            input_method: 'voice' as const
           });
           // Invalidate weight-dependent caches
           queryClient.invalidateQueries({ queryKey: ["weight-records"] });
@@ -469,7 +478,8 @@ const ActivityConfirmation = ({ data, onCancel, onSuccess }: ActivityConfirmatio
             medicine_name: data.medicine_name,
             dosage: data.dosage,
             instructions: data.notes,
-            created_by: user.id
+            created_by: user.id,
+            input_method: 'voice' as const
           });
           break;
 

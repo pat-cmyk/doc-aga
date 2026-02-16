@@ -1,8 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Store, Ticket } from "lucide-react";
+import { Building2, Store, Ticket, BarChart3 } from "lucide-react";
 import { FarmOversight } from "../FarmOversight";
 import MerchantOversight from "../MerchantOversight";
 import { SupportTicketsTab } from "../SupportTicketsTab";
+import { DataEntryAnalytics } from "../DataEntryAnalytics";
 import { useSearchParams } from "react-router-dom";
 import { DataCategory } from "@/types/government";
 
@@ -36,6 +37,10 @@ export const OperationsTab = ({ dataCategory = 'all' }: OperationsTabProps) => {
             <Ticket className="h-4 w-4" />
             Support Tickets
           </TabsTrigger>
+          <TabsTrigger value="entry-methods" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Entry Methods
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="farms" className="mt-6">
@@ -48,6 +53,10 @@ export const OperationsTab = ({ dataCategory = 'all' }: OperationsTabProps) => {
 
         <TabsContent value="tickets" className="mt-6">
           <SupportTicketsTab />
+        </TabsContent>
+
+        <TabsContent value="entry-methods" className="mt-6">
+          <DataEntryAnalytics dataCategory={dataCategory} />
         </TabsContent>
       </Tabs>
     </div>
