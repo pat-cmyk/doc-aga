@@ -1,130 +1,94 @@
 
-# Add Milk Quality Status and Rejection Reason to Milk Recording
 
-## Overview
+# Milk Spoilage/Rejection Financial Reporting
 
-Add a "Quality Status" dropdown (Good / Rejected) to all milk recording forms. When "Rejected" is selected, a second dropdown appears for the rejection reason. Rejected milk should NOT enter the sellable milk inventory.
+## Industry Context (Gold Standards)
 
-## Schema Changes
+Based on research from dairy industry KPIs (MSU Extension, Journal of Dairy Science, FAO FLW Standard, Nestle milk loss studies), the gold-standard metrics for milk loss/rejection tracking are:
 
-**Table: `milking_records`** -- Add two columns:
+1. **Rejection Rate (%)** = Rejected Liters / Total Liters Produced x 100 (industry benchmark: less than 2% is excellent, 2-5% needs attention, above 5% is critical)
+2. **Lost Revenue (currency)** = Rejected Liters x Market Price Per Liter (opportunity cost -- what the farmer would have earned)
+3. **Rejection by Reason** = Breakdown showing which quality issues are most frequent (enables root-cause analysis, e.g., recurring mastitis suggests herd health intervention)
+4. **Trend Over Time** = Is rejection rate improving or worsening month-over-month?
 
-| Column | Type | Default | Notes |
-|--------|------|---------|-------|
-| `milk_quality` | text | `'good'` | Values: `'good'`, `'rejected'` |
-| `milk_quality_rejection_reason` | text (nullable) | null | Reason when rejected |
+These map directly to our existing data: `milking_records.milk_quality`, `milking_records.milk_quality_rejection_reason`, `milking_records.liters`, and market price from `useLastMilkPriceBySpecies`.
 
-**Trigger update: `sync_milk_inventory_on_insert`** -- Modify the existing trigger so that when `milk_quality = 'rejected'`, the corresponding `milk_inventory` row is inserted with `is_available = false` and `liters_remaining = 0`. This prevents rejected milk from appearing in the sellable inventory.
+## What Already Exists (SSOT Reuse)
 
-## Rejection Reasons (Dropdown Options)
+| Need | Existing Asset | Reuse? |
+|------|---------------|--------|
+| Rejected milk data | `milking_records.milk_quality` + `milk_quality_rejection_reason` (just added) | Direct query |
+| Market price per liter | `useLastMilkPriceBySpecies` hook | Reuse for lost revenue calc |
+| Date filtering | `FinanceDateRangePicker` + `DateRange` type | Pass through from FinanceTab |
+| Currency formatting | `formatPHP`, `formatPHPCompact` from `src/lib/currency.ts` | Reuse |
+| Insight engine | `useContextualInsights` hook | Extend with rejection insight |
+| P&L breakdown | `ProfitabilityThermometer` component | Add rejection line item |
+| Rejection reason constants | `MILK_REJECTION_REASONS` from `src/constants/milkQuality.ts` | Reuse for labels |
 
-Following the app standard (`No Data / Hindi Alam` for unknown):
+**No new RPCs or database changes are needed.** All data is already in `milking_records` and can be queried client-side with existing Supabase patterns.
 
-| Value | Label |
-|-------|-------|
-| `abnormal_color` | Abnormal Color / Kakaibang Kulay |
-| `blood_in_milk` | Blood in Milk / May Dugo |
-| `bad_smell` | Bad Smell / Mabaho |
-| `clots_or_flakes` | Clots or Flakes / May Buo-buo |
-| `watery` | Watery / Malapot |
-| `contaminated` | Contaminated / Kontaminado |
-| `mastitis` | Mastitis Suspected / Hinala na Mastitis |
-| `antibiotic_withdrawal` | Antibiotic Withdrawal Period |
-| `other` | Other / Iba Pa |
-| `none` | No Data / Hindi Alam |
+## Implementation Plan
 
-## Files to Modify
+### 1. New Hook: `useMilkSpoilageReport` (single new data source)
 
-### 1. Database Migration (new file)
-- Add `milk_quality` and `milk_quality_rejection_reason` columns to `milking_records`
-- Update `sync_milk_inventory_on_insert()` trigger to check `milk_quality` and set `is_available = false` for rejected milk
-- Update `sync_milk_inventory_on_update()` trigger to handle quality changes on edits
+One hook that queries `milking_records` for the selected date range and computes all spoilage metrics:
 
-### 2. `src/components/milk-recording/RecordSingleMilkDialog.tsx`
-- Add `milkQuality` state (default `'good'`)
-- Add `rejectionReason` state (default `''`)
-- Add Quality Status `Select` dropdown after Liters input
-- Conditionally show Rejection Reason `Select` when quality is `'rejected'`
-- Include `milk_quality` and `milk_quality_rejection_reason` in the insert payload
-- Include in offline queue payload
+- **Total liters produced** (all records in period)
+- **Rejected liters** (where `milk_quality = 'rejected'`)
+- **Rejection rate %** (rejected / total x 100)
+- **Lost revenue** (rejected liters x species-specific market price, reusing `useLastMilkPriceBySpecies`)
+- **Rejection reasons breakdown** (count + liters per reason, using `MILK_REJECTION_REASONS` labels)
+- **Top rejected animals** (which animals have the most rejections -- actionable for health intervention)
+- **Period comparison** (rejection rate this period vs previous period for trend)
 
-### 3. `src/components/milk-recording/RecordBulkMilkDialog.tsx`
-- Same Quality + Rejection Reason dropdowns (applies to entire batch)
-- Include in insert records and offline queue payload
+This follows the existing hook pattern (same structure as `useFinancialHealth`, `useProfitability`).
 
-### 4. `src/components/milk-recording/EditMilkRecordDialog.tsx`
-- Add Quality + Rejection Reason dropdowns, pre-populated from existing record
-- Include in update payload
+### 2. New Component: `MilkSpoilageCard` (Finance Tab)
 
-### 5. `src/components/milk-inventory/EditMilkRecordDialog.tsx`
-- Add Quality + Rejection Reason dropdowns to the inventory-side edit dialog
-- Include in update payloads for both `milk_inventory` and `milking_records`
+A collapsible card placed in the Finance Tab's "Detailed P&L Analysis" section (alongside `ProfitabilityThermometer` and `AnimalCostAnalysis`). It shows:
 
-### 6. `src/components/farmhand/ActivityConfirmation.tsx`
-- When voice data includes quality info, carry it into `activity_data`
+- **Header row**: Rejection Rate badge (color-coded: green less than 2%, yellow 2-5%, red above 5%) + Total Lost Revenue
+- **Liters summary**: "X.X L rejected out of Y.Y L produced"
+- **Rejection reasons chart**: Horizontal bar chart showing top reasons (reusing `SourceBar` pattern from `RevenueExpenseComparison`)
+- **Top affected animals**: List of animals with most rejections (name, count, liters lost)
+- **Trend indicator**: Arrow up/down comparing to previous period (reusing `TrendIndicator` pattern)
 
-### 7. Approval RPC (`approve_pending_activity`)
-- Carry `milk_quality` and `milk_quality_rejection_reason` from pending activity data into the `milking_records` insert
+### 3. Extend `useContextualInsights` (Smart Tips)
 
-## Data Flow (SSOT)
+Add a new insight rule to the existing engine:
 
-```
-Recording Form (quality dropdown) --> milking_records (milk_quality, milk_quality_rejection_reason)
-                                       |
-                                       v (trigger: sync_milk_inventory_on_insert)
-                                   milk_inventory (is_available = quality != 'rejected')
-                                       |
-                                       v
-                                   Milk Inventory Tab (rejected milk hidden from sale)
-```
+- If rejection rate exceeds 5%: **Critical** insight -- "X% of milk was rejected this period. Check herd health, especially for [top reason]."
+- If rejection rate is 2-5%: **Warning** insight -- "Milk rejection rate is X%. Top reason: [reason]."
+- If rejection rate decreased significantly: **Success** insight -- "Milk rejection rate improved by X%."
 
-## Technical Details
+This reuses the existing `Insight` type and priority system -- no new component needed.
 
-### Migration SQL
+### 4. Extend `ProfitabilityThermometer` (P&L Line Item)
 
-```sql
--- Add milk quality columns
-ALTER TABLE milking_records ADD COLUMN milk_quality text NOT NULL DEFAULT 'good';
-ALTER TABLE milking_records ADD COLUMN milk_quality_rejection_reason text;
+Add a "Milk Rejected (Lost Revenue)" line item in the detailed breakdown section (alongside "Milk Sales", "Animal Sales", "Other Revenue"). This makes the opportunity cost visible in the P&L context. Uses data from `useMilkSpoilageReport`.
 
--- Update inventory sync trigger for inserts
-CREATE OR REPLACE FUNCTION sync_milk_inventory_on_insert()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.milk_inventory (
-    farm_id, animal_id, milking_record_id, record_date,
-    liters_original, liters_remaining, is_available, client_generated_id
-  )
-  SELECT
-    a.farm_id,
-    NEW.animal_id,
-    NEW.id,
-    COALESCE(NEW.record_date, CURRENT_DATE),
-    NEW.liters,
-    CASE WHEN NEW.milk_quality = 'rejected' THEN 0 ELSE NEW.liters END,
-    CASE WHEN NEW.milk_quality = 'rejected' THEN false ELSE true END,
-    NEW.client_generated_id
-  FROM animals a
-  WHERE a.id = NEW.animal_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+### 5. File Changes Summary
+
+| File | Change Type | Description |
+|------|------------|-------------|
+| `src/hooks/useMilkSpoilageReport.ts` | **NEW** | Single hook for all spoilage metrics |
+| `src/components/finance/MilkSpoilageCard.tsx` | **NEW** | Collapsible card for Finance tab |
+| `src/components/FinanceTab.tsx` | **EDIT** | Add MilkSpoilageCard inside the "Detailed P&L Analysis" collapsible |
+| `src/hooks/useContextualInsights.ts` | **EDIT** | Add rejection rate insight rules (3 new conditions) |
+| `src/components/finance/ProfitabilityThermometer.tsx` | **EDIT** | Add lost revenue line item in breakdown |
+
+### 6. Data Flow (SSOT)
+
+```text
+milking_records (milk_quality, liters, animal_id, record_date)
+       |
+       v
+useMilkSpoilageReport (query + compute metrics)
+       |
+       +---> MilkSpoilageCard (Finance Tab, detailed view)
+       +---> useContextualInsights (smart tips, if rate > threshold)
+       +---> ProfitabilityThermometer (lost revenue line item)
 ```
 
-### UI Conditional Logic
+No new database tables, RPCs, triggers, or schema changes. Pure UI + client-side computation reusing existing data and hooks.
 
-```
-if milk_quality === 'rejected':
-  - Show rejection reason dropdown (required)
-  - Toast message changes to: "XL (Rejected) recorded"
-  - Milk does NOT appear in sellable inventory
-else:
-  - Hide rejection reason dropdown
-  - Normal flow
-```
-
-### Existing Patterns Used
-- `Select` dropdown component (same as Session selector)
-- Bilingual labels matching `No Data / Hindi Alam` standard
-- `hapticSelection()` on dropdown change
-- Offline queue payload extension (same pattern as `session` field)
