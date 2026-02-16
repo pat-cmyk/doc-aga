@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-16 (Unified AnimalAvatar SSOT component)
+Last updated: 2026-02-16 (Unified OVRScore SSOT component)
 
 ---
 
@@ -1401,4 +1401,21 @@ Created `src/components/ui/animal-avatar.tsx` as the single source of truth for 
 | `src/components/animal-details/AnimalProfile.tsx` | Replaced 1 inline Avatar (profile header) |
 | `src/components/approval/ActivityDetailsDialog.tsx` | Replaced 5 inline Avatars (approval flows) |
 | `docs/ssot-architecture.md` | Added to component reuse inventory |
+| `docs/data-relationships-map.md` | This entry |
+
+### 2026-02-16: Unified OVRScore SSOT Component
+
+Created `src/components/ui/ovr-score.tsx` as the single source of truth for all OVR score rendering. Supports three variants (`pill`, `hexagon`, `text`) via a single component. `OVRIndicator` and `OVRBadge` are now deprecated re-exports.
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/components/ui/ovr-score.tsx` | **NEW** — SSOT OVR component with pill/hexagon/text variants |
+| `src/components/animal-list/OVRIndicator.tsx` | Replaced with re-export (deprecated) |
+| `src/components/bio-card/OVRBadge.tsx` | Replaced with re-export (deprecated) |
+| `src/components/animal-list/AnimalCard.tsx` | Switched to `OVRScore` variant="pill" |
+| `src/components/AnimalList.tsx` | Switched to `OVRScore` variant="pill" |
+| `src/components/bio-card/BioCard.tsx` | Switched to `OVRScore` variant="hexagon" |
+| `src/components/animal-details/BioCardSummary.tsx` | Switched to `OVRScore` variant="text" |
+| `src/components/bio-card/index.ts` | Updated exports |
 | `docs/data-relationships-map.md` | This entry |

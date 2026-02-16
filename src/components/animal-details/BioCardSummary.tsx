@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/collapsible";
 import { BioCard, BioCardSkeleton } from "@/components/bio-card";
 import { StatusBadge } from "@/components/bio-card/StatusAura";
+import { OVRScore } from "@/components/ui/ovr-score";
 import { useBioCardData, BioCardAnimalData } from "@/hooks/useBioCardData";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -92,9 +93,12 @@ export function BioCardSummary({
               {!isExpanded && (
                 <>
                   <StatusBadge status={bioData.statusAura} />
-                  <span className="text-sm font-medium">
-                    OVR {bioData.ovr.score}
-                  </span>
+                  <OVRScore
+                    score={bioData.ovr.score}
+                    tier={bioData.ovr.tier}
+                    trend={bioData.ovr.trend}
+                    variant="text"
+                  />
                   {bioData.activeAlerts.length > 0 && (
                     <span className="text-xs text-orange-600 dark:text-orange-400">
                       {bioData.activeAlerts.length} alert
