@@ -4,12 +4,14 @@
  * Aggregates all animal performance data from existing SSOT hooks
  * to provide a complete picture for the Bio-Card visualization.
  * 
- * SSOT: This hook is the ONLY place OVR is calculated and cached.
- * The list view reads from the cache written by this hook.
+ * SSOT: OVR scores are computed ONLY by the server-side `calculate_animal_ovr()` 
+ * SQL function and stored in `animal_ovr_cache`. This hook READS from that cache.
+ * The list view (useBatchOVRSummary) reads from the same cache.
+ * No client-side OVR computation occurs here.
  */
 
-import { useMemo, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useGrowthBenchmark, GrowthBenchmark } from './useGrowthBenchmark';
 import { useBodyConditionScores, BodyConditionScore } from './useBodyConditionScores';
@@ -17,21 +19,13 @@ import { useHeatRecords, HeatRecord } from './useHeatRecords';
 import { usePreventiveHealthSchedules } from './usePreventiveHealth';
 import { useUpcomingAlerts, UpcomingAlert } from './useUpcomingAlerts';
 import { 
-  calculateOVRScore, 
   calculateStatusAura, 
   OVRResult, 
-  OVRInputs,
   StatusAura 
 } from '@/lib/ovrScoreCalculator';
 import { differenceInDays } from 'date-fns';
 
-// Milk production benchmarks by livestock type (liters/day) - SSOT
-const MILK_BENCHMARKS: Record<string, number> = {
-  cattle: 15,
-  carabao: 4,
-  goat: 2,
-  sheep: 1.5
-};
+// Milk benchmarks removed — OVR is now computed server-side only via calculate_animal_ovr() SQL function
 
 export interface BioCardAnimalData {
   id: string;
@@ -256,11 +250,28 @@ export function useBioCardData(
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
   
+  // ========== OVR FROM CACHE (SSOT: server-side only) ==========
+  const { data: ovrCacheData, isLoading: ovrCacheLoading } = useQuery({
+    queryKey: ['bio-card-ovr-cache', animalId],
+    queryFn: async () => {
+      if (!animalId) return null;
+      const { data, error } = await (supabase
+        .from('animal_ovr_cache' as any)
+        .select('score, tier, trend, breakdown')
+        .eq('animal_id', animalId)
+        .maybeSingle() as any);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!animalId,
+    staleTime: 30 * 1000, // 30 seconds - matches list view cache
+  });
+
   // ========== COMPUTED VALUES ==========
   
   const bioCardData = useMemo<BioCardData>(() => {
     const isLoading = bcsLoading || heatLoading || healthLoading || 
-                      alertsLoading || milkLoading || weightLoading || aiLoading;
+                      alertsLoading || milkLoading || weightLoading || aiLoading || ovrCacheLoading;
     
     // Default empty state
     if (!animal) {
@@ -369,40 +380,20 @@ export function useBioCardData(
       ? Math.round(animal.current_weight_kg * marketPrice)
       : null;
     
-    // ===== OVR CALCULATION =====
-    const avgDailyMilk = milkSparkline.length > 0
-      ? milkSparkline.reduce((sum, m) => sum + m.value, 0) / milkSparkline.length
-      : null;
-    
-    const isMilking = animal.milking_stage != null && 
-      !['dry', 'Dry'].includes(animal.milking_stage);
-    
-    const ovrInputs: OVRInputs = {
-      avgDailyMilk,
-      milkBenchmark: MILK_BENCHMARKS[animal.livestock_type] || 10, // Use type-specific benchmarks
-      adgGrams: growthBenchmark?.adgActual || null,
-      adgBenchmark: growthBenchmark?.adgExpected || 500,
-      vaccinationCompliance: compliancePercent,
-      hasActiveHealthIssues: false, // Would need health_records query
-      hasWithdrawalPeriod: false,   // Would need injection_records check
-      overdueVaccineCount: overdueVaccines.length,
-      isPregnant,
-      calvingIntervalDays: null, // Would calculate from offspring data
-      heatCycleRegularity: averageCycleLength 
-        ? (averageCycleLength >= 18 && averageCycleLength <= 24 ? 90 : 60)
-        : undefined,
-      adgPercentOfExpected: growthBenchmark?.adgPercentOfExpected || null,
-      weightStatus: growthBenchmark?.status || null,
-      latestBCS: latestBCS?.score ? Number(latestBCS.score) : null,
-      bcsOptimalMin: 2.5,
-      bcsOptimalMax: 4.0,
-      livestockType: animal.livestock_type,
-      lifeStage: animal.life_stage,
-      gender: animal.gender,
-      isMilking,
+    // ===== OVR FROM CACHE (SSOT: server-side calculate_animal_ovr() is the only computation) =====
+    const cachedBreakdown = ovrCacheData?.breakdown as any;
+    const ovr: OVRResult = {
+      score: ovrCacheData?.score ?? 0,
+      tier: (ovrCacheData?.tier as OVRResult['tier']) ?? 'bronze',
+      trend: (ovrCacheData?.trend as OVRResult['trend']) ?? 'stable',
+      breakdown: {
+        production: cachedBreakdown?.production ?? 0,
+        health: cachedBreakdown?.health ?? 0,
+        fertility: cachedBreakdown?.fertility ?? 0,
+        growth: cachedBreakdown?.growth ?? 0,
+        bodyCondition: cachedBreakdown?.bodyCondition ?? cachedBreakdown?.body_condition ?? 0,
+      },
     };
-    
-    const ovr = calculateOVRScore(ovrInputs);
     
     // ===== STATUS AURA =====
     const statusAura = calculateStatusAura({
@@ -490,43 +481,9 @@ export function useBioCardData(
     alertsLoading, 
     milkLoading, 
     weightLoading, 
-    aiLoading,
+    ovrCacheData,
+    ovrCacheLoading,
   ]);
-  
-  // ========== WRITE TO OVR CACHE (SSOT) ==========
-  const queryClient = useQueryClient();
-  
-  useEffect(() => {
-    // Only write to cache when data is fully loaded and we have an animal
-    if (!animal?.id || bioCardData.isLoading || bioCardData.ovr.score === 0) {
-      return;
-    }
-    
-    const writeCache = async () => {
-      try {
-        // Cast needed until types regenerate for new animal_ovr_cache table
-        await (supabase
-          .from('animal_ovr_cache' as any)
-          .upsert({
-            animal_id: animal.id,
-            score: bioCardData.ovr.score,
-            tier: bioCardData.ovr.tier,
-            trend: bioCardData.ovr.trend,
-            breakdown: bioCardData.ovr.breakdown as any,
-            computed_at: new Date().toISOString(),
-          }, { 
-            onConflict: 'animal_id' 
-          }) as any);
-        
-        // Invalidate batch OVR query so list picks up new cache
-        queryClient.invalidateQueries({ queryKey: ['batch-ovr-cache'] });
-      } catch (error) {
-        console.error('Failed to write OVR cache:', error);
-      }
-    };
-    
-    writeCache();
-  }, [animal?.id, bioCardData.ovr.score, bioCardData.ovr.tier, bioCardData.isLoading, queryClient]);
   
   return bioCardData;
 }

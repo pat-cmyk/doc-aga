@@ -48,7 +48,7 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 |--------|-----------|
 | **Milk Revenue** | `milking_records` (sale) → DB trigger → `revenue_ledger` |
 | **Animal Weight** | `weight_records` (latest) → DB trigger → `animals.current_weight_kg` |
-| **OVR Scores** | `milking/weight/bcs/health/ai records` → `calculate_animal_ovr` trigger → `animal_ovr_cache` |
+| **OVR Scores** | `milking/weight/bcs/health/ai records` → `calculate_animal_ovr` SQL trigger → `animal_ovr_cache` → `useBatchOVRSummary` (list) + `useBioCardData` (BioCard/Summary) — **server-side computation ONLY, no client-side calc** |
 | **Feed Inventory** | `feeding_records` → `feed_inventory_id` + `cost_per_kg_at_time` (cost locked at consumption) |
 | **Herd Investment** | `animals.purchase_cost` + `farm_expenses` (manual) + `feeding_records` (auto-calculated) |
 | **Feed Stock Days** | Roughage inventory only → `useFeedInventory` hook → survival buffer |
