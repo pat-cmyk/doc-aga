@@ -1,61 +1,66 @@
 
 
-# Add "Source Farm" Field to Animal Acquisition
+# Add "Source Farm" Field to Edit Animal Dialog + DRM Update
 
 ## What This Does
 
-Adds a new open text field called **"Source Farm"** (Pinagmulan na Farm) that appears for **both** "Purchased" and "Grant" acquisition types. This lets farmers record the name of the farm where the animal originally came from.
+Adds the **"Source Farm / Pinagmulan na Farm"** text field to the "Edit All Details" dialog (`EditAnimalDialog.tsx`) for SSOT form parity with the Add Animal form and the quick-edit Acquisition dialog. Also documents the `source_farm` column in the DRM.
 
-## Technical Plan
+## Current State
 
-### 1. Database Migration
-Add a new nullable column `source_farm` (text) to the `animals` table.
+- The `source_farm` field already exists in the database, the `useEditAnimalForm` hook (state, initialization, and submit logic), and in both the Add Animal form and the quick-edit `EditAcquisitionWeightDialog`.
+- **Gap**: The "Edit All Details" dialog (`EditAnimalDialog.tsx`) renders the acquisition section (lines 559-652) but does NOT include the `source_farm` input field.
+- **Gap**: The DRM does not document the `source_farm` column.
 
-```sql
-ALTER TABLE public.animals ADD COLUMN source_farm text;
+## Changes (2 files)
+
+### 1. `src/components/animal-details/EditAnimalDialog.tsx`
+
+Add a `source_farm` Input field inside the acquisition section (after the Purchase Price field for "purchased" and after the Grant Source fields for "grant"), visible for both acquisition types. Placement: just before the closing `</div>` of the acquisition `bg-muted/30` container (line 649).
+
+```tsx
+{/* Source Farm - shown for both purchased and grant */}
+<div className="space-y-2">
+  <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="edit-source-farm" />
+  <Input
+    id="edit-source-farm"
+    value={formData.source_farm}
+    onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
+    placeholder="Enter farm name / Ilagay ang pangalan ng farm"
+  />
+</div>
 ```
 
-### 2. SSOT Data Flow
+This mirrors the exact same label, placeholder, and binding used in `AnimalForm.tsx` (line 835) and `EditAcquisitionWeightDialog.tsx`.
 
-```text
+### 2. `docs/data-relationships-map.md`
+
+Add `source_farm` to the `animals` table schema (after `grant_source_other`, around line 186):
+
+```
+| `source_farm` | text | YES | --- | Name of farm where animal was sourced (purchased/grant) |
+```
+
+Update the "Last updated" date and add a changelog entry.
+
+## SSOT Data Flow (Complete)
+
+```
 animals.source_farm (DB column)
        |
        v
-AnimalFormData / useAnimalForm.ts (Add form state)
-useEditAnimalForm.ts (Edit form state)
-EditAcquisitionWeightDialog.tsx (Edit acquisition dialog state)
+useAnimalForm.ts (Add form hook) -- DONE
+useEditAnimalForm.ts (Edit form hook) -- DONE
        |
        v
-AnimalForm.tsx (Add form UI - new Input field)
-EditAnimalDialog sections (Edit form UI)
-EditAcquisitionWeightDialog.tsx (Quick-edit dialog UI)
+AnimalForm.tsx (Add form UI) -- DONE
+EditAnimalDialog.tsx (Edit All Details UI) -- THIS CHANGE
+EditAcquisitionWeightDialog.tsx (Quick-edit dialog UI) -- DONE
        |
        v
-AnimalProfile.tsx (Display - optional, shows source farm in details)
+DRM documentation -- THIS CHANGE
 ```
 
-### 3. Files to Modify (7 files)
+## No Database or Hook Changes Needed
 
-| File | Change |
-|------|--------|
-| **`src/components/animal-form/hooks/useAnimalForm.ts`** | Add `source_farm: string` to `AnimalFormData` interface, initialize to `""`, include in `animalData` payload (only for new entrants when acquisition_type is purchased or grant) |
-| **`src/components/AnimalForm.tsx`** | Add `source_farm` to initial state and `resetForm()`. Add a new `Input` field inside the acquisition section (line ~829), shown when acquisition_type is either "purchased" or "grant" |
-| **`src/components/animal-details/hooks/useEditAnimalForm.ts`** | Add `source_farm` to `EditAnimalFormData` interface, `AnimalData` interface, initial state, `loadAnimalData`, and `saveChanges` |
-| **`src/components/animal-details/EditAcquisitionWeightDialog.tsx`** | Add `source_farm` to `currentValues` interface, local state, and save logic. Add Input field in the form |
-| **`src/components/animal-details/hooks/useAnimalDetails.ts`** | Add `source_farm` to the `Animal` interface (data already fetched via `select("*")`) |
-| **`src/components/animal-form/VoiceQuickAdd.tsx`** | Add `source_farm` to the voice-parsed data interface (optional, nullable) |
-| **`docs/data-relationships-map.md`** | Document the new column in the animals table schema |
-
-### 4. UI Placement
-
-The new field appears **inside** the acquisition section, just below the Purchase Price (for purchased) or Grant Source (for grant) fields:
-
-- Label: **"Source Farm / Pinagmulan na Farm"** (using BilingualLabel)
-- Input placeholder: `"Enter farm name / Ilagay ang pangalan ng farm"`
-- Optional field (not required)
-- Visible for both `purchased` and `grant` acquisition types
-
-### 5. Form Parity (Add = Edit)
-
-Both the Add Animal form (`AnimalForm.tsx`) and Edit Animal form (`useEditAnimalForm.ts` + `EditAcquisitionWeightDialog.tsx`) will have the same field, same label, and same behavior -- maintaining SSOT form parity as required by architecture standards.
-
+The column exists, and the hook already reads/writes `source_farm`. This is purely a UI + documentation update.
