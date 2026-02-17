@@ -415,8 +415,8 @@ export function RecordBulkFeedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Wheat className="h-5 w-5 text-orange-500" />
             Record Bulk Feeding
@@ -442,6 +442,7 @@ export function RecordBulkFeedDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -570,34 +571,37 @@ export function RecordBulkFeedDialog({
                 </div>
               </div>
             )}
+          </div>
+        )}
+        </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="flex-1 min-h-[48px]"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                className="flex-1 min-h-[48px]"
-                disabled={!canSubmit || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {isOnline ? "Recording..." : "Queuing..."}
-                  </>
-                ) : isOnline ? (
-                  "Record Feed"
-                ) : (
-                  "Queue for Sync"
-                )}
-              </Button>
-            </div>
+        {/* Sticky Footer */}
+        {displayAnimals.length > 0 && (
+          <div className="flex gap-2 pt-2 flex-shrink-0 border-t mt-2">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              className="flex-1 min-h-[48px]"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="flex-1 min-h-[48px]"
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isOnline ? "Recording..." : "Queuing..."}
+                </>
+              ) : isOnline ? (
+                "Record Feed"
+              ) : (
+                "Queue for Sync"
+              )}
+            </Button>
           </div>
         )}
       </DialogContent>
