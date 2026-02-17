@@ -1,65 +1,58 @@
 
+# Fix FAB Dialog Scrollability — Standardized Popup Scroll Pattern
 
-# Complete Cooperative Module — Pending Items
+## Problem
 
-Two items remain from the original 5-phase plan: the cooperative invitation acceptance flow and documentation updates.
+When FAB-launched dialogs (Record Milk, Record Feed, Record Health, Record BCS) have content taller than the viewport — especially on mobile with rejection reasons, split previews, or many form fields — the content overflows without a scrollbar. Users cannot reach the submit button.
 
----
+## Root Cause
 
-## 1. Cooperative Invitation Acceptance Page
+These dialogs do NOT follow the app's standardized "Sticky Header/Footer" scroll pattern that 23+ other dialogs already use. Specifically:
 
-Farm owners currently have no way to accept or decline cooperative invitations. The `invite_farm_to_cooperative` RPC creates a membership row with a token, but there is no UI for the farm owner to act on it.
+| Dialog | Current `DialogContent` class | Missing |
+|--------|------------------------------|---------|
+| `RecordBulkMilkDialog` | `sm:max-w-md` | `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` |
+| `RecordBulkFeedDialog` | `sm:max-w-md` | `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` |
+| `RecordBulkHealthDialog` | `sm:max-w-md max-h-[90vh] overflow-y-auto` | Partially correct but missing `100dvh` for mobile, not using flex layout |
+| `RecordBulkBCSDialog` | Uses a wrapper component — needs separate check | May need the same fix |
 
-### New File: `src/pages/CooperativeInviteAccept.tsx`
+The standardized pattern (used by `AddRevenueDialog`, `EditMilkRecordDialog`, `AddHealthRecordDialog`, etc.) is:
 
-A standalone page at `/cooperative/invite/accept/:token` that:
-- Reads the token from the URL
-- Queries `cooperative_memberships` to find the matching pending invitation
-- Shows the cooperative name, and Accept / Decline buttons
-- On accept: updates `invitation_status` to `accepted` and sets `accepted_at`
-- On decline: updates `invitation_status` to `declined`
-- If the user is not logged in, redirects to `/auth` with a redirect parameter back to this page (same pattern as the existing farm invitation flow in `Auth.tsx`)
-- If the token is expired or not found, shows a clear error
-
-### Route Addition: `src/App.tsx`
-
-Add one new route:
 ```
-/cooperative/invite/accept/:token -> CooperativeInviteAccept
+DialogContent: max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden
+DialogHeader:  flex-shrink-0
+Body:          flex-1 overflow-y-auto
+DialogFooter:  flex-shrink-0
 ```
 
-### Auth.tsx Update
+## Files to Change
 
-Add cooperative invite redirect handling alongside the existing farm invite pattern — when `pendingRedirect` starts with `/cooperative/invite/accept/`, preserve it through login (mirror the existing `/invite/accept/` logic).
+### 1. `src/components/milk-recording/RecordBulkMilkDialog.tsx`
+- Line 434: Add `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` to DialogContent
+- Add `flex-shrink-0` to DialogHeader
+- Wrap the body `div.space-y-4` (line 479) with `flex-1 overflow-y-auto`
+- Extract the footer buttons into a `flex-shrink-0` section outside the scrollable area
 
----
+### 2. `src/components/feed-recording/RecordBulkFeedDialog.tsx`
+- Same pattern: Add scroll constraints to DialogContent, make header/footer sticky, body scrollable
 
-## 2. Documentation Updates
+### 3. `src/components/health-recording/RecordBulkHealthDialog.tsx`
+- Currently uses `max-h-[90vh] overflow-y-auto` — upgrade to the full flex pattern with `100dvh` for mobile and sticky header/footer
 
-### EDIT: `docs/data-relationships-map.md`
+### 4. `src/components/body-condition/RecordBulkBCSDialog.tsx`
+- Verify and apply the same pattern if it uses a raw Dialog (it appears to use a wrapper component — will check and align)
 
-Add a new section for the Cooperative Module covering:
-- `cooperatives` table schema and RLS policies
-- `cooperative_memberships` table schema and RLS policies
-- Aggregation RPCs (`get_cooperative_herd_summary`, `get_cooperative_milk_production`, `get_cooperative_health_overview`, `get_cooperative_financial_summary`, `get_cooperative_member_farms`)
-- `invite_farm_to_cooperative` RPC
-- Data flow: `cooperative_memberships (accepted) -> SECURITY DEFINER RPCs -> useCooperative hooks -> Dashboard components`
+## What This Does NOT Touch
 
-### EDIT: `docs/ssot-architecture.md`
+- `UnifiedActionsFab.tsx` — the FAB itself is fine; the issue is inside the dialogs it opens
+- No farmer/merchant/vet/government code changes
+- No database changes
+- No new files created
 
-Add cooperative data flow entry:
-- Cooperative Aggregation: `cooperative_memberships` (accepted farms) -> aggregation RPCs -> `useCooperative` hooks -> `CooperativeDashboard` tabs
-- Note that cooperative reads are entirely via SECURITY DEFINER functions and do not touch existing farm RLS policies
+## Verification Plan
 
----
-
-## Files Summary
-
-| File | Action |
-|------|--------|
-| `src/pages/CooperativeInviteAccept.tsx` | CREATE |
-| `src/App.tsx` | EDIT — add 1 route |
-| `src/pages/Auth.tsx` | EDIT — add cooperative invite redirect handling |
-| `docs/data-relationships-map.md` | EDIT — add cooperative section |
-| `docs/ssot-architecture.md` | EDIT — add cooperative data flow |
-| **Total** | **5 files** |
+After applying fixes:
+1. Navigate to the farm dashboard on mobile viewport (390x844)
+2. Open FAB -> Record Milk -> select animals, add rejection reason -> confirm scrollbar appears and submit button is reachable
+3. Repeat for Feed, Health, and BCS dialogs
+4. Screenshot proof at mobile viewport
