@@ -2,7 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { ResponsiveFormContainer } from "@/components/ui/ResponsiveFormContainer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -407,66 +413,36 @@ export function RecordBulkFeedDialog({
     }
   };
 
-  const dialogTitle = (
-    <span className="flex items-center gap-2">
-      <Wheat className="h-5 w-5 text-orange-500" />
-      Record Bulk Feeding
-      {!isOnline && (
-        <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
-          <WifiOff className="h-3 w-3" />
-          Offline
-        </span>
-      )}
-      {isOnline && (
-        <VoiceRecordWithExtraction
-          extractorType="feed"
-          extractorContext={{ feedInventory: displayFeedInventory }}
-          onDataExtracted={handleVoiceDataExtracted}
-          disabled={isLoading}
-          size="sm"
-          className="ml-auto"
-        />
-      )}
-    </span>
-  );
-
-  const dialogFooter = displayAnimals.length > 0 ? (
-    <div className="flex gap-2 w-full">
-      <Button
-        variant="outline"
-        onClick={handleClose}
-        className="flex-1 min-h-[48px]"
-        disabled={isSubmitting}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={handleSubmit}
-        className="flex-1 min-h-[48px]"
-        disabled={!canSubmit || isSubmitting}
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            {isOnline ? "Recording..." : "Queuing..."}
-          </>
-        ) : isOnline ? (
-          "Record Feed"
-        ) : (
-          "Queue for Sync"
-        )}
-      </Button>
-    </div>
-  ) : undefined;
-
   return (
-    <ResponsiveFormContainer
-      open={open}
-      onOpenChange={onOpenChange}
-      title={dialogTitle}
-      description="Record feed given and split proportionally by animal weight"
-      footer={dialogFooter}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Wheat className="h-5 w-5 text-orange-500" />
+            Record Bulk Feeding
+            {!isOnline && (
+              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                <WifiOff className="h-3 w-3" />
+                Offline
+              </span>
+            )}
+            {isOnline && (
+              <VoiceRecordWithExtraction
+                extractorType="feed"
+                extractorContext={{ feedInventory: displayFeedInventory }}
+                onDataExtracted={handleVoiceDataExtracted}
+                disabled={isLoading}
+                size="sm"
+                className="ml-auto"
+              />
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            Record feed given and split proportionally by animal weight
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -597,7 +573,39 @@ export function RecordBulkFeedDialog({
             )}
           </div>
         )}
-    </ResponsiveFormContainer>
+        </div>
+
+        {/* Sticky Footer */}
+        {displayAnimals.length > 0 && (
+          <div className="flex gap-2 pt-2 flex-shrink-0 border-t mt-2">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              className="flex-1 min-h-[48px]"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="flex-1 min-h-[48px]"
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isOnline ? "Recording..." : "Queuing..."}
+                </>
+              ) : isOnline ? (
+                "Record Feed"
+              ) : (
+                "Queue for Sync"
+              )}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

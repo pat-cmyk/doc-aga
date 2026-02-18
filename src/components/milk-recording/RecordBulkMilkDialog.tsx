@@ -2,7 +2,13 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { ResponsiveFormContainer } from "@/components/ui/ResponsiveFormContainer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -423,71 +429,41 @@ export function RecordBulkMilkDialog({
 
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalLiters) > 0;
 
-  const dialogTitle = (
-    <span className="flex items-center gap-2">
-      <Milk className="h-5 w-5 text-blue-500" />
-      Record Milk Production
-      <div className="ml-auto flex items-center gap-2">
-        <VoiceRecordWithExtraction
-          extractorType="milk"
-          extractorContext={animalContext}
-          onDataExtracted={handleVoiceDataExtracted}
-          disabled={isLoading || displayAnimals.length === 0}
-          size="sm"
-          autoSubmit={{
-            enabled: displayAnimals.length > 0,
-            onSubmit: handleSubmit,
-            isComplete: isFormCompleteForAutoSubmit,
-            delayMs: 2500,
-          }}
-        />
-        {!isOnline && (
-          <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
-            <WifiOff className="h-3 w-3" />
-            Offline
-          </span>
-        )}
-      </div>
-    </span>
-  );
-
-  const dialogFooter = displayAnimals.length > 0 ? (
-    <div className="flex gap-2 w-full">
-      <Button
-        variant="outline"
-        onClick={handleClose}
-        className="flex-1 min-h-[48px]"
-        disabled={isSubmitting}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={handleSubmit}
-        className="flex-1 min-h-[48px]"
-        disabled={!canSubmit || isSubmitting}
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            {isOnline ? "Recording..." : "Queuing..."}
-          </>
-        ) : isOnline ? (
-          "Record Milk"
-        ) : (
-          "Queue for Sync"
-        )}
-      </Button>
-    </div>
-  ) : undefined;
-
   return (
-    <ResponsiveFormContainer
-      open={open}
-      onOpenChange={onOpenChange}
-      title={dialogTitle}
-      description="Record milk collected and split proportionally by weight and lactation stage"
-      footer={dialogFooter}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Milk className="h-5 w-5 text-blue-500" />
+            Record Milk Production
+            <div className="ml-auto flex items-center gap-2">
+              <VoiceRecordWithExtraction
+                extractorType="milk"
+                extractorContext={animalContext}
+                onDataExtracted={handleVoiceDataExtracted}
+                disabled={isLoading || displayAnimals.length === 0}
+                size="sm"
+                autoSubmit={{
+                  enabled: displayAnimals.length > 0,
+                  onSubmit: handleSubmit,
+                  isComplete: isFormCompleteForAutoSubmit,
+                  delayMs: 2500,
+                }}
+              />
+              {!isOnline && (
+                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
+                </span>
+              )}
+            </div>
+          </DialogTitle>
+          <DialogDescription>
+            Record milk collected and split proportionally by weight and lactation stage
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto">
         {isLoading && isOnline ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -538,7 +514,7 @@ export function RecordBulkMilkDialog({
               <Label>Session</Label>
               <SessionSelect value={session} onValueChange={handleSessionChange}>
                 <SessionSelectTrigger className="min-h-[48px]">
-                  <SessionSelectValue />
+                  <SessionSelectValue placeholder="Select session" />
                 </SessionSelectTrigger>
                 <SessionSelectContent>
                   <SessionSelectItem value="AM">
@@ -550,12 +526,12 @@ export function RecordBulkMilkDialog({
                   <SessionSelectItem value="PM">
                     <span className="flex items-center gap-2">
                       <Moon className="h-4 w-4 text-indigo-500" />
-                      Afternoon (PM)
+                      Evening (PM)
                     </span>
                   </SessionSelectItem>
                   <SessionSelectItem value="Full Day">
                     <span className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-green-500" />
+                      <Clock className="h-4 w-4 text-blue-500" />
                       Full Day
                     </span>
                   </SessionSelectItem>
@@ -563,7 +539,7 @@ export function RecordBulkMilkDialog({
               </SessionSelect>
             </div>
 
-            {/* Animal Selection */}
+            {/* Animal Selection - Searchable Combobox */}
             <div className="space-y-2">
               <Label>Select Animals</Label>
               <AnimalCombobox
@@ -574,6 +550,22 @@ export function RecordBulkMilkDialog({
               />
             </div>
 
+            {/* Total Liters */}
+            <div className="space-y-2">
+              <Label htmlFor="total-liters">Total Liters Collected</Label>
+              <Input
+                id="total-liters"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="e.g. 25.5"
+                value={totalLiters}
+                onChange={(e) => setTotalLiters(e.target.value)}
+                onFocus={() => hapticImpact('light')}
+                className="min-h-[48px]"
+              />
+            </div>
+
             {/* Milk Quality */}
             <MilkQualityFields
               milkQuality={milkQuality}
@@ -581,20 +573,6 @@ export function RecordBulkMilkDialog({
               onQualityChange={setMilkQuality}
               onRejectionReasonChange={setRejectionReason}
             />
-
-            {/* Total Liters */}
-            <div className="space-y-2">
-              <Label>Total Liters</Label>
-              <Input
-                type="number"
-                placeholder="Enter total liters..."
-                value={totalLiters}
-                onChange={(e) => setTotalLiters(e.target.value)}
-                className="min-h-[48px]"
-                min="0"
-                step="0.1"
-              />
-            </div>
 
             {/* Split Preview */}
             {splitPreview.length > 0 && (
@@ -612,7 +590,39 @@ export function RecordBulkMilkDialog({
             )}
           </div>
         )}
-    </ResponsiveFormContainer>
+        </div>
+
+        {/* Sticky Footer */}
+        {displayAnimals.length > 0 && (
+          <div className="flex gap-2 pt-2 flex-shrink-0 border-t mt-2">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              className="flex-1 min-h-[48px]"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="flex-1 min-h-[48px]"
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isOnline ? "Recording..." : "Queuing..."}
+                </>
+              ) : isOnline ? (
+                "Record Milk"
+              ) : (
+                "Queue for Sync"
+              )}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { hapticSelection, hapticNotification } from "@/lib/haptics";
 import { BCSReferenceGuide } from "./BCSReferenceGuide";
-import { ResponsiveFormContainer } from "@/components/ui/ResponsiveFormContainer";
+import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
@@ -312,7 +312,7 @@ export function RecordBulkBCSDialog({
   );
 
   return (
-    <ResponsiveFormContainer
+    <ResponsiveBCSContainer
       open={open}
       onOpenChange={onOpenChange}
       title={dialogTitle}
@@ -520,6 +520,6 @@ export function RecordBulkBCSDialog({
           </div>
         </div>
       </div>
-    </ResponsiveFormContainer>
+    </ResponsiveBCSContainer>
   );
 }

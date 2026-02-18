@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +12,7 @@ import { VoiceInputButton } from '@/components/ui/voice-input-button';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { BCSReferenceGuide } from './BCSReferenceGuide';
-import { ResponsiveFormContainer } from '@/components/ui/ResponsiveFormContainer';
+import { ResponsiveBCSContainer } from './ResponsiveBCSContainer';
 
 interface RecordBCSDialogProps {
   animalId: string;
@@ -72,16 +73,16 @@ export function RecordBCSDialog({ animalId, farmId, animalName, trigger }: Recor
   );
 
   return (
-    <>
-      {trigger ? (
-        <span onClick={() => setOpen(true)}>{trigger}</span>
-      ) : (
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setOpen(true)}>
-          <Scale className="h-4 w-4" />
-          Record BCS
-        </Button>
-      )}
-      <ResponsiveFormContainer
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-2">
+            <Scale className="h-4 w-4" />
+            Record BCS
+          </Button>
+        )}
+      </DialogTrigger>
+      <ResponsiveBCSContainer
         open={open}
         onOpenChange={setOpen}
         title={dialogTitle}
@@ -181,7 +182,7 @@ export function RecordBCSDialog({ animalId, farmId, animalName, trigger }: Recor
             </div>
           </div>
         </div>
-      </ResponsiveFormContainer>
-    </>
+      </ResponsiveBCSContainer>
+    </Dialog>
   );
 }
