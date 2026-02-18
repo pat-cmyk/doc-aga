@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +15,7 @@ import { format, differenceInMonths, differenceInDays } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { deductMilkFromInventoryCache } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { ResponsiveFormContainer } from "@/components/ui/ResponsiveFormContainer";
 
 interface FeedMilkToAnimalDialogProps {
   farmId: string;
@@ -195,128 +195,126 @@ export function FeedMilkToAnimalDialog({
     ? 'Deduct good milk from inventory (FIFO) and record as feed'
     : 'Use rejected milk for animal feeding (FIFO, no cost)';
 
+  const footerContent = (
+    <div className="flex gap-2 w-full sm:justify-end">
+      <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSubmit}
+        disabled={isSubmitting || !selectedAnimalId || fifoPreview.records.length === 0}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Recording...
+          </>
+        ) : (
+          `Feed ${fifoPreview.totalLiters.toFixed(1)} L`
+        )}
+      </Button>
+    </div>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 pt-6">
-          <DialogTitle className="flex items-center gap-2">
-            <Baby className="h-5 w-5" />
-            {dialogTitle}
-          </DialogTitle>
-          <DialogDescription>{dialogDesc}</DialogDescription>
-        </DialogHeader>
+    <ResponsiveFormContainer
+      open={open}
+      onOpenChange={onOpenChange}
+      title={dialogTitle}
+      description={dialogDesc}
+      footer={footerContent}
+    >
+      <div className="space-y-4">
+        {/* Available Stock Info */}
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Available: <strong>{totalAvailable.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</strong>
+            {stockType === 'rejected' && <span className="text-amber-600 dark:text-amber-400 ml-1">(rejected)</span>}
+          </AlertDescription>
+        </Alert>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-4">
-          {/* Available Stock Info */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Available: <strong>{totalAvailable.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</strong>
-              {stockType === 'rejected' && <span className="text-amber-600 dark:text-amber-400 ml-1">(rejected)</span>}
-            </AlertDescription>
-          </Alert>
-
-          {/* Animal Selector */}
-          <div className="space-y-2">
-            <Label>Feed to Animal</Label>
-            <Select value={selectedAnimalId} onValueChange={setSelectedAnimalId}>
-              <SelectTrigger className="min-h-[48px]">
-                <SelectValue placeholder="Select animal..." />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                {animals.map((animal) => (
-                  <SelectItem key={animal.id} value={animal.id}>
-                    {animal.name || animal.ear_tag || 'Unknown'} — {formatAnimalAge(animal)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedAnimal && (
-              <p className="text-xs text-muted-foreground italic">
-                💡 {getFeedingHint(selectedAnimal)}
-              </p>
-            )}
-          </div>
-
-          {/* Liters to Feed */}
-          <div className="space-y-2">
-            <Label htmlFor="feed-liters">Liters to Feed</Label>
-            <Input
-              id="feed-liters"
-              type="number"
-              step="0.1"
-              min="0"
-              max={totalAvailable}
-              value={litersToFeed}
-              onChange={(e) => setLitersToFeed(e.target.value)}
-              placeholder={`Up to ${totalAvailable.toFixed(1)}`}
-              className="min-h-[48px]"
-            />
-          </div>
-
-          {/* FIFO Preview */}
-          {fifoPreview.records.length > 0 && (
-            <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
-              <p className="text-sm font-medium">Deduction Preview (FIFO):</p>
-              <div className="space-y-1 text-sm">
-                {fifoPreview.records.slice(0, 5).map(({ record, litersUsed }) => (
-                  <div key={record.id} className="flex justify-between text-muted-foreground">
-                    <span>
-                      {format(new Date(record.record_date), "MMM d")}: {record.animal_name || record.ear_tag}
-                    </span>
-                    <span>
-                      {litersUsed.toFixed(1)} L
-                      {litersUsed < record.liters_remaining && (
-                        <span className="text-xs ml-1 text-amber-600 dark:text-amber-400">(partial)</span>
-                      )}
-                    </span>
-                  </div>
-                ))}
-                {fifoPreview.records.length > 5 && (
-                  <p className="text-muted-foreground">... and {fifoPreview.records.length - 5} more</p>
-                )}
-              </div>
-
-              {fifoPreview.warning && (
-                <p className="text-amber-600 dark:text-amber-400 text-sm">⚠️ {fifoPreview.warning}</p>
-              )}
-
-              {/* Cost display */}
-              <div className="flex items-center gap-2 pt-2 border-t text-sm font-semibold">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                {stockType === 'rejected' ? (
-                  <span className="text-muted-foreground">Cost: Free (rejected milk)</span>
-                ) : pricePerLiter > 0 ? (
-                  <span className="text-primary">
-                    Opportunity cost: ₱{pricePerLiter}/L × {fifoPreview.totalLiters.toFixed(1)}L = ₱{totalCost.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No price data — cost will be ₱0</span>
-                )}
-              </div>
-            </div>
+        {/* Animal Selector */}
+        <div className="space-y-2">
+          <Label>Feed to Animal</Label>
+          <Select value={selectedAnimalId} onValueChange={setSelectedAnimalId}>
+            <SelectTrigger className="min-h-[48px]">
+              <SelectValue placeholder="Select animal..." />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {animals.map((animal) => (
+                <SelectItem key={animal.id} value={animal.id}>
+                  {animal.name || animal.ear_tag || 'Unknown'} — {formatAnimalAge(animal)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedAnimal && (
+            <p className="text-xs text-muted-foreground italic">
+              💡 {getFeedingHint(selectedAnimal)}
+            </p>
           )}
         </div>
 
-        <DialogFooter className="flex-shrink-0 gap-2 sm:gap-0 px-6 pb-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !selectedAnimalId || fifoPreview.records.length === 0}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Recording...
-              </>
-            ) : (
-              `Feed ${fifoPreview.totalLiters.toFixed(1)} L`
+        {/* Liters to Feed */}
+        <div className="space-y-2">
+          <Label htmlFor="feed-liters">Liters to Feed</Label>
+          <Input
+            id="feed-liters"
+            type="number"
+            step="0.1"
+            min="0"
+            max={totalAvailable}
+            value={litersToFeed}
+            onChange={(e) => setLitersToFeed(e.target.value)}
+            placeholder={`Up to ${totalAvailable.toFixed(1)}`}
+            className="min-h-[48px]"
+          />
+        </div>
+
+        {/* FIFO Preview */}
+        {fifoPreview.records.length > 0 && (
+          <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+            <p className="text-sm font-medium">Deduction Preview (FIFO):</p>
+            <div className="space-y-1 text-sm">
+              {fifoPreview.records.slice(0, 5).map(({ record, litersUsed }) => (
+                <div key={record.id} className="flex justify-between text-muted-foreground">
+                  <span>
+                    {format(new Date(record.record_date), "MMM d")}: {record.animal_name || record.ear_tag}
+                  </span>
+                  <span>
+                    {litersUsed.toFixed(1)} L
+                    {litersUsed < record.liters_remaining && (
+                      <span className="text-xs ml-1 text-amber-600 dark:text-amber-400">(partial)</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+              {fifoPreview.records.length > 5 && (
+                <p className="text-muted-foreground">... and {fifoPreview.records.length - 5} more</p>
+              )}
+            </div>
+
+            {fifoPreview.warning && (
+              <p className="text-amber-600 dark:text-amber-400 text-sm">⚠️ {fifoPreview.warning}</p>
             )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+            {/* Cost display */}
+            <div className="flex items-center gap-2 pt-2 border-t text-sm font-semibold">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              {stockType === 'rejected' ? (
+                <span className="text-muted-foreground">Cost: Free (rejected milk)</span>
+              ) : pricePerLiter > 0 ? (
+                <span className="text-primary">
+                  Opportunity cost: ₱{pricePerLiter}/L × {fifoPreview.totalLiters.toFixed(1)}L = ₱{totalCost.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">No price data — cost will be ₱0</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </ResponsiveFormContainer>
   );
 }
