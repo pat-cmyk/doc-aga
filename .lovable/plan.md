@@ -1,78 +1,66 @@
 
 
-# Fix FAB Dialog Scroll — Adopt Responsive Drawer Pattern (SSOT)
+# Fix AnimalCombobox Scroll Inside Dialogs
 
 ## Problem
 
-The `AnimalCombobox` dropdown list cannot be scrolled on mobile (and has limited scrollability on desktop) inside FAB-launched dialogs. This affects Record Feeding, Record Milk, and Record Health dialogs. The screenshot confirms the issue also affects desktop — the animal list in the Popover is clipped with no scrollbar.
+The `AnimalCombobox` dropdown cannot be scrolled when opened inside any FAB dialog. The scrollbar appears momentarily then disappears, making animals below the visible area unreachable. This affects both mobile and desktop.
 
 ## Root Cause
 
-All three dialogs use a raw Radix `Dialog`, which captures pointer/touch events and prevents scroll propagation inside nested `Popover` components (used by `AnimalCombobox`). The BCS dialog does NOT have this issue because it uses `ResponsiveBCSContainer`, which renders a **Drawer** (vaul bottom sheet) on mobile, allowing native touch scrolling.
+`AnimalCombobox` uses a Radix `Popover` component. When this Popover opens inside a Radix `Dialog` (desktop mode of `ResponsiveFormContainer`), the Dialog's **modal behavior** intercepts pointer/touch events and prevents scroll gestures from reaching the `CommandList` inside the Popover — even though the Popover portals its content out of the Dialog DOM.
 
-## SSOT Solution
+This is a well-documented Radix UI issue. The BCS dialog avoids it on mobile by using a Drawer, but on desktop (where Dialog is used), the problem persists for all FAB dialogs.
 
-The existing `ResponsiveBCSContainer` (`src/components/body-condition/ResponsiveBCSContainer.tsx`) is the proven working pattern. We will:
+## Solution
 
-1. **Generalize** it into a reusable `ResponsiveFormContainer` in `src/components/ui/`
-2. **Apply** it to all three affected FAB dialogs
-3. **Migrate** BCS to use the shared component and delete the BCS-specific one
+Add `modal={false}` to the `Popover` in `AnimalCombobox.tsx`. This tells Radix not to lock pointer events when the Popover is open, allowing scroll gestures to reach the `CommandList` naturally.
+
+Since `AnimalCombobox` is a **shared SSOT component** used by 5 dialogs (Record Milk, Record Feed, Record Health, Record BCS, Edit Submission), fixing it once fixes all entry points.
+
+Additionally, `FeedMilkToAnimalDialog` still uses a raw `Dialog` instead of `ResponsiveFormContainer` and has a `Select` dropdown for animals — this should be migrated to the SSOT container for consistency.
 
 ## Files to Change
 
-### 1. CREATE: `src/components/ui/ResponsiveFormContainer.tsx`
+### 1. EDIT: `src/components/milk-recording/AnimalCombobox.tsx`
 
-A generalized copy of `ResponsiveBCSContainer` with:
-- Mobile: vaul `Drawer` with `max-h-[92vh] flex flex-col`, body with `overflow-y-auto` and `-webkit-overflow-scrolling: touch`
-- Desktop: Radix `Dialog` with `max-h-[85vh] flex flex-col overflow-hidden`, body with `ScrollArea`
-- Props: `open`, `onOpenChange`, `title`, `description`, `children`, `footer`, `className`
-- Uses `useIsMobile()` hook (existing SSOT)
+One-line change — add `modal={false}` to the Popover:
 
-### 2. EDIT: `src/components/milk-recording/RecordBulkMilkDialog.tsx`
+```tsx
+// Before:
+<Popover open={open} onOpenChange={setOpen}>
 
-- Remove `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription` imports
-- Import `ResponsiveFormContainer` instead
-- Replace outer `<Dialog>` + `<DialogContent>` with `<ResponsiveFormContainer>`
-- Move the footer buttons (`Cancel` + `Record Milk`) into the `footer` prop
-- The inner form content (date picker, session, animal combobox, quality fields, split preview) stays unchanged
+// After:
+<Popover open={open} onOpenChange={setOpen} modal={false}>
+```
 
-### 3. EDIT: `src/components/feed-recording/RecordBulkFeedDialog.tsx`
+This prevents the parent Dialog from intercepting scroll events inside the Popover's CommandList.
 
-- Same refactor: replace `Dialog`/`DialogContent` wrapper with `ResponsiveFormContainer`
-- Move footer buttons into `footer` prop
+### 2. EDIT: `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx`
 
-### 4. EDIT: `src/components/health-recording/RecordBulkHealthDialog.tsx`
+Migrate from raw `Dialog` to `ResponsiveFormContainer` for SSOT consistency. This dialog also has a `Select` dropdown for animals that could have similar scroll issues inside the Dialog.
 
-- Same refactor: replace `Dialog`/`DialogContent` wrapper with `ResponsiveFormContainer`
-- Move footer buttons into `footer` prop
+## Impact
 
-### 5. EDIT: `src/components/body-condition/RecordBulkBCSDialog.tsx`
-
-- Replace import of `ResponsiveBCSContainer` with `ResponsiveFormContainer`
-- Update usage (same API, drop-in replacement)
-
-### 6. DELETE: `src/components/body-condition/ResponsiveBCSContainer.tsx`
-
-- Replaced by the shared `ResponsiveFormContainer`
+| Dialog | Uses AnimalCombobox | Fixed by change 1 |
+|--------|--------------------|--------------------|
+| RecordBulkMilkDialog | Yes | Yes |
+| RecordBulkFeedDialog | Yes | Yes |
+| RecordBulkHealthDialog | Yes | Yes |
+| RecordBulkBCSDialog | Yes | Yes |
+| EditSubmissionDialog | Yes | Yes |
+| FeedMilkToAnimalDialog | No (uses Select) | Fixed by change 2 |
 
 ## What This Does NOT Touch
 
-- `AnimalCombobox` — no changes; it works correctly inside a Drawer
-- `UnifiedActionsFab.tsx` — the FAB launcher is fine
-- Any non-FAB dialogs — untouched
+- ResponsiveFormContainer — already correct
 - Database/RLS — no changes
-- Farmer/merchant/vet/government/cooperative code — untouched
-
-## Technical Detail: Why Drawer Fixes It
-
-Radix `Dialog` uses a modal overlay that captures `pointerdown` events, preventing scroll gestures inside nested `Popover` elements. Vaul `Drawer` does not have this issue because it uses a different event model — the bottom sheet allows natural touch scrolling within its content area, and nested `Popover` components work correctly.
+- Any other dialogs or components
 
 ## Verification Plan
 
-1. Navigate to farm dashboard at mobile viewport (390x844)
-2. Open FAB -> Record Feeding -> tap "Select Animals" -> confirm animal list scrolls with touch
-3. Repeat for Record Milk and Record Health
-4. Repeat for Record BCS (regression check)
-5. Test on desktop viewport (1920x1080) to confirm Dialog mode still works
-6. Screenshot proof at both viewports
+1. Open FAB -> Record Feeding -> Select Animals -> confirm the full animal list scrolls on both mobile and desktop
+2. Repeat for Record Milk, Record Health, Record BCS
+3. Test FeedMilkToAnimalDialog animal Select dropdown
+4. Screenshot proof at mobile (390x844) and desktop viewports
 
