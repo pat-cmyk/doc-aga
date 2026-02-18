@@ -2,13 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { ResponsiveFormContainer } from "@/components/ui/ResponsiveFormContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -260,26 +254,56 @@ export function RecordBulkHealthDialog({
 
   const canSubmit = selectedAnimals.length > 0 && diagnosis.length > 0;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5 text-red-500" />
-            Record Health Event
-            {!isOnline && (
-              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
-                <WifiOff className="h-3 w-3" />
-                Offline
-              </span>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Record veterinary visits and treatments for your animals
-          </DialogDescription>
-        </DialogHeader>
+  const dialogTitle = (
+    <span className="flex items-center gap-2">
+      <Heart className="h-5 w-5 text-red-500" />
+      Record Health Event
+      {!isOnline && (
+        <span className="ml-auto flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+          <WifiOff className="h-3 w-3" />
+          Offline
+        </span>
+      )}
+    </span>
+  );
 
-        <div className="flex-1 overflow-y-auto">
+  const dialogFooter = displayAnimals.length > 0 ? (
+    <div className="flex gap-2 w-full">
+      <Button
+        variant="outline"
+        onClick={handleClose}
+        className="flex-1 min-h-[48px]"
+        disabled={isSubmitting}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSubmit}
+        className="flex-1 min-h-[48px]"
+        disabled={!canSubmit || isSubmitting}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            {isOnline ? "Recording..." : "Queuing..."}
+          </>
+        ) : isOnline ? (
+          "Record Health"
+        ) : (
+          "Queue for Sync"
+        )}
+      </Button>
+    </div>
+  ) : undefined;
+
+  return (
+    <ResponsiveFormContainer
+      open={open}
+      onOpenChange={onOpenChange}
+      title={dialogTitle}
+      description="Record veterinary visits and treatments for your animals"
+      footer={dialogFooter}
+    >
         {isLoading && isOnline ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -511,38 +535,6 @@ export function RecordBulkHealthDialog({
             )}
           </div>
         )}
-        </div>
-
-        {/* Sticky Footer */}
-        {displayAnimals.length > 0 && (
-          <div className="flex gap-2 pt-2 flex-shrink-0 border-t mt-2">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              className="flex-1 min-h-[48px]"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              className="flex-1 min-h-[48px]"
-              disabled={!canSubmit || isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isOnline ? "Recording..." : "Queuing..."}
-                </>
-              ) : isOnline ? (
-                "Record Health"
-              ) : (
-                "Queue for Sync"
-              )}
-            </Button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    </ResponsiveFormContainer>
   );
 }

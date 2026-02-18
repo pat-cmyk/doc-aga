@@ -18,7 +18,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-interface ResponsiveBCSContainerProps {
+interface ResponsiveFormContainerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: React.ReactNode;
@@ -28,7 +28,13 @@ interface ResponsiveBCSContainerProps {
   className?: string;
 }
 
-export function ResponsiveBCSContainer({
+/**
+ * SSOT responsive container for FAB-launched recording dialogs.
+ * - Mobile: renders vaul Drawer (bottom sheet) — allows native touch scrolling
+ *   and fixes Popover scroll issues inside Radix Dialog.
+ * - Desktop: renders Radix Dialog with ScrollArea for standardized scrollbars.
+ */
+export function ResponsiveFormContainer({
   open,
   onOpenChange,
   title,
@@ -36,7 +42,7 @@ export function ResponsiveBCSContainer({
   children,
   footer,
   className,
-}: ResponsiveBCSContainerProps) {
+}: ResponsiveFormContainerProps) {
   const isMobile = useIsMobile();
 
   if (isMobile) {
