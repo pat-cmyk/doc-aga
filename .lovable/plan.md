@@ -1,67 +1,77 @@
 
 
-# Fix Animal Selection Dropdown Touch Scrollability on Mobile
+# Fix Animal Selection: Inline Rendering (Follow Dialog Scroll Pattern)
 
 ## Problem
 
-The Animal Selection dropdown (used in FAB -> Record Milk, Record Feed, Record Health, Record BCS) uses a Radix Popover + cmdk CommandList pattern. On desktop, the scrollbar appears and works. On mobile touch devices, touch scrolling inside the Popover portal does not work -- users cannot scroll down to see all animals.
+The AnimalCombobox uses a Radix `Popover` portal that renders in a separate DOM layer outside the dialog. On mobile, this portal intercepts touch events and prevents scrolling. CSS fixes (`touch-action`, `overscroll-behavior`) have not resolved this.
 
-This is a known limitation of Radix Popover portals on mobile touch devices: the portal intercepts touch events for dismiss handling, preventing scroll propagation to the inner CommandList.
+## Working Pattern (SSOT)
 
-## Root Cause
+The parent dialog (e.g., RecordBulkFeedDialog) already has a proven scroll architecture:
 
-`AnimalCombobox.tsx` line 88: `CommandList` has `max-h-[300px]` with `overflow-y-auto` (from `command.tsx`). The parent Popover portal captures touch events, blocking native touch scroll inside the list.
+```
+DialogContent (max-h-[100dvh] flex flex-col overflow-hidden)
+  DialogHeader (flex-shrink-0)
+  Body (flex-1 overflow-y-auto)   <-- THIS SCROLLS ON MOBILE
+    Date picker...
+    Feed type...
+    AnimalCombobox (Popover portal)  <-- THIS DOES NOT SCROLL
+    Total kg...
+  Footer (flex-shrink-0)
+```
 
-## Fix Strategy
+Everything inside the `flex-1 overflow-y-auto` body scrolls perfectly. The AnimalCombobox breaks this because its dropdown renders **outside** that container via a portal.
 
-Apply two targeted changes to the `AnimalCombobox.tsx` component:
+## Solution
 
-### 1. Add touch-scroll CSS to the CommandList
+Replace the Popover-based dropdown with an **inline collapsible list** that renders directly inside the dialog's scrollable body. When the user taps the trigger button, the animal list expands inline (like an accordion) -- it becomes part of the normal document flow and inherits the parent's `overflow-y-auto` scrolling.
 
-Add explicit touch-scroll enabling styles to the CommandList:
-- `overscroll-behavior-y: contain` -- prevents scroll chaining to parent
-- `touch-action: pan-y` -- explicitly tells the browser to allow vertical touch panning
-- `-webkit-overflow-scrolling: touch` -- enables momentum scrolling on iOS
+### Before (broken):
+```
+Dialog body (overflow-y-auto)
+  [AnimalCombobox trigger button]
+                                    Popover Portal (floating, outside dialog DOM)
+                                      CommandList (touch scroll blocked)
+```
 
-### 2. Add `onOpenAutoFocus` prevention to PopoverContent
-
-Radix Popover auto-focuses the content on open, which on mobile can interfere with scroll behavior. Adding `onOpenAutoFocus={(e) => e.preventDefault()}` prevents this.
+### After (follows SSOT):
+```
+Dialog body (overflow-y-auto)
+  [AnimalCombobox trigger button]
+  [Inline CommandList]              <-- lives inside the scrollable body
+    Quick Select options
+    Individual Animals
+```
 
 ## File Changes
 
 ### EDIT: `src/components/milk-recording/AnimalCombobox.tsx`
 
-**Change 1** -- PopoverContent (line 81): Add `onOpenAutoFocus` handler:
-```tsx
-<PopoverContent 
-  className="w-[var(--radix-popover-trigger-width)] p-0" 
-  align="start"
-  onOpenAutoFocus={(e) => e.preventDefault()}
->
-```
+Remove the Radix `Popover`, `PopoverTrigger`, and `PopoverContent` wrapper. Replace with:
 
-**Change 2** -- CommandList (line 88): Add touch-scroll styles:
-```tsx
-<CommandList 
-  className="max-h-[300px]" 
-  style={{ 
-    overscrollBehaviorY: 'contain', 
-    WebkitOverflowScrolling: 'touch', 
-    touchAction: 'pan-y' 
-  }}
->
-```
+1. A trigger `Button` that toggles an `open` state (same as current)
+2. When `open === true`, render the `Command` + `CommandList` directly below the button as a bordered, rounded container -- no portal, no floating layer
+3. The list gets `max-h-[200px] overflow-y-auto` so it scrolls within the dialog's own scroll context
+4. Search input and all selection logic remain identical
+5. When an item is selected, collapse the list (same as current `handleSelect`)
 
-## What This Does NOT Touch
+This is exactly how the rest of the form fields (date picker content, feed type selector content) behave when they need to show options -- they live in the dialog's DOM flow.
 
-- No dialog layout changes (those were fixed in the previous task)
-- No changes to the `command.tsx` shared component (avoids side effects)
-- No changes to farmer/merchant/vet/government code
+## What Does NOT Change
+
+- No changes to any dialog files (RecordBulkFeedDialog, RecordBulkMilkDialog, etc.)
+- No changes to the `Command`/`CommandList` shared UI components
+- All selection logic, options, groups, search filtering stay identical
 - No database changes
+- Only 1 file modified: `AnimalCombobox.tsx`
 
 ## Verification Plan
 
-1. Open preview at mobile viewport (390x844)
-2. Navigate to FAB -> Record Milk -> click Animal Selection dropdown
-3. Attempt to scroll the animal list -- verify scrollbar appears and touch scroll works
-4. Screenshot proof at mobile viewport
+1. Navigate to mobile viewport (390x844)
+2. Open FAB -> Record Feed -> tap Animal Selection
+3. Confirm the animal list appears inline and scrolls with the dialog
+4. Test search filtering still works
+5. Test selection still works (tap animal -> list collapses)
+6. Repeat for Record Milk, Record Health, Record BCS
+7. Screenshot proof at mobile viewport
