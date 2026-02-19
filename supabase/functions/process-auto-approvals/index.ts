@@ -135,6 +135,18 @@ serve(async (req) => {
   }
 
   try {
+    // Verify cron secret to prevent unauthorized triggering
+    const cronSecret = req.headers.get('x-cron-secret');
+    const expectedSecret = Deno.env.get('CRON_SECRET');
+
+    if (!expectedSecret || !cronSecret || cronSecret !== expectedSecret) {
+      console.warn('Unauthorized attempt to trigger auto-approval process');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
