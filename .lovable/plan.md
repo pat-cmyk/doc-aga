@@ -1,58 +1,67 @@
 
-# Fix FAB Dialog Scrollability — Standardized Popup Scroll Pattern
+
+# Fix Animal Selection Dropdown Touch Scrollability on Mobile
 
 ## Problem
 
-When FAB-launched dialogs (Record Milk, Record Feed, Record Health, Record BCS) have content taller than the viewport — especially on mobile with rejection reasons, split previews, or many form fields — the content overflows without a scrollbar. Users cannot reach the submit button.
+The Animal Selection dropdown (used in FAB -> Record Milk, Record Feed, Record Health, Record BCS) uses a Radix Popover + cmdk CommandList pattern. On desktop, the scrollbar appears and works. On mobile touch devices, touch scrolling inside the Popover portal does not work -- users cannot scroll down to see all animals.
+
+This is a known limitation of Radix Popover portals on mobile touch devices: the portal intercepts touch events for dismiss handling, preventing scroll propagation to the inner CommandList.
 
 ## Root Cause
 
-These dialogs do NOT follow the app's standardized "Sticky Header/Footer" scroll pattern that 23+ other dialogs already use. Specifically:
+`AnimalCombobox.tsx` line 88: `CommandList` has `max-h-[300px]` with `overflow-y-auto` (from `command.tsx`). The parent Popover portal captures touch events, blocking native touch scroll inside the list.
 
-| Dialog | Current `DialogContent` class | Missing |
-|--------|------------------------------|---------|
-| `RecordBulkMilkDialog` | `sm:max-w-md` | `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` |
-| `RecordBulkFeedDialog` | `sm:max-w-md` | `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` |
-| `RecordBulkHealthDialog` | `sm:max-w-md max-h-[90vh] overflow-y-auto` | Partially correct but missing `100dvh` for mobile, not using flex layout |
-| `RecordBulkBCSDialog` | Uses a wrapper component — needs separate check | May need the same fix |
+## Fix Strategy
 
-The standardized pattern (used by `AddRevenueDialog`, `EditMilkRecordDialog`, `AddHealthRecordDialog`, etc.) is:
+Apply two targeted changes to the `AnimalCombobox.tsx` component:
 
+### 1. Add touch-scroll CSS to the CommandList
+
+Add explicit touch-scroll enabling styles to the CommandList:
+- `overscroll-behavior-y: contain` -- prevents scroll chaining to parent
+- `touch-action: pan-y` -- explicitly tells the browser to allow vertical touch panning
+- `-webkit-overflow-scrolling: touch` -- enables momentum scrolling on iOS
+
+### 2. Add `onOpenAutoFocus` prevention to PopoverContent
+
+Radix Popover auto-focuses the content on open, which on mobile can interfere with scroll behavior. Adding `onOpenAutoFocus={(e) => e.preventDefault()}` prevents this.
+
+## File Changes
+
+### EDIT: `src/components/milk-recording/AnimalCombobox.tsx`
+
+**Change 1** -- PopoverContent (line 81): Add `onOpenAutoFocus` handler:
+```tsx
+<PopoverContent 
+  className="w-[var(--radix-popover-trigger-width)] p-0" 
+  align="start"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+>
 ```
-DialogContent: max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden
-DialogHeader:  flex-shrink-0
-Body:          flex-1 overflow-y-auto
-DialogFooter:  flex-shrink-0
+
+**Change 2** -- CommandList (line 88): Add touch-scroll styles:
+```tsx
+<CommandList 
+  className="max-h-[300px]" 
+  style={{ 
+    overscrollBehaviorY: 'contain', 
+    WebkitOverflowScrolling: 'touch', 
+    touchAction: 'pan-y' 
+  }}
+>
 ```
-
-## Files to Change
-
-### 1. `src/components/milk-recording/RecordBulkMilkDialog.tsx`
-- Line 434: Add `max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden` to DialogContent
-- Add `flex-shrink-0` to DialogHeader
-- Wrap the body `div.space-y-4` (line 479) with `flex-1 overflow-y-auto`
-- Extract the footer buttons into a `flex-shrink-0` section outside the scrollable area
-
-### 2. `src/components/feed-recording/RecordBulkFeedDialog.tsx`
-- Same pattern: Add scroll constraints to DialogContent, make header/footer sticky, body scrollable
-
-### 3. `src/components/health-recording/RecordBulkHealthDialog.tsx`
-- Currently uses `max-h-[90vh] overflow-y-auto` — upgrade to the full flex pattern with `100dvh` for mobile and sticky header/footer
-
-### 4. `src/components/body-condition/RecordBulkBCSDialog.tsx`
-- Verify and apply the same pattern if it uses a raw Dialog (it appears to use a wrapper component — will check and align)
 
 ## What This Does NOT Touch
 
-- `UnifiedActionsFab.tsx` — the FAB itself is fine; the issue is inside the dialogs it opens
-- No farmer/merchant/vet/government code changes
+- No dialog layout changes (those were fixed in the previous task)
+- No changes to the `command.tsx` shared component (avoids side effects)
+- No changes to farmer/merchant/vet/government code
 - No database changes
-- No new files created
 
 ## Verification Plan
 
-After applying fixes:
-1. Navigate to the farm dashboard on mobile viewport (390x844)
-2. Open FAB -> Record Milk -> select animals, add rejection reason -> confirm scrollbar appears and submit button is reachable
-3. Repeat for Feed, Health, and BCS dialogs
+1. Open preview at mobile viewport (390x844)
+2. Navigate to FAB -> Record Milk -> click Animal Selection dropdown
+3. Attempt to scroll the animal list -- verify scrollbar appears and touch scroll works
 4. Screenshot proof at mobile viewport
