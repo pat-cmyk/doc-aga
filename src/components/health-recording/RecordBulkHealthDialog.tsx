@@ -23,6 +23,7 @@ import { Loader2, Heart, CalendarIcon, Users, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
+import { useBarns } from "@/hooks/useBarns";
 import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
@@ -77,7 +78,8 @@ export function RecordBulkHealthDialog({
     return filterAnimalsByFarmDate(displayAnimals, recordDate);
   }, [displayAnimals, recordDate]);
   
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
+  const { data: barns = [] } = useBarns(farmId);
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals, barns), [dateFilteredAnimals, barns]);
 
   // Haptic on dialog open
   useEffect(() => {

@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, RefreshCw, Save, Users } from "lucide-react";
 import { PendingActivity } from "@/hooks/usePendingActivities";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals } from "@/hooks/useFarmAnimals";
+import { useBarns } from "@/hooks/useBarns";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 
 interface EditSubmissionDialogProps {
@@ -42,7 +43,8 @@ export const EditSubmissionDialog = ({
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([]);
 
   const { data: animals = [] } = useFarmAnimals(farmId);
-  const animalOptions = getAnimalDropdownOptions(animals);
+  const { data: barns = [] } = useBarns(farmId);
+  const animalOptions = getAnimalDropdownOptions(animals, barns);
 
   // Reset form when activity changes
   useEffect(() => {
