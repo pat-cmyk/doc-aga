@@ -124,7 +124,7 @@ export function RecordBulkMilkDialog({
 
   // Reset selection if current selection is no longer valid after date change
   useEffect(() => {
-    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:')) {
+    if (selectedOption && selectedOption !== 'all' && !selectedOption.startsWith('species:') && !selectedOption.startsWith('barn:')) {
       const stillExists = dateFilteredAnimals.some(a => a.id === selectedOption);
       if (!stillExists) {
         setSelectedOption("");
