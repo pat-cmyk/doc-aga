@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-02-23 — FAQ Usage Analytics Dashboard
+
+### Added
+- **`get_faq_usage_stats` RPC** — Single aggregation query replacing N+1 match-count pattern.
+- **`get_faq_match_timeline` RPC** — Daily FAQ match volume over configurable day range.
+- **`FaqUsageAnalyticsTab.tsx`** — New "FAQ Usage" tab with summary cards, top-10 bar chart, daily timeline, and unused FAQs action table.
+
+### Changed
+- `DocAgaManagement.tsx` — Added "FAQ Usage" tab between "FAQ Candidates" and "Recent Queries".
+
 ## 2026-02-23 — Offline Photo Queue & AI Record Support
 
 ### Added

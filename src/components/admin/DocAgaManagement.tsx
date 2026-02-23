@@ -12,13 +12,14 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
-import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic, ThumbsUp, Lightbulb } from "lucide-react";
+import { Plus, Edit, Trash2, TrendingUp, Image as ImageIcon, Filter, Download, Eye, Copy, AlertCircle, Mic, ThumbsUp, Lightbulb, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { STTAnalyticsDashboard } from "./STTAnalyticsDashboard";
 import { FeedbackAnalyticsTab } from "./FeedbackAnalyticsTab";
 import { FaqCandidatesTab } from "./FaqCandidatesTab";
+import { FaqUsageAnalyticsTab } from "./FaqUsageAnalyticsTab";
 import { TrendingTopicsCard } from "./TrendingTopicsCard";
 import { TopicCoverageCard } from "./TopicCoverageCard";
 import { TopicBrowseCard } from "./TopicBrowseCard";
@@ -414,6 +415,10 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
             <Lightbulb className="h-3 w-3" />
             FAQ Candidates
           </TabsTrigger>
+          <TabsTrigger value="faq-usage" className="flex items-center gap-1">
+            <BarChart3 className="h-3 w-3" />
+            FAQ Usage
+          </TabsTrigger>
           <TabsTrigger value="queries">Recent Queries</TabsTrigger>
           <TabsTrigger value="faqs">FAQ Management</TabsTrigger>
           <TabsTrigger value="voice-stt" className="flex items-center gap-1">
@@ -521,6 +526,24 @@ export const DocAgaManagement = ({ dataCategory = 'all' }: DocAgaManagementProps
         {/* FAQ Candidates Tab */}
         <TabsContent value="candidates" className="space-y-4">
           <FaqCandidatesTab />
+        </TabsContent>
+
+        {/* FAQ Usage Analytics Tab */}
+        <TabsContent value="faq-usage" className="space-y-4">
+          <FaqUsageAnalyticsTab
+            dataCategory={dataCategory}
+            onEditFaq={(faq) => {
+              setEditingFaq(null);
+              setFormData({
+                question: faq.question,
+                answer: "",
+                category: faq.category || "",
+                is_active: faq.is_active,
+              });
+              setIsDialogOpen(true);
+              setActiveTab("faqs");
+            }}
+          />
         </TabsContent>
 
         {/* Recent Queries Tab */}
