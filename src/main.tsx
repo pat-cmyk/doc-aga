@@ -4,6 +4,23 @@ import { registerSW } from 'virtual:pwa-register';
 import App from "./App.tsx";
 import "./index.css";
 
+// Auto-reload on stale dynamic import failures (after new deployments)
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('Failed to fetch dynamically imported module')) {
+    console.warn('[App] Stale chunk detected, reloading...');
+    window.location.reload();
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason?.message || String(event.reason);
+  if (reason.includes('Failed to fetch dynamically imported module')) {
+    console.warn('[App] Stale chunk detected (promise), reloading...');
+    event.preventDefault();
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
