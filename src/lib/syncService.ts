@@ -237,6 +237,15 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await processVoiceFormInput(item);
         } else if (item.type === 'bulk_bcs') {
           await syncBulkBCS(item);
+        } else if (item.type === 'ai_record') {
+          await syncAIRecord(item);
+        } else if (item.type === 'pregnancy_confirm') {
+          await syncPregnancyConfirm(item);
+        }
+        
+        // After parent record syncs, process any linked photos
+        if (item.payload.pendingPhotoIds && item.payload.pendingPhotoIds.length > 0) {
+          await syncPendingPhotos(item);
         }
         
         await updateStatus(item.id, 'completed');
@@ -894,5 +903,158 @@ async function syncBulkBCS(item: QueueItem): Promise<void> {
   if (item.optimisticId && insertedRecords) {
     await confirmOptimisticRecords(item.optimisticId, insertedRecords);
     await updateItem(item.id, { serverResponse: insertedRecords });
+  }
+}
+
+/**
+ * Sync AI record from offline queue to Supabase
+ */
+async function syncAIRecord(item: QueueItem): Promise<void> {
+  const { aiRecord, farmId } = item.payload;
+  
+  if (!aiRecord || !farmId) {
+    throw new Error('No AI record data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_ai_0`;
+
+  const { data: insertedRecord, error } = await supabase
+    .from('ai_records')
+    .insert({
+      animal_id: aiRecord.animalId,
+      performed_date: aiRecord.performedDate,
+      scheduled_date: aiRecord.scheduledDate || null,
+      semen_code: aiRecord.semenCode || null,
+      technician: aiRecord.technician || null,
+      notes: aiRecord.notes || null,
+      created_by: user?.id,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505' && error.message?.includes('client_generated_id')) {
+      console.log('[SyncQueue] AI record already synced, skipping...');
+      return;
+    }
+    throw error;
+  }
+
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
+  }
+}
+
+/**
+ * Sync pregnancy confirmation from offline queue to Supabase
+ */
+async function syncPregnancyConfirm(item: QueueItem): Promise<void> {
+  const { pregnancyConfirm, farmId } = item.payload;
+  
+  if (!pregnancyConfirm || !farmId) {
+    throw new Error('No pregnancy confirmation data in queue item');
+  }
+
+  // Update the ai_record
+  const { error: updateError } = await supabase
+    .from('ai_records')
+    .update({
+      pregnancy_confirmed: true,
+      expected_delivery_date: pregnancyConfirm.expectedDeliveryDate,
+      confirmed_at: new Date().toISOString(),
+    })
+    .eq('id', pregnancyConfirm.recordId);
+
+  if (updateError) throw updateError;
+
+  // Bridge to breeding_events state machine
+  const { insertBreedingEvent } = await import('./breedingEventBridge');
+  await insertBreedingEvent({
+    animalId: pregnancyConfirm.animalId,
+    farmId,
+    eventType: 'pregnancy_confirmed',
+    eventDate: new Date().toISOString(),
+    relatedAiRecordId: pregnancyConfirm.recordId,
+    metadata: {
+      expected_delivery_date: pregnancyConfirm.expectedDeliveryDate,
+      gestation_days: pregnancyConfirm.gestationDays,
+    },
+  });
+}
+
+/**
+ * Sync pending photos linked to a parent queue item
+ * 
+ * Photos are uploaded to storage AFTER the parent record succeeds.
+ * Avatar photos update animals.avatar_url.
+ * Health record photos create animal_photos rows.
+ */
+async function syncPendingPhotos(item: QueueItem): Promise<void> {
+  const { pendingPhotoIds, farmId } = item.payload;
+  if (!pendingPhotoIds || pendingPhotoIds.length === 0 || !farmId) return;
+
+  const { getPhoto, updatePhotoStatus, removePhoto } = await import('./offlinePhotoQueue');
+
+  for (const photoId of pendingPhotoIds) {
+    const photo = await getPhoto(photoId);
+    if (!photo || photo.status !== 'pending') continue;
+
+    try {
+      await updatePhotoStatus(photoId, 'uploading');
+
+      // Determine storage path based on target
+      let filePath: string;
+      if (photo.target === 'avatar') {
+        filePath = `${farmId}/avatars/${photo.fileName}`;
+      } else {
+        filePath = `${farmId}/health/${photo.fileName}`;
+      }
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('animal-photos')
+        .upload(filePath, photo.blob, {
+          contentType: photo.mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('animal-photos')
+        .getPublicUrl(filePath);
+
+      // Handle based on target type
+      if (photo.target === 'avatar') {
+        const { error: updateError } = await supabase
+          .from('animals')
+          .update({ avatar_url: publicUrl })
+          .eq('id', photo.animalId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Health record photo - create animal_photos row
+        const { error: photoRecordError } = await supabase
+          .from('animal_photos')
+          .insert({
+            animal_id: photo.animalId,
+            photo_path: publicUrl,
+            label: 'Health Record (offline)',
+          });
+
+        if (photoRecordError) {
+          console.error('[SyncService] Failed to create photo record:', photoRecordError);
+        }
+      }
+
+      await removePhoto(photoId);
+      console.log(`[SyncService] Photo synced: ${photoId}`);
+    } catch (error: any) {
+      console.error(`[SyncService] Failed to sync photo ${photoId}:`, error);
+      await updatePhotoStatus(photoId, 'failed', error.message);
+    }
   }
 }

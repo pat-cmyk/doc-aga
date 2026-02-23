@@ -11,6 +11,8 @@ import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { addPhoto } from "@/lib/offlinePhotoQueue";
+import { addToQueue } from "@/lib/offlineQueue";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 
 interface AddHealthRecordDialogProps {
@@ -25,6 +27,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
   const [showDialog, setShowDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const [offlinePhotoIds, setOfflinePhotoIds] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { toast } = useToast();
   
@@ -117,6 +120,29 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
 
+    if (!isOnline) {
+      // Queue photo offline
+      try {
+        const compressedBlob = await compressImage(file);
+        const fileName = `${animalId}-health-${Date.now()}.jpg`;
+        const photoId = await addPhoto(compressedBlob, {
+          fileName,
+          mimeType: 'image/jpeg',
+          target: 'health_record',
+          animalId,
+          farmId,
+        });
+        setOfflinePhotoIds(prev => [...prev, photoId]);
+        toast({
+          title: "Photo queued",
+          description: "Photo will upload when online",
+        });
+      } catch (error: any) {
+        showErrorToastLegacy(toast, error, "queuing photo");
+      }
+      return;
+    }
+
     setIsUploadingImage(true);
 
     try {
@@ -177,6 +203,44 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
     setSaving(true);
 
     try {
+      if (!isOnline) {
+        // Queue for offline sync with photo IDs
+        await addToQueue({
+          id: `single_health_${Date.now()}`,
+          type: 'single_health',
+          payload: {
+            farmId,
+            singleHealth: {
+              animalId,
+              animalName: null,
+              visitDate: formData.visit_date,
+              diagnosis: formData.diagnosis || '',
+              treatment: formData.treatment || undefined,
+              notes: formData.notes || undefined,
+            },
+            pendingPhotoIds: offlinePhotoIds.length > 0 ? offlinePhotoIds : undefined,
+          },
+          createdAt: Date.now(),
+        });
+
+        toast({
+          title: "Queued for Sync",
+          description: "Health record will sync when online",
+        });
+
+        // Clear sessionStorage
+        sessionStorage.removeItem('hr_dialog_open');
+        sessionStorage.removeItem('hr_form_data');
+        sessionStorage.removeItem('hr_uploaded_photos');
+        
+        setShowDialog(false);
+        setFormData({ visit_date: "", diagnosis: "", treatment: "", notes: "" });
+        setUploadedPhotos([]);
+        setOfflinePhotoIds([]);
+        onSuccess();
+        return;
+      }
+
       const { data: record, error: recordError } = await supabase
         .from("health_records")
         .insert({
@@ -255,8 +319,6 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
       <DialogTrigger asChild>
         <Button 
           size="sm"
-          disabled={!isOnline}
-          title={!isOnline ? "Available when online" : ""}
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Record
@@ -385,7 +447,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
               disabled={saving || isUploadingImage} 
               className="flex-1 min-h-[48px]"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Record"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : !isOnline ? "Queue for Sync" : "Save Record"}
             </Button>
           </div>
         </form>

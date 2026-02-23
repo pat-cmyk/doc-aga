@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { insertBreedingEvent } from "@/lib/breedingEventBridge";
 import { useToast } from "@/hooks/use-toast";
 import { addDays } from "date-fns";
 import { GESTATION_DAYS } from "@/types/fertility";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
 
 interface ConfirmPregnancyDialogProps {
   recordId: string;
@@ -23,6 +24,7 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   // Use species-specific gestation (GAP 8 fix)
   const gestationDays = GESTATION_DAYS[livestockType] || 283;
@@ -34,6 +36,34 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
     setLoading(true);
 
     try {
+      if (!isOnline) {
+        // Queue for offline sync
+        await addToQueue({
+          id: `pregnancy_confirm_${Date.now()}`,
+          type: 'pregnancy_confirm',
+          payload: {
+            farmId,
+            pregnancyConfirm: {
+              recordId,
+              animalId,
+              expectedDeliveryDate,
+              gestationDays,
+              livestockType,
+            },
+          },
+          createdAt: Date.now(),
+        });
+
+        toast({
+          title: "Queued for Sync",
+          description: `Pregnancy confirmation will sync when online`,
+        });
+
+        setOpen(false);
+        onSuccess();
+        return;
+      }
+
       const { error } = await supabase
         .from("ai_records")
         .update({
@@ -106,7 +136,7 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
               Cancel
             </Button>
             <Button onClick={handleConfirm} disabled={loading || !performedDate}>
-              {loading ? "Confirming..." : "Confirm Pregnancy"}
+              {loading ? "Confirming..." : !isOnline ? "Queue for Sync" : "Confirm Pregnancy"}
             </Button>
           </div>
         </div>

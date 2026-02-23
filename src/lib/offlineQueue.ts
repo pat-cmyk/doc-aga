@@ -70,7 +70,7 @@ export async function getQueueCapacity(): Promise<{ current: number; max: number
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -185,6 +185,25 @@ interface QueueItem {
       assessmentDate: string;
       notes?: string;
     }>;
+    // AI record (from animal profile)
+    aiRecord?: {
+      animalId: string;
+      performedDate: string;
+      scheduledDate?: string;
+      semenCode?: string;
+      technician?: string;
+      notes?: string;
+    };
+    // Pregnancy confirmation
+    pregnancyConfirm?: {
+      recordId: string;
+      animalId: string;
+      expectedDeliveryDate: string;
+      gestationDays: number;
+      livestockType?: string;
+    };
+    // Photo IDs linked to this queue item (stored in offlinePhotoQueue)
+    pendingPhotoIds?: string[];
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
