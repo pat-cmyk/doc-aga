@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
+import type { ExtractedWeightData } from "@/lib/voiceFormExtractors";
 import {
   Dialog,
   DialogContent,
@@ -237,6 +239,12 @@ export function RecordSingleWeightDialog({
 
   const canSubmit = parseFloat(weight) > 0;
 
+  const handleVoiceDataExtracted = useCallback((data: ExtractedWeightData) => {
+    if (data.weightKg) setWeight(String(data.weightKg));
+    if (data.method) setMethod(data.method);
+    if (data.notes) setNotes(data.notes);
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
@@ -250,6 +258,12 @@ export function RecordSingleWeightDialog({
                 Offline
               </span>
             )}
+            <VoiceRecordWithExtraction
+              extractorType="weight"
+              onDataExtracted={handleVoiceDataExtracted}
+              size="sm"
+              className="ml-auto"
+            />
           </DialogTitle>
           <DialogDescription>
             Record weight for {animalName}

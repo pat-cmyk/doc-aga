@@ -426,16 +426,14 @@ export function RecordBulkFeedDialog({
                 Offline
               </span>
             )}
-            {isOnline && (
-              <VoiceRecordWithExtraction
-                extractorType="feed"
-                extractorContext={{ feedInventory: displayFeedInventory }}
-                onDataExtracted={handleVoiceDataExtracted}
-                disabled={isLoading}
-                size="sm"
-                className="ml-auto"
-              />
-            )}
+            <VoiceRecordWithExtraction
+              extractorType="feed"
+              extractorContext={{ feedInventory: displayFeedInventory }}
+              onDataExtracted={handleVoiceDataExtracted}
+              disabled={isLoading}
+              size="sm"
+              className="ml-auto"
+            />
           </DialogTitle>
           <DialogDescription>
             Record feed given and split proportionally by animal weight

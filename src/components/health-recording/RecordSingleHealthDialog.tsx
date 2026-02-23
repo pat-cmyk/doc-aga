@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
+import type { ExtractedHealthData } from "@/lib/voiceFormExtractors";
 import {
   Dialog,
   DialogContent,
@@ -383,6 +385,13 @@ export function RecordSingleHealthDialog({
   const canSubmit = diagnosis.length > 0 && !isUploadingImage;
   const displayName = animalName || earTag || 'Unknown Animal';
 
+  const handleVoiceDataExtracted = useCallback((data: ExtractedHealthData) => {
+    if (data.category) setSelectedCategory(data.category);
+    if (data.diagnosis) setDiagnosis(data.diagnosis);
+    if (data.treatment) setTreatment(data.treatment);
+    if (data.notes) setNotes(data.notes);
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -396,6 +405,12 @@ export function RecordSingleHealthDialog({
                 Offline
               </span>
             )}
+            <VoiceRecordWithExtraction
+              extractorType="health"
+              onDataExtracted={handleVoiceDataExtracted}
+              size="sm"
+              className="ml-auto"
+            />
           </DialogTitle>
           <DialogDescription>
             Record veterinary visit for {displayName}
