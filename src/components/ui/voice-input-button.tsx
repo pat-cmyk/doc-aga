@@ -6,11 +6,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
+import { queueOfflineAudio, type AudioQueueMetadata } from "@/lib/offlineAudioQueue";
+import type { ExtractorType } from "@/lib/voiceFormExtractors";
 
 interface VoiceInputButtonProps {
   onTranscription: (text: string) => void;
   disabled?: boolean;
   className?: string;
+  /** Source identifier for offline queue metadata */
+  source?: AudioQueueMetadata['source'];
+  /** Extractor type for offline queue metadata */
+  extractorType?: ExtractorType;
 }
 
 type RecordingState = 'idle' | 'recording' | 'processing';
@@ -18,7 +24,9 @@ type RecordingState = 'idle' | 'recording' | 'processing';
 export function VoiceInputButton({ 
   onTranscription, 
   disabled = false,
-  className = ""
+  className = "",
+  source = 'health-form',
+  extractorType,
 }: VoiceInputButtonProps) {
   const [state, setState] = useState<RecordingState>('idle');
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
@@ -99,6 +107,25 @@ export function VoiceInputButton({
   };
 
   const processAudio = async (blob: Blob) => {
+    // Offline: queue audio for later transcription
+    if (!navigator.onLine) {
+      try {
+        await queueOfflineAudio(blob, {
+          source,
+          extractorType,
+        });
+        hapticNotification('success');
+        toast.success('Na-queue ang audio — ita-transcribe kapag online na');
+      } catch (error: any) {
+        console.error('Offline queue error:', error);
+        toast.error('Hindi ma-queue ang audio');
+        hapticNotification('error');
+      } finally {
+        setState('idle');
+      }
+      return;
+    }
+
     try {
       const base64Audio = await blobToBase64(blob);
       

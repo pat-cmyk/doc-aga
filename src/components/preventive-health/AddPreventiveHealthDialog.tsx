@@ -192,8 +192,9 @@ export function AddPreventiveHealthDialog({
               />
               <VoiceInputButton
                 onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
-                disabled={!isOnline}
                 className="self-start"
+                source="health-form"
+                extractorType="health"
               />
             </div>
           </div>
