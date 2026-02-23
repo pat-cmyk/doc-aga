@@ -982,30 +982,81 @@ export interface ExtractedHealthData {
   warnings?: string[];
 }
 
+// Category IDs match UI categories from healthCategories.ts
 const HEALTH_CATEGORY_KEYWORDS: Record<string, string[]> = {
-  illness: ['sick', 'may sakit', 'lagnat', 'fever', 'diarrhea', 'pagtatae', 'cough', 'ubo', 'bloat', 'bloated', 'mastitis', 'pneumonia', 'infection', 'infected'],
-  injury: ['injured', 'sugat', 'wound', 'limping', 'pilay', 'broken', 'bali', 'laceration', 'swollen', 'namaga'],
-  preventive: ['vaccine', 'bakuna', 'deworming', 'deworm', 'vitamin', 'supplement', 'checkup', 'check-up', 'routine'],
-  reproductive: ['pregnant', 'buntis', 'calving', 'heat', 'estrus', 'dystocia', 'retained placenta', 'abortion', 'miscarriage'],
-  other: ['other', 'iba pa'],
+  treatment: [
+    'sick', 'may sakit', 'lagnat', 'nilagnat', 'fever', 'diarrhea', 'pagtatae', 'nagtatae',
+    'cough', 'ubo', 'inuubo', 'bloat', 'bloated', 'mastitis', 'pneumonia', 'infection', 'infected',
+    'respiratory', 'digestive', 'antibiotic', 'gamutan', 'gamot',
+  ],
+  vaccination: [
+    'vaccine', 'bakuna', 'binakuna', 'vaccinate', 'vaccinated', 'vaccination',
+    'fmd', 'hemorrhagic septicemia', 'brucellosis', 'anthrax', 'rabies',
+    'booster', 'booster dose',
+  ],
+  deworming: [
+    'deworm', 'deworming', 'dewormed', 'purga', 'pagpurga', 'pinurga',
+    'albendazole', 'ivermectin', 'levamisole',
+  ],
+  checkup: [
+    'checkup', 'check-up', 'check up', 'routine', 'pagsusuri', 'sinuri',
+    'pre-breeding', 'pregnancy check', 'post-partum', 'health check',
+  ],
+  injury: [
+    'injured', 'sugat', 'wound', 'limping', 'pilay', 'broken', 'bali',
+    'laceration', 'swollen', 'namaga', 'lameness', 'hoof', 'eye injury',
+  ],
+  other: [
+    'pregnant', 'buntis', 'calving', 'heat', 'estrus', 'dystocia',
+    'retained placenta', 'abortion', 'miscarriage', 'other', 'iba pa',
+  ],
 };
 
+// Diagnosis keys match UI category IDs
 const COMMON_DIAGNOSES: Record<string, string[]> = {
-  illness: ['Mastitis', 'Pneumonia', 'Diarrhea', 'Bloat', 'Fever', 'Foot Rot', 'Pink Eye'],
-  injury: ['Laceration', 'Lameness', 'Fracture', 'Swelling'],
-  preventive: ['Routine Checkup', 'Deworming', 'Vaccination'],
-  reproductive: ['Dystocia', 'Retained Placenta', 'Metritis'],
+  treatment: [
+    'Antibiotic Treatment', 'Mastitis Treatment', 'Respiratory Infection',
+    'Digestive Issue', 'Fever Treatment', 'Mastitis', 'Pneumonia', 'Diarrhea',
+    'Bloat', 'Fever', 'Foot Rot', 'Pink Eye',
+  ],
+  vaccination: [
+    'FMD Vaccination', 'Hemorrhagic Septicemia', 'Brucellosis Vaccination',
+    'Anthrax Vaccination', 'Rabies Vaccination',
+  ],
+  deworming: [
+    'Routine Deworming', 'Albendazole Treatment', 'Ivermectin Treatment',
+    'Levamisole Treatment',
+  ],
+  checkup: [
+    'Routine Health Check', 'Pre-breeding Check', 'Pregnancy Check',
+    'Post-partum Check',
+  ],
+  injury: [
+    'Wound Treatment', 'Lameness Treatment', 'Eye Injury', 'Hoof Problem',
+    'Laceration', 'Fracture', 'Swelling',
+  ],
+  other: ['Dystocia', 'Retained Placenta', 'Metritis'],
 };
 
 const TREATMENT_KEYWORDS: string[] = [
+  // Medications
   'antibiotic', 'antibiotics', 'penicillin', 'oxytetracycline', 'amoxicillin',
   'anti-inflammatory', 'painkiller', 'pain killer', 'ibuprofen',
-  'dewormer', 'albendazole', 'ivermectin',
+  'dewormer', 'albendazole', 'ivermectin', 'levamisole',
   'vitamin', 'vitamins', 'supplement',
   'ointment', 'cream', 'spray',
-  'injection', 'injected', 'tinurok', 'iniksyon',
-  'oral', 'ipinainom',
+  // Administration methods
+  'injection', 'injected', 'tinurok', 'iniksyon', 'binigyan',
+  'oral', 'ipinainom', 'ipinakain',
   'cleaned', 'nilinis', 'disinfect',
+  'iv fluids', 'iv', 'intravenous',
+  // From QUICK_TREATMENTS
+  'vaccine administered', 'booster dose', 'booster',
+  'oral dewormer', 'injectable dewormer',
+  'wound cleaned', 'wound dressed', 'bandage', 'bandaged',
+  'topical treatment', 'topical',
+  'follow-up', 'follow up', 'medication prescribed',
+  'all normal',
 ];
 
 /**
@@ -1040,16 +1091,26 @@ export function extractHealthData(
     }
   }
 
-  // If no exact diagnosis, try extracting from common illness patterns
+  // If no exact diagnosis, try extracting from common illness patterns (Taglish-enhanced)
   if (!result.diagnosis) {
     const diagPatterns = [
-      /(?:has|may|diagnosed|with)\s+(\w+(?:\s+\w+)?)/i,
+      // "may mastitis si Bessie", "meron siyang fever"
+      /(?:may|meron)\s+(?:siyang?\s+)?(\w+(?:\s+\w+)?)/i,
+      /(?:has|diagnosed|with)\s+(\w+(?:\s+\w+)?)/i,
       /(?:sakit|condition|problem)\s+(?:is|ay|:)?\s*(\w+(?:\s+\w+)?)/i,
+      // Tagalog verb forms: "nilagnat", "nagtatae"
+      /\b(nilagnat|nagtatae|inuubo|namaga|napilay)\b/i,
     ];
     for (const pattern of diagPatterns) {
       const match = lowerText.match(pattern);
       if (match) {
-        result.diagnosis = match[1].trim();
+        // Map Tagalog verb forms to English diagnoses
+        const tagalogDiagMap: Record<string, string> = {
+          'nilagnat': 'Fever', 'nagtatae': 'Diarrhea', 'inuubo': 'Respiratory Infection',
+          'namaga': 'Swelling', 'napilay': 'Lameness Treatment',
+        };
+        const mapped = tagalogDiagMap[match[1]?.toLowerCase()];
+        result.diagnosis = mapped || match[1].trim();
         break;
       }
     }
@@ -1065,8 +1126,11 @@ export function extractHealthData(
   if (foundTreatments.length > 0) {
     // Try to get a more descriptive treatment from the text
     const treatmentPatterns = [
-      /(?:gave|given|binigyan|tinurok|treated with|gamot)\s+(?:ng\s+)?(.+?)(?:\.|,|$)/i,
+      // "binigyan ng antibiotic", "tinurok ng penicillin"
+      /(?:gave|given|binigyan|tinurok|treated with|gamot|pinagamot)\s+(?:ng\s+)?(.+?)(?:\.|,|$)/i,
       /(?:treatment|gamutan|lunas)\s*(?:is|ay|:)?\s*(.+?)(?:\.|,|$)/i,
+      // "iniksyon ng oxytetracycline"
+      /(?:iniksyon|ipinainom|ipinakain)\s+(?:ng\s+)?(.+?)(?:\.|,|$)/i,
     ];
     for (const pattern of treatmentPatterns) {
       const match = lowerText.match(pattern);

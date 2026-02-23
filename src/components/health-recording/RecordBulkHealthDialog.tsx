@@ -388,7 +388,8 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
-                    disabled={!isOnline}
+                    source="health-form"
+                    extractorType="health"
                   />
                 </div>
               </div>
@@ -408,7 +409,8 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
-                    disabled={!isOnline}
+                    source="health-form"
+                    extractorType="health"
                   />
                 </div>
               </div>
@@ -442,7 +444,8 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
-                    disabled={!isOnline}
+                    source="health-form"
+                    extractorType="health"
                   />
                 </div>
               </div>
@@ -462,7 +465,8 @@ export function RecordBulkHealthDialog({
                   />
                   <VoiceInputButton
                     onTranscription={(text) => setTreatment(prev => prev ? `${prev} ${text}` : text)}
-                    disabled={!isOnline}
+                    source="health-form"
+                    extractorType="health"
                   />
                 </div>
               </div>
@@ -482,7 +486,8 @@ export function RecordBulkHealthDialog({
                 <VoiceInputButton
                   onTranscription={(text) => setNotes(prev => prev ? `${prev} ${text}` : text)}
                   className="self-start"
-                  disabled={!isOnline}
+                  source="health-form"
+                  extractorType="health"
                 />
               </div>
             </div>

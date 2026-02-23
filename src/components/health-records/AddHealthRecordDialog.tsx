@@ -354,7 +354,6 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
                 size="sm"
                 variant="outline"
                 onTranscription={(text) => setFormData(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis} ${text}` : text }))}
-                disabled={!isOnline}
                 className="self-start"
               />
             </div>
@@ -373,7 +372,6 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
                 size="sm"
                 variant="outline"
                 onTranscription={(text) => setFormData(prev => ({ ...prev, treatment: prev.treatment ? `${prev.treatment} ${text}` : text }))}
-                disabled={!isOnline}
                 className="self-start"
               />
             </div>
@@ -392,7 +390,6 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
                 size="sm"
                 variant="outline"
                 onTranscription={(text) => setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes} ${text}` : text }))}
-                disabled={!isOnline}
                 className="self-start"
               />
             </div>

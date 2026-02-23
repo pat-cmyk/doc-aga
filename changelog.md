@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-02-23 — Health Voice Extractor Enhancement & Offline Capture
+
+### Changed
+- **Health extractor category IDs** (`voiceFormExtractors.ts`) — Remapped from `illness/preventive/reproductive` to match UI categories: `treatment`, `vaccination`, `deworming`, `checkup`, `injury`, `other`. Added Taglish diagnosis patterns (`may/meron`, `nilagnat`, `nagtatae`, `binigyan ng`) and expanded treatment keywords to match `QUICK_DIAGNOSES`/`QUICK_TREATMENTS`.
+- **VoiceInputButton offline support** (`voice-input-button.tsx`) — Now queues audio via `offlineAudioQueue` when offline instead of failing. Shows "Na-queue ang audio" toast. Accepts `source` and `extractorType` props for queue metadata.
+- **Health dialogs offline voice** — Removed `disabled={!isOnline}` from all VoiceInputButton instances across `RecordSingleHealthDialog` (5), `RecordBulkHealthDialog` (5), `AddHealthRecordDialog` (3), `AddPreventiveHealthDialog` (1).
+
+
 ## 2026-02-23 — Farmer-Facing Voice & Workflow Gaps
 
 ### Added
