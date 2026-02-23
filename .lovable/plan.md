@@ -1,77 +1,91 @@
 
 
-# Fix Animal Selection: Inline Rendering (Follow Dialog Scroll Pattern)
+# Trimmed Custom Knowledge — Ready to Paste
 
-## Problem
+Below is the optimized text. It keeps only the "always-on" safety rules and delegates detailed review/testing/performance standards to the code file.
 
-The AnimalCombobox uses a Radix `Popover` portal that renders in a separate DOM layer outside the dialog. On mobile, this portal intercepts touch events and prevents scrolling. CSS fixes (`touch-action`, `overscroll-behavior`) have not resolved this.
+---
 
-## Working Pattern (SSOT)
+## What Was Removed (and Why)
 
-The parent dialog (e.g., RecordBulkFeedDialog) already has a proven scroll architecture:
+| Removed from Custom Knowledge | Now Lives In |
+|-------------------------------|--------------|
+| Detailed completion checklist format | `docs/enhanced-governance-protocol.md` SS1.D |
+| Full UI-specific CSS rules | SS5 of the doc |
+| Component reuse inventory (BilingualLabel, etc.) | SS3.B of the doc |
+| Detailed failure handling steps | SS1.E of the doc |
+| Performance targets and patterns | SS7 of the doc |
+| Test coverage gates | SS8 of the doc |
+| Security checklist | SS9 of the doc |
+| Pre-coding review framework (4 stages) | SS2 of the doc |
 
+---
+
+## The Trimmed Text
+
+Copy everything between the `---START---` and `---END---` markers below:
+
+```text
+---START---
+
+# CORE OPERATING PROTOCOL
+
+**PRIMARY DIRECTIVE:**
+Optimism is forbidden. Operate with "Zero Trust" in your own code execution. You have permission to consume extra steps/credits to verify your work.
+
+**DETAILED REFERENCE:** Before any non-trivial implementation, read `docs/enhanced-governance-protocol.md` and follow the Pre-Coding Review Framework (Section 2). That document is the canonical reference for review stages, test standards, performance targets, security checklists, and issue presentation format.
+
+## 1. VERIFICATION LOOP (Always Active)
+
+A task is ONLY complete when proven via **Baseline -> Execute -> Verify**:
+
+- **Baseline:** SELECT query (data) or screenshot at target viewport (UI) BEFORE changes.
+- **Execute:** Apply fix. If multi-step fix fails midway -> STOP and report partial state.
+- **Verify:**
+  - Data: Run verification SELECT. Unexpected results -> report "FIX FAILED".
+  - UI (MANDATORY for visual/layout/CSS): `browser--navigate_to_sandbox` at affected viewport (e.g., 390x844) -> `browser--screenshot` -> confirm fix. If issue persists -> "FIX FAILED", diagnose with `browser--observe`/`browser--extract`, iterate.
+- **Governance (FINAL step):** Update `docs/data-relationships-map.md`, `changelog.md`, or `docs/ssot-architecture.md` as applicable. Skipping = incomplete.
+
+## 2. SSOT DATA FLOWS (Always Active)
+
+Breaking any of these synchronized paths is a blocking bug:
+
+| Domain | Flow |
+|--------|------|
+| Milk Revenue | `milking_records` (sale) -> DB trigger -> `revenue_ledger` |
+| Animal Weight | `weight_records` (latest) -> DB trigger -> `animals.current_weight_kg` |
+| OVR Scores | records -> `calculate_animal_ovr` trigger -> `animal_ovr_cache` (server-side only) |
+| Feed Inventory | `feeding_records` -> `feed_inventory_id` + `cost_per_kg_at_time` (locked at consumption) |
+| Milk Feeding | `milk_inventory` -> FIFO -> `feeding_records` (market price for good, P0 for rejected) |
+| Herd Investment | `animals.purchase_cost` + `farm_expenses` + `feeding_records` (auto-calculated) |
+| Feed Stock Days | Roughage inventory -> `useFeedInventory` -> survival buffer |
+| Parent Eligibility | `animals` -> gender + (birth_date null OR age >= 16 months) -> dropdowns |
+| AI Father Detection | `ai_records` -> `useEditAnimalForm` -> pre-populate father fields |
+| Cooperative | `cooperative_memberships` -> SECURITY DEFINER RPCs -> hooks -> dashboard |
+
+Cache: All mutations go through `CacheManager.invalidateForMutation()`.
+
+## 3. PERMISSIONS (Always Active)
+
+- Four roles: **Owner**, **Manager** (`farmer_owner`), **Farmhand**, **Vet** (`is_vet()`).
+- `useUnifiedPermissions()` is the SSOT hook for all feature visibility.
+- One role per farm per user. RLS enforces farm-level isolation.
+- `is_farm_manager()` checks `farm_memberships.role_in_farm` (NOT global `user_roles`).
+
+## 4. SSOT RULES (Always Active)
+
+- Before modifying ANY field/function/component: trace `Table -> RPC -> Hook -> Component`. Synchronize ALL downstream consumers in the SAME change.
+- Search codebase before creating new UI components. Reuse shared components (BilingualLabel, GenderSelector, LactatingToggle, WeightHintBadge). Add/Edit form parity is mandatory.
+- UI: No piecemeal CSS. Trace full DOM hierarchy first. Test at the viewport where the bug occurs. Browser is source of truth. Semantic design tokens only (no raw text-white/bg-black). All colors in HSL.
+
+---END---
 ```
-DialogContent (max-h-[100dvh] flex flex-col overflow-hidden)
-  DialogHeader (flex-shrink-0)
-  Body (flex-1 overflow-y-auto)   <-- THIS SCROLLS ON MOBILE
-    Date picker...
-    Feed type...
-    AnimalCombobox (Popover portal)  <-- THIS DOES NOT SCROLL
-    Total kg...
-  Footer (flex-shrink-0)
-```
 
-Everything inside the `flex-1 overflow-y-auto` body scrolls perfectly. The AnimalCombobox breaks this because its dropdown renders **outside** that container via a portal.
+---
 
-## Solution
+## Summary of Changes
 
-Replace the Popover-based dropdown with an **inline collapsible list** that renders directly inside the dialog's scrollable body. When the user taps the trigger button, the animal list expands inline (like an accordion) -- it becomes part of the normal document flow and inherits the parent's `overflow-y-auto` scrolling.
+- **Before:** ~130 lines of custom knowledge, heavy overlap with `docs/enhanced-governance-protocol.md`.
+- **After:** ~45 lines. Core safety net (verification, SSOT flows, permissions, DRY rules) stays always-on. Everything else is accessed via the bridge instruction pointing to the doc file.
+- **Net effect:** ~60% token savings per message while preserving all governance guardrails.
 
-### Before (broken):
-```
-Dialog body (overflow-y-auto)
-  [AnimalCombobox trigger button]
-                                    Popover Portal (floating, outside dialog DOM)
-                                      CommandList (touch scroll blocked)
-```
-
-### After (follows SSOT):
-```
-Dialog body (overflow-y-auto)
-  [AnimalCombobox trigger button]
-  [Inline CommandList]              <-- lives inside the scrollable body
-    Quick Select options
-    Individual Animals
-```
-
-## File Changes
-
-### EDIT: `src/components/milk-recording/AnimalCombobox.tsx`
-
-Remove the Radix `Popover`, `PopoverTrigger`, and `PopoverContent` wrapper. Replace with:
-
-1. A trigger `Button` that toggles an `open` state (same as current)
-2. When `open === true`, render the `Command` + `CommandList` directly below the button as a bordered, rounded container -- no portal, no floating layer
-3. The list gets `max-h-[200px] overflow-y-auto` so it scrolls within the dialog's own scroll context
-4. Search input and all selection logic remain identical
-5. When an item is selected, collapse the list (same as current `handleSelect`)
-
-This is exactly how the rest of the form fields (date picker content, feed type selector content) behave when they need to show options -- they live in the dialog's DOM flow.
-
-## What Does NOT Change
-
-- No changes to any dialog files (RecordBulkFeedDialog, RecordBulkMilkDialog, etc.)
-- No changes to the `Command`/`CommandList` shared UI components
-- All selection logic, options, groups, search filtering stay identical
-- No database changes
-- Only 1 file modified: `AnimalCombobox.tsx`
-
-## Verification Plan
-
-1. Navigate to mobile viewport (390x844)
-2. Open FAB -> Record Feed -> tap Animal Selection
-3. Confirm the animal list appears inline and scrolls with the dialog
-4. Test search filtering still works
-5. Test selection still works (tap animal -> list collapses)
-6. Repeat for Record Milk, Record Health, Record BCS
-7. Screenshot proof at mobile viewport
