@@ -4287,6 +4287,27 @@ export type Database = {
         }
         Returns: Json
       }
+      get_faq_match_timeline: {
+        Args: { p_days?: number }
+        Returns: {
+          match_count: number
+          match_date: string
+        }[]
+      }
+      get_faq_usage_stats: {
+        Args: never
+        Returns: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_matched_at: string
+          matches_last_30d: number
+          matches_last_7d: number
+          question: string
+          total_matches: number
+        }[]
+      }
       get_farm_compliance_metrics:
         | {
             Args: {
