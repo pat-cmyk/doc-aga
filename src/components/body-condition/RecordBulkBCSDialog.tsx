@@ -18,6 +18,7 @@ import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useFarmAnimals, getAnimalDropdownOptions, getSelectedAnimals, FarmAnimal } from "@/hooks/useFarmAnimals";
+import { useBarns } from "@/hooks/useBarns";
 import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { BCS_LEVELS } from "@/lib/bcsDefinitions";
@@ -133,9 +134,10 @@ export function RecordBulkBCSDialog({
     return filterAnimalsByFarmDate(displayAnimals, recordDate);
   }, [displayAnimals, recordDate]);
   
+  const { data: barns = [] } = useBarns(farmId);
   const dropdownOptions = useMemo(
-    () => getAnimalDropdownOptions(dateFilteredAnimals),
-    [dateFilteredAnimals]
+    () => getAnimalDropdownOptions(dateFilteredAnimals, barns),
+    [dateFilteredAnimals, barns]
   );
   const selectedAnimals = useMemo(
     () => getSelectedAnimals(dateFilteredAnimals, selectedOption),

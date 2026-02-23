@@ -35,6 +35,7 @@ import {
   getAnimalDropdownOptions,
   getSelectedAnimals,
 } from "@/hooks/useFarmAnimals";
+import { useBarns } from "@/hooks/useBarns";
 import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { calculateFeedSplit, calculateCostPerKg, FeedSplitResult } from "@/lib/feedSplitCalculation";
 import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
@@ -113,7 +114,8 @@ export function RecordBulkFeedDialog({
     return filterAnimalsByFarmDate(displayAnimals, recordDate);
   }, [displayAnimals, recordDate]);
   
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
+  const { data: barns = [] } = useBarns(farmId);
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals, barns), [dateFilteredAnimals, barns]);
   
   // Get available quantity for selected feed type
   const selectedFeedInventory = useMemo(() => {

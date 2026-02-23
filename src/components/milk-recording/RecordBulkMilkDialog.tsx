@@ -27,6 +27,7 @@ import {
   getAnimalDropdownOptions,
   getSelectedAnimals,
 } from "@/hooks/useLactatingAnimals";
+import { useBarns } from "@/hooks/useBarns";
 import { filterAnimalsByFarmDate } from "@/lib/recordValidation";
 import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation";
 import { AnimalCombobox } from "./AnimalCombobox";
@@ -99,7 +100,8 @@ export function RecordBulkMilkDialog({
     return filterAnimalsByFarmDate(displayAnimals, recordDate);
   }, [displayAnimals, recordDate]);
   
-  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals), [dateFilteredAnimals]);
+  const { data: barns = [] } = useBarns(farmId);
+  const dropdownOptions = useMemo(() => getAnimalDropdownOptions(dateFilteredAnimals, barns), [dateFilteredAnimals, barns]);
 
   // Haptic on dialog open
   useEffect(() => {
