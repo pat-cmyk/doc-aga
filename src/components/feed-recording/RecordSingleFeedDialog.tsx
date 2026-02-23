@@ -348,16 +348,14 @@ export function RecordSingleFeedDialog({
                 Offline
               </span>
             )}
-            {isOnline && (
-              <VoiceRecordWithExtraction
-                extractorType="feed"
-                extractorContext={{ feedInventory: displayFeedInventory }}
-                onDataExtracted={handleVoiceDataExtracted}
-                disabled={isLoading}
-                size="sm"
-                className="ml-auto"
-              />
-            )}
+            <VoiceRecordWithExtraction
+              extractorType="feed"
+              extractorContext={{ feedInventory: displayFeedInventory }}
+              onDataExtracted={handleVoiceDataExtracted}
+              disabled={isLoading}
+              size="sm"
+              className="ml-auto"
+            />
           </DialogTitle>
           <DialogDescription>
             Record feed for {animalName}

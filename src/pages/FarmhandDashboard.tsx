@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { PawPrint, Wheat, FileCheck } from "lucide-react";
+import { PawPrint, Wheat, FileCheck, Droplets, Heart } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,10 @@ import { syncQueue } from "@/lib/syncService";
 import { useFarm } from "@/contexts/FarmContext";
 import { SyncStatusSheet, SyncConflictResolution } from "@/components/sync";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
+import { Button } from "@/components/ui/button";
+import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
+import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
+import { RecordBulkHealthDialog } from "@/components/health-recording/RecordBulkHealthDialog";
 
 const FarmhandDashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +41,9 @@ const FarmhandDashboard = () => {
   const [showDocAga, setShowDocAga] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
+  const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
+  const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
+  const [isRecordHealthOpen, setIsRecordHealthOpen] = useState(false);
 
   const handleRefresh = async () => {
     await syncQueue();
@@ -213,6 +220,51 @@ const FarmhandDashboard = () => {
           <>
             {/* Voice Recording Section */}
             <VoiceRecordButton farmId={farmId} animalId={selectedAnimalId} />
+
+            {/* Quick Action Buttons */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex flex-col items-center gap-1.5"
+                onClick={() => setIsRecordMilkOpen(true)}
+              >
+                <Droplets className="h-5 w-5 text-primary" />
+                <span className="text-xs font-medium">Record Milk</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex flex-col items-center gap-1.5"
+                onClick={() => setIsRecordFeedOpen(true)}
+              >
+                <Wheat className="h-5 w-5 text-orange-500" />
+                <span className="text-xs font-medium">Record Feed</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex flex-col items-center gap-1.5"
+                onClick={() => setIsRecordHealthOpen(true)}
+              >
+                <Heart className="h-5 w-5 text-red-500" />
+                <span className="text-xs font-medium">Record Health</span>
+              </Button>
+            </div>
+
+            {/* Recording Dialogs */}
+            <RecordBulkMilkDialog
+              open={isRecordMilkOpen}
+              onOpenChange={setIsRecordMilkOpen}
+              farmId={farmId}
+            />
+            <RecordBulkFeedDialog
+              open={isRecordFeedOpen}
+              onOpenChange={setIsRecordFeedOpen}
+              farmId={farmId}
+            />
+            <RecordBulkHealthDialog
+              open={isRecordHealthOpen}
+              onOpenChange={setIsRecordHealthOpen}
+              farmId={farmId}
+            />
 
             <Tabs defaultValue="animals" className="w-full">
               <TabsList className="grid w-full grid-cols-3 h-auto">

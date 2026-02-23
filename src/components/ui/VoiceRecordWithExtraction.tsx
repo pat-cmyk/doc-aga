@@ -121,6 +121,8 @@ export function VoiceRecordWithExtraction<T = Record<string, any>>({
       const hints: Record<ExtractorType, string> = {
         milk: 'Try: "25 liters this morning"',
         feed: 'Try: "10 kilos Napier grass"',
+        weight: 'Try: "245 kilos scale"',
+        health: 'Try: "mastitis, gave antibiotics"',
         text: 'Try speaking clearly',
         custom: 'Try speaking clearly',
       };

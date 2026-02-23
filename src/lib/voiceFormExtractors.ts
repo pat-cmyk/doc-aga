@@ -48,7 +48,7 @@ export interface AnimalItem {
   ear_tag: string | null;
 }
 
-export type ExtractorType = 'milk' | 'feed' | 'text' | 'custom';
+export type ExtractorType = 'milk' | 'feed' | 'weight' | 'health' | 'text' | 'custom';
 
 export type ExtractorContext = {
   feedInventory?: FeedInventoryItem[];
@@ -882,6 +882,215 @@ export function extractFeedData(
   return result;
 }
 
+// ==================== WEIGHT EXTRACTOR ====================
+
+export interface ExtractedWeightData {
+  weightKg?: number;
+  method?: 'scale' | 'tape_measure' | 'visual_estimate';
+  notes?: string;
+  warnings?: string[];
+}
+
+const WEIGHT_THRESHOLDS = {
+  minKg: 0.5,
+  maxKg: 2000,
+  warningKg: 1200,
+};
+
+/**
+ * Extract weight recording data from transcription
+ * Supports: "245 kilos", "dalawang daan at limampu't limang kilo", "scale measurement"
+ */
+export function extractWeightData(
+  transcription: string,
+  _context?: ExtractorContext
+): ExtractedWeightData {
+  const particleInfo = preprocessTagalogParticles(transcription);
+  const cleanedText = particleInfo.cleanedText;
+  const lowerText = cleanedText.toLowerCase();
+  const result: ExtractedWeightData = {};
+  const warnings: string[] = [];
+
+  // Extract weight - digit patterns first
+  const weightPatterns = [
+    /(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilos|kilograms?)/i,
+    /(\d+(?:\.\d+)?)\s*(?:na\s+)?(?:kilo|kg)/i,
+    /(?:weight|timbang|bigat)\s*(?:is|ay|ng|:)?\s*(\d+(?:\.\d+)?)/i,
+  ];
+
+  for (const pattern of weightPatterns) {
+    const match = cleanedText.match(pattern);
+    if (match) {
+      const idx = match[1] ? 1 : 2;
+      result.weightKg = parseFloat(match[idx]);
+      break;
+    }
+  }
+
+  // Try spoken numbers
+  if (!result.weightKg) {
+    const spokenKg = extractSpokenKilograms(transcription);
+    if (spokenKg) {
+      result.weightKg = spokenKg;
+    }
+  }
+
+  // Fallback: standalone number
+  if (!result.weightKg) {
+    const numberMatch = cleanedText.match(/\b(\d+(?:\.\d+)?)\b/);
+    if (numberMatch) {
+      const num = parseFloat(numberMatch[1]);
+      if (num >= WEIGHT_THRESHOLDS.minKg && num <= WEIGHT_THRESHOLDS.maxKg) {
+        result.weightKg = num;
+      }
+    }
+  }
+
+  // Validate
+  if (result.weightKg && result.weightKg > WEIGHT_THRESHOLDS.warningKg) {
+    warnings.push(`${result.weightKg}kg seems unusually high. Please verify.`);
+  }
+
+  // Extract method
+  if (lowerText.includes('scale') || lowerText.includes('timbangan')) {
+    result.method = 'scale';
+  } else if (lowerText.includes('tape') || lowerText.includes('sukatan') || lowerText.includes('measure')) {
+    result.method = 'tape_measure';
+  } else if (lowerText.includes('estimate') || lowerText.includes('tantiya') || lowerText.includes('visual')) {
+    result.method = 'visual_estimate';
+  }
+
+  // Particle warnings
+  if (particleInfo.isApproximate && result.weightKg) {
+    warnings.push(`Value is approximate ("mga/halos"). Actual: ~${result.weightKg}kg`);
+  }
+  if (particleInfo.hasCorrection) {
+    warnings.push('Correction detected ("pala"). Please verify the values.');
+  }
+
+  if (warnings.length > 0) result.warnings = warnings;
+  return result;
+}
+
+// ==================== HEALTH EXTRACTOR ====================
+
+export interface ExtractedHealthData {
+  category?: string;
+  diagnosis?: string;
+  treatment?: string;
+  notes?: string;
+  warnings?: string[];
+}
+
+const HEALTH_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  illness: ['sick', 'may sakit', 'lagnat', 'fever', 'diarrhea', 'pagtatae', 'cough', 'ubo', 'bloat', 'bloated', 'mastitis', 'pneumonia', 'infection', 'infected'],
+  injury: ['injured', 'sugat', 'wound', 'limping', 'pilay', 'broken', 'bali', 'laceration', 'swollen', 'namaga'],
+  preventive: ['vaccine', 'bakuna', 'deworming', 'deworm', 'vitamin', 'supplement', 'checkup', 'check-up', 'routine'],
+  reproductive: ['pregnant', 'buntis', 'calving', 'heat', 'estrus', 'dystocia', 'retained placenta', 'abortion', 'miscarriage'],
+  other: ['other', 'iba pa'],
+};
+
+const COMMON_DIAGNOSES: Record<string, string[]> = {
+  illness: ['Mastitis', 'Pneumonia', 'Diarrhea', 'Bloat', 'Fever', 'Foot Rot', 'Pink Eye'],
+  injury: ['Laceration', 'Lameness', 'Fracture', 'Swelling'],
+  preventive: ['Routine Checkup', 'Deworming', 'Vaccination'],
+  reproductive: ['Dystocia', 'Retained Placenta', 'Metritis'],
+};
+
+const TREATMENT_KEYWORDS: string[] = [
+  'antibiotic', 'antibiotics', 'penicillin', 'oxytetracycline', 'amoxicillin',
+  'anti-inflammatory', 'painkiller', 'pain killer', 'ibuprofen',
+  'dewormer', 'albendazole', 'ivermectin',
+  'vitamin', 'vitamins', 'supplement',
+  'ointment', 'cream', 'spray',
+  'injection', 'injected', 'tinurok', 'iniksyon',
+  'oral', 'ipinainom',
+  'cleaned', 'nilinis', 'disinfect',
+];
+
+/**
+ * Extract health recording data from transcription
+ * Parses: condition, treatment, category
+ */
+export function extractHealthData(
+  transcription: string,
+  _context?: ExtractorContext
+): ExtractedHealthData {
+  const particleInfo = preprocessTagalogParticles(transcription);
+  const cleanedText = particleInfo.cleanedText;
+  const lowerText = cleanedText.toLowerCase();
+  const result: ExtractedHealthData = {};
+
+  // Detect category
+  for (const [categoryId, keywords] of Object.entries(HEALTH_CATEGORY_KEYWORDS)) {
+    if (keywords.some(kw => lowerText.includes(kw))) {
+      result.category = categoryId;
+      break;
+    }
+  }
+
+  // Try to match a known diagnosis
+  if (result.category) {
+    const diagnoses = COMMON_DIAGNOSES[result.category] || [];
+    for (const diag of diagnoses) {
+      if (lowerText.includes(diag.toLowerCase())) {
+        result.diagnosis = diag;
+        break;
+      }
+    }
+  }
+
+  // If no exact diagnosis, try extracting from common illness patterns
+  if (!result.diagnosis) {
+    const diagPatterns = [
+      /(?:has|may|diagnosed|with)\s+(\w+(?:\s+\w+)?)/i,
+      /(?:sakit|condition|problem)\s+(?:is|ay|:)?\s*(\w+(?:\s+\w+)?)/i,
+    ];
+    for (const pattern of diagPatterns) {
+      const match = lowerText.match(pattern);
+      if (match) {
+        result.diagnosis = match[1].trim();
+        break;
+      }
+    }
+  }
+
+  // Extract treatment
+  const foundTreatments: string[] = [];
+  for (const treatment of TREATMENT_KEYWORDS) {
+    if (lowerText.includes(treatment)) {
+      foundTreatments.push(treatment);
+    }
+  }
+  if (foundTreatments.length > 0) {
+    // Try to get a more descriptive treatment from the text
+    const treatmentPatterns = [
+      /(?:gave|given|binigyan|tinurok|treated with|gamot)\s+(?:ng\s+)?(.+?)(?:\.|,|$)/i,
+      /(?:treatment|gamutan|lunas)\s*(?:is|ay|:)?\s*(.+?)(?:\.|,|$)/i,
+    ];
+    for (const pattern of treatmentPatterns) {
+      const match = lowerText.match(pattern);
+      if (match) {
+        result.treatment = match[1].trim();
+        break;
+      }
+    }
+    if (!result.treatment) {
+      result.treatment = foundTreatments.join(', ');
+    }
+  }
+
+  // Use full text as notes if we got partial data
+  if (result.diagnosis || result.treatment) {
+    result.notes = transcription;
+  } else {
+    // Fallback: use the whole transcription as diagnosis
+    result.diagnosis = transcription;
+  }
+
+  return result;
+}
+
 // ==================== TEXT EXTRACTOR ====================
 
 /**
@@ -893,7 +1102,7 @@ export function extractTextData(transcription: string): ExtractedTextData {
 
 // ==================== MAIN EXTRACTOR FUNCTION ====================
 
-export type ExtractedData = ExtractedMilkData | ExtractedFeedData | ExtractedTextData | Record<string, any>;
+export type ExtractedData = ExtractedMilkData | ExtractedFeedData | ExtractedWeightData | ExtractedHealthData | ExtractedTextData | Record<string, any>;
 
 /**
  * Run the appropriate extractor based on type
@@ -909,6 +1118,10 @@ export function runExtractor(
       return extractMilkData(transcription, context);
     case 'feed':
       return extractFeedData(transcription, context);
+    case 'weight':
+      return extractWeightData(transcription, context);
+    case 'health':
+      return extractHealthData(transcription, context);
     case 'text':
       return extractTextData(transcription);
     case 'custom':

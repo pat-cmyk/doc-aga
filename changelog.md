@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-02-23 — Farmer-Facing Voice & Workflow Gaps
+
+### Added
+- **Weight voice extractor** (`voiceFormExtractors.ts`) — New `weight` ExtractorType supporting "245 kilos scale" and Taglish variants. Integrated into `RecordSingleWeightDialog`.
+- **Health voice extractor** (`voiceFormExtractors.ts`) — New `health` ExtractorType parsing condition, category, and treatment from voice. Integrated into `RecordSingleHealthDialog`.
+- **Farmhand quick-action buttons** (`FarmhandDashboard.tsx`) — Record Milk, Record Feed, Record Health shortcuts below voice recorder.
+- **Bilingual offline onboarding** (`OfflineOnboarding.tsx`) — Added Tagalog translations for title and description.
+
+### Changed
+- **Feed voice enabled offline** (`RecordBulkFeedDialog.tsx`, `RecordSingleFeedDialog.tsx`) — Removed `isOnline` guard so voice input works offline via existing audio queue.
+
 ## 2026-02-23 — FAQ Usage Analytics Dashboard
 
 ### Added

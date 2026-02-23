@@ -61,10 +61,14 @@ export function OfflineOnboarding({ farmId }: OfflineOnboardingProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wifi className="h-5 w-5" />
-            Enable Offline Access
+            <div className="flex flex-col">
+              <span>Enable Offline Access</span>
+              <span className="text-xs font-normal text-muted-foreground">I-enable ang Offline Access</span>
+            </div>
           </DialogTitle>
           <DialogDescription>
             Would you like to download your farm data for offline access? (Recommended)
+            <span className="block text-xs mt-0.5">Gusto mo bang i-download ang data ng iyong farm para sa offline access?</span>
           </DialogDescription>
         </DialogHeader>
 
