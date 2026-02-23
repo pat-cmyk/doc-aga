@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-02-23 — Barn / Paddock Grouping System
+
+### Added
+- **`barns` + `barn_assignments` tables** — Farm-scoped housing locations with move history, triggers syncing `animals.current_barn_id`.
+- **`src/hooks/useBarns.ts`** — CRUD hooks for barns and assignments.
+- **`src/components/barns/`** — `BarnListView`, `BarnFormDialog`, `BarnAnimalManager` components.
+- **Barn quick-select in dropdowns** — `getAnimalDropdownOptions` now accepts optional `barns` param adding `barn:{id}` options. `getSelectedAnimals` handles `barn:` prefix.
+
+### Changed
+- `useFarmAnimals` / `useLactatingAnimals` — Added `current_barn_id` to queries and interfaces.
+- `Dashboard.tsx` — Added `BarnListView` above animal list in Animals tab.
+
+
 ## 2026-02-23 — Health Voice Extractor Enhancement & Offline Capture
 
 ### Changed

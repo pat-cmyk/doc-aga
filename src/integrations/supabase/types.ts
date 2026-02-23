@@ -515,6 +515,7 @@ export type Database = {
           buyer_info: string | null
           client_generated_id: string | null
           created_at: string
+          current_barn_id: string | null
           current_weight_kg: number | null
           ear_tag: string | null
           entry_weight_kg: number | null
@@ -566,6 +567,7 @@ export type Database = {
           buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
+          current_barn_id?: string | null
           current_weight_kg?: number | null
           ear_tag?: string | null
           entry_weight_kg?: number | null
@@ -617,6 +619,7 @@ export type Database = {
           buyer_info?: string | null
           client_generated_id?: string | null
           created_at?: string
+          current_barn_id?: string | null
           current_weight_kg?: number | null
           ear_tag?: string | null
           entry_weight_kg?: number | null
@@ -660,6 +663,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "animals_current_barn_id_fkey"
+            columns: ["current_barn_id"]
+            isOneToOne: false
+            referencedRelation: "barns"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "animals_farm_id_fkey"
             columns: ["farm_id"]
             isOneToOne: false
@@ -685,6 +695,116 @@ export type Database = {
             columns: ["mother_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      barn_assignments: {
+        Row: {
+          animal_id: string
+          assigned_at: string
+          assigned_by: string | null
+          barn_id: string
+          farm_id: string
+          id: string
+          removed_at: string | null
+        }
+        Insert: {
+          animal_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          barn_id: string
+          farm_id: string
+          id?: string
+          removed_at?: string | null
+        }
+        Update: {
+          animal_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          barn_id?: string
+          farm_id?: string
+          id?: string
+          removed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "barn_assignments_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barn_assignments_barn_id_fkey"
+            columns: ["barn_id"]
+            isOneToOne: false
+            referencedRelation: "barns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barn_assignments_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barn_assignments_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      barns: {
+        Row: {
+          barn_type: string
+          capacity: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          farm_id: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          barn_type?: string
+          capacity?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          farm_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          barn_type?: string
+          capacity?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          farm_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "barns_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barns_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
             referencedColumns: ["id"]
           },
         ]

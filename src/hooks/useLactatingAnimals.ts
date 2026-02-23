@@ -18,6 +18,7 @@ export interface LactatingAnimal {
   estimated_days_in_milk?: number | null;
   farm_entry_date?: string | null;
   birth_date?: string | null;
+  current_barn_id?: string | null;
 }
 
 export function useLactatingAnimals(farmId: string | null) {
@@ -29,7 +30,7 @@ export function useLactatingAnimals(farmId: string | null) {
       // Include animals with is_currently_lactating = true OR milking_stage in lactating stages
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk, farm_entry_date, birth_date')
+        .select('id, name, ear_tag, livestock_type, milking_stage, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, is_currently_lactating, milking_start_date, estimated_days_in_milk, farm_entry_date, birth_date, current_barn_id')
         .eq('farm_id', farmId)
         .eq('gender', 'Female')
         .is('exit_date', null)
@@ -48,8 +49,9 @@ export function useLactatingAnimals(farmId: string | null) {
 export { formatWeightWithSource };
 
 import type { AnimalOption } from "@/components/milk-recording/AnimalCombobox";
+import type { BarnOption } from "@/hooks/useFarmAnimals";
 
-export function getAnimalDropdownOptions(animals: LactatingAnimal[]): AnimalOption[] {
+export function getAnimalDropdownOptions(animals: LactatingAnimal[], barns?: BarnOption[]): AnimalOption[] {
   if (animals.length === 0) return [];
 
   const options: AnimalOption[] = [];
@@ -83,6 +85,20 @@ export function getAnimalDropdownOptions(animals: LactatingAnimal[]): AnimalOpti
     });
   }
 
+  // Add barn/paddock options
+  if (barns && barns.length > 0) {
+    barns.forEach((barn) => {
+      const count = animals.filter(a => a.current_barn_id === barn.id).length;
+      if (count > 0) {
+        options.push({
+          value: `barn:${barn.id}`,
+          label: `${barn.name} (${count})`,
+          group: 'quick',
+        });
+      }
+    });
+  }
+
   // Add individual animals
   animals.forEach((animal) => {
     const name = animal.name || animal.ear_tag || 'Unknown';
@@ -113,6 +129,11 @@ export function getSelectedAnimals(
   if (selectedOption.startsWith('species:')) {
     const species = selectedOption.replace('species:', '');
     return animals.filter(a => a.livestock_type === species);
+  }
+
+  if (selectedOption.startsWith('barn:')) {
+    const barnId = selectedOption.replace('barn:', '');
+    return animals.filter(a => a.current_barn_id === barnId);
   }
 
   // Individual animal

@@ -14,6 +14,7 @@ export interface FarmAnimal {
   birth_weight_kg?: number | null;
   farm_entry_date?: string | null;
   birth_date?: string | null;
+  current_barn_id?: string | null;
 }
 
 export function useFarmAnimals(farmId: string | null) {
@@ -24,7 +25,7 @@ export function useFarmAnimals(farmId: string | null) {
 
       const { data, error } = await supabase
         .from('animals')
-        .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, farm_entry_date, birth_date')
+        .select('id, name, ear_tag, livestock_type, current_weight_kg, entry_weight_kg, entry_weight_unknown, birth_weight_kg, farm_entry_date, birth_date, current_barn_id')
         .eq('farm_id', farmId)
         .is('exit_date', null)
         .eq('is_deleted', false)
@@ -40,7 +41,13 @@ export function useFarmAnimals(farmId: string | null) {
 // Re-export utility for consumers
 export { getEffectiveWeight, formatWeightWithSource };
 
-export function getAnimalDropdownOptions(animals: FarmAnimal[]): AnimalOption[] {
+export interface BarnOption {
+  id: string;
+  name: string;
+  barn_type: string;
+}
+
+export function getAnimalDropdownOptions(animals: FarmAnimal[], barns?: BarnOption[]): AnimalOption[] {
   if (animals.length === 0) return [];
 
   const options: AnimalOption[] = [];
@@ -74,6 +81,20 @@ export function getAnimalDropdownOptions(animals: FarmAnimal[]): AnimalOption[] 
     });
   }
 
+  // Add barn/paddock options
+  if (barns && barns.length > 0) {
+    barns.forEach((barn) => {
+      const count = animals.filter(a => a.current_barn_id === barn.id).length;
+      if (count > 0) {
+        options.push({
+          value: `barn:${barn.id}`,
+          label: `${barn.name} (${count})`,
+          group: 'quick',
+        });
+      }
+    });
+  }
+
   // Add individual animals
   animals.forEach((animal) => {
     const name = animal.name || animal.ear_tag || 'Unknown';
@@ -103,6 +124,11 @@ export function getSelectedAnimals(
   if (selectedOption.startsWith('species:')) {
     const species = selectedOption.replace('species:', '');
     return animals.filter(a => a.livestock_type === species);
+  }
+
+  if (selectedOption.startsWith('barn:')) {
+    const barnId = selectedOption.replace('barn:', '');
+    return animals.filter(a => a.current_barn_id === barnId);
   }
 
   // Individual animal
