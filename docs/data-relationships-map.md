@@ -1608,3 +1608,36 @@ cooperative_memberships (invitation_status = 'accepted')
 | `src/pages/CooperativeInviteAccept.tsx` | Invitation acceptance page for farm owners |
 | `src/hooks/useCooperative.ts` | SSOT hooks for all cooperative data fetching |
 | `src/components/cooperative/*` | All dashboard tab components + invite dialog |
+
+---
+
+## Offline Photo Queue & AI Record Support
+
+Added: 2026-02-23
+
+### Photo Queue (IndexedDB)
+
+```text
+Store: docAgaPhotoQueue / photoQueue
+  Schema: id, blob, fileName, mimeType, target (avatar|health_record), animalId, farmId, linkedQueueItemId?, status, retries
+  Limits: Max 20 photos, 10MB per photo, 7-day retention
+  Flow: CameraPhotoInput → addPhoto() → IndexedDB → syncPendingPhotos() → storage bucket → animal_photos / animals.avatar_url
+```
+
+### Offline Data Flows
+
+| Domain | Offline Flow |
+|--------|-------------|
+| Avatar Upload | `CameraPhotoInput` → `offlinePhotoQueue.addPhoto()` → sync → `animal-photos` bucket → `animals.avatar_url` |
+| Health Photos | `CameraPhotoInput` → `offlinePhotoQueue.addPhoto()` → linked to `single_health` queue item via `pendingPhotoIds` → sync parent first → `syncPendingPhotos()` |
+| Pregnancy Confirm | `ConfirmPregnancyDialog` → `offlineQueue.addToQueue(pregnancy_confirm)` → `syncPregnancyConfirm()` → `ai_records` update + `breeding_events` insert |
+| AI Records | `offlineQueue.addToQueue(ai_record)` → `syncAIRecord()` → `ai_records` insert |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `src/lib/offlinePhotoQueue.ts` | Dedicated IndexedDB store for photo blobs |
+| `src/lib/offlineQueue.ts` | Extended with `ai_record`, `pregnancy_confirm` types + `pendingPhotoIds` |
+| `src/lib/syncService.ts` | Added `syncAIRecord`, `syncPregnancyConfirm`, `syncPendingPhotos` handlers |
+| `src/lib/cacheManager.ts` | Added `pregnancy-confirm` cache dependencies |

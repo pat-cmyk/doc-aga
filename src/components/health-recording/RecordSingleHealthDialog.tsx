@@ -28,6 +28,7 @@ import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
+import { addPhoto } from "@/lib/offlinePhotoQueue";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { useFarm } from "@/contexts/FarmContext";
 
@@ -59,6 +60,7 @@ export function RecordSingleHealthDialog({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const [offlinePhotoIds, setOfflinePhotoIds] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -81,6 +83,7 @@ export function RecordSingleHealthDialog({
       setTreatment("");
       setNotes("");
       setUploadedPhotos([]);
+      setOfflinePhotoIds([]);
     }
   }, [open]);
 
@@ -164,6 +167,33 @@ export function RecordSingleHealthDialog({
 
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
+
+    if (!isOnline) {
+      // Queue photo offline
+      try {
+        const compressedBlob = await compressImage(file);
+        const fileName = `${animalId}-health-${Date.now()}.jpg`;
+        const photoId = await addPhoto(compressedBlob, {
+          fileName,
+          mimeType: 'image/jpeg',
+          target: 'health_record',
+          animalId,
+          farmId,
+        });
+        setOfflinePhotoIds(prev => [...prev, photoId]);
+        toast({
+          title: "Photo queued",
+          description: "Photo will upload when online",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Failed to queue photo",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      return;
+    }
 
     setIsUploadingImage(true);
 
@@ -252,7 +282,7 @@ export function RecordSingleHealthDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync (photos disabled offline)
+        // Queue for offline sync with photo IDs
         await addToQueue({
           id: `single_health_${Date.now()}`,
           type: 'single_health',
@@ -267,6 +297,7 @@ export function RecordSingleHealthDialog({
               treatment: treatment || undefined,
               notes: notes || undefined,
             },
+            pendingPhotoIds: offlinePhotoIds.length > 0 ? offlinePhotoIds : undefined,
           },
           createdAt: Date.now(),
           optimisticId,
@@ -567,48 +598,42 @@ export function RecordSingleHealthDialog({
             </div>
           </div>
 
-          {/* Photos (only when online) */}
+          {/* Photos */}
           <div className="space-y-2">
-            <Label>Photos</Label>
-            {!isOnline ? (
-              <p className="text-sm text-muted-foreground">Photos available when online</p>
-            ) : (
-              <>
-                {isUploadingImage && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading photo...
+            <Label>Photos {!isOnline && offlinePhotoIds.length > 0 && <span className="text-xs text-muted-foreground">({offlinePhotoIds.length} queued)</span>}</Label>
+            {isUploadingImage && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading photo...
+              </div>
+            )}
+            <CameraPhotoInput
+              onPhotoSelected={handlePhotoUpload}
+              onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
+              variant="outline"
+              label={isUploadingImage ? "Uploading..." : !isOnline ? "Add Photo (offline)" : "Add Photo"}
+              disabled={isSubmitting || isUploadingImage}
+              className="w-full"
+            />
+            {uploadedPhotos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {uploadedPhotos.map((url, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={url}
+                      alt={`Upload ${index + 1}`}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(index)}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
-                )}
-                <CameraPhotoInput
-                  onPhotoSelected={handlePhotoUpload}
-                  onError={(error) => toast({ title: "Upload failed", description: error.message, variant: "destructive" })}
-                  variant="outline"
-                  label={isUploadingImage ? "Uploading..." : "Add Photo"}
-                  disabled={isSubmitting || isUploadingImage}
-                  className="w-full"
-                />
-                {uploadedPhotos.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {uploadedPhotos.map((url, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={url}
-                          alt={`Upload ${index + 1}`}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(index)}
-                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
           </div>
 

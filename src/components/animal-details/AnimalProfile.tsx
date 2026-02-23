@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { StageBadge } from "@/components/ui/stage-badge";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
-import { Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift } from "lucide-react";
+import { Loader2, Database, Globe, Copy, Baby, Home, ShoppingCart, Gift, CloudOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addPhoto, getPendingAvatarCount } from "@/lib/offlinePhotoQueue";
 import { formatDistanceToNow } from "date-fns";
 import type { Animal } from "./hooks/useAnimalDetails";
 
@@ -70,8 +71,14 @@ export const AnimalProfile = ({
   caching
 }: AnimalProfileProps) => {
   const [uploading, setUploading] = useState(false);
+  const [hasPendingAvatar, setHasPendingAvatar] = useState(false);
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+
+  // Check for pending offline avatar
+  useEffect(() => {
+    getPendingAvatarCount(animal.id).then(count => setHasPendingAvatar(count > 0));
+  }, [animal.id]);
 
   const handleAvatarUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -88,6 +95,25 @@ export const AnimalProfile = ({
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${animal.id}-${Date.now()}.${fileExt}`;
+
+      if (!isOnline) {
+        // Queue photo for offline upload
+        await addPhoto(file, {
+          fileName,
+          mimeType: file.type,
+          target: 'avatar',
+          animalId: animal.id,
+          farmId: animal.farm_id,
+        });
+
+        setHasPendingAvatar(true);
+        toast({
+          title: "Queued for Sync",
+          description: "Avatar will upload when online",
+        });
+        return;
+      }
+
       const filePath = `${animal.farm_id}/avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -174,9 +200,13 @@ export const AnimalProfile = ({
               variant="secondary"
               size="icon"
               label=""
-              disabled={!isOnline}
               className="h-7 w-7 sm:h-8 sm:w-8 rounded-full"
             />
+          )}
+          {hasPendingAvatar && (
+            <div className="absolute -top-1 -left-1" title="Avatar queued for sync">
+              <CloudOff className="h-3.5 w-3.5 text-amber-500" />
+            </div>
           )}
         </div>
       </div>
