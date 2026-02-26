@@ -15,7 +15,7 @@ import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/auth/SuperAdminRoute";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
-import { syncQueue } from "./lib/syncService";
+import { syncQueue, checkForStaleQueueOnOtherDevices } from "./lib/syncService";
 import { initDevicePermissions } from "./lib/devicePermissionService";
 import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
@@ -157,6 +157,29 @@ const SyncHandler = () => {
         }
       });
     }
+  }, [isOnline]);
+
+  // One-time stale queue check on first online after mount
+  const staleCheckDoneRef = useRef(false);
+  useEffect(() => {
+    if (!isOnline || staleCheckDoneRef.current) return;
+    staleCheckDoneRef.current = true;
+
+    checkForStaleQueueOnOtherDevices().then(({ hasStaleItems, count, oldestTimestamp }) => {
+      if (hasStaleItems) {
+        const age = oldestTimestamp
+          ? ` (oldest: ${new Date(oldestTimestamp).toLocaleDateString()})`
+          : '';
+        console.warn(`[SyncHandler] ${count} stale sync items on another device${age}`);
+        // Using dynamic import to avoid circular deps with toast
+        import('sonner').then(({ toast }) => {
+          toast.warning(
+            `${count} unsynced item(s) found on another device${age}. Open that device while online to sync them.`,
+            { duration: 10000 }
+          );
+        });
+      }
+    });
   }, [isOnline]);
 
   useEffect(() => {

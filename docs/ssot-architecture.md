@@ -167,3 +167,42 @@ No task is complete without verifying DRM consistency with the implementation.
 - `useUnifiedPermissions()` is the SSOT hook for all feature visibility decisions in the UI.
 - One role per farm per user. RLS policies enforce farm-level isolation.
 - The `is_farm_manager()` SQL function checks `farm_memberships.role_in_farm` (NOT the global `user_roles` table).
+
+---
+
+## 6. Conflict Resolution Flow (Phase 6)
+
+### Pipeline
+
+```text
+syncQueue processes item
+  ├─ status === 'conflict' → SKIP (resolve via SyncConflictResolution UI)
+  ├─ Orphan check: validateAnimalsExist(animalIds)
+  │   └─ animal deleted → mark item 'failed' with PARENT_DELETED message
+  ├─ Is UPDATE to existing record?
+  │   YES → detectConflict(table, recordId, clientTimestamp, clientData)
+  │         ├─ has_conflict → recordConflict() → mark item 'conflict'
+  │         └─ no conflict → proceed with write
+  └─ Is INSERT? → proceed with dedup check + write (existing behavior)
+```
+
+### Key Components
+
+| Component | Path | Role |
+|-----------|------|------|
+| `detectConflict()` | `src/lib/conflictDetection.ts` | RPC call to `detect_sync_conflict` |
+| `recordConflict()` | `src/lib/conflictDetection.ts` | Writes to `sync_conflicts` table |
+| `checkAndHandleConflict()` | `src/lib/syncService.ts` | Orchestrates detection + recording |
+| `validateAnimalsExist()` | `src/lib/syncService.ts` | Batch existence check for parent records |
+| `checkForStaleQueueOnOtherDevices()` | `src/lib/syncService.ts` | Queries `check_stale_sync_items` RPC |
+| `SyncConflictResolution` | `src/components/sync/` | UI for resolving conflicts |
+
+### Queue Item Statuses
+
+`pending` → `processing` → `completed` | `failed` | `conflict`
+
+- `conflict`: Skipped by sync loop; visible in `SyncConflictResolution` UI; resolved via `resolveConflict()` + `applyConflictResolution()`
+
+### Stale Device Warning
+
+On first online after mount, `App.tsx` calls `checkForStaleQueueOnOtherDevices()` via `check_stale_sync_items` RPC. If pending items exist from another `client_id`, a toast warns the user.

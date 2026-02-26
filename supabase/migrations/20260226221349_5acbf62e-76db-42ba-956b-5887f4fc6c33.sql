@@ -1,0 +1,1 @@
+ALTER FUNCTION public.check_stale_sync_items(UUID, TEXT) SET search_path = public;

@@ -206,7 +206,9 @@ interface QueueItem {
     pendingPhotoIds?: string[];
   };
   createdAt: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation' | 'conflict';
+  /** ISO timestamp of data at time of edit (for conflict detection) */
+  clientTimestamp?: string;
   retries: number;
   error?: string;
   processedAt?: number;
