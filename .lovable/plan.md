@@ -1,89 +1,110 @@
 
 
-# Phase 4: Remaining Mutation Fixes — Route Farm-Level Mutations Through CacheManager
+# Phase 5: Low-Priority Cache-First + Final Documentation
 
-## Analysis
+## Reassessment
 
-After reviewing all 12 hooks flagged in the audit, they fall into two distinct groups:
+After reviewing all 10 hooks, only **3 are good candidates** for IndexedDB cache-first. The remaining 7 have architectural reasons (date-range parameters, no farmId, realtime subscriptions, animal-scoped keys) that make farm-keyed IndexedDB caching either impossible or counterproductive. These get documentation headers instead.
 
-### Group A: Farm-Scoped Mutations (Route through CacheManager)
-These have a `farmId` and mutate farm-level data:
+---
 
-| Hook | Mutations | New CacheManager Type |
-|------|-----------|----------------------|
-| `useAnimalExpenses` | add, delete | Reuse existing `'expense'` type (already covers `farm_expenses`) |
-| `useFarmSettings` | update | New `'farm-settings'` type |
-| `useBarns` | create, update, assign, remove | New `'barn'` type |
-| `useDailyChecklist` | toggle item | New `'checklist'` type |
-| `usePendingActivities` | review, delete, update, resubmit | New `'pending-activity'` type |
-| `useFarmerFeedback` | submit | New `'farmer-feedback'` type |
+## Group A: Implement Cache-First (3 hooks)
 
-### Group B: Non-Farm Mutations (Exclude from CacheManager)
-These are merchant/platform/government-scoped with no `farmId`. CacheManager is architecturally farm-keyed, so forcing these through it would be a design violation. They stay with manual invalidation but get documentation headers:
+| Hook | Key | TTL | Rationale |
+|------|-----|-----|-----------|
+| `useAnimalCostAggregates` | `farmId` | 15 min | Stable farm-scoped aggregate; benefits offline |
+| `useBarns` | `farmId` | 30 min | Stable structure data; rarely changes |
+| `useFarmSettings` | `farmId` | 60 min | Very stable; almost never changes |
 
-| Hook | Reason |
-|------|--------|
-| `useMerchantOrders` | Merchant-scoped, no farmId |
-| `useMerchantProducts` | Read-only hook (no mutations to fix) |
-| `useInvoices` | Merchant-scoped, no farmId |
-| `usePlatformSettings` | Admin-scoped, no farmId |
-| `useGovernmentFeedback` | Government-scoped, cross-farm, `@online-only` |
+## Group B: Documentation-Only (7 hooks)
+
+| Hook | Header | Reason |
+|------|--------|--------|
+| `useAnimalExpenses` | `@cache-status ANIMAL-SCOPED` | Keyed by `animalId`, not `farmId`; doesn't fit farm-keyed IndexedDB |
+| `useProfitability` | `@cache-status PARAMETERIZED` | Date-range dependent; can't key by farmId alone |
+| `useFinancialHealth` | `@cache-status PARAMETERIZED` | Date-range dependent; same issue |
+| `useProducts` | `@cache-status MANUAL` | Marketplace-scoped, no farmId |
+| `useOrders` | `@cache-status MANUAL` | User-scoped, no farmId |
+| `useDailyChecklist` | Already `@cache-status MANAGED` | Date-specific + auto-completion from sub-hooks; too dynamic |
+| `usePendingActivities` | Already `@cache-status MANAGED` | Realtime subscriptions; caching would conflict |
 
 ---
 
 ## Changes
 
-### 1. `src/lib/cacheManager.ts` — Add 5 new mutation types to CACHE_DEPENDENCIES
+### 1. `src/lib/dataCache.ts` -- Add 3 new cache stores (DB version 5 -> 6)
+
+New stores: `animalCostCache`, `barnsCache`, `farmSettingsCache`
+
+New interfaces:
+- `AnimalCostCacheEntry { farmId, data: FarmCostAnalysis, lastUpdated, syncStatus }`
+- `BarnsCacheEntry { farmId, data: Barn[], lastUpdated, syncStatus }`
+- `FarmSettingsCacheEntry { farmId, data: FarmSettings, lastUpdated, syncStatus }`
+
+New helper functions (9 total):
+- `getCachedAnimalCosts(farmId)` / `updateAnimalCostCache(farmId, data)` / `clearAnimalCostCache(farmId)`
+- `getCachedBarns(farmId)` / `updateBarnsCache(farmId, data)` / `clearBarnsCache(farmId)`
+- `getCachedFarmSettings(farmId)` / `updateFarmSettingsCache(farmId, data)` / `clearFarmSettingsCache(farmId)`
+
+### 2. `src/lib/cacheManager.ts` -- Register new IndexedDB clear functions
+
+Add cases in `clearIndexedDBCache`:
+- `'animal-cost-aggregates'` -> `clearAnimalCostCache(farmId)`
+- `'barns'` -> `clearBarnsCache(farmId)`
+- `'farm-settings'` -> `clearFarmSettingsCache(farmId)`
+
+### 3. `src/hooks/useAnimalCostAggregates.ts` -- Cache-first refactor
+
+- Import `useOnlineStatus`, `getCachedAnimalCosts`, `updateAnimalCostCache`
+- In `queryFn`: check cache first, return if offline, fetch from Supabase if online, update cache
+- Add `@cache-status MANAGED` header
+
+### 4. `src/hooks/useBarns.ts` -- Cache-first for `useBarns` query
+
+- Import `useOnlineStatus`, `getCachedBarns`, `updateBarnsCache`
+- In `useBarns` queryFn: check cache first, return if offline, fetch + update cache if online
+- Mutation hooks already route through CacheManager (Phase 4)
+
+### 5. `src/hooks/useFarmSettings.ts` -- Cache-first for `useFarmSettings` query
+
+- Import `useOnlineStatus`, `getCachedFarmSettings`, `updateFarmSettingsCache`
+- In queryFn: check cache first, return default if offline + no cache, fetch + update cache if online
+
+### 6. Documentation headers for Group B hooks
+
+Add appropriate `@cache-status` headers to:
+- `useAnimalExpenses.ts` -- already has `@cache-status MANAGED`; add note about read path being animal-scoped
+- `useProfitability.ts` -- `@cache-status PARAMETERIZED -- Date-range dependent, not suitable for farm-keyed IndexedDB`
+- `useFinancialHealth.ts` -- same as above
+- `useProducts.ts` -- `@cache-status MANUAL -- Marketplace-scoped, no farmId`
+- `useOrders.ts` -- `@cache-status MANUAL -- User-scoped, no farmId`
+
+### 7. Documentation updates
+
+- `docs/ssot-architecture.md`: Update Hook Inventory to mark all 10 hooks with final status
+- `changelog.md`: Add Phase 5 entry, mark SSOT Read-Path Audit as complete
+
+---
+
+## Technical Details
+
+### IndexedDB Schema (version 6)
 
 ```text
-'farm-settings'     -> ['farm-settings']
-'barn'              -> ['barns', 'barn-animals', 'farm-animals']
-'checklist'         -> ['daily-checklist']
-'pending-activity'  -> ['pending-activities']
-'farmer-feedback'   -> ['farmer-feedback']
+animalCostCache    keyed by farmId    TTL: 15 min
+barnsCache         keyed by farmId    TTL: 30 min
+farmSettingsCache  keyed by farmId    TTL: 60 min
 ```
 
-No new IndexedDB stores needed — these are React Query-only caches (no offline cache equivalent).
+### Cache-First Pattern (same as Phase 3)
 
-### 2. `src/hooks/useAnimalExpenses.ts` — Route through existing `'expense'` type
-
-- `useAddAnimalExpense`: Replace 3 manual `invalidateQueries` calls with `getCacheManager().invalidateForMutation('expense', expenseData.farm_id)`. Also invalidate animal-specific keys manually (animal-scoped, not farm-keyed in CacheManager).
-- `useDeleteAnimalExpense`: Same pattern. Requires passing `farmId` alongside `expenseId` and `animalId`.
-
-### 3. `src/hooks/useFarmSettings.ts` — Route through `'farm-settings'`
-
-- `useUpdateFarmSettings`: Replace manual `invalidateQueries` with `getCacheManager().invalidateForMutation('farm-settings', farmId)`.
-
-### 4. `src/hooks/useBarns.ts` — Route through `'barn'`
-
-- `useCreateBarn`, `useUpdateBarn`, `useAssignAnimalToBarn`, `useRemoveAnimalFromBarn`: Replace all manual `invalidateQueries` calls with `getCacheManager().invalidateForMutation('barn', farmId)`.
-
-### 5. `src/hooks/useDailyChecklist.ts` — Route through `'checklist'`
-
-- `toggleItem` mutation: Replace manual `invalidateQueries` with `getCacheManager().invalidateForMutation('checklist', farmId)`.
-
-### 6. `src/hooks/usePendingActivities.ts` — Route through `'pending-activity'`
-
-- `reviewMutation`, `deleteMutation`, `updateMutation`, `resubmitMutation`: Replace all manual `invalidateQueries` calls with `getCacheManager().invalidateForMutation('pending-activity', farmId)`.
-- Challenge: `farmId` is optional in this hook. Use it when available; fall back to manual invalidation when only `userId` is provided (farmhand view without farmId).
-
-### 7. `src/hooks/useFarmerFeedback.ts` — Route through `'farmer-feedback'`
-
-- `submitFeedback` mutation: Replace manual `invalidateQueries` with `getCacheManager().invalidateForMutation('farmer-feedback', farmId)`.
-
-### 8. Documentation headers for Group B hooks
-
-Add `@cache-status MANUAL — Non-farm-scoped, CacheManager not applicable` comment block to:
-- `useMerchantOrders.ts`
-- `useMerchantProducts.ts`
-- `useInvoices.ts`
-- `usePlatformSettings.ts`
-- `useGovernmentFeedback.ts` (already has `@online-only`; add cache-status note)
-
-### 9. Documentation updates
-
-- `docs/ssot-architecture.md`: Update Hook Inventory with all Phase 4 changes.
-- `changelog.md`: Add Phase 4 entry.
+```text
+1. Check IndexedDB cache (within TTL)
+2. If cache hit + online: return cache, fetch in background
+3. If cache hit + offline: return cache
+4. If cache miss + online: fetch from Supabase, update cache, return
+5. If cache miss + offline: return empty/default
+```
 
 ---
 
@@ -91,7 +112,7 @@ Add `@cache-status MANUAL — Non-farm-scoped, CacheManager not applicable` comm
 
 | Risk | Mitigation |
 |------|-----------|
-| `usePendingActivities` optional farmId | Conditional: use CacheManager when farmId present, manual invalidation otherwise |
-| `useAnimalExpenses` needs farmId in delete | Add farmId to delete mutation variables (minor interface change) |
-| No IndexedDB stores for new types | Intentional — these are low-priority caches without offline requirements |
+| IndexedDB version bump (5 -> 6) | Incremental `upgrade()` handler; existing stores untouched |
+| `useBarns` has animal counts from join query | Cache the computed result (barn + count); invalidated on barn mutations |
+| Over-caching low-traffic data | TTLs are generous (30-60 min); storage cost is minimal |
 
