@@ -1,3 +1,7 @@
+/**
+ * @online-only — Government-facing weight data completeness metrics.
+ * Must NOT cache locally (RLS boundary). See docs/ssot-architecture.md §3.5.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 

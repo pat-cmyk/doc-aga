@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 export interface MarketPrice {
   price: number;
@@ -141,10 +142,14 @@ export function useAddLocalPrice() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["market-price"] });
-      queryClient.invalidateQueries({ queryKey: ["market-price-history"] });
-      queryClient.invalidateQueries({ queryKey: ["herd-valuation"] });
+    onSuccess: (_, variables) => {
+      if (isCacheManagerReady()) {
+        getCacheManager().invalidateForMutation('market-price', variables.farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["market-price"] });
+        queryClient.invalidateQueries({ queryKey: ["market-price-history"] });
+        queryClient.invalidateQueries({ queryKey: ["herd-valuation"] });
+      }
       toast.success("Local price recorded successfully");
     },
     onError: (error) => {

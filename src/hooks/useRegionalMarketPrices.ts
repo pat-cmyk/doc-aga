@@ -1,3 +1,7 @@
+/**
+ * @online-only — Cross-farm regional market price aggregation.
+ * Must NOT cache locally (RLS boundary). See docs/ssot-architecture.md §3.5.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";

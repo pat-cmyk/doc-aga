@@ -115,6 +115,16 @@ queryFn: async () => {
 | `useFarmComplianceMetrics` | B | — |
 | `useCooperative` (all sub-hooks) | C | — |
 | `useBreedingAnalytics` | A (TanStack only) | — (future: `breedingAnalytics`) |
+| `useRegionalMarketPrices` | B | — |
+| `useRegionalInvestment` | B | — |
+| `useDataEntryAnalytics` | B | — |
+| `useGrantAnalytics` | B | — |
+| `useGrantEffectiveness` | B | — |
+| `useVeterinaryExpenseHeatmap` | B | — |
+| `useWeightDataCompleteness` | B | — |
+| `useSTTAnalytics` | B | — |
+| `useSystemHealth` | B | — |
+| `useGovAnalyticsAuditLog` | B | — |
 
 ---
 
