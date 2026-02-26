@@ -149,6 +149,8 @@ Before modifying ANY field, function, or component:
 
 All mutations must go through `CacheManager.invalidateForMutation()`. Cache dependency map in `src/lib/cacheManager.ts` must be updated when adding new data types.
 
+**Read-path rule:** New farm-level read hooks must use the cache-first pattern via `dataCache.ts`. Add corresponding `getCached*` / `update*Cache` functions and register invalidation in `CacheManager.CACHE_DEPENDENCIES`. See `docs/ssot-architecture.md` §3.5 for the canonical pattern.
+
 ---
 
 ## 4. Role-Based Access
@@ -226,4 +228,5 @@ All mutations must go through `CacheManager.invalidateForMutation()`. Cache depe
 - [ ] Edge functions with `verify_jwt = false` have alternative auth (e.g., `x-cron-secret`)
 - [ ] No SECURITY DEFINER functions without explicit access control
 - [ ] Cooperative reads use SECURITY DEFINER RPCs (not direct table access)
+- [ ] New hooks aggregating cross-farm data must NOT cache locally (online-only, see §3.5 in `ssot-architecture.md`)
 - [ ] Storage buckets have appropriate policies

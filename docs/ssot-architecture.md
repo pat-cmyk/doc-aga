@@ -59,6 +59,65 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 
 ---
 
+## 3.5 Read-Path Classification
+
+All data-reading hooks fall into one of three categories. New hooks MUST follow the appropriate pattern.
+
+### Categories
+
+| Category | Scope | Pattern | Offline Behavior |
+|----------|-------|---------|-----------------|
+| **A — Farm-Level** | Single-farm data (farmer-facing) | **Cache-first**: IndexedDB → Supabase if online → update cache | Serves cached data; graceful empty state if no cache |
+| **B — Government/Regional** | Cross-farm aggregation | **Online-only** (`@online-only`) | Shows "requires internet" message |
+| **C — Cooperative** | Cross-farm via SECURITY DEFINER RPCs | **Online-only** (`@online-only`) | Shows "requires internet" message |
+
+### Canonical Cache-First Pattern (Category A)
+
+```typescript
+queryFn: async () => {
+  // 1. Check IndexedDB cache first
+  const cached = await getCachedData(farmId);
+  if (cached) return cached;
+
+  // 2. If online, fetch from Supabase
+  if (!navigator.onLine) return fallbackDefault;
+  const { data } = await supabase.from('table').select('*').eq('farm_id', farmId);
+
+  // 3. Update local cache
+  if (data) await updateDataCache(farmId, data);
+  return data ?? fallbackDefault;
+}
+```
+
+### Rules for New Hooks
+
+- **Farm-scoped?** → Implement cache-first. Add `getCached*` / `update*Cache` in `dataCache.ts`. Register invalidation in `CacheManager.CACHE_DEPENDENCIES`.
+- **Cross-farm aggregation?** → Mark `@online-only` in file header. No local cache.
+
+### Hook Inventory (Living Table)
+
+| Hook | Category | Cache Store |
+|------|----------|-------------|
+| `useUpcomingAlerts` | A | `upcomingAlerts` |
+| `useFeedInventory` | A | `feedInventory` |
+| `useHealthRecords` | A | `healthRecords` |
+| `useMilkInventory` | A | `milkInventory` |
+| `useDashboardData` | A | `dashboard` |
+| `useAnimals` | A | `animals` |
+| `useGovernmentStats` | B | — |
+| `useGovernmentMilkAnalytics` | B | — |
+| `useGovernmentHealthStats` | B | — |
+| `useRegionalStats` | B | — |
+| `useRegionalDataQuality` | B | — |
+| `useRegionalFeedSecurity` | B | — |
+| `useRegionalPCRS` | B | — |
+| `useBreedingStats` | B | — |
+| `useFarmComplianceMetrics` | B | — |
+| `useCooperative` (all sub-hooks) | C | — |
+| `useBreedingAnalytics` | A (TanStack only) | — (future: `breedingAnalytics`) |
+
+---
+
 ## 4. Governance Documents
 
 | Document | Path | Purpose |
