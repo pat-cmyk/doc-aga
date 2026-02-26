@@ -27,6 +27,7 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'dry-off': ['animals', 'lactating-animals', 'dashboard', 'milk-inventory'],
   'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard', 'upcoming-alerts'],
   'alert-schedule': ['upcoming-alerts', 'dashboard'],
+  'market-price': ['market-price', 'market-price-history', 'herd-valuation', 'dashboard'],
 };
 
 /**
