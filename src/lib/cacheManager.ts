@@ -4,6 +4,9 @@ import {
   clearDashboardCache,
   clearAnimalCache,
   clearUpcomingAlertsCache,
+  clearMarketPriceCache,
+  clearHerdValuationCache,
+  clearBreedingAnalyticsCache,
 } from "./dataCache";
 
 /**
@@ -16,18 +19,18 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'milk-record': ['milk-inventory', 'milking-records', 'dashboard', 'lactating-animals', 'animals'],
   'health-record': ['health-records', 'dashboard', 'upcoming-alerts'],
   'feed-record': ['feeding-records', 'feed-inventory', 'dashboard'],
-  'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals'],
-  'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records', 'upcoming-alerts'],
-  'weight-record': ['weight-records', 'dashboard', 'animals', 'feed-inventory', 'lactating-animals'],
+  'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals', 'herd-valuation-unified', 'breeding-analytics'],
+  'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records', 'upcoming-alerts', 'breeding-analytics'],
+  'weight-record': ['weight-records', 'dashboard', 'animals', 'feed-inventory', 'lactating-animals', 'herd-valuation-unified'],
   'bcs-record': ['bcs-records', 'dashboard'],
-  'heat-record': ['heat-records', 'dashboard', 'breeding-stats'],
+  'heat-record': ['heat-records', 'dashboard', 'breeding-stats', 'breeding-analytics'],
   'expense': ['expenses', 'expense-summary', 'dashboard', 'profitability'],
   'revenue': ['revenues', 'revenue-summary', 'dashboard', 'profitability'],
   'milk-sale': ['milk-inventory', 'milk-sales-history', 'dashboard', 'revenues', 'revenue-summary'],
   'dry-off': ['animals', 'lactating-animals', 'dashboard', 'milk-inventory'],
-  'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard', 'upcoming-alerts'],
+  'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard', 'upcoming-alerts', 'breeding-analytics'],
   'alert-schedule': ['upcoming-alerts', 'dashboard'],
-  'market-price': ['market-price', 'market-price-history', 'herd-valuation', 'dashboard'],
+  'market-price': ['market-price', 'market-price-history', 'herd-valuation', 'herd-valuation-unified', 'dashboard'],
 };
 
 /**
@@ -46,6 +49,15 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
       break;
     case 'upcoming-alerts':
       await clearUpcomingAlertsCache(farmId);
+      break;
+    case 'market-price':
+      await clearMarketPriceCache(farmId);
+      break;
+    case 'herd-valuation-unified':
+      await clearHerdValuationCache(farmId);
+      break;
+    case 'breeding-analytics':
+      await clearBreedingAnalyticsCache(farmId);
       break;
     // React Query only caches (no IndexedDB equivalent)
     default:

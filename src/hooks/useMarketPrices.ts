@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { getCachedMarketPrice, updateMarketPriceCache } from "@/lib/dataCache";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export interface MarketPrice {
   price: number;
@@ -45,11 +47,28 @@ export function getSourceLabel(source: string, lang: "en" | "tl" = "en"): string
 }
 
 export function useCurrentMarketPrice(farmId: string | undefined, livestockType: string | undefined) {
+  const isOnline = useOnlineStatus();
+
   return useQuery({
     queryKey: ["market-price", farmId, livestockType],
     queryFn: async (): Promise<MarketPrice | null> => {
       if (!farmId || !livestockType) return null;
 
+      // 1. Check IndexedDB cache first
+      const cached = await getCachedMarketPrice(farmId);
+      if (cached && cached.livestockType === livestockType) {
+        // If offline, return cache immediately
+        if (!isOnline) {
+          return { price: cached.price, source: cached.source as MarketPrice["source"], effective_date: cached.effectiveDate };
+        }
+        // If online but cache is fresh (TTL handled inside getCachedMarketPrice), still return it
+        return { price: cached.price, source: cached.source as MarketPrice["source"], effective_date: cached.effectiveDate };
+      }
+
+      // 2. If offline with no cache, return null
+      if (!isOnline) return null;
+
+      // 3. Online: fetch from Supabase
       const { data, error } = await supabase
         .rpc("get_market_price", {
           p_livestock_type: livestockType,
@@ -62,11 +81,21 @@ export function useCurrentMarketPrice(farmId: string | undefined, livestockType:
       }
 
       if (data && data.length > 0) {
-        return {
+        const result: MarketPrice = {
           price: data[0].price,
           source: data[0].source as MarketPrice["source"],
           effective_date: data[0].effective_date,
         };
+
+        // 4. Update cache
+        await updateMarketPriceCache(farmId, {
+          livestockType,
+          price: result.price,
+          source: result.source,
+          effectiveDate: result.effective_date,
+        });
+
+        return result;
       }
 
       return null;

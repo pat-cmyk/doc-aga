@@ -370,6 +370,36 @@ export interface UpcomingAlertsCache {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= MARKET PRICE CACHE =============
+
+export interface MarketPriceCacheEntry {
+  farmId: string;
+  livestockType: string;
+  price: number;
+  source: string;
+  effectiveDate: string;
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
+// ============= HERD VALUATION CACHE =============
+
+export interface HerdValuationCacheEntry {
+  farmId: string;
+  data: any; // UnifiedHerdValuation
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
+// ============= BREEDING ANALYTICS CACHE =============
+
+export interface BreedingAnalyticsCacheEntry {
+  farmId: string;
+  data: any; // BreedingAnalytics result
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -399,6 +429,18 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: UpcomingAlertsCache;
   };
+  marketPriceCache: {
+    key: string;
+    value: MarketPriceCacheEntry;
+  };
+  herdValuationCache: {
+    key: string;
+    value: HerdValuationCacheEntry;
+  };
+  breedingAnalyticsCache: {
+    key: string;
+    value: BreedingAnalyticsCacheEntry;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -410,6 +452,9 @@ const CACHE_TTL = {
   farmData: 24 * 60 * 60 * 1000, // 24 hours (unchanged)
   dashboardStats: 5 * 60 * 1000, // 5 minutes - refresh frequently but show cache immediately
   upcomingAlerts: 10 * 60 * 1000, // 10 minutes - alerts need reasonable freshness
+  marketPrice: 30 * 60 * 1000, // 30 minutes - prices change infrequently
+  herdValuation: 10 * 60 * 1000, // 10 minutes - depends on market price + animal weights
+  breedingAnalytics: 15 * 60 * 1000, // 15 minutes - derived analytics, moderate freshness
 };
 
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
@@ -428,7 +473,7 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 4, {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 5, {
     upgrade(db, oldVersion) {
       // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
@@ -459,6 +504,18 @@ async function getDB() {
       if (oldVersion < 4) {
         if (!db.objectStoreNames.contains('upcomingAlerts')) {
           db.createObjectStore('upcomingAlerts', { keyPath: 'farmId' });
+        }
+      }
+      // Version 5: Add marketPriceCache, herdValuationCache, breedingAnalyticsCache
+      if (oldVersion < 5) {
+        if (!db.objectStoreNames.contains('marketPriceCache')) {
+          db.createObjectStore('marketPriceCache', { keyPath: 'farmId' });
+        }
+        if (!db.objectStoreNames.contains('herdValuationCache')) {
+          db.createObjectStore('herdValuationCache', { keyPath: 'farmId' });
+        }
+        if (!db.objectStoreNames.contains('breedingAnalyticsCache')) {
+          db.createObjectStore('breedingAnalyticsCache', { keyPath: 'farmId' });
         }
       }
     },
@@ -1949,6 +2006,9 @@ export async function clearAllFarmCaches(farmId: string): Promise<void> {
     clearDashboardCache(farmId),
     clearAnimalCache(farmId),
     clearUpcomingAlertsCache(farmId),
+    clearMarketPriceCache(farmId),
+    clearHerdValuationCache(farmId),
+    clearBreedingAnalyticsCache(farmId),
   ]);
   console.log('[DataCache] All caches cleared for farm:', farmId);
 }
@@ -2013,5 +2073,116 @@ export async function clearUpcomingAlertsCache(farmId: string): Promise<void> {
     console.log('[DataCache] Upcoming alerts cache cleared for farm:', farmId);
   } catch (error) {
     console.error('[DataCache] Failed to clear upcoming alerts cache:', error);
+  }
+}
+
+// ============= MARKET PRICE CACHE FUNCTIONS =============
+
+export async function getCachedMarketPrice(farmId: string): Promise<MarketPriceCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('marketPriceCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.marketPrice;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading market price cache:', error);
+    return null;
+  }
+}
+
+export async function updateMarketPriceCache(farmId: string, data: Omit<MarketPriceCacheEntry, 'farmId' | 'lastUpdated' | 'syncStatus'>): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('marketPriceCache', { ...data, farmId, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Market price cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update market price cache:', error);
+  }
+}
+
+export async function clearMarketPriceCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('marketPriceCache', farmId);
+    console.log('[DataCache] Market price cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear market price cache:', error);
+  }
+}
+
+// ============= HERD VALUATION CACHE FUNCTIONS =============
+
+export async function getCachedHerdValuation(farmId: string): Promise<HerdValuationCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('herdValuationCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.herdValuation;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading herd valuation cache:', error);
+    return null;
+  }
+}
+
+export async function updateHerdValuationCache(farmId: string, data: any): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('herdValuationCache', { farmId, data, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Herd valuation cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update herd valuation cache:', error);
+  }
+}
+
+export async function clearHerdValuationCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('herdValuationCache', farmId);
+    console.log('[DataCache] Herd valuation cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear herd valuation cache:', error);
+  }
+}
+
+// ============= BREEDING ANALYTICS CACHE FUNCTIONS =============
+
+export async function getCachedBreedingAnalytics(farmId: string): Promise<BreedingAnalyticsCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('breedingAnalyticsCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.breedingAnalytics;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading breeding analytics cache:', error);
+    return null;
+  }
+}
+
+export async function updateBreedingAnalyticsCache(farmId: string, data: any): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('breedingAnalyticsCache', { farmId, data, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Breeding analytics cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update breeding analytics cache:', error);
+  }
+}
+
+export async function clearBreedingAnalyticsCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('breedingAnalyticsCache', farmId);
+    console.log('[DataCache] Breeding analytics cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear breeding analytics cache:', error);
   }
 }

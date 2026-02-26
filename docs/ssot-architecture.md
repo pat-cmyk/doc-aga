@@ -114,7 +114,10 @@ queryFn: async () => {
 | `useBreedingStats` | B | — |
 | `useFarmComplianceMetrics` | B | — |
 | `useCooperative` (all sub-hooks) | C | — |
-| `useBreedingAnalytics` | A (TanStack only) | — (future: `breedingAnalytics`) |
+| `useCurrentMarketPrice` | A | `marketPriceCache` |
+| `useHerdValuationUnified` | A | `herdValuationCache` |
+| `useBreedingAnalytics` | A | `breedingAnalyticsCache` |
+| `useBioCardData` | A (composition, partial — deferred to Phase 5) | — |
 | `useRegionalMarketPrices` | B | — |
 | `useRegionalInvestment` | B | — |
 | `useDataEntryAnalytics` | B | — |
