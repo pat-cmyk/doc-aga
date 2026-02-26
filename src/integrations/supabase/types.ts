@@ -4280,6 +4280,10 @@ export type Database = {
           is_consistent: boolean
         }[]
       }
+      check_stale_sync_items: {
+        Args: { p_client_id: string; p_user_id: string }
+        Returns: Json
+      }
       create_default_farm:
         | {
             Args: {

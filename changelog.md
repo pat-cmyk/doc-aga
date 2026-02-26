@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-02-26 — Phase 6: Conflict Detection & Resolution — Wire Up the Gap
+
+### Added
+- **Conflict detection framework** — `checkAndHandleConflict()` in `syncService.ts` calls `detectConflict()` before UPDATE operations, records conflicts via `recordConflict()`, and marks queue items as `'conflict'` status.
+- **Orphan protection** — `validateAnimalsExist()` batch-checks all referenced `animal_id`s before sync. Items referencing deleted animals are marked `'failed'` with `PARENT_DELETED` message.
+- **Stale queue warning** — `checkForStaleQueueOnOtherDevices()` + `check_stale_sync_items` RPC detect unsynced items on other devices. Toast warning shown once on first online in `App.tsx`.
+- **Queue item status** — Added `'conflict'` to `QueueItem.status` union; added optional `clientTimestamp` field.
+
+### Changed
+- **`syncService.ts`** — Sync loop now skips `'conflict'` items, runs batch orphan check before processing, imports `conflictDetection` utilities.
+- **`offlineQueue.ts`** — `QueueItem` interface extended with `'conflict'` status and `clientTimestamp`.
+- **`App.tsx`** — Added one-time stale device check on first online after mount.
+
+### Documentation
+- **`ssot-architecture.md`** — Added Section 6: Conflict Resolution Flow (pipeline, components, statuses, stale warning).
+
 ## 2026-02-26 — Phase 5: Low-Priority Cache-First + Final Documentation (SSOT Read-Path Audit COMPLETE)
 
 ### Added

@@ -14,6 +14,7 @@ import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
 import { generateClientId } from './syncCheckpoint';
 import { startSyncSession, completeSyncSession, recordSyncError, type SyncType } from './syncTelemetry';
+import { detectConflict, recordConflict } from './conflictDetection';
 
 /**
  * Maximum number of retry attempts for failed sync operations
@@ -40,6 +41,136 @@ const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
  * and duplicate processing of queue items.
  */
 let isSyncing = false;
+
+/**
+ * Check if a conflict exists for an UPDATE operation and handle it
+ * 
+ * For INSERT-only operations this is a no-op. When edit operations are added
+ * to the offline queue, this framework activates automatically.
+ * 
+ * @returns true if a conflict was detected (caller should skip the write), false otherwise
+ */
+async function checkAndHandleConflict(
+  item: QueueItem,
+  tableName: string,
+  recordId: string,
+  clientData: Record<string, any>,
+  farmId: string
+): Promise<boolean> {
+  const clientTimestamp = item.clientTimestamp || new Date(item.createdAt).toISOString();
+
+  const conflictInfo = await detectConflict(tableName, recordId, clientTimestamp, clientData);
+
+  if (!conflictInfo.hasConflict) return false;
+
+  console.warn(`[SyncService] Conflict detected for ${tableName}/${recordId}`);
+
+  // Record conflict for UI resolution
+  await recordConflict(
+    farmId,
+    tableName,
+    recordId,
+    clientData,
+    conflictInfo.serverData ?? {}
+  );
+
+  // Mark queue item as conflict
+  await updateItem(item.id, {
+    status: 'conflict' as QueueItem['status'],
+    conflictData: conflictInfo.serverData,
+  });
+
+  return true;
+}
+
+/**
+ * Validate that referenced parent records still exist on the server.
+ * Prevents orphan mutations when a parent record (e.g., animal) was
+ * deleted on another device while this device was offline.
+ * 
+ * @param animalIds - Array of animal IDs to check
+ * @returns Set of animal IDs that no longer exist
+ */
+async function validateAnimalsExist(animalIds: string[]): Promise<Set<string>> {
+  if (animalIds.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from('animals')
+    .select('id')
+    .in('id', animalIds)
+    .eq('is_deleted', false);
+
+  if (error) {
+    console.error('[SyncService] Failed to validate animal existence:', error);
+    return new Set(); // On error, allow writes (fail-open)
+  }
+
+  const existingIds = new Set((data ?? []).map(r => r.id));
+  return new Set(animalIds.filter(id => !existingIds.has(id)));
+}
+
+/**
+ * Check for stale sync queue items on other devices
+ * 
+ * Called once after login to warn the user if another device
+ * has unsynced items that may be lost.
+ */
+export async function checkForStaleQueueOnOtherDevices(): Promise<{
+  hasStaleItems: boolean;
+  count: number;
+  oldestTimestamp: string | null;
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { hasStaleItems: false, count: 0, oldestTimestamp: null };
+
+    const clientId = generateClientId();
+
+    const { data, error } = await supabase.rpc('check_stale_sync_items', {
+      p_user_id: user.id,
+      p_client_id: clientId,
+    });
+
+    if (error) {
+      console.error('[SyncService] Failed to check stale items:', error);
+      return { hasStaleItems: false, count: 0, oldestTimestamp: null };
+    }
+
+    const result = data as { count?: number; oldest_timestamp?: string } | null;
+    const count = result?.count ?? 0;
+
+    return {
+      hasStaleItems: count > 0,
+      count,
+      oldestTimestamp: result?.oldest_timestamp ?? null,
+    };
+  } catch (err) {
+    console.error('[SyncService] Stale check error:', err);
+    return { hasStaleItems: false, count: 0, oldestTimestamp: null };
+  }
+}
+
+/**
+ * Extract all animal IDs referenced by a queue item
+ */
+function extractAnimalIds(item: QueueItem): string[] {
+  const ids: string[] = [];
+  const p = item.payload;
+  
+  if (p.animalId) ids.push(p.animalId);
+  if (p.singleMilk?.animalId) ids.push(p.singleMilk.animalId);
+  if (p.singleFeed?.animalId) ids.push(p.singleFeed.animalId);
+  if (p.singleHealth?.animalId) ids.push(p.singleHealth.animalId);
+  if (p.singleWeight?.animalId) ids.push(p.singleWeight.animalId);
+  if (p.aiRecord?.animalId) ids.push(p.aiRecord.animalId);
+  if (p.pregnancyConfirm?.animalId) ids.push(p.pregnancyConfirm.animalId);
+  if (p.milkRecords) ids.push(...p.milkRecords.map(r => r.animalId));
+  if (p.feedRecords) ids.push(...p.feedRecords.map(r => r.animalId));
+  if (p.healthRecords) ids.push(...p.healthRecords.map(r => r.animalId));
+  if (p.bcsRecords) ids.push(...p.bcsRecords.map(r => r.animalId));
+  
+  return [...new Set(ids)];
+}
 
 /**
  * Transcribe audio from a queue item using voice-to-text edge function
@@ -193,10 +324,34 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
     const farmId = pending[0]?.payload?.farmId;
     sessionId = await startSyncSession(farmId, syncType);
 
+    // Batch orphan check: collect all animal IDs across pending items
+    const allAnimalIds = pending.flatMap(extractAnimalIds);
+    const deletedAnimalIds = await validateAnimalsExist(allAnimalIds);
+    if (deletedAnimalIds.size > 0) {
+      console.warn(`[SyncService] Found ${deletedAnimalIds.size} deleted animals referenced by queue items`);
+    }
+
     console.log(`[SyncQueue] Syncing ${pending.length} pending items...`);
 
     for (const item of pending) {
       try {
+        // Skip conflict items (handled via SyncConflictResolution UI)
+        if (item.status === 'conflict') {
+          console.log(`[SyncQueue] Item ${item.id} has conflict, skipping (resolve in UI)...`);
+          continue;
+        }
+
+        // Orphan check: fail items referencing deleted animals
+        const itemAnimalIds = extractAnimalIds(item);
+        const orphanedIds = itemAnimalIds.filter(id => deletedAnimalIds.has(id));
+        if (orphanedIds.length > 0) {
+          const msg = `PARENT_DELETED: Animal(s) ${orphanedIds.join(', ')} were deleted on another device`;
+          console.error(`[SyncService] ${msg}`);
+          await updateStatus(item.id, 'failed', msg);
+          failed++;
+          continue;
+        }
+
         // Skip if awaiting confirmation or already has unconfirmed transcription
         if (item.type === 'voice_activity') {
           if (item.status === 'awaiting_confirmation' || 
