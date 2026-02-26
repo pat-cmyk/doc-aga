@@ -1,5 +1,11 @@
+/**
+ * @cache-status MANAGED — Cache-first via IndexedDB (animalCostCache, 15 min TTL)
+ * Routes through CacheManager 'expense' type for invalidation
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedAnimalCosts, updateAnimalCostCache } from "@/lib/dataCache";
 
 export interface AnimalCostAggregate {
   animalId: string;
@@ -25,13 +31,31 @@ export interface FarmCostAnalysis {
   categoryBreakdown: CategoryExpenseBreakdown[];
 }
 
+const EMPTY_ANALYSIS: FarmCostAnalysis = {
+  totalAnimals: 0,
+  animalsWithExpenses: 0,
+  totalAnimalExpenses: 0,
+  averageCostPerAnimal: 0,
+  topExpensiveAnimals: [],
+  categoryBreakdown: [],
+};
+
 export const useAnimalCostAggregates = (farmId: string) => {
+  const isOnline = useOnlineStatus();
+
   return useQuery<FarmCostAnalysis>({
     queryKey: ["animal-cost-aggregates", farmId],
     enabled: !!farmId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      // Get all active animals with their basic info
+      // 1. Check IndexedDB cache first
+      const cached = await getCachedAnimalCosts(farmId);
+      if (cached) return cached.data as FarmCostAnalysis;
+
+      // 2. If offline with no cache, return empty
+      if (!isOnline) return EMPTY_ANALYSIS;
+
+      // 3. Fetch from Supabase
       const { data: animals, error: animalsError } = await supabase
         .from("animals")
         .select("id, name, ear_tag, purchase_price")
@@ -41,7 +65,6 @@ export const useAnimalCostAggregates = (farmId: string) => {
 
       if (animalsError) throw animalsError;
 
-      // Get all animal-linked expenses
       const { data: expenses, error: expensesError } = await supabase
         .from("farm_expenses")
         .select("animal_id, amount, category")
@@ -68,7 +91,6 @@ export const useAnimalCostAggregates = (farmId: string) => {
         }
       });
 
-      // Calculate per-animal costs
       const animalCosts: AnimalCostAggregate[] = animals?.map((animal) => ({
         animalId: animal.id,
         animalName: animal.name,
@@ -78,12 +100,10 @@ export const useAnimalCostAggregates = (farmId: string) => {
         totalCost: (animal.purchase_price || 0) + (expensesByAnimal[animal.id] || 0),
       })) || [];
 
-      // Sort by total cost and get top 5
       const topExpensiveAnimals = [...animalCosts]
         .sort((a, b) => b.totalCost - a.totalCost)
         .slice(0, 5);
 
-      // Calculate category breakdown
       const categoryBreakdown: CategoryExpenseBreakdown[] = Object.entries(categoryTotals)
         .map(([category, data]) => ({
           category,
@@ -96,7 +116,7 @@ export const useAnimalCostAggregates = (farmId: string) => {
       const animalsWithExpenses = Object.keys(expensesByAnimal).length;
       const totalAnimals = animals?.length || 0;
 
-      return {
+      const result: FarmCostAnalysis = {
         totalAnimals,
         animalsWithExpenses,
         totalAnimalExpenses,
@@ -104,6 +124,11 @@ export const useAnimalCostAggregates = (farmId: string) => {
         topExpensiveAnimals,
         categoryBreakdown,
       };
+
+      // 4. Update cache
+      await updateAnimalCostCache(farmId, result);
+
+      return result;
     },
   });
 };

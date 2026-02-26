@@ -1,3 +1,6 @@
+/**
+ * @cache-status PARAMETERIZED — Date-range dependent, not suitable for farm-keyed IndexedDB
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, differenceInDays, format } from "date-fns";
