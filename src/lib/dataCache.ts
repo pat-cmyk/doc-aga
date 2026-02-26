@@ -400,6 +400,33 @@ export interface BreedingAnalyticsCacheEntry {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= ANIMAL COST CACHE =============
+
+export interface AnimalCostCacheEntry {
+  farmId: string;
+  data: any; // FarmCostAnalysis from useAnimalCostAggregates
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
+// ============= BARNS CACHE =============
+
+export interface BarnsCacheEntry {
+  farmId: string;
+  data: any[]; // Barn[] from useBarns
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
+// ============= FARM SETTINGS CACHE =============
+
+export interface FarmSettingsCacheEntry {
+  farmId: string;
+  data: any; // FarmSettings from useFarmSettings
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -441,6 +468,18 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: BreedingAnalyticsCacheEntry;
   };
+  animalCostCache: {
+    key: string;
+    value: AnimalCostCacheEntry;
+  };
+  barnsCache: {
+    key: string;
+    value: BarnsCacheEntry;
+  };
+  farmSettingsCache: {
+    key: string;
+    value: FarmSettingsCacheEntry;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -455,6 +494,9 @@ const CACHE_TTL = {
   marketPrice: 30 * 60 * 1000, // 30 minutes - prices change infrequently
   herdValuation: 10 * 60 * 1000, // 10 minutes - depends on market price + animal weights
   breedingAnalytics: 15 * 60 * 1000, // 15 minutes - derived analytics, moderate freshness
+  animalCost: 15 * 60 * 1000, // 15 minutes - stable aggregate data
+  barns: 30 * 60 * 1000, // 30 minutes - rarely changes
+  farmSettings: 60 * 60 * 1000, // 60 minutes - very stable
 };
 
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
@@ -473,7 +515,7 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 5, {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 6, {
     upgrade(db, oldVersion) {
       // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
@@ -516,6 +558,18 @@ async function getDB() {
         }
         if (!db.objectStoreNames.contains('breedingAnalyticsCache')) {
           db.createObjectStore('breedingAnalyticsCache', { keyPath: 'farmId' });
+        }
+      }
+      // Version 6: Add animalCostCache, barnsCache, farmSettingsCache
+      if (oldVersion < 6) {
+        if (!db.objectStoreNames.contains('animalCostCache')) {
+          db.createObjectStore('animalCostCache', { keyPath: 'farmId' });
+        }
+        if (!db.objectStoreNames.contains('barnsCache')) {
+          db.createObjectStore('barnsCache', { keyPath: 'farmId' });
+        }
+        if (!db.objectStoreNames.contains('farmSettingsCache')) {
+          db.createObjectStore('farmSettingsCache', { keyPath: 'farmId' });
         }
       }
     },
@@ -2127,6 +2181,117 @@ export async function getCachedHerdValuation(farmId: string): Promise<HerdValuat
   } catch (error) {
     console.error('[DataCache] Error reading herd valuation cache:', error);
     return null;
+  }
+}
+
+// ============= ANIMAL COST CACHE FUNCTIONS =============
+
+export async function getCachedAnimalCosts(farmId: string): Promise<AnimalCostCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('animalCostCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.animalCost;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading animal cost cache:', error);
+    return null;
+  }
+}
+
+export async function updateAnimalCostCache(farmId: string, data: any): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('animalCostCache', { farmId, data, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Animal cost cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update animal cost cache:', error);
+  }
+}
+
+export async function clearAnimalCostCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('animalCostCache', farmId);
+    console.log('[DataCache] Animal cost cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear animal cost cache:', error);
+  }
+}
+
+// ============= BARNS CACHE FUNCTIONS =============
+
+export async function getCachedBarns(farmId: string): Promise<BarnsCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('barnsCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.barns;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading barns cache:', error);
+    return null;
+  }
+}
+
+export async function updateBarnsCache(farmId: string, data: any[]): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('barnsCache', { farmId, data, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Barns cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update barns cache:', error);
+  }
+}
+
+export async function clearBarnsCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('barnsCache', farmId);
+    console.log('[DataCache] Barns cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear barns cache:', error);
+  }
+}
+
+// ============= FARM SETTINGS CACHE FUNCTIONS =============
+
+export async function getCachedFarmSettings(farmId: string): Promise<FarmSettingsCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('farmSettingsCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.farmSettings;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading farm settings cache:', error);
+    return null;
+  }
+}
+
+export async function updateFarmSettingsCache(farmId: string, data: any): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('farmSettingsCache', { farmId, data, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Farm settings cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update farm settings cache:', error);
+  }
+}
+
+export async function clearFarmSettingsCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('farmSettingsCache', farmId);
+    console.log('[DataCache] Farm settings cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear farm settings cache:', error);
   }
 }
 

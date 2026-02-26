@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-02-26 — Phase 5: Low-Priority Cache-First + Final Documentation (SSOT Read-Path Audit COMPLETE)
+
+### Added
+- **IndexedDB v6** — Three new cache stores: `animalCostCache` (15 min TTL), `barnsCache` (30 min TTL), `farmSettingsCache` (60 min TTL).
+- **Cache helpers** — `getCached*`, `update*Cache`, `clear*Cache` functions for each new store in `dataCache.ts`.
+- **CacheManager IndexedDB clear** — `animal-cost-aggregates`, `barns`, `farm-settings` keys now clear their IndexedDB stores.
+
+### Changed
+- **`useAnimalCostAggregates`** — Refactored to cache-first pattern (IndexedDB → Supabase → update cache).
+- **`useBarns`** — `useBarns` query refactored to cache-first; mutation hooks unchanged (Phase 4).
+- **`useFarmSettings`** — `useFarmSettings` query refactored to cache-first; mutation hook unchanged (Phase 4).
+
+### Documentation
+- **Group B hooks** — Added `@cache-status` headers: `useAnimalExpenses` (ANIMAL-SCOPED read note), `useProfitability` (PARAMETERIZED), `useFinancialHealth` (PARAMETERIZED), `useProducts` (MANUAL), `useOrders` (MANUAL).
+- **`ssot-architecture.md`** — Hook Inventory fully updated with all Phase 5 entries. SSOT Read-Path Audit marked complete.
+
 ## 2026-02-26 — Phase 4: Route Farm-Level Mutations Through CacheManager
 
 ### Added

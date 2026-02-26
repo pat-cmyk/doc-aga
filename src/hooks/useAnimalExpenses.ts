@@ -1,5 +1,6 @@
 /**
  * @cache-status MANAGED — Routes through CacheManager 'expense' type + animal-scoped manual invalidation
+ * @cache-read ANIMAL-SCOPED — Read path keyed by animalId, not farmId; not suitable for farm-keyed IndexedDB
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";

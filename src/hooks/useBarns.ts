@@ -1,9 +1,12 @@
 /**
- * @cache-status MANAGED — Routes through CacheManager 'barn' type
+ * @cache-status MANAGED — Cache-first via IndexedDB (barnsCache, 30 min TTL)
+ * Mutations route through CacheManager 'barn' type
  */
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCacheManager } from "@/lib/cacheManager";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getCachedBarns, updateBarnsCache } from "@/lib/dataCache";
 
 export interface Barn {
   id: string;
@@ -36,11 +39,21 @@ export interface BarnAssignment {
 }
 
 export function useBarns(farmId: string | null) {
+  const isOnline = useOnlineStatus();
+
   return useQuery({
     queryKey: ['barns', farmId],
     queryFn: async () => {
       if (!farmId) return [];
 
+      // 1. Check IndexedDB cache first
+      const cached = await getCachedBarns(farmId);
+      if (cached) return cached.data as Barn[];
+
+      // 2. If offline with no cache, return empty
+      if (!isOnline) return [];
+
+      // 3. Fetch from Supabase
       const { data, error } = await supabase
         .from('barns')
         .select('*')
@@ -63,10 +76,15 @@ export function useBarns(farmId: string | null) {
         countMap[a.barn_id] = (countMap[a.barn_id] || 0) + 1;
       });
 
-      return (data || []).map((barn: any) => ({
+      const result = (data || []).map((barn: any) => ({
         ...barn,
         animal_count: countMap[barn.id] || 0,
       })) as Barn[];
+
+      // 4. Update cache
+      await updateBarnsCache(farmId, result);
+
+      return result;
     },
     enabled: !!farmId,
   });

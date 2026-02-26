@@ -7,6 +7,9 @@ import {
   clearMarketPriceCache,
   clearHerdValuationCache,
   clearBreedingAnalyticsCache,
+  clearAnimalCostCache,
+  clearBarnsCache,
+  clearFarmSettingsCache,
 } from "./dataCache";
 
 /**
@@ -63,6 +66,15 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
       break;
     case 'breeding-analytics':
       await clearBreedingAnalyticsCache(farmId);
+      break;
+    case 'animal-cost-aggregates':
+      await clearAnimalCostCache(farmId);
+      break;
+    case 'barns':
+      await clearBarnsCache(farmId);
+      break;
+    case 'farm-settings':
+      await clearFarmSettingsCache(farmId);
       break;
     // React Query only caches (no IndexedDB equivalent)
     default:

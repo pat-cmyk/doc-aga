@@ -3,7 +3,7 @@
 > **Living document** — Reflects Section 5 of the Core Operating Protocol.
 > Must be kept in sync with `ARCHITECTURE.md`, `changelog.md`, and `/docs/data-relationships-map.md`.
 
-Last updated: 2026-02-15
+Last updated: 2026-02-26
 
 ---
 
@@ -128,13 +128,18 @@ queryFn: async () => {
 | `useSTTAnalytics` | B | — |
 | `useSystemHealth` | B | — |
 | `useGovAnalyticsAuditLog` | B | — |
-| **Mutation Hooks (Phase 4)** | | |
-| `useAnimalExpenses` | A (MANAGED — `expense` type + animal-scoped manual) | — |
-| `useFarmSettings` | A (MANAGED — `farm-settings` type) | — |
-| `useBarns` | A (MANAGED — `barn` type) | — |
+| **Phase 4 Mutation Hooks** | | |
+| `useAnimalExpenses` | A (MANAGED — `expense` type + animal-scoped manual; read path ANIMAL-SCOPED) | — |
+| `useFarmSettings` | A (MANAGED — `farm-settings` type; cache-first) | `farmSettingsCache` |
+| `useBarns` | A (MANAGED — `barn` type; cache-first) | `barnsCache` |
 | `useDailyChecklist` | A (MANAGED — `checklist` type) | — |
 | `usePendingActivities` | A (MANAGED — `pending-activity` type, conditional) | — |
 | `useFarmerFeedback` | A (MANAGED — `farmer-feedback` type) | — |
+| `useAnimalCostAggregates` | A (MANAGED — cache-first) | `animalCostCache` |
+| `useProfitability` | A (PARAMETERIZED — date-range dependent) | — |
+| `useFinancialHealth` | A (PARAMETERIZED — date-range dependent) | — |
+| `useProducts` | MANUAL — Marketplace-scoped | — |
+| `useOrders` | MANUAL — User-scoped | — |
 | `useMerchantOrders` | MANUAL — Merchant-scoped | — |
 | `useMerchantProducts` | MANUAL — Merchant-scoped, read-only | — |
 | `useInvoices` | MANUAL — Merchant-scoped | — |
