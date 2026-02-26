@@ -3,9 +3,12 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.goldenforage.docaga',
   appName: 'Doc Aga',
+  bundledWebRuntime: false,
+  backgroundColor: '#FF166534',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    hostname: 'localhost'
   },
   plugins: {
     CapacitorHttp: {
@@ -26,7 +29,7 @@ const config: CapacitorConfig = {
       iconColor: "#166534",
     },
     Camera: {
-      // Present photo picker as a sheet (Android 13+)
+      // Prefer non-fullscreen presentation where available (iOS sheet / Android picker)
       presentationStyle: 'popover',
     },
   },

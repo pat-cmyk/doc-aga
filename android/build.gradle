@@ -1,0 +1,29 @@
+// Top-level build file
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:9.0.1'
+        classpath 'com.google.gms:google-services:4.4.2'
+        // THIS LINE HAS BEEN UPDATED to the latest stable version for AGP 9+
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0'
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+// NOTE: The subprojects block for ProGuard has been removed to simplify.
+// If the ProGuard errors return, we will add it back, but let's solve the Java error first.
