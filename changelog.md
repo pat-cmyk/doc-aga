@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-02-26 — Phase 4: Route Farm-Level Mutations Through CacheManager
+
+### Added
+- **5 new CacheManager mutation types** — `farm-settings`, `barn`, `checklist`, `pending-activity`, `farmer-feedback` registered in `CACHE_DEPENDENCIES`.
+
+### Changed
+- **`useAnimalExpenses`** — `add`/`delete` mutations routed through CacheManager `expense` type + animal-scoped manual invalidation. `useDeleteAnimalExpense` now requires `farmId` in variables.
+- **`useFarmSettings`** — Update mutation routed through `farm-settings` type.
+- **`useBarns`** — All 4 mutations (`create`, `update`, `assign`, `remove`) routed through `barn` type.
+- **`useDailyChecklist`** — Toggle mutation routed through `checklist` type.
+- **`usePendingActivities`** — All 4 mutations routed through `pending-activity` type when `farmId` available; manual fallback otherwise.
+- **`useFarmerFeedback`** — Submit mutation routed through `farmer-feedback` type.
+
+### Documentation
+- **Group B hooks** — Added `@cache-status MANUAL` headers to `useMerchantOrders`, `useMerchantProducts`, `useInvoices`, `usePlatformSettings`, `useGovernmentFeedback`.
+- **`ssot-architecture.md`** — Hook Inventory updated with all Phase 4 entries.
+
 ## 2026-02-26 — Phase 3: Cache-First for Medium-Priority Hooks
 
 ### Added

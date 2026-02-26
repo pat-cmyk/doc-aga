@@ -1,5 +1,9 @@
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'expense' type + animal-scoped manual invalidation
+ */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCacheManager } from "@/lib/cacheManager";
 
 export interface AnimalExpense {
   id: string;
@@ -123,13 +127,15 @@ export function useAddAnimalExpense() {
       return data;
     },
     onSuccess: (_, variables) => {
+      // Animal-scoped keys (not farm-keyed in CacheManager)
       queryClient.invalidateQueries({
         queryKey: ["animal-expenses", variables.animal_id],
       });
       queryClient.invalidateQueries({
         queryKey: ["animal-expense-summary", variables.animal_id],
       });
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      // Farm-scoped via CacheManager
+      getCacheManager().invalidateForMutation('expense', variables.farm_id);
     },
   });
 }
@@ -141,9 +147,11 @@ export function useDeleteAnimalExpense() {
     mutationFn: async ({
       expenseId,
       animalId,
+      farmId,
     }: {
       expenseId: string;
       animalId: string;
+      farmId: string;
     }) => {
       const { error } = await supabase
         .from("farm_expenses")
@@ -151,16 +159,18 @@ export function useDeleteAnimalExpense() {
         .eq("id", expenseId);
 
       if (error) throw error;
-      return { expenseId, animalId };
+      return { expenseId, animalId, farmId };
     },
     onSuccess: (_, variables) => {
+      // Animal-scoped keys
       queryClient.invalidateQueries({
         queryKey: ["animal-expenses", variables.animalId],
       });
       queryClient.invalidateQueries({
         queryKey: ["animal-expense-summary", variables.animalId],
       });
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      // Farm-scoped via CacheManager
+      getCacheManager().invalidateForMutation('expense', variables.farmId);
     },
   });
 }

@@ -1,4 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'checklist' type
+ */
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -6,6 +9,7 @@ import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
 import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { Json } from '@/integrations/supabase/types';
+import { getCacheManager } from '@/lib/cacheManager';
 
 export interface ChecklistItemStatus {
   completed: boolean;
@@ -130,7 +134,6 @@ function getDefaultChecklistItems(
 
 export function useDailyChecklist(farmId: string | null) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // Get compliance data to auto-complete items
@@ -248,7 +251,7 @@ export function useDailyChecklist(farmId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily-checklist', farmId, today] });
+      if (farmId) getCacheManager().invalidateForMutation('checklist', farmId);
     },
     onError: (error) => {
       showErrorToastLegacy(toast, error, "updating checklist");

@@ -1,5 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'farm-settings' type
+ */
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCacheManager } from "@/lib/cacheManager";
 
 export interface FarmSettings {
   maxBackdateDays: number;
@@ -29,13 +33,11 @@ export function useFarmSettings(farmId: string | null) {
       };
     },
     enabled: !!farmId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useUpdateFarmSettings(farmId: string | null) {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (settings: Partial<{ maxBackdateDays: number }>) => {
       if (!farmId) throw new Error('No farm ID provided');
@@ -53,7 +55,9 @@ export function useUpdateFarmSettings(farmId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['farm-settings', farmId] });
+      if (farmId) {
+        getCacheManager().invalidateForMutation('farm-settings', farmId);
+      }
     },
   });
 }

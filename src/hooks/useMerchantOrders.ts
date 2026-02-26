@@ -1,3 +1,6 @@
+/**
+ * @cache-status MANUAL — Merchant-scoped, no farmId. CacheManager not applicable.
+ */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";

@@ -128,6 +128,18 @@ queryFn: async () => {
 | `useSTTAnalytics` | B | — |
 | `useSystemHealth` | B | — |
 | `useGovAnalyticsAuditLog` | B | — |
+| **Mutation Hooks (Phase 4)** | | |
+| `useAnimalExpenses` | A (MANAGED — `expense` type + animal-scoped manual) | — |
+| `useFarmSettings` | A (MANAGED — `farm-settings` type) | — |
+| `useBarns` | A (MANAGED — `barn` type) | — |
+| `useDailyChecklist` | A (MANAGED — `checklist` type) | — |
+| `usePendingActivities` | A (MANAGED — `pending-activity` type, conditional) | — |
+| `useFarmerFeedback` | A (MANAGED — `farmer-feedback` type) | — |
+| `useMerchantOrders` | MANUAL — Merchant-scoped | — |
+| `useMerchantProducts` | MANUAL — Merchant-scoped, read-only | — |
+| `useInvoices` | MANUAL — Merchant-scoped | — |
+| `usePlatformSettings` | MANUAL — Admin-scoped | — |
+| `useGovernmentFeedback` | MANUAL — Government-scoped, @online-only | — |
 
 ---
 

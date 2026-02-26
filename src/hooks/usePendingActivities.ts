@@ -1,8 +1,12 @@
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'pending-activity' type when farmId available; falls back to manual invalidation otherwise
+ */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { showErrorToast } from "@/lib/errorHandling";
 import { useEffect, useCallback } from "react";
+import { getCacheManager } from "@/lib/cacheManager";
 
 export interface PendingActivity {
   id: string;
@@ -131,7 +135,11 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      if (farmId) {
+        getCacheManager().invalidateForMutation('pending-activity', farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      }
       
       const action = variables.action === 'approve' ? 'approved' : 'rejected';
       toast.success(`Activity ${action} successfully`);
@@ -152,7 +160,11 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      if (farmId) {
+        getCacheManager().invalidateForMutation('pending-activity', farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      }
       toast.success('Submission deleted successfully');
     },
     onError: (error) => {
@@ -190,7 +202,11 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      if (farmId) {
+        getCacheManager().invalidateForMutation('pending-activity', farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      }
       toast.success('Submission updated successfully');
     },
     onError: (error) => {
@@ -249,7 +265,11 @@ export const usePendingActivities = (farmId?: string, userId?: string) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      if (farmId) {
+        getCacheManager().invalidateForMutation('pending-activity', farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['pending-activities'] });
+      }
       toast.success('Activity resubmitted for review');
     },
     onError: (error) => {

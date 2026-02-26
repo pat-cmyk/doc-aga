@@ -31,6 +31,11 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard', 'upcoming-alerts', 'breeding-analytics'],
   'alert-schedule': ['upcoming-alerts', 'dashboard'],
   'market-price': ['market-price', 'market-price-history', 'herd-valuation', 'herd-valuation-unified', 'dashboard'],
+  'farm-settings': ['farm-settings'],
+  'barn': ['barns', 'barn-animals', 'farm-animals'],
+  'checklist': ['daily-checklist'],
+  'pending-activity': ['pending-activities'],
+  'farmer-feedback': ['farmer-feedback'],
 };
 
 /**
