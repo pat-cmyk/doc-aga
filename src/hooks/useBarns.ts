@@ -1,5 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'barn' type
+ */
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCacheManager } from "@/lib/cacheManager";
 
 export interface Barn {
   id: string;
@@ -46,7 +50,6 @@ export function useBarns(farmId: string | null) {
 
       if (error) throw error;
 
-      // Get animal counts per barn
       const { data: counts, error: countError } = await supabase
         .from('barn_assignments')
         .select('barn_id')
@@ -94,8 +97,6 @@ export function useBarnAnimals(barnId: string | null, farmId: string | null) {
 }
 
 export function useCreateBarn(farmId: string | null) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (barn: { name: string; barn_type: string; description?: string; capacity?: number }) => {
       if (!farmId) throw new Error('No farm ID');
@@ -120,14 +121,12 @@ export function useCreateBarn(farmId: string | null) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['barns', farmId] });
+      if (farmId) getCacheManager().invalidateForMutation('barn', farmId);
     },
   });
 }
 
 export function useUpdateBarn(farmId: string | null) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; name?: string; barn_type?: string; description?: string | null; capacity?: number | null; is_active?: boolean }) => {
       const { error } = await supabase
@@ -138,14 +137,12 @@ export function useUpdateBarn(farmId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['barns', farmId] });
+      if (farmId) getCacheManager().invalidateForMutation('barn', farmId);
     },
   });
 }
 
 export function useAssignAnimalToBarn(farmId: string | null) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ barnId, animalId }: { barnId: string; animalId: string }) => {
       if (!farmId) throw new Error('No farm ID');
@@ -153,7 +150,6 @@ export function useAssignAnimalToBarn(farmId: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // The trigger handles closing old assignments automatically
       const { error } = await supabase
         .from('barn_assignments')
         .insert({
@@ -165,17 +161,13 @@ export function useAssignAnimalToBarn(farmId: string | null) {
 
       if (error) throw error;
     },
-    onSuccess: (_, { barnId }) => {
-      queryClient.invalidateQueries({ queryKey: ['barns', farmId] });
-      queryClient.invalidateQueries({ queryKey: ['barn-animals', barnId] });
-      queryClient.invalidateQueries({ queryKey: ['farm-animals', farmId] });
+    onSuccess: () => {
+      if (farmId) getCacheManager().invalidateForMutation('barn', farmId);
     },
   });
 }
 
 export function useRemoveAnimalFromBarn(farmId: string | null) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ assignmentId }: { assignmentId: string }) => {
       const { error } = await supabase
@@ -186,9 +178,7 @@ export function useRemoveAnimalFromBarn(farmId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['barns', farmId] });
-      queryClient.invalidateQueries({ queryKey: ['barn-animals'] });
-      queryClient.invalidateQueries({ queryKey: ['farm-animals', farmId] });
+      if (farmId) getCacheManager().invalidateForMutation('barn', farmId);
     },
   });
 }

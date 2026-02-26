@@ -1,3 +1,6 @@
+/**
+ * @cache-status MANUAL — Admin/platform-scoped, no farmId. CacheManager not applicable.
+ */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 

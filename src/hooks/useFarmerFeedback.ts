@@ -1,7 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * @cache-status MANAGED — Routes through CacheManager 'farmer-feedback' type
+ */
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { showErrorToast } from "@/lib/errorHandling";
+import { getCacheManager } from "@/lib/cacheManager";
 
 export interface FarmerFeedback {
   id: string;
@@ -31,7 +35,6 @@ export interface FarmerFeedback {
 }
 
 export const useFarmerFeedback = (farmId?: string) => {
-  const queryClient = useQueryClient();
 
   const { data: feedbackList, isLoading } = useQuery({
     queryKey: ['farmer-feedback', farmId],
@@ -124,8 +127,8 @@ export const useFarmerFeedback = (farmId?: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['farmer-feedback'] });
+    onSuccess: (_, variables) => {
+      getCacheManager().invalidateForMutation('farmer-feedback', variables.farmId);
       toast.success('Naisumite na ang iyong feedback sa gobyerno');
     },
     onError: (error: Error) => {

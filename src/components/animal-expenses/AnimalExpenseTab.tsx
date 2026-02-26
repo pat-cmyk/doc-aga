@@ -60,6 +60,7 @@ export function AnimalExpenseTab({
       await deleteExpense.mutateAsync({
         expenseId: deleteConfirmId,
         animalId,
+        farmId,
       });
       toast.success("Expense deleted");
       setDeleteConfirmId(null);
