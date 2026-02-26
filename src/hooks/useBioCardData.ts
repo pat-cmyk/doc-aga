@@ -1,8 +1,16 @@
 /**
  * Unified Bio-Card Data Hook
  * 
- * Aggregates all animal performance data from existing SSOT hooks
- * to provide a complete picture for the Bio-Card visualization.
+ * @cache-status COMPOSITION — Sub-hooks handle their own caching.
+ * 
+ * This is a composition hook that aggregates data from 6+ sub-hooks/queries
+ * that are **animal-scoped** (not farm-scoped). Several sub-hooks
+ * (`useUpcomingAlerts`, `useHeatRecords`, `useBodyConditionScores`) are
+ * already cache-first compliant. The remaining direct queries (milking
+ * sparkline, weight sparkline, AI records, OVR cache) are small,
+ * animal-level fetches that don't fit the farm-keyed IndexedDB pattern.
+ * Full cache-first implementation deferred to Phase 5 with a dedicated
+ * animal-keyed store design.
  * 
  * SSOT: OVR scores are computed ONLY by the server-side `calculate_animal_ovr()` 
  * SQL function and stored in `animal_ovr_cache`. This hook READS from that cache.

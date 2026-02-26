@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-02-26 — Phase 3: Cache-First for Medium-Priority Hooks
+
+### Added
+- **IndexedDB v5** — Three new cache stores: `marketPriceCache`, `herdValuationCache`, `breedingAnalyticsCache` with TTLs of 30m, 10m, 15m respectively.
+- **Cache helpers** — `getCached*`, `update*Cache`, `clear*Cache` functions for each new store in `dataCache.ts`.
+- **`CacheManager` dependencies** — `herd-valuation-unified` and `breeding-analytics` registered for `animal`, `ai-record`, `weight-record`, `heat-record`, `pregnancy-confirm`, and `market-price` mutation types.
+
+### Changed
+- **`useCurrentMarketPrice`** — Refactored to cache-first pattern (IndexedDB → Supabase → update cache). Uses `useOnlineStatus`.
+- **`useHerdValuationUnified`** — Refactored to cache-first. Extracted `fetchAndComputeValuation` helper for clarity.
+- **`useBreedingAnalytics`** — Consolidated from 4 separate `useQuery` calls into a single `useQuery` with internal parallel fetches + cache-first pattern.
+- **`useBioCardData`** — Added `@cache-status COMPOSITION` documentation header; full cache-first deferred to Phase 5.
+
+### Documentation
+- **`ssot-architecture.md`** — Updated Hook Inventory with `useCurrentMarketPrice`, `useHerdValuationUnified`, `useBreedingAnalytics` as Category A compliant, and `useBioCardData` as deferred.
+
+
 ## 2026-02-23 — Barn / Paddock Grouping System
 
 ### Added
