@@ -1,6 +1,10 @@
 /**
  * useBreedingAnalytics - Farm-level breeding performance metrics
  * 
+ * NOTE: This hook queries Supabase directly for farm-scoped data.
+ * It relies on TanStack Query's in-memory cache for offline resilience.
+ * Full IndexedDB caching is a medium-priority future improvement.
+ * 
  * Calculates key reproductive efficiency indicators:
  * - Services per Conception (SPC)
  * - Calving Interval (CI)

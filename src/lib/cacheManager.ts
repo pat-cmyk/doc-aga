@@ -3,6 +3,7 @@ import {
   clearMilkInventoryCache, 
   clearDashboardCache,
   clearAnimalCache,
+  clearUpcomingAlertsCache,
 } from "./dataCache";
 
 /**
@@ -13,10 +14,10 @@ import {
  */
 const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'milk-record': ['milk-inventory', 'milking-records', 'dashboard', 'lactating-animals', 'animals'],
-  'health-record': ['health-records', 'dashboard'],
+  'health-record': ['health-records', 'dashboard', 'upcoming-alerts'],
   'feed-record': ['feeding-records', 'feed-inventory', 'dashboard'],
   'animal': ['animals', 'dashboard', 'milk-inventory', 'lactating-animals'],
-  'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records'],
+  'ai-record': ['ai-records', 'dashboard', 'breeding-stats', 'heat-records', 'upcoming-alerts'],
   'weight-record': ['weight-records', 'dashboard', 'animals', 'feed-inventory', 'lactating-animals'],
   'bcs-record': ['bcs-records', 'dashboard'],
   'heat-record': ['heat-records', 'dashboard', 'breeding-stats'],
@@ -24,7 +25,8 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'revenue': ['revenues', 'revenue-summary', 'dashboard', 'profitability'],
   'milk-sale': ['milk-inventory', 'milk-sales-history', 'dashboard', 'revenues', 'revenue-summary'],
   'dry-off': ['animals', 'lactating-animals', 'dashboard', 'milk-inventory'],
-  'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard'],
+  'pregnancy-confirm': ['ai-records', 'breeding-stats', 'animals', 'dashboard', 'upcoming-alerts'],
+  'alert-schedule': ['upcoming-alerts', 'dashboard'],
 };
 
 /**
@@ -40,6 +42,9 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
       break;
     case 'animals':
       await clearAnimalCache(farmId);
+      break;
+    case 'upcoming-alerts':
+      await clearUpcomingAlertsCache(farmId);
       break;
     // React Query only caches (no IndexedDB equivalent)
     default:

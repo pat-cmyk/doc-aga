@@ -348,6 +348,28 @@ export interface MilkInventoryCache {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= UPCOMING ALERTS CACHE =============
+
+export interface UpcomingAlertsCacheItem {
+  alert_type: string;
+  alert_title: string;
+  animal_id: string;
+  animal_name: string | null;
+  animal_ear_tag: string | null;
+  due_date: string;
+  days_until_due: number;
+  urgency: string;
+  schedule_id: string;
+}
+
+export interface UpcomingAlertsCache {
+  farmId: string;
+  daysAhead: number;
+  alerts: UpcomingAlertsCacheItem[];
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -373,6 +395,10 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: MilkInventoryCache;
   };
+  upcomingAlerts: {
+    key: string;
+    value: UpcomingAlertsCache;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -383,6 +409,7 @@ const CACHE_TTL = {
   feedInventory: 4 * 60 * 60 * 1000, // 4 hours (increased from 2 hours)
   farmData: 24 * 60 * 60 * 1000, // 24 hours (unchanged)
   dashboardStats: 5 * 60 * 1000, // 5 minutes - refresh frequently but show cache immediately
+  upcomingAlerts: 10 * 60 * 1000, // 10 minutes - alerts need reasonable freshness
 };
 
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
@@ -401,7 +428,7 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 3, {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 4, {
     upgrade(db, oldVersion) {
       // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
@@ -426,6 +453,12 @@ async function getDB() {
       if (oldVersion < 3) {
         if (!db.objectStoreNames.contains('milkInventory')) {
           db.createObjectStore('milkInventory', { keyPath: 'farmId' });
+        }
+      }
+      // Version 4: Add upcomingAlerts store for offline-first alerts
+      if (oldVersion < 4) {
+        if (!db.objectStoreNames.contains('upcomingAlerts')) {
+          db.createObjectStore('upcomingAlerts', { keyPath: 'farmId' });
         }
       }
     },
@@ -1915,6 +1948,70 @@ export async function clearAllFarmCaches(farmId: string): Promise<void> {
     clearMilkInventoryCache(farmId),
     clearDashboardCache(farmId),
     clearAnimalCache(farmId),
+    clearUpcomingAlertsCache(farmId),
   ]);
   console.log('[DataCache] All caches cleared for farm:', farmId);
+}
+
+// ============= UPCOMING ALERTS CACHE =============
+
+/**
+ * Get cached upcoming alerts for a farm
+ * Returns cached data if within TTL, null otherwise
+ */
+export async function getCachedUpcomingAlerts(farmId: string): Promise<UpcomingAlertsCache | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('upcomingAlerts', farmId);
+    if (!cached) return null;
+    
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.upcomingAlerts;
+    // Return stale cache when offline (within grace period)
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    
+    if (isValid || (!navigator.onLine && isWithinGrace)) {
+      return cached;
+    }
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading upcoming alerts cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Update the upcoming alerts cache with fresh data from the server
+ */
+export async function updateUpcomingAlertsCache(
+  farmId: string,
+  alerts: UpcomingAlertsCacheItem[],
+  daysAhead: number = 7
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cacheEntry: UpcomingAlertsCache = {
+      farmId,
+      daysAhead,
+      alerts,
+      lastUpdated: Date.now(),
+      syncStatus: 'synced',
+    };
+    await db.put('upcomingAlerts', cacheEntry);
+    console.log(`[DataCache] Upcoming alerts cache updated: ${alerts.length} alerts`);
+  } catch (error) {
+    console.error('[DataCache] Failed to update upcoming alerts cache:', error);
+  }
+}
+
+/**
+ * Clear upcoming alerts cache for a farm
+ */
+export async function clearUpcomingAlertsCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('upcomingAlerts', farmId);
+    console.log('[DataCache] Upcoming alerts cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear upcoming alerts cache:', error);
+  }
 }
