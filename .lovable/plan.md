@@ -1,110 +1,102 @@
 
 
-# Phase 5: Low-Priority Cache-First + Final Documentation
+# Phase 6: Conflict Detection & Resolution — Wire Up the Gap
 
-## Reassessment
+## Problem Summary
 
-After reviewing all 10 hooks, only **3 are good candidates** for IndexedDB cache-first. The remaining 7 have architectural reasons (date-range parameters, no farmId, realtime subscriptions, animal-scoped keys) that make farm-keyed IndexedDB caching either impossible or counterproductive. These get documentation headers instead.
+The project has all the **pieces** for conflict resolution but they are not connected:
 
----
+- **Database**: `sync_conflicts` table and `detect_sync_conflict()` RPC exist and work
+- **Client utilities**: `conflictDetection.ts` has `detectConflict()`, `recordConflict()`, `resolveConflict()`, `applyConflictResolution()`
+- **UI**: `SyncConflictResolution.tsx` component is mounted on both Dashboard and FarmhandDashboard
+- **The gap**: `syncService.ts` never calls `detectConflict()` before applying changes -- it just writes directly, so conflicts are silently overwritten with last-write-wins
 
-## Group A: Implement Cache-First (3 hooks)
-
-| Hook | Key | TTL | Rationale |
-|------|-----|-----|-----------|
-| `useAnimalCostAggregates` | `farmId` | 15 min | Stable farm-scoped aggregate; benefits offline |
-| `useBarns` | `farmId` | 30 min | Stable structure data; rarely changes |
-| `useFarmSettings` | `farmId` | 60 min | Very stable; almost never changes |
-
-## Group B: Documentation-Only (7 hooks)
-
-| Hook | Header | Reason |
-|------|--------|--------|
-| `useAnimalExpenses` | `@cache-status ANIMAL-SCOPED` | Keyed by `animalId`, not `farmId`; doesn't fit farm-keyed IndexedDB |
-| `useProfitability` | `@cache-status PARAMETERIZED` | Date-range dependent; can't key by farmId alone |
-| `useFinancialHealth` | `@cache-status PARAMETERIZED` | Date-range dependent; same issue |
-| `useProducts` | `@cache-status MANUAL` | Marketplace-scoped, no farmId |
-| `useOrders` | `@cache-status MANUAL` | User-scoped, no farmId |
-| `useDailyChecklist` | Already `@cache-status MANAGED` | Date-specific + auto-completion from sub-hooks; too dynamic |
-| `usePendingActivities` | Already `@cache-status MANAGED` | Realtime subscriptions; caching would conflict |
+Additionally, several edge cases are unhandled:
+1. **Stale offline queue on device switch** -- unsynced items on old device are abandoned
+2. **Deleted records** -- offline cache can reference records deleted on another device
+3. **Cache shape drift** -- no validation when reading stale IndexedDB entries after schema changes
 
 ---
 
-## Changes
+## Scope (3 workstreams)
 
-### 1. `src/lib/dataCache.ts` -- Add 3 new cache stores (DB version 5 -> 6)
+### Workstream A: Wire conflict detection into syncService
 
-New stores: `animalCostCache`, `barnsCache`, `farmSettingsCache`
+**What changes**: Modify `syncService.ts` to call `detectConflict()` before each upsert/update operation. If a conflict is found, record it via `recordConflict()` and mark the queue item with `conflictData` instead of blindly overwriting.
 
-New interfaces:
-- `AnimalCostCacheEntry { farmId, data: FarmCostAnalysis, lastUpdated, syncStatus }`
-- `BarnsCacheEntry { farmId, data: Barn[], lastUpdated, syncStatus }`
-- `FarmSettingsCacheEntry { farmId, data: FarmSettings, lastUpdated, syncStatus }`
+**Files modified**:
+- `src/lib/syncService.ts` -- Add a `checkAndHandleConflict()` helper called before each sync function's write. For INSERT-only operations (new animals, new records), skip conflict detection since there's no existing server record to conflict with. For operations that could overlap (same animal/same date milk records, weight records), check `client_generated_id` dedup first, then call `detectConflict()` if the record already exists on server.
 
-New helper functions (9 total):
-- `getCachedAnimalCosts(farmId)` / `updateAnimalCostCache(farmId, data)` / `clearAnimalCostCache(farmId)`
-- `getCachedBarns(farmId)` / `updateBarnsCache(farmId, data)` / `clearBarnsCache(farmId)`
-- `getCachedFarmSettings(farmId)` / `updateFarmSettingsCache(farmId, data)` / `clearFarmSettingsCache(farmId)`
+- `src/lib/offlineQueue.ts` -- Add `clientTimestamp` field to `QueueItem` interface (captures `updated_at` or creation time for conflict comparison).
 
-### 2. `src/lib/cacheManager.ts` -- Register new IndexedDB clear functions
+**Conflict flow**:
+```text
+syncQueue processes item
+  -> Is this an UPDATE to existing record? 
+     YES -> detectConflict(table, recordId, clientTimestamp, clientData)
+            -> has_conflict = true?
+               YES -> recordConflict(farmId, table, recordId, clientData, serverData)
+                   -> mark queue item status = 'conflict'
+                   -> user sees FAB badge, opens SyncConflictResolution sheet
+               NO  -> proceed with normal write
+     NO (INSERT) -> proceed with dedup check + write (existing behavior)
+```
 
-Add cases in `clearIndexedDBCache`:
-- `'animal-cost-aggregates'` -> `clearAnimalCostCache(farmId)`
-- `'barns'` -> `clearBarnsCache(farmId)`
-- `'farm-settings'` -> `clearFarmSettingsCache(farmId)`
+### Workstream B: Orphan protection (deleted records)
 
-### 3. `src/hooks/useAnimalCostAggregates.ts` -- Cache-first refactor
+**What changes**: Before applying a queued mutation that references an `animal_id`, verify the animal still exists on the server. If deleted, skip the mutation and notify the user.
 
-- Import `useOnlineStatus`, `getCachedAnimalCosts`, `updateAnimalCostCache`
-- In `queryFn`: check cache first, return if offline, fetch from Supabase if online, update cache
-- Add `@cache-status MANAGED` header
+**Files modified**:
+- `src/lib/syncService.ts` -- Add `validateRecordExists()` helper that does a lightweight `SELECT id FROM {table} WHERE id = {id}` check before writes that reference foreign keys (animal_id). If the parent record is gone, mark the queue item as `failed` with a clear error message ("Animal was deleted on another device").
 
-### 4. `src/hooks/useBarns.ts` -- Cache-first for `useBarns` query
+### Workstream C: Stale queue warning on login
 
-- Import `useOnlineStatus`, `getCachedBarns`, `updateBarnsCache`
-- In `useBarns` queryFn: check cache first, return if offline, fetch + update cache if online
-- Mutation hooks already route through CacheManager (Phase 4)
+**What changes**: When a user logs in on a new device, the offline queue is empty (fresh IndexedDB). But their old device might have unsynced items. Add a server-side check: compare `farm_sync_checkpoints.last_sync_at` with the oldest pending item in `sync_queue` (server table). If there are old unsynced items from another client, show a one-time warning.
 
-### 5. `src/hooks/useFarmSettings.ts` -- Cache-first for `useFarmSettings` query
+**Files modified**:
+- `src/lib/syncService.ts` -- Add `checkForStaleQueueOnOtherDevices()` function called once after login. Queries `sync_queue` for pending items by the same `user_id` but different `client_id`. If found, returns a warning payload.
+- `src/hooks/useOnlineSync.ts` (or equivalent sync trigger hook) -- Call the stale check after successful auth + first sync, display a toast warning if stale items exist on another device.
 
-- Import `useOnlineStatus`, `getCachedFarmSettings`, `updateFarmSettingsCache`
-- In queryFn: check cache first, return default if offline + no cache, fetch + update cache if online
+### Documentation
 
-### 6. Documentation headers for Group B hooks
-
-Add appropriate `@cache-status` headers to:
-- `useAnimalExpenses.ts` -- already has `@cache-status MANAGED`; add note about read path being animal-scoped
-- `useProfitability.ts` -- `@cache-status PARAMETERIZED -- Date-range dependent, not suitable for farm-keyed IndexedDB`
-- `useFinancialHealth.ts` -- same as above
-- `useProducts.ts` -- `@cache-status MANUAL -- Marketplace-scoped, no farmId`
-- `useOrders.ts` -- `@cache-status MANUAL -- User-scoped, no farmId`
-
-### 7. Documentation updates
-
-- `docs/ssot-architecture.md`: Update Hook Inventory to mark all 10 hooks with final status
-- `changelog.md`: Add Phase 5 entry, mark SSOT Read-Path Audit as complete
+- `docs/ssot-architecture.md` -- Add "Conflict Resolution Flow" section documenting the wired-up pipeline
+- `changelog.md` -- Phase 6 entry
 
 ---
 
 ## Technical Details
 
-### IndexedDB Schema (version 6)
+### New queue item status
+
+Add `'conflict'` to `QueueItem.status` union type. Items with this status:
+- Are skipped by `syncQueue()` on subsequent runs
+- Are visible in `SyncConflictResolution` UI via the existing `sync_conflicts` table
+- Once resolved in UI, the resolution is applied and the queue item is marked `completed`
+
+### Modified sync functions (Workstream A)
+
+Only UPDATE-capable sync paths need conflict detection:
+- `syncSingleMilk` / `syncBulkMilk` -- These are INSERTs with `client_generated_id` dedup. **No conflict detection needed** (dedup already handles it).
+- `syncSingleWeight` -- INSERT. Dedup by `client_generated_id`. **No conflict detection needed**.
+- `syncAnimalForm` -- INSERT. **No conflict detection needed**.
+- Future edit operations (if/when animal profile editing goes offline) -- **Will need conflict detection**.
+
+Current conclusion: The existing sync operations are all **INSERT-only**, so Workstream A is primarily a **framework** that will activate when edit operations are added to the offline queue. The `checkAndHandleConflict()` helper will be built and unit-tested but won't change current INSERT behavior.
+
+### Orphan check (Workstream B)
 
 ```text
-animalCostCache    keyed by farmId    TTL: 15 min
-barnsCache         keyed by farmId    TTL: 30 min
-farmSettingsCache  keyed by farmId    TTL: 60 min
+Before: syncBulkMilk inserts records referencing animal_id
+After:  validateRecordExists('animals', animalId) 
+        -> if missing, throw Error('PARENT_DELETED: Animal {earTag} was removed')
+        -> syncService catches, marks item failed with user-friendly error
 ```
 
-### Cache-First Pattern (same as Phase 3)
+This protects against: User A deletes an animal on laptop, User B (offline on phone) records milk for that animal, then syncs.
 
-```text
-1. Check IndexedDB cache (within TTL)
-2. If cache hit + online: return cache, fetch in background
-3. If cache hit + offline: return cache
-4. If cache miss + online: fetch from Supabase, update cache, return
-5. If cache miss + offline: return empty/default
-```
+### Stale queue warning (Workstream C)
+
+Database migration needed: Add an RPC `check_stale_sync_items(p_user_id, p_client_id)` that queries `sync_queue` for pending items from the same user but a different client. Returns count + oldest timestamp.
 
 ---
 
@@ -112,7 +104,8 @@ farmSettingsCache  keyed by farmId    TTL: 60 min
 
 | Risk | Mitigation |
 |------|-----------|
-| IndexedDB version bump (5 -> 6) | Incremental `upgrade()` handler; existing stores untouched |
-| `useBarns` has animal counts from join query | Cache the computed result (barn + count); invalidated on barn mutations |
-| Over-caching low-traffic data | TTLs are generous (30-60 min); storage cost is minimal |
+| All current sync ops are INSERTs | Workstream A builds the framework; activates when edit ops are added. No behavioral change to existing flows. |
+| Orphan check adds latency per sync item | Batch check: collect all referenced animal_ids, do a single `SELECT id FROM animals WHERE id IN (...)` |
+| Stale queue check requires server-side `sync_queue` data | Already exists from migration `20260102062607`; just needs an RPC |
+| `'conflict'` status addition to QueueItem | Backward compatible; existing IndexedDB items don't have this status |
 
