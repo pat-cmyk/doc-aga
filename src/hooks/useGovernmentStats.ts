@@ -1,3 +1,8 @@
+/**
+ * @online-only Government dashboard hook - aggregates cross-farm data.
+ * Online-only by design: caching cross-farm data locally would violate
+ * RLS boundaries and data freshness requirements.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, format } from "date-fns";

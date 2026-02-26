@@ -1,3 +1,8 @@
+/**
+ * @online-only Cooperative hooks - aggregate cross-farm data via SECURITY DEFINER RPCs.
+ * Online-only by design: caching cross-farm data locally would violate
+ * RLS boundaries. Data must always be fresh for cooperative dashboards.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 

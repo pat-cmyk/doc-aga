@@ -1879,7 +1879,7 @@ export async function getMarketPriceIntelligence(args: any, supabase: SupabaseCl
     pricesBySpecies.set(species, priceList);
 
     const key = `${p.region || 'Unknown'}-${species}`;
-    const current = pricesByRegionSpecies.get(key) || { prices: [], latest: 0, region: p.region || 'Unknown', species };
+    const current = pricesByRegionSpecies.get(key) || { prices: [] as number[], latest: 0, region: p.region || 'Unknown', species };
     current.prices.push(Number(p.price_per_kg));
     current.latest = current.prices[0]; // First is latest due to order
     pricesByRegionSpecies.set(key, current);
