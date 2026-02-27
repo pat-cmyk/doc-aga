@@ -17,6 +17,7 @@ interface FarmSeedResult {
   health_inserted: number;
   bcs_inserted: number;
   feeding_inserted: number;
+  ai_inserted: number;
 }
 
 interface SeedResult {
@@ -66,8 +67,9 @@ export const SeedDemoDataButton = () => {
       health: acc.health + s.health_inserted,
       bcs: acc.bcs + s.bcs_inserted,
       feeding: acc.feeding + s.feeding_inserted,
+      ai: acc.ai + (s.ai_inserted || 0),
     }),
-    { milking: 0, weight: 0, health: 0, bcs: 0, feeding: 0 }
+    { milking: 0, weight: 0, health: 0, bcs: 0, feeding: 0, ai: 0 }
   );
 
   return (
@@ -102,7 +104,7 @@ export const SeedDemoDataButton = () => {
 
           {results && totalByType && (
             <div className="space-y-4">
-              <div className="grid grid-cols-5 gap-3 p-4 bg-muted rounded-lg">
+              <div className="grid grid-cols-6 gap-3 p-4 bg-muted rounded-lg">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Milking</p>
                   <p className="text-lg font-bold">{totalByType.milking}</p>
@@ -123,6 +125,10 @@ export const SeedDemoDataButton = () => {
                   <p className="text-xs text-muted-foreground">Feeding</p>
                   <p className="text-lg font-bold">{totalByType.feeding}</p>
                 </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">AI</p>
+                  <p className="text-lg font-bold">{totalByType.ai}</p>
+                </div>
               </div>
 
               <div className="border rounded-lg">
@@ -137,6 +143,7 @@ export const SeedDemoDataButton = () => {
                       <TableHead className="text-center">Health</TableHead>
                       <TableHead className="text-center">BCS</TableHead>
                       <TableHead className="text-center">Feed</TableHead>
+                      <TableHead className="text-center">AI</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -150,6 +157,7 @@ export const SeedDemoDataButton = () => {
                         <TableCell className="text-center">{farm.health_inserted}</TableCell>
                         <TableCell className="text-center">{farm.bcs_inserted}</TableCell>
                         <TableCell className="text-center">{farm.feeding_inserted}</TableCell>
+                        <TableCell className="text-center">{farm.ai_inserted || 0}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
