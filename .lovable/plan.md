@@ -1,82 +1,106 @@
 
 
-# Fix: Rejected Milk Not Showing Due to Trigger `liters_remaining` Bug
+# Merge AI Records + Heat Detection into Unified Breeding Timeline
 
-## Root Cause
+## Overview
 
-The `sync_milk_inventory_on_update` trigger has a logic error in its quality-change branch. When milk changes from `good` to `rejected`:
+Replace the current two-tab layout (AI Records | Heat Detection) with a single unified breeding timeline that shows all reproductive events in chronological order, plus a complete set of lifecycle action buttons so farmers can trigger any milestone with one tap.
+
+## Current Problems
+
+1. **Fragmented view**: AI records and heat records are in separate tabs -- farmers must switch between them to understand the breeding story
+2. **BreedingTimeline component exists but is unused** in the animal profile -- it already merges data from `breeding_events`, `heat_records`, and `ai_records` into a unified timeline
+3. **Missing lifecycle actions**: The current buttons only cover 4 of 8 possible milestones. Missing: Record Heat, Schedule AI, Confirm Pregnancy, Pregnancy Failed
+
+## Design
+
+The AI/Breeding tab will show:
 
 ```text
-liters_remaining = CASE
-  WHEN NEW.milk_quality = 'good' THEN NEW.liters
-  ELSE liters_remaining   -- BUG: keeps old value (could be 0 from prior sales)
-END
++--------------------------------------------------+
+| Breeding Timeline          [+ Record Heat] [+ Schedule AI] |
+|                                                    |
+| -- February 2026 --                               |
+|  o  Heat Detected          Feb 15                 |
+|  o  AI Performed           Feb 16                 |
+|  o  Non-Return             Mar 5                  |
+|                                                    |
+| -- January 2026 --                                |
+|  o  VWP Ended              Jan 10                 |
+|                                                    |
++--------------------------------------------------+
+| Lifecycle Actions                                  |
+| [Record Heat] [Schedule AI] [Record Calving]      |
+| [Suspected Pregnant] [Confirm Pregnancy]           |
+| [Pregnancy Failed] [Heat Returned] [VWP Complete] |
++--------------------------------------------------+
 ```
 
-If the good milk had been partially or fully sold/fed before the quality change, `liters_remaining` is already 0. The rejected record inherits 0, and the rejected query filters `.gte("liters_remaining", 0.05)` -- so it never appears.
+## Implementation Steps
 
-**Database evidence:**
-- Bessie: `liters_original = 18.20`, `liters_remaining = 0.00`, `milk_quality = 'rejected'`, `is_available = true`
-- Tita Barbecue: `liters_original = 8.30`, `liters_remaining = 0.00`, same situation
+### Step 1: Enhance BreedingTimeline to include full legacy data
 
-Both are invisible because of the 0.05L filter.
+File: `src/components/breeding/BreedingTimeline.tsx`
 
-## SSOT + Offline-First Compliance
+Currently, the legacy query only fetches heat and AI records when `breeding_events` is empty. Change it to **always** merge all three sources (breeding_events + heat_records + ai_records), deduplicating by related record IDs. This ensures the timeline is complete even during the transition period where some events only exist in legacy tables.
 
-The frontend code is already correct (SSOT-compliant):
-- `EditMilkRecordDialog` only updates `milking_records` (source of truth)
-- DB trigger handles `milk_inventory` propagation (derived table)
-- Both `milk-inventory` and `milk-inventory-rejected` queries are refetched after edit
-- CacheManager invalidation is in place
+Also enhance the legacy AI record conversion to include scheduled (not yet performed) AI records, and add richer metadata display (technician, semen code, intensity, detection method).
 
-The only fix needed is in the trigger logic.
+Add action buttons in the card header: "Record Heat" and "Schedule AI" for quick access.
 
-## Fix
+### Step 2: Rewrite AIRecords.tsx to use unified layout
 
-### Step 1: Fix trigger -- restore liters when quality changes to rejected
+File: `src/components/AIRecords.tsx`
 
-When milk is marked rejected, it means the milk was bad. Any prior sales/deductions from it were from "bad" milk. The full original amount should be available for feeding (the primary use of rejected milk). Update the trigger:
+- Remove the two-tab layout (AI Records | Heat Detection)
+- Replace with: BreedingTimeline component (the merged timeline)
+- Below it: Lifecycle Actions card with ALL 8 milestone buttons
+- Keep the EditAIRecordDialog for editing existing AI records (triggered from timeline items)
 
-```sql
-liters_remaining = CASE
-  WHEN NEW.milk_quality = 'good' THEN NEW.liters
-  ELSE NEW.liters   -- Restore full amount for rejected milk (feedable)
-END
-```
+### Step 3: Add missing lifecycle action buttons
 
-This makes both branches set `liters_remaining = NEW.liters`, which simplifies to just `liters_remaining = NEW.liters` unconditionally in the quality-change branch.
+File: `src/components/breeding/BreedingEventActions.tsx`
 
-### Step 2: Backfill existing broken records
+Add three new action button components:
+- **RecordHeatButton**: Wraps the existing `RecordHeatDialog` in a consistent button style
+- **ScheduleAIButton**: Wraps the existing `ScheduleAIDialog` in a consistent button style  
+- **ConfirmPregnancyButton**: Standalone pregnancy confirmation (without requiring an AI record context -- inserts a `pregnancy_confirmed` breeding event directly)
+- **PregnancyFailedButton**: Records a `pregnancy_failed` event using the same generic dialog pattern
 
-Fix the existing rejected records that have `liters_remaining = 0` but `is_available = true`:
+### Step 4: Export new components
 
-```sql
-UPDATE milk_inventory
-SET liters_remaining = liters_original
-WHERE milk_quality = 'rejected'
-  AND is_available = true
-  AND liters_remaining < 0.05;
-```
+File: `src/components/breeding/index.ts`
+
+Add exports for the new action button components.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| New migration SQL | Fix trigger quality-change branch + backfill |
+| `src/components/breeding/BreedingTimeline.tsx` | Always merge all 3 data sources, add richer display, action buttons in header |
+| `src/components/AIRecords.tsx` | Replace two-tab layout with BreedingTimeline + full lifecycle actions card |
+| `src/components/breeding/BreedingEventActions.tsx` | Add RecordHeatButton, ScheduleAIButton, ConfirmPregnancyButton, PregnancyFailedButton |
+| `src/components/breeding/index.ts` | Export new components |
 
-## Why This Is Correct
+## SSOT Compliance
 
-| Scenario | Behavior |
-|----------|----------|
-| Good milk, no prior sales, changed to rejected | `liters_remaining = NEW.liters` (full amount, feedable) |
-| Good milk, partially sold, changed to rejected | `liters_remaining = NEW.liters` (restored -- prior sales were from bad milk) |
-| Rejected milk, changed back to good | `liters_remaining = NEW.liters` (full amount, sellable) |
-| Good milk with liters edit only (no quality change) | Handled by separate liters-change block (unchanged) |
+- No new data sources -- reuses existing `breeding_events`, `heat_records`, `ai_records` tables
+- All action buttons use `insertBreedingEvent()` which feeds the DB trigger state machine
+- Legacy dialogs (ScheduleAIDialog, RecordHeatDialog, ConfirmPregnancyDialog) are reused, not duplicated
+- BreedingTimeline uses TanStack Query with proper cache keys, consistent with offline-first pattern
+- No new tables, RPCs, or triggers needed
 
-## Risk Assessment
+## Lifecycle Actions Completeness Audit
 
-| Risk | Mitigation |
-|------|-----------|
-| Restoring liters that were legitimately fed as rejected | Feeding deductions happen on `milk_inventory` directly, not through `milking_records` trigger. Feeding records remain valid. The backfill only affects records with `liters_remaining < 0.05`. |
-| Existing feeding deductions on rejected milk | Feeding writes to `milk_inventory.liters_remaining` directly, not through this trigger path. Those deductions are preserved for future rejected-to-rejected edits (no quality change = trigger doesn't fire quality branch). |
+| Milestone | Event Type | Current | After |
+|-----------|-----------|---------|-------|
+| Record Heat | `heat_detected` | Hidden in Heat tab | Lifecycle button |
+| Schedule AI | `ai_scheduled` | Hidden in AI header | Lifecycle button |
+| Mark AI Performed | `ai_performed` | Inline on AI card | Inline on timeline (kept) |
+| Suspected Pregnant | `non_return` | Lifecycle button | Lifecycle button |
+| Confirm Pregnancy | `pregnancy_confirmed` | Inline on AI card | Lifecycle button + inline |
+| Pregnancy Failed | `pregnancy_failed` | Not available | Lifecycle button (new) |
+| Record Calving | `calving` | Lifecycle button | Lifecycle button |
+| Heat Returned | `heat_return` | Lifecycle button | Lifecycle button |
+| VWP Complete | `vwp_ended` | Lifecycle button | Lifecycle button |
 
