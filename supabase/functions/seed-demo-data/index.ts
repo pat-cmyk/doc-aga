@@ -74,6 +74,18 @@ const HEALTH_CHECKS = [
   { diagnosis: 'Hoof Trimming', treatment: 'Routine hoof maintenance performed' },
 ]
 
+const GESTATION_DAYS: Record<string, number> = {
+  cattle: 283,
+  goat: 150,
+  carabao: 310,
+}
+
+const SEMEN_CODES: Record<string, string[]> = {
+  cattle: ['HF-2024-A', 'JER-2024-B', 'ANG-2024-C', 'SAH-2024-D'],
+  goat: ['ALP-2024-A', 'SAA-2024-B', 'BOE-2024-C'],
+  carabao: ['MUR-2024-A', 'CAR-2024-B'],
+}
+
 interface InventoryItem {
   id: string
   feed_type: string
@@ -233,11 +245,21 @@ Deno.serve(async (req) => {
         localBalances.set(item.id, Number(item.quantity_kg))
       }
 
+      // Fetch existing AI records for this farm's animals
+      const { data: existingAI } = await supabase
+        .from('ai_records')
+        .select('animal_id')
+        .in('animal_id', animalIds)
+        .gte('scheduled_date', thirtyDaysAgoStr)
+
+      const animalsWithAI = new Set((existingAI || []).map((r: any) => r.animal_id))
+
       const milkInserts: any[] = []
       const weightInserts: any[] = []
       const healthInserts: any[] = []
       const bcsInserts: any[] = []
       const feedInserts: any[] = []
+      const aiInserts: any[] = []
       let inventoryLinked = 0
       let zeroCostFallback = 0
 
@@ -312,6 +334,49 @@ Deno.serve(async (req) => {
           })
         }
 
+        // AI Records: for lactating females without a recent AI record
+        if (isFemale && isLactating && !animalsWithAI.has(animal.id)) {
+          const daysAgo = Math.floor(seededRandom(`${animal.id}_ai_day`) * 7) + 1
+          const scheduledDate = new Date(now)
+          scheduledDate.setDate(scheduledDate.getDate() - daysAgo)
+          const scheduledStr = scheduledDate.toISOString().split('T')[0]
+
+          const performedOffset = Math.floor(seededRandom(`${animal.id}_ai_perf`) * 3)
+          const performedDate = new Date(scheduledDate)
+          performedDate.setDate(performedDate.getDate() + performedOffset)
+          const performedStr = performedDate.toISOString().split('T')[0]
+
+          const gestationDays = GESTATION_DAYS[animalSpecies] || GESTATION_DAYS.cattle
+          const codes = SEMEN_CODES[animalSpecies] || SEMEN_CODES.cattle
+          const semenCode = codes[Math.floor(seededRandom(`${animal.id}_semen`) * codes.length)]
+
+          const isConfirmed = seededRandom(`${animal.id}_preg`) < 0.4
+          let confirmedAt: string | null = null
+          let expectedDelivery: string | null = null
+
+          if (isConfirmed) {
+            const confirmDate = new Date(performedDate)
+            confirmDate.setDate(confirmDate.getDate() + 60)
+            confirmedAt = confirmDate.toISOString()
+
+            const deliveryDate = new Date(performedDate)
+            deliveryDate.setDate(deliveryDate.getDate() + gestationDays)
+            expectedDelivery = deliveryDate.toISOString().split('T')[0]
+          }
+
+          aiInserts.push({
+            animal_id: animal.id,
+            scheduled_date: scheduledStr,
+            performed_date: performedStr,
+            semen_code: semenCode,
+            technician: 'Demo AI Tech',
+            pregnancy_confirmed: isConfirmed,
+            confirmed_at: confirmedAt,
+            expected_delivery_date: expectedDelivery,
+            notes: 'Auto-seeded demo data',
+          })
+        }
+
         // Feeding: daily for last 7 days — linked to inventory
         for (let d = 1; d <= 7; d++) {
           const date = new Date(now)
@@ -344,7 +409,7 @@ Deno.serve(async (req) => {
 
       // Batch insert all records
       const batchSize = 500
-      let milkCount = 0, weightCount = 0, healthCount = 0, bcsCount = 0, feedCount = 0
+      let milkCount = 0, weightCount = 0, healthCount = 0, bcsCount = 0, feedCount = 0, aiCount = 0
 
       for (let i = 0; i < milkInserts.length; i += batchSize) {
         const { error } = await supabase.from('milking_records').insert(milkInserts.slice(i, i + batchSize))
@@ -365,6 +430,10 @@ Deno.serve(async (req) => {
       for (let i = 0; i < feedInserts.length; i += batchSize) {
         const { error } = await supabase.from('feeding_records').insert(feedInserts.slice(i, i + batchSize))
         if (!error) feedCount += Math.min(batchSize, feedInserts.length - i)
+      }
+      for (let i = 0; i < aiInserts.length; i += batchSize) {
+        const { error } = await supabase.from('ai_records').insert(aiInserts.slice(i, i + batchSize))
+        if (!error) aiCount += Math.min(batchSize, aiInserts.length - i)
       }
 
       // Batch update inventory balances (deduct consumed amounts)
@@ -389,13 +458,14 @@ Deno.serve(async (req) => {
         health_inserted: healthCount,
         bcs_inserted: bcsCount,
         feeding_inserted: feedCount,
+        ai_inserted: aiCount,
         inventory_linked: inventoryLinked,
         zero_cost_fallback: zeroCostFallback,
       })
     }
 
     const totalRecords = summary.reduce((sum, s) =>
-      sum + s.milking_inserted + s.weight_inserted + s.health_inserted + s.bcs_inserted + s.feeding_inserted, 0)
+      sum + s.milking_inserted + s.weight_inserted + s.health_inserted + s.bcs_inserted + s.feeding_inserted + (s.ai_inserted || 0), 0)
 
     return new Response(JSON.stringify({
       success: true,
