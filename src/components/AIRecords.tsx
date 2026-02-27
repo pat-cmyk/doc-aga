@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, CheckCircle, Clock, Flame, Dna, Pencil } from "lucide-react";
+import { Loader2, Calendar, CheckCircle, Clock, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
@@ -11,8 +10,18 @@ import MarkAIPerformedDialog from "./MarkAIPerformedDialog";
 import { EditAIRecordDialog } from "./breeding/EditAIRecordDialog";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
-import { HeatHistoryTab } from "./heat-detection/HeatHistoryTab";
-import { RecordCalvingDialog, MarkNonReturnButton, RecordHeatReturnButton, MarkVWPEndedButton } from "./breeding";
+import { 
+  BreedingTimeline,
+  RecordCalvingDialog, 
+  MarkNonReturnButton, 
+  RecordHeatReturnButton, 
+  MarkVWPEndedButton,
+  RecordHeatButton,
+  ScheduleAIButton,
+  ConfirmPregnancyButton,
+  PregnancyFailedButton,
+} from "./breeding";
+import { RecordHeatDialog } from "./heat-detection/RecordHeatDialog";
 
 interface AIRecordsProps {
   animalId: string;
@@ -30,14 +39,12 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
   const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
-    // Try cache first
     const cached = await getCachedRecords(animalId);
     if (cached?.ai) {
       setRecords(cached.ai);
       setLoading(false);
     }
     
-    // Fetch fresh if online
     if (isOnline) {
       const { data } = await supabase
         .from("ai_records")
@@ -45,12 +52,9 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
         .eq("animal_id", animalId)
         .order("scheduled_date", { ascending: false });
       
-      if (data) {
-        setRecords(data);
-      }
+      if (data) setRecords(data);
     }
     
-    // Always set loading to false, even if offline with no cache
     setLoading(false);
   };
 
@@ -60,8 +64,112 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
 
   if (loading) return <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
 
-  // AI Records Content
-  const aiRecordsContent = (
+  const isFemale = gender?.toLowerCase() === 'female';
+
+  // For females with farmId: unified timeline + lifecycle actions
+  if (isFemale && farmId) {
+    return (
+      <div className="space-y-4">
+        {/* Unified Breeding Timeline */}
+        <BreedingTimeline
+          animalId={animalId}
+          farmId={farmId}
+          headerActions={
+            !readOnly ? (
+              <>
+                <RecordHeatDialog
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                />
+                <ScheduleAIDialog
+                  animalId={animalId}
+                  farmId={farmId}
+                  onSuccess={loadRecords}
+                  disabled={!isOnline}
+                />
+              </>
+            ) : undefined
+          }
+        />
+
+        {/* Lifecycle Actions - all 8 milestones */}
+        {!readOnly && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Lifecycle Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <RecordHeatButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <ScheduleAIButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  onSuccess={loadRecords}
+                />
+                <RecordCalvingDialog
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  livestockType={livestockType}
+                  onSuccess={loadRecords}
+                />
+                <MarkNonReturnButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <ConfirmPregnancyButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <PregnancyFailedButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <RecordHeatReturnButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+                <MarkVWPEndedButton
+                  animalId={animalId}
+                  farmId={farmId}
+                  animalName={animalName}
+                  onSuccess={loadRecords}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Edit AI Record Dialog (kept for editing existing records) */}
+        {editingRecord && (
+          <EditAIRecordDialog
+            open={!!editingRecord}
+            onOpenChange={(open) => !open && setEditingRecord(null)}
+            record={editingRecord}
+            animalName={animalName || 'Unknown'}
+            onSuccess={loadRecords}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // For males or no farmId: show AI records list only
+  return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -94,60 +202,25 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                       </div>
                       <div className="flex items-center gap-2">
                         {!r.performed_date && (
-                          <Badge variant="secondary">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Scheduled
-                          </Badge>
+                          <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Scheduled</Badge>
                         )}
                         {r.performed_date && !r.pregnancy_confirmed && (
-                          <Badge variant="outline">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Performed
-                          </Badge>
+                          <Badge variant="outline"><CheckCircle className="h-3 w-3 mr-1" />Performed</Badge>
                         )}
                         {r.pregnancy_confirmed && (
-                          <Badge variant="default" className="bg-green-500">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Pregnant
-                          </Badge>
+                          <Badge variant="default" className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Pregnant</Badge>
                         )}
                         {!readOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setEditingRecord(r)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingRecord(r)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
                     </div>
-                    
-                    {r.performed_date && (
-                      <p className="text-sm text-muted-foreground">
-                        Performed: {new Date(r.performed_date).toLocaleDateString()}
-                      </p>
-                    )}
-                    
-                    {r.technician && (
-                      <p className="text-sm text-muted-foreground">
-                        Technician: {r.technician}
-                      </p>
-                    )}
-                    
-                    {r.semen_code && (
-                      <p className="text-sm text-muted-foreground">
-                        Semen Code: <span className="font-mono">{r.semen_code}</span>
-                      </p>
-                    )}
-                    
-                    {r.notes && (
-                      <p className="text-sm text-muted-foreground">
-                        Notes: {r.notes}
-                      </p>
-                    )}
-                    
+                    {r.performed_date && <p className="text-sm text-muted-foreground">Performed: {new Date(r.performed_date).toLocaleDateString()}</p>}
+                    {r.technician && <p className="text-sm text-muted-foreground">Technician: {r.technician}</p>}
+                    {r.semen_code && <p className="text-sm text-muted-foreground">Semen Code: <span className="font-mono">{r.semen_code}</span></p>}
+                    {r.notes && <p className="text-sm text-muted-foreground">Notes: {r.notes}</p>}
                     {r.pregnancy_confirmed && r.expected_delivery_date && (
                       <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-md">
                         <p className="text-sm font-medium text-green-700 dark:text-green-300">
@@ -155,28 +228,14 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                         </p>
                       </div>
                     )}
-                    
                     {!readOnly && !r.performed_date && r.scheduled_date && (
                       <div className="mt-2">
-                        <MarkAIPerformedDialog 
-                          recordId={r.id}
-                          animalId={animalId}
-                          farmId={farmId || ''}
-                          scheduledDate={r.scheduled_date}
-                          onSuccess={loadRecords}
-                        />
+                        <MarkAIPerformedDialog recordId={r.id} animalId={animalId} farmId={farmId || ''} scheduledDate={r.scheduled_date} onSuccess={loadRecords} />
                       </div>
                     )}
-                    
                     {!readOnly && r.performed_date && !r.pregnancy_confirmed && (
                       <div className="mt-2">
-                        <ConfirmPregnancyDialog 
-                          recordId={r.id}
-                          animalId={animalId}
-                          farmId={farmId || ''}
-                          performedDate={r.performed_date}
-                          onSuccess={loadRecords}
-                        />
+                        <ConfirmPregnancyDialog recordId={r.id} animalId={animalId} farmId={farmId || ''} performedDate={r.performed_date} onSuccess={loadRecords} />
                       </div>
                     )}
                   </div>
@@ -186,8 +245,6 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
           </div>
         )}
       </CardContent>
-
-      {/* Edit AI Record Dialog */}
       {editingRecord && (
         <EditAIRecordDialog
           open={!!editingRecord}
@@ -199,80 +256,6 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
       )}
     </Card>
   );
-
-  // If female and has farmId, show with heat detection sub-tab
-  const isFemale = gender?.toLowerCase() === 'female';
-  
-  if (isFemale && farmId) {
-    return (
-      <Tabs defaultValue="ai-records" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="ai-records" className="flex items-center gap-2">
-            <Dna className="h-4 w-4" />
-            AI Records
-          </TabsTrigger>
-          <TabsTrigger value="heat" className="flex items-center gap-2">
-            <Flame className="h-4 w-4" />
-            Heat Detection
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ai-records">
-          {aiRecordsContent}
-        </TabsContent>
-
-        <TabsContent value="heat">
-          <HeatHistoryTab 
-            animalId={animalId} 
-            farmId={farmId} 
-            animalName={animalName}
-            gender={gender}
-          />
-        </TabsContent>
-
-        {/* Lifecycle Actions - GAPs 2-5 */}
-        {!readOnly && (
-          <Card className="mt-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Lifecycle Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                <RecordCalvingDialog
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  livestockType={livestockType}
-                  onSuccess={loadRecords}
-                />
-                <MarkNonReturnButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <RecordHeatReturnButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <MarkVWPEndedButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </Tabs>
-    );
-  }
-
-  // For males or when farmId not provided, just show AI records
-  return aiRecordsContent;
 };
 
 export default AIRecords;
