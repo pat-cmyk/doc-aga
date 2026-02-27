@@ -22,6 +22,8 @@ import {
   PregnancyFailedButton,
 } from "./breeding";
 import { RecordHeatDialog } from "./heat-detection/RecordHeatDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { BREEDING_LIFECYCLE_ACTIONS } from "@/lib/urgencyGlossary";
 
 interface AIRecordsProps {
   animalId: string;
@@ -83,56 +85,130 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
               <CardTitle className="text-base">Lifecycle Actions</CardTitle>
             </CardHeader>
             <CardContent>
+            <TooltipProvider delayDuration={300}>
               <div className="flex flex-wrap gap-2">
-                <RecordHeatButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <ScheduleAIButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  onSuccess={loadRecords}
-                />
-                <RecordCalvingDialog
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  livestockType={livestockType}
-                  onSuccess={loadRecords}
-                />
-                <MarkNonReturnButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <ConfirmPregnancyButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <PregnancyFailedButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <RecordHeatReturnButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
-                <MarkVWPEndedButton
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                  onSuccess={loadRecords}
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <RecordHeatButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.record_heat.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <ScheduleAIButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.schedule_ai.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <RecordCalvingDialog
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        livestockType={livestockType}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.record_calving.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <MarkNonReturnButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <ConfirmPregnancyButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.pregnancy_confirmed.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <PregnancyFailedButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.pregnancy_failed.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <RecordHeatReturnButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.heat_return.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <MarkVWPEndedButton
+                        animalId={animalId}
+                        farmId={farmId}
+                        animalName={animalName}
+                        onSuccess={loadRecords}
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    <p>{BREEDING_LIFECYCLE_ACTIONS.vwp_ended.description}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
+            </TooltipProvider>
             </CardContent>
           </Card>
         )}

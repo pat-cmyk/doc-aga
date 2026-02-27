@@ -806,4 +806,75 @@ ${getPCRSGlossaryForPrompt()}
  - "Currently Pregnant" = Animals with pregnancy_confirmed = true
  - "Repeat Breeder" = Animal with 5+ failed services in current cycle
  `;
- }
+}
+
+// ============================================
+// BREEDING LIFECYCLE ACTION DEFINITIONS
+// ============================================
+
+export interface BreedingActionDefinition {
+  key: string;
+  label: string;
+  labelTagalog: string;
+  description: string;
+  descriptionTagalog: string;
+}
+
+export const BREEDING_LIFECYCLE_ACTIONS: Record<string, BreedingActionDefinition> = {
+  record_heat: {
+    key: 'record_heat',
+    label: 'Record Heat',
+    labelTagalog: 'Itala ang Heat',
+    description: 'Log when an animal shows signs of estrus (standing heat, mucus, restlessness). Use this to start the breeding window timer.',
+    descriptionTagalog: 'Itala kapag nagpapakita ng senyales ng estrus ang hayop (standing heat, mucus, pagkabalisa). Gamitin ito para simulan ang breeding window timer.',
+  },
+  schedule_ai: {
+    key: 'schedule_ai',
+    label: 'Schedule AI',
+    labelTagalog: 'Mag-schedule ng AI',
+    description: 'Book an artificial insemination appointment. Use after detecting heat — ideally within 12–18 hours of standing heat.',
+    descriptionTagalog: 'Mag-book ng artificial insemination. Gamitin pagkatapos ma-detect ang heat — ideally sa loob ng 12–18 oras.',
+  },
+  record_calving: {
+    key: 'record_calving',
+    label: 'Record Calving',
+    labelTagalog: 'Itala ang Panganganak',
+    description: 'Log a birth event. Use when the animal delivers a calf. This resets her cycle to postpartum recovery (VWP).',
+    descriptionTagalog: 'Itala ang panganganak. Gamitin kapag nanganak na ang hayop. Ire-reset nito ang cycle sa postpartum recovery (VWP).',
+  },
+  non_return: {
+    key: 'non_return',
+    label: 'Suspected Pregnant',
+    labelTagalog: 'Pinaghihinalaang Buntis',
+    description: 'Mark non-return to heat 18–24 days after AI. Use when no heat signs reappear, suggesting breeding was successful.',
+    descriptionTagalog: 'Markahan na hindi bumalik sa heat 18–24 araw pagkatapos ng AI. Gamitin kapag walang heat signs na lumabas.',
+  },
+  pregnancy_confirmed: {
+    key: 'pregnancy_confirmed',
+    label: 'Confirm Pregnancy',
+    labelTagalog: 'Kumpirmahin ang Pagbubuntis',
+    description: 'Verify pregnancy via ultrasound or rectal palpation, typically 28–35 days post-AI.',
+    descriptionTagalog: 'I-verify ang pagbubuntis sa pamamagitan ng ultrasound o rectal palpation, karaniwang 28–35 araw pagkatapos ng AI.',
+  },
+  pregnancy_failed: {
+    key: 'pregnancy_failed',
+    label: 'Pregnancy Failed',
+    labelTagalog: 'Nabigo ang Pagbubuntis',
+    description: 'Record a negative pregnancy check or pregnancy loss. The animal returns to Open & Cycling status.',
+    descriptionTagalog: 'Itala ang negatibong pregnancy check o pagkalugi ng pagbubuntis. Babalik ang hayop sa Open & Cycling status.',
+  },
+  heat_return: {
+    key: 'heat_return',
+    label: 'Heat Returned',
+    labelTagalog: 'Bumalik sa Heat',
+    description: 'The animal came back into heat after breeding, meaning the previous AI was unsuccessful.',
+    descriptionTagalog: 'Bumalik sa heat ang hayop pagkatapos ng breeding, ibig sabihin hindi naging matagumpay ang nakaraang AI.',
+  },
+  vwp_ended: {
+    key: 'vwp_ended',
+    label: 'VWP Complete',
+    labelTagalog: 'VWP Tapos na',
+    description: 'The voluntary waiting period (typically 60 days postpartum) has ended. The animal is now eligible for breeding again.',
+    descriptionTagalog: 'Ang voluntary waiting period (karaniwang 60 araw pagkatapos manganak) ay tapos na. Maaari nang i-breed muli ang hayop.',
+  },
+};
