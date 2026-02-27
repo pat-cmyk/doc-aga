@@ -1,112 +1,82 @@
 
-# Fix: Milk Edit Race Condition + Animal Profile Quality Badge
 
-## Audit Result
+# Fix: Rejected Milk Not Showing Due to Trigger `liters_remaining` Bug
 
-The proposed fix **does follow** SSOT and offline-first architecture. Here is the verified analysis:
+## Root Cause
 
-### SSOT Compliance
-
-The current code **violates** SSOT by updating both `milk_inventory` (derived table) AND `milking_records` (source table) from the client. The fix correctly restores the SSOT chain:
+The `sync_milk_inventory_on_update` trigger has a logic error in its quality-change branch. When milk changes from `good` to `rejected`:
 
 ```text
-CURRENT (broken):
-  Dialog -> UPDATE milk_inventory (manual, lines 51-59)
-  Dialog -> UPDATE milking_records (lines 64-72)
-         -> Trigger fires -> UPDATE milk_inventory AGAIN (race condition)
-
-FIXED (SSOT-compliant):
-  Dialog -> UPDATE milking_records ONLY (source of truth)
-         -> Trigger fires -> UPDATE milk_inventory (derived, single path)
-         -> Client refetches both good + rejected queries
+liters_remaining = CASE
+  WHEN NEW.milk_quality = 'good' THEN NEW.liters
+  ELSE liters_remaining   -- BUG: keeps old value (could be 0 from prior sales)
+END
 ```
 
-### Trigger Detail: `RETURN NEW` Short-Circuit
+If the good milk had been partially or fully sold/fed before the quality change, `liters_remaining` is already 0. The rejected record inherits 0, and the rejected query filters `.gte("liters_remaining", 0.05)` -- so it never appears.
 
-The trigger at line 68 does `RETURN NEW` after handling a quality change, which means the liters update block (line 81) **never fires** when quality changes in the same UPDATE. This is actually fine because:
-- good-to-rejected: liters stay as `liters_remaining` (kept for feeding)
-- rejected-to-good: trigger restores `liters_remaining = NEW.liters` (line 63)
-- If both quality AND liters change simultaneously, the liters change is lost
+**Database evidence:**
+- Bessie: `liters_original = 18.20`, `liters_remaining = 0.00`, `milk_quality = 'rejected'`, `is_available = true`
+- Tita Barbecue: `liters_original = 8.30`, `liters_remaining = 0.00`, same situation
 
-**Mitigation**: The fix will ensure that when quality changes, the liters value is also included in the trigger's quality-change branch. This requires a small trigger update.
+Both are invisible because of the 0.05L filter.
 
-### Offline-First Status
+## SSOT + Offline-First Compliance
 
-Milk inventory editing is currently online-only (direct Supabase calls). This is an **existing** constraint, not introduced by this fix. The fix does not degrade offline capability. Offline editing of milk records would be a separate future enhancement using the existing sync queue.
+The frontend code is already correct (SSOT-compliant):
+- `EditMilkRecordDialog` only updates `milking_records` (source of truth)
+- DB trigger handles `milk_inventory` propagation (derived table)
+- Both `milk-inventory` and `milk-inventory-rejected` queries are refetched after edit
+- CacheManager invalidation is in place
 
----
+The only fix needed is in the trigger logic.
 
-## Implementation Plan
+## Fix
 
-### Step 1: Fix the DB trigger to handle simultaneous quality + liters changes
+### Step 1: Fix trigger -- restore liters when quality changes to rejected
 
-Update `sync_milk_inventory_on_update()` so the quality-change branch also applies liters updates, preventing data loss when both change at once.
+When milk is marked rejected, it means the milk was bad. Any prior sales/deductions from it were from "bad" milk. The full original amount should be available for feeding (the primary use of rejected milk). Update the trigger:
 
 ```sql
--- In the quality-change branch, also update liters
-IF NEW.milk_quality IS DISTINCT FROM OLD.milk_quality THEN
-  UPDATE public.milk_inventory
-  SET milk_quality = COALESCE(NEW.milk_quality, 'good'),
-      milk_quality_rejection_reason = NEW.milk_quality_rejection_reason,
-      is_available = CASE 
-        WHEN COALESCE(NEW.is_sold, false) THEN false 
-        ELSE true 
-      END,
-      liters_original = NEW.liters,
-      liters_remaining = CASE
-        WHEN NEW.milk_quality = 'good' THEN NEW.liters
-        ELSE liters_remaining
-      END,
-      record_date = NEW.record_date,
-      updated_at = now()
-  WHERE milking_record_id = NEW.id;
-  RETURN NEW;
-END IF;
+liters_remaining = CASE
+  WHEN NEW.milk_quality = 'good' THEN NEW.liters
+  ELSE NEW.liters   -- Restore full amount for rejected milk (feedable)
+END
 ```
 
-### Step 2: Fix EditMilkRecordDialog -- remove direct milk_inventory update
+This makes both branches set `liters_remaining = NEW.liters`, which simplifies to just `liters_remaining = NEW.liters` unconditionally in the quality-change branch.
 
-File: `src/components/milk-inventory/EditMilkRecordDialog.tsx`
+### Step 2: Backfill existing broken records
 
-- **Remove** lines 51-61 (direct `milk_inventory` UPDATE)
-- **Keep** only the `milking_records` UPDATE (lines 64-72) -- the trigger handles propagation
-- **Add** refetch of `['milk-inventory-rejected', farmId]` alongside the existing good-stock refetch
-- **Add** `CacheManager` invalidation for milk-related caches
+Fix the existing rejected records that have `liters_remaining = 0` but `is_available = true`:
 
-### Step 3: Add milk quality display to animal profile
-
-File: `src/components/MilkingRecords.tsx`
-
-- Extend `MilkRecord` interface with `milk_quality?: string` and `milk_quality_rejection_reason?: string`
-- Add a visual badge next to the liters in the record row (lines 340-388):
-  - "Rejected" badge with destructive styling when `milk_quality === 'rejected'`
-  - Rejection reason shown as secondary text beneath the badge
-- The query already uses `select("*")`, so the fields are fetched but currently dropped by the TypeScript interface
-
----
+```sql
+UPDATE milk_inventory
+SET liters_remaining = liters_original
+WHERE milk_quality = 'rejected'
+  AND is_available = true
+  AND liters_remaining < 0.05;
+```
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| New migration SQL | Update `sync_milk_inventory_on_update` trigger |
-| `src/components/milk-inventory/EditMilkRecordDialog.tsx` | Remove direct inventory update, add rejected query refetch |
-| `src/components/MilkingRecords.tsx` | Add `milk_quality` to interface, render quality badge |
+| New migration SQL | Fix trigger quality-change branch + backfill |
 
-## SSOT Data Flow (After Fix)
+## Why This Is Correct
 
-| Step | Component | Action |
-|------|-----------|--------|
-| 1 | EditMilkRecordDialog | UPDATE `milking_records` only |
-| 2 | DB Trigger | `sync_milk_inventory_on_update` propagates to `milk_inventory` |
-| 3 | Client | Refetch both `milk-inventory` and `milk-inventory-rejected` queries |
-| 4 | UI | Good milk appears in sellable inventory, rejected milk in rejected section |
-| 5 | Animal Profile | MilkingRecords shows quality badge per record |
+| Scenario | Behavior |
+|----------|----------|
+| Good milk, no prior sales, changed to rejected | `liters_remaining = NEW.liters` (full amount, feedable) |
+| Good milk, partially sold, changed to rejected | `liters_remaining = NEW.liters` (restored -- prior sales were from bad milk) |
+| Rejected milk, changed back to good | `liters_remaining = NEW.liters` (full amount, sellable) |
+| Good milk with liters edit only (no quality change) | Handled by separate liters-change block (unchanged) |
 
 ## Risk Assessment
 
 | Risk | Mitigation |
 |------|-----------|
-| Trigger `RETURN NEW` skips liters block on quality change | Step 1 fixes this by including liters in the quality branch |
-| Rejected query never refreshed | Step 2 adds explicit refetch of rejected query key |
-| Animal profile shows no quality info | Step 3 adds badge using existing DB fields |
+| Restoring liters that were legitimately fed as rejected | Feeding deductions happen on `milk_inventory` directly, not through `milking_records` trigger. Feeding records remain valid. The backfill only affects records with `liters_remaining < 0.05`. |
+| Existing feeding deductions on rejected milk | Feeding writes to `milk_inventory.liters_remaining` directly, not through this trigger path. Those deductions are preserved for future rejected-to-rejected edits (no quality change = trigger doesn't fire quality branch). |
+
