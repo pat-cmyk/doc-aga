@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { MilkQualityFields } from "@/components/milk-recording/MilkQualityFields";
 import type { MilkQuality } from "@/constants/milkQuality";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 
 interface EditMilkRecordDialogProps {
   open: boolean;
@@ -47,20 +48,8 @@ export function EditMilkRecordDialog({
       const newDate = format(date, "yyyy-MM-dd");
       const isRejected = milkQuality === 'rejected';
       
-      // Update milk_inventory table directly
-      const { error: invError } = await supabase
-        .from("milk_inventory")
-        .update({
-          liters_remaining: isRejected ? 0 : newLiters,
-          liters_original: newLiters,
-          record_date: newDate,
-          is_available: !isRejected,
-        })
-        .eq("id", record.id);
-      
-      if (invError) throw invError;
-      
-      // Also update the underlying milking_record (trigger will also fire)
+      // SSOT: Only update milking_records (source of truth).
+      // The DB trigger sync_milk_inventory_on_update handles milk_inventory propagation.
       const { error: mrError } = await supabase
         .from("milking_records")
         .update({
@@ -73,10 +62,22 @@ export function EditMilkRecordDialog({
       
       if (mrError) throw mrError;
       
-      await queryClient.refetchQueries({ 
-        queryKey: ['milk-inventory', farmId],
-        type: 'active',
-      });
+      // Refetch both good and rejected inventory queries
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: ['milk-inventory', farmId],
+          type: 'active',
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['milk-inventory-rejected', farmId],
+          type: 'active',
+        }),
+      ]);
+
+      // Invalidate CacheManager for milk-related caches
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('milk-record', farmId);
+      }
       
       toast.success(isRejected ? "Milk record updated (Rejected)" : "Milk record updated");
       onOpenChange(false);
