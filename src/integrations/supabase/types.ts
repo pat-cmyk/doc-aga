@@ -1220,27 +1220,33 @@ export type Database = {
         Row: {
           created_at: string
           farm_id: string
+          feed_animal_count: number
           id: string
           stage_counts: Json
           stat_date: string
+          total_feed_kg: number
           total_milk_liters: number
           updated_at: string
         }
         Insert: {
           created_at?: string
           farm_id: string
+          feed_animal_count?: number
           id?: string
           stage_counts?: Json
           stat_date: string
+          total_feed_kg?: number
           total_milk_liters?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
           farm_id?: string
+          feed_animal_count?: number
           id?: string
           stage_counts?: Json
           stat_date?: string
+          total_feed_kg?: number
           total_milk_liters?: number
           updated_at?: string
         }

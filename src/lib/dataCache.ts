@@ -266,7 +266,7 @@ interface FarmDataCache {
 // ============= DASHBOARD STATS CACHE (Offline-First) =============
 
 // Bump this version when RPC logic changes to force cache invalidation
-const DASHBOARD_CACHE_VERSION = 9; // v5: Unified weight-based feed consumption calculation
+const DASHBOARD_CACHE_VERSION = 10; // v10: Feed data promoted to SSOT (server-side aggregation)
 
 /**
  * Feed stock breakdown for dashboard tooltip
@@ -293,6 +293,7 @@ export interface DashboardStatsCache {
     recentHealthEvents: number;
   };
   dailyMilk: Record<string, number>; // { "2026-01-08": 15, "2026-01-07": 12 }
+  dailyFeed: Record<string, { totalKg: number; animalCount: number }>; // SSOT feed data
   stageCounts: Record<string, number>; // { "Early Lactation": 2, "Calf": 1 }
   // MonthlyHeadcount format: { month: string; [stage: string]: number | string }
   monthlyData: Array<{ month: string; [key: string]: string | number }>;
@@ -1522,6 +1523,7 @@ export async function updateDashboardStatsCache(
   data: {
     stats?: DashboardStatsCache['stats'];
     dailyMilk?: Record<string, number>;
+    dailyFeed?: Record<string, { totalKg: number; animalCount: number }>;
     stageCounts?: Record<string, number>;
     monthlyData?: DashboardStatsCache['monthlyData'];
     stageKeys?: string[];
@@ -1542,6 +1544,7 @@ export async function updateDashboardStatsCache(
         recentHealthEvents: 0,
       },
       dailyMilk: { ...(existing?.dailyMilk || {}), ...(data.dailyMilk || {}) },
+      dailyFeed: { ...(existing?.dailyFeed || {}), ...(data.dailyFeed || {}) },
       stageCounts: data.stageCounts || existing?.stageCounts || {},
       monthlyData: data.monthlyData || existing?.monthlyData || [],
       stageKeys: data.stageKeys || existing?.stageKeys || [],
@@ -1586,6 +1589,7 @@ export async function addLocalMilkRecord(
         recentHealthEvents: 0,
       },
       dailyMilk: {},
+      dailyFeed: {},
       stageCounts: {},
       monthlyData: [],
       stageKeys: [],

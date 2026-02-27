@@ -58,57 +58,21 @@ export const useCombinedDashboardData = (
   const [error, setError] = useState<Error | null>(null);
   const isOnline = useOnlineStatus();
 
-  // Convert cached dailyMilk to chart-compatible format
+  // Convert cached data to chart-compatible format (includes feed from SSOT cache)
   const buildCombinedDataFromCache = useCallback((
     cachedDailyMilk: Record<string, number>,
-    cachedStageCounts: Record<string, number>
+    cachedStageCounts: Record<string, number>,
+    cachedDailyFeed?: Record<string, { totalKg: number; animalCount: number }>
   ): CombinedDailyData[] => {
     return dateArray.map(date => ({
       date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       rawDate: date,
       milkTotal: cachedDailyMilk[date] || 0,
+      feedTotalKg: cachedDailyFeed?.[date]?.totalKg || 0,
+      feedAnimalCount: cachedDailyFeed?.[date]?.animalCount || 0,
       ...cachedStageCounts, // Spread stage counts as properties
     }));
   }, [dateArray]);
-
-  // Independent feed fetch that runs regardless of cache freshness
-  const fetchAndMergeFeedData = useCallback(async () => {
-    if (!isOnline) return;
-    try {
-      const { data: feedRecords } = await supabase
-        .from("feeding_records")
-        .select("record_datetime, animal_id, kilograms, animals!inner(farm_id)")
-        .eq("animals.farm_id", farmId)
-        .gte("record_datetime", startDate.toISOString())
-        .lte("record_datetime", endDate.toISOString());
-
-      const feedByDate: Record<string, { totalKg: number; animals: Set<string> }> = {};
-      feedRecords?.forEach((record: any) => {
-        const date = record.record_datetime?.split('T')[0];
-        if (!date) return;
-        if (!feedByDate[date]) {
-          feedByDate[date] = { totalKg: 0, animals: new Set() };
-        }
-        feedByDate[date].totalKg += Number(record.kilograms || 0);
-        feedByDate[date].animals.add(record.animal_id);
-      });
-
-      // Merge feed data into current combinedData state
-      setCombinedData(prev => prev.map(item => {
-        const rawDate = item.rawDate;
-        if (rawDate && feedByDate[rawDate]) {
-          return {
-            ...item,
-            feedTotalKg: feedByDate[rawDate].totalKg,
-            feedAnimalCount: feedByDate[rawDate].animals.size,
-          };
-        }
-        return { ...item, feedTotalKg: item.feedTotalKg || 0, feedAnimalCount: item.feedAnimalCount || 0 };
-      }));
-    } catch (err) {
-      console.warn('[Dashboard] Feed fetch failed, feed overlay will be empty:', err);
-    }
-  }, [farmId, startDate, endDate, isOnline]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -121,7 +85,7 @@ export const useCombinedDashboardData = (
       if (cachedStats) {
         console.log('[Dashboard] Showing cached data immediately');
         setStats(cachedStats.stats);
-        setCombinedData(buildCombinedDataFromCache(cachedStats.dailyMilk, cachedStats.stageCounts));
+        setCombinedData(buildCombinedDataFromCache(cachedStats.dailyMilk, cachedStats.stageCounts, cachedStats.dailyFeed));
         // Cast monthlyData to MonthlyHeadcount[] since the structure matches
         setMonthlyHeadcount(cachedStats.monthlyData as MonthlyHeadcount[]);
         setStageKeys(cachedStats.stageKeys);
@@ -140,11 +104,9 @@ export const useCombinedDashboardData = (
         return;
       }
 
-      // If cache is fresh and we have data, skip heavy RPC but still fetch feed
+      // If cache is fresh and we have data, skip heavy RPC (feed is already in cache)
       if (cacheIsFresh && cachedStats) {
-        console.log('[Dashboard] Cache is fresh, skipping server fetch — fetching feed independently');
-        // Fetch feed data even when cache is fresh (lightweight query)
-        await fetchAndMergeFeedData();
+        console.log('[Dashboard] Cache is fresh, skipping server fetch');
         return; // Already set loading=false above when showing cached data
       }
 
@@ -195,13 +157,18 @@ export const useCombinedDashboardData = (
           recentHealthEvents: result.stats?.recentHealthEvents ?? 0
         };
 
-        // Process server daily data into dailyMilk map
+        // Process server daily data into dailyMilk and dailyFeed maps
         const serverDailyMilk: Record<string, number> = {};
+        const serverDailyFeed: Record<string, { totalKg: number; animalCount: number }> = {};
         const serverStageCounts: Record<string, number> = {};
         
         (result.dailyData || []).forEach((item: any) => {
           const date = item.date;
           serverDailyMilk[date] = Number(item.milkTotal || 0);
+          serverDailyFeed[date] = {
+            totalKg: Number(item.feedTotalKg || 0),
+            animalCount: Number(item.feedAnimalCount || 0),
+          };
           
           // Aggregate stage counts
           const stageCounts = item.stageCounts || {};
@@ -210,48 +177,26 @@ export const useCombinedDashboardData = (
           });
         });
 
-        // ========== STEP 3b: Fetch feed data in parallel ==========
-        const { data: feedRecords } = await supabase
-          .from("feeding_records")
-          .select("record_datetime, animal_id, kilograms, animals!inner(farm_id)")
-          .eq("animals.farm_id", farmId)
-          .gte("record_datetime", startDate.toISOString())
-          .lte("record_datetime", endDate.toISOString());
-
-        // Aggregate feed by date
-        const feedByDate: Record<string, { totalKg: number; animals: Set<string> }> = {};
-        feedRecords?.forEach((record: any) => {
-          const date = record.record_datetime?.split('T')[0];
-          if (!date) return;
-          if (!feedByDate[date]) {
-            feedByDate[date] = { totalKg: 0, animals: new Set() };
-          }
-          feedByDate[date].totalKg += Number(record.kilograms || 0);
-          feedByDate[date].animals.add(record.animal_id);
-        });
-
         // ========== STEP 4: Merge server with local pending data ==========
-        // For today's date, prefer local cache if it has pending data (higher value wins)
         const today = new Date().toISOString().split('T')[0];
         const mergedDailyMilk = { ...serverDailyMilk };
         
         if (cachedStats?.dailyMilk[today] && cachedStats.syncStatus === 'pending') {
-          // Use MAX of server and local for today (handles both online adds and offline queued)
           mergedDailyMilk[today] = Math.max(
             serverDailyMilk[today] || 0,
             cachedStats.dailyMilk[today] || 0
           );
         }
 
-        // Build combined data for charts
+        // Build combined data for charts (feed comes from RPC via daily_farm_stats SSOT)
         const dailyDataMap: Record<string, CombinedDailyData> = {};
         dateArray.forEach(date => {
           dailyDataMap[date] = {
             date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawDate: date,
             milkTotal: mergedDailyMilk[date] || 0,
-            feedTotalKg: feedByDate[date]?.totalKg || 0,
-            feedAnimalCount: feedByDate[date]?.animals.size || 0,
+            feedTotalKg: serverDailyFeed[date]?.totalKg || 0,
+            feedAnimalCount: serverDailyFeed[date]?.animalCount || 0,
           };
         });
 
@@ -298,6 +243,7 @@ export const useCombinedDashboardData = (
         await updateDashboardStatsCache(farmId, {
           stats: serverStats,
           dailyMilk: mergedDailyMilk,
+          dailyFeed: serverDailyFeed,
           stageCounts: serverStageCounts,
           monthlyData: processedMonthlyData,
           stageKeys: result.stageKeys || [],
@@ -362,7 +308,7 @@ export const useCombinedDashboardData = (
     } finally {
       setLoading(false);
     }
-  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray, isOnline, buildCombinedDataFromCache, fetchAndMergeFeedData]);
+  }, [farmId, startDate, endDate, monthlyStartDate, monthlyEndDate, dateArray, isOnline, buildCombinedDataFromCache]);
 
   useEffect(() => {
     loadData();
