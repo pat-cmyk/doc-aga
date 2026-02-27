@@ -1,8 +1,8 @@
 /**
- * BreedingTimeline - Individual animal reproductive history timeline
+ * BreedingTimeline - Unified reproductive history timeline
  * 
- * Shows the complete breeding lifecycle events for a single animal
- * with visual timeline and key metrics.
+ * Merges breeding_events + heat_records + ai_records into a single
+ * deduplicated chronological timeline for an animal.
  */
 
 import React from 'react';
@@ -17,7 +17,9 @@ import type { BreedingEventType } from '@/types/fertility';
 
 interface BreedingTimelineProps {
   animalId: string;
+  farmId?: string;
   className?: string;
+  headerActions?: React.ReactNode;
 }
 
 interface TimelineEvent {
@@ -31,158 +33,158 @@ interface TimelineEvent {
 const EVENT_CONFIG: Record<BreedingEventType, {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  labelTagalog: string;
   color: string;
 }> = {
-  heat_detected: {
-    icon: Heart,
-    label: 'Heat Detected',
-    labelTagalog: 'Nakitaan ng Init',
-    color: 'text-orange-500',
-  },
-  ai_scheduled: {
-    icon: Clock,
-    label: 'AI Scheduled',
-    labelTagalog: 'Naka-iskedyul ang AI',
-    color: 'text-blue-400',
-  },
-  ai_performed: {
-    icon: Syringe,
-    label: 'AI Performed',
-    labelTagalog: 'Natapos ang AI',
-    color: 'text-blue-500',
-  },
-  non_return: {
-    icon: CheckCircle,
-    label: 'Non-Return',
-    labelTagalog: 'Walang Bumalik na Init',
-    color: 'text-purple-500',
-  },
-  pregnancy_check_scheduled: {
-    icon: Clock,
-    label: 'Preg Check Scheduled',
-    labelTagalog: 'Naka-iskedyul ang Tsek',
-    color: 'text-purple-400',
-  },
-  pregnancy_confirmed: {
-    icon: CheckCircle,
-    label: 'Pregnancy Confirmed',
-    labelTagalog: 'Nakumpirma ang Pagbubuntis',
-    color: 'text-pink-500',
-  },
-  pregnancy_failed: {
-    icon: XCircle,
-    label: 'Not Pregnant',
-    labelTagalog: 'Hindi Buntis',
-    color: 'text-red-500',
-  },
-  calving: {
-    icon: Baby,
-    label: 'Calved',
-    labelTagalog: 'Nanganak',
-    color: 'text-teal-500',
-  },
-  vwp_ended: {
-    icon: CheckCircle,
-    label: 'VWP Ended',
-    labelTagalog: 'Tapos ang Panahon ng Pagpapahinga',
-    color: 'text-green-500',
-  },
-  heat_return: {
-    icon: Heart,
-    label: 'Heat Return',
-    labelTagalog: 'Bumalik ang Init',
-    color: 'text-orange-400',
-  },
+  heat_detected: { icon: Heart, label: 'Heat Detected', color: 'text-orange-500' },
+  ai_scheduled: { icon: Clock, label: 'AI Scheduled', color: 'text-blue-400' },
+  ai_performed: { icon: Syringe, label: 'AI Performed', color: 'text-blue-500' },
+  non_return: { icon: CheckCircle, label: 'Non-Return', color: 'text-purple-500' },
+  pregnancy_check_scheduled: { icon: Clock, label: 'Preg Check Scheduled', color: 'text-purple-400' },
+  pregnancy_confirmed: { icon: CheckCircle, label: 'Pregnancy Confirmed', color: 'text-pink-500' },
+  pregnancy_failed: { icon: XCircle, label: 'Not Pregnant', color: 'text-red-500' },
+  calving: { icon: Baby, label: 'Calved', color: 'text-teal-500' },
+  vwp_ended: { icon: CheckCircle, label: 'VWP Ended', color: 'text-green-500' },
+  heat_return: { icon: Heart, label: 'Heat Return', color: 'text-orange-400' },
 };
 
-export function BreedingTimeline({ animalId, className }: BreedingTimelineProps) {
-  const { data: events = [], isLoading } = useQuery({
+export function BreedingTimeline({ animalId, className, headerActions }: BreedingTimelineProps) {
+  // Fetch breeding_events
+  const { data: breedingEvents = [], isLoading: loadingBreeding } = useQuery({
     queryKey: ['breeding-timeline', animalId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('breeding_events')
-        .select('id, event_type, event_date, notes, metadata')
+        .select('id, event_type, event_date, notes, metadata, related_heat_record_id, related_ai_record_id')
         .eq('animal_id', animalId)
         .order('event_date', { ascending: false })
-        .limit(50);
-
+        .limit(100);
       if (error) throw error;
-      return (data || []) as TimelineEvent[];
+      return data || [];
     },
     enabled: !!animalId,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Also fetch legacy heat records and AI records for backwards compatibility
-  const { data: legacyEvents = [] } = useQuery({
+  // Always fetch legacy records and merge
+  const { data: legacyEvents = [], isLoading: loadingLegacy } = useQuery({
     queryKey: ['breeding-timeline-legacy', animalId],
     queryFn: async () => {
       const [heatResult, aiResult] = await Promise.all([
         supabase
           .from('heat_records')
-          .select('id, detected_at, intensity, standing_heat')
+          .select('id, detected_at, intensity, standing_heat, detection_method')
           .eq('animal_id', animalId)
           .order('detected_at', { ascending: false })
-          .limit(20),
+          .limit(50),
         supabase
           .from('ai_records')
-          .select('id, performed_date, pregnancy_confirmed, expected_delivery_date')
+          .select('id, scheduled_date, performed_date, pregnancy_confirmed, expected_delivery_date, technician, semen_code, notes')
           .eq('animal_id', animalId)
-          .order('performed_date', { ascending: false })
-          .limit(20),
+          .order('scheduled_date', { ascending: false })
+          .limit(50),
       ]);
 
       const combined: TimelineEvent[] = [];
 
-      // Convert heat records
       heatResult.data?.forEach(heat => {
         combined.push({
           id: `heat-${heat.id}`,
           event_type: 'heat_detected',
           event_date: heat.detected_at,
-          notes: heat.standing_heat ? 'Standing heat' : heat.intensity || null,
-          metadata: null,
+          notes: [
+            heat.standing_heat ? 'Standing heat' : null,
+            heat.intensity ? `Intensity: ${heat.intensity}` : null,
+            heat.detection_method ? `Method: ${heat.detection_method}` : null,
+          ].filter(Boolean).join(' · ') || null,
+          metadata: { source: 'heat_records', original_id: heat.id },
         });
       });
 
-      // Convert AI records
       aiResult.data?.forEach(ai => {
-        if (ai.performed_date) {
+        // Scheduled but not performed
+        if (ai.scheduled_date && !ai.performed_date) {
           combined.push({
-            id: `ai-${ai.id}`,
-            event_type: 'ai_performed',
-            event_date: ai.performed_date,
-            notes: null,
-            metadata: null,
+            id: `ai-sched-${ai.id}`,
+            event_type: 'ai_scheduled',
+            event_date: ai.scheduled_date,
+            notes: [
+              ai.technician ? `Tech: ${ai.technician}` : null,
+              ai.semen_code ? `Semen: ${ai.semen_code}` : null,
+            ].filter(Boolean).join(' · ') || null,
+            metadata: { source: 'ai_records', original_id: ai.id },
           });
         }
-        if (ai.pregnancy_confirmed === true) {
+        // Performed
+        if (ai.performed_date) {
+          combined.push({
+            id: `ai-perf-${ai.id}`,
+            event_type: 'ai_performed',
+            event_date: ai.performed_date,
+            notes: [
+              ai.technician ? `Tech: ${ai.technician}` : null,
+              ai.semen_code ? `Semen: ${ai.semen_code}` : null,
+              ai.notes || null,
+            ].filter(Boolean).join(' · ') || null,
+            metadata: { source: 'ai_records', original_id: ai.id },
+          });
+        }
+        // Pregnancy confirmed from AI record
+        if (ai.pregnancy_confirmed === true && ai.performed_date) {
           combined.push({
             id: `preg-${ai.id}`,
             event_type: 'pregnancy_confirmed',
-            event_date: ai.performed_date || '',
+            event_date: ai.performed_date,
             notes: ai.expected_delivery_date ? `Due: ${ai.expected_delivery_date}` : null,
-            metadata: { expected_delivery_date: ai.expected_delivery_date },
+            metadata: { source: 'ai_records', original_id: ai.id, expected_delivery_date: ai.expected_delivery_date },
           });
         }
       });
 
       return combined;
     },
-    enabled: !!animalId && events.length === 0,
+    enabled: !!animalId,
     staleTime: 5 * 60 * 1000,
   });
 
-  const allEvents = events.length > 0 ? events : legacyEvents;
+  const isLoading = loadingBreeding || loadingLegacy;
 
-  // Group events by year/month
+  // Deduplicate: breeding_events with related IDs take priority over legacy
+  const relatedHeatIds = new Set(
+    breedingEvents
+      .filter((e: any) => e.related_heat_record_id)
+      .map((e: any) => e.related_heat_record_id)
+  );
+  const relatedAiIds = new Set(
+    breedingEvents
+      .filter((e: any) => e.related_ai_record_id)
+      .map((e: any) => e.related_ai_record_id)
+  );
+
+  const filteredLegacy = legacyEvents.filter(le => {
+    const meta = le.metadata as Record<string, unknown> | null;
+    const originalId = meta?.original_id as string | undefined;
+    if (!originalId) return true;
+    const source = meta?.source as string;
+    if (source === 'heat_records' && relatedHeatIds.has(originalId)) return false;
+    if (source === 'ai_records' && relatedAiIds.has(originalId)) return false;
+    return true;
+  });
+
+  const allEvents: TimelineEvent[] = [
+    ...breedingEvents.map((e: any) => ({
+      id: e.id,
+      event_type: e.event_type as BreedingEventType,
+      event_date: e.event_date,
+      notes: e.notes,
+      metadata: e.metadata,
+    })),
+    ...filteredLegacy,
+  ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+
+  // Group by month
   const groupedEvents = allEvents.reduce((acc, event) => {
-    const date = new Date(event.event_date);
-    const key = format(date, 'yyyy-MM');
-    if (!acc[key]) {
-      acc[key] = [];
-    }
+    const key = format(new Date(event.event_date), 'yyyy-MM');
+    if (!acc[key]) acc[key] = [];
     acc[key].push(event);
     return acc;
   }, {} as Record<string, TimelineEvent[]>);
@@ -210,73 +212,64 @@ export function BreedingTimeline({ animalId, className }: BreedingTimelineProps)
     );
   }
 
-  if (allEvents.length === 0) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="text-base">Breeding Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground italic text-center py-4">
-            No breeding events recorded yet
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-base">Breeding Timeline</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Breeding Timeline</CardTitle>
+          {headerActions && <div className="flex gap-2">{headerActions}</div>}
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {Object.entries(groupedEvents)
-            .sort(([a], [b]) => b.localeCompare(a))
-            .map(([monthKey, monthEvents]) => (
-              <div key={monthKey}>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  {format(new Date(monthKey + '-01'), 'MMMM yyyy')}
-                </h4>
-                <div className="relative pl-6 border-l-2 border-muted space-y-4">
-                  {monthEvents.map(event => {
-                    const config = EVENT_CONFIG[event.event_type];
-                    const Icon = config?.icon || Clock;
+        {allEvents.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic text-center py-4">
+            No breeding events recorded yet
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(groupedEvents)
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([monthKey, monthEvents]) => (
+                <div key={monthKey}>
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    {format(new Date(monthKey + '-01'), 'MMMM yyyy')}
+                  </h4>
+                  <div className="relative pl-6 border-l-2 border-muted space-y-4">
+                    {monthEvents.map(event => {
+                      const config = EVENT_CONFIG[event.event_type];
+                      const Icon = config?.icon || Clock;
 
-                    return (
-                      <div key={event.id} className="relative">
-                        {/* Timeline dot */}
-                        <div className={`absolute -left-[25px] p-1 rounded-full bg-background border-2 ${config?.color || 'text-muted-foreground'}`}>
-                          <Icon className="h-3 w-3" />
-                        </div>
-
-                        {/* Event content */}
-                        <div className="pb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {config?.label || event.event_type}
-                            </span>
-                            <Badge variant="outline" className="text-[10px]">
-                              {format(new Date(event.event_date), 'MMM d')}
-                            </Badge>
+                      return (
+                        <div key={event.id} className="relative">
+                          <div className={`absolute -left-[25px] p-1 rounded-full bg-background border-2 ${config?.color || 'text-muted-foreground'}`}>
+                            <Icon className="h-3 w-3" />
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(event.event_date), { addSuffix: true })}
-                          </p>
-                          {event.notes && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {event.notes}
+                          <div className="pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">
+                                {config?.label || event.event_type}
+                              </span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {format(new Date(event.event_date), 'MMM d')}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(event.event_date), { addSuffix: true })}
                             </p>
-                          )}
+                            {event.notes && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {event.notes}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-        </div>
+              ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

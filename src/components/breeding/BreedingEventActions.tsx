@@ -1,9 +1,13 @@
 /**
  * BreedingEventActions - Quick action buttons for breeding lifecycle transitions
  * 
- * Provides UI for GAPs 3, 4, 5:
+ * Provides UI for all breeding milestones:
+ * - Record Heat (wraps RecordHeatDialog)
+ * - Schedule AI (wraps ScheduleAIDialog)
  * - Non-return check (suspected pregnant)
- * - Heat return / pregnancy failed
+ * - Confirm Pregnancy
+ * - Pregnancy Failed
+ * - Heat return / breeding failed
  * - VWP ended (postpartum → open cycling)
  */
 
@@ -12,10 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CheckCircle, Heart, Loader2, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Heart, Loader2, Search, XCircle, Flame, Syringe } from 'lucide-react';
 import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
 import { showErrorToastLegacy } from '@/lib/errorHandling';
+import { RecordHeatDialog } from '@/components/heat-detection/RecordHeatDialog';
+import { ScheduleAIDialog } from '@/components/ScheduleAIDialog';
 import type { BreedingEventType } from '@/types/fertility';
 
 interface BreedingEventActionProps {
@@ -26,8 +32,39 @@ interface BreedingEventActionProps {
 }
 
 /**
+ * Record Heat Button - wraps the full RecordHeatDialog
+ */
+export function RecordHeatButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
+  return (
+    <RecordHeatDialog
+      animalId={animalId}
+      farmId={farmId}
+      animalName={animalName}
+      trigger={
+        <Button variant="outline" size="sm" className="gap-2">
+          <Flame className="h-5 w-5 text-orange-500" />
+          Record Heat
+        </Button>
+      }
+    />
+  );
+}
+
+/**
+ * Schedule AI Button - wraps the existing ScheduleAIDialog
+ */
+export function ScheduleAIButton({ animalId, farmId, onSuccess }: BreedingEventActionProps) {
+  return (
+    <ScheduleAIDialog
+      animalId={animalId}
+      farmId={farmId}
+      onSuccess={onSuccess}
+    />
+  );
+}
+
+/**
  * Mark Non-Return (GAP 3)
- * Used when animal hasn't returned to heat by Day 18-24 after AI
  */
 export function MarkNonReturnButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
   return (
@@ -49,8 +86,51 @@ export function MarkNonReturnButton({ animalId, farmId, animalName, onSuccess }:
 }
 
 /**
+ * Confirm Pregnancy Button - inserts pregnancy_confirmed event directly
+ */
+export function ConfirmPregnancyButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
+  return (
+    <BreedingEventActionDialog
+      animalId={animalId}
+      farmId={farmId}
+      animalName={animalName}
+      eventType="pregnancy_confirmed"
+      title="Confirm Pregnancy"
+      description="Pregnancy has been confirmed via rectal palpation, ultrasound, or other method."
+      icon={<CheckCircle className="h-5 w-5 text-pink-500" />}
+      buttonLabel="Confirm Pregnancy"
+      buttonVariant="outline"
+      confirmLabel="Confirm"
+      successMessage="Pregnancy confirmed! Monitor for expected calving date."
+      onSuccess={onSuccess}
+    />
+  );
+}
+
+/**
+ * Pregnancy Failed Button - records pregnancy_failed event
+ */
+export function PregnancyFailedButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
+  return (
+    <BreedingEventActionDialog
+      animalId={animalId}
+      farmId={farmId}
+      animalName={animalName}
+      eventType="pregnancy_failed"
+      title="Record Pregnancy Failed"
+      description="Pregnancy check was negative or pregnancy was lost. Animal will return to Open & Cycling status."
+      icon={<XCircle className="h-5 w-5 text-red-500" />}
+      buttonLabel="Pregnancy Failed"
+      buttonVariant="outline"
+      confirmLabel="Confirm Failed"
+      successMessage="Pregnancy failure recorded. Animal is back to cycling."
+      onSuccess={onSuccess}
+    />
+  );
+}
+
+/**
  * Record Heat Return / Pregnancy Failed (GAP 4)
- * Used when a bred animal returns to heat (breeding failed)
  */
 export function RecordHeatReturnButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
   return (
@@ -73,7 +153,6 @@ export function RecordHeatReturnButton({ animalId, farmId, animalName, onSuccess
 
 /**
  * Mark VWP Ended (GAP 5)
- * Used when postpartum voluntary waiting period is complete
  */
 export function MarkVWPEndedButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
   return (

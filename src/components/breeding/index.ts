@@ -13,7 +13,15 @@ export { BreedingStatusAnimalList } from './BreedingStatusAnimalList';
 export { FertilityStateBadge } from './FertilityStateBadge';
 export { BreedingAlertsSection } from './BreedingAlertsSection';
 export { RecordCalvingDialog } from './RecordCalvingDialog';
-export { MarkNonReturnButton, RecordHeatReturnButton, MarkVWPEndedButton } from './BreedingEventActions';
+export { 
+  MarkNonReturnButton, 
+  RecordHeatReturnButton, 
+  MarkVWPEndedButton,
+  RecordHeatButton,
+  ScheduleAIButton,
+  ConfirmPregnancyButton,
+  PregnancyFailedButton,
+} from './BreedingEventActions';
 export { FarmRecordHeatDialog } from './FarmRecordHeatDialog';
 export { FarmScheduleAIDialog } from './FarmScheduleAIDialog';
 
