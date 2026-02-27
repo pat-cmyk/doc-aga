@@ -74,23 +74,6 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
         <BreedingTimeline
           animalId={animalId}
           farmId={farmId}
-          headerActions={
-            !readOnly ? (
-              <>
-                <RecordHeatDialog
-                  animalId={animalId}
-                  farmId={farmId}
-                  animalName={animalName}
-                />
-                <ScheduleAIDialog
-                  animalId={animalId}
-                  farmId={farmId}
-                  onSuccess={loadRecords}
-                  disabled={!isOnline}
-                />
-              </>
-            ) : undefined
-          }
         />
 
         {/* Lifecycle Actions - all 8 milestones */}
