@@ -26,6 +26,8 @@ interface MilkRecord {
   liters: number;
   session: 'AM' | 'PM' | 'Full Day';
   created_at: string;
+  milk_quality?: string;
+  milk_quality_rejection_reason?: string;
 }
 
 interface MilkingRecordsProps {
@@ -362,7 +364,14 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg">{record.liters}L</span>
+                          <div className="flex flex-col items-end">
+                            <span className="font-bold text-lg">{record.liters}L</span>
+                            {record.milk_quality === 'rejected' && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-medium">
+                                Rejected
+                              </span>
+                            )}
+                          </div>
                           {!readOnly && (
                             <div className="flex items-center gap-1">
                               <Button 
