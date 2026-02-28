@@ -4,15 +4,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { format, subDays, startOfDay } from "date-fns";
 import { TrendingUp } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { DataCategory } from "@/types/government";
 
 interface SentimentTrendChartProps {
   dateFrom?: string;
   dateTo?: string;
   region?: string;
+  dataCategory?: DataCategory;
 }
 
-export const SentimentTrendChart = ({ dateFrom, dateTo, region }: SentimentTrendChartProps) => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
+export const SentimentTrendChart = ({ dateFrom, dateTo, region, dataCategory }: SentimentTrendChartProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region, dataCategory });
 
   // Group by date and sentiment
   const last14Days = Array.from({ length: 14 }, (_, i) => {

@@ -24,13 +24,16 @@ import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { formatDistanceToNow } from "date-fns";
 import { Eye, CheckCircle, AlertCircle, Filter } from "lucide-react";
 
+import { DataCategory } from "@/types/government";
+
 interface FeedbackPriorityQueueProps {
   dateFrom?: string;
   dateTo?: string;
   region?: string;
+  dataCategory?: DataCategory;
 }
 
-export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: externalDateTo, region: externalRegion }: FeedbackPriorityQueueProps) => {
+export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: externalDateTo, region: externalRegion, dataCategory }: FeedbackPriorityQueueProps) => {
   const [filters, setFilters] = useState<any>({});
   const [selectedFeedback, setSelectedFeedback] = useState<any>(null);
   const [actionDialog, setActionDialog] = useState(false);
@@ -70,6 +73,7 @@ export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: exte
     dateFrom: externalDateFrom || getDateFromForRange(timeRange),
     dateTo: externalDateTo,
     region: externalRegion || filters.region,
+    dataCategory,
   };
 
   const { feedbackList, isLoading, updateStatus } = useGovernmentFeedback(effectiveFilters);

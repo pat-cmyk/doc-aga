@@ -4,15 +4,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { Sparkles, AlertTriangle, TrendingUp, MapPin, Activity } from "lucide-react";
 import { format, subDays } from "date-fns";
+import { DataCategory } from "@/types/government";
 
 interface SmartInsightsPanelProps {
   dateFrom?: string;
   dateTo?: string;
   region?: string;
+  dataCategory?: DataCategory;
 }
 
-export const SmartInsightsPanel = ({ dateFrom, dateTo, region }: SmartInsightsPanelProps) => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
+export const SmartInsightsPanel = ({ dateFrom, dateTo, region, dataCategory }: SmartInsightsPanelProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region, dataCategory });
 
   if (isLoading) {
     return <div className="text-center py-8">Generating insights...</div>;

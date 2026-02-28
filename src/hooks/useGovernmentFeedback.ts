@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { showErrorToast } from "@/lib/errorHandling";
+import { DataCategory } from "@/types/government";
 
 type FeedbackStatus = 'submitted' | 'acknowledged' | 'under_review' | 'action_taken' | 'resolved' | 'closed';
 type FeedbackCategory = 'policy_concern' | 'market_access' | 'veterinary_support' | 'training_request' | 'infrastructure' | 'financial_assistance' | 'emergency_support' | 'disease_outbreak' | 'feed_shortage';
@@ -17,6 +18,7 @@ interface FeedbackFilters {
   region?: string;
   dateFrom?: string;
   dateTo?: string;
+  dataCategory?: DataCategory;
 }
 
 export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
@@ -55,38 +57,48 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
       
       console.log('[useGovernmentFeedback] Loaded feedback rows:', data?.length);
 
-      // Filter by region if specified
+      // Client-side filtering for fields on the farms table
+      let filtered = data;
       if (filters?.region) {
-        return data.filter((item: any) => item.farms.region === filters.region);
+        filtered = filtered.filter((item: any) => item.farms?.region === filters.region);
+      }
+      if (filters?.dataCategory && filters.dataCategory !== 'all') {
+        filtered = filtered.filter((item: any) => item.farms?.data_category === filters.dataCategory);
       }
 
-      return data;
+      return filtered;
     },
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['government-feedback-stats'],
+    queryKey: ['government-feedback-stats', filters?.dataCategory],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('farmer_feedback')
-        .select('status, auto_priority, primary_category, created_at');
+        .select('status, auto_priority, primary_category, created_at, farms(data_category)');
 
       if (error) throw error;
 
-      const total = data.length;
-      const pending = data.filter(f => f.status === 'submitted').length;
-      const critical = data.filter(f => f.auto_priority === 'critical').length;
+      // Filter by dataCategory client-side
+      let filtered = data;
+      if (filters?.dataCategory && filters.dataCategory !== 'all') {
+        filtered = filtered.filter((f: any) => f.farms?.data_category === filters.dataCategory);
+      }
+
+      const total = filtered.length;
+      const pending = filtered.filter(f => f.status === 'submitted').length;
+      const critical = filtered.filter(f => f.auto_priority === 'critical').length;
       
       // Category distribution
       const categoryCount: Record<string, number> = {};
-      data.forEach(f => {
+      filtered.forEach(f => {
         categoryCount[f.primary_category] = (categoryCount[f.primary_category] || 0) + 1;
       });
 
       // Recent submissions (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recent = data.filter(f => new Date(f.created_at) >= sevenDaysAgo).length;
+      const recent = filtered.filter(f => new Date(f.created_at) >= sevenDaysAgo).length;
 
       return {
         total,
