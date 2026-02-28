@@ -439,7 +439,7 @@ const GovernmentDashboard = () => {
   }
 
   return (
-    <GovernmentLayout>
+    <GovernmentLayout dataCategory={dataCategory} onDataCategoryChange={setDataCategory}>
       <div className="space-y-4 sm:space-y-6">
         {/* Welcome Banner */}
         <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
@@ -516,33 +516,6 @@ const GovernmentDashboard = () => {
             <Collapsible>
               {/* Actions Row - Export Buttons + Filter Toggle */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Data Source Selector */}
-                <Select value={dataCategory} onValueChange={(value: DataCategory) => setDataCategory(value)}>
-                  <SelectTrigger className="w-[140px]">
-                    <DatabaseIcon className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Data Source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="live">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                        Live Data
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="demo">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        Demo Data
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-gray-500" />
-                        All Data
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
                 
                 <Button
                   variant="outline"
@@ -572,12 +545,6 @@ const GovernmentDashboard = () => {
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
-                {dataCategory !== 'live' && (
-                  <Badge variant={dataCategory === 'demo' ? 'secondary' : 'outline'} className="gap-1">
-                    <span className={`h-2 w-2 rounded-full ${dataCategory === 'demo' ? 'bg-blue-500' : 'bg-gray-500'}`} />
-                    {dataCategory === 'demo' ? 'Demo Mode' : 'All Data'}
-                  </Badge>
-                )}
                 {comparisonMode && (
                   <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
                     Comparing

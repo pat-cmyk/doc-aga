@@ -2,12 +2,17 @@ import { ReactNode } from "react";
 import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
+import { DataCategory } from "@/types/government";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Database as DatabaseIcon } from "lucide-react";
 
 interface GovernmentLayoutProps {
   children: ReactNode;
+  dataCategory?: DataCategory;
+  onDataCategoryChange?: (value: DataCategory) => void;
 }
 
-export const GovernmentLayout = ({ children }: GovernmentLayoutProps) => {
+export const GovernmentLayout = ({ children, dataCategory, onDataCategoryChange }: GovernmentLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card pt-safe">
@@ -21,6 +26,34 @@ export const GovernmentLayout = ({ children }: GovernmentLayoutProps) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {dataCategory && onDataCategoryChange && (
+              <Select value={dataCategory} onValueChange={(value: DataCategory) => onDataCategoryChange(value)}>
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <DatabaseIcon className="h-3.5 w-3.5 mr-1.5" />
+                  <SelectValue placeholder="Data Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="live">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-green-500" />
+                      Live Data
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="demo">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      Demo Data
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-gray-500" />
+                      All Data
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <NetworkStatusIndicator />
             <UserEmailDropdown />
           </div>
