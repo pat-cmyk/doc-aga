@@ -84,8 +84,9 @@ export const FeedbackClusterView = ({ dateFrom, dateTo, region, dataCategory }: 
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px] pr-4">
-          <div className="space-y-4">
+        <div className="relative border rounded-lg">
+          <ScrollArea className="h-[500px] p-4">
+            <div className="space-y-4">
         {significantClusters.length > 0 ? (
           (significantClusters as any[]).map((cluster: any) => (
             <Card
@@ -158,8 +159,10 @@ export const FeedbackClusterView = ({ dateFrom, dateTo, region, dataCategory }: 
             <p className="text-xs">Clusters appear when 2+ farmers report similar issues</p>
           </div>
         )}
-          </div>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-lg" />
+        </div>
       </CardContent>
     </Card>
   );
