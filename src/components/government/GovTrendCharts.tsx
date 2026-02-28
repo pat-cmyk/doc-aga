@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { format, parseISO } from "date-fns";
-import { TrendingUp, Activity, FileText, Droplets, Layers } from "lucide-react";
+import { TrendingUp, Activity, Layers } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface GovTrendChartsProps {
@@ -22,8 +22,8 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
   
   if (isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-6 w-40" />
@@ -124,7 +124,7 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {/* Farm Growth Chart */}
       <Card>
         <CardHeader>
@@ -275,14 +275,14 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
         </CardContent>
       </Card>
 
-      {/* Health Events Chart */}
+      {/* Health Events Trend Chart */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <CardTitle>Health Events & Queries</CardTitle>
+            <Activity className="h-5 w-5 text-primary" />
+            <CardTitle>Health Events Trend</CardTitle>
           </div>
-          <CardDescription>Daily health events and Doc Aga queries</CardDescription>
+          <CardDescription>Daily health events over time</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
@@ -312,92 +312,17 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                 dataKey="healthEvents" 
                 stroke="hsl(var(--chart-3))" 
                 strokeWidth={2}
-                name="Primary Health Events"
+                name="Health Events"
                 dot={{ fill: 'hsl(var(--chart-3))' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="queries" 
-                stroke="hsl(var(--chart-4))" 
-                strokeWidth={2}
-                name="Primary Queries"
-                dot={{ fill: 'hsl(var(--chart-4))' }}
-              />
-              {comparisonMode && (
-                <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="comparisonHealthEvents" 
-                    stroke="hsl(var(--chart-1))" 
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    name="Comparison Health Events"
-                    dot={{ fill: 'hsl(var(--chart-1))' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="comparisonQueries" 
-                    stroke="hsl(var(--chart-5))" 
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    name="Comparison Queries"
-                    dot={{ fill: 'hsl(var(--chart-5))' }}
-                  />
-                </>
-              )}
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Milk Production Chart */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Droplets className="h-5 w-5 text-primary" />
-            <CardTitle>Total Milk Production</CardTitle>
-          </div>
-          <CardDescription>Daily total milk production in liters</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-            <LineChart data={mergedChartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="date" 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-                angle={xAxisProps.angle}
-                textAnchor={xAxisProps.textAnchor}
-                height={xAxisProps.height}
-                tickMargin={xAxisProps.tickMargin}
-                interval={xAxisProps.interval}
-              />
-              <YAxis 
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={legendProps.wrapperStyle}
-                iconSize={legendProps.iconSize}
-              />
-              <Line 
-                type="monotone"
-                dataKey="totalMilk" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={2}
-                name="Total Milk (L)"
-                dot={{ fill: 'hsl(var(--primary))' }}
               />
               {comparisonMode && (
                 <Line 
                   type="monotone" 
-                  dataKey="comparisonTotalMilk" 
+                  dataKey="comparisonHealthEvents" 
                   stroke="hsl(var(--chart-1))" 
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  name="Comparison Total Milk (L)"
+                  name="Comparison Health Events"
                   dot={{ fill: 'hsl(var(--chart-1))' }}
                 />
               )}

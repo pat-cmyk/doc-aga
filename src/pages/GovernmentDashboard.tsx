@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useBreedingStats } from "@/hooks/useBreedingStats";
+import { useRegionalPCRS } from "@/hooks/useRegionalPCRS";
 import { useGovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { BreedingOverviewCards } from "@/components/government/BreedingOverviewCards";
 import { BreedingSuccessChart } from "@/components/government/BreedingSuccessChart";
@@ -38,7 +39,6 @@ import { MilkProductionBySpeciesChart } from "@/components/government/MilkProduc
 import { FeedSecurityCard } from "@/components/government/FeedSecurityCard";
 import { MarketPriceAnalyticsCard } from "@/components/government/MarketPriceAnalyticsCard";
 import { DataQualityDashboardCard } from "@/components/government/DataQualityDashboardCard";
-import { RegionalPCRSCard } from "@/components/government/RegionalPCRSCard";
 import { FarmOperationalHealthCard } from "@/components/government/FarmOperationalHealthCard";
 import { useGovernmentAccess } from "@/hooks/useGovernmentAccess";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
@@ -277,6 +277,15 @@ const GovernmentDashboard = () => {
   const { data: healthStats, isLoading: healthStatsLoading } = useGovernmentHealthStats(
     format(primaryDateRange.start, "yyyy-MM-dd"),
     format(primaryDateRange.end, "yyyy-MM-dd"),
+    primaryRegion,
+    primaryProvince,
+    primaryMunicipality,
+    dataCategory,
+    { enabled: !!hasAccess }
+  );
+
+  // PCRS data for merging into Expected Deliveries Timeline
+  const { data: pcrsData } = useRegionalPCRS(
     primaryRegion,
     primaryProvince,
     primaryMunicipality,
@@ -921,9 +930,6 @@ const GovernmentDashboard = () => {
                 isLoading={statsLoading} 
                 error={statsError}
                 comparisonMode={comparisonMode}
-                region={primaryRegion}
-                province={primaryProvince}
-                municipality={primaryMunicipality}
               />
 
               {/* Regional Map */}
@@ -992,7 +998,26 @@ const GovernmentDashboard = () => {
                   isLoading={breedingStatsLoading}
                 />
                 <ExpectedDeliveriesTimeline
-                  deliveriesByMonth={breedingStats?.expected_deliveries_by_month || {}}
+                  deliveriesByMonth={(() => {
+                    // Merge PCRS risk data into deliveries timeline
+                    const deliveries = breedingStats?.expected_deliveries_by_month || {};
+                    if (!pcrsData?.monthlyTotals) return deliveries;
+                    
+                    const merged: Record<string, { total: number; by_type: Record<string, number>; risk_summary?: { critical: number; high: number; moderate: number; low: number } }> = {};
+                    for (const [month, data] of Object.entries(deliveries)) {
+                      const riskData = pcrsData.monthlyTotals[month];
+                      merged[month] = {
+                        ...data,
+                        risk_summary: riskData ? {
+                          critical: riskData.critical,
+                          high: riskData.high,
+                          moderate: riskData.moderate,
+                          low: riskData.low,
+                        } : undefined,
+                      };
+                    }
+                    return merged;
+                  })()}
                   isLoading={breedingStatsLoading}
                 />
               </div>
@@ -1070,52 +1095,74 @@ const GovernmentDashboard = () => {
           {/* Tab 2: Farmer Voice */}
           <TabsContent value="farmer-voice" className="space-y-6">
             <div className="space-y-6">
-              {/* Persistent Stats Header */}
-              <FarmerVoiceDashboard />
+              {/* Stats Header with Action Menu */}
+              <div className="flex items-center justify-between">
+                <FarmerVoiceDashboard
+                  dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                  dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                  region={primaryRegion}
+                />
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <FileText className="h-4 w-4" />
+                        Tools
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" align="end">
+                      <Tabs defaultValue="templates" className="w-full">
+                        <TabsList className="w-full grid grid-cols-2">
+                          <TabsTrigger value="templates">Templates</TabsTrigger>
+                          <TabsTrigger value="export">Export</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="templates" className="p-0">
+                          <ResponseTemplates />
+                        </TabsContent>
+                        <TabsContent value="export" className="p-0">
+                          <FeedbackExport />
+                        </TabsContent>
+                      </Tabs>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
 
-              {/* Farmer Voice Sub-tabs */}
-              <Tabs defaultValue="queue" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-6">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="queue" className="gap-1">
-                    Queue
-                    <Badge variant="destructive" className="ml-1 h-5 px-1 text-xs">
-                      ⚡
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="insights">Insights</TabsTrigger>
-                  <TabsTrigger value="clusters">Clusters</TabsTrigger>
-                  <TabsTrigger value="templates">Templates</TabsTrigger>
-                  <TabsTrigger value="export">Export</TabsTrigger>
-                </TabsList>
+              {/* Priority Queue - Primary action surface */}
+              <FeedbackPriorityQueue
+                dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                region={primaryRegion}
+              />
 
-                <TabsContent value="overview" className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <FeedbackGeoHeatmap />
-                    <SentimentTrendChart />
-                  </div>
-                </TabsContent>
+              {/* Geographic + Sentiment side-by-side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <FeedbackGeoHeatmap
+                  dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                  dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                  region={primaryRegion}
+                />
+                <SentimentTrendChart
+                  dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                  dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                  region={primaryRegion}
+                />
+              </div>
 
-                <TabsContent value="queue">
-                  <FeedbackPriorityQueue />
-                </TabsContent>
+              {/* Clusters */}
+              <FeedbackClusterView
+                dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                region={primaryRegion}
+              />
 
-                <TabsContent value="insights">
-                  <SmartInsightsPanel />
-                </TabsContent>
-
-                <TabsContent value="clusters">
-                  <FeedbackClusterView />
-                </TabsContent>
-
-                <TabsContent value="templates">
-                  <ResponseTemplates />
-                </TabsContent>
-
-                <TabsContent value="export">
-                  <FeedbackExport />
-                </TabsContent>
-              </Tabs>
+              {/* Smart Insights */}
+              <SmartInsightsPanel
+                dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                region={primaryRegion}
+              />
             </div>
           </TabsContent>
 
@@ -1154,30 +1201,15 @@ const GovernmentDashboard = () => {
               />
             </div>
 
-            {/* Farmer Queries Deep Dive */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Farmer Queries Analysis</CardTitle>
-                <CardDescription>
-                  Detailed breakdown of farmer questions and concerns over time
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FarmerQueriesTopics 
-                  startDate={primaryDateRange.start} 
-                  endDate={primaryDateRange.end}
-                  enabled={hasAccess}
-                  comparisonMode={false}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Production Trends - Now Implemented */}
+            {/* =====================================================
+                SECTION 2: PRODUCTION ECONOMICS
+                Milk production, market prices, feed security
+            ===================================================== */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Production Trends</h3>
-                <span className="text-sm text-muted-foreground">Milk production by species with revenue estimates</span>
+                <h3 className="text-lg font-semibold">Production Economics</h3>
+                <span className="text-sm text-muted-foreground">Milk production, market prices, and feed security</span>
               </div>
               
               <MilkProductionBySpeciesChart
@@ -1188,16 +1220,7 @@ const GovernmentDashboard = () => {
                 municipality={primaryMunicipality}
                 dataCategory={dataCategory}
               />
-            </div>
 
-            {/* Economic & Feed Security */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <DollarSign className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Economic & Feed Security</h3>
-                <span className="text-sm text-muted-foreground">Market prices and feed availability</span>
-              </div>
-              
               <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
                 <MarketPriceAnalyticsCard
                   startDate={primaryDateRange.start}
@@ -1214,14 +1237,25 @@ const GovernmentDashboard = () => {
               </div>
             </div>
 
-            {/* Operational Compliance */}
+            {/* =====================================================
+                SECTION 3: PLATFORM ADOPTION
+                System usage, data quality, farmer engagement
+            ===================================================== */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b">
                 <ClipboardCheck className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Operational Compliance</h3>
-                <span className="text-sm text-muted-foreground">Farm activity logging and data quality</span>
+                <h3 className="text-lg font-semibold">Platform Adoption</h3>
+                <span className="text-sm text-muted-foreground">System usage, data quality, and farmer engagement</span>
               </div>
-              
+
+              {/* Farmer Queries Analysis */}
+              <FarmerQueriesTopics 
+                startDate={primaryDateRange.start} 
+                endDate={primaryDateRange.end}
+                enabled={hasAccess}
+                comparisonMode={false}
+              />
+
               <FarmOperationalHealthCard
                 startDate={primaryDateRange.start}
                 endDate={primaryDateRange.end}
@@ -1229,30 +1263,13 @@ const GovernmentDashboard = () => {
                 province={primaryProvince}
                 dataCategory={dataCategory}
               />
-            </div>
 
-            {/* Data Quality & Risk Management */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <DatabaseIcon className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Data Quality & Risk Management</h3>
-                <span className="text-sm text-muted-foreground">Monitoring data completeness and pre-calving risk</span>
-              </div>
-              
-              <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-                <DataQualityDashboardCard
-                  region={primaryRegion}
-                  province={primaryProvince}
-                  municipality={primaryMunicipality}
-                  dataCategory={dataCategory}
-                />
-                <RegionalPCRSCard
-                  region={primaryRegion}
-                  province={primaryProvince}
-                  municipality={primaryMunicipality}
-                  dataCategory={dataCategory}
-                />
-              </div>
+              <DataQualityDashboardCard
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+                dataCategory={dataCategory}
+              />
             </div>
 
             {/* Coming Soon Sections */}

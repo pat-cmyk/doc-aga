@@ -5,8 +5,14 @@ import { format, subDays, startOfDay } from "date-fns";
 import { TrendingUp } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
-export const SentimentTrendChart = () => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({});
+interface SentimentTrendChartProps {
+  dateFrom?: string;
+  dateTo?: string;
+  region?: string;
+}
+
+export const SentimentTrendChart = ({ dateFrom, dateTo, region }: SentimentTrendChartProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
 
   // Group by date and sentiment
   const last14Days = Array.from({ length: 14 }, (_, i) => {

@@ -38,6 +38,23 @@ Before modifying ANY field, function, or component, you MUST:
 | `calculateMilkingStageFromDays` | `src/lib/animalStages.ts` | LactatingToggle, AnimalForm, useAnimalForm, useEditAnimalForm, RecordBulkMilkDialog |
 | `AnimalAvatar` | `src/components/ui/animal-avatar.tsx` | AnimalDetails, AnimalList, AnimalCard, BioCard, AnimalProfile, ActivityDetailsDialog |
 
+### Government Dashboard Component Inventory (2026-02-28)
+
+| Tab | Section | Components | Primary Hook |
+|-----|---------|------------|-------------|
+| **Livestock Analytics** | Population Overview | `GovDashboardOverview` (4 cards), `RegionalLivestockMap`, `ComparisonSummary` | `useGovernmentStats` |
+| **Livestock Analytics** | Reproduction & Breeding | `HeatDetectionMetrics`, `BreedingOverviewCards`, `BreedingSuccessChart`, `ExpectedDeliveriesTimeline` (with PCRS risk overlay) | `useBreedingStats`, `useRegionalPCRS` |
+| **Livestock Analytics** | Animal Health & Welfare | `VaccinationComplianceCard`, `BCSDistributionChart`, `MortalityAnalyticsCard`, `AnimalHealthHeatmap`, `VeterinaryExpenseHeatmap` | `useGovernmentHealthStats`, `useHealthHeatmap` |
+| **Livestock Analytics** | Trends & Insights | `GovTrendCharts` (3 charts: Farm Growth, Livestock Composition, Health Events) | `useGovernmentStatsTimeseries` |
+| **Farmer Voice** | Stats Header | `FarmerVoiceDashboard` | `useGovernmentFeedback` (with global filters) |
+| **Farmer Voice** | Priority Queue | `FeedbackPriorityQueue` | `useGovernmentFeedback` (with global filters) |
+| **Farmer Voice** | Geographic + Sentiment | `FeedbackGeoHeatmap`, `SentimentTrendChart` | `useGovernmentFeedback` (with global filters) |
+| **Farmer Voice** | Clusters + Insights | `FeedbackClusterView`, `SmartInsightsPanel` | `useGovernmentFeedback` (with global filters) |
+| **Farmer Voice** | Tools (dropdown) | `ResponseTemplates`, `FeedbackExport` | — |
+| **Programs & Economics** | Grant Program Analytics | `RegionalInvestmentCards`, `GrantDistributionCard`, `GrantEffectivenessPanel` | `useGrantAnalytics`, `useGrantEffectiveness` |
+| **Programs & Economics** | Production Economics | `MilkProductionBySpeciesChart`, `MarketPriceAnalyticsCard`, `FeedSecurityCard` | `useGovernmentMilkAnalytics`, `useRegionalMarketPrices`, `useRegionalFeedSecurity` |
+| **Programs & Economics** | Platform Adoption | `FarmerQueriesTopics`, `FarmOperationalHealthCard`, `DataQualityDashboardCard` | `useFarmerQueries`, `useFarmComplianceMetrics`, `useRegionalDataQuality` |
+
 ---
 
 ## 3. Key SSOT Data Flows
