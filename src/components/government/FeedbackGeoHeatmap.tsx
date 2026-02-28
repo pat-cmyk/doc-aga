@@ -4,8 +4,14 @@ import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { MapPin, AlertTriangle } from "lucide-react";
 import { PriorityLegend } from "@/components/government/PriorityLegend";
 
-export const FeedbackGeoHeatmap = () => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({});
+interface FeedbackGeoHeatmapProps {
+  dateFrom?: string;
+  dateTo?: string;
+  region?: string;
+}
+
+export const FeedbackGeoHeatmap = ({ dateFrom, dateTo, region }: FeedbackGeoHeatmapProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
 
   if (isLoading) {
     return <div className="text-center py-8">Loading geographic data...</div>;

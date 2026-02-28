@@ -5,8 +5,14 @@ import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { Sparkles, AlertTriangle, TrendingUp, MapPin, Activity } from "lucide-react";
 import { format, subDays } from "date-fns";
 
-export const SmartInsightsPanel = () => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({});
+interface SmartInsightsPanelProps {
+  dateFrom?: string;
+  dateTo?: string;
+  region?: string;
+}
+
+export const SmartInsightsPanel = ({ dateFrom, dateTo, region }: SmartInsightsPanelProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
 
   if (isLoading) {
     return <div className="text-center py-8">Generating insights...</div>;

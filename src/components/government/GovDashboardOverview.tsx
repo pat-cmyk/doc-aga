@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, FileText, TrendingUp, TrendingDown, Gift, DollarSign } from "lucide-react";
+import { Activity, Users, FileText, TrendingUp, TrendingDown } from "lucide-react";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
-import { useGrantAnalytics } from "@/hooks/useGrantAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface GovDashboardOverviewProps {
@@ -10,18 +9,14 @@ interface GovDashboardOverviewProps {
   isLoading: boolean;
   error?: Error | null;
   comparisonMode?: boolean;
-  region?: string;
-  province?: string;
-  municipality?: string;
 }
 
-export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error, comparisonMode, region, province, municipality }: GovDashboardOverviewProps) => {
-  const { data: grantData, isLoading: grantLoading } = useGrantAnalytics(region, province, municipality);
+export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error, comparisonMode }: GovDashboardOverviewProps) => {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
@@ -49,8 +44,8 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
 
   if (!stats) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground">No data available</p>
@@ -111,17 +106,8 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `₱${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `₱${(amount / 1000).toFixed(0)}K`;
-    }
-    return `₱${amount.toLocaleString()}`;
-  };
-
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Farms</CardTitle>
@@ -209,50 +195,6 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
                 {(stats.health_event_count || 0).toLocaleString()}
               </div>
               <GrowthIndicator value={stats.healthGrowth || 0} />
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Grant Recipients Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Grant Recipients</CardTitle>
-          <Gift className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          {grantLoading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {(grantData?.totalGrantAnimals || 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {grantData?.grantPercentage?.toFixed(1) || 0}% of total herd
-              </p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Avg Purchase Price Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Avg Purchase Price</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          {grantLoading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {grantData?.avgPurchasePrice ? formatCurrency(grantData.avgPurchasePrice) : "—"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {grantData?.totalPurchasedAnimals?.toLocaleString() || 0} purchased
-              </p>
             </>
           )}
         </CardContent>

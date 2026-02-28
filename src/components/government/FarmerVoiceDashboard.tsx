@@ -2,8 +2,14 @@ import { Card } from "@/components/ui/card";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { MessageSquare, AlertTriangle, Clock, TrendingUp } from "lucide-react";
 
-export const FarmerVoiceDashboard = () => {
-  const { stats, isLoading } = useGovernmentFeedback();
+interface FarmerVoiceDashboardProps {
+  dateFrom?: string;
+  dateTo?: string;
+  region?: string;
+}
+
+export const FarmerVoiceDashboard = ({ dateFrom, dateTo, region }: FarmerVoiceDashboardProps) => {
+  const { stats, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
 
   if (isLoading || !stats) {
     return <div className="text-center py-8">Loading farmer feedback statistics...</div>;

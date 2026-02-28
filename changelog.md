@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-02-28 — Government Dashboard SSOT Simplification
+
+### Removed (Duplications Eliminated)
+- **GovDashboardOverview**: Removed "Grant Recipients" and "Avg Purchase Price" cards (data fully covered in Programs tab). Removed `useGrantAnalytics` dependency. Grid reduced from 6 to 4 columns.
+- **GovTrendCharts**: Removed "Total Milk Production" chart (duplicate of `MilkProductionBySpeciesChart` in Programs). Removed Doc Aga queries line from Health Events chart. Grid changed to 3-column layout.
+- **RegionalPCRSCard**: Removed from Programs tab; PCRS risk data merged into `ExpectedDeliveriesTimeline` in Livestock tab.
+
+### Changed
+- **ExpectedDeliveriesTimeline**: Now receives merged PCRS risk overlay data via `useRegionalPCRS` hook, showing risk tier badges alongside species counts.
+- **Farmer Voice tab**: Flattened from 6 sub-tabs to single scrollable view. Templates and Export moved to popover dropdown. All sub-components (`FeedbackPriorityQueue`, `SmartInsightsPanel`, `FeedbackClusterView`, `FeedbackGeoHeatmap`, `SentimentTrendChart`) now accept and propagate global `dateFrom`, `dateTo`, `region` filters via existing `useGovernmentFeedback` filter interface.
+- **FarmerVoiceDashboard**: Now accepts optional `dateFrom`, `dateTo`, `region` props.
+- **Programs tab**: Reorganized into 3 clear sections: Grant Program Analytics, Production Economics, Platform Adoption. "Farmer Queries Analysis" moved from standalone card into Platform Adoption section.
+
+### SSOT Compliance
+- Zero new RPCs, hooks, or database changes
+- All changes are layout/composition moves and prop additions
+- Existing `useGovernmentFeedback` filter interface now fully utilized by all Farmer Voice sub-components
+
+
 ## 2026-02-26 — Phase 6: Conflict Detection & Resolution — Wire Up the Gap
 
 ### Added
