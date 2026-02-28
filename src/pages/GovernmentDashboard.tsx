@@ -1096,13 +1096,11 @@ const GovernmentDashboard = () => {
           <TabsContent value="farmer-voice" className="space-y-6">
             <div className="space-y-6">
               {/* Stats Header with Action Menu */}
-              <div className="flex items-center justify-between">
-                <FarmerVoiceDashboard
-                  dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
-                  dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
-                  region={primaryRegion}
-                />
-                <div className="flex gap-2">
+              <FarmerVoiceDashboard
+                dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
+                dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
+                region={primaryRegion}
+                headerAction={
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-2">
@@ -1126,8 +1124,8 @@ const GovernmentDashboard = () => {
                       </Tabs>
                     </PopoverContent>
                   </Popover>
-                </div>
-              </div>
+                }
+              />
 
               {/* Priority Queue - Primary action surface */}
               <FeedbackPriorityQueue
