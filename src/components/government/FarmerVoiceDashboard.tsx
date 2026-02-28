@@ -6,9 +6,10 @@ interface FarmerVoiceDashboardProps {
   dateFrom?: string;
   dateTo?: string;
   region?: string;
+  headerAction?: React.ReactNode;
 }
 
-export const FarmerVoiceDashboard = ({ dateFrom, dateTo, region }: FarmerVoiceDashboardProps) => {
+export const FarmerVoiceDashboard = ({ dateFrom, dateTo, region, headerAction }: FarmerVoiceDashboardProps) => {
   const { stats, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
 
   if (isLoading || !stats) {
@@ -33,11 +34,14 @@ export const FarmerVoiceDashboard = ({ dateFrom, dateTo, region }: FarmerVoiceDa
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Boses ng Magsasaka Dashboard</h2>
-        <p className="text-muted-foreground">
-          Real-time insights from farmer feedback across the Philippines
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Boses ng Magsasaka Dashboard</h2>
+          <p className="text-muted-foreground">
+            Real-time insights from farmer feedback across the Philippines
+          </p>
+        </div>
+        {headerAction && <div className="flex-shrink-0">{headerAction}</div>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
