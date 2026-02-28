@@ -31,10 +31,15 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
         .from('farmer_feedback')
         .select(`
           *,
-          farms(name, region, province, municipality, livestock_type)
+          farms!inner(name, region, province, municipality, livestock_type, data_category)
         `)
         .order('priority_score', { ascending: false })
         .order('created_at', { ascending: false });
+
+      // Apply data category filter at query level (SSOT pattern)
+      if (filters?.dataCategory && filters.dataCategory !== 'all') {
+        query = query.eq('farms.data_category', filters.dataCategory);
+      }
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -57,13 +62,10 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
       
       console.log('[useGovernmentFeedback] Loaded feedback rows:', data?.length);
 
-      // Client-side filtering for fields on the farms table
+      // Client-side filtering for region (different pattern)
       let filtered = data;
       if (filters?.region) {
         filtered = filtered.filter((item: any) => item.farms?.region === filters.region);
-      }
-      if (filters?.dataCategory && filters.dataCategory !== 'all') {
-        filtered = filtered.filter((item: any) => item.farms?.data_category === filters.dataCategory);
       }
 
       return filtered;
@@ -73,32 +75,32 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
   const { data: stats } = useQuery({
     queryKey: ['government-feedback-stats', filters?.dataCategory],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('farmer_feedback')
-        .select('status, auto_priority, primary_category, created_at, farms(data_category)');
+        .select('status, auto_priority, primary_category, created_at, farms!inner(data_category)');
 
-      if (error) throw error;
-
-      // Filter by dataCategory client-side
-      let filtered = data;
+      // Apply data category filter at query level (SSOT pattern)
       if (filters?.dataCategory && filters.dataCategory !== 'all') {
-        filtered = filtered.filter((f: any) => f.farms?.data_category === filters.dataCategory);
+        query = query.eq('farms.data_category', filters.dataCategory);
       }
 
-      const total = filtered.length;
-      const pending = filtered.filter(f => f.status === 'submitted').length;
-      const critical = filtered.filter(f => f.auto_priority === 'critical').length;
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const total = data.length;
+      const pending = data.filter(f => f.status === 'submitted').length;
+      const critical = data.filter(f => f.auto_priority === 'critical').length;
       
       // Category distribution
       const categoryCount: Record<string, number> = {};
-      filtered.forEach(f => {
+      data.forEach(f => {
         categoryCount[f.primary_category] = (categoryCount[f.primary_category] || 0) + 1;
       });
 
       // Recent submissions (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recent = filtered.filter(f => new Date(f.created_at) >= sevenDaysAgo).length;
+      const recent = data.filter(f => new Date(f.created_at) >= sevenDaysAgo).length;
 
       return {
         total,
