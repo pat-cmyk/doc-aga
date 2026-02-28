@@ -86,6 +86,251 @@ const SEMEN_CODES: Record<string, string[]> = {
   carabao: ['MUR-2024-A', 'CAR-2024-B'],
 }
 
+// ── Farmer Feedback Templates ──────────────────────────────────────────
+
+interface FeedbackTemplate {
+  category: string
+  transcriptions: Record<string, string[]> // keyed by livestock_type
+  tags: string[]
+  detected_entities: any
+  ai_summary: string
+  department: string
+}
+
+const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
+  {
+    category: 'market_access',
+    transcriptions: {
+      cattle: [
+        'Ang presyo ng baka sa palengke ay napakababa ngayon. Hindi na sulit ang gastos sa feeds. Kailangan namin ng tulong sa paghanap ng mas magandang buyer.',
+        'Walang livestock auction dito sa amin. Kailangan naming pumunta pa sa kabilang probinsya para makapagbenta ng baka.',
+      ],
+      goat: [
+        'Hirap kaming magbenta ng kambing dahil walang organized market dito. Gusto namin ng cooperative marketing.',
+        'Ang presyo ng chevon ay bumaba. Paano namin mapapataas ang halaga ng aming mga kambing?',
+      ],
+      carabao: [
+        'Wala kaming alam na buyer ng carabao milk sa aming lugar. Gusto namin ng market linkage.',
+        'Ang carabao meat ay mababa ang demand dito. Kailangan ng promotion sa aming produkto.',
+      ],
+    },
+    tags: ['market', 'pricing', 'buyer', 'auction'],
+    detected_entities: null,
+    ai_summary: 'Farmer reports difficulty accessing markets and getting fair prices for livestock products.',
+    department: 'Department of Agriculture - Marketing',
+  },
+  {
+    category: 'disease_outbreak',
+    transcriptions: {
+      cattle: [
+        'May tatlong baka na biglang nagkasakit. Nilalagnat at hindi kumakain. Baka FMD po ito. Kailangan po agad ng veterinarian.',
+        'Nakita ko na ang dalawang baka ay may sugat sa bibig at paa. Parang foot and mouth disease. Natatakot ako na kumalat sa ibang hayop.',
+      ],
+      goat: [
+        'Maraming kambing ang nagtatae at nilalagnat. Parang peste des petits ruminants. Urgent po ito.',
+        'May dalawang kambing na biglang namatay. Hindi ko alam kung anong sakit. Kailangan ng investigation.',
+      ],
+      carabao: [
+        'Ang aming carabao ay may hemorrhagic septicemia symptoms. Nagmamanas ang leeg at hirap huminga.',
+        'Tatlong carabao ang may surra symptoms - payat, malaki ang tiyan, at matamlay.',
+      ],
+    },
+    tags: ['disease', 'outbreak', 'emergency', 'veterinary'],
+    detected_entities: { diseases: ['FMD', 'hemorrhagic septicemia'], locations: ['farm'] },
+    ai_summary: 'Urgent disease outbreak reported requiring immediate veterinary intervention.',
+    department: 'Bureau of Animal Industry',
+  },
+  {
+    category: 'veterinary_support',
+    transcriptions: {
+      cattle: [
+        'Walang veterinarian sa aming barangay. Kung may sakit ang baka, kailangan pang mag-travel ng malayo.',
+        'Kailangan namin ng regular veterinary visits para sa vaccination at deworming ng mga baka.',
+      ],
+      goat: [
+        'Ang pinakamalapit na vet clinic ay dalawang oras ang layo. Kailangan namin ng mobile vet service para sa mga kambing.',
+        'Gusto namin matuto kung paano mag-basic health check sa mga kambing. Training po sana.',
+      ],
+      carabao: [
+        'Ang carabao namin ay nangangailangan ng AI service pero walang technician dito sa amin.',
+        'Kailangan namin ng mas madalas na veterinary mission sa aming lugar para sa mga carabao.',
+      ],
+    },
+    tags: ['veterinary', 'healthcare', 'access', 'rural'],
+    detected_entities: null,
+    ai_summary: 'Farmer lacks access to veterinary services in their area.',
+    department: 'Provincial Veterinary Office',
+  },
+  {
+    category: 'feed_shortage',
+    transcriptions: {
+      cattle: [
+        'Dahil sa tag-init, wala nang halos damo para sa mga baka. Kailangan namin ng alternative feed source.',
+        'Ang presyo ng commercial feeds ay tumaas ng malaki. Hindi na kaya ng aming budget.',
+      ],
+      goat: [
+        'Nauubusan na kami ng pastulan para sa mga kambing. Sobrang init at tuyo na ang lahat.',
+        'Walang available na concentrate feeds dito sa amin. Ang kambing ay pumapayat.',
+      ],
+      carabao: [
+        'Ang rice straw ay hindi na sapat para sa aming mga carabao. Kailangan ng silage training.',
+        'Tag-init at walang fresh grass. Ang carabao ay bumababa ang milk production.',
+      ],
+    },
+    tags: ['feed', 'shortage', 'drought', 'nutrition'],
+    detected_entities: null,
+    ai_summary: 'Feed shortage reported due to drought or high commercial feed prices.',
+    department: 'Department of Agriculture - Livestock',
+  },
+  {
+    category: 'training_request',
+    transcriptions: {
+      cattle: [
+        'Gusto naming matuto ng proper dairy farming techniques. Wala kaming training sa aming lugar.',
+        'Paano po gumawa ng silage? Gusto naming matuto para hindi masayang ang damo sa tag-ulan.',
+      ],
+      goat: [
+        'Kailangan namin ng training sa goat breeding at health management.',
+        'Gusto naming matuto ng cheese making para ma-add value ang goat milk.',
+      ],
+      carabao: [
+        'Gusto naming mag-training sa proper carabao milking techniques at milk handling.',
+        'Kailangan ng seminar sa carabao management, lalo na sa reproductive health.',
+      ],
+    },
+    tags: ['training', 'capacity-building', 'skills', 'education'],
+    detected_entities: null,
+    ai_summary: 'Farmer requests training programs for improved livestock management.',
+    department: 'Agricultural Training Institute',
+  },
+  {
+    category: 'infrastructure',
+    transcriptions: {
+      cattle: [
+        'Kailangan namin ng concrete watering trough. Ang mga baka ay umiinom sa maruming ilog.',
+        'Walang maayos na cattle shed sa aming farm. Kapag umuulan, basa lahat ng baka.',
+      ],
+      goat: [
+        'Kailangan po namin ng elevated goat house. Ang mga kambing namin ay sa lupa lang natutulog.',
+        'Walang proper fencing sa aming goat farm. Madalas nakakatakas ang mga kambing.',
+      ],
+      carabao: [
+        'Ang milking parlor namin ay sira na. Kailangan ng repair o palitan.',
+        'Walang wallow area ang mga carabao namin. Kailangan ng concrete wallow.',
+      ],
+    },
+    tags: ['infrastructure', 'facilities', 'housing', 'water'],
+    detected_entities: null,
+    ai_summary: 'Farmer needs infrastructure improvements for livestock housing and facilities.',
+    department: 'Department of Agriculture - Engineering',
+  },
+  {
+    category: 'financial_assistance',
+    transcriptions: {
+      cattle: [
+        'Gusto naming mag-loan para makabili ng mas maraming baka pero walang available na program sa amin.',
+        'Kailangan po namin ng financial support para sa cattle fattening project.',
+      ],
+      goat: [
+        'May program po ba na pwede kaming maka-avail ng goat dispersal? Gusto naming palakihin ang aming herd.',
+        'Ang insurance ng kambing ay napakamahal. May subsidized insurance po ba?',
+      ],
+      carabao: [
+        'Gusto naming mag-apply ng loan para sa dairy carabao enterprise pero hindi kami qualified sa bangko.',
+        'Kailangan namin ng crop insurance na kasama ang carabao para protektado kami sa bagyo.',
+      ],
+    },
+    tags: ['finance', 'loan', 'insurance', 'subsidy'],
+    detected_entities: null,
+    ai_summary: 'Farmer seeks financial assistance programs for livestock enterprise expansion.',
+    department: 'Landbank - Agricultural Lending',
+  },
+  {
+    category: 'policy_concern',
+    transcriptions: {
+      cattle: [
+        'Bakit po ang importation ng beef ay patuloy? Bumababa tuloy ang presyo ng local na baka.',
+        'Ang regulation sa livestock transport ay sobrang strict. Nahihirapan kaming mag-transport ng baka.',
+      ],
+      goat: [
+        'Walang clear na policy sa goat farming standards dito sa amin. Sana may guidelines.',
+        'Ang local ordinance ay nagbabawal ng goat raising sa residential areas. Paano kami?',
+      ],
+      carabao: [
+        'Ang batas na nagbabawal ng carabao slaughter ay nakakaapekto sa aming kabuhayan.',
+        'Kailangan ng mas malinaw na policy sa carabao dairy development.',
+      ],
+    },
+    tags: ['policy', 'regulation', 'government', 'legislation'],
+    detected_entities: null,
+    ai_summary: 'Farmer raises concerns about agricultural policies affecting their livelihood.',
+    department: 'Department of Agriculture - Policy',
+  },
+  {
+    category: 'emergency_support',
+    transcriptions: {
+      cattle: [
+        'Binaha ang farm namin. Tatlong baka ang namatay at sira ang lahat ng feeds namin. Kailangan ng agarang tulong.',
+        'Tinamaan ng bagyo ang aming barn. Kailangan ng emergency shelter para sa mga baka.',
+      ],
+      goat: [
+        'Nasunog ang goat house namin kagabi. Lahat ng kambing ay walang shelter ngayon.',
+        'Landslide sa aming farm. May mga kambing na na-trap. Kailangan ng rescue.',
+      ],
+      carabao: [
+        'Flash flood sa aming lugar. Kailangan ng emergency evacuation para sa mga carabao.',
+        'Nasira ang lahat ng stored feeds dahil sa bagyo. Kailangan ng emergency feed supply.',
+      ],
+    },
+    tags: ['emergency', 'disaster', 'flood', 'typhoon', 'urgent'],
+    detected_entities: null,
+    ai_summary: 'Farmer reports an emergency situation requiring immediate disaster response.',
+    department: 'DSWD - Disaster Response',
+  },
+]
+
+const PRIORITY_WEIGHTS = [
+  { priority: 'critical', weight: 0.10, scoreMin: 85, scoreMax: 100, sentiments: ['urgent'] },
+  { priority: 'high', weight: 0.20, scoreMin: 65, scoreMax: 84, sentiments: ['urgent', 'negative'] },
+  { priority: 'medium', weight: 0.40, scoreMin: 35, scoreMax: 64, sentiments: ['negative', 'neutral'] },
+  { priority: 'low', weight: 0.30, scoreMin: 0, scoreMax: 34, sentiments: ['neutral', 'positive'] },
+]
+
+const FEEDBACK_STATUSES = ['submitted', 'acknowledged', 'under_review', 'action_taken', 'resolved', 'closed']
+
+function pickPriority(seed: string) {
+  const r = seededRandom(seed)
+  let cumulative = 0
+  for (const p of PRIORITY_WEIGHTS) {
+    cumulative += p.weight
+    if (r < cumulative) return p
+  }
+  return PRIORITY_WEIGHTS[PRIORITY_WEIGHTS.length - 1]
+}
+
+function pickFeedbackStatus(daysAgo: number, seed: string): string {
+  const r = seededRandom(seed)
+  if (daysAgo > 60) {
+    // Old: mostly resolved/closed
+    if (r < 0.4) return 'resolved'
+    if (r < 0.7) return 'closed'
+    if (r < 0.85) return 'action_taken'
+    return 'under_review'
+  } else if (daysAgo > 30) {
+    if (r < 0.2) return 'resolved'
+    if (r < 0.4) return 'action_taken'
+    if (r < 0.65) return 'under_review'
+    if (r < 0.85) return 'acknowledged'
+    return 'submitted'
+  } else {
+    // Recent: mostly new
+    if (r < 0.4) return 'submitted'
+    if (r < 0.65) return 'acknowledged'
+    if (r < 0.8) return 'under_review'
+    return 'action_taken'
+  }
+}
+
 interface InventoryItem {
   id: string
   feed_type: string
@@ -448,6 +693,102 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Seed Farmer Feedback (farm-level, not per-animal) ──────────────
+      let feedbackCount = 0
+      const ninetyDaysAgo = new Date(now)
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+      const ninetyDaysAgoStr = ninetyDaysAgo.toISOString()
+
+      const { count: existingFeedbackCount } = await supabase
+        .from('farmer_feedback')
+        .select('id', { count: 'exact', head: true })
+        .eq('farm_id', farm.id)
+        .gte('created_at', ninetyDaysAgoStr)
+
+      if ((existingFeedbackCount ?? 0) < 5) {
+        // Get farm owner user_id
+        const { data: membership } = await supabase
+          .from('farm_memberships')
+          .select('user_id')
+          .eq('farm_id', farm.id)
+          .eq('role_in_farm', 'farmer_owner')
+          .not('user_id', 'is', null)
+          .limit(1)
+          .single()
+
+        const ownerUserId = membership?.user_id
+        if (ownerUserId) {
+          const feedbackInserts: any[] = []
+          const numFeedback = 5 + Math.floor(seededRandom(`${farm.id}_fbcount`) * 11) // 5-15
+          const species = (farm.livestock_type || 'cattle').toLowerCase()
+
+          for (let i = 0; i < numFeedback; i++) {
+            const seed = `${farm.id}_fb_${i}`
+            const templateIdx = Math.floor(seededRandom(`${seed}_cat`) * FEEDBACK_TEMPLATES.length)
+            const template = FEEDBACK_TEMPLATES[templateIdx]
+
+            const daysAgo = Math.floor(seededRandom(`${seed}_day`) * 90) + 1
+            const feedbackDate = new Date(now)
+            feedbackDate.setDate(feedbackDate.getDate() - daysAgo)
+
+            const priorityInfo = pickPriority(`${seed}_pri`)
+            const priorityScore = Math.floor(randBetween(priorityInfo.scoreMin, priorityInfo.scoreMax, `${seed}_score`))
+            const sentiment = priorityInfo.sentiments[Math.floor(seededRandom(`${seed}_sent`) * priorityInfo.sentiments.length)]
+            const status = pickFeedbackStatus(daysAgo, `${seed}_status`)
+
+            const speciesTranscriptions = template.transcriptions[species] || template.transcriptions.cattle
+            const transcription = speciesTranscriptions[Math.floor(seededRandom(`${seed}_txt`) * speciesTranscriptions.length)]
+
+            // Set timestamps based on status
+            let acknowledged_at: string | null = null
+            let reviewed_at: string | null = null
+            let resolution_date: string | null = null
+
+            const statusIdx = FEEDBACK_STATUSES.indexOf(status)
+            if (statusIdx >= 1) { // acknowledged or later
+              const ackDate = new Date(feedbackDate)
+              ackDate.setDate(ackDate.getDate() + Math.floor(seededRandom(`${seed}_ack`) * 3) + 1)
+              acknowledged_at = ackDate.toISOString()
+            }
+            if (statusIdx >= 2) { // under_review or later
+              const revDate = new Date(feedbackDate)
+              revDate.setDate(revDate.getDate() + Math.floor(seededRandom(`${seed}_rev`) * 5) + 3)
+              reviewed_at = revDate.toISOString()
+            }
+            if (statusIdx >= 4) { // resolved or closed
+              const resDate = new Date(feedbackDate)
+              resDate.setDate(resDate.getDate() + Math.floor(seededRandom(`${seed}_res`) * 14) + 7)
+              resolution_date = resDate.toISOString().split('T')[0]
+            }
+
+            feedbackInserts.push({
+              farm_id: farm.id,
+              user_id: ownerUserId,
+              transcription,
+              ai_summary: template.ai_summary,
+              primary_category: template.category,
+              tags: template.tags,
+              sentiment,
+              priority_score: priorityScore,
+              auto_priority: priorityInfo.priority,
+              detected_entities: template.detected_entities,
+              assigned_department: template.department,
+              status,
+              is_anonymous: seededRandom(`${seed}_anon`) < 0.15,
+              acknowledged_at,
+              reviewed_at,
+              resolution_date,
+              created_at: feedbackDate.toISOString(),
+            })
+          }
+
+          for (let i = 0; i < feedbackInserts.length; i += batchSize) {
+            const { error } = await supabase.from('farmer_feedback').insert(feedbackInserts.slice(i, i + batchSize))
+            if (!error) feedbackCount += Math.min(batchSize, feedbackInserts.length - i)
+          }
+        }
+      }
+
       summary.push({
         farm_id: farm.id,
         farm_name: farm.name,
@@ -459,13 +800,14 @@ Deno.serve(async (req) => {
         bcs_inserted: bcsCount,
         feeding_inserted: feedCount,
         ai_inserted: aiCount,
+        feedback_inserted: feedbackCount,
         inventory_linked: inventoryLinked,
         zero_cost_fallback: zeroCostFallback,
       })
     }
 
     const totalRecords = summary.reduce((sum, s) =>
-      sum + s.milking_inserted + s.weight_inserted + s.health_inserted + s.bcs_inserted + s.feeding_inserted + (s.ai_inserted || 0), 0)
+      sum + s.milking_inserted + s.weight_inserted + s.health_inserted + s.bcs_inserted + s.feeding_inserted + (s.ai_inserted || 0) + (s.feedback_inserted || 0), 0)
 
     return new Response(JSON.stringify({
       success: true,
