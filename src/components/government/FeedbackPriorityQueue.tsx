@@ -23,6 +23,7 @@ import {
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { formatDistanceToNow } from "date-fns";
 import { Eye, CheckCircle, AlertCircle, Filter } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { DataCategory } from "@/types/government";
 
@@ -209,7 +210,8 @@ export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: exte
         )}
       </Card>
 
-      <div className="space-y-3">
+      <ScrollArea className="h-[500px] pr-4">
+        <div className="space-y-3">
         {displayList && displayList.length > 0 ? (
           displayList.map((feedback: any) => (
             <Card key={feedback.id} className="p-4 hover:shadow-md transition-shadow">
@@ -294,7 +296,8 @@ export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: exte
             </p>
           </Card>
         )}
-      </div>
+        </div>
+      </ScrollArea>
 
       <Dialog open={actionDialog} onOpenChange={setActionDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

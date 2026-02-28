@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { Layers, Users, MapPin } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { DataCategory } from "@/types/government";
 
@@ -82,7 +83,9 @@ export const FeedbackClusterView = ({ dateFrom, dateTo, region, dataCategory }: 
           Clustered Concerns (Similar Issues)
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
+        <ScrollArea className="h-[500px] pr-4">
+          <div className="space-y-4">
         {significantClusters.length > 0 ? (
           (significantClusters as any[]).map((cluster: any) => (
             <Card
@@ -155,6 +158,8 @@ export const FeedbackClusterView = ({ dateFrom, dateTo, region, dataCategory }: 
             <p className="text-xs">Clusters appear when 2+ farmers report similar issues</p>
           </div>
         )}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );
