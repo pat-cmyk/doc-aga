@@ -110,7 +110,7 @@ export const useRegionalStats = (dataCategory: DataCategory = 'live') => {
         const lat = toNum(farm.gps_lat);
         const lng = toNum(farm.gps_lng);
         
-        if (lat !== null && lng !== null) {
+        if (lat !== null && lng !== null && !(lat === 0 && lng === 0)) {
           existing.latSum += lat;
           existing.lngSum += lng;
           existing.coordCount += 1;
