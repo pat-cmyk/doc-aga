@@ -1,40 +1,36 @@
 
 
-# Fix Farmer Voice Filter + Move Data Toggle to Header
+# Fix: Shift Demo Feedback Dates Into Current Filter Range
 
-## Issue 1: Feedback Not Filtering by Demo/Live
+## Problem
+All 120 demo feedback records in the database have `created_at` dates ranging from **2025-08-01 to 2025-11-24**. The current dashboard filter ("Last 90 Days") covers **2025-11-30 to 2026-02-28**, so every demo record falls outside the window. The data category filter is working correctly -- there's simply no demo data within the selected date range.
 
-The hook code (`useGovernmentFeedback.ts`) is correct -- it has `farms!inner(...)` with `data_category` and the query-level `.eq('farms.data_category', ...)` filter. However, the browser is still running a stale build with the old query. The code change will be re-applied cleanly to ensure the build picks it up.
+## Solution
+Run a database migration to shift all demo feedback `created_at` timestamps forward so they spread across the current 90-day window. This is a data-only change -- no code modifications needed.
 
-No logic changes needed in the hook -- just ensuring the build compiles correctly.
+### Migration Logic
+- Calculate the offset: difference between the latest demo record (Nov 24, 2025) and today (Feb 28, 2026) = ~96 days
+- Add this offset to every demo feedback record's `created_at`, so the newest lands near today and the rest distribute proportionally across the past ~4 months
+- This ensures demo data is visible regardless of which date preset the user selects (Last 30, 60, 90 days, etc.)
 
-## Issue 2: Move Data Category Toggle to Header
-
-Currently the Live/Demo/All selector sits inside the Livestock Analytics tab's action row (line 520 of GovernmentDashboard.tsx). When you switch to Farmer Voice or Programs tabs, the toggle disappears. Moving it to the header next to the WiFi icon makes it globally accessible from any tab.
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `src/components/government/GovernmentLayout.tsx` | Accept `dataCategory` + `onDataCategoryChange` props; render the compact data source selector next to NetworkStatusIndicator |
-| `src/pages/GovernmentDashboard.tsx` | (1) Pass `dataCategory` and `setDataCategory` to GovernmentLayout. (2) Remove the data source Select from the Livestock tab's action row (lines 519-545). (3) Remove the "Demo Mode" / "All Data" badge (lines 575-580) since the header toggle makes the state obvious. |
-
-### GovernmentLayout Header (After)
-
-```text
-+------------------------------------------------------------------+
-| [Philippine Flag]  Government Dashboard     [Toggle] [WiFi] [User] |
-|                    Livestock industry...                           |
-+------------------------------------------------------------------+
+### SQL Migration
+```sql
+UPDATE farmer_feedback
+SET created_at = created_at + INTERVAL '96 days'
+WHERE farm_id IN (
+  SELECT id FROM farms WHERE data_category = 'demo'
+);
 ```
 
-The data source selector will be a compact Select dropdown (same styling, same 3 options: Live/Demo/All) placed between the left title section and the right icon group, next to the NetworkStatusIndicator.
+### What This Affects
+- **120 demo feedback records** get their dates shifted forward by ~96 days
+- Original date range (Aug 1 - Nov 24, 2025) becomes (Nov 5, 2025 - Feb 28, 2026)
+- Live/production data is untouched
+- No code changes needed -- the hook, components, and filters all work correctly already
 
-### Technical Details
-
-- `GovernmentLayout` gets two new optional props: `dataCategory?: DataCategory` and `onDataCategoryChange?: (value: DataCategory) => void`
-- When props are provided, render the Select in the header's right-side icon group
-- When not provided (backward compatibility), header renders as before
-- State remains owned by `GovernmentDashboard.tsx` -- no context needed
-- URL persistence (`data_source` param) continues working unchanged
-- The non-live badge indicator moves into the header selector itself (colored dot already shown in dropdown options)
+### Verification
+- Switch to Demo on the Farmer Voice tab with "Last 90 Days" -- should now show feedback records
+- Stats cards (Total, Pending, Critical, Last 7 Days) should populate
+- Sentiment Trend chart (14-day window) should show recent demo activity
+- Switch to Live -- should show only live data (unchanged)
+- Switch to All -- should show both
