@@ -1,34 +1,50 @@
 
 
-# Fix Farmer Voice Header Layout
+# Seed Demo Farmer Feedback Data
 
 ## Problem
-The `FarmerVoiceDashboard` component (containing the title, 4 stat cards, and Top Concerns bar chart) is placed inside a `flex items-center justify-between` wrapper alongside the "Tools" dropdown button. Since `FarmerVoiceDashboard` renders a full `space-y-6` layout with cards and a wide chart, the flex container squeezes it and the Tools button floats awkwardly to the right at the same vertical level as the Top Concerns card.
+The Farmer Voice tab shows empty dashboards for demo farms because the `seed-demo-data` edge function does not generate `farmer_feedback` records. All sub-components (Priority Queue, Geo Heatmap, Sentiment Trends, Cluster View, Smart Insights) rely on this table.
 
-## Fix
-Restructure the layout in `GovernmentDashboard.tsx` (lines ~1097-1130) so that:
-1. The Tools dropdown is positioned in the **title row** of the dashboard (next to "Boses ng Magsasaka Dashboard"), not as a sibling to the entire component
-2. The `FarmerVoiceDashboard` component gets full width
+## Solution
+Extend the existing `seed-demo-data` edge function to also seed realistic `farmer_feedback` records for each demo farm. This follows the same SSOT pattern already used for milking, weight, health, BCS, feeding, and AI records.
 
-## Implementation
+## What Gets Seeded
+For each demo farm, generate 5-15 feedback records spread across the last 90 days with:
+- **Categories**: All 9 feedback categories (policy_concern, market_access, veterinary_support, training_request, infrastructure, financial_assistance, emergency_support, disease_outbreak, feed_shortage) distributed realistically
+- **Priorities**: Weighted distribution (critical ~10%, high ~20%, medium ~40%, low ~30%) with matching `priority_score` (0-100)
+- **Sentiments**: urgent, negative, neutral, positive — correlated with priority
+- **Statuses**: Mix of submitted, acknowledged, under_review, action_taken, resolved, closed — older records more likely resolved
+- **Transcriptions**: Species-aware Filipino farmer voice messages (realistic text per category)
+- **Tags**: Category-relevant tags for cluster analysis
+- **Detected entities**: JSON with diseases/locations for disease_outbreak category
+- **AI summaries**: Short summaries for the Smart Insights panel
+- **Timestamps**: acknowledged_at, reviewed_at, resolution_date set appropriately based on status
 
-### File: `src/pages/GovernmentDashboard.tsx` (~lines 1097-1130)
-- Remove the `flex items-center justify-between` wrapper around `FarmerVoiceDashboard` and the Tools button
-- Instead, render `FarmerVoiceDashboard` at full width and pass the Tools dropdown as a `headerAction` prop (a ReactNode)
+## Idempotency
+Check for existing feedback per farm before inserting (same pattern as other record types). Skip farms that already have feedback in the last 90 days.
 
-### File: `src/components/government/FarmerVoiceDashboard.tsx`
-- Add an optional `headerAction?: React.ReactNode` prop
-- Render it inline with the title row: "Boses ng Magsasaka Dashboard" on the left, the action slot on the right
-- This keeps the Tools button contextually near the title without disrupting the card grid or Top Concerns layout
+## Technical Changes
 
-### Result
-- Title row: "Boses ng Magsasaka Dashboard" (left) + Tools dropdown (right)
-- Full-width stat cards grid (4 columns)
-- Full-width Top Concerns bar chart
+### File: `supabase/functions/seed-demo-data/index.ts`
+1. Add feedback templates array with category-specific transcriptions, tags, and detected_entities
+2. After the existing animal-level seeding loop, add a farm-level feedback seeding block:
+   - Query existing `farmer_feedback` for this farm in last 90 days
+   - If count < 5, generate feedback records using the farm's owner (from `farm_memberships`) as `user_id`
+   - Use seeded random for deterministic but varied output
+   - Batch insert into `farmer_feedback`
+3. Add `feedback_inserted` to the summary output
 
-### Files Modified
-| File | Change |
-|------|--------|
-| `src/pages/GovernmentDashboard.tsx` | Remove flex wrapper, pass Tools as `headerAction` prop |
-| `src/components/government/FarmerVoiceDashboard.tsx` | Accept `headerAction` prop, render in title row |
+### File: `src/components/admin/SeedDemoDataButton.tsx`
+- Add "Feedback" column to the results table and totals grid
+
+### No other files change
+- The `useGovernmentFeedback` hook already queries `farmer_feedback` with full filter support
+- All Farmer Voice sub-components already consume this data
+- The dashboard filter props were connected in the previous restructuring
+
+## SSOT Compliance
+- Zero new hooks, RPCs, or tables
+- Reuses the existing `seed-demo-data` edge function pattern
+- Data flows through existing `farmer_feedback` table to existing `useGovernmentFeedback` hook to existing dashboard components
+- Service role key bypasses RLS (same as all other demo seeding)
 
