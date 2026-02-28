@@ -1,37 +1,40 @@
 
 
-# Fix Farmer Voice Data Category Filtering (Query-Level)
+# Fix Farmer Voice Filter + Move Data Toggle to Header
 
-## Problem
-The `useGovernmentFeedback` hook has two issues:
-1. The main feedback query (line 34) does not include `data_category` in the farms join select, so the client-side filter on line 66 always sees `undefined`
-2. It uses client-side filtering instead of the established query-level pattern used by all other government hooks
+## Issue 1: Feedback Not Filtering by Demo/Live
 
-## Solution
-Use the same `farms!inner` + `.eq("farms.data_category", ...)` pattern already proven across the codebase (e.g., `useGrantAnalytics`, `useVeterinaryExpenseHeatmap`, `useGrantEffectiveness`). This filters at the database level, is more efficient, and follows the SSOT architecture.
+The hook code (`useGovernmentFeedback.ts`) is correct -- it has `farms!inner(...)` with `data_category` and the query-level `.eq('farms.data_category', ...)` filter. However, the browser is still running a stale build with the old query. The code change will be re-applied cleanly to ensure the build picks it up.
 
-## Changes (Single File)
+No logic changes needed in the hook -- just ensuring the build compiles correctly.
 
-### `src/hooks/useGovernmentFeedback.ts`
+## Issue 2: Move Data Category Toggle to Header
 
-**Main feedback list query (lines 30-67):**
-- Change the join from `farms(name, region, province, municipality, livestock_type)` to `farms!inner(name, region, province, municipality, livestock_type, data_category)`
-- Add query-level filter: when `dataCategory` is set and not `'all'`, apply `.eq("farms.data_category", dataCategory)` before executing the query
-- Remove the client-side `data_category` filter on line 65-67 (no longer needed)
-- Keep the client-side `region` filter as-is (region filtering uses a different pattern here)
+Currently the Live/Demo/All selector sits inside the Livestock Analytics tab's action row (line 520 of GovernmentDashboard.tsx). When you switch to Farmer Voice or Programs tabs, the toggle disappears. Moving it to the header next to the WiFi icon makes it globally accessible from any tab.
 
-**Stats query (lines 76-78):**
-- Change from `farms(data_category)` to `farms!inner(data_category)`
-- Add query-level `.eq("farms.data_category", dataCategory)` filter when applicable
-- Remove client-side `data_category` filter on lines 83-86
+### Changes
 
-This aligns with how `useGrantAnalytics` (line 67), `useVeterinaryExpenseHeatmap` (line 57), and `useGrantEffectiveness` (line 55) all handle the same filter.
+| File | Change |
+|------|--------|
+| `src/components/government/GovernmentLayout.tsx` | Accept `dataCategory` + `onDataCategoryChange` props; render the compact data source selector next to NetworkStatusIndicator |
+| `src/pages/GovernmentDashboard.tsx` | (1) Pass `dataCategory` and `setDataCategory` to GovernmentLayout. (2) Remove the data source Select from the Livestock tab's action row (lines 519-545). (3) Remove the "Demo Mode" / "All Data" badge (lines 575-580) since the header toggle makes the state obvious. |
 
-### No other files change
-All 6 Farmer Voice components already pass `dataCategory` to the hook (wired in the previous change). The `GovernmentDashboard` already passes `dataCategory` to all components.
+### GovernmentLayout Header (After)
 
-## Verification
-- Switch to Demo Data on the Farmer Voice tab -- should show only feedback from demo farms
-- Switch to Live Data -- should show only feedback from live farms  
-- Switch to All Data -- should show everything
-- Stats cards, Priority Queue, Heatmap, Sentiment, Clusters, and Smart Insights should all reflect the selected category
+```text
++------------------------------------------------------------------+
+| [Philippine Flag]  Government Dashboard     [Toggle] [WiFi] [User] |
+|                    Livestock industry...                           |
++------------------------------------------------------------------+
+```
+
+The data source selector will be a compact Select dropdown (same styling, same 3 options: Live/Demo/All) placed between the left title section and the right icon group, next to the NetworkStatusIndicator.
+
+### Technical Details
+
+- `GovernmentLayout` gets two new optional props: `dataCategory?: DataCategory` and `onDataCategoryChange?: (value: DataCategory) => void`
+- When props are provided, render the Select in the header's right-side icon group
+- When not provided (backward compatibility), header renders as before
+- State remains owned by `GovernmentDashboard.tsx` -- no context needed
+- URL persistence (`data_source` param) continues working unchanged
+- The non-live badge indicator moves into the header selector itself (colored dot already shown in dropdown options)
