@@ -1,39 +1,37 @@
 
 
-# Wire Farmer Voice Tab to Live/Demo Data Toggle
+# Fix Farmer Voice Data Category Filtering (Query-Level)
 
 ## Problem
-The Farmer Voice tab ignores the global Live/Demo/All data category toggle. All 6 sub-components (`FarmerVoiceDashboard`, `FeedbackPriorityQueue`, `FeedbackGeoHeatmap`, `SentimentTrendChart`, `FeedbackClusterView`, `SmartInsightsPanel`) only receive `dateFrom`, `dateTo`, and `region` -- they never receive or pass `dataCategory`. The underlying `useGovernmentFeedback` hook queries `farmer_feedback` joined with `farms` but does not filter on `farms.data_category`.
+The `useGovernmentFeedback` hook has two issues:
+1. The main feedback query (line 34) does not include `data_category` in the farms join select, so the client-side filter on line 66 always sees `undefined`
+2. It uses client-side filtering instead of the established query-level pattern used by all other government hooks
 
-## Fix
+## Solution
+Use the same `farms!inner` + `.eq("farms.data_category", ...)` pattern already proven across the codebase (e.g., `useGrantAnalytics`, `useVeterinaryExpenseHeatmap`, `useGrantEffectiveness`). This filters at the database level, is more efficient, and follows the SSOT architecture.
 
-### 1. Update `useGovernmentFeedback` hook
-- Add `dataCategory?: DataCategory` to the `FeedbackFilters` interface
-- When `dataCategory` is set (and not `'all'`), filter the joined `farms` result by `farms.data_category`
-- Since `data_category` lives on the `farms` table (not `farmer_feedback`), apply the filter client-side after the join (same pattern already used for `region` filtering)
-- Add `dataCategory` to the query key for proper cache separation
+## Changes (Single File)
 
-### 2. Update all 6 Farmer Voice components
-Add `dataCategory?: DataCategory` prop to each component's props interface and pass it through to `useGovernmentFeedback`:
-- `FarmerVoiceDashboard`
-- `FeedbackPriorityQueue`
-- `FeedbackGeoHeatmap`
-- `SentimentTrendChart`
-- `FeedbackClusterView`
-- `SmartInsightsPanel`
+### `src/hooks/useGovernmentFeedback.ts`
 
-### 3. Update `GovernmentDashboard.tsx` (Farmer Voice tab section, ~lines 1099-1163)
-Pass `dataCategory={dataCategory}` to all 6 components alongside the existing `dateFrom`, `dateTo`, and `region` props.
+**Main feedback list query (lines 30-67):**
+- Change the join from `farms(name, region, province, municipality, livestock_type)` to `farms!inner(name, region, province, municipality, livestock_type, data_category)`
+- Add query-level filter: when `dataCategory` is set and not `'all'`, apply `.eq("farms.data_category", dataCategory)` before executing the query
+- Remove the client-side `data_category` filter on line 65-67 (no longer needed)
+- Keep the client-side `region` filter as-is (region filtering uses a different pattern here)
 
-### Files Modified
-| File | Change |
-|------|--------|
-| `src/hooks/useGovernmentFeedback.ts` | Add `dataCategory` to filters, query key, and client-side filtering |
-| `src/components/government/FarmerVoiceDashboard.tsx` | Accept and pass `dataCategory` prop |
-| `src/components/government/FeedbackPriorityQueue.tsx` | Accept and pass `dataCategory` prop |
-| `src/components/government/FeedbackGeoHeatmap.tsx` | Accept and pass `dataCategory` prop |
-| `src/components/government/SentimentTrendChart.tsx` | Accept and pass `dataCategory` prop |
-| `src/components/government/FeedbackClusterView.tsx` | Accept and pass `dataCategory` prop |
-| `src/components/government/SmartInsightsPanel.tsx` | Accept and pass `dataCategory` prop |
-| `src/pages/GovernmentDashboard.tsx` | Pass `dataCategory` to all 6 Farmer Voice components |
+**Stats query (lines 76-78):**
+- Change from `farms(data_category)` to `farms!inner(data_category)`
+- Add query-level `.eq("farms.data_category", dataCategory)` filter when applicable
+- Remove client-side `data_category` filter on lines 83-86
 
+This aligns with how `useGrantAnalytics` (line 67), `useVeterinaryExpenseHeatmap` (line 57), and `useGrantEffectiveness` (line 55) all handle the same filter.
+
+### No other files change
+All 6 Farmer Voice components already pass `dataCategory` to the hook (wired in the previous change). The `GovernmentDashboard` already passes `dataCategory` to all components.
+
+## Verification
+- Switch to Demo Data on the Farmer Voice tab -- should show only feedback from demo farms
+- Switch to Live Data -- should show only feedback from live farms  
+- Switch to All Data -- should show everything
+- Stats cards, Priority Queue, Heatmap, Sentiment, Clusters, and Smart Insights should all reflect the selected category
