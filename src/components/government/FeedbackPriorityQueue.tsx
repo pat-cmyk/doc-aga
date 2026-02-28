@@ -210,8 +210,9 @@ export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: exte
         )}
       </Card>
 
-      <ScrollArea className="h-[500px] pr-4">
-        <div className="space-y-3">
+      <div className="relative border rounded-lg">
+        <ScrollArea className="h-[500px] p-4">
+          <div className="space-y-3">
         {displayList && displayList.length > 0 ? (
           displayList.map((feedback: any) => (
             <Card key={feedback.id} className="p-4 hover:shadow-md transition-shadow">
@@ -296,8 +297,10 @@ export const FeedbackPriorityQueue = ({ dateFrom: externalDateFrom, dateTo: exte
             </p>
           </Card>
         )}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-lg" />
+      </div>
 
       <Dialog open={actionDialog} onOpenChange={setActionDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
