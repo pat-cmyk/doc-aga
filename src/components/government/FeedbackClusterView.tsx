@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
 import { Layers, Users, MapPin } from "lucide-react";
 import { useState } from "react";
+import { DataCategory } from "@/types/government";
 
 interface FeedbackClusterViewProps {
   dateFrom?: string;
   dateTo?: string;
   region?: string;
+  dataCategory?: DataCategory;
 }
 
-export const FeedbackClusterView = ({ dateFrom, dateTo, region }: FeedbackClusterViewProps) => {
-  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region });
+export const FeedbackClusterView = ({ dateFrom, dateTo, region, dataCategory }: FeedbackClusterViewProps) => {
+  const { feedbackList, isLoading } = useGovernmentFeedback({ dateFrom, dateTo, region, dataCategory });
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
 
   if (isLoading) {

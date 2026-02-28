@@ -1100,6 +1100,7 @@ const GovernmentDashboard = () => {
                 dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                 dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                 region={primaryRegion}
+                dataCategory={dataCategory}
                 headerAction={
                   <Popover>
                     <PopoverTrigger asChild>
@@ -1132,6 +1133,7 @@ const GovernmentDashboard = () => {
                 dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                 dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                 region={primaryRegion}
+                dataCategory={dataCategory}
               />
 
               {/* Geographic + Sentiment side-by-side */}
@@ -1140,11 +1142,13 @@ const GovernmentDashboard = () => {
                   dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                   dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                   region={primaryRegion}
+                  dataCategory={dataCategory}
                 />
                 <SentimentTrendChart
                   dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                   dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                   region={primaryRegion}
+                  dataCategory={dataCategory}
                 />
               </div>
 
@@ -1153,6 +1157,7 @@ const GovernmentDashboard = () => {
                 dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                 dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                 region={primaryRegion}
+                dataCategory={dataCategory}
               />
 
               {/* Smart Insights */}
@@ -1160,6 +1165,7 @@ const GovernmentDashboard = () => {
                 dateFrom={format(primaryDateRange.start, "yyyy-MM-dd")}
                 dateTo={format(primaryDateRange.end, "yyyy-MM-dd")}
                 region={primaryRegion}
+                dataCategory={dataCategory}
               />
             </div>
           </TabsContent>
