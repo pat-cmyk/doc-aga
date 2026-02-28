@@ -1,36 +1,41 @@
 
+# Fix: Region IV-A Farms Missing from Livestock Map
 
-# Fix: Shift Demo Feedback Dates Into Current Filter Range
+## Root Cause
 
-## Problem
-All 120 demo feedback records in the database have `created_at` dates ranging from **2025-08-01 to 2025-11-24**. The current dashboard filter ("Last 90 Days") covers **2025-11-30 to 2026-02-28**, so every demo record falls outside the window. The data category filter is working correctly -- there's simply no demo data within the selected date range.
+The farm "HVSALUBAYBA" in Region IV-A has GPS coordinates `(0.000000, 0.000000)` -- a null island coordinate in the Gulf of Guinea off Africa's coast. The `toNum()` helper in `useRegionalStats.ts` treats `0` as a valid finite number, so it gets included in the region's coordinate average.
+
+With 10 Region IV-A farms, this pulls the averaged marker position to approximately **(lat 12.69, lng 109.04)** -- in the South China Sea, west of the visible map area at the default zoom level. That is why the marker is invisible: it is rendered off-screen.
+
+The NCR farms both have valid Manila-area coordinates, so their marker displays correctly.
 
 ## Solution
-Run a database migration to shift all demo feedback `created_at` timestamps forward so they spread across the current 90-day window. This is a data-only change -- no code modifications needed.
 
-### Migration Logic
-- Calculate the offset: difference between the latest demo record (Nov 24, 2025) and today (Feb 28, 2026) = ~96 days
-- Add this offset to every demo feedback record's `created_at`, so the newest lands near today and the rest distribute proportionally across the past ~4 months
-- This ensures demo data is visible regardless of which date preset the user selects (Last 30, 60, 90 days, etc.)
+Filter out `(0, 0)` GPS coordinates in the averaging logic inside `useRegionalStats.ts`. No Philippine farm can be located at latitude 0, longitude 0, so these should be treated as "no GPS data available" -- the same as `null`.
 
-### SQL Migration
-```sql
-UPDATE farmer_feedback
-SET created_at = created_at + INTERVAL '96 days'
-WHERE farm_id IN (
-  SELECT id FROM farms WHERE data_category = 'demo'
-);
+This is a 2-line change in the existing coordinate validity check.
+
+### File: `src/hooks/useRegionalStats.ts`
+
+**Current code (lines 112-113):**
+```typescript
+if (lat !== null && lng !== null) {
 ```
 
-### What This Affects
-- **120 demo feedback records** get their dates shifted forward by ~96 days
-- Original date range (Aug 1 - Nov 24, 2025) becomes (Nov 5, 2025 - Feb 28, 2026)
-- Live/production data is untouched
-- No code changes needed -- the hook, components, and filters all work correctly already
+**Updated code:**
+```typescript
+if (lat !== null && lng !== null && !(lat === 0 && lng === 0)) {
+```
+
+This skips the `(0, 0)` coordinate from the average calculation. With HVSALUBAYBA excluded from coordinate averaging, the remaining 9 Region IV-A farms all have valid Philippine coordinates (~13.9-14.6 lat, ~121.0-121.3 lng), producing a correct marker position near Laguna/Batangas.
+
+### Why This Is Safe
+- Follows SSOT: the same aggregation logic (lines 86-119) remains intact; only the coordinate validity guard is tightened
+- No other files change -- the `RegionalLivestockMap` component, `getRegionalCoordinates` fallback, and all downstream consumers remain untouched
+- The farm still counts toward `farm_count` and `animal_count` -- only its GPS contribution is excluded
+- The fallback logic (lines 134-136) for regions with zero valid coordinates already exists and would correctly use the predefined `Region IV-A` center point if needed
 
 ### Verification
-- Switch to Demo on the Farmer Voice tab with "Last 90 Days" -- should now show feedback records
-- Stats cards (Total, Pending, Critical, Last 7 Days) should populate
-- Sentiment Trend chart (14-day window) should show recent demo activity
-- Switch to Live -- should show only live data (unchanged)
-- Switch to All -- should show both
+- After fix: Region IV-A marker should appear near Laguna (~14.1, 121.1) with "10" label
+- NCR marker unchanged at (~14.6, 121.0) with "2" label
+- Click both markers to confirm RegionalDetailPanel opens with correct stats
