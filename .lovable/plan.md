@@ -1,41 +1,30 @@
 
-# Fix: Region IV-A Farms Missing from Livestock Map
 
-## Root Cause
+# Fix: Constrain Farmer Voice Lists with Fixed-Height Scroll Areas
 
-The farm "HVSALUBAYBA" in Region IV-A has GPS coordinates `(0.000000, 0.000000)` -- a null island coordinate in the Gulf of Guinea off Africa's coast. The `toNum()` helper in `useRegionalStats.ts` treats `0` as a valid finite number, so it gets included in the region's coordinate average.
-
-With 10 Region IV-A farms, this pulls the averaged marker position to approximately **(lat 12.69, lng 109.04)** -- in the South China Sea, west of the visible map area at the default zoom level. That is why the marker is invisible: it is rendered off-screen.
-
-The NCR farms both have valid Manila-area coordinates, so their marker displays correctly.
+## Problem
+The Priority Queue and Clustered Concerns sections in the Farmer Voice tab render unbounded lists that extend the page indefinitely as feedback volume grows, breaking the UI layout.
 
 ## Solution
+Wrap both list sections in fixed-height `ScrollArea` containers -- the same pattern already used in 23+ components across the app (e.g., `MySubmissions`, `BreedingHub`, `AnimalHealthHeatmap`).
 
-Filter out `(0, 0)` GPS coordinates in the averaging logic inside `useRegionalStats.ts`. No Philippine farm can be located at latitude 0, longitude 0, so these should be treated as "no GPS data available" -- the same as `null`.
+## Standard Height
+The project uses `h-[500px]` for primary list containers (e.g., approval submissions tabs). This fits approximately 4 feedback cards, which aligns with the "golden standard" the user mentioned. Both sections will use this height.
 
-This is a 2-line change in the existing coordinate validity check.
+## Changes
 
-### File: `src/hooks/useRegionalStats.ts`
+### 1. `src/components/government/FeedbackPriorityQueue.tsx`
+- Import `ScrollArea` from `@/components/ui/scroll-area`
+- Wrap the feedback list container (the `div.space-y-3` at line 212) inside a `ScrollArea className="h-[500px] pr-4"`
+- The filter bar (Card at line 132) stays outside the scroll area so it remains sticky/visible
 
-**Current code (lines 112-113):**
-```typescript
-if (lat !== null && lng !== null) {
-```
+### 2. `src/components/government/FeedbackClusterView.tsx`
+- Import `ScrollArea` from `@/components/ui/scroll-area`
+- Wrap the cluster list inside `CardContent` with a `ScrollArea className="h-[500px] pr-4"`
+- The card header stays outside the scroll area
 
-**Updated code:**
-```typescript
-if (lat !== null && lng !== null && !(lat === 0 && lng === 0)) {
-```
-
-This skips the `(0, 0)` coordinate from the average calculation. With HVSALUBAYBA excluded from coordinate averaging, the remaining 9 Region IV-A farms all have valid Philippine coordinates (~13.9-14.6 lat, ~121.0-121.3 lng), producing a correct marker position near Laguna/Batangas.
-
-### Why This Is Safe
-- Follows SSOT: the same aggregation logic (lines 86-119) remains intact; only the coordinate validity guard is tightened
-- No other files change -- the `RegionalLivestockMap` component, `getRegionalCoordinates` fallback, and all downstream consumers remain untouched
-- The farm still counts toward `farm_count` and `animal_count` -- only its GPS contribution is excluded
-- The fallback logic (lines 134-136) for regions with zero valid coordinates already exists and would correctly use the predefined `Region IV-A` center point if needed
-
-### Verification
-- After fix: Region IV-A marker should appear near Laguna (~14.1, 121.1) with "10" label
-- NCR marker unchanged at (~14.6, 121.0) with "2" label
-- Click both markers to confirm RegionalDetailPanel opens with correct stats
+### Technical Notes
+- Reuses the existing `ScrollArea` component (`@radix-ui/react-scroll-area`) already used throughout the app
+- No new dependencies, no logic changes, no computation changes
+- Empty states remain inside the scroll area (consistent with existing patterns like `NotificationDropdown`)
+- The filter bar in Priority Queue remains fixed above the scrollable list
