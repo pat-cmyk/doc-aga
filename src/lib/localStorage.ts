@@ -167,3 +167,38 @@ export function setAnimalDisplayPrimary(value: AnimalDisplayPrimary): void {
     console.error('Error saving animal display preference:', error);
   }
 }
+
+// ============= USER PROFILE CACHE (Offline-First) =============
+
+interface CachedUserProfile {
+  email: string;
+  fullName: string;
+  cachedAt: number;
+}
+
+const USER_PROFILE_KEY = 'cached_user_profile';
+
+/**
+ * Get cached user profile for offline display
+ */
+export function getCachedUserProfile(): CachedUserProfile | null {
+  try {
+    const stored = localStorage.getItem(USER_PROFILE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cache user profile for offline access
+ */
+export function setCachedUserProfile(email: string, fullName: string): void {
+  try {
+    const entry: CachedUserProfile = { email, fullName, cachedAt: Date.now() };
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(entry));
+  } catch (error) {
+    console.error('Error caching user profile:', error);
+  }
+}

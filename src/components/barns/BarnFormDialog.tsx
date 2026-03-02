@@ -50,7 +50,11 @@ export function BarnFormDialog({ open, onOpenChange, farmId, editBarn }: BarnFor
           description: description.trim() || null,
           capacity: capacity ? parseInt(capacity) : null,
         });
-        toast.success("Barn/paddock updated");
+        toast.success(
+          navigator.onLine
+            ? "Barn/paddock updated"
+            : "Saved locally, will sync when online"
+        );
       } else {
         await createBarn.mutateAsync({
           name: name.trim(),
@@ -58,7 +62,11 @@ export function BarnFormDialog({ open, onOpenChange, farmId, editBarn }: BarnFor
           description: description.trim() || undefined,
           capacity: capacity ? parseInt(capacity) : undefined,
         });
-        toast.success("Barn/paddock created");
+        toast.success(
+          navigator.onLine
+            ? "Barn/paddock created"
+            : "Saved locally, will sync when online"
+        );
       }
       onOpenChange(false);
     } catch {

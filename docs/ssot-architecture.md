@@ -3,7 +3,7 @@
 > **Living document** — Reflects Section 5 of the Core Operating Protocol.
 > Must be kept in sync with `ARCHITECTURE.md`, `changelog.md`, and `/docs/data-relationships-map.md`.
 
-Last updated: 2026-02-26
+Last updated: 2026-03-02
 
 ---
 
@@ -149,6 +149,7 @@ queryFn: async () => {
 | `useAnimalExpenses` | A (MANAGED — `expense` type + animal-scoped manual; read path ANIMAL-SCOPED) | — |
 | `useFarmSettings` | A (MANAGED — `farm-settings` type; cache-first) | `farmSettingsCache` |
 | `useBarns` | A (MANAGED — `barn` type; cache-first) | `barnsCache` |
+| `useBarnAnimals` | A (MANAGED — `barn` type; cache-first) | `barnAssignmentsCache` |
 | `useDailyChecklist` | A (MANAGED — `checklist` type) | — |
 | `usePendingActivities` | A (MANAGED — `pending-activity` type, conditional) | — |
 | `useFarmerFeedback` | A (MANAGED — `farmer-feedback` type) | — |

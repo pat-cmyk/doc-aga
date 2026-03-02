@@ -396,6 +396,14 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncAIRecord(item);
         } else if (item.type === 'pregnancy_confirm') {
           await syncPregnancyConfirm(item);
+        } else if (item.type === 'barn_create') {
+          await syncBarnCreate(item);
+        } else if (item.type === 'barn_update') {
+          await syncBarnUpdate(item);
+        } else if (item.type === 'barn_assign') {
+          await syncBarnAssign(item);
+        } else if (item.type === 'barn_remove') {
+          await syncBarnRemove(item);
         }
         
         // After parent record syncs, process any linked photos
@@ -1212,4 +1220,136 @@ async function syncPendingPhotos(item: QueueItem): Promise<void> {
       await updatePhotoStatus(photoId, 'failed', error.message);
     }
   }
+}
+
+// ============= BARN SYNC PROCESSORS =============
+
+/**
+ * Sync barn creation from offline queue
+ */
+async function syncBarnCreate(item: QueueItem): Promise<void> {
+  const { farmId, barnData, barnId } = item.payload;
+  if (!farmId || !barnData) throw new Error('No barn data in queue item');
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const clientId = `barn_${barnId || item.optimisticId}`;
+
+  // Check for duplicate via client_generated_id pattern (name + farm_id)
+  const { data: existing } = await supabase
+    .from('barns')
+    .select('id')
+    .eq('farm_id', farmId)
+    .eq('name', barnData.name)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (existing) {
+    console.log('[SyncService] Barn already exists, skipping create:', barnData.name);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('barns')
+    .insert({
+      farm_id: farmId,
+      name: barnData.name,
+      barn_type: barnData.barn_type,
+      description: barnData.description || null,
+      capacity: barnData.capacity || null,
+      created_by: user.id,
+    });
+
+  if (error) throw error;
+  console.log('[SyncService] Barn created:', barnData.name);
+}
+
+/**
+ * Sync barn update from offline queue (uses conflict detection)
+ */
+async function syncBarnUpdate(item: QueueItem): Promise<void> {
+  const { barnId, barnData } = item.payload;
+  if (!barnId || !barnData) throw new Error('No barn update data in queue item');
+
+  const farmId = item.payload.farmId || '';
+
+  // Conflict detection for UPDATE operations
+  const conflicted = await checkAndHandleConflict(
+    item,
+    'barns',
+    barnId,
+    barnData as Record<string, any>,
+    farmId
+  );
+  if (conflicted) return;
+
+  const updates: Record<string, any> = {};
+  if (barnData.name) updates.name = barnData.name;
+  if (barnData.barn_type) updates.barn_type = barnData.barn_type;
+  if (barnData.description !== undefined) updates.description = barnData.description;
+  if (barnData.capacity !== undefined) updates.capacity = barnData.capacity;
+
+  const { error } = await supabase
+    .from('barns')
+    .update(updates)
+    .eq('id', barnId);
+
+  if (error) throw error;
+  console.log('[SyncService] Barn updated:', barnId);
+}
+
+/**
+ * Sync barn assignment from offline queue
+ * Server-side trigger (trg_barn_assignment_insert) handles animals.current_barn_id
+ */
+async function syncBarnAssign(item: QueueItem): Promise<void> {
+  const { farmId, barnId, barnAnimalId } = item.payload;
+  if (!farmId || !barnId || !barnAnimalId) throw new Error('No barn assignment data in queue item');
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Dedup check: is this animal already assigned to this barn?
+  const { data: existing } = await supabase
+    .from('barn_assignments')
+    .select('id')
+    .eq('barn_id', barnId)
+    .eq('animal_id', barnAnimalId)
+    .is('removed_at', null)
+    .maybeSingle();
+
+  if (existing) {
+    console.log('[SyncService] Animal already assigned to barn, skipping');
+    return;
+  }
+
+  const { error } = await supabase
+    .from('barn_assignments')
+    .insert({
+      barn_id: barnId,
+      animal_id: barnAnimalId,
+      farm_id: farmId,
+      assigned_by: user.id,
+    });
+
+  if (error) throw error;
+  console.log('[SyncService] Animal assigned to barn:', barnAnimalId, '->', barnId);
+}
+
+/**
+ * Sync barn animal removal from offline queue
+ * Server-side trigger (trg_barn_assignment_removal) handles animals.current_barn_id cleanup
+ */
+async function syncBarnRemove(item: QueueItem): Promise<void> {
+  const { barnAssignmentId } = item.payload;
+  if (!barnAssignmentId) throw new Error('No barn assignment ID for removal');
+
+  const { error } = await supabase
+    .from('barn_assignments')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('id', barnAssignmentId);
+
+  if (error) throw error;
+  console.log('[SyncService] Barn assignment removed:', barnAssignmentId);
 }
