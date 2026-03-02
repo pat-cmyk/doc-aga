@@ -1,6 +1,7 @@
  import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  import { executeAnalystToolCall, getAnalystTools, DataCategory } from "../_shared/analyst-tools.ts";
+ import { sanitizeUserMessage } from "../_shared/sanitizeMessage.ts";
  import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
  
  const corsHeaders = { 
@@ -277,7 +278,7 @@ Always present data clearly with context about what the numbers mean for policy 
      const systemPrompt = getRicoSystemPrompt(currentDate);
      const aiMessages = [
        { role: "system", content: systemPrompt },
-       ...messages.map(m => ({ role: m.role, content: m.content }))
+       ...messages.map(m => ({ role: m.role, content: m.role === 'user' ? sanitizeUserMessage(m.content) : m.content }))
      ];
  
     // Get AI API key

@@ -14,7 +14,8 @@ import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { useRole } from "@/hooks/useRole";
-import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod } from "@/lib/localStorage";
+import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod, getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
+import { truncateMessages, useSendCooldown } from "@/lib/chatUtils";
 
 interface Message {
   role: "user" | "assistant";
@@ -33,8 +34,9 @@ type QuickAction = {
 };
 
 const DocAga = () => {
-  // Generate stable conversation ID for this session
-  const [conversationId] = useState(() => crypto.randomUUID());
+  // Persistent conversation ID (survives page refresh, 24h TTL)
+  const [conversationId, setConversationId] = useState(() => getConversationId(CONVERSATION_KEYS.DOC_AGA, CONVERSATION_TTLS.DEFAULT));
+  const { canSend, markSent } = useSendCooldown();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -191,7 +193,7 @@ const DocAga = () => {
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
-    if ((!textToSend && !selectedImage) || loading || isUploadingImage) return;
+    if ((!textToSend && !selectedImage) || loading || isUploadingImage || !canSend) return;
 
     let uploadedImageUrl: string | null = null;
 
@@ -222,14 +224,15 @@ const DocAga = () => {
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession();
       
-      const messagesToSend = [
+      const messagesToSend = truncateMessages([
         ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Hello! I'm Doc Aga")),
         { 
           role: "user", 
           content: textToSend,
           ...(uploadedImageUrl && { imageUrl: uploadedImageUrl })
         }
-      ];
+      ]);
+      markSent();
       
       const resp = await fetch(DOC_AGA_URL, {
         method: "POST",
@@ -445,6 +448,21 @@ const DocAga = () => {
           <Badge className={`${getModeColor()} text-white`}>
             {getModeLabel()}
           </Badge>
+          {messages.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                const newId = resetConversationId(CONVERSATION_KEYS.DOC_AGA);
+                setConversationId(newId);
+                setMessages([{ role: "assistant", content: farmerWelcomeMessage }]);
+                ttsQueue.stop();
+              }}
+            >
+              New Chat
+            </Button>
+          )}
         </div>
         <Tabs value={inputMethod} onValueChange={(v) => handleInputMethodChange(v as InputMethod)}>
           <TabsList className="grid w-full grid-cols-3">
@@ -621,7 +639,7 @@ const DocAga = () => {
               disabled={loading || isUploadingImage}
               className="flex-1 text-sm h-10 sm:h-9"
             />
-            <Button type="submit" disabled={loading || isUploadingImage || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+            <Button type="submit" disabled={loading || isUploadingImage || !canSend || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
               {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
             </Button>
           </form>

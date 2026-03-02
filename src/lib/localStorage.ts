@@ -93,6 +93,57 @@ export function setPreferredInputMethod(method: InputMethod): void {
 }
 
 /**
+ * Conversation ID persistence with TTL
+ */
+interface StoredConversationId {
+  id: string;
+  createdAt: number;
+}
+
+export const CONVERSATION_KEYS = {
+  DOC_AGA: 'doc_aga_conversation_id',
+  DOC_AGA_CONSULTATION: 'doc_aga_consultation_id',
+  RICO: 'rico_conversation_id',
+} as const;
+
+export const CONVERSATION_TTLS = {
+  DEFAULT: 24 * 60 * 60 * 1000, // 24 hours
+  CONSULTATION: 1 * 60 * 60 * 1000, // 1 hour
+} as const;
+
+/**
+ * Get or create a conversation ID with TTL expiry
+ */
+export function getConversationId(key: string, ttlMs: number): string {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed: StoredConversationId = JSON.parse(stored);
+      if (Date.now() - parsed.createdAt < ttlMs) {
+        return parsed.id;
+      }
+    }
+  } catch {
+    // Fall through to create new
+  }
+  return resetConversationId(key);
+}
+
+/**
+ * Force a new conversation ID
+ */
+export function resetConversationId(key: string): string {
+  const id = crypto.randomUUID();
+  const entry: StoredConversationId = { id, createdAt: Date.now() };
+  try {
+    localStorage.setItem(key, JSON.stringify(entry));
+  } catch (error) {
+    console.error('Error saving conversation ID:', error);
+  }
+  return id;
+}
+
+/**
  * Animal display primary field preference
  */
 export type AnimalDisplayPrimary = 'name' | 'ear_tag';

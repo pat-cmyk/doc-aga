@@ -1,6 +1,27 @@
 # Changelog
 
-## 2026-02-28 — Government Dashboard SSOT Simplification
+## 2026-03-02 — P0/P1: Doc Aga & RICO Enterprise Hardening
+
+### Added
+- **Conversation Persistence (P0)**: `conversationId` now persists in `localStorage` with TTL (24h for DocAga/RICO, 1h for Consultation). Page refresh no longer loses chat context. New "New Chat" button in DocAga and RICO headers.
+- **Sliding Window Context (P0)**: `truncateMessages()` in `src/lib/chatUtils.ts` caps messages sent to AI at 20 (first user message + last 19) to prevent token overflow. Applied to all 3 chat components.
+- **Client-Side Send Cooldown (P1)**: `useSendCooldown()` hook enforces 2-second debounce between sends across all chat components. Complements existing server-side rate limiting (15 req/60s).
+- **Prompt Injection Guard (P1)**: `sanitizeUserMessage()` in `supabase/functions/_shared/sanitizeMessage.ts` strips injection patterns (`[SYSTEM]`, `<|system|>`, `Ignore previous instructions`, etc.) from user messages before AI processing. Applied to both `doc-aga` and `rico` edge functions.
+
+### Changed
+- `src/lib/localStorage.ts`: Extended with `getConversationId()`, `resetConversationId()`, `CONVERSATION_KEYS`, `CONVERSATION_TTLS`
+- `src/components/DocAga.tsx`: Uses persistent conversation ID, truncation, cooldown, "New Chat" button
+- `src/components/farmhand/DocAgaConsultation.tsx`: Same utilities applied
+- `src/components/government/RicoChat.tsx`: Same utilities applied
+- `supabase/functions/doc-aga/index.ts`: Imports and applies `sanitizeUserMessage()` to `transformedMessages`
+- `supabase/functions/rico/index.ts`: Same sanitization applied
+
+### SSOT Compliance
+- No new RPCs, hooks, or database changes
+- All new utilities are shared (DRY): `chatUtils.ts` consumed by 3 components, `sanitizeMessage.ts` by 2 edge functions
+- Existing server-side rate limiting and Zod validation unchanged (defense-in-depth preserved)
+
+
 
 ### Removed (Duplications Eliminated)
 - **GovDashboardOverview**: Removed "Grant Recipients" and "Avg Purchase Price" cards (data fully covered in Programs tab). Removed `useGrantAnalytics` dependency. Grid reduced from 6 to 4 columns.
