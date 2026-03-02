@@ -25,6 +25,9 @@ async function checkConnectivity(): Promise<void> {
       method: 'HEAD',
       signal: controller.signal,
       cache: 'no-store',
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
     });
     
     clearTimeout(timeoutId);

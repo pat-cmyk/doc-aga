@@ -8,12 +8,13 @@ import {
   CloudOff, 
   Smartphone,
   ArrowUpDown,
+  ArrowLeft,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useFarm } from '@/contexts/FarmContext';
@@ -118,7 +119,12 @@ export const SyncStatusSheet = () => {
       </SheetTrigger>
 
       <SheetContent side="right" className="w-full sm:max-w-md pt-safe">
-        <SheetHeader>
+        <SheetHeader className="flex flex-row items-center gap-2">
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </SheetClose>
           <SheetTitle className="flex items-center gap-2">
             <ArrowUpDown className="h-5 w-5" />
             Sync Status
