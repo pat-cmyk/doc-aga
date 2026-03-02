@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getIsOnline } from "@/hooks/useOnlineStatus";
 import { useBarnAnimals, useAssignAnimalToBarn, useRemoveAnimalFromBarn, type Barn } from "@/hooks/useBarns";
 import { useFarmAnimals } from "@/hooks/useFarmAnimals";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,7 @@ export function BarnAnimalManager({ barn, farmId, allBarns }: BarnAnimalManagerP
       await assignAnimal.mutateAsync({ barnId: barn.id, animalId });
       setSelectedAnimalId("");
       toast.success(
-        navigator.onLine ? "Animal assigned" : "Saved locally, will sync when online"
+        getIsOnline() ? "Animal assigned" : "Saved locally, will sync when online"
       );
     } catch {
       toast.error("Failed to assign animal");
@@ -85,7 +86,7 @@ export function BarnAnimalManager({ barn, farmId, allBarns }: BarnAnimalManagerP
     try {
       await removeAnimal.mutateAsync({ assignmentId, barnId: barn.id, animalId });
       toast.success(
-        navigator.onLine ? "Animal removed from barn" : "Saved locally, will sync when online"
+        getIsOnline() ? "Animal removed from barn" : "Saved locally, will sync when online"
       );
     } catch {
       toast.error("Failed to remove animal");

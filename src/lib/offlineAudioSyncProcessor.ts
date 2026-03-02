@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getIsOnline } from '@/hooks/useOnlineStatus';
 import {
   getPendingAudio,
   markTranscribing,
@@ -146,7 +147,7 @@ export async function syncOfflineAudio(): Promise<{ processed: number; failed: n
   
   for (const item of pending) {
     // Check if still online before each item
-    if (!navigator.onLine) {
+    if (!getIsOnline()) {
       console.log('[OfflineAudioSync] Lost connectivity, stopping sync');
       break;
     }
@@ -178,7 +179,7 @@ export async function retryFailedAudio(): Promise<number> {
     await resetForRetry(item.id);
   }
   
-  if (failed.length > 0 && navigator.onLine) {
+  if (failed.length > 0 && getIsOnline()) {
     // Trigger sync after resetting
     setTimeout(() => syncOfflineAudio(), 100);
   }

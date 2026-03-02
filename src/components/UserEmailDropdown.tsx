@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getIsOnline } from "@/hooks/useOnlineStatus";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
@@ -27,7 +28,7 @@ export const UserEmailDropdown = () => {
   useEffect(() => {
     const fetchUserInfo = async () => {
       // If offline and we have cached data, skip fetch
-      if (!navigator.onLine && cachedProfile) return;
+      if (!getIsOnline() && cachedProfile) return;
 
       try {
         const { data: { user } } = await supabase.auth.getUser();

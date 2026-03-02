@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useOnlineStatus } from './useOnlineStatus';
+import { useOnlineStatus, getIsOnline } from './useOnlineStatus';
 import { syncOfflineAudio } from '@/lib/offlineAudioSyncProcessor';
 import { getPendingAudioCount, cleanupExpired } from '@/lib/offlineAudioQueue';
 
@@ -17,7 +17,7 @@ import { getPendingAudioCount, cleanupExpired } from '@/lib/offlineAudioQueue';
  */
 export function useOfflineAudioSync(enabled: boolean = true): void {
   const isOnline = useOnlineStatus();
-  const wasOfflineRef = useRef(!navigator.onLine);
+  const wasOfflineRef = useRef(!getIsOnline());
   const syncInProgressRef = useRef(false);
   
   useEffect(() => {
