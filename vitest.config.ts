@@ -10,6 +10,7 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     exclude: [
       '**/node_modules/**',
+      '**/.claude/worktrees/**',
       // TODO: fix pre-existing circular mock dependency error
       '**/ActivityConfirmation.integration.test.tsx',
     ],
