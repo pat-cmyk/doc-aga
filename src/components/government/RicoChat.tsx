@@ -4,7 +4,9 @@
  import { Input } from "@/components/ui/input";
  import { ScrollArea } from "@/components/ui/scroll-area";
  import { Badge } from "@/components/ui/badge";
- import { Loader2, Send, Bot, User, Landmark, Globe, TrendingUp, Activity, AlertTriangle } from "lucide-react";
+  import { Loader2, Send, Bot, User, Landmark, Globe, TrendingUp, Activity, AlertTriangle, RotateCcw } from "lucide-react";
+  import { getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
+  import { truncateMessages, useSendCooldown } from "@/lib/chatUtils";
  import { useToast } from "@/hooks/use-toast";
  import { useSearchParams } from "react-router-dom";
  import ReactMarkdown from "react-markdown";
@@ -29,10 +31,11 @@
  ];
  
  const RicoChat = () => {
-   const [conversationId] = useState(() => crypto.randomUUID());
-   const [messages, setMessages] = useState<Message[]>([]);
-   const [input, setInput] = useState("");
-   const [loading, setLoading] = useState(false);
+    const [conversationId, setConversationId] = useState(() => getConversationId(CONVERSATION_KEYS.RICO, CONVERSATION_TTLS.DEFAULT));
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const { canSend, markSent } = useSendCooldown();
    
    const scrollRef = useRef<HTMLDivElement>(null);
    const { toast } = useToast();
@@ -67,7 +70,7 @@
  
    const handleSendMessage = async (messageText?: string) => {
      const textToSend = messageText || input.trim();
-     if (!textToSend || loading) return;
+     if (!textToSend || loading || !canSend) return;
  
      if (!messageText) {
        setInput("");
@@ -82,11 +85,11 @@
        
        const { data: { session } } = await supabase.auth.getSession();
        
-       const messagesToSend = [
-         ...messages.filter(m => m.role !== "assistant" || !m.content.includes("I'm **RICO**")),
-         { role: "user", content: textToSend }
-       ];
-       
+        const messagesToSend = truncateMessages([
+          ...messages.filter(m => m.role !== "assistant" || !m.content.includes("I'm **RICO**")),
+          { role: "user", content: textToSend }
+        ]);
+        markSent();
        const resp = await fetch(RICO_URL, {
          method: "POST",
          headers: {
@@ -216,14 +219,28 @@
    return (
      <div className="flex flex-col h-full bg-background">
        {/* Mode Badge */}
-       <div className="px-3 py-2 border-b flex items-center gap-2">
-         <Badge className="bg-blue-600 text-white hover:bg-blue-700">
-           Intelligence Mode
-         </Badge>
-         <span className="text-xs text-muted-foreground">
-           Analyzing {dataCategory === 'demo' ? 'Demo' : 'Live'} Data
-         </span>
-       </div>
+        <div className="px-3 py-2 border-b flex items-center gap-2">
+          <Badge className="bg-blue-600 text-white hover:bg-blue-700">
+            Intelligence Mode
+          </Badge>
+          <span className="text-xs text-muted-foreground flex-1">
+            Analyzing {dataCategory === 'demo' ? 'Demo' : 'Live'} Data
+          </span>
+          {messages.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                const newId = resetConversationId(CONVERSATION_KEYS.RICO);
+                setConversationId(newId);
+                setMessages([{ role: "assistant", content: welcomeMessage }]);
+              }}
+            >
+              New Chat
+            </Button>
+          )}
+        </div>
  
        {/* Messages */}
        <ScrollArea className="flex-1 p-3" ref={scrollRef}>
@@ -313,7 +330,7 @@
            <Button 
              type="submit" 
              size="icon" 
-             disabled={loading || !input.trim()}
+             disabled={loading || !canSend || !input.trim()}
              className="bg-blue-600 hover:bg-blue-700"
            >
              <Send className="w-4 h-4" />

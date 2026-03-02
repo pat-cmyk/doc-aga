@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { executeToolCall } from "./tools.ts";
+import { sanitizeUserMessage } from "../_shared/sanitizeMessage.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = { 
@@ -367,18 +368,19 @@ serve(async (req) => {
      
      console.log(`Doc Aga request - conversationId: ${conversationId || 'none'}`);
     
-    // Transform messages to support vision (images)
+    // Transform messages to support vision (images) + sanitize user input
     const transformedMessages = messages.map((msg: any) => {
+      const content = msg.role === 'user' ? sanitizeUserMessage(msg.content) : msg.content;
       if (msg.imageUrl) {
         return {
           role: msg.role,
           content: [
-            { type: "text", text: msg.content || "Please analyze this image" },
+            { type: "text", text: content || "Please analyze this image" },
             { type: "image_url", image_url: { url: msg.imageUrl } }
           ]
         };
       }
-      return msg;
+      return { ...msg, content };
     });
     
     // Extract user question and image URL for logging

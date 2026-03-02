@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, RotateCcw } from "lucide-react";
+import { getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
+import { truncateMessages, useSendCooldown } from "@/lib/chatUtils";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
@@ -29,8 +31,9 @@ interface DocAgaConsultationProps {
 }
 
 const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultationProps) => {
-  // Generate stable conversation ID for this session
-  const [conversationId] = useState(() => crypto.randomUUID());
+  // Persistent conversation ID (survives page refresh, 1h TTL for consultations)
+  const [conversationId] = useState(() => getConversationId(CONVERSATION_KEYS.DOC_AGA_CONSULTATION, CONVERSATION_TTLS.CONSULTATION));
+  const { canSend, markSent } = useSendCooldown();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -89,7 +92,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
-    if (!textToSend || loading) return;
+    if (!textToSend || loading || !canSend) return;
 
     if (!messageText) {
       setInput("");
@@ -97,6 +100,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
     }
     
     setLoading(true);
+    markSent();
 
     try {
       const DOC_AGA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/doc-aga`;
@@ -110,10 +114,10 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ 
-          messages: [
+          messages: truncateMessages([
             ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Kumusta! Ako si Dok Aga")),
             { role: "user", content: textToSend }
-          ],
+          ]),
           conversationId
         }),
       });
@@ -420,7 +424,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
             disabled={loading}
             className="flex-1 h-10 sm:h-10 text-sm"
           />
-          <Button type="submit" disabled={loading || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
+          <Button type="submit" disabled={loading || !canSend || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
             {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>

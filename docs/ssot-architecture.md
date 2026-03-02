@@ -165,6 +165,23 @@ queryFn: async () => {
 
 ---
 
+## 3.6 Chat Session Persistence
+
+AI chat components use persistent conversation IDs stored in `localStorage` via SSOT utilities in `src/lib/localStorage.ts`.
+
+| Component | localStorage Key | TTL | Pattern |
+|-----------|-----------------|-----|---------|
+| `DocAga` | `doc_aga_conversation_id` | 24h | Cache-first (localStorage) |
+| `DocAgaConsultation` | `doc_aga_consultation_id` | 1h | Cache-first (localStorage) |
+| `RicoChat` | `rico_conversation_id` | 24h | Cache-first (localStorage) |
+
+**Shared Utilities:**
+- `src/lib/chatUtils.ts`: `truncateMessages()` (sliding window, max 20 messages), `useSendCooldown()` (2s client-side debounce)
+- `supabase/functions/_shared/sanitizeMessage.ts`: Prompt injection guard (strips `[SYSTEM]`, `<|system|>`, etc.)
+
+---
+
+
 ## 4. Governance Documents
 
 | Document | Path | Purpose |
