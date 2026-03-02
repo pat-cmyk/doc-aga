@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-02 — Fix: Connectivity Probe Missing API Key + Sync Sheet Navigation
+
+### Fixed
+- **App stuck permanently offline (P0)**: The active connectivity probe (`HEAD /rest/v1/`) was missing the `apikey` header, causing 401 responses without CORS headers. The browser treated these as network errors, permanently setting `getIsOnline() = false`. Added `apikey` header to `checkConnectivity()` — all 50+ SSOT consumers automatically restored.
+- **No back button on Sync Status sheet**: Added explicit `ArrowLeft` close button in `SheetHeader` for mobile navigation.
+
+### Changed
+- `src/hooks/useOnlineStatus.ts` — Added `apikey` header to connectivity probe fetch call.
+- `src/components/sync/SyncStatusSheet.tsx` — Added `SheetClose` with `ArrowLeft` icon in header.
+
 ## 2026-03-02 — Active Connectivity Probing (Android Offline Fix)
 
 ### Fixed
