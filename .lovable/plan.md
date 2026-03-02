@@ -1,69 +1,44 @@
 
 
-# Fix: App Stuck Offline Due to Missing API Key in Connectivity Probe + Sync Sheet Navigation
+# Fix: Revert Connectivity Detection + Fix Offline Barn Creation
 
-## Problem
+## Two Issues
 
-Two issues:
+### Issue 1: Active Connectivity Probing Keeps Failing
+The active `HEAD` probing introduced today continues to cause problems on Android. Even after adding the `apikey` header, it's unreliable on the user's device. The user wants to revert to the previous `navigator.onLine` approach.
 
-1. **App permanently detects as offline** -- The active connectivity probe in `useOnlineStatus.ts` sends a bare `HEAD` request to `/rest/v1/` without the `apikey` header. The server returns `401 Unauthorized` which, lacking CORS headers for unauthenticated requests, causes a browser-level network error. The `catch` block fires every 10 seconds, permanently setting `_isOnline = false`. This blocks ALL downstream behavior:
-   - `getIsOnline()` returns `false` across 50+ consumers in `dataCache.ts`, `syncService.ts`, `useBarns.ts`, etc.
-   - Animal data is never downloaded (cache-first hooks skip fetch because they think the app is offline)
-   - Sync queue never processes (sync button is disabled, automatic sync skips)
-   - Network indicator shows offline (red) even though the server is reachable
+**Fix**: Revert `useOnlineStatus.ts` to use `navigator.onLine` with passive browser events only. Keep the `getIsOnline()` export so the 50+ consumer files (dataCache, offlineQueue, etc.) don't need changes -- just make it return `navigator.onLine` instead of the probing result.
 
-2. **No back button on Sync Status sheet** -- The `SyncStatusSheet` uses a full-width `Sheet` on mobile. The default shadcn `SheetClose` (X icon) exists but may be hard to find. No explicit close/back button is visible.
+### Issue 2: Barn Creation Fails Offline
+The `useCreateBarn` hook captures `isOnline` from `useOnlineStatus()` at **render time**. When the user goes offline after the component rendered, the stale `isOnline = true` sends the mutation down the online path, which hits the server and fails -- instead of creating locally.
 
-## Root Cause Verification
+**Root Cause**: `useCreateBarn` line 179 checks `if (isOnline)` but `isOnline` is a closure from the last render, not the current connectivity state.
 
-From the network request logs:
-- `HEAD /rest/v1/` at `01:56:12Z` -- Status: **401**, no apikey header sent
-- `HEAD /rest/v1/` at `01:56:22Z` -- Status: **401**, no apikey header sent
-- `HEAD /rest/v1/` at `01:56:32Z` -- Status: **401**, no apikey header sent
-
-Meanwhile, all other requests with `apikey` header succeed with `200`. The probe is the only request missing authentication.
-
-## Fix
-
-### File 1: `src/hooks/useOnlineStatus.ts`
-
-Two changes to `checkConnectivity()`:
-
-**A. Add the `apikey` header** so the request passes CORS and gets a proper response:
-
-```text
-headers: {
-  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-}
-```
-
-**B. Treat any HTTP response as "online"** -- A `401` or `403` still proves the server is reachable. Only network-level errors (DNS failure, timeout, abort) should indicate offline. The current code already does this implicitly (the `await fetch()` resolves for any HTTP status), but adding the apikey ensures CORS headers are present so the fetch actually resolves instead of throwing.
-
-No changes needed to the singleton pattern, `getIsOnline()`, or any of the 50+ consumer files -- they all automatically get the corrected state via the existing SSOT accessor.
-
-### File 2: `src/components/sync/SyncStatusSheet.tsx`
-
-Add an explicit close button in the `SheetHeader` using the existing `SheetClose` from shadcn or a manual `setIsOpen(false)` button with an `ArrowLeft` icon, following the same pattern used elsewhere in the app for sheet/dialog headers on mobile.
-
-### File 3: `changelog.md`
-
-Document both fixes.
+**Fix**: Inside `mutationFn`, call `getIsOnline()` at **execution time** instead of using the hook's stale value. Same fix needed for `useUpdateBarn`, `useAssignAnimalToBarn`, and `useRemoveAnimalFromBarn`.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useOnlineStatus.ts` | Add `apikey` header to `checkConnectivity()` fetch call |
-| `src/components/sync/SyncStatusSheet.tsx` | Add explicit close/back button in SheetHeader |
-| `changelog.md` | Document fixes |
+| `src/hooks/useOnlineStatus.ts` | Revert to `navigator.onLine` with passive events; keep `getIsOnline()` export returning `navigator.onLine` |
+| `src/hooks/useBarns.ts` | Import `getIsOnline` and use it inside `mutationFn` instead of hook's `isOnline` for all 4 mutations |
+| `changelog.md` | Document changes |
 
-## Cascading Impact (No Additional Changes Needed)
+## Technical Details
 
-Once `checkConnectivity()` correctly resolves to online:
-- `getIsOnline()` returns `true` -- all 50+ consumers in `dataCache.ts`, `syncService.ts`, `useBarns.ts`, `offlineQueue.ts`, `UserEmailDropdown.tsx`, etc. automatically work correctly
-- `useOnlineStatus()` hook updates React components -- `NetworkStatusIndicator` shows green, `SyncStatusSheet` enables the Sync Now button
-- Animal data downloads resume on next cache-first hook cycle
-- Queued offline mutations sync automatically
+### useOnlineStatus.ts (Reverted)
 
-This is a 1-line root cause fix with zero downstream changes required, which is the benefit of the existing SSOT singleton pattern.
+Remove the active probing singleton (`checkConnectivity`, `startProbing`, intervals, `HEAD` requests). Return to:
+- `useOnlineStatus()` hook: `useState(navigator.onLine)` + `online`/`offline` event listeners
+- `getIsOnline()`: simply returns `navigator.onLine`
+
+This preserves the SSOT accessor pattern so all 50+ consumer files (`dataCache.ts`, `offlineQueue.ts`, `offlineAudioSyncProcessor.ts`, `BarnFormDialog.tsx`, `UserEmailDropdown.tsx`, `voice-input-button.tsx`, `useVoiceRecording.ts`, `useOfflineAudioSync.ts`) continue working without changes.
+
+### useBarns.ts (Execution-Time Check)
+
+For each of the 4 mutation hooks (`useCreateBarn`, `useUpdateBarn`, `useAssignAnimalToBarn`, `useRemoveAnimalFromBarn`):
+- Remove `const isOnline = useOnlineStatus()` from the hook (or keep for UI display only)
+- Inside each `mutationFn`, replace `if (isOnline)` with `if (getIsOnline())` to check connectivity at the moment of execution, not at render time
+
+This ensures that if the user goes offline after the form renders, the mutation correctly takes the offline path -- creating the barn locally in IndexedDB and queuing for sync.
 
