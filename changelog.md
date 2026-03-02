@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-03-02 — Offline-First: Barn Management, Animal List, Profile
+
+### Fixed
+- **Animal List Offline (P0)**: `getCachedAnimals()` and `getCachedRecords()` now include `OFFLINE_GRACE_PERIOD` (7-day stale-cache fallback when offline). Animals no longer disappear when cache TTL expires while disconnected.
+- **Profile Button Offline (P0)**: `UserEmailDropdown` now caches user email and name in `localStorage` via `getCachedUserProfile()` / `setCachedUserProfile()`. Shows cached data instead of infinite "Loading..." when offline.
+
+### Added
+- **Offline Barn Creation**: `useCreateBarn` generates optimistic local barn with temp UUID and queues `barn_create` for sync.
+- **Offline Barn Editing**: `useUpdateBarn` applies optimistic updates to local cache and queues `barn_update` with conflict detection on sync.
+- **Offline Barn Animal Assignment**: `useAssignAnimalToBarn` adds assignment to local cache, increments barn count, updates `current_barn_id` in animals cache, queues `barn_assign`.
+- **Offline Barn Animal Removal**: `useRemoveAnimalFromBarn` marks assignment removed locally, decrements count, clears `current_barn_id`, queues `barn_remove`.
+- **Barn Assignments Cache**: New `barnAssignmentsCache` store in IndexedDB v7 with `getCachedBarnAssignments()`, `updateBarnAssignmentsCache()`, `updateLocalBarnAssignment()`.
+- **Cache-First `useBarnAnimals`**: Now checks IndexedDB first, resolves animal details from `getCachedAnimals()`, falls back to database when online.
+- **Barn Sync Processors**: Four new processors in `syncService.ts`: `syncBarnCreate`, `syncBarnUpdate` (with `checkAndHandleConflict`), `syncBarnAssign` (with dedup), `syncBarnRemove`.
+- **Offline Queue Types**: `barn_create`, `barn_update`, `barn_assign`, `barn_remove` added to `QueueItem.type` union.
+- **UI Feedback**: Barn components show "Saved locally, will sync when online" toast when operating offline.
+
+### Changed
+- `src/lib/dataCache.ts`: IndexedDB bumped to v7 (new `barnAssignmentsCache` store). Added helper functions `updateLocalBarn()`, `updateLocalAnimalBarn()`.
+- `src/lib/cacheManager.ts`: `barn` dependency now includes `barn-assignments` with `clearBarnAssignmentsCache` handler.
+- `src/lib/localStorage.ts`: Added `getCachedUserProfile()` / `setCachedUserProfile()`.
+
+### SSOT Compliance
+- **Group Feeding**: Works offline automatically — `barn:` prefix selection resolves animals via `current_barn_id` from animals cache. No changes needed to feeding logic.
+- All mutations route through `CacheManager.invalidateForMutation('barn', farmId)`.
+- Server-side triggers (`trg_barn_assignment_insert`, `trg_barn_assignment_removal`) reconcile `current_barn_id` on sync.
+- Conflict detection framework (`checkAndHandleConflict`) applied to barn UPDATE operations.
+
 ## 2026-03-02 — P0/P1: Doc Aga & RICO Enterprise Hardening
 
 ### Added

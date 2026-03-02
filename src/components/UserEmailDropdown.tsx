@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
+import { getCachedUserProfile, setCachedUserProfile } from "@/lib/localStorage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,30 +14,42 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { showErrorToast } from "@/lib/errorHandling";
 
 export const UserEmailDropdown = () => {
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [fullName, setFullName] = useState<string>("");
+  // Load from localStorage cache immediately for instant render
+  const cachedProfile = getCachedUserProfile();
+  const [userEmail, setUserEmail] = useState<string>(cachedProfile?.email || "");
+  const [fullName, setFullName] = useState<string>(cachedProfile?.fullName || "");
   const { globalRoles, primaryFarmRole, hasAnyOwnerRole, isOnlyFarmhand, isLoading } = useUnifiedPermissions();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserEmail(user.email || "");
-        
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .single();
-        
-        if (profile?.full_name) {
-          setFullName(profile.full_name);
+      // If offline and we have cached data, skip fetch
+      if (!navigator.onLine && cachedProfile) return;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const email = user.email || "";
+          setUserEmail(email);
+          
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", user.id)
+            .single();
+          
+          const name = profile?.full_name || "";
+          if (name) setFullName(name);
+
+          // Update cache for offline use
+          setCachedUserProfile(email, name);
         }
+      } catch (error) {
+        // Offline or network error — keep cached values
+        console.warn('[UserEmailDropdown] Failed to fetch profile, using cache:', error);
       }
     };
     
@@ -77,7 +90,9 @@ export const UserEmailDropdown = () => {
     displayRoles.push(primaryFarmRole.roleInFarm);
   }
 
-  if (isLoading || !userEmail) {
+  // Show cached data even when permissions are loading; only show loading if no data at all
+  const hasProfileData = !!userEmail || !!cachedProfile;
+  if (isLoading && !hasProfileData) {
     return (
       <Button variant="ghost" size="sm" disabled>
         <User className="h-4 w-4 mr-2" />
@@ -98,7 +113,7 @@ export const UserEmailDropdown = () => {
           <div className="flex flex-col space-y-2">
             <p className="text-sm font-medium leading-none">{fullName || "User"}</p>
             <p className="text-xs leading-none text-muted-foreground truncate">
-              {userEmail}
+              {userEmail || "Offline"}
             </p>
             <div className="flex flex-wrap gap-1 mt-2">
               {displayRoles.map((role) => (

@@ -428,6 +428,15 @@ export interface FarmSettingsCacheEntry {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= BARN ASSIGNMENTS CACHE =============
+
+export interface BarnAssignmentsCacheEntry {
+  farmId: string;
+  assignments: any[]; // BarnAssignment[] from useBarnAnimals
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -481,6 +490,10 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: FarmSettingsCacheEntry;
   };
+  barnAssignmentsCache: {
+    key: string;
+    value: BarnAssignmentsCacheEntry;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -516,7 +529,7 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 6, {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 7, {
     upgrade(db, oldVersion) {
       // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
@@ -573,6 +586,12 @@ async function getDB() {
           db.createObjectStore('farmSettingsCache', { keyPath: 'farmId' });
         }
       }
+      // Version 7: Add barnAssignmentsCache for offline barn animal management
+      if (oldVersion < 7) {
+        if (!db.objectStoreNames.contains('barnAssignmentsCache')) {
+          db.createObjectStore('barnAssignmentsCache', { keyPath: 'farmId' });
+        }
+      }
     },
   });
 
@@ -610,7 +629,9 @@ export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache 
     if (!cached) return null;
 
     const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.animals;
-    return isValid ? cached : null;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
   } catch (error) {
     console.error('Error reading animal cache:', error);
     return null;
@@ -801,7 +822,9 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
     if (!cached) return null;
 
     const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.records;
-    return isValid ? cached : null;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
   } catch (error) {
     console.error('Error reading records cache:', error);
     return null;
@@ -2353,5 +2376,144 @@ export async function clearBreedingAnalyticsCache(farmId: string): Promise<void>
     console.log('[DataCache] Breeding analytics cache cleared for farm:', farmId);
   } catch (error) {
     console.error('[DataCache] Failed to clear breeding analytics cache:', error);
+  }
+}
+
+// ============= BARN ASSIGNMENTS CACHE FUNCTIONS =============
+
+export async function getCachedBarnAssignments(farmId: string): Promise<BarnAssignmentsCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('barnAssignmentsCache', farmId);
+    if (!cached) return null;
+    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.barns;
+    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
+    if (isValid || (!navigator.onLine && isWithinGrace)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading barn assignments cache:', error);
+    return null;
+  }
+}
+
+export async function updateBarnAssignmentsCache(farmId: string, assignments: any[]): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('barnAssignmentsCache', { farmId, assignments, lastUpdated: Date.now(), syncStatus: 'synced' });
+    console.log('[DataCache] Barn assignments cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update barn assignments cache:', error);
+  }
+}
+
+export async function clearBarnAssignmentsCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('barnAssignmentsCache', farmId);
+    console.log('[DataCache] Barn assignments cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear barn assignments cache:', error);
+  }
+}
+
+/**
+ * Optimistically update a single barn assignment locally (add or remove)
+ * Used for offline barn animal management
+ */
+export async function updateLocalBarnAssignment(
+  farmId: string,
+  action: 'add' | 'remove',
+  assignment: any
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('barnAssignmentsCache', farmId);
+    const currentAssignments = cached?.assignments || [];
+
+    let updatedAssignments: any[];
+    if (action === 'add') {
+      updatedAssignments = [assignment, ...currentAssignments];
+    } else {
+      updatedAssignments = currentAssignments.map((a: any) =>
+        a.id === assignment.id ? { ...a, removed_at: new Date().toISOString() } : a
+      );
+    }
+
+    await db.put('barnAssignmentsCache', {
+      farmId,
+      assignments: updatedAssignments,
+      lastUpdated: cached?.lastUpdated || Date.now(),
+      syncStatus: 'pending',
+    });
+  } catch (error) {
+    console.error('[DataCache] Failed to update local barn assignment:', error);
+  }
+}
+
+/**
+ * Optimistically update a barn in the local barns cache
+ */
+export async function updateLocalBarn(
+  farmId: string,
+  action: 'add' | 'update' | 'increment_count' | 'decrement_count',
+  barnData: any
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('barnsCache', farmId);
+    const currentBarns = (cached?.data || []) as any[];
+
+    let updatedBarns: any[];
+    if (action === 'add') {
+      updatedBarns = [...currentBarns, barnData];
+    } else if (action === 'update') {
+      updatedBarns = currentBarns.map((b: any) =>
+        b.id === barnData.id ? { ...b, ...barnData } : b
+      );
+    } else if (action === 'increment_count') {
+      updatedBarns = currentBarns.map((b: any) =>
+        b.id === barnData.id ? { ...b, animal_count: (b.animal_count || 0) + 1 } : b
+      );
+    } else {
+      updatedBarns = currentBarns.map((b: any) =>
+        b.id === barnData.id ? { ...b, animal_count: Math.max(0, (b.animal_count || 0) - 1) } : b
+      );
+    }
+
+    await db.put('barnsCache', {
+      farmId,
+      data: updatedBarns,
+      lastUpdated: cached?.lastUpdated || Date.now(),
+      syncStatus: 'pending',
+    });
+  } catch (error) {
+    console.error('[DataCache] Failed to update local barn:', error);
+  }
+}
+
+/**
+ * Update an animal's current_barn_id in the local animals cache
+ */
+export async function updateLocalAnimalBarn(
+  farmId: string,
+  animalId: string,
+  barnId: string | null
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('animals', farmId);
+    if (!cached) return;
+
+    const updatedAnimals = cached.data.map((a: any) =>
+      a.id === animalId ? { ...a, current_barn_id: barnId } : a
+    );
+
+    await db.put('animals', {
+      ...cached,
+      data: updatedAnimals,
+      syncStatus: 'pending',
+    });
+  } catch (error) {
+    console.error('[DataCache] Failed to update local animal barn:', error);
   }
 }

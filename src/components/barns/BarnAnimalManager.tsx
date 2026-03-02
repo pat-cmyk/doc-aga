@@ -73,16 +73,20 @@ export function BarnAnimalManager({ barn, farmId, allBarns }: BarnAnimalManagerP
     try {
       await assignAnimal.mutateAsync({ barnId: barn.id, animalId });
       setSelectedAnimalId("");
-      toast.success("Animal assigned");
+      toast.success(
+        navigator.onLine ? "Animal assigned" : "Saved locally, will sync when online"
+      );
     } catch {
       toast.error("Failed to assign animal");
     }
   };
 
-  const handleRemove = async (assignmentId: string) => {
+  const handleRemove = async (assignmentId: string, animalId?: string) => {
     try {
-      await removeAnimal.mutateAsync({ assignmentId });
-      toast.success("Animal removed from barn");
+      await removeAnimal.mutateAsync({ assignmentId, barnId: barn.id, animalId });
+      toast.success(
+        navigator.onLine ? "Animal removed from barn" : "Saved locally, will sync when online"
+      );
     } catch {
       toast.error("Failed to remove animal");
     }
@@ -138,7 +142,7 @@ export function BarnAnimalManager({ barn, farmId, allBarns }: BarnAnimalManagerP
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => handleRemove(assignment.id)}
+                  onClick={() => handleRemove(assignment.id, assignment.animal_id)}
                   disabled={removeAnimal.isPending}
                 >
                   <X className="h-3.5 w-3.5" />

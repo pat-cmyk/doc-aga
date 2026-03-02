@@ -10,6 +10,7 @@ import {
   clearAnimalCostCache,
   clearBarnsCache,
   clearFarmSettingsCache,
+  clearBarnAssignmentsCache,
 } from "./dataCache";
 
 /**
@@ -35,7 +36,7 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'alert-schedule': ['upcoming-alerts', 'dashboard'],
   'market-price': ['market-price', 'market-price-history', 'herd-valuation', 'herd-valuation-unified', 'dashboard'],
   'farm-settings': ['farm-settings'],
-  'barn': ['barns', 'barn-animals', 'farm-animals'],
+  'barn': ['barns', 'barn-animals', 'farm-animals', 'barn-assignments'],
   'checklist': ['daily-checklist'],
   'pending-activity': ['pending-activities'],
   'farmer-feedback': ['farmer-feedback'],
@@ -72,6 +73,9 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
       break;
     case 'barns':
       await clearBarnsCache(farmId);
+      break;
+    case 'barn-assignments':
+      await clearBarnAssignmentsCache(farmId);
       break;
     case 'farm-settings':
       await clearFarmSettingsCache(farmId);
