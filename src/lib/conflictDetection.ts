@@ -217,8 +217,8 @@ export function mergeRecords(
   // Start with server data as base
   const merged = { ...serverData };
   
-  // If client is newer, prefer client values for non-null fields
-  if (clientTime > serverTime) {
+  // If client is newer or timestamps are equal, prefer client values for non-null fields
+  if (clientTime >= serverTime) {
     for (const key of Object.keys(clientData)) {
       if (clientData[key] !== null && clientData[key] !== undefined) {
         merged[key] = clientData[key];
