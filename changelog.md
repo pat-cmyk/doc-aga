@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-02 — Revert Connectivity to navigator.onLine + Fix Offline Barn Creation
+
+### Fixed
+- **Reverted active connectivity probing**: Active `HEAD` probing unreliable on Android WebView. Reverted `useOnlineStatus.ts` to passive `navigator.onLine` + browser events. `getIsOnline()` SSOT accessor preserved — 50+ consumers unchanged.
+- **Offline barn creation broken (P1)**: Mutation hooks (`useCreateBarn`, `useUpdateBarn`, `useAssignAnimalToBarn`, `useRemoveAnimalFromBarn`) captured `isOnline` at render time via closure. Going offline after form render sent mutations down the online path, failing silently. Fixed by calling `getIsOnline()` at execution time inside each `mutationFn`.
+
+### Changed
+- `src/hooks/useOnlineStatus.ts` — Removed active probing singleton; reverted to `navigator.onLine` with passive events.
+- `src/hooks/useBarns.ts` — All 4 mutation hooks now call `getIsOnline()` inside `mutationFn` instead of using stale hook value.
+
 ## 2026-03-02 — Fix: Connectivity Probe Missing API Key + Sync Sheet Navigation
 
 ### Fixed

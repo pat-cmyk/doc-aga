@@ -6,7 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCacheManager } from "@/lib/cacheManager";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useOnlineStatus, getIsOnline } from "@/hooks/useOnlineStatus";
 import {
   getCachedBarns,
   updateBarnsCache,
@@ -169,14 +169,13 @@ export function useBarnAnimals(barnId: string | null, farmId: string | null) {
 }
 
 export function useCreateBarn(farmId: string | null) {
-  const isOnline = useOnlineStatus();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (barn: { name: string; barn_type: string; description?: string; capacity?: number }) => {
       if (!farmId) throw new Error('No farm ID');
 
-      if (isOnline) {
+      if (getIsOnline()) {
         // Online path: direct insert
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
@@ -245,12 +244,11 @@ export function useCreateBarn(farmId: string | null) {
 }
 
 export function useUpdateBarn(farmId: string | null) {
-  const isOnline = useOnlineStatus();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; name?: string; barn_type?: string; description?: string | null; capacity?: number | null; is_active?: boolean }) => {
-      if (isOnline) {
+      if (getIsOnline()) {
         const { error } = await supabase
           .from('barns')
           .update(updates)
@@ -291,14 +289,13 @@ export function useUpdateBarn(farmId: string | null) {
 }
 
 export function useAssignAnimalToBarn(farmId: string | null) {
-  const isOnline = useOnlineStatus();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ barnId, animalId }: { barnId: string; animalId: string }) => {
       if (!farmId) throw new Error('No farm ID');
 
-      if (isOnline) {
+      if (getIsOnline()) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
@@ -352,12 +349,11 @@ export function useAssignAnimalToBarn(farmId: string | null) {
 }
 
 export function useRemoveAnimalFromBarn(farmId: string | null) {
-  const isOnline = useOnlineStatus();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ assignmentId, barnId, animalId }: { assignmentId: string; barnId?: string; animalId?: string }) => {
-      if (isOnline) {
+      if (getIsOnline()) {
         const { error } = await supabase
           .from('barn_assignments')
           .update({ removed_at: new Date().toISOString() })
