@@ -1,84 +1,69 @@
 
 
-# Fix Unreliable Offline Detection on Android
+# Fix: App Stuck Offline Due to Missing API Key in Connectivity Probe + Sync Sheet Navigation
 
 ## Problem
 
-The WiFi indicator stays green even when offline on Android because `navigator.onLine` is unreliable in Capacitor WebView. It often reports `true` when the device has no actual internet connectivity (e.g., connected to WiFi router with no internet, or airplane mode in some WebView versions).
+Two issues:
 
-This is a critical cascading bug: since `navigator.onLine` is used in 50+ places across `dataCache.ts` to decide whether to serve stale cache (`!navigator.onLine && isWithinGrace`), a false `true` means the app rejects cached data AND fails network requests -- resulting in empty screens.
+1. **App permanently detects as offline** -- The active connectivity probe in `useOnlineStatus.ts` sends a bare `HEAD` request to `/rest/v1/` without the `apikey` header. The server returns `401 Unauthorized` which, lacking CORS headers for unauthenticated requests, causes a browser-level network error. The `catch` block fires every 10 seconds, permanently setting `_isOnline = false`. This blocks ALL downstream behavior:
+   - `getIsOnline()` returns `false` across 50+ consumers in `dataCache.ts`, `syncService.ts`, `useBarns.ts`, etc.
+   - Animal data is never downloaded (cache-first hooks skip fetch because they think the app is offline)
+   - Sync queue never processes (sync button is disabled, automatic sync skips)
+   - Network indicator shows offline (red) even though the server is reachable
 
-## Root Cause
+2. **No back button on Sync Status sheet** -- The `SyncStatusSheet` uses a full-width `Sheet` on mobile. The default shadcn `SheetClose` (X icon) exists but may be hard to find. No explicit close/back button is visible.
 
-`useOnlineStatus` and all direct `navigator.onLine` checks rely purely on the browser's passive `online`/`offline` events, which Android WebView does not fire reliably.
+## Root Cause Verification
 
-## Solution: Active Connectivity Probing
+From the network request logs:
+- `HEAD /rest/v1/` at `01:56:12Z` -- Status: **401**, no apikey header sent
+- `HEAD /rest/v1/` at `01:56:22Z` -- Status: **401**, no apikey header sent
+- `HEAD /rest/v1/` at `01:56:32Z` -- Status: **401**, no apikey header sent
 
-### 1. Upgrade `useOnlineStatus` hook with active ping
+Meanwhile, all other requests with `apikey` header succeed with `200`. The probe is the only request missing authentication.
 
-**File: `src/hooks/useOnlineStatus.ts`**
+## Fix
 
-Add an active connectivity check that periodically pings the backend health endpoint alongside the passive browser events:
+### File 1: `src/hooks/useOnlineStatus.ts`
 
-- On mount and every 10 seconds: attempt a lightweight `HEAD` request to the backend (e.g., `HEAD /rest/v1/` with a 5-second timeout)
-- If the request fails or times out, set `isOnline = false` regardless of `navigator.onLine`
-- If it succeeds, set `isOnline = true`
-- Still listen to browser `online`/`offline` events for instant transitions (when they work)
-- Export a non-hook `getIsOnline()` function that returns the last known state, for use in non-React code (like `dataCache.ts`)
+Two changes to `checkConnectivity()`:
 
-### 2. Replace `navigator.onLine` in `dataCache.ts`
-
-**File: `src/lib/dataCache.ts`**
-
-Replace all 50+ occurrences of `navigator.onLine` with the shared `getIsOnline()` function from the upgraded hook. This ensures the active ping result is used everywhere, not just in React components.
-
-### 3. Replace `navigator.onLine` in other files
-
-**Files: `src/lib/syncService.ts`, `src/hooks/useBarns.ts`, `src/components/barns/BarnFormDialog.tsx`, and any other files using `navigator.onLine` directly**
-
-Same replacement: use `getIsOnline()` from the shared module.
-
-## Technical Details
-
-### Active ping implementation
+**A. Add the `apikey` header** so the request passes CORS and gets a proper response:
 
 ```text
-Module: src/hooks/useOnlineStatus.ts
-
-- Singleton state: let _isOnline = navigator.onLine (initial)
-- Listeners: Set of callbacks for state changes
-- checkConnectivity(): HEAD request to Supabase URL with 5s timeout
-  - Success -> _isOnline = true
-  - Failure/timeout -> _isOnline = false
-  - Notify listeners on change
-- Interval: every 10 seconds when document is visible
-- Pause when document is hidden (save battery on mobile)
-- Export: useOnlineStatus() hook (React), getIsOnline() function (non-React)
+headers: {
+  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+}
 ```
 
-### Why HEAD request to backend
+**B. Treat any HTTP response as "online"** -- A `401` or `403` still proves the server is reachable. Only network-level errors (DNS failure, timeout, abort) should indicate offline. The current code already does this implicitly (the `await fetch()` resolves for any HTTP status), but adding the apikey ensures CORS headers are present so the fetch actually resolves instead of throwing.
 
-- Already authenticated, no CORS issues
-- Minimal payload (HEAD = no body)
-- Tests actual connectivity to the service the app needs
-- 5-second timeout catches "connected but no internet" cases
+No changes needed to the singleton pattern, `getIsOnline()`, or any of the 50+ consumer files -- they all automatically get the corrected state via the existing SSOT accessor.
 
-### Files to modify
+### File 2: `src/components/sync/SyncStatusSheet.tsx`
+
+Add an explicit close button in the `SheetHeader` using the existing `SheetClose` from shadcn or a manual `setIsOpen(false)` button with an `ArrowLeft` icon, following the same pattern used elsewhere in the app for sheet/dialog headers on mobile.
+
+### File 3: `changelog.md`
+
+Document both fixes.
+
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useOnlineStatus.ts` | Add active ping + export `getIsOnline()` |
-| `src/lib/dataCache.ts` | Replace ~50 `navigator.onLine` with `getIsOnline()` |
-| `src/hooks/useBarns.ts` | Replace `navigator.onLine` with `getIsOnline()` |
-| `src/lib/syncService.ts` | Replace `navigator.onLine` with `getIsOnline()` |
-| `src/components/barns/BarnFormDialog.tsx` | Replace `navigator.onLine` with `getIsOnline()` |
-| Any other files using `navigator.onLine` | Same replacement |
-| `changelog.md` | Document fix |
+| `src/hooks/useOnlineStatus.ts` | Add `apikey` header to `checkConnectivity()` fetch call |
+| `src/components/sync/SyncStatusSheet.tsx` | Add explicit close/back button in SheetHeader |
+| `changelog.md` | Document fixes |
 
-### Impact
+## Cascading Impact (No Additional Changes Needed)
 
-- NetworkStatusIndicator automatically shows correct red/green state (it already consumes `useOnlineStatus`)
-- All 50+ cache grace period checks in `dataCache.ts` correctly serve stale data when truly offline
-- Barn offline operations correctly branch to optimistic path
-- Sync service correctly skips when offline
+Once `checkConnectivity()` correctly resolves to online:
+- `getIsOnline()` returns `true` -- all 50+ consumers in `dataCache.ts`, `syncService.ts`, `useBarns.ts`, `offlineQueue.ts`, `UserEmailDropdown.tsx`, etc. automatically work correctly
+- `useOnlineStatus()` hook updates React components -- `NetworkStatusIndicator` shows green, `SyncStatusSheet` enables the Sync Now button
+- Animal data downloads resume on next cache-first hook cycle
+- Queued offline mutations sync automatically
+
+This is a 1-line root cause fix with zero downstream changes required, which is the benefit of the existing SSOT singleton pattern.
 
