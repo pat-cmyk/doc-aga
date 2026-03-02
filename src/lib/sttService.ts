@@ -31,28 +31,55 @@ export interface STTOptions {
   skipAnalytics?: boolean;
 }
 
+// ==================== TIMEOUT HELPER ====================
+
+const STT_TIMEOUT_MS = 30_000; // 30 seconds
+
+/**
+ * Invoke a Supabase edge function with a timeout via Promise.race.
+ * supabase.functions.invoke does not support AbortSignal, so we race
+ * against a timeout promise instead.
+ *
+ * Pattern inspired by useOnlineStatus.ts connectivity probing.
+ */
+export async function invokeWithTimeout(
+  functionName: string,
+  body: Record<string, any>,
+  timeoutMs: number = STT_TIMEOUT_MS
+): Promise<{ data: any; error: any }> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('TRANSCRIPTION_TIMEOUT')), timeoutMs);
+  });
+
+  return Promise.race([
+    supabase.functions.invoke(functionName, { body }),
+    timeoutPromise,
+  ]);
+}
+
 // ==================== PROVIDER FUNCTIONS ====================
 
 /**
  * Transcribe audio using Gemini 3 Pro via voice-to-text edge function
  */
-async function transcribeWithGemini(audioBlob: Blob): Promise<string> {
+async function transcribeWithGemini(audioBlob: Blob, keyterms?: string[]): Promise<string> {
   // Convert blob to base64
   const base64Audio = await blobToBase64(audioBlob);
-  
-  const { data, error } = await supabase.functions.invoke('voice-to-text', {
-    body: { audio: base64Audio }
+
+  const { data, error } = await invokeWithTimeout('voice-to-text', {
+    audio: base64Audio,
+    ...(keyterms?.length ? { keyterms } : {}),
   });
-  
+
   if (error) {
     console.error('[STT] Gemini transcription error:', error);
     throw new Error(error.message || 'Gemini transcription failed');
   }
-  
+
   if (!data?.text) {
     throw new Error('No transcription returned from Gemini');
   }
-  
+
   return data.text;
 }
 
@@ -100,7 +127,7 @@ export async function transcribeAudio(
   console.log('[STT] Starting batch transcription with Gemini');
   
   try {
-    const text = await transcribeWithGemini(audioBlob);
+    const text = await transcribeWithGemini(audioBlob, keyterms);
     const latencyMs = Date.now() - startTime;
     
     console.log(`[STT] Gemini transcription complete in ${latencyMs}ms`);

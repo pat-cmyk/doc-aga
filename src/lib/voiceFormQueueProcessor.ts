@@ -5,35 +5,19 @@
  * Transcribes audio and runs extractors to populate form data.
  */
 
-import { supabase } from '@/integrations/supabase/client';
 import { runExtractor, type ExtractorType, type ExtractorContext, type ExtractedData } from './voiceFormExtractors';
 import { emitVoiceFormResult } from '@/hooks/useVoiceFormResult';
+import { invokeWithTimeout, blobToBase64 } from './sttService';
 import type { QueueItem } from './offlineQueue';
 
 /**
- * Convert audio Blob to base64 string
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      const base64Data = base64.split(',')[1] || base64;
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Transcribe audio using voice-to-text edge function
+ * Transcribe audio using voice-to-text edge function (with timeout)
  */
 async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const base64Audio = await blobToBase64(audioBlob);
-  
-  const { data, error } = await supabase.functions.invoke('voice-to-text', {
-    body: { audio: base64Audio }
+
+  const { data, error } = await invokeWithTimeout('voice-to-text', {
+    audio: base64Audio,
   });
 
   if (error) {

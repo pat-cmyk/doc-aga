@@ -1,18 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  getAllPending, 
-  updateStatus, 
+import {
+  getAllPending,
+  updateStatus,
   incrementRetries,
   setAwaitingConfirmation,
   updateItem,
-  type QueueItem 
+  cleanupExpiredItems,
+  type QueueItem
 } from './offlineQueue';
 import { processVoiceQueue } from './voiceQueueProcessor';
 import { processVoiceFormInput } from './voiceFormQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
-import { generateClientId } from './syncCheckpoint';
+import { generateClientId, updateSyncCheckpoint } from './syncCheckpoint';
+import { invokeWithTimeout } from './sttService';
 import { startSyncSession, completeSyncSession, recordSyncError, type SyncType } from './syncTelemetry';
 import { detectConflict, recordConflict } from './conflictDetection';
 
@@ -63,6 +65,13 @@ async function checkAndHandleConflict(
 
   if (!conflictInfo.hasConflict) return false;
 
+  // Error case: conflict check RPC failed (serverData is null).
+  // Skip the write and let retry logic handle it on next sync cycle.
+  if (!conflictInfo.serverData) {
+    console.warn(`[SyncService] Conflict check failed for ${tableName}/${recordId}, will retry`);
+    return true;
+  }
+
   console.warn(`[SyncService] Conflict detected for ${tableName}/${recordId}`);
 
   // Record conflict for UI resolution
@@ -71,7 +80,7 @@ async function checkAndHandleConflict(
     tableName,
     recordId,
     clientData,
-    conflictInfo.serverData ?? {}
+    conflictInfo.serverData
   );
 
   // Mark queue item as conflict
@@ -205,11 +214,10 @@ async function transcribeItem(item: QueueItem): Promise<void> {
   // Convert blob to base64
   const base64Audio = await blobToBase64(audioBlob);
   
-  // Call voice-to-text
-  const { data: transcriptionData, error: transcriptionError } = await supabase.functions
-    .invoke('voice-to-text', {
-      body: { audio: base64Audio },
-    });
+  // Call voice-to-text (with 30s timeout)
+  const { data: transcriptionData, error: transcriptionError } = await invokeWithTimeout('voice-to-text', {
+    audio: base64Audio,
+  });
 
   if (transcriptionError) {
     throw new Error(transcriptionError.message || 'TRANSCRIPTION_FAILED');
@@ -432,6 +440,10 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
         const retries = await incrementRetries(item.id);
         
         if (retries >= MAX_RETRIES) {
+          // Rollback optimistic records from data cache to remove ghost entries
+          if (item.optimisticId) {
+            await rollbackOptimisticRecords(item.optimisticId);
+          }
           await updateStatus(item.id, 'failed', translateError(error));
           await sendSyncFailureNotification(1, item.id);
         } else {
@@ -454,6 +466,21 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
         itemsFailed: failed,
         durationMs: endTime - startTime,
       });
+    }
+    // Record sync checkpoint if items were successfully synced
+    if (farmId && succeeded > 0) {
+      try {
+        await updateSyncCheckpoint(farmId, 'offline_queue', new Date().toISOString(), succeeded);
+      } catch (cpErr) {
+        console.warn('[SyncQueue] Failed to update sync checkpoint:', cpErr);
+      }
+    }
+
+    // Clean up old completed/failed items (72h TTL)
+    try {
+      await cleanupExpiredItems();
+    } catch (cleanupErr) {
+      console.warn('[SyncQueue] Queue cleanup error:', cleanupErr);
     }
   } finally {
     isSyncing = false;

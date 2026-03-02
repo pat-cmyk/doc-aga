@@ -5,6 +5,7 @@ import { addToQueue, QueueItem } from '@/lib/offlineQueue';
 import { syncQueue } from '@/lib/syncService';
 import { useToast } from '@/hooks/use-toast';
 import { hapticNotification } from '@/lib/haptics';
+import { playOfflineConfirmation } from '@/lib/offlineAudioConfirmations';
 import { showErrorToastLegacy } from '@/lib/errorHandling';
 
 /**
@@ -121,6 +122,7 @@ export function useOptimisticMutation<TData, TVariables>({
         });
 
         hapticNotification('success');
+        playOfflineConfirmation('save');
         toast({
           title: offlineMessage,
           description: 'Will sync when back online',

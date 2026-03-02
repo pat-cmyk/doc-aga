@@ -3,11 +3,12 @@ import { getIsOnline } from "@/hooks/useOnlineStatus";
 import { Capacitor } from "@capacitor/core";
 import { Mic, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeWithTimeout, blobToBase64 } from "@/lib/sttService";
 import { toast } from "sonner";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
 import { queueOfflineAudio, type AudioQueueMetadata } from "@/lib/offlineAudioQueue";
+import { playOfflineConfirmation } from "@/lib/offlineAudioConfirmations";
 import type { ExtractorType } from "@/lib/voiceFormExtractors";
 
 interface VoiceInputButtonProps {
@@ -116,6 +117,7 @@ export function VoiceInputButton({
           extractorType,
         });
         hapticNotification('success');
+        playOfflineConfirmation('queue');
         toast.success('Na-queue ang audio — ita-transcribe kapag online na');
       } catch (error: any) {
         console.error('Offline queue error:', error);
@@ -129,9 +131,9 @@ export function VoiceInputButton({
 
     try {
       const base64Audio = await blobToBase64(blob);
-      
-      const { data, error } = await supabase.functions.invoke('voice-to-text', {
-        body: { audio: base64Audio }
+
+      const { data, error } = await invokeWithTimeout('voice-to-text', {
+        audio: base64Audio,
       });
 
       if (error) {
@@ -152,18 +154,6 @@ export function VoiceInputButton({
     } finally {
       setState('idle');
     }
-  };
-
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
   };
 
   const handleClick = () => {

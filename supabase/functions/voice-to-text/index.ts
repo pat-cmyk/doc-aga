@@ -23,7 +23,8 @@ const voiceToTextSchema = z.object({
   audio: z.string()
     .min(100, 'Audio data too short')
     .max(MAX_BASE64_LENGTH, 'Audio data exceeds maximum size')
-    .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid base64 encoding')
+    .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid base64 encoding'),
+  keyterms: z.array(z.string()).optional(),
 });
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -119,7 +120,7 @@ async function transcribeWithElevenLabs(audioBase64: string): Promise<string> {
 }
 
 // Gemini 3 Pro Transcription (Fallback)
-async function transcribeWithGemini(audioBase64: string): Promise<string> {
+async function transcribeWithGemini(audioBase64: string, keyterms?: string[]): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
     throw new Error('LOVABLE_API_KEY not configured');
@@ -135,9 +136,11 @@ async function transcribeWithGemini(audioBase64: string): Promise<string> {
     body: JSON.stringify({
       model: 'google/gemini-3-pro-preview',
       messages: [
-        { 
-          role: 'system', 
-          content: TRANSCRIPTION_SYSTEM_PROMPT
+        {
+          role: 'system',
+          content: keyterms?.length
+            ? `${TRANSCRIPTION_SYSTEM_PROMPT}\n\nCONTEXT TERMS (use these for correct spelling of names and items): ${keyterms.join(', ')}`
+            : TRANSCRIPTION_SYSTEM_PROMPT
         },
         { 
           role: 'user', 
@@ -263,7 +266,7 @@ serve(async (req) => {
       );
     }
 
-    const { audio } = parseResult.data;
+    const { audio, keyterms } = parseResult.data;
 
     // Validate audio size (decoded size estimation)
     audioSizeBytes = (audio.length * 3) / 4 // Approximate decoded size
@@ -293,7 +296,7 @@ serve(async (req) => {
       
       try {
         console.log('[voice-to-text] Trying Gemini 3 Pro (Fallback)...');
-        transcription = await transcribeWithGemini(audio);
+        transcription = await transcribeWithGemini(audio, keyterms);
         provider = 'gemini';
         modelVersion = 'gemini-3-pro-preview';
         console.log('[voice-to-text] Gemini fallback success');

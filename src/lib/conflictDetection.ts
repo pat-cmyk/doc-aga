@@ -42,8 +42,8 @@ export async function detectConflict(
   });
 
   if (error) {
-    console.error('[ConflictDetection] Error checking conflict:', error);
-    return { hasConflict: false, serverData: null, serverUpdatedAt: null };
+    console.warn('[ConflictDetection] RPC error - failing closed to prevent silent overwrites:', error);
+    return { hasConflict: true, serverData: null, serverUpdatedAt: null };
   }
 
   // Cast to expected shape since RPC returns Json type

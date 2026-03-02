@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from './sttService';
 import type { QueueItem } from './offlineQueue';
 
 /**
@@ -34,11 +35,10 @@ export async function processVoiceQueue(item: QueueItem): Promise<void> {
     
     const base64Audio = await blobToBase64(audioBlob);
     console.log('VoiceQueue: base64 audio length:', base64Audio?.length || 0);
-    
-    const { data: transcriptionData, error: transcriptionError } = await supabase.functions
-      .invoke('voice-to-text', {
-        body: { audio: base64Audio },
-      });
+
+    const { data: transcriptionData, error: transcriptionError } = await invokeWithTimeout('voice-to-text', {
+      audio: base64Audio,
+    });
 
     if (transcriptionError) {
       console.error('VoiceQueue: transcriptionError', transcriptionError);
