@@ -11,6 +11,7 @@ export type PermissionStatus = 'granted' | 'denied' | 'prompt';
 export interface PermissionResults {
   camera: PermissionStatus;
   microphone: PermissionStatus;
+  location: PermissionStatus;
   notifications: PermissionStatus;
 }
 
@@ -21,6 +22,7 @@ export async function checkAllPermissions(): Promise<PermissionResults> {
   const results: PermissionResults = {
     camera: 'prompt',
     microphone: 'prompt',
+    location: 'prompt',
     notifications: 'prompt',
   };
 
@@ -50,6 +52,16 @@ export async function checkAllPermissions(): Promise<PermissionResults> {
   } catch (error) {
     // Safari doesn't support microphone permission query
     results.microphone = 'prompt';
+  }
+
+  // Check location via Permissions API
+  try {
+    if (navigator.permissions) {
+      const locStatus = await navigator.permissions.query({ name: 'geolocation' });
+      results.location = locStatus.state as PermissionStatus;
+    }
+  } catch (error) {
+    results.location = 'prompt';
   }
 
   // Check notifications - dynamic import
@@ -85,6 +97,7 @@ export async function initDevicePermissions(): Promise<PermissionResults> {
   const results: PermissionResults = {
     camera: 'prompt',
     microphone: 'prompt',
+    location: 'prompt',
     notifications: 'prompt',
   };
 
@@ -95,7 +108,7 @@ export async function initDevicePermissions(): Promise<PermissionResults> {
     const cameraStatus = await Camera.requestPermissions({
       permissions: ['camera', 'photos']
     });
-    
+
     if (cameraStatus.camera === 'granted' && cameraStatus.photos === 'granted') {
       results.camera = 'granted';
     } else if (cameraStatus.camera === 'denied' || cameraStatus.photos === 'denied') {
@@ -120,6 +133,28 @@ export async function initDevicePermissions(): Promise<PermissionResults> {
   } catch (error) {
     console.log('[DevicePermissions] Microphone permission denied or failed:', error);
     results.microphone = 'denied';
+  }
+
+  // Location: Use Geolocation API to trigger native permission dialog
+  try {
+    console.log('[DevicePermissions] Requesting location permissions...');
+    await new Promise<void>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          results.location = 'granted';
+          console.log('[DevicePermissions] Location permission granted');
+          resolve();
+        },
+        () => {
+          results.location = 'denied';
+          console.log('[DevicePermissions] Location permission denied');
+          resolve();
+        }
+      );
+    });
+  } catch (error) {
+    console.log('[DevicePermissions] Location permission failed:', error);
+    results.location = 'denied';
   }
 
   // Notifications: Already working, maintain existing behavior - dynamic import

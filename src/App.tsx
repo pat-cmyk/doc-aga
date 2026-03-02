@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense, useRef } from 'react';
+import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +22,7 @@ import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
 import { initCacheManager } from "./lib/cacheManager";
 import { useOfflineAudioSync } from "./hooks/useOfflineAudioSync";
 import { cacheOfflineConfirmations } from "./lib/offlineAudioConfirmations";
+import { PermissionOnboarding } from "./components/permissions/PermissionOnboarding";
 
 // Lazy load page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -97,6 +98,7 @@ const SyncHandler = () => {
   const isOnline = useOnlineStatus();
   const navigate = useNavigate();
   const lastSyncTimeRef = useRef<number>(0);
+  const [showPermissionOnboarding, setShowPermissionOnboarding] = useState(false);
 
   // Initialize offline audio sync
   useOfflineAudioSync();
@@ -111,10 +113,17 @@ const SyncHandler = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize ALL device permissions on mount (SSOT pattern)
-    initDevicePermissions().then((results) => {
-      console.log('[SyncHandler] Permission initialization results:', results);
-    });
+    // On first launch, show the guided permission onboarding wizard
+    // On subsequent launches, silently verify permissions
+    const onboardingCompleted = localStorage.getItem('permission_onboarding_completed');
+    if (!onboardingCompleted && Capacitor.isNativePlatform()) {
+      setShowPermissionOnboarding(true);
+    } else {
+      // Silently verify/request permissions (SSOT pattern)
+      initDevicePermissions().then((results) => {
+        console.log('[SyncHandler] Permission initialization results:', results);
+      });
+    }
 
     // Setup notification click handler - dynamic import with variable indirection
     if (Capacitor.isNativePlatform()) {
@@ -204,7 +213,13 @@ const SyncHandler = () => {
     };
   }, [isOnline]);
 
-  return null;
+  return (
+    <PermissionOnboarding
+      open={showPermissionOnboarding}
+      onOpenChange={setShowPermissionOnboarding}
+      onComplete={() => setShowPermissionOnboarding(false)}
+    />
+  );
 };
 
 // Component to conditionally render floating components based on route
