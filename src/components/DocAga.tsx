@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, Bot, User, Volume2, VolumeX, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, VolumeX, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon, WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "./ui/VoiceRecordButton";
@@ -547,6 +547,19 @@ const DocAga = () => {
         </Tabs>
       </div>
 
+      {/* Offline Banner — intentionally inline, not NetworkStatusBanner which is a
+          global fixed-position component with sync/cache features. This is a
+          feature-specific "online-only" restriction with bilingual messaging. */}
+      {!isOnline && (
+        <div className="mx-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+          <WifiOff className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div className="text-xs text-amber-800">
+            <p className="font-medium">Doc Aga requires an internet connection</p>
+            <p className="text-amber-600">Kailangan ng internet para magamit si Doc Aga</p>
+          </div>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 p-2 sm:p-3" ref={scrollRef}>
         <div className="space-y-2 sm:space-y-3">
           {/* Quick Actions */}
@@ -665,14 +678,14 @@ const DocAga = () => {
                 setIsVoiceInput(true);
                 handleSendMessage(text);
               }} 
-              disabled={isUploadingImage || loading}
+              disabled={!isOnline || isUploadingImage || loading}
               preferRealtime={false}
               showLabel={true}
               showLiveTranscript={false}
               showPreview={false}
               size="md"
               variant="secondary"
-              idleLabel="Speak to Doc Aga"
+              idleLabel={isOnline ? "Speak to Doc Aga" : "Internet required"}
               recordingLabel="Stop & Send"
             />
           </div>
@@ -693,18 +706,18 @@ const DocAga = () => {
                 size="sm"
                 label=""
                 showIcon={true}
-                disabled={loading || isUploadingImage}
+                disabled={!isOnline || loading || isUploadingImage}
                 className="h-10 w-10 sm:h-9 sm:w-9 p-0 flex-shrink-0"
               />
             )}
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
-              disabled={loading || isUploadingImage}
+              placeholder={isOnline ? "Ask a question..." : "Connect to internet to use Doc Aga..."}
+              disabled={!isOnline || loading || isUploadingImage}
               className="flex-1 text-sm h-10 sm:h-9"
             />
-            <Button type="submit" disabled={loading || isUploadingImage || !canSend || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+            <Button type="submit" disabled={!isOnline || loading || isUploadingImage || !canSend || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
               {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
             </Button>
           </form>

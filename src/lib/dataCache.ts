@@ -1,6 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
-import { getIsOnline } from '@/hooks/useOnlineStatus';
 import { calculateLifeStage, calculateMilkingStage, calculateMaleStage } from './animalStages';
 import { calculateConsumptionFromCounts } from './feedConsumption';
 
@@ -517,6 +516,23 @@ const CACHE_TTL = {
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
 const OFFLINE_GRACE_PERIOD = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/**
+ * SSOT cache validity check — used by ALL cache getters.
+ *
+ * Returns true if cached data should be returned to the caller.
+ * Always returns cached data within the 7-day grace period regardless of
+ * online status. Components are responsible for fetching fresh data when online;
+ * the cache only needs to be a reliable fallback.
+ *
+ * NOTE: We intentionally do NOT gate on getIsOnline() here because
+ * navigator.onLine is unreliable on Android WebView — it can report "online"
+ * for several seconds after the device actually goes offline, causing cache
+ * misses at exactly the moment the user needs cached data most.
+ */
+function isCacheUsable(lastUpdated: number): boolean {
+  return Date.now() - lastUpdated < OFFLINE_GRACE_PERIOD;
+}
+
 let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 
 /**
@@ -629,9 +645,7 @@ export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache 
 
     if (!cached) return null;
 
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.animals;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('Error reading animal cache:', error);
@@ -822,9 +836,7 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
 
     if (!cached) return null;
 
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.records;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('Error reading records cache:', error);
@@ -2107,13 +2119,7 @@ export async function getCachedUpcomingAlerts(farmId: string): Promise<UpcomingA
     const cached = await db.get('upcomingAlerts', farmId);
     if (!cached) return null;
     
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.upcomingAlerts;
-    // Return stale cache when offline (within grace period)
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    
-    if (isValid || (!getIsOnline() && isWithinGrace)) {
-      return cached;
-    }
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading upcoming alerts cache:', error);
@@ -2165,9 +2171,7 @@ export async function getCachedMarketPrice(farmId: string): Promise<MarketPriceC
     const db = await getDB();
     const cached = await db.get('marketPriceCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.marketPrice;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading market price cache:', error);
@@ -2202,9 +2206,7 @@ export async function getCachedHerdValuation(farmId: string): Promise<HerdValuat
     const db = await getDB();
     const cached = await db.get('herdValuationCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.herdValuation;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading herd valuation cache:', error);
@@ -2219,9 +2221,7 @@ export async function getCachedAnimalCosts(farmId: string): Promise<AnimalCostCa
     const db = await getDB();
     const cached = await db.get('animalCostCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.animalCost;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading animal cost cache:', error);
@@ -2256,9 +2256,7 @@ export async function getCachedBarns(farmId: string): Promise<BarnsCacheEntry | 
     const db = await getDB();
     const cached = await db.get('barnsCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.barns;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading barns cache:', error);
@@ -2293,9 +2291,7 @@ export async function getCachedFarmSettings(farmId: string): Promise<FarmSetting
     const db = await getDB();
     const cached = await db.get('farmSettingsCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.farmSettings;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading farm settings cache:', error);
@@ -2350,9 +2346,7 @@ export async function getCachedBreedingAnalytics(farmId: string): Promise<Breedi
     const db = await getDB();
     const cached = await db.get('breedingAnalyticsCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.breedingAnalytics;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading breeding analytics cache:', error);
@@ -2387,9 +2381,7 @@ export async function getCachedBarnAssignments(farmId: string): Promise<BarnAssi
     const db = await getDB();
     const cached = await db.get('barnAssignmentsCache', farmId);
     if (!cached) return null;
-    const isValid = Date.now() - cached.lastUpdated < CACHE_TTL.barns;
-    const isWithinGrace = Date.now() - cached.lastUpdated < OFFLINE_GRACE_PERIOD;
-    if (isValid || (!getIsOnline() && isWithinGrace)) return cached;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
     return null;
   } catch (error) {
     console.error('[DataCache] Error reading barn assignments cache:', error);

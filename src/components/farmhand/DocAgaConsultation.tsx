@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, RotateCcw } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, FileText, ArrowLeft, RotateCcw, WifiOff } from "lucide-react";
 import { getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
 import { truncateMessages, useSendCooldown } from "@/lib/chatUtils";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { DocAgaFeedbackButtons } from "./DocAgaFeedbackButtons";
 import type { FeedbackRating } from "@/hooks/useDocAgaFeedback";
@@ -60,6 +61,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const hasAutoSent = useRef(false);
 
   useEffect(() => {
@@ -316,6 +318,17 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
         </div>
       </div>
 
+      {/* Offline Banner — inline, feature-specific "online-only" restriction */}
+      {!isOnline && (
+        <div className="mx-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+          <WifiOff className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div className="text-xs text-amber-800">
+            <p className="font-medium">Dok Aga requires an internet connection</p>
+            <p className="text-amber-600">Kailangan ng internet para magamit si Dok Aga</p>
+          </div>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 p-2 sm:p-4" ref={scrollRef}>
         <div className="space-y-3 sm:space-y-4">
           {messages.map((message, index) => (
@@ -403,7 +416,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           showLabel
           showLiveTranscript={false}
           showPreview={false}
-          disabled={isUploadingImage || loading}
+          disabled={!isOnline || isUploadingImage || loading}
           onTranscription={(text) => {
             setIsVoiceInput(true);
             handleSendMessage(text);
@@ -420,11 +433,11 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question..."
-            disabled={loading}
+            placeholder={isOnline ? "Type your question..." : "Connect to internet to use Dok Aga..."}
+            disabled={!isOnline || loading}
             className="flex-1 h-10 sm:h-10 text-sm"
           />
-          <Button type="submit" disabled={loading || !canSend || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
+          <Button type="submit" disabled={!isOnline || loading || !canSend || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
             {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>
