@@ -15,6 +15,12 @@ const MAX_QUEUE_SIZE = 50;
 const CAPACITY_WARNING_THRESHOLD = 0.8;
 
 /**
+ * Retention period for completed/failed queue items (72 hours)
+ * Mirrors the pattern from offlineAudioQueue.ts cleanupExpired()
+ */
+const QUEUE_RETENTION_MS = 72 * 60 * 60 * 1000;
+
+/**
  * Event listeners for queue capacity warnings
  */
 type CapacityWarningCallback = (currentCount: number, maxSize: number) => void;
@@ -387,6 +393,31 @@ export async function clearCompleted(): Promise<void> {
   for (const item of completed) {
     await db.delete('queue', item.id);
   }
+}
+
+/**
+ * Clean up expired completed/failed items older than retention period.
+ * Pattern reused from offlineAudioQueue.ts cleanupExpired().
+ * Pending items are NEVER touched.
+ */
+export async function cleanupExpiredItems(retentionMs: number = QUEUE_RETENTION_MS): Promise<number> {
+  const db = await getDB();
+  const cutoff = Date.now() - retentionMs;
+  const all = await db.getAll('queue');
+
+  let removed = 0;
+  for (const item of all) {
+    if (item.createdAt < cutoff && (item.status === 'completed' || item.status === 'failed')) {
+      await db.delete('queue', item.id);
+      removed++;
+    }
+  }
+
+  if (removed > 0) {
+    console.log(`[OfflineQueue] Cleaned up ${removed} expired items`);
+  }
+
+  return removed;
 }
 
 /**

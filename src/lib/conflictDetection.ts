@@ -42,8 +42,8 @@ export async function detectConflict(
   });
 
   if (error) {
-    console.error('[ConflictDetection] Error checking conflict:', error);
-    return { hasConflict: false, serverData: null, serverUpdatedAt: null };
+    console.warn('[ConflictDetection] RPC error - failing closed to prevent silent overwrites:', error);
+    return { hasConflict: true, serverData: null, serverUpdatedAt: null };
   }
 
   // Cast to expected shape since RPC returns Json type
@@ -217,8 +217,8 @@ export function mergeRecords(
   // Start with server data as base
   const merged = { ...serverData };
   
-  // If client is newer, prefer client values for non-null fields
-  if (clientTime > serverTime) {
+  // If client is newer or timestamps are equal, prefer client values for non-null fields
+  if (clientTime >= serverTime) {
     for (const key of Object.keys(clientData)) {
       if (clientData[key] !== null && clientData[key] !== undefined) {
         merged[key] = clientData[key];

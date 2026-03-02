@@ -63,6 +63,10 @@ export const ERROR_MESSAGES = {
     title: "Upload Failed",
     description: "File upload failed. Make sure the file is under 5MB. (Hindi na-upload. Siguraduhin na wala pang 5MB ang file.)",
   },
+  TRANSCRIPTION_TIMEOUT: {
+    title: "Transcription Timed Out",
+    description: "Voice processing took too long. Try again or check your connection. (Nag-timeout ang pag-transcribe. Subukan ulit o suriin ang internet.)",
+  },
   FALLBACK: {
     title: "Something Went Wrong",
     description: "Please try again. (May problema. Subukan ulit.)",
@@ -133,6 +137,11 @@ export function translateError(error: unknown, context?: string): TranslatedErro
   // 8. Not found / PGRST116
   if (message.includes("pgrst116") || message.includes("no rows returned") || (message.includes("not found") && !message.includes("not found in"))) {
     return ERROR_MESSAGES.NOT_FOUND;
+  }
+
+  // 9a. Transcription timeout (check before general network)
+  if (message.includes("transcription_timeout")) {
+    return ERROR_MESSAGES.TRANSCRIPTION_TIMEOUT;
   }
 
   // 9. Network errors

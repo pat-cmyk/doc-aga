@@ -10,7 +10,7 @@
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { useRealtimeTranscription } from './useRealtimeTranscription';
 import { useOnlineStatus, getIsOnline } from './useOnlineStatus';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from '@/lib/sttService';
 import { toast } from 'sonner';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 import { queueOfflineAudio, type AudioQueueMetadata } from '@/lib/offlineAudioQueue';
@@ -323,9 +323,9 @@ export function useVoiceRecording(
       });
 
       console.log('[useVoiceRecording] Sending audio for transcription...');
-      
-      const { data, error } = await supabase.functions.invoke('voice-to-text', {
-        body: { audio: base64Audio }
+
+      const { data, error } = await invokeWithTimeout('voice-to-text', {
+        audio: base64Audio,
       });
 
       if (error) {

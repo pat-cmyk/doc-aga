@@ -5,7 +5,6 @@
  * Processes items one at a time, runs extractors, and emits results to listening forms.
  */
 
-import { supabase } from '@/integrations/supabase/client';
 import { getIsOnline } from '@/hooks/useOnlineStatus';
 import {
   getPendingAudio,
@@ -15,6 +14,7 @@ import {
   removeAudioItem,
   type AudioQueueItem,
 } from './offlineAudioQueue';
+import { invokeWithTimeout, blobToBase64 } from './sttService';
 import { runExtractor, type ExtractorType, type ExtractorContext } from './voiceFormExtractors';
 import { emitVoiceFormResult } from '@/hooks/useVoiceFormResult';
 import { toast } from 'sonner';
@@ -22,29 +22,13 @@ import { toast } from 'sonner';
 const MAX_RETRIES = 3;
 
 /**
- * Convert audio Blob to base64 string for API transmission
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      const base64Data = base64.split(',')[1] || base64;
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Transcribe audio using voice-to-text edge function
+ * Transcribe audio using voice-to-text edge function (with timeout)
  */
 async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const base64Audio = await blobToBase64(audioBlob);
-  
-  const { data, error } = await supabase.functions.invoke('voice-to-text', {
-    body: { audio: base64Audio }
+
+  const { data, error } = await invokeWithTimeout('voice-to-text', {
+    audio: base64Audio,
   });
 
   if (error) {

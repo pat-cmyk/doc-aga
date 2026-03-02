@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, Bot, User, Volume2, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
+import { Loader2, Send, Bot, User, Volume2, VolumeX, FileText, Activity, BarChart3, DollarSign, Users, Search, AlertCircle, TrendingUp, Mic, MessageSquare, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "./ui/VoiceRecordButton";
@@ -14,8 +14,10 @@ import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { useRole } from "@/hooks/useRole";
-import { getDocAgaPreferences, setPreferredInputMethod, type InputMethod, getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
+import { getDocAgaPreferences, setPreferredInputMethod, setTTSAutoPlay, type InputMethod, getConversationId, resetConversationId, CONVERSATION_KEYS, CONVERSATION_TTLS } from "@/lib/localStorage";
 import { truncateMessages, useSendCooldown } from "@/lib/chatUtils";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { findOfflineFaqMatch, refreshFaqCache, isFaqCacheStale } from "@/lib/faqCache";
 
 interface Message {
   role: "user" | "assistant";
@@ -45,7 +47,8 @@ const DocAga = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isVoiceInput, setIsVoiceInput] = useState(false);
-  
+  const [ttsAutoPlay, setTtsAutoPlay] = useState(() => getDocAgaPreferences().ttsAutoPlayEnabled ?? true);
+
   // TTS Queue for sequential audio playback
   const ttsQueue = useTTSQueue({
     autoPlay: true,
@@ -61,7 +64,17 @@ const DocAga = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { roles, hasRole } = useRole();
-  
+  const isOnline = useOnlineStatus();
+
+  // Refresh FAQ cache when online for offline use
+  useEffect(() => {
+    if (isOnline) {
+      isFaqCacheStale().then((stale) => {
+        if (stale) refreshFaqCache();
+      });
+    }
+  }, [isOnline]);
+
   // Farmer welcome message
   const farmerWelcomeMessage = `Hello! I'm Doc Aga, your farm assistant with access to your animal records. I can:
  
@@ -218,6 +231,42 @@ const DocAga = () => {
     setMessages(prev => [...prev, userMessage]);
     setLoading(true);
 
+    // Offline FAQ fallback: check cached FAQs when offline
+    if (!isOnline && textToSend) {
+      try {
+        const faqMatch = await findOfflineFaqMatch(textToSend);
+        if (faqMatch) {
+          setMessages(prev => [
+            ...prev,
+            { role: "assistant", content: faqMatch.answer, showText: true },
+          ]);
+        } else {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: "assistant",
+              content: "Hindi available si Doc Aga offline. Subukan ulit kapag may internet. (Doc Aga is not available offline. Try again when connected.)",
+              showText: true,
+            },
+          ]);
+        }
+      } catch (err) {
+        console.error('[DocAga] Offline FAQ lookup failed:', err);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "Hindi available si Doc Aga offline. Subukan ulit kapag may internet.",
+            showText: true,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+        setIsVoiceInput(false);
+      }
+      return;
+    }
+
     try {
       const DOC_AGA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/doc-aga`;
       
@@ -368,21 +417,21 @@ const DocAga = () => {
           );
           const audioUrl = URL.createObjectURL(audioBlob);
           
-          // Update the message with audio - show text first for typed input, audio first for voice input
+          // Update the message with audio - show text when TTS is off, hide when auto-playing
           setMessages(prev => {
             const newMessages = [...prev];
             newMessages[newMessages.length - 1] = {
               role: "assistant",
               content: assistantResponse,
               audioUrl,
-              showText: !isVoiceInput,
+              showText: !ttsAutoPlay,
               intent: detectedIntent || undefined
             };
             return newMessages;
           });
 
-          // Only auto-enqueue for voice input
-          if (isVoiceInput) {
+          // Auto-enqueue TTS when enabled (always for voice, toggleable for chat/image)
+          if (ttsAutoPlay) {
             const messageId = `msg-${Date.now()}`;
             ttsQueue.enqueue(audioUrl, { messageId });
           }
@@ -448,21 +497,37 @@ const DocAga = () => {
           <Badge className={`${getModeColor()} text-white`}>
             {getModeLabel()}
           </Badge>
-          {messages.length > 1 && (
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs h-7"
+              className="h-7 w-7 p-0"
               onClick={() => {
-                const newId = resetConversationId(CONVERSATION_KEYS.DOC_AGA);
-                setConversationId(newId);
-                setMessages([{ role: "assistant", content: farmerWelcomeMessage }]);
-                ttsQueue.stop();
+                const next = !ttsAutoPlay;
+                setTtsAutoPlay(next);
+                setTTSAutoPlay(next);
+                if (!next) ttsQueue.stop();
               }}
+              title={ttsAutoPlay ? "Mute auto-play" : "Enable auto-play"}
             >
-              New Chat
+              {ttsAutoPlay ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />}
             </Button>
-          )}
+            {messages.length > 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => {
+                  const newId = resetConversationId(CONVERSATION_KEYS.DOC_AGA);
+                  setConversationId(newId);
+                  setMessages([{ role: "assistant", content: farmerWelcomeMessage }]);
+                  ttsQueue.stop();
+                }}
+              >
+                New Chat
+              </Button>
+            )}
+          </div>
         </div>
         <Tabs value={inputMethod} onValueChange={(v) => handleInputMethodChange(v as InputMethod)}>
           <TabsList className="grid w-full grid-cols-3">

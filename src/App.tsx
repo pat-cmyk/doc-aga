@@ -21,6 +21,7 @@ import { Capacitor } from '@capacitor/core';
 import { initServiceWorkerBridge, requestBackgroundSync } from "./lib/swBridge";
 import { initCacheManager } from "./lib/cacheManager";
 import { useOfflineAudioSync } from "./hooks/useOfflineAudioSync";
+import { cacheOfflineConfirmations } from "./lib/offlineAudioConfirmations";
 
 // Lazy load page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -147,7 +148,10 @@ const SyncHandler = () => {
       
       console.log('[SyncHandler] Online detected, requesting background sync...');
       lastSyncTimeRef.current = now;
-      
+
+      // Pre-cache offline audio confirmations (fire-and-forget)
+      cacheOfflineConfirmations().catch(() => {});
+
       // Try background sync first (works even if app closes)
       requestBackgroundSync().then((registered) => {
         if (!registered) {

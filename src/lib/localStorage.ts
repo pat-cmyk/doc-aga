@@ -9,6 +9,7 @@ interface DocAgaPreferences {
   hasCompletedOnboarding: boolean;
   preferredInputMethod: InputMethod;
   tooltipViewCount: number;
+  ttsAutoPlayEnabled: boolean;
 }
 
 const STORAGE_KEYS = {
@@ -20,6 +21,7 @@ const DEFAULT_PREFERENCES: DocAgaPreferences = {
   hasCompletedOnboarding: false,
   preferredInputMethod: 'voice',
   tooltipViewCount: 0,
+  ttsAutoPlayEnabled: true,
 };
 
 /**
@@ -90,6 +92,13 @@ export function shouldShowOnboarding(): boolean {
  */
 export function setPreferredInputMethod(method: InputMethod): void {
   setDocAgaPreferences({ preferredInputMethod: method });
+}
+
+/**
+ * Set TTS auto-play preference
+ */
+export function setTTSAutoPlay(enabled: boolean): void {
+  setDocAgaPreferences({ ttsAutoPlayEnabled: enabled });
 }
 
 /**
