@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-03-02 — Active Connectivity Probing (Android Offline Fix)
+
+### Fixed
+- **WiFi indicator stays green offline (P0)**: Replaced passive `navigator.onLine` with active HEAD request probing to the backend every 10s. Android WebView's unreliable `online`/`offline` events no longer cause false "online" state.
+- **Cache grace periods now work on Android**: All 10+ `navigator.onLine` checks in `dataCache.ts` replaced with `getIsOnline()` from the active probing module. Stale cache is correctly served when truly offline.
+
+### Changed
+- `useOnlineStatus` hook now uses singleton active ping (HEAD to backend, 5s timeout, 10s interval). Pauses when tab/app is hidden to save battery.
+- Exported `getIsOnline()` function for non-React code (dataCache, syncService, offlineQueue, etc.).
+- Replaced `navigator.onLine` in 10 files: `dataCache.ts`, `offlineQueue.ts`, `offlineAudioSyncProcessor.ts`, `UserEmailDropdown.tsx`, `BarnFormDialog.tsx`, `BarnAnimalManager.tsx`, `voice-input-button.tsx`, `useVoiceRecording.ts`.
+
 ## 2026-03-02 — Offline-First: Barn Management, Animal List, Profile
 
 ### Fixed

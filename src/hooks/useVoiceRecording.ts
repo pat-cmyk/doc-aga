@@ -9,7 +9,7 @@
 
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { useRealtimeTranscription } from './useRealtimeTranscription';
-import { useOnlineStatus } from './useOnlineStatus';
+import { useOnlineStatus, getIsOnline } from './useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
@@ -275,7 +275,7 @@ export function useVoiceRecording(
    */
   const processBatchAudio = useCallback(async (blob: Blob) => {
     // Check if offline - queue audio for later
-    if (!navigator.onLine) {
+    if (!getIsOnline()) {
       console.log('[useVoiceRecording] Offline - queueing audio for later transcription');
       
       try {

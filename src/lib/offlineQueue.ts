@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { getIsOnline } from '@/hooks/useOnlineStatus';
 
 /**
  * Maximum number of items allowed in the offline queue
@@ -303,7 +304,7 @@ export async function addToQueue(
   await checkCapacityWarning();
   
   // Trigger background sync if online
-  if (navigator.onLine) {
+  if (getIsOnline()) {
     // Dynamically import to avoid circular dependencies
     import('./swBridge').then(({ requestBackgroundSync }) => {
       requestBackgroundSync();

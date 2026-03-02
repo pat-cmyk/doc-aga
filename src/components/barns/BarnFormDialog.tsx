@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getIsOnline } from "@/hooks/useOnlineStatus";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +52,7 @@ export function BarnFormDialog({ open, onOpenChange, farmId, editBarn }: BarnFor
           capacity: capacity ? parseInt(capacity) : null,
         });
         toast.success(
-          navigator.onLine
+          getIsOnline()
             ? "Barn/paddock updated"
             : "Saved locally, will sync when online"
         );
@@ -63,7 +64,7 @@ export function BarnFormDialog({ open, onOpenChange, farmId, editBarn }: BarnFor
           capacity: capacity ? parseInt(capacity) : undefined,
         });
         toast.success(
-          navigator.onLine
+          getIsOnline()
             ? "Barn/paddock created"
             : "Saved locally, will sync when online"
         );

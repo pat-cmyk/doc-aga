@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { getIsOnline } from "@/hooks/useOnlineStatus";
 import { Capacitor } from "@capacitor/core";
 import { Mic, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,7 @@ export function VoiceInputButton({
 
   const processAudio = async (blob: Blob) => {
     // Offline: queue audio for later transcription
-    if (!navigator.onLine) {
+    if (!getIsOnline()) {
       try {
         await queueOfflineAudio(blob, {
           source,
