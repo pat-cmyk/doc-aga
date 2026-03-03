@@ -1,15 +1,16 @@
 /**
  * Utility for opening native app settings on Android/iOS
- * Uses @capgo/capacitor-native-settings for proper Android Intent handling
+ * Uses capacitor-native-settings for proper Android Intent handling
  */
 
 import { Capacitor } from '@capacitor/core';
+import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 
 /**
  * Opens the app's settings page in the device's system settings.
  * On Android: Opens Settings > Apps > Doc Aga
  * On iOS: Opens Settings > Doc Aga
- * 
+ *
  * @returns true if settings were opened successfully, false otherwise
  */
 export async function openAppSettings(): Promise<boolean> {
@@ -19,12 +20,6 @@ export async function openAppSettings(): Promise<boolean> {
   }
 
   try {
-    // Use a variable to prevent static analysis by bundlers
-    // The @vite-ignore comment tells Vite to skip analyzing this import
-    const moduleName = 'capacitor-native-settings';
-    const module = await import(/* @vite-ignore */ moduleName);
-    const { NativeSettings, AndroidSettings, IOSSettings } = module;
-
     const platform = Capacitor.getPlatform();
 
     if (platform === 'android') {

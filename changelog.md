@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-03 — Doc Aga Offline FAQ Mode + Fix Permissions
+
+### Fixed
+- **"Open Settings" button does nothing (P0)**: `openAppSettings.ts` used `import(/* @vite-ignore */ 'capacitor-native-settings')` which Vite does NOT bundle — the dynamic import silently failed at runtime in the WebView (no module resolver). Changed to static import so the JS side is bundled correctly. All 4 permission dialogs (Camera, Mic, Location, Notifications) now open system settings when tapped.
+- **Notification permission never prompts on Android 13+ (P0)**: `POST_NOTIFICATIONS` permission was missing from `AndroidManifest.xml`. Required for Android 13 (API 33+) to show the notification permission dialog.
+- **Doc Aga completely disabled offline (P1)**: All inputs (text, voice, image) were disabled when offline, even though a complete offline FAQ matching system (`findOfflineFaqMatch()`) already existed. Enabled text input offline — users can now type questions and get FAQ answers. Voice and image remain disabled (need internet for transcription/upload).
+
+### Changed
+- `src/lib/openAppSettings.ts` — Static import of `NativeSettings`, `AndroidSettings`, `IOSSettings` from `capacitor-native-settings` (replaces broken dynamic import).
+- `android/app/src/main/AndroidManifest.xml` — Added `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />`.
+- `src/components/DocAga.tsx` — Text input and send button enabled offline. Banner changed from "requires internet" to "FAQ mode offline". No-match fallback updated with bilingual message.
+- `src/components/farmhand/DocAgaConsultation.tsx` — Added offline FAQ fallback (was completely online-only). Same banner, input, and placeholder updates. Added `refreshFaqCache()` on online.
+
 ## 2026-03-02 — True Offline-First Mutations for All Record Types
 
 ### Fixed

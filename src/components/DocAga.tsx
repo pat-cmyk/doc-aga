@@ -245,7 +245,7 @@ const DocAga = () => {
             ...prev,
             {
               role: "assistant",
-              content: "Hindi available si Doc Aga offline. Subukan ulit kapag may internet. (Doc Aga is not available offline. Try again when connected.)",
+              content: "Walang naka-match na FAQ. Subukan ulit kapag may internet para sa buong Doc Aga. (No FAQ match found. Try again when online for full Doc Aga.)",
               showText: true,
             },
           ]);
@@ -256,7 +256,7 @@ const DocAga = () => {
           ...prev,
           {
             role: "assistant",
-            content: "Hindi available si Doc Aga offline. Subukan ulit kapag may internet.",
+            content: "May problema sa offline FAQ. Subukan ulit kapag may internet. (Offline FAQ error. Try again when online.)",
             showText: true,
           },
         ]);
@@ -554,8 +554,8 @@ const DocAga = () => {
         <div className="mx-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
           <WifiOff className="h-5 w-5 text-amber-600 flex-shrink-0" />
           <div className="text-xs text-amber-800">
-            <p className="font-medium">Doc Aga requires an internet connection</p>
-            <p className="text-amber-600">Kailangan ng internet para magamit si Doc Aga</p>
+            <p className="font-medium">Doc Aga is in FAQ mode offline</p>
+            <p className="text-amber-600">Tanong lang ang available offline — limitadong sagot</p>
           </div>
         </div>
       )}
@@ -713,11 +713,11 @@ const DocAga = () => {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isOnline ? "Ask a question..." : "Connect to internet to use Doc Aga..."}
-              disabled={!isOnline || loading || isUploadingImage}
+              placeholder={isOnline ? "Ask a question..." : "Ask a question (FAQ mode offline)..."}
+              disabled={loading || isUploadingImage}
               className="flex-1 text-sm h-10 sm:h-9"
             />
-            <Button type="submit" disabled={!isOnline || loading || isUploadingImage || !canSend || (!input.trim() && !selectedImage)} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
+            <Button type="submit" disabled={loading || isUploadingImage || !canSend || (!input.trim() && (!isOnline || !selectedImage))} size="sm" className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3">
               {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
             </Button>
           </form>

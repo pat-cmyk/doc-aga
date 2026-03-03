@@ -12,6 +12,7 @@ import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { useTTSQueue } from "@/hooks/useTTSQueue";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { findOfflineFaqMatch, isFaqCacheStale, refreshFaqCache } from "@/lib/faqCache";
 import { TTSAudioControls } from "@/components/ui/TTSAudioControls";
 import { DocAgaFeedbackButtons } from "./DocAgaFeedbackButtons";
 import type { FeedbackRating } from "@/hooks/useDocAgaFeedback";
@@ -84,6 +85,15 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
     };
   }, []);
 
+  // Refresh FAQ cache when online
+  useEffect(() => {
+    if (isOnline) {
+      isFaqCacheStale().then((stale) => {
+        if (stale) refreshFaqCache();
+      });
+    }
+  }, [isOnline]);
+
   // Auto-send initial query on mount
   useEffect(() => {
     if (!hasAutoSent.current && initialQuery) {
@@ -100,9 +110,45 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
       setInput("");
       setMessages(prev => [...prev, { role: "user", content: textToSend }]);
     }
-    
+
     setLoading(true);
     markSent();
+
+    // Offline FAQ fallback
+    if (!isOnline) {
+      try {
+        const faqMatch = await findOfflineFaqMatch(textToSend);
+        if (faqMatch) {
+          setMessages(prev => [
+            ...prev,
+            { role: "assistant", content: faqMatch.answer, showText: true },
+          ]);
+        } else {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: "assistant",
+              content: "Walang naka-match na FAQ. Subukan ulit kapag may internet para sa buong Dok Aga. (No FAQ match found. Try again when online for full Dok Aga.)",
+              showText: true,
+            },
+          ]);
+        }
+      } catch (err) {
+        console.error('[DocAgaConsultation] Offline FAQ lookup failed:', err);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "May problema sa offline FAQ. Subukan ulit kapag may internet. (Offline FAQ error. Try again when online.)",
+            showText: true,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+        setIsVoiceInput(false);
+      }
+      return;
+    }
 
     try {
       const DOC_AGA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/doc-aga`;
@@ -318,13 +364,13 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
         </div>
       </div>
 
-      {/* Offline Banner — inline, feature-specific "online-only" restriction */}
+      {/* Offline Banner — FAQ mode when offline */}
       {!isOnline && (
         <div className="mx-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
           <WifiOff className="h-5 w-5 text-amber-600 flex-shrink-0" />
           <div className="text-xs text-amber-800">
-            <p className="font-medium">Dok Aga requires an internet connection</p>
-            <p className="text-amber-600">Kailangan ng internet para magamit si Dok Aga</p>
+            <p className="font-medium">Dok Aga is in FAQ mode offline</p>
+            <p className="text-amber-600">Tanong lang ang available offline — limitadong sagot</p>
           </div>
         </div>
       )}
@@ -433,11 +479,11 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isOnline ? "Type your question..." : "Connect to internet to use Dok Aga..."}
-            disabled={!isOnline || loading}
+            placeholder={isOnline ? "Type your question..." : "Ask a question (FAQ mode offline)..."}
+            disabled={loading}
             className="flex-1 h-10 sm:h-10 text-sm"
           />
-          <Button type="submit" disabled={!isOnline || loading || !canSend || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
+          <Button type="submit" disabled={loading || !canSend || !input.trim()} className="h-10 w-10 sm:w-auto sm:px-4">
             {loading ? <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-5 w-5 sm:h-4 sm:w-4" />}
           </Button>
         </form>
