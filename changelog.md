@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-03-03 — Data Sync Optimization for 2G/3G Bandwidth
+
+### Changed
+- **Delta sync for animals**: `updateAnimalCache()` checks a local sync checkpoint. On subsequent syncs, only animals with `updated_at > lastSync` are fetched (including soft-deleted/exited for cache removal). First sync is still a full fetch. Estimated 80-95% bandwidth reduction on reconnect.
+- **Delta sync for records**: `updateRecordsCacheBatch()` accepts optional `farmId` parameter. When a records checkpoint exists, fetches only records with `updated_at > lastSync` across all 6 record types, then merges into existing cache via `mergeRecordsById()` instead of replacing.
+- **Delta sync for feed inventory**: `updateFeedInventoryCache()` checks a feed_inventory checkpoint. On delta, fetches only items with `last_updated > lastSync`, merges by ID, and preserves `dailyConsumption` from last full sync (avoids extra animals query).
+- **Batch record queries**: Replaced per-animal record caching loop (N×6 HTTP requests) with `updateRecordsCacheBatch()` that makes just 6 farm-level queries using `.in('animal_id', allIds)`. For a 50-animal farm, this reduces 300 round trips to 6.
+- **Explicit column selection**: Replaced all `select('*')` in cache update functions with explicit column lists (`ANIMAL_SELECT_COLUMNS`, `MILKING_RECORD_COLUMNS`, etc.). Drops unused columns for ~20-30% payload reduction per query.
+- **Record date windowing**: Milking records limited to 6 months, feeding to 3 months, weight/health to 12 months. AI and heat records fetched in full (small datasets, critical for breeding predictions).
+- **Adaptive sync for 2G connections**: Probe RTT classified as `fast` (<300ms), `slow` (300-1500ms), `2g` (>1500ms), or `offline`. On 2G, `preloadAllData()` and `refreshAllCaches()` skip feed inventory and farm data (deferred to next fast connection). Animals + records always sync (essential for offline use).
+- **Connection quality estimation**: `probeConnectivity()` measures RTT via `performance.now()`. New exports: `getConnectionQuality()` and `getLastProbeRTT()`.
+- **Animal interface updated**: Added breeding/fertility fields, barn/lactation fields, and sync metadata to the `Animal` type.
+
+### Technical Details
+- Column constants defined as joined strings for efficient PostgREST query building
+- `computeAnimalStages()` extracted as shared function for full and delta sync paths
+- `computeFeedSummary()` extracted for reuse across full and delta feed paths
+- `mergeRecordsById()` helper: merges server changes into existing cache by ID (update existing + append new)
+- Delta sync uses `offlineFirstCache.ts` checkpoint system (`getCheckpoint`/`updateCheckpoint`) with IndexedDB-backed storage
+- Batch function uses IndexedDB transaction for atomic per-animal writes
+- Gzip/Brotli verified active on Supabase Cloud (Cloudflare CDN, `vary: Accept-Encoding`)
+- RTT thresholds based on typical latencies: Wi-Fi/4G <300ms, 3G 300-1500ms, 2G >1500ms
+
+### Files Modified
+- `src/lib/dataCache.ts` — Column constants, delta sync for animals/records/feed, batch queries, date windowing, adaptive sync in `preloadAllData()` and `refreshAllCaches()`, `mergeRecordsById()`, `computeFeedSummary()`
+- `src/hooks/useOnlineStatus.ts` — `ConnectionQuality` type, RTT measurement in `probeConnectivity()`, `getConnectionQuality()` and `getLastProbeRTT()` exports
+
+## 2026-03-03 — Fix Permission Retry, Offline Breeding Hub, Offline FAB Actions
+
+### Fixed
+- **Camera/Notification permission retry failure (P1)**: After granting camera or notification permission in system settings, tapping "Retry" still showed denied. Capacitor's `requestPermissions()` returns a cached denial after the OS dialog is dismissed. Fixed by calling `checkPermissions()` first to detect real-time system state.
+- **Breeding Hub shows all zeros offline (P1)**: All stats displayed "0" when offline because the hook only used direct Supabase queries with no cache fallback. Added cache-first pattern: derives breeding stats from already-cached animals (with fertility fields) and per-animal AI/heat records in IndexedDB.
+- **FAB recording actions disappear offline (P1)**: All recording actions (milk, feed, health, BCS, add animal) hidden offline because the permission fetch failed and cleared all roles to empty arrays. Added localStorage cache for user permissions — restores cached permissions instead of clearing on fetch failure.
+
+### Changed
+- `src/hooks/useDevicePermissions.ts` — `checkPermissions()` before `requestPermissions()` for camera and notifications.
+- `src/hooks/useBreedingHub.ts` — Cache-first pattern with `getCachedAnimals()` + `getCachedRecords()` offline fallback.
+- `src/lib/dataCache.ts` — Added `heat: any[]` to RecordCache, fetches `heat_records` in `updateRecordsCache()`.
+- `src/lib/cacheManager.ts` — Added `'breeding-hub'` to animal, ai-record, heat-record, pregnancy-confirm dependency lists.
+- `src/contexts/PermissionsContext.tsx` — Caches permissions in localStorage after successful fetch; restores from cache on offline failure; initializes state from cache to prevent flash of empty permissions.
+
+## 2026-03-03 — Fix White Screen on Android
+
+### Fixed
+- **White screen on Android launch (P0)**: `vite.config.ts` marked `capacitor-native-settings` as `external` (Rollup won't bundle it). After commit `fb8f87e` changed `openAppSettings.ts` to a static import, the production build left a bare `import ... from "capacitor-native-settings"` in the main JS chunk. Android WebView has no runtime module resolver for bare specifiers → import fails → JS execution stops → React never mounts → white screen. Fixed by removing `capacitor-native-settings` from the `external` array so Rollup bundles its JS code (just `registerPlugin()` + enum definitions).
+
+### Changed
+- `vite.config.ts` — Removed `'capacitor-native-settings'` from `build.rollupOptions.external`.
+
 ## 2026-03-03 — Doc Aga Offline FAQ Mode + Fix Permissions
 
 ### Fixed

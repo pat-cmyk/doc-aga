@@ -9,6 +9,37 @@ export type UserRole = GlobalRole | FarmRoleInFarm;
 
 const GLOBAL_ROLES: GlobalRole[] = ["admin", "merchant", "distributor", "government", "cooperative"];
 
+// Offline permission cache (localStorage) — 7-day expiry matching OFFLINE_GRACE_PERIOD
+const PERMISSIONS_CACHE_KEY = 'cached_permissions';
+const PERMISSIONS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+
+interface CachedPermissions {
+  allRoles: UserRole[];
+  farmRoles: FarmRoleResult[];
+  userId: string;
+  cachedAt: number;
+}
+
+function getCachedPermissions(): CachedPermissions | null {
+  try {
+    const stored = localStorage.getItem(PERMISSIONS_CACHE_KEY);
+    if (!stored) return null;
+    const parsed: CachedPermissions = JSON.parse(stored);
+    if (Date.now() - parsed.cachedAt > PERMISSIONS_CACHE_TTL) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPermissions(userId: string, allRoles: UserRole[], farmRoles: FarmRoleResult[]): void {
+  try {
+    localStorage.setItem(PERMISSIONS_CACHE_KEY, JSON.stringify({
+      userId, allRoles, farmRoles, cachedAt: Date.now(),
+    } satisfies CachedPermissions));
+  } catch { /* localStorage full — non-critical */ }
+}
+
 interface FarmRoleResult {
   farmId: string;
   roleInFarm: FarmRoleInFarm;
@@ -99,11 +130,13 @@ const PermissionsContext = createContext<PermissionsContextType>(initialContextV
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { farmId } = useFarm();
-  
+
+  // Initialize from localStorage cache to avoid flash of empty permissions offline
+  const cachedPerms = useMemo(() => getCachedPermissions(), []);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [allRoles, setAllRoles] = useState<UserRole[]>([]);
-  const [farmRoles, setFarmRoles] = useState<FarmRoleResult[]>([]);
+  const [userId, setUserId] = useState<string | null>(cachedPerms?.userId ?? null);
+  const [allRoles, setAllRoles] = useState<UserRole[]>(cachedPerms?.allRoles ?? []);
+  const [farmRoles, setFarmRoles] = useState<FarmRoleResult[]>(cachedPerms?.farmRoles ?? []);
 
   const fetchAllPermissions = useCallback(async () => {
     setIsLoading(true);
@@ -115,6 +148,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         setUserId(null);
         setAllRoles([]);
         setFarmRoles([]);
+        try { localStorage.removeItem(PERMISSIONS_CACHE_KEY); } catch { /* ignore */ }
         setIsLoading(false);
         return;
       }
@@ -178,10 +212,20 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       }
 
       setFarmRoles(processedFarmRoles);
+
+      // Cache for offline fallback
+      setCachedPermissions(user.id, roles, processedFarmRoles);
     } catch (error) {
       console.error("Error fetching permissions:", error);
-      setAllRoles([]);
-      setFarmRoles([]);
+      // Offline fallback: restore from cached permissions instead of clearing
+      const cached = getCachedPermissions();
+      if (cached) {
+        console.log('[Permissions] Using cached permissions (offline fallback)');
+        setUserId(cached.userId);
+        setAllRoles(cached.allRoles);
+        setFarmRoles(cached.farmRoles);
+      }
+      // If no cache, keep whatever state we already have (may be from initial cache load)
     } finally {
       setIsLoading(false);
     }

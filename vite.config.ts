@@ -69,7 +69,6 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       // Externalize native-only Capacitor plugins that aren't available in web builds
       external: [
-        'capacitor-native-settings',
         '@capacitor/camera',
         '@capacitor/local-notifications',
         '@capacitor/haptics',

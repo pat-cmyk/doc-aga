@@ -2,6 +2,8 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLifeStage, calculateMilkingStage, calculateMaleStage } from './animalStages';
 import { calculateConsumptionFromCounts } from './feedConsumption';
+import { getCheckpoint, updateCheckpoint } from './offlineFirstCache';
+import { getConnectionQuality, type ConnectionQuality } from '@/hooks/useOnlineStatus';
 
 // Helper to create system notification in database
 async function createSystemNotification(title: string, body: string) {
@@ -172,7 +174,7 @@ export async function getCacheStats(farmId: string): Promise<CacheStats> {
 
 interface Animal {
   id: string;
-  livestock_type: string; // NEW
+  livestock_type: string;
   name: string | null;
   ear_tag: string | null;
   breed: string | null;
@@ -199,6 +201,20 @@ interface Animal {
   purchase_price?: number | null;
   grant_source?: string | null;
   grant_source_other?: string | null;
+  // Breeding/fertility fields (used by breeding hub offline cache)
+  fertility_status?: string | null;
+  last_heat_date?: string | null;
+  last_ai_date?: string | null;
+  last_calving_date?: string | null;
+  parity?: number | null;
+  services_this_cycle?: number | null;
+  voluntary_waiting_end_date?: string | null;
+  // Barn/lactation fields
+  current_barn_id?: string | null;
+  is_currently_lactating?: boolean | null;
+  // Sync metadata
+  updated_at?: string | null;
+  created_at?: string | null;
 }
 
 // ============= SYNC STATUS TYPES (Phase 1 - Offline First) =============
@@ -231,6 +247,7 @@ interface RecordCache {
   ai: any[];
   feeding: any[];
   bcs: any[];
+  heat: any[];
   lastUpdated: number;
   // Offline-first additions
   syncStatus: CacheSyncStatus;
@@ -517,6 +534,87 @@ const CACHE_TTL = {
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
 const OFFLINE_GRACE_PERIOD = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// ============= COLUMN SELECTIONS (Bandwidth Optimization) =============
+// Explicit column lists reduce payload by ~20-30% vs select('*').
+// Excludes: client_generated_id (sync-only), is_deleted/exit_* (filtered by WHERE),
+// created_by (not displayed in cache context).
+
+const ANIMAL_SELECT_COLUMNS = [
+  'id', 'farm_id', 'livestock_type', 'name', 'ear_tag', 'breed',
+  'birth_date', 'gender', 'milking_start_date', 'current_weight_kg',
+  'mother_id', 'father_id', 'avatar_url', 'unique_code',
+  'farm_entry_date', 'birth_date_unknown', 'mother_unknown', 'father_unknown',
+  'entry_weight_kg', 'entry_weight_unknown', 'birth_weight_kg',
+  'acquisition_type', 'purchase_price', 'grant_source', 'grant_source_other',
+  'source_farm', 'current_barn_id', 'is_currently_lactating',
+  // Breeding/fertility fields (for breeding hub offline cache)
+  'fertility_status', 'last_heat_date', 'last_ai_date', 'last_calving_date',
+  'parity', 'services_this_cycle', 'voluntary_waiting_end_date',
+  'estimated_days_in_milk',
+  // Sync metadata
+  'created_at', 'updated_at',
+].join(',');
+
+const MILKING_RECORD_COLUMNS = [
+  'id', 'animal_id', 'record_date', 'liters', 'session',
+  'is_sold', 'sale_amount', 'price_per_liter',
+  'milk_quality', 'milk_quality_rejection_reason', 'input_method',
+  'updated_at',
+].join(',');
+
+const WEIGHT_RECORD_COLUMNS = [
+  'id', 'animal_id', 'measurement_date', 'weight_kg',
+  'measurement_method', 'notes', 'recorded_by', 'input_method',
+  'updated_at',
+].join(',');
+
+const HEALTH_RECORD_COLUMNS = [
+  'id', 'animal_id', 'visit_date', 'diagnosis', 'treatment',
+  'notes', 'resolution_notes', 'input_method', 'created_by',
+  'updated_at',
+].join(',');
+
+const AI_RECORD_COLUMNS = [
+  'id', 'animal_id', 'scheduled_date', 'performed_date',
+  'semen_code', 'technician', 'notes',
+  'pregnancy_confirmed', 'confirmed_at', 'expected_delivery_date',
+  'updated_at',
+].join(',');
+
+const FEEDING_RECORD_COLUMNS = [
+  'id', 'animal_id', 'record_datetime', 'feed_type', 'kilograms',
+  'feed_inventory_id', 'milk_inventory_id',
+  'cost_per_kg_at_time', 'notes', 'input_method',
+  'updated_at',
+].join(',');
+
+const HEAT_RECORD_COLUMNS = [
+  'id', 'animal_id', 'detected_at', 'detection_method',
+  'intensity', 'standing_heat', 'notes',
+  'optimal_breeding_start', 'optimal_breeding_end',
+  'updated_at',
+].join(',');
+
+const FEED_INVENTORY_COLUMNS = [
+  'id', 'farm_id', 'feed_type', 'category', 'quantity_kg', 'unit',
+  'cost_per_unit', 'expiry_date', 'supplier', 'purchase_date',
+  'reorder_threshold', 'last_updated',
+].join(',');
+
+// Date windows for record caching — only recent records are cached for bandwidth savings.
+// Older records are fetched on-demand when users navigate to full history views.
+const RECORD_CACHE_WINDOWS = {
+  milking: 180,   // 6 months of milking data
+  weight: 365,    // 12 months of weight tracking
+  health: 365,    // 12 months of health events
+  feeding: 90,    // 3 months of feeding (most voluminous)
+  // AI and heat records: no window (small datasets, critical for breeding predictions)
+};
+
+function getDateWindowISO(daysBack: number): string {
+  return new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
+}
+
 /**
  * SSOT cache validity check — used by ALL cache getters.
  *
@@ -676,147 +774,201 @@ export async function getCachedAnimals(farmId: string): Promise<AnimalDataCache 
  */
 export async function updateAnimalCache(farmId: string, emitProgressUpdates = false): Promise<Animal[]> {
   try {
-    const { data: animals, error } = await supabase
-      .from('animals')
-      .select('*')
-      .eq('farm_id', farmId)
-      .eq('is_deleted', false)
-      .is('exit_date', null)
-      .order('created_at', { ascending: false });
+    // Check for existing cache + checkpoint to enable delta sync
+    const db = await getDB();
+    const existingCache = await db.get('animals', farmId);
+    const checkpoint = await getCheckpoint(farmId, 'animals');
 
-    if (error) throw error;
-    
-    const totalAnimals = animals?.length || 0;
-    
-    // Pre-cache records for each animal (in background)
-    if (animals && animals.length > 0 && emitProgressUpdates) {
-      emitProgress({
-        phase: 'records',
-        current: 0,
-        total: totalAnimals,
-        message: 'Caching animal records...',
-      });
-      
-      // Cache records with progress tracking
-      for (let i = 0; i < animals.length; i++) {
-        await updateRecordsCache(animals[i].id);
-        if (emitProgressUpdates) {
-          emitProgress({
-            phase: 'records',
-            current: i + 1,
-            total: totalAnimals,
-            message: `Caching records (${i + 1}/${totalAnimals})...`,
-          });
-        }
+    // Delta sync: only fetch changed animals if we have a valid cache + checkpoint
+    const isDelta = !!checkpoint && !!existingCache?.data?.length;
+    let fetchedAnimals: any[];
+    let removedIds: Set<string> = new Set();
+
+    if (isDelta) {
+      // Delta: fetch animals updated since last sync (INCLUDING deletions/exits)
+      const { data, error } = await supabase
+        .from('animals')
+        .select(ANIMAL_SELECT_COLUMNS + ',is_deleted,exit_date')
+        .eq('farm_id', farmId)
+        .gte('updated_at', checkpoint.lastSyncedAt)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      fetchedAnimals = data || [];
+
+      // Separate active vs removed animals
+      for (const a of fetchedAnimals) {
+        if (a.is_deleted || a.exit_date) removedIds.add(a.id);
       }
-    } else if (animals && animals.length > 0) {
-      // Don't await - let this run in background (non-progress mode)
-      Promise.all(animals.map(animal => updateRecordsCache(animal.id)))
-        .catch(err => console.error('[DataCache] Error pre-caching records:', err));
+      fetchedAnimals = fetchedAnimals.filter(a => !a.is_deleted && !a.exit_date);
+
+      console.log(`[DataCache] Delta sync: ${fetchedAnimals.length} updated, ${removedIds.size} removed`);
+    } else {
+      // Full sync: fetch all active animals
+      const { data, error } = await supabase
+        .from('animals')
+        .select(ANIMAL_SELECT_COLUMNS)
+        .eq('farm_id', farmId)
+        .eq('is_deleted', false)
+        .is('exit_date', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      fetchedAnimals = data || [];
     }
 
-    // Calculate stages for each animal (both male and female)
-    const animalsWithStages = await Promise.all(
-      (animals || []).map(async (animal, index) => {
-        if (emitProgressUpdates) {
+    // Pre-cache records using batch query (6 HTTP requests instead of N×6)
+    // For delta sync, only fetch records for changed animals
+    const animalIdsToCache = fetchedAnimals.map(a => a.id);
+    if (animalIdsToCache.length > 0) {
+      if (emitProgressUpdates) {
+        emitProgress({
+          phase: 'records',
+          current: 0,
+          total: animalIdsToCache.length,
+          message: 'Caching animal records...',
+        });
+        await updateRecordsCacheBatch(animalIdsToCache, (current, total) => {
           emitProgress({
-            phase: 'animals',
-            current: index + 1,
-            total: totalAnimals,
-            message: `Processing animals (${index + 1}/${totalAnimals})...`,
+            phase: 'records',
+            current,
+            total,
+            message: `Caching records (${current}/${total})...`,
           });
-        }
-        
-        const isMale = animal.gender?.toLowerCase() === 'male';
-        const isFemale = animal.gender?.toLowerCase() === 'female';
-        
-        // If no valid gender, return without stage calculation
-        if (!isMale && !isFemale) {
-          return { ...animal, lifeStage: null, milkingStage: null };
-        }
+        }, farmId);
+      } else if (!isDelta) {
+        // Full sync: batch in background (non-progress mode)
+        updateRecordsCacheBatch(animalIdsToCache, undefined, farmId)
+          .catch(err => console.error('[DataCache] Error batch-caching records:', err));
+      } else {
+        // Delta sync: await so cache is consistent before returning
+        await updateRecordsCacheBatch(animalIdsToCache, undefined, farmId);
+      }
+    }
 
-        // Get offspring count (for both males and females)
-        const { count: offspringCount } = await supabase
-          .from('animals')
-          .select('*', { count: 'exact', head: true })
-          .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`);
-
-        // Get last calving date
-        const { data: offspring } = await supabase
-          .from('animals')
-          .select('birth_date')
-          .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`)
-          .order('birth_date', { ascending: false })
-          .limit(1);
-
-        // Check for recent milking records (only relevant for females)
-        let hasRecentMilking = false;
-        if (isFemale) {
-          const { data: recentMilking } = await supabase
-            .from('milking_records')
-            .select('id')
-            .eq('animal_id', animal.id)
-            .gte('record_date', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-            .limit(1);
-          hasRecentMilking = (recentMilking?.length || 0) > 0;
-        }
-
-        // Check for active AI records (only relevant for females)
-        let hasActiveAI = false;
-        if (isFemale) {
-          const { data: aiRecords } = await supabase
-            .from('ai_records')
-            .select('performed_date')
-            .eq('animal_id', animal.id)
-            .order('scheduled_date', { ascending: false })
-            .limit(1);
-          hasActiveAI = (aiRecords?.length || 0) > 0 && !offspringCount;
-        }
-
-        const stageData = {
-          birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
-          gender: animal.gender,
-          milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
-          offspringCount: offspringCount || 0,
-          lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
-          hasRecentMilking,
-          hasActiveAI,
-          livestockType: animal.livestock_type,
-        };
-
-        // Calculate life stage based on gender
-        let lifeStage: string | null = null;
-        let milkingStage: string | null = null;
-        
-        if (isMale) {
-          lifeStage = calculateMaleStage(stageData);
-          milkingStage = null; // Males don't have milking stages
-        } else {
-          lifeStage = calculateLifeStage(stageData);
-          milkingStage = calculateMilkingStage(stageData);
-        }
-
-        return { ...animal, lifeStage, milkingStage };
-      })
+    // Calculate stages only for fetched animals
+    const animalsWithStages = await computeAnimalStages(
+      fetchedAnimals, emitProgressUpdates,
     );
+
+    // Merge with existing cache (delta) or replace (full)
+    let finalAnimals: Animal[];
+    if (isDelta && existingCache?.data) {
+      const updatedMap = new Map(animalsWithStages.map(a => [a.id, a]));
+      finalAnimals = existingCache.data
+        .filter((a: Animal) => !removedIds.has(a.id) && !updatedMap.has(a.id))
+        .concat(animalsWithStages);
+    } else {
+      finalAnimals = animalsWithStages;
+    }
 
     const cache: AnimalDataCache = {
       farmId,
-      data: animalsWithStages,
+      data: finalAnimals,
       lastUpdated: Date.now(),
       version: 1,
       syncStatus: 'synced',
       lastSyncedAt: Date.now(),
     };
 
-    const db = await getDB();
     await db.put('animals', cache);
 
-    return animalsWithStages;
+    // Update checkpoint for next delta sync
+    await updateCheckpoint(farmId, 'animals', new Date().toISOString(), finalAnimals.length);
+
+    return finalAnimals;
   } catch (error) {
     console.error('Failed to update animal cache:', error);
     return [];
   }
+}
+
+/**
+ * Compute life/milking stages for a list of animals.
+ * Extracted to share between full and delta sync paths.
+ */
+async function computeAnimalStages(
+  animals: any[],
+  emitProgressUpdates: boolean,
+): Promise<Animal[]> {
+  const totalAnimals = animals.length;
+  return Promise.all(
+    animals.map(async (animal, index) => {
+      if (emitProgressUpdates) {
+        emitProgress({
+          phase: 'animals',
+          current: index + 1,
+          total: totalAnimals,
+          message: `Processing animals (${index + 1}/${totalAnimals})...`,
+        });
+      }
+
+      const isMale = animal.gender?.toLowerCase() === 'male';
+      const isFemale = animal.gender?.toLowerCase() === 'female';
+
+      if (!isMale && !isFemale) {
+        return { ...animal, lifeStage: null, milkingStage: null };
+      }
+
+      const { count: offspringCount } = await supabase
+        .from('animals')
+        .select('*', { count: 'exact', head: true })
+        .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`);
+
+      const { data: offspring } = await supabase
+        .from('animals')
+        .select('birth_date')
+        .or(`mother_id.eq.${animal.id},father_id.eq.${animal.id}`)
+        .order('birth_date', { ascending: false })
+        .limit(1);
+
+      let hasRecentMilking = false;
+      if (isFemale) {
+        const { data: recentMilking } = await supabase
+          .from('milking_records')
+          .select('id')
+          .eq('animal_id', animal.id)
+          .gte('record_date', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+        hasRecentMilking = (recentMilking?.length || 0) > 0;
+      }
+
+      let hasActiveAI = false;
+      if (isFemale) {
+        const { data: aiRecords } = await supabase
+          .from('ai_records')
+          .select('performed_date')
+          .eq('animal_id', animal.id)
+          .order('scheduled_date', { ascending: false })
+          .limit(1);
+        hasActiveAI = (aiRecords?.length || 0) > 0 && !offspringCount;
+      }
+
+      const stageData = {
+        birthDate: animal.birth_date ? new Date(animal.birth_date) : null,
+        gender: animal.gender,
+        milkingStartDate: animal.milking_start_date ? new Date(animal.milking_start_date) : null,
+        offspringCount: offspringCount || 0,
+        lastCalvingDate: offspring?.[0]?.birth_date ? new Date(offspring[0].birth_date) : null,
+        hasRecentMilking,
+        hasActiveAI,
+        livestockType: animal.livestock_type,
+      };
+
+      let lifeStage: string | null = null;
+      let milkingStage: string | null = null;
+
+      if (isMale) {
+        lifeStage = calculateMaleStage(stageData);
+        milkingStage = null;
+      } else {
+        lifeStage = calculateLifeStage(stageData);
+        milkingStage = calculateMilkingStage(stageData);
+      }
+
+      return { ...animal, lifeStage, milkingStage };
+    })
+  );
 }
 
 // ============= RECORDS CACHE =============
@@ -856,12 +1008,19 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
  */
 export async function updateRecordsCache(animalId: string): Promise<RecordCache> {
   try {
-    const [milkingRes, weightRes, healthRes, aiRes, feedingRes] = await Promise.all([
-      supabase.from('milking_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false }),
-      supabase.from('weight_records').select('*').eq('animal_id', animalId).order('measurement_date', { ascending: false }),
-      supabase.from('health_records').select('*').eq('animal_id', animalId).order('visit_date', { ascending: false }),
-      supabase.from('ai_records').select('*').eq('animal_id', animalId).order('scheduled_date', { ascending: false }),
-      supabase.from('feeding_records').select('*').eq('animal_id', animalId).order('record_datetime', { ascending: false }),
+    const [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+      supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).eq('animal_id', animalId)
+        .gte('record_date', getDateWindowISO(RECORD_CACHE_WINDOWS.milking)).order('record_date', { ascending: false }),
+      supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).eq('animal_id', animalId)
+        .gte('measurement_date', getDateWindowISO(RECORD_CACHE_WINDOWS.weight)).order('measurement_date', { ascending: false }),
+      supabase.from('health_records').select(HEALTH_RECORD_COLUMNS).eq('animal_id', animalId)
+        .gte('visit_date', getDateWindowISO(RECORD_CACHE_WINDOWS.health)).order('visit_date', { ascending: false }),
+      supabase.from('ai_records').select(AI_RECORD_COLUMNS).eq('animal_id', animalId)
+        .order('scheduled_date', { ascending: false }),
+      supabase.from('feeding_records').select(FEEDING_RECORD_COLUMNS).eq('animal_id', animalId)
+        .gte('record_datetime', getDateWindowISO(RECORD_CACHE_WINDOWS.feeding)).order('record_datetime', { ascending: false }),
+      supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).eq('animal_id', animalId)
+        .order('detected_at', { ascending: false }),
     ]);
 
     const cache: RecordCache = {
@@ -872,6 +1031,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       ai: aiRes.data || [],
       feeding: feedingRes.data || [],
       bcs: [],
+      heat: heatRes.data || [],
       lastUpdated: Date.now(),
       syncStatus: 'synced',
       pendingChanges: 0,
@@ -891,6 +1051,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       ai: [],
       feeding: [],
       bcs: [],
+      heat: [],
       lastUpdated: Date.now(),
       syncStatus: 'error' as CacheSyncStatus,
       pendingChanges: 0,
@@ -898,11 +1059,185 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
   }
 }
 
+/**
+ * Batch-fetch and cache records for ALL animals in a farm with just 6 HTTP requests.
+ *
+ * Supports delta sync: if a farmId is provided and a records checkpoint exists,
+ * only records with `updated_at > lastSync` are fetched and merged into existing caches.
+ * First sync (no checkpoint) does a full fetch with date windowing.
+ *
+ * @param animalIds - UUIDs of all animals in the farm
+ * @param onProgress - Optional callback for progress updates
+ * @param farmId - Farm ID for checkpoint-based delta sync (optional)
+ */
+export async function updateRecordsCacheBatch(
+  animalIds: string[],
+  onProgress?: (current: number, total: number) => void,
+  farmId?: string,
+): Promise<void> {
+  if (animalIds.length === 0) return;
+
+  try {
+    const safeIds = animalIds.length > 0 ? animalIds : ['no-match'];
+
+    // Check for delta sync eligibility
+    const checkpoint = farmId ? await getCheckpoint(farmId, 'records') : null;
+    const isDelta = !!checkpoint;
+
+    let milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes;
+
+    if (isDelta) {
+      // Delta: only records updated since last sync (across ALL animals in farm)
+      const since = checkpoint.lastSyncedAt;
+      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+        supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('record_date', { ascending: false }),
+        supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('measurement_date', { ascending: false }),
+        supabase.from('health_records').select(HEALTH_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('visit_date', { ascending: false }),
+        supabase.from('ai_records').select(AI_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('scheduled_date', { ascending: false }),
+        supabase.from('feeding_records').select(FEEDING_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('record_datetime', { ascending: false }),
+        supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('detected_at', { ascending: false }),
+      ]);
+
+      const totalDelta = (milkingRes.data?.length || 0) + (weightRes.data?.length || 0) +
+        (healthRes.data?.length || 0) + (aiRes.data?.length || 0) +
+        (feedingRes.data?.length || 0) + (heatRes.data?.length || 0);
+      console.log(`[DataCache] Records delta sync: ${totalDelta} changed records across 6 tables`);
+    } else {
+      // Full fetch with date windowing
+      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+        supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('record_date', getDateWindowISO(RECORD_CACHE_WINDOWS.milking)).order('record_date', { ascending: false }),
+        supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('measurement_date', getDateWindowISO(RECORD_CACHE_WINDOWS.weight)).order('measurement_date', { ascending: false }),
+        supabase.from('health_records').select(HEALTH_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('visit_date', getDateWindowISO(RECORD_CACHE_WINDOWS.health)).order('visit_date', { ascending: false }),
+        supabase.from('ai_records').select(AI_RECORD_COLUMNS).in('animal_id', safeIds)
+          .order('scheduled_date', { ascending: false }),
+        supabase.from('feeding_records').select(FEEDING_RECORD_COLUMNS).in('animal_id', safeIds)
+          .gte('record_datetime', getDateWindowISO(RECORD_CACHE_WINDOWS.feeding)).order('record_datetime', { ascending: false }),
+        supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).in('animal_id', safeIds)
+          .order('detected_at', { ascending: false }),
+      ]);
+    }
+
+    // Partition results by animal_id client-side
+    const partitionByAnimal = <T extends { animal_id: string }>(records: T[]): Map<string, T[]> => {
+      const map = new Map<string, T[]>();
+      for (const record of records) {
+        const list = map.get(record.animal_id);
+        if (list) list.push(record);
+        else map.set(record.animal_id, [record]);
+      }
+      return map;
+    };
+
+    const milkingByAnimal = partitionByAnimal(milkingRes.data || []);
+    const weightByAnimal = partitionByAnimal(weightRes.data || []);
+    const healthByAnimal = partitionByAnimal(healthRes.data || []);
+    const aiByAnimal = partitionByAnimal(aiRes.data || []);
+    const feedingByAnimal = partitionByAnimal(feedingRes.data || []);
+    const heatByAnimal = partitionByAnimal(heatRes.data || []);
+
+    // Store per-animal caches in IndexedDB
+    const db = await getDB();
+    const tx = db.transaction('records', 'readwrite');
+    const store = tx.objectStore('records');
+
+    // Collect all animal IDs that have changed records (for delta merge)
+    const affectedAnimalIds = isDelta
+      ? new Set([
+          ...milkingByAnimal.keys(), ...weightByAnimal.keys(),
+          ...healthByAnimal.keys(), ...aiByAnimal.keys(),
+          ...feedingByAnimal.keys(), ...heatByAnimal.keys(),
+        ])
+      : null;
+
+    // For delta: only update animals that had changed records
+    // For full: update all animals
+    const idsToProcess = isDelta ? [...affectedAnimalIds!] : animalIds;
+
+    for (let i = 0; i < idsToProcess.length; i++) {
+      const animalId = idsToProcess[i];
+
+      if (isDelta) {
+        // Merge: read existing cache, replace updated records by ID
+        const existing = await store.get(animalId);
+        const merged: RecordCache = {
+          animalId,
+          milking: mergeRecordsById(existing?.milking || [], milkingByAnimal.get(animalId) || []),
+          weight: mergeRecordsById(existing?.weight || [], weightByAnimal.get(animalId) || []),
+          health: mergeRecordsById(existing?.health || [], healthByAnimal.get(animalId) || []),
+          ai: mergeRecordsById(existing?.ai || [], aiByAnimal.get(animalId) || []),
+          feeding: mergeRecordsById(existing?.feeding || [], feedingByAnimal.get(animalId) || []),
+          bcs: existing?.bcs || [],
+          heat: mergeRecordsById(existing?.heat || [], heatByAnimal.get(animalId) || []),
+          lastUpdated: Date.now(),
+          syncStatus: 'synced',
+          pendingChanges: 0,
+        };
+        await store.put(merged);
+      } else {
+        // Full replacement
+        const cache: RecordCache = {
+          animalId,
+          milking: milkingByAnimal.get(animalId) || [],
+          weight: weightByAnimal.get(animalId) || [],
+          health: healthByAnimal.get(animalId) || [],
+          ai: aiByAnimal.get(animalId) || [],
+          feeding: feedingByAnimal.get(animalId) || [],
+          bcs: [],
+          heat: heatByAnimal.get(animalId) || [],
+          lastUpdated: Date.now(),
+          syncStatus: 'synced',
+          pendingChanges: 0,
+        };
+        await store.put(cache);
+      }
+      onProgress?.(i + 1, idsToProcess.length);
+    }
+
+    await tx.done;
+
+    // Update records checkpoint for next delta
+    if (farmId) {
+      await updateCheckpoint(farmId, 'records', new Date().toISOString(), idsToProcess.length);
+    }
+  } catch (error) {
+    console.error('[DataCache] Batch records cache failed:', error);
+  }
+}
+
+/**
+ * Merge updated records into existing cache by ID.
+ * New records are added, existing records with same ID are replaced.
+ */
+function mergeRecordsById(existing: any[], updated: any[]): any[] {
+  if (updated.length === 0) return existing;
+  if (existing.length === 0) return updated;
+
+  const updatedMap = new Map(updated.map(r => [r.id, r]));
+  const merged = existing.map(r => updatedMap.get(r.id) || r);
+
+  // Add truly new records (IDs not in existing)
+  const existingIds = new Set(existing.map(r => r.id));
+  for (const r of updated) {
+    if (!existingIds.has(r.id)) merged.push(r);
+  }
+
+  return merged;
+}
+
 // ============= FEED INVENTORY CACHE =============
 
 /**
  * Retrieve cached feed inventory for a farm (if valid)
- * 
+ *
  * @param farmId - UUID of the farm
  * @returns Promise resolving to cached feed inventory or null if expired/missing
  */
@@ -932,63 +1267,106 @@ export async function getCachedFeedInventory(farmId: string): Promise<FeedInvent
  */
 export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
   try {
-    // Fetch feed inventory and animal counts in parallel
-    const [feedRes, animalsRes] = await Promise.all([
-      supabase
+    // Check for delta sync eligibility
+    const checkpoint = await getCheckpoint(farmId, 'feed_inventory');
+    const db = await getDB();
+    const existingCache = await db.get('feedInventory', farmId);
+    const isDelta = !!checkpoint && !!existingCache?.items?.length;
+
+    let items: any[];
+
+    if (isDelta) {
+      // Delta: fetch only changed feed items since last sync
+      const { data, error } = await supabase
         .from('feed_inventory')
-        .select('*')
-        .eq('farm_id', farmId),
-      supabase
-        .from('animals')
-        .select('livestock_type')
+        .select(FEED_INVENTORY_COLUMNS)
         .eq('farm_id', farmId)
-        .eq('is_deleted', false)
-        .is('exit_date', null)
-    ]);
+        .gte('last_updated', checkpoint.lastSyncedAt);
 
-    if (feedRes.error) throw feedRes.error;
+      if (error) throw error;
 
-    // Compute summary for offline use
-    const items = feedRes.data || [];
-    const summary = {
-      totalKg: items.reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
-      concentrateKg: items.filter(i => i.category === 'concentrates').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
-      roughageKg: items.filter(i => i.category === 'roughage' || !i.category).reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
-      mineralsKg: items.filter(i => i.category === 'minerals').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
-      supplementsKg: items.filter(i => i.category === 'supplements').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
-    };
+      // Merge: replace existing items by ID, add new ones
+      const updatedMap = new Map((data || []).map(i => [i.id, i]));
+      items = existingCache.items
+        .map(i => updatedMap.get(i.id) || i)
+        .concat((data || []).filter(i => !existingCache.items.some((e: any) => e.id === i.id)));
 
-    // Calculate daily consumption from animal counts using unified service
-    let dailyConsumption = 0;
-    if (animalsRes.data) {
-      const counts = animalsRes.data.reduce((acc, animal) => {
-        const type = (animal.livestock_type || 'cattle').toLowerCase();
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      console.log(`[DataCache] Feed inventory delta: ${data?.length || 0} changed items`);
+    } else {
+      // Full fetch
+      const [feedRes, animalsRes] = await Promise.all([
+        supabase
+          .from('feed_inventory')
+          .select(FEED_INVENTORY_COLUMNS)
+          .eq('farm_id', farmId),
+        supabase
+          .from('animals')
+          .select('id,livestock_type')
+          .eq('farm_id', farmId)
+          .eq('is_deleted', false)
+          .is('exit_date', null)
+      ]);
 
-      dailyConsumption = calculateConsumptionFromCounts(
-        Object.entries(counts).map(([livestockType, count]) => ({ livestockType, count }))
-      );
+      if (feedRes.error) throw feedRes.error;
+      items = feedRes.data || [];
+
+      // Calculate daily consumption (only on full fetch — doesn't change often)
+      let dailyConsumption = 0;
+      if (animalsRes.data) {
+        const counts = animalsRes.data.reduce((acc, animal) => {
+          const type = (animal.livestock_type || 'cattle').toLowerCase();
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        dailyConsumption = calculateConsumptionFromCounts(
+          Object.entries(counts).map(([livestockType, count]) => ({ livestockType, count }))
+        );
+      }
+
+      // Store daily consumption for reuse in delta path
+      const cache: FeedInventoryCache = {
+        farmId,
+        items,
+        summary: computeFeedSummary(items),
+        dailyConsumption,
+        lastUpdated: Date.now(),
+        syncStatus: 'synced',
+      };
+      await db.put('feedInventory', cache);
+      await updateCheckpoint(farmId, 'feed_inventory', new Date().toISOString(), items.length);
+      return items;
     }
 
+    // Delta path: recompute summary, preserve dailyConsumption from last full sync
     const cache: FeedInventoryCache = {
       farmId,
       items,
-      summary,
-      dailyConsumption, // Store for offline calculations
+      summary: computeFeedSummary(items),
+      dailyConsumption: existingCache.dailyConsumption,
       lastUpdated: Date.now(),
       syncStatus: 'synced',
     };
 
-    const db = await getDB();
     await db.put('feedInventory', cache);
+    await updateCheckpoint(farmId, 'feed_inventory', new Date().toISOString(), items.length);
 
     return items;
   } catch (error) {
     console.error('Failed to update feed inventory cache:', error);
     return [];
   }
+}
+
+/** Compute feed category summary from items list */
+function computeFeedSummary(items: any[]) {
+  return {
+    totalKg: items.reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+    concentrateKg: items.filter(i => i.category === 'concentrates').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+    roughageKg: items.filter(i => i.category === 'roughage' || !i.category).reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+    mineralsKg: items.filter(i => i.category === 'minerals').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+    supplementsKg: items.filter(i => i.category === 'supplements').reduce((sum, i) => sum + (i.quantity_kg || 0), 0),
+  };
 }
 
 // ============= FARM DATA CACHE =============
@@ -1179,59 +1557,67 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
     return;
   }
 
-  console.log('[DataCache] Preloading critical data for farm:', farmId);
+  const quality = getConnectionQuality();
+  console.log(`[DataCache] Preloading data for farm (connection: ${quality}):`, farmId);
 
   try {
-    // Phase 1: Animals
+    // Phase 1: Animals + records (always — essential for offline use)
     emitProgress({
       phase: 'animals',
       current: 0,
       total: 100,
-      message: 'Loading animals...',
+      message: quality === '2g' ? 'Loading animals (slow connection)...' : 'Loading animals...',
     });
-    
+
     const animals = await updateAnimalCache(farmId, true);
-    
-    // Phase 2: Feed Inventory
-    emitProgress({
-      phase: 'feed',
-      current: 0,
-      total: 1,
-      message: 'Caching feeds...',
-    });
-    
-    await updateFeedInventoryCache(farmId);
-    
-    // Phase 3: Farm Data
-    emitProgress({
-      phase: 'farm',
-      current: 0,
-      total: 1,
-      message: 'Caching farm data...',
-    });
-    
-    await updateFarmDataCache(farmId);
-    
+
+    // Phase 2: Feed Inventory (skip on 2G — defer to next fast connection)
+    if (quality !== '2g') {
+      emitProgress({
+        phase: 'feed',
+        current: 0,
+        total: 1,
+        message: 'Caching feeds...',
+      });
+      await updateFeedInventoryCache(farmId);
+    } else {
+      console.log('[DataCache] 2G connection — deferring feed inventory sync');
+    }
+
+    // Phase 3: Farm Data (skip on 2G — rarely changes, low priority)
+    if (quality !== '2g') {
+      emitProgress({
+        phase: 'farm',
+        current: 0,
+        total: 1,
+        message: 'Caching farm data...',
+      });
+      await updateFarmDataCache(farmId);
+    } else {
+      console.log('[DataCache] 2G connection — deferring farm data sync');
+    }
+
     // Complete
     emitProgress({
       phase: 'complete',
       current: 1,
       total: 1,
-      message: 'Cache complete!',
+      message: quality === '2g' ? 'Essential data cached!' : 'Cache complete!',
     });
 
-    console.log('[DataCache] Preload complete');
-    
-    // Get final stats for success message
+    console.log(`[DataCache] Preload complete (mode: ${quality})`);
+
     const stats = await getCacheStats(farmId);
-    
+
     await createSystemNotification(
-      "Offline Cache Ready",
-      `${stats.animals.count} animals and ${stats.records.count} records available offline`
+      quality === '2g' ? "Essential Data Cached" : "Offline Cache Ready",
+      quality === '2g'
+        ? `${stats.animals.count} animals cached. Feed & farm data will sync on faster connection.`
+        : `${stats.animals.count} animals and ${stats.records.count} records available offline`
     );
   } catch (error) {
     console.error('[DataCache] Preload failed:', error);
-    
+
     await createSystemNotification(
       "Cache Incomplete",
       "Some data may not be available offline"
@@ -1261,13 +1647,19 @@ export async function preloadAllData(farmId: string, isOnline: boolean) {
 export async function refreshAllCaches(farmId: string, isOnline: boolean) {
   if (!isOnline) return;
 
-  console.log('[DataCache] Refreshing all caches...');
+  const quality = getConnectionQuality();
+  console.log(`[DataCache] Refreshing caches (connection: ${quality})...`);
 
   try {
-    await Promise.all([
-      updateAnimalCache(farmId),
-      updateFeedInventoryCache(farmId),
-    ]);
+    // Animals always refresh (essential, uses delta sync so lightweight)
+    await updateAnimalCache(farmId);
+
+    // Feed inventory only on non-2G (lower priority, defer to faster connection)
+    if (quality !== '2g') {
+      await updateFeedInventoryCache(farmId);
+    } else {
+      console.log('[DataCache] 2G connection — skipping feed inventory refresh');
+    }
 
     console.log('[DataCache] Cache refresh complete');
   } catch (error) {

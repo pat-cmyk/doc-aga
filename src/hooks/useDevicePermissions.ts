@@ -133,15 +133,26 @@ export function useDevicePermissions() {
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     try {
-      // Use Capacitor Camera plugin on native for proper permission request
       if (Capacitor.isNativePlatform()) {
         const Camera = await getNativeCamera();
-        const result = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
-        const granted = result.camera === 'granted' && result.photos === 'granted';
-        setPermissions(prev => ({ ...prev, camera: granted ? 'granted' : 'denied' }));
-        return granted;
+        // Check live system state first (handles grant-in-settings scenario)
+        const currentStatus = await Camera.checkPermissions();
+        if (currentStatus.camera === 'granted' && currentStatus.photos === 'granted') {
+          setPermissions(prev => ({ ...prev, camera: 'granted' }));
+          return true;
+        }
+        // Only request if OS dialog can still be shown
+        if (currentStatus.camera === 'prompt' || currentStatus.photos === 'prompt') {
+          const result = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+          const granted = result.camera === 'granted' && result.photos === 'granted';
+          setPermissions(prev => ({ ...prev, camera: granted ? 'granted' : 'denied' }));
+          return granted;
+        }
+        // Status is 'denied' — OS dialog won't show, user must use system settings
+        setPermissions(prev => ({ ...prev, camera: 'denied' }));
+        return false;
       }
-      
+
       // Web fallback
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
@@ -157,10 +168,22 @@ export function useDevicePermissions() {
     try {
       if (Capacitor.isNativePlatform()) {
         const LocalNotifications = await getLocalNotifications();
-        const result = await LocalNotifications.requestPermissions();
-        const granted = result.display === "granted";
-        setPermissions(prev => ({ ...prev, notifications: granted ? "granted" : "denied" }));
-        return granted;
+        // Check live system state first (handles grant-in-settings scenario)
+        const currentStatus = await LocalNotifications.checkPermissions();
+        if (currentStatus.display === 'granted') {
+          setPermissions(prev => ({ ...prev, notifications: 'granted' }));
+          return true;
+        }
+        // Only request if OS dialog can still be shown
+        if (currentStatus.display === 'prompt') {
+          const result = await LocalNotifications.requestPermissions();
+          const granted = result.display === "granted";
+          setPermissions(prev => ({ ...prev, notifications: granted ? "granted" : "denied" }));
+          return granted;
+        }
+        // Status is 'denied' — OS dialog won't show, user must use system settings
+        setPermissions(prev => ({ ...prev, notifications: 'denied' }));
+        return false;
       } else if ("Notification" in window) {
         const result = await Notification.requestPermission();
         const granted = result === "granted";

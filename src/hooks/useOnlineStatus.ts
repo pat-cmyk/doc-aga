@@ -19,6 +19,20 @@ const PROBE_TIMEOUT_MS = 5_000;
 const PROBE_INTERVAL_ONLINE_MS = 30_000;  // 30s while online (verify)
 const PROBE_INTERVAL_OFFLINE_MS = 10_000; // 10s while offline (detect reconnection faster)
 
+// ─── Connection quality estimation ──────────────────────────────────────────
+// Measured from probe round-trip times. Thresholds based on typical latencies:
+// - Wi-Fi/4G: <300ms RTT
+// - 3G: 300-1500ms RTT
+// - 2G: >1500ms RTT (or probe timeout)
+export type ConnectionQuality = 'fast' | 'slow' | '2g' | 'offline';
+
+const RTT_THRESHOLD_FAST = 300;   // ms — Wi-Fi or 4G
+const RTT_THRESHOLD_SLOW = 1500;  // ms — 3G
+// Above 1500ms or timeout → 2G
+
+let _connectionQuality: ConnectionQuality = 'fast';
+let _lastProbeRTT: number = 0;
+
 // ─── Singleton state ─────────────────────────────────────────────────────────
 // Shared between the React hook and the non-hook getIsOnline() accessor.
 // The probe runs as a singleton (once started, runs for the app's lifetime).
@@ -39,6 +53,7 @@ async function probeConnectivity(): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    const start = performance.now();
 
     await fetch(PROBE_URL, {
       method: 'HEAD',
@@ -48,8 +63,21 @@ async function probeConnectivity(): Promise<boolean> {
     });
 
     clearTimeout(timeoutId);
+    _lastProbeRTT = performance.now() - start;
+
+    // Classify connection quality from RTT
+    if (_lastProbeRTT < RTT_THRESHOLD_FAST) {
+      _connectionQuality = 'fast';
+    } else if (_lastProbeRTT < RTT_THRESHOLD_SLOW) {
+      _connectionQuality = 'slow';
+    } else {
+      _connectionQuality = '2g';
+    }
+
     return true;
   } catch {
+    _connectionQuality = 'offline';
+    _lastProbeRTT = 0;
     return false;
   }
 }
@@ -127,6 +155,26 @@ function ensureProbeStarted() {
 export function getIsOnline(): boolean {
   ensureProbeStarted();
   return _isOnline;
+}
+
+/**
+ * Non-hook accessor for connection quality.
+ * Returns 'fast' (Wi-Fi/4G, <300ms), 'slow' (3G, 300-1500ms),
+ * '2g' (>1500ms), or 'offline'.
+ *
+ * Used by dataCache to decide which caches to sync on slow connections.
+ */
+export function getConnectionQuality(): ConnectionQuality {
+  ensureProbeStarted();
+  return _isOnline ? _connectionQuality : 'offline';
+}
+
+/**
+ * Non-hook accessor for last probe round-trip time in milliseconds.
+ * Returns 0 if offline or no probe has completed yet.
+ */
+export function getLastProbeRTT(): number {
+  return _lastProbeRTT;
 }
 
 /**
