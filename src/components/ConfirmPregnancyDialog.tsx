@@ -10,6 +10,7 @@ import { addDays } from "date-fns";
 import { GESTATION_DAYS } from "@/types/fertility";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
+import { incrementLocalPregnantCount } from "@/lib/dataCache";
 
 interface ConfirmPregnancyDialogProps {
   recordId: string;
@@ -37,7 +38,10 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
 
     try {
       if (!isOnline) {
-        // Queue for offline sync
+        // Update dashboard pregnant count in IndexedDB
+        await incrementLocalPregnantCount(farmId);
+
+        // Queue for server sync when online
         await addToQueue({
           id: `pregnancy_confirm_${Date.now()}`,
           type: 'pregnancy_confirm',
@@ -55,8 +59,8 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
         });
 
         toast({
-          title: "Queued for Sync",
-          description: `Pregnancy confirmation will sync when online`,
+          title: "✅ Pregnancy Confirmed",
+          description: `Pregnancy confirmation saved. Syncs automatically when online`,
         });
 
         setOpen(false);
@@ -136,7 +140,7 @@ const ConfirmPregnancyDialog = ({ recordId, animalId, farmId, livestockType = 'c
               Cancel
             </Button>
             <Button onClick={handleConfirm} disabled={loading || !performedDate}>
-              {loading ? "Confirming..." : !isOnline ? "Queue for Sync" : "Confirm Pregnancy"}
+              {loading ? "Confirming..." : "Confirm Pregnancy"}
             </Button>
           </div>
         </div>

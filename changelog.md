@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-03-02 — True Offline-First Mutations for All Record Types
+
+### Fixed
+- **Offline records only queued, not persisted (P0)**: Recording milking/feeding/health/weight/BCS/pregnancy while offline only updated in-memory React Query cache (lost on reload) and queued for sync. Now all record types persist to IndexedDB immediately via `addOptimisticRecords()`, ensuring data survives app restarts. Dashboards and computations work entirely from local data.
+- **"Queued for Sync" messaging felt provisional (P1)**: All 10 recording dialogs showed "Queued for Sync" toast title and "Queue for Sync" button text, making offline recording feel like a degraded experience. Changed to positive confirmations ("✅ Feed Recorded", "✅ Health Recorded", etc.) with subtitle "Syncs automatically when online". Buttons now show the same label online and offline (e.g. "Record Feed").
+- **Dashboard feed chart ignored local feed data (P1)**: `useCombinedDashboardData` only merged local pending milk data with server data. Feed chart showed 0 after offline recording until sync. Added same `Math.max()` merge logic for feed data.
+
+### Added
+- `addLocalFeedRecord()` in `dataCache.ts` — Persists feed totals to IndexedDB dashboard cache (daily feed kg + animal count).
+- `deductLocalFeedInventory()` in `dataCache.ts` — Deducts feed from local inventory cache for instant stock updates.
+- `addLocalHealthEvent()` in `dataCache.ts` — Increments dashboard health event counter in IndexedDB.
+- `updateLocalAnimalWeight()` in `dataCache.ts` — Updates animal's `current_weight_kg` in local animals cache.
+- `incrementLocalPregnantCount()` in `dataCache.ts` — Increments pregnant count and decrements pending confirmation in dashboard cache.
+
+### Changed
+- `RecordBulkFeedDialog.tsx` / `RecordSingleFeedDialog.tsx` — Now call `addOptimisticRecords()` + `addLocalFeedRecord()` + `deductLocalFeedInventory()` before queuing.
+- `RecordBulkHealthDialog.tsx` / `RecordSingleHealthDialog.tsx` / `AddHealthRecordDialog.tsx` — Now call `addOptimisticRecords()` + `addLocalHealthEvent()` before queuing.
+- `RecordSingleWeightDialog.tsx` — Now calls `addOptimisticRecords()` + `updateLocalAnimalWeight()` before queuing.
+- `RecordBulkBCSDialog.tsx` — Now calls `addOptimisticRecords()` before queuing. Added `'bcs'` to type union.
+- `ConfirmPregnancyDialog.tsx` — Now calls `incrementLocalPregnantCount()` before queuing.
+- `useCombinedDashboardData.ts` — Merges local pending feed data with server feed data using `Math.max()`.
+- `dataCache.ts` — Extended `addOptimisticRecords()` type union to include `'bcs'`. Added `bcs: any[]` to `RecordCache` interface.
+- All 10 dialog files — Removed "Queue for Sync" / "Queuing..." button variants; buttons now show consistent labels regardless of online state.
+
+## 2026-03-02 — Fix Permissions, Reliable Connectivity Probing, SW Cache Staleness
+
+### Fixed
+- **Android permissions not grantable (P0)**: `capacitor-native-settings` package was NOT installed despite `openAppSettings.ts` importing it. The "Open Settings" button in all 4 permission dialogs (Camera, Mic, Location, Notifications) silently failed, preventing users from granting permissions via system settings. Installed `capacitor-native-settings@8.0.0` — plugin now registered in Android Gradle build.
+- **Unreliable offline detection on Android WebView (P0)**: Re-implemented active connectivity probing using a fundamentally different approach than the previous attempt (which probed Supabase REST API and hit CORS/API-key issues). New approach uses Google's `connectivitycheck.gstatic.com/generate_204` with `mode: 'no-cors'` — immune to CORS issues, zero body bytes, same endpoint Android itself uses for captive portal detection.
+- **Stale Service Worker serving old code after APK update (P1)**: New SW activation handler now explicitly deletes all non-workbox runtime caches (animals-cache, records-cache, feed-cache) to prevent stale API data surviving across APK updates. Added forced `registration.update()` on every app launch and periodic re-check (60s interval) in `main.tsx` to ensure new SW is detected immediately.
+
+### Changed
+- `src/hooks/useOnlineStatus.ts` — Singleton active probe using `no-cors` fetch to Google's connectivity endpoint. Probes every 30s while online, 10s while offline. Pauses when app hidden (saves battery). Both `useOnlineStatus()` hook and `getIsOnline()` accessor share the same singleton state.
+- `src/main.tsx` — Added `registration.update()` on SW registration + 60s periodic interval to force SW version checks.
+- `src/sw.ts` — Activate handler now clears all non-workbox runtime caches before calling `clients.claim()`.
+- `package.json` — Added `capacitor-native-settings@8.0.0` dependency + `postinstall` script for AGP 9 compatibility patch.
+- `scripts/patch-capacitor-native-settings.js` — Postinstall patch replaces deprecated `proguard-android.txt` with `proguard-android-optimize.txt` in the plugin's `build.gradle` (required for AGP 9.0.1+).
+- `android/build.gradle` — Comment noting the postinstall patch for capacitor-native-settings ProGuard compatibility.
+
 ## 2026-03-02 — Revert Connectivity to navigator.onLine + Fix Offline Barn Creation
 
 ### Fixed

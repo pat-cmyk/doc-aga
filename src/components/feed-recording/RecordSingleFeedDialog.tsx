@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedFeedInventory } from "@/lib/dataCache";
+import { getCachedFeedInventory, addOptimisticRecords, addLocalFeedRecord, deductLocalFeedInventory } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { calculateCostPerKg } from "@/lib/feedSplitCalculation";
 import { useFarm } from "@/contexts/FarmContext";
@@ -209,7 +209,25 @@ export function RecordSingleFeedDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync
+        const dateStr = format(recordDate, 'yyyy-MM-dd');
+
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'feeding', [{
+          animalId,
+          kilograms: kg,
+          feed_type: feedTypeName,
+          record_datetime: dateTime,
+        }], optimisticId);
+
+        // Update dashboard feed totals in IndexedDB
+        await addLocalFeedRecord(farmId, dateStr, kg, 1);
+
+        // Deduct from local feed inventory cache
+        if (feedType !== FRESH_CUT_OPTION && selectedFeedInventory?.id) {
+          await deductLocalFeedInventory(farmId, selectedFeedInventory.id, kg);
+        }
+
+        // Queue for server sync when online
         await addToQueue({
           id: `single_feed_${Date.now()}`,
           type: 'single_feed',
@@ -232,8 +250,8 @@ export function RecordSingleFeedDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `${kg}kg feeding will sync when online`,
+          title: "✅ Feed Recorded",
+          description: `${kg}kg feeding recorded. Syncs automatically when online`,
         });
         onOpenChange(false);
         onSuccess?.();
@@ -488,10 +506,8 @@ export function RecordSingleFeedDialog({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    Recording...
                   </>
-                ) : !isOnline ? (
-                  "Queue for Sync"
                 ) : (
                   "Record Feed"
                 )}

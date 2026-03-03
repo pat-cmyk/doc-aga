@@ -154,5 +154,21 @@ self.addEventListener('install', () => {
 // Handle service worker activation
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      // Delete ALL non-workbox runtime caches so stale API data doesn't persist
+      // across APK updates. Workbox precache is handled by cleanupOutdatedCaches().
+      const cacheNames = await caches.keys();
+      const runtimeCaches = cacheNames.filter(
+        (name) => !name.startsWith('workbox-precache')
+      );
+      await Promise.all(runtimeCaches.map((name) => caches.delete(name)));
+      if (runtimeCaches.length > 0) {
+        console.log('[SW] Cleared stale runtime caches:', runtimeCaches);
+      }
+
+      // Take control of all open tabs immediately
+      await self.clients.claim();
+    })()
+  );
 });

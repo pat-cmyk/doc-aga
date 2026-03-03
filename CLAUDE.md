@@ -54,8 +54,9 @@ Before modifying ANY field, function, or component: trace `Table → RPC → Hoo
 ### Cache Rules
 
 - All mutations go through `CacheManager.invalidateForMutation()` (`src/lib/cacheManager.ts`)
-- All cache getters use `isCacheUsable(lastUpdated)` helper (`src/lib/dataCache.ts`) — never gate on `getIsOnline()` which is unreliable on Android WebView
+- All cache getters use `isCacheUsable(lastUpdated)` helper (`src/lib/dataCache.ts`) — never gate on connectivity directly
 - New farm-level read hooks must follow the cache-first pattern: add `getCached*` / `update*Cache` in `dataCache.ts` and register in `CacheManager.CACHE_DEPENDENCIES`
+- **NEVER use `navigator.onLine` directly** — unreliable on Android WebView. Use `getIsOnline()` (non-React) or `useOnlineStatus()` (React hook), which use active connectivity probing via `connectivitycheck.gstatic.com`
 
 ---
 
@@ -146,7 +147,8 @@ npx cap open android # Open in Android Studio
 - App ID: `com.goldenforage.docaga`
 - Web dir: `dist`
 - Android scheme: HTTPS
-- `navigator.onLine` is unreliable on Android WebView — never use directly in cache logic; use `isCacheUsable()` or `useOnlineStatus()` hook
+- `navigator.onLine` is unreliable on Android WebView — **NEVER use directly**. Use `getIsOnline()` or `useOnlineStatus()` hook, which use active connectivity probing (singleton fetch to `connectivitycheck.gstatic.com/generate_204` with `no-cors` mode)
+- `capacitor-native-settings@8.0.0` — Required for "Open Settings" button in permission dialogs (opens system app settings so users can grant denied permissions)
 
 ---
 

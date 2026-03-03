@@ -25,5 +25,5 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-// NOTE: The subprojects block for ProGuard has been removed to simplify.
-// If the ProGuard errors return, we will add it back, but let's solve the Java error first.
+// NOTE: capacitor-native-settings uses deprecated proguard-android.txt which AGP 9+ blocks.
+// Patched via npm postinstall script (see package.json "postinstall").

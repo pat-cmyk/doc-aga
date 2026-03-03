@@ -31,6 +31,7 @@ import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { addPhoto } from "@/lib/offlinePhotoQueue";
+import { addOptimisticRecords, addLocalHealthEvent } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { useFarm } from "@/contexts/FarmContext";
 
@@ -284,7 +285,19 @@ export function RecordSingleHealthDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync with photo IDs
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'health', [{
+          animalId,
+          visit_date: dateStr,
+          diagnosis,
+          treatment: treatment || null,
+          notes: notes || null,
+        }], optimisticId);
+
+        // Update dashboard health counter in IndexedDB
+        await addLocalHealthEvent(farmId, 1);
+
+        // Queue for server sync when online
         await addToQueue({
           id: `single_health_${Date.now()}`,
           type: 'single_health',
@@ -307,8 +320,8 @@ export function RecordSingleHealthDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `Health record will sync when online`,
+          title: "✅ Health Recorded",
+          description: `Health record saved. Syncs automatically when online`,
         });
         onOpenChange(false);
         onSuccess?.();
@@ -675,10 +688,8 @@ export function RecordSingleHealthDialog({
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Recording...
                 </>
-              ) : !isOnline ? (
-                "Queue for Sync"
               ) : (
                 "Record Health"
               )}

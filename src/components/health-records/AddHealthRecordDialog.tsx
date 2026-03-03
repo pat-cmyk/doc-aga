@@ -13,6 +13,7 @@ import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { addPhoto } from "@/lib/offlinePhotoQueue";
 import { addToQueue } from "@/lib/offlineQueue";
+import { addOptimisticRecords, addLocalHealthEvent } from "@/lib/dataCache";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 
 interface AddHealthRecordDialogProps {
@@ -204,7 +205,21 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
 
     try {
       if (!isOnline) {
-        // Queue for offline sync with photo IDs
+        const optimisticId = crypto.randomUUID();
+
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'health', [{
+          animalId,
+          visit_date: formData.visit_date,
+          diagnosis: formData.diagnosis || '',
+          treatment: formData.treatment || null,
+          notes: formData.notes || null,
+        }], optimisticId);
+
+        // Update dashboard health counter in IndexedDB
+        await addLocalHealthEvent(farmId, 1);
+
+        // Queue for server sync when online
         await addToQueue({
           id: `single_health_${Date.now()}`,
           type: 'single_health',
@@ -221,11 +236,12 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
             pendingPhotoIds: offlinePhotoIds.length > 0 ? offlinePhotoIds : undefined,
           },
           createdAt: Date.now(),
+          optimisticId,
         });
 
         toast({
-          title: "Queued for Sync",
-          description: "Health record will sync when online",
+          title: "✅ Health Recorded",
+          description: "Health record saved. Syncs automatically when online",
         });
 
         // Clear sessionStorage
@@ -444,7 +460,7 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
               disabled={saving || isUploadingImage} 
               className="flex-1 min-h-[48px]"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : !isOnline ? "Queue for Sync" : "Save Record"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Record"}
             </Button>
           </div>
         </form>

@@ -172,8 +172,8 @@ export function RecordSingleMilkDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}) will sync when online`,
+          title: "✅ Milk Recorded",
+          description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}). Syncs automatically when online`,
         });
         onOpenChange(false);
         return;
@@ -301,7 +301,7 @@ export function RecordSingleMilkDialog({
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={handleClose} className="flex-1 min-h-[48px]" disabled={isSubmitting}>Cancel</Button>
             <Button onClick={handleSubmit} className="flex-1 min-h-[48px]" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isOnline ? "Recording..." : "Queuing..."}</>) : (<>{!isOnline && <WifiOff className="h-4 w-4 mr-2" />}{isOnline ? "Record Milk" : "Queue for Sync"}</>)}
+              {isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Recording...</>) : "Record Milk"}
             </Button>
           </div>
         </div>

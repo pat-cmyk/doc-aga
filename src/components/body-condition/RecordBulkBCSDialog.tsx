@@ -31,6 +31,7 @@ import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
 import { addToQueue } from "@/lib/offlineQueue";
+import { addOptimisticRecords } from "@/lib/dataCache";
 
 interface RecordBulkBCSDialogProps {
   open: boolean;
@@ -204,6 +205,8 @@ export function RecordBulkBCSDialog({
       const userId = userData?.user?.id;
 
       if (!isOnline) {
+        const optimisticId = crypto.randomUUID();
+
         // Queue for offline sync using standardized queue system
         const bcsRecords = selectedAnimals.map((animal) => ({
           animalId: animal.id,
@@ -213,20 +216,29 @@ export function RecordBulkBCSDialog({
           notes: notes || undefined,
         }));
 
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'bcs', selectedAnimals.map((animal) => ({
+          animalId: animal.id,
+          score,
+          assessment_date: assessmentDate,
+          notes: notes || null,
+        })), optimisticId);
+
         await addToQueue({
-          id: crypto.randomUUID(),
+          id: optimisticId,
           type: 'bulk_bcs',
           payload: {
             farmId,
             bcsRecords,
           },
           createdAt: Date.now(),
+          optimisticId,
         });
 
         hapticNotification("success");
         toast({
-          title: "Queued for Sync",
-          description: `${selectedAnimals.length} BCS record(s) will sync when online.`,
+          title: "✅ BCS Recorded",
+          description: `${selectedAnimals.length} BCS record(s) saved. Syncs automatically when online`,
         });
         handleClose();
         return;
@@ -304,11 +316,7 @@ export function RecordBulkBCSDialog({
         disabled={isSubmitting || selectedAnimals.length === 0}
         className="flex-1 min-h-[48px]"
       >
-        {isSubmitting
-          ? "Saving..."
-          : isOnline
-          ? "Record BCS"
-          : "Queue for Sync"}
+        {isSubmitting ? "Recording..." : "Record BCS"}
       </Button>
     </div>
   );

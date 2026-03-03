@@ -42,7 +42,7 @@ import { AnimalCombobox } from "@/components/milk-recording/AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals, getCachedFeedInventory } from "@/lib/dataCache";
+import { getCachedAnimals, getCachedFeedInventory, addOptimisticRecords, addLocalFeedRecord, deductLocalFeedInventory } from "@/lib/dataCache";
 import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkFeedDialogProps {
@@ -225,7 +225,26 @@ export function RecordBulkFeedDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync
+        const dateStr = format(recordDate, 'yyyy-MM-dd');
+        const totalKgNum = parseFloat(totalKg);
+
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'feeding', splitPreview.map((split) => ({
+          animalId: split.animalId,
+          kilograms: split.kilograms,
+          feed_type: feedTypeName,
+          record_datetime: dateTime,
+        })), optimisticId);
+
+        // Update dashboard feed totals in IndexedDB
+        await addLocalFeedRecord(farmId, dateStr, totalKgNum, splitPreview.length);
+
+        // Deduct from local feed inventory cache
+        if (feedType !== FRESH_CUT_OPTION && selectedFeedInventory?.id) {
+          await deductLocalFeedInventory(farmId, selectedFeedInventory.id, totalKgNum);
+        }
+
+        // Queue for server sync when online
         await addToQueue({
           id: `bulk_feed_${Date.now()}`,
           type: 'bulk_feed',
@@ -239,7 +258,7 @@ export function RecordBulkFeedDialog({
             })),
             feedType: feedTypeName,
             feedInventoryId: feedType !== FRESH_CUT_OPTION ? selectedFeedInventory?.id : undefined,
-            totalKg: parseFloat(totalKg),
+            totalKg: totalKgNum,
             recordDate: dateTime,
           },
           createdAt: Date.now(),
@@ -248,8 +267,8 @@ export function RecordBulkFeedDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `${totalKg}kg feeding will sync when online`,
+          title: "✅ Feed Recorded",
+          description: `${totalKg}kg feeding recorded. Syncs automatically when online`,
         });
         onOpenChange(false);
         return;
@@ -594,12 +613,10 @@ export function RecordBulkFeedDialog({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isOnline ? "Recording..." : "Queuing..."}
+                  Recording...
                 </>
-              ) : isOnline ? (
-                "Record Feed"
               ) : (
-                "Queue for Sync"
+                "Record Feed"
               )}
             </Button>
           </div>

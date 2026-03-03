@@ -188,6 +188,17 @@ export const useCombinedDashboardData = (
           );
         }
 
+        // Merge local pending feed data with server feed data
+        const mergedDailyFeed = { ...serverDailyFeed };
+        if (cachedStats?.dailyFeed[today] && cachedStats.syncStatus === 'pending') {
+          const serverFeed = serverDailyFeed[today] || { totalKg: 0, animalCount: 0 };
+          const cachedFeed = cachedStats.dailyFeed[today] || { totalKg: 0, animalCount: 0 };
+          mergedDailyFeed[today] = {
+            totalKg: Math.max(serverFeed.totalKg, cachedFeed.totalKg),
+            animalCount: Math.max(serverFeed.animalCount, cachedFeed.animalCount),
+          };
+        }
+
         // Build combined data for charts (feed comes from RPC via daily_farm_stats SSOT)
         const dailyDataMap: Record<string, CombinedDailyData> = {};
         dateArray.forEach(date => {
@@ -195,8 +206,8 @@ export const useCombinedDashboardData = (
             date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawDate: date,
             milkTotal: mergedDailyMilk[date] || 0,
-            feedTotalKg: serverDailyFeed[date]?.totalKg || 0,
-            feedAnimalCount: serverDailyFeed[date]?.animalCount || 0,
+            feedTotalKg: mergedDailyFeed[date]?.totalKg || 0,
+            feedAnimalCount: mergedDailyFeed[date]?.animalCount || 0,
           };
         });
 

@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
+import { addOptimisticRecords, updateLocalAnimalWeight } from "@/lib/dataCache";
 import { validateRecordDate } from "@/lib/recordValidation";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
@@ -155,7 +156,19 @@ export function RecordSingleWeightDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'weight', [{
+          animalId,
+          weight_kg: weightNum,
+          measurement_date: dateStr,
+          measurement_method: method,
+          notes: notes.trim() || null,
+        }], optimisticId);
+
+        // Update animal's current weight in local cache
+        await updateLocalAnimalWeight(farmId, animalId, weightNum);
+
+        // Queue for server sync when online
         await addToQueue({
           id: `single_weight_${Date.now()}`,
           type: 'single_weight',
@@ -176,8 +189,8 @@ export function RecordSingleWeightDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `${weightNum}kg weight will sync when online`,
+          title: "✅ Weight Recorded",
+          description: `${weightNum}kg weight recorded. Syncs automatically when online`,
         });
         onOpenChange(false);
         onSuccess?.();

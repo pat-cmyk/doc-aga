@@ -230,6 +230,7 @@ interface RecordCache {
   health: any[];
   ai: any[];
   feeding: any[];
+  bcs: any[];
   lastUpdated: number;
   // Offline-first additions
   syncStatus: CacheSyncStatus;
@@ -888,6 +889,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       health: [],
       ai: [],
       feeding: [],
+      bcs: [],
       lastUpdated: Date.now(),
       syncStatus: 'error' as CacheSyncStatus,
       pendingChanges: 0,
@@ -1338,7 +1340,7 @@ const optimisticRecordsStore = new Map<string, OptimisticRecordEntry>();
  */
 export async function addOptimisticRecords(
   farmId: string,
-  recordType: 'milking' | 'weight' | 'health' | 'ai' | 'feeding',
+  recordType: 'milking' | 'weight' | 'health' | 'ai' | 'feeding' | 'bcs',
   records: Array<{ animalId: string; [key: string]: any }>,
   optimisticId: string
 ): Promise<void> {
@@ -1648,6 +1650,226 @@ export async function addLocalMilkRecord(
     console.log(`[DataCache] Added ${liters}L milk for ${date}, new total: ${updated.dailyMilk[date]}L`);
   } catch (error) {
     console.error('[DataCache] Failed to add local milk record:', error);
+  }
+}
+
+/**
+ * Add feed record to local dashboard cache
+ * Used for instant UI updates before server sync
+ *
+ * @param farmId - Farm ID
+ * @param date - Date string (YYYY-MM-DD)
+ * @param totalKg - Kilograms to add (accumulates throughout the day)
+ * @param animalCount - Number of animals fed
+ */
+export async function addLocalFeedRecord(
+  farmId: string,
+  date: string,
+  totalKg: number,
+  animalCount: number
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('dashboardStats', farmId);
+
+    const updated: DashboardStatsCache = existing || {
+      farmId,
+      stats: {
+        totalAnimals: 0,
+        feedStockDays: null,
+        avgDailyMilk: 0,
+        pregnantCount: 0,
+        pendingConfirmation: 0,
+        recentHealthEvents: 0,
+      },
+      dailyMilk: {},
+      dailyFeed: {},
+      stageCounts: {},
+      monthlyData: [],
+      stageKeys: [],
+      lastUpdated: Date.now(),
+      lastServerSync: 0,
+      syncStatus: 'pending',
+    };
+
+    // Add to existing date total (accumulate throughout the day)
+    const existingFeed = updated.dailyFeed[date] || { totalKg: 0, animalCount: 0 };
+    updated.dailyFeed[date] = {
+      totalKg: existingFeed.totalKg + totalKg,
+      animalCount: existingFeed.animalCount + animalCount,
+    };
+    updated.syncStatus = 'pending';
+    updated.lastUpdated = Date.now();
+
+    await db.put('dashboardStats', updated);
+    console.log(`[DataCache] Added ${totalKg}kg feed for ${date}, new total: ${updated.dailyFeed[date].totalKg}kg`);
+  } catch (error) {
+    console.error('[DataCache] Failed to add local feed record:', error);
+  }
+}
+
+/**
+ * Deduct feed from local feed inventory cache
+ * Used for instant UI updates before server sync
+ *
+ * @param farmId - Farm ID
+ * @param inventoryId - Feed inventory item ID
+ * @param kg - Kilograms to deduct
+ */
+export async function deductLocalFeedInventory(
+  farmId: string,
+  inventoryId: string,
+  kg: number
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('feedInventory', farmId);
+    if (!cached) return;
+
+    const updatedItems = cached.items.map((item: any) =>
+      item.id === inventoryId
+        ? { ...item, quantity_kg: Math.max(0, (item.quantity_kg || 0) - kg) }
+        : item
+    );
+
+    // Update summary if it exists
+    const summary = cached.summary
+      ? { ...cached.summary, totalKg: Math.max(0, cached.summary.totalKg - kg) }
+      : undefined;
+
+    await db.put('feedInventory', {
+      ...cached,
+      items: updatedItems,
+      summary,
+      syncStatus: 'pending',
+    });
+    console.log(`[DataCache] Deducted ${kg}kg from feed inventory ${inventoryId}`);
+  } catch (error) {
+    console.error('[DataCache] Failed to deduct local feed inventory:', error);
+  }
+}
+
+/**
+ * Add health event to local dashboard cache
+ * Used for instant UI updates before server sync
+ *
+ * @param farmId - Farm ID
+ * @param count - Number of health events to add
+ */
+export async function addLocalHealthEvent(
+  farmId: string,
+  count: number
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('dashboardStats', farmId);
+
+    const updated: DashboardStatsCache = existing || {
+      farmId,
+      stats: {
+        totalAnimals: 0,
+        feedStockDays: null,
+        avgDailyMilk: 0,
+        pregnantCount: 0,
+        pendingConfirmation: 0,
+        recentHealthEvents: 0,
+      },
+      dailyMilk: {},
+      dailyFeed: {},
+      stageCounts: {},
+      monthlyData: [],
+      stageKeys: [],
+      lastUpdated: Date.now(),
+      lastServerSync: 0,
+      syncStatus: 'pending',
+    };
+
+    updated.stats.recentHealthEvents = (updated.stats.recentHealthEvents || 0) + count;
+    updated.syncStatus = 'pending';
+    updated.lastUpdated = Date.now();
+
+    await db.put('dashboardStats', updated);
+    console.log(`[DataCache] Added ${count} health event(s), total: ${updated.stats.recentHealthEvents}`);
+  } catch (error) {
+    console.error('[DataCache] Failed to add local health event:', error);
+  }
+}
+
+/**
+ * Update an animal's current weight in the local animals cache
+ * Used for instant UI updates before server sync
+ *
+ * @param farmId - Farm ID
+ * @param animalId - Animal ID
+ * @param weightKg - New weight in kg
+ */
+export async function updateLocalAnimalWeight(
+  farmId: string,
+  animalId: string,
+  weightKg: number
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('animals', farmId);
+    if (!cached) return;
+
+    const updatedAnimals = cached.data.map((a: any) =>
+      a.id === animalId ? { ...a, current_weight_kg: weightKg } : a
+    );
+
+    await db.put('animals', {
+      ...cached,
+      data: updatedAnimals,
+      syncStatus: 'pending',
+    });
+    console.log(`[DataCache] Updated animal ${animalId} weight to ${weightKg}kg`);
+  } catch (error) {
+    console.error('[DataCache] Failed to update local animal weight:', error);
+  }
+}
+
+/**
+ * Increment pregnant count in local dashboard cache
+ * Used for instant UI updates before server sync
+ *
+ * @param farmId - Farm ID
+ */
+export async function incrementLocalPregnantCount(
+  farmId: string
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('dashboardStats', farmId);
+
+    const updated: DashboardStatsCache = existing || {
+      farmId,
+      stats: {
+        totalAnimals: 0,
+        feedStockDays: null,
+        avgDailyMilk: 0,
+        pregnantCount: 0,
+        pendingConfirmation: 0,
+        recentHealthEvents: 0,
+      },
+      dailyMilk: {},
+      dailyFeed: {},
+      stageCounts: {},
+      monthlyData: [],
+      stageKeys: [],
+      lastUpdated: Date.now(),
+      lastServerSync: 0,
+      syncStatus: 'pending',
+    };
+
+    updated.stats.pregnantCount = (updated.stats.pregnantCount || 0) + 1;
+    updated.stats.pendingConfirmation = Math.max(0, (updated.stats.pendingConfirmation || 0) - 1);
+    updated.syncStatus = 'pending';
+    updated.lastUpdated = Date.now();
+
+    await db.put('dashboardStats', updated);
+    console.log(`[DataCache] Incremented pregnant count to ${updated.stats.pregnantCount}`);
+  } catch (error) {
+    console.error('[DataCache] Failed to increment local pregnant count:', error);
   }
 }
 

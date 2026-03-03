@@ -91,13 +91,17 @@ All data-reading hooks fall into one of three categories. New hooks MUST follow 
 ### Canonical Cache-First Pattern (Category A)
 
 ```typescript
+import { getIsOnline } from '@/hooks/useOnlineStatus';
+
 queryFn: async () => {
   // 1. Check IndexedDB cache first
   const cached = await getCachedData(farmId);
   if (cached) return cached;
 
   // 2. If online, fetch from Supabase
-  if (!navigator.onLine) return fallbackDefault;
+  // IMPORTANT: Use getIsOnline() — NEVER navigator.onLine directly
+  // (unreliable on Android WebView, see changelog 2026-03-02)
+  if (!getIsOnline()) return fallbackDefault;
   const { data } = await supabase.from('table').select('*').eq('farm_id', farmId);
 
   // 3. Update local cache
@@ -110,6 +114,7 @@ queryFn: async () => {
 
 - **Farm-scoped?** → Implement cache-first. Add `getCached*` / `update*Cache` in `dataCache.ts`. Register invalidation in `CacheManager.CACHE_DEPENDENCIES`.
 - **Cross-farm aggregation?** → Mark `@online-only` in file header. No local cache.
+- **Connectivity check?** → Use `getIsOnline()` from `useOnlineStatus.ts` (active probe singleton). NEVER use `navigator.onLine` directly.
 
 ### Hook Inventory (Living Table)
 

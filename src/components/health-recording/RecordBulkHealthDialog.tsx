@@ -31,7 +31,7 @@ import { HEALTH_CATEGORIES, QUICK_DIAGNOSES, QUICK_TREATMENTS } from "@/lib/heal
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { getCachedAnimals } from "@/lib/dataCache";
+import { getCachedAnimals, addOptimisticRecords, addLocalHealthEvent } from "@/lib/dataCache";
 import { useFarm } from "@/contexts/FarmContext";
 
 interface RecordBulkHealthDialogProps {
@@ -185,7 +185,19 @@ export function RecordBulkHealthDialog({
       );
 
       if (!isOnline) {
-        // Queue for offline sync
+        // Persist to IndexedDB for offline-first — survives reload
+        await addOptimisticRecords(farmId, 'health', selectedAnimals.map((animal) => ({
+          animalId: animal.id,
+          visit_date: dateStr,
+          diagnosis,
+          treatment: treatment || null,
+          notes: notes || null,
+        })), optimisticId);
+
+        // Update dashboard health counter in IndexedDB
+        await addLocalHealthEvent(farmId, selectedAnimals.length);
+
+        // Queue for server sync when online
         await addToQueue({
           id: `bulk_health_${Date.now()}`,
           type: 'bulk_health',
@@ -206,8 +218,8 @@ export function RecordBulkHealthDialog({
 
         hapticNotification('success');
         toast({
-          title: "Queued for Sync",
-          description: `Health record for ${selectedAnimals.length} animal(s) will sync when online`,
+          title: "✅ Health Recorded",
+          description: `Health record for ${selectedAnimals.length} animal(s). Syncs automatically when online`,
         });
         onOpenChange(false);
         return;
@@ -539,12 +551,10 @@ export function RecordBulkHealthDialog({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isOnline ? "Recording..." : "Queuing..."}
+                  Recording...
                 </>
-              ) : isOnline ? (
-                "Record Health"
               ) : (
-                "Queue for Sync"
+                "Record Health"
               )}
             </Button>
           </div>

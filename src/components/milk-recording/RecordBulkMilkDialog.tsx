@@ -329,8 +329,8 @@ export function RecordBulkMilkDialog({
         hapticNotification('success');
         
         toast({
-          title: "Queued for Sync",
-          description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}) will sync when online`,
+          title: "✅ Milk Recorded",
+          description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}). Syncs automatically when online`,
         });
         onOpenChange(false);
         return;
@@ -613,12 +613,10 @@ export function RecordBulkMilkDialog({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isOnline ? "Recording..." : "Queuing..."}
+                  Recording...
                 </>
-              ) : isOnline ? (
-                "Record Milk"
               ) : (
-                "Queue for Sync"
+                "Record Milk"
               )}
             </Button>
           </div>

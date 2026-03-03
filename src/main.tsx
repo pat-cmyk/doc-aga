@@ -39,16 +39,31 @@ const updateSW = registerSW({
   },
   onRegistered(registration) {
     console.log('[PWA] Service worker registered:', registration?.scope);
-    
-    // Try to register periodic sync for background updates (Chrome Android only)
-    if (registration && 'periodicSync' in registration) {
-      (registration as any).periodicSync.register('doc-aga-periodic-sync', {
-        minInterval: 15 * 60 * 1000, // 15 minutes
-      }).then(() => {
-        console.log('[PWA] Periodic background sync registered');
-      }).catch(() => {
-        console.log('[PWA] Periodic sync not supported');
+
+    if (registration) {
+      // Force-check for SW updates on every app launch.
+      // Critical for Capacitor: when a new APK is installed the local assets
+      // change, but Android WebView may cache the old sw.js. Calling update()
+      // forces a byte-for-byte comparison against the new file immediately.
+      registration.update().catch(() => {
+        console.log('[PWA] SW update check failed (offline?)');
       });
+
+      // Re-check periodically while the app is open (every 60s)
+      setInterval(() => {
+        registration.update().catch(() => {});
+      }, 60_000);
+
+      // Try to register periodic sync for background updates (Chrome Android only)
+      if ('periodicSync' in registration) {
+        (registration as any).periodicSync.register('doc-aga-periodic-sync', {
+          minInterval: 15 * 60 * 1000, // 15 minutes
+        }).then(() => {
+          console.log('[PWA] Periodic background sync registered');
+        }).catch(() => {
+          console.log('[PWA] Periodic sync not supported');
+        });
+      }
     }
   },
   onRegisterError(error) {
