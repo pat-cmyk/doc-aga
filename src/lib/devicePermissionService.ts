@@ -84,7 +84,7 @@ export async function checkAllPermissions(): Promise<PermissionResults> {
 export async function initDevicePermissions(): Promise<PermissionResults> {
   if (!Capacitor.isNativePlatform()) {
     console.log('[DevicePermissions] Not on native platform, skipping initialization');
-    return { camera: 'prompt', microphone: 'prompt', notifications: 'prompt' };
+    return { camera: 'prompt', microphone: 'prompt', location: 'prompt', notifications: 'prompt' };
   }
 
   if (isInitialized) {

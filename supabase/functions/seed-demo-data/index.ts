@@ -447,6 +447,8 @@ Deno.serve(async (req) => {
       health_inserted: number
       bcs_inserted: number
       feeding_inserted: number
+      ai_inserted: number
+      feedback_inserted: number
       inventory_linked: number
       zero_cost_fallback: number
     }> = []
