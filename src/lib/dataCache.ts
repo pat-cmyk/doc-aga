@@ -2592,6 +2592,127 @@ export async function deductMilkFromInventoryCache(
 }
 
 /**
+ * Rollback milk inventory deduction on permanent sync failure.
+ * Reverse of deductMilkFromInventoryCache() — restores liters_remaining and is_available.
+ */
+export async function rollbackMilkInventoryDeduction(
+  farmId: string,
+  deductions: Array<{ id: string; litersUsed: number }>
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const existing = await db.get('milkInventory', farmId);
+    if (!existing) return;
+
+    const items = existing.items.map(item => {
+      const deduction = deductions.find(d => d.id === item.id);
+      if (deduction) {
+        return {
+          ...item,
+          liters_remaining: item.liters_remaining + deduction.litersUsed,
+          is_available: true,
+          syncStatus: 'synced' as CacheSyncStatus,
+        };
+      }
+      return item;
+    });
+
+    const summary = recalculateMilkInventorySummary(items);
+    await db.put('milkInventory', { ...existing, items, summary, lastUpdated: Date.now(), syncStatus: 'synced' });
+
+    // Also rollback rejected milk cache if applicable
+    const rejectedKey = `${farmId}_rejected`;
+    const existingRejected = await db.get('milkInventory', rejectedKey);
+    if (existingRejected) {
+      const rejItems = existingRejected.items.map(item => {
+        const deduction = deductions.find(d => d.id === item.id);
+        if (deduction) {
+          return { ...item, liters_remaining: item.liters_remaining + deduction.litersUsed, is_available: true, syncStatus: 'synced' as CacheSyncStatus };
+        }
+        return item;
+      });
+      const rejSummary = recalculateMilkInventorySummary(rejItems);
+      await db.put('milkInventory', { ...existingRejected, items: rejItems, summary: rejSummary, lastUpdated: Date.now(), syncStatus: 'synced' });
+    }
+
+    console.log(`[DataCache] Rolled back milk deduction for ${deductions.length} items`);
+  } catch (error) {
+    console.error('[DataCache] Failed to rollback milk deduction:', error);
+  }
+}
+
+// ============= MILK PRICE CACHE (localStorage) =============
+
+const MILK_PRICE_CACHE_KEY = 'milk_prices_';
+const MILK_PRICE_DEFAULTS: Record<string, number> = { cattle: 30, goat: 45, carabao: 35, sheep: 50 };
+
+/**
+ * Cache milk prices per species to localStorage for offline use.
+ * Called after successful useLastMilkPriceBySpecies fetch.
+ */
+export function updateMilkPriceCache(farmId: string, prices: Record<string, number>): void {
+  try {
+    localStorage.setItem(`${MILK_PRICE_CACHE_KEY}${farmId}`, JSON.stringify({ prices, cachedAt: Date.now() }));
+  } catch { /* localStorage full — non-critical */ }
+}
+
+/**
+ * Get cached milk prices for offline use.
+ * Returns null if no cache exists. Consumers should fall back to defaults.
+ */
+export function getCachedMilkPrices(farmId: string): Record<string, number> | null {
+  try {
+    const stored = localStorage.getItem(`${MILK_PRICE_CACHE_KEY}${farmId}`);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return { ...MILK_PRICE_DEFAULTS, ...parsed.prices };
+  } catch {
+    return null;
+  }
+}
+
+// ============= REJECTED MILK CACHE =============
+
+/**
+ * Cache rejected milk inventory separately for offline access.
+ * Uses key `${farmId}_rejected` in the milkInventory IndexedDB store.
+ */
+export async function updateRejectedMilkCache(
+  farmId: string,
+  items: MilkInventoryCacheItem[],
+  summary: MilkInventoryCache['summary']
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const cache: MilkInventoryCache = {
+      farmId: `${farmId}_rejected`, // Separate key from good milk cache
+      items,
+      summary,
+      lastUpdated: Date.now(),
+      lastServerSync: Date.now(),
+      syncStatus: 'synced',
+    };
+    await db.put('milkInventory', cache);
+    console.log(`[DataCache] Cached ${items.length} rejected milk items`);
+  } catch (error) {
+    console.error('[DataCache] Failed to cache rejected milk:', error);
+  }
+}
+
+/**
+ * Get cached rejected milk inventory for offline fallback.
+ */
+export async function getCachedRejectedMilk(farmId: string): Promise<MilkInventoryCache | null> {
+  try {
+    const db = await getDB();
+    return (await db.get('milkInventory', `${farmId}_rejected`)) || null;
+  } catch (error) {
+    console.error('[DataCache] Error reading rejected milk cache:', error);
+    return null;
+  }
+}
+
+/**
  * Update a milk record in the local cache (for edit functionality)
  */
 export async function updateLocalMilkInventoryRecord(

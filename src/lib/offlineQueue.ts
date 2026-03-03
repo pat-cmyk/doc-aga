@@ -77,7 +77,7 @@ export async function getQueueCapacity(): Promise<{ current: number; max: number
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -217,6 +217,19 @@ interface QueueItem {
     barnAssignmentId?: string;
     barnAnimalId?: string;
     barnFarmId?: string;
+    // Milk feeding (feed good or rejected milk to animal via FIFO)
+    milkFeeding?: {
+      animalId: string;
+      animalName: string | null;
+      totalLiters: number;
+      feedType: 'Whole Milk' | 'Waste Milk';
+      pricePerLiter: number;
+      stockType: 'good' | 'rejected';
+      deductions: Array<{ id: string; litersUsed: number; newRemaining: number; isFullyConsumed: boolean }>;
+      milkInventoryId: string;
+      recordDatetime: string;
+      notes: string;
+    };
   };
   createdAt: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation' | 'conflict';

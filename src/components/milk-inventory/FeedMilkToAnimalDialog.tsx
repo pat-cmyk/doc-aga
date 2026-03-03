@@ -14,7 +14,8 @@ import { useFarmAnimals, type FarmAnimal } from "@/hooks/useFarmAnimals";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, differenceInMonths, differenceInDays } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
-import { deductMilkFromInventoryCache } from "@/lib/dataCache";
+import { deductMilkFromInventoryCache, addOptimisticRecords, getCachedMilkPrices, getCachedAnimals } from "@/lib/dataCache";
+import { addToQueue } from "@/lib/offlineQueue";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface FeedMilkToAnimalDialogProps {
@@ -65,18 +66,41 @@ export function FeedMilkToAnimalDialog({
   const [selectedAnimalId, setSelectedAnimalId] = useState("");
   const [litersToFeed, setLitersToFeed] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cachedAnimals, setCachedAnimals] = useState<FarmAnimal[]>([]);
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens; load cached animals if offline
   useEffect(() => {
     if (open) {
       setSelectedAnimalId("");
       setLitersToFeed("");
+      // Load cached animals for offline fallback
+      if (animals.length === 0) {
+        getCachedAnimals(farmId).then((cached) => {
+          if (cached?.animals) {
+            setCachedAnimals(cached.animals.map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              ear_tag: a.ear_tag,
+              livestock_type: a.livestock_type,
+              breed: a.breed,
+              gender: a.gender,
+              birth_date: a.birth_date,
+              current_weight_kg: a.current_weight_kg,
+              life_stage: a.life_stage,
+              is_active: a.is_active,
+            } as FarmAnimal)));
+          }
+        }).catch(() => {});
+      }
     }
-  }, [open]);
+  }, [open, farmId, animals.length]);
+
+  // Resolve animals: online data or cached fallback
+  const resolvedAnimals = animals.length > 0 ? animals : cachedAnimals;
 
   const selectedAnimal = useMemo(
-    () => animals.find(a => a.id === selectedAnimalId),
-    [animals, selectedAnimalId]
+    () => resolvedAnimals.find(a => a.id === selectedAnimalId),
+    [resolvedAnimals, selectedAnimalId]
   );
 
   // Determine the livestock_type of the available stock for pricing
@@ -87,8 +111,11 @@ export function FeedMilkToAnimalDialog({
 
   const pricePerLiter = useMemo(() => {
     if (stockType === 'rejected') return 0;
-    return pricesBySpecies?.[stockSpecies] || 0;
-  }, [stockType, pricesBySpecies, stockSpecies]);
+    // Online data first, then cached prices for offline
+    if (pricesBySpecies?.[stockSpecies]) return pricesBySpecies[stockSpecies];
+    const cached = getCachedMilkPrices(farmId);
+    return cached?.[stockSpecies] || 0;
+  }, [stockType, pricesBySpecies, stockSpecies, farmId]);
 
   // FIFO preview
   const fifoPreview = useMemo(() => {
@@ -128,42 +155,97 @@ export function FeedMilkToAnimalDialog({
     }
 
     setIsSubmitting(true);
-    try {
-      // STEP 1: Deduct from cache for instant UI
-      const deductions = fifoPreview.records.map(({ record, litersUsed }) => ({
+    const feedType = stockType === 'good' ? 'Whole Milk' : 'Waste Milk';
+    const recordDatetime = new Date().toISOString();
+    const animalLabel = selectedAnimal?.name || selectedAnimal?.ear_tag || 'animal';
+    const notes = `${fifoPreview.totalLiters.toFixed(1)}L ${stockType} milk from ${fifoPreview.records.length} batch(es)`;
+
+    // Build deductions array (shared by online/offline paths)
+    const deductions = fifoPreview.records.map(({ record, litersUsed }) => {
+      const newRemaining = record.liters_remaining - litersUsed;
+      return {
         id: record.id,
         litersUsed,
-      }));
-      await deductMilkFromInventoryCache(farmId, deductions);
+        newRemaining: Math.max(0, newRemaining),
+        isFullyConsumed: newRemaining < 0.05,
+      };
+    });
 
+    try {
+      // STEP 1: Deduct from cache for instant UI (both online & offline)
+      await deductMilkFromInventoryCache(farmId, deductions.map(d => ({ id: d.id, litersUsed: d.litersUsed })));
+
+      if (!isOnline) {
+        // ---- OFFLINE PATH ----
+        const optimisticId = crypto.randomUUID();
+
+        // Persist optimistic feeding record to IndexedDB
+        await addOptimisticRecords(farmId, 'feeding', [{
+          animalId: selectedAnimalId,
+          kilograms: fifoPreview.totalLiters,
+          feed_type: feedType,
+          record_datetime: recordDatetime,
+          cost_per_kg_at_time: pricePerLiter,
+          milk_inventory_id: fifoPreview.records[0].record.id,
+          notes,
+        }], optimisticId);
+
+        // Queue for server sync
+        await addToQueue({
+          id: `milk_feeding_${Date.now()}`,
+          type: 'milk_feeding',
+          payload: {
+            farmId,
+            milkFeeding: {
+              animalId: selectedAnimalId,
+              animalName: animalLabel,
+              totalLiters: fifoPreview.totalLiters,
+              feedType,
+              pricePerLiter,
+              stockType,
+              deductions,
+              milkInventoryId: fifoPreview.records[0].record.id,
+              recordDatetime,
+              notes,
+            },
+          },
+          createdAt: Date.now(),
+          optimisticId,
+        });
+
+        toast({
+          title: "Feeding Recorded",
+          description: `Fed ${fifoPreview.totalLiters.toFixed(1)}L ${stockType} milk to ${animalLabel}. Syncs when online`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      // ---- ONLINE PATH ----
       // STEP 2: Update milk_inventory rows (FIFO deduction)
-      for (const { record, litersUsed } of fifoPreview.records) {
-        const newRemaining = record.liters_remaining - litersUsed;
-        const isFullyConsumed = newRemaining < 0.05;
-
+      for (const d of deductions) {
         const { error: invError } = await supabase
           .from("milk_inventory")
           .update({
-            liters_remaining: Math.max(0, newRemaining),
-            is_available: !isFullyConsumed,
+            liters_remaining: d.newRemaining,
+            is_available: !d.isFullyConsumed,
           })
-          .eq("id", record.id);
+          .eq("id", d.id);
 
         if (invError) throw invError;
       }
 
       // STEP 3: Insert feeding_record
-      const feedType = stockType === 'good' ? 'Whole Milk' : 'Waste Milk';
       const { error: feedError } = await supabase
         .from("feeding_records")
         .insert({
           animal_id: selectedAnimalId,
           feed_type: feedType,
-          kilograms: fifoPreview.totalLiters, // 1L ≈ 1kg
+          kilograms: fifoPreview.totalLiters,
           cost_per_kg_at_time: pricePerLiter,
           milk_inventory_id: fifoPreview.records[0].record.id,
-          record_datetime: new Date().toISOString(),
-          notes: `${fifoPreview.totalLiters.toFixed(1)}L ${stockType} milk from ${fifoPreview.records.length} batch(es)`,
+          record_datetime: recordDatetime,
+          notes,
         });
 
       if (feedError) throw feedError;
@@ -174,7 +256,6 @@ export function FeedMilkToAnimalDialog({
         queryClient.refetchQueries({ queryKey: ['milk-inventory-rejected', farmId], type: 'active' }),
       ]);
 
-      const animalLabel = selectedAnimal?.name || selectedAnimal?.ear_tag || 'animal';
       toast({
         title: "Feeding Recorded",
         description: `Fed ${fifoPreview.totalLiters.toFixed(1)}L ${stockType} milk to ${animalLabel}`,
@@ -224,7 +305,7 @@ export function FeedMilkToAnimalDialog({
                 <SelectValue placeholder="Select animal..." />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
-                {animals.map((animal) => (
+                {resolvedAnimals.map((animal) => (
                   <SelectItem key={animal.id} value={animal.id}>
                     {animal.name || animal.ear_tag || 'Unknown'} — {formatAnimalAge(animal)}
                   </SelectItem>

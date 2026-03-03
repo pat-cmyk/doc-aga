@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { updateMilkPriceCache } from "@/lib/dataCache";
 
 export interface Revenue {
   id: string;
@@ -129,13 +130,18 @@ export function useLastMilkPriceBySpecies(farmId: string) {
         }
       }
 
-      return {
+      const result = {
         cattle: priceMap.cattle ?? 30,
         goat: priceMap.goat ?? 45,
         carabao: priceMap.carabao ?? 35,
         sheep: priceMap.sheep ?? 50,
         ...priceMap,
       };
+
+      // Cache for offline milk feeding
+      updateMilkPriceCache(farmId, result);
+
+      return result;
     },
     enabled: !!farmId,
   });

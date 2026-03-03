@@ -12,7 +12,7 @@ import { processVoiceQueue } from './voiceQueueProcessor';
 import { processVoiceFormInput } from './voiceFormQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
-import { confirmOptimisticRecords, rollbackOptimisticRecords } from './dataCache';
+import { confirmOptimisticRecords, rollbackOptimisticRecords, rollbackMilkInventoryDeduction } from './dataCache';
 import { generateClientId, updateSyncCheckpoint } from './syncCheckpoint';
 import { invokeWithTimeout } from './sttService';
 import { startSyncSession, completeSyncSession, recordSyncError, type SyncType } from './syncTelemetry';
@@ -412,6 +412,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBarnAssign(item);
         } else if (item.type === 'barn_remove') {
           await syncBarnRemove(item);
+        } else if (item.type === 'milk_feeding') {
+          await syncMilkFeeding(item);
         }
         
         // After parent record syncs, process any linked photos
@@ -443,6 +445,10 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           // Rollback optimistic records from data cache to remove ghost entries
           if (item.optimisticId) {
             await rollbackOptimisticRecords(item.optimisticId);
+          }
+          // Rollback milk inventory deductions on permanent failure
+          if (item.type === 'milk_feeding' && item.payload.milkFeeding?.deductions && item.payload.farmId) {
+            await rollbackMilkInventoryDeduction(item.payload.farmId, item.payload.milkFeeding.deductions);
           }
           await updateStatus(item.id, 'failed', translateError(error));
           await sendSyncFailureNotification(1, item.id);
@@ -1379,4 +1385,80 @@ async function syncBarnRemove(item: QueueItem): Promise<void> {
 
   if (error) throw error;
   console.log('[SyncService] Barn assignment removed:', barnAssignmentId);
+}
+
+/**
+ * Sync offline milk feeding (good or rejected milk fed to animal via FIFO).
+ *
+ * Steps:
+ * 1. Insert feeding_record with milk_inventory_id and cost_per_kg_at_time
+ * 2. Update each milk_inventory row (FIFO deduction)
+ * 3. Confirm optimistic records
+ */
+async function syncMilkFeeding(item: QueueItem): Promise<void> {
+  const { milkFeeding, farmId } = item.payload;
+
+  if (!milkFeeding || !farmId) {
+    throw new Error('No milk feeding data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const clientId = `${item.optimisticId}_milkfeed_0`;
+
+  // Step 1: Insert feeding record
+  const { data: insertedRecord, error: insertError } = await supabase
+    .from('feeding_records')
+    .insert({
+      animal_id: milkFeeding.animalId,
+      record_datetime: milkFeeding.recordDatetime,
+      kilograms: milkFeeding.totalLiters, // 1L ≈ 1kg
+      feed_type: milkFeeding.feedType,
+      cost_per_kg_at_time: milkFeeding.pricePerLiter,
+      milk_inventory_id: milkFeeding.milkInventoryId,
+      notes: milkFeeding.notes,
+      created_by: user?.id,
+      client_generated_id: clientId,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    // Duplicate check — if already synced, skip inventory updates
+    if (insertError.code === '23505' && insertError.message?.includes('client_generated_id')) {
+      console.log('[SyncService] Milk feeding already synced, skipping...');
+      return;
+    }
+    throw insertError;
+  }
+
+  // Step 2: Update milk_inventory rows (FIFO deductions)
+  for (const deduction of milkFeeding.deductions) {
+    // Read current server value for idempotency
+    const { data: current } = await supabase
+      .from('milk_inventory')
+      .select('liters_remaining')
+      .eq('id', deduction.id)
+      .single();
+
+    if (current) {
+      const newRemaining = Math.max(0, current.liters_remaining - deduction.litersUsed);
+      const isFullyConsumed = newRemaining < 0.05;
+
+      await supabase
+        .from('milk_inventory')
+        .update({
+          liters_remaining: newRemaining,
+          is_available: !isFullyConsumed,
+        })
+        .eq('id', deduction.id);
+    }
+  }
+
+  // Step 3: Confirm optimistic records
+  if (item.optimisticId && insertedRecord) {
+    await confirmOptimisticRecords(item.optimisticId, [insertedRecord]);
+    await updateItem(item.id, { serverResponse: insertedRecord });
+  }
+
+  console.log(`[SyncService] Milk feeding synced: ${milkFeeding.totalLiters}L ${milkFeeding.feedType} to ${milkFeeding.animalName || milkFeeding.animalId}`);
 }

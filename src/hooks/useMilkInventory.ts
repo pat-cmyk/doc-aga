@@ -5,6 +5,8 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   getCachedMilkInventory,
   updateMilkInventoryCache,
+  updateRejectedMilkCache,
+  getCachedRejectedMilk,
   type MilkInventoryCache,
   type MilkInventoryCacheItem,
 } from "@/lib/dataCache";
@@ -48,18 +50,24 @@ export interface MilkInventorySummary {
 export function useMilkInventory(farmId: string) {
   const isOnline = useOnlineStatus();
   const [cachedData, setCachedData] = useState<MilkInventoryCache | null>(null);
+  const [cachedRejectedData, setCachedRejectedData] = useState<MilkInventoryCache | null>(null);
   const [cacheChecked, setCacheChecked] = useState(false);
 
   // Load cached data immediately on mount for instant display
   useEffect(() => {
     if (!farmId) return;
-    
-    getCachedMilkInventory(farmId).then((cached) => {
+
+    Promise.all([
+      getCachedMilkInventory(farmId),
+      getCachedRejectedMilk(farmId),
+    ]).then(([cached, cachedRejected]) => {
       setCachedData(cached);
+      setCachedRejectedData(cachedRejected);
       setCacheChecked(true);
       console.log('[MilkInventory] Cache loaded:', {
         hasCache: !!cached,
         itemCount: cached?.items.length ?? 0,
+        rejectedCount: cachedRejected?.items.length ?? 0,
       });
     });
   }, [farmId]);
@@ -289,6 +297,10 @@ export function useMilkInventory(farmId: string) {
 
       const summary: MilkInventorySummary = { totalLiters, oldestDate, bySpecies, byAnimal };
       console.log('[MilkInventory] Rejected:', items.length, 'items,', totalLiters.toFixed(1), 'L');
+
+      // Cache for offline fallback
+      updateRejectedMilkCache(farmId, items, summary);
+
       return { items, summary };
     },
     enabled: !!farmId && isOnline,
@@ -324,9 +336,11 @@ export function useMilkInventory(farmId: string) {
     byAnimal: [],
   };
 
-  // Rejected milk items
-  const rejectedItems: MilkInventoryItem[] = rejectedQuery.data?.items?.map(transformItem) || [];
-  const rejectedSummary: MilkInventorySummary = rejectedQuery.data?.summary || {
+  // Rejected milk items — server first, fall back to cache
+  const rejectedItems: MilkInventoryItem[] = rejectedQuery.data?.items?.map(transformItem)
+    || cachedRejectedData?.items?.map(transformItem)
+    || [];
+  const rejectedSummary: MilkInventorySummary = rejectedQuery.data?.summary || cachedRejectedData?.summary || {
     totalLiters: 0,
     oldestDate: null,
     bySpecies: [],

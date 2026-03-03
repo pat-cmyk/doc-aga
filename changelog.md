@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-03 — True Offline Milk Feeding (Good + Rejected) with Offline Pricing
+
+### Added
+- **Offline milk feeding for good and rejected stock**: `FeedMilkToAnimalDialog` now works fully offline. When offline, FIFO cache deductions happen instantly, an optimistic feeding record is persisted to IndexedDB, and the operation is queued for server sync on reconnect.
+- **Milk price offline cache**: `useLastMilkPriceBySpecies` caches per-species milk prices to localStorage after each successful fetch. Offline milk feedings use cached prices for accurate opportunity cost calculation.
+- **Rejected milk offline cache**: `useMilkInventory` caches rejected milk items to IndexedDB after fetch. Offline fallback loads cached rejected stock so farmers can feed rejected milk without connectivity.
+- **Sync function for milk feeding**: `syncMilkFeeding()` in syncService inserts `feeding_records` with `client_generated_id` for idempotency, updates `milk_inventory` rows per FIFO deduction, and rolls back cache on permanent failure.
+- **Cache rollback on sync failure**: `rollbackMilkInventoryDeduction()` restores `liters_remaining` and `is_available` for each deducted item if sync permanently fails.
+- **Offline animal list fallback**: Dialog loads cached animals from IndexedDB when the online animal query returns empty.
+
+### Files Modified
+- `src/lib/offlineQueue.ts` — Added `milk_feeding` queue type with FIFO deduction payload
+- `src/lib/dataCache.ts` — Added `rollbackMilkInventoryDeduction()`, `updateMilkPriceCache()`/`getCachedMilkPrices()`, `updateRejectedMilkCache()`/`getCachedRejectedMilk()`
+- `src/lib/cacheManager.ts` — Added `milk-feeding` cache dependency entry
+- `src/hooks/useRevenues.ts` — Cache milk prices to localStorage after successful query
+- `src/hooks/useMilkInventory.ts` — Cache rejected milk after fetch, offline fallback for rejected stock
+- `src/lib/syncService.ts` — Added `syncMilkFeeding()` dispatch and rollback on failure
+- `src/components/milk-inventory/FeedMilkToAnimalDialog.tsx` — Offline branch with optimistic records, queue, cached animal/price fallbacks
+
 ## 2026-03-03 — Data Sync Optimization for 2G/3G Bandwidth
 
 ### Changed
