@@ -1286,10 +1286,11 @@ export async function updateFeedInventoryCache(farmId: string): Promise<any[]> {
       if (error) throw error;
 
       // Merge: replace existing items by ID, add new ones
-      const updatedMap = new Map((data || []).map(i => [i.id, i]));
+      const freshItems = (data || []) as any[];
+      const updatedMap = new Map(freshItems.map(i => [i.id, i]));
       items = existingCache.items
         .map(i => updatedMap.get(i.id) || i)
-        .concat((data || []).filter(i => !existingCache.items.some((e: any) => e.id === i.id)));
+        .concat(freshItems.filter(i => !existingCache.items.some((e: any) => e.id === i.id)));
 
       console.log(`[DataCache] Feed inventory delta: ${data?.length || 0} changed items`);
     } else {

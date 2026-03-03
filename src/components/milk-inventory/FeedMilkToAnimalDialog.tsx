@@ -76,8 +76,8 @@ export function FeedMilkToAnimalDialog({
       // Load cached animals for offline fallback
       if (animals.length === 0) {
         getCachedAnimals(farmId).then((cached) => {
-          if (cached?.animals) {
-            setCachedAnimals(cached.animals.map((a: any) => ({
+          if (cached?.data) {
+            setCachedAnimals(cached.data.map((a: any) => ({
               id: a.id,
               name: a.name,
               ear_tag: a.ear_tag,
