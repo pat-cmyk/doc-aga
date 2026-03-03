@@ -871,6 +871,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       health: healthRes.data || [],
       ai: aiRes.data || [],
       feeding: feedingRes.data || [],
+      bcs: [],
       lastUpdated: Date.now(),
       syncStatus: 'synced',
       pendingChanges: 0,
@@ -1311,7 +1312,7 @@ export async function clearAllCaches() {
  */
 interface OptimisticRecordEntry {
   optimisticId: string;
-  type: 'milking' | 'feeding' | 'health' | 'weight' | 'ai';
+  type: 'milking' | 'feeding' | 'health' | 'weight' | 'ai' | 'bcs';
   animalId: string;
   farmId: string;
   data: any;
