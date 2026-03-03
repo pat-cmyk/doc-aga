@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,9 @@ interface AddPreventiveHealthDialogProps {
   farmId: string;
   livestockType: string;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  defaultScheduleType?: 'vaccination' | 'deworming';
 }
 
 export function AddPreventiveHealthDialog({
@@ -23,14 +26,25 @@ export function AddPreventiveHealthDialog({
   farmId,
   livestockType,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  defaultScheduleType = 'vaccination',
 }: AddPreventiveHealthDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [scheduleType, setScheduleType] = useState<'vaccination' | 'deworming'>('vaccination');
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (controlledOnOpenChange || (() => {})) : setInternalOpen;
+  const [scheduleType, setScheduleType] = useState<'vaccination' | 'deworming'>(defaultScheduleType);
   const [treatmentName, setTreatmentName] = useState('');
   const [customTreatment, setCustomTreatment] = useState('');
   const [scheduledDate, setScheduledDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
   const isOnline = useOnlineStatus();
+
+  // Sync schedule type when controlled dialog opens with a specific type
+  useEffect(() => {
+    if (open) setScheduleType(defaultScheduleType);
+  }, [open, defaultScheduleType]);
 
   const { data: protocols = [] } = usePreventiveHealthProtocols(livestockType);
   const addSchedule = useAddPreventiveHealthSchedule();
@@ -72,7 +86,7 @@ export function AddPreventiveHealthDialog({
   };
 
   const resetForm = () => {
-    setScheduleType('vaccination');
+    setScheduleType(defaultScheduleType);
     setTreatmentName('');
     setCustomTreatment('');
     setScheduledDate(format(new Date(), 'yyyy-MM-dd'));
@@ -81,14 +95,16 @@ export function AddPreventiveHealthDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Schedule
-          </Button>
-        )}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Schedule
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Preventive Health Schedule</DialogTitle>

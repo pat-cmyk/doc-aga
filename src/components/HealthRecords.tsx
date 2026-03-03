@@ -2,15 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, FileText, Syringe, Pencil } from "lucide-react";
+import { Loader2, Plus, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
-import { PreventiveHealthTab } from "./preventive-health/PreventiveHealthTab";
 import { RecordSingleHealthDialog } from "./health-recording/RecordSingleHealthDialog";
 import { EditHealthRecordDialog } from "./health-recording/EditHealthRecordDialog";
+import { HealthTimeline } from "./health-timeline/HealthTimeline";
 
 interface HealthRecordsProps {
   animalId: string;
@@ -22,15 +21,52 @@ interface HealthRecordsProps {
   readOnly?: boolean;
 }
 
-const HealthRecords = ({ 
-  animalId, 
-  animalName, 
-  earTag, 
-  farmId, 
-  livestockType, 
-  animalFarmEntryDate, 
-  readOnly = false 
+const HealthRecords = ({
+  animalId,
+  animalName,
+  earTag,
+  farmId,
+  livestockType,
+  animalFarmEntryDate,
+  readOnly = false
 }: HealthRecordsProps) => {
+  // When farmId + livestockType are available, render unified timeline
+  if (farmId && livestockType) {
+    return (
+      <HealthTimeline
+        animalId={animalId}
+        animalName={animalName}
+        earTag={earTag}
+        farmId={farmId}
+        livestockType={livestockType}
+        animalFarmEntryDate={animalFarmEntryDate}
+        readOnly={readOnly}
+      />
+    );
+  }
+
+  // Fallback: records-only view when no farmId/livestockType
+  return (
+    <HealthRecordsOnly
+      animalId={animalId}
+      animalName={animalName}
+      earTag={earTag}
+      farmId={farmId}
+      animalFarmEntryDate={animalFarmEntryDate}
+      readOnly={readOnly}
+    />
+  );
+};
+
+/** Standalone health records card (no preventive, no timeline) */
+function HealthRecordsOnly({
+  animalId,
+  animalName,
+  earTag,
+  farmId,
+  animalFarmEntryDate,
+  readOnly = false,
+}: Omit<HealthRecordsProps, 'livestockType'>) {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -41,7 +77,6 @@ const HealthRecords = ({
   useEffect(() => {
     loadRecords();
 
-    // Subscribe to realtime changes
     const channel = supabase
       .channel('health_records_changes')
       .on(
@@ -52,33 +87,25 @@ const HealthRecords = ({
           table: 'health_records',
           filter: `animal_id=eq.${animalId}`
         },
-        () => {
-          loadRecords();
-        }
+        () => loadRecords()
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [animalId]);
 
   const loadRecords = async () => {
-    // Try cache first
     const cached = await getCachedRecords(animalId);
     if (cached?.health) {
       setRecords(cached.health);
       setLoading(false);
     }
-    
-    // Fetch fresh if online
     if (isOnline) {
       const { data, error } = await supabase
         .from("health_records")
         .select("*")
         .eq("animal_id", animalId)
         .order("visit_date", { ascending: false });
-      
       if (error) {
         console.error('Error loading health records:', error);
         showErrorToastLegacy(toast, error, "loading health records");
@@ -86,8 +113,6 @@ const HealthRecords = ({
         setRecords(data || []);
       }
     }
-    
-    // Always set loading to false, even if offline with no cache
     setLoading(false);
   };
 
@@ -99,17 +124,13 @@ const HealthRecords = ({
     );
   }
 
-  // Health Records Content
-  const healthRecordsContent = (
+  return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Health Records</CardTitle>
           {!readOnly && (
-            <Button 
-              size="sm"
-              onClick={() => setShowDialog(true)}
-            >
+            <Button size="sm" onClick={() => setShowDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Record
             </Button>
@@ -149,7 +170,6 @@ const HealthRecords = ({
         )}
       </CardContent>
 
-      {/* Unified Health Recording Dialog */}
       {farmId && (
         <RecordSingleHealthDialog
           open={showDialog}
@@ -163,7 +183,6 @@ const HealthRecords = ({
         />
       )}
 
-      {/* Edit Health Record Dialog */}
       {editingRecord && (
         <EditHealthRecordDialog
           open={!!editingRecord}
@@ -175,39 +194,6 @@ const HealthRecords = ({
       )}
     </Card>
   );
-
-  // If no farmId or livestockType, just show records without sub-tabs
-  if (!farmId || !livestockType) {
-    return healthRecordsContent;
-  }
-
-  // Show with sub-tabs when farmId and livestockType are provided
-  return (
-    <Tabs defaultValue="records" className="space-y-4">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="records" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Records
-        </TabsTrigger>
-        <TabsTrigger value="preventive" className="flex items-center gap-2">
-          <Syringe className="h-4 w-4" />
-          Preventive
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="records">
-        {healthRecordsContent}
-      </TabsContent>
-
-      <TabsContent value="preventive">
-        <PreventiveHealthTab 
-          animalId={animalId} 
-          farmId={farmId} 
-          livestockType={livestockType} 
-        />
-      </TabsContent>
-    </Tabs>
-  );
-};
+}
 
 export default HealthRecords;

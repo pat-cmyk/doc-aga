@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-03 — Unified Health Timeline (Merge Records + Preventive)
+
+### Changed
+- **Replaced tabbed Health UI with unified timeline**: The animal profile Health tab no longer has sub-tabs (Records / Preventive). Instead, a single chronological timeline merges health visits and preventive care events, following the same pattern as the Breeding Timeline.
+- **Health Timeline component**: New `HealthTimeline.tsx` displays all health events (visits, vaccinations, dewormings) grouped by month with icon-coded entries (stethoscope for visits, syringe for vaccinations, bug for deworming), date badges, and relative time labels.
+- **Urgent alerts at top**: Overdue, due-today, and due-tomorrow preventive schedules appear as alert banners at the top with inline Complete/Skip action buttons.
+- **Add dropdown**: Single "+ Add" button with dropdown for Health Record, Vaccination Schedule, or Deworming Schedule.
+- **Controlled dialog mode**: `AddPreventiveHealthDialog` now supports controlled `open`/`onOpenChange` props for programmatic opening from the timeline dropdown.
+
+### Files Modified
+- `src/components/health-timeline/HealthTimeline.tsx` — New unified timeline component
+- `src/components/HealthRecords.tsx` — Simplified to delegate to HealthTimeline when farmId + livestockType available
+- `src/components/preventive-health/AddPreventiveHealthDialog.tsx` — Added controlled mode props
+
 ## 2026-03-03 — True Offline Milk Feeding (Good + Rejected) with Offline Pricing
 
 ### Added
