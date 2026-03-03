@@ -1,44 +1,46 @@
 
+# Fix: 3 Build Errors Causing White Screen
 
-# Fix: Revert Connectivity Detection + Fix Offline Barn Creation
+The app shows a white screen because TypeScript compilation fails on 3 type mismatches. All are simple missing-property fixes.
 
-## Two Issues
+## Error 1: `src/lib/dataCache.ts` line 867 — Missing `bcs` in RecordCache
 
-### Issue 1: Active Connectivity Probing Keeps Failing
-The active `HEAD` probing introduced today continues to cause problems on Android. Even after adding the `apikey` header, it's unreliable on the user's device. The user wants to revert to the previous `navigator.onLine` approach.
+The `RecordCache` interface (line 226) requires a `bcs: any[]` field, but the success path of `updateRecordsCache()` at line 867 omits it.
 
-**Fix**: Revert `useOnlineStatus.ts` to use `navigator.onLine` with passive browser events only. Keep the `getIsOnline()` export so the 50+ consumer files (dataCache, offlineQueue, etc.) don't need changes -- just make it return `navigator.onLine` instead of the probing result.
+**Fix**: Add `bcs: [],` to the cache object at line 874 (after the `feeding` line). Optionally, also add a BCS query to the `Promise.all` if BCS records exist in the database.
 
-### Issue 2: Barn Creation Fails Offline
-The `useCreateBarn` hook captures `isOnline` from `useOnlineStatus()` at **render time**. When the user goes offline after the component rendered, the stale `isOnline = true` sends the mutation down the online path, which hits the server and fails -- instead of creating locally.
+## Error 2: `src/lib/dataCache.ts` line 1355 — `'bcs'` not in union type
 
-**Root Cause**: `useCreateBarn` line 179 checks `if (isOnline)` but `isOnline` is a closure from the last render, not the current connectivity state.
+The `addOptimisticRecords` function parameter accepts `'bcs'` in its union at line 1343, but line 1355 or a downstream usage narrows the type to exclude `'bcs'`. 
 
-**Fix**: Inside `mutationFn`, call `getIsOnline()` at **execution time** instead of using the hook's stale value. Same fix needed for `useUpdateBarn`, `useAssignAnimalToBarn`, and `useRemoveAnimalFromBarn`.
+**Fix**: Find any narrowed type usage near line 1355 and add `'bcs'` to the union. The function signature already includes it, so this is likely a type guard or destructured access that needs updating.
+
+## Error 3: `src/lib/devicePermissionService.ts` line 87 — Missing `location`
+
+The `PermissionResults` interface (line 11) requires `location: PermissionStatus`, but the early return at line 87 omits it.
+
+**Fix**: Change line 87 from:
+```typescript
+return { camera: 'prompt', microphone: 'prompt', notifications: 'prompt' };
+```
+to:
+```typescript
+return { camera: 'prompt', microphone: 'prompt', location: 'prompt', notifications: 'prompt' };
+```
+
+## Error 4: `supabase/functions/seed-demo-data/index.ts` lines 800-810
+
+The summary object includes `ai_inserted`, `feedback_inserted`, and `bcs_inserted` but the TypeScript type for the summary array doesn't include those fields.
+
+**Fix**: The summary is pushed into a local `summary` array. Either:
+- Add an explicit type with all fields, or
+- Use `as any` on the push, or
+- Define the type inline with all 12 properties including `bcs_inserted`, `ai_inserted`, and `feedback_inserted`.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useOnlineStatus.ts` | Revert to `navigator.onLine` with passive events; keep `getIsOnline()` export returning `navigator.onLine` |
-| `src/hooks/useBarns.ts` | Import `getIsOnline` and use it inside `mutationFn` instead of hook's `isOnline` for all 4 mutations |
-| `changelog.md` | Document changes |
-
-## Technical Details
-
-### useOnlineStatus.ts (Reverted)
-
-Remove the active probing singleton (`checkConnectivity`, `startProbing`, intervals, `HEAD` requests). Return to:
-- `useOnlineStatus()` hook: `useState(navigator.onLine)` + `online`/`offline` event listeners
-- `getIsOnline()`: simply returns `navigator.onLine`
-
-This preserves the SSOT accessor pattern so all 50+ consumer files (`dataCache.ts`, `offlineQueue.ts`, `offlineAudioSyncProcessor.ts`, `BarnFormDialog.tsx`, `UserEmailDropdown.tsx`, `voice-input-button.tsx`, `useVoiceRecording.ts`, `useOfflineAudioSync.ts`) continue working without changes.
-
-### useBarns.ts (Execution-Time Check)
-
-For each of the 4 mutation hooks (`useCreateBarn`, `useUpdateBarn`, `useAssignAnimalToBarn`, `useRemoveAnimalFromBarn`):
-- Remove `const isOnline = useOnlineStatus()` from the hook (or keep for UI display only)
-- Inside each `mutationFn`, replace `if (isOnline)` with `if (getIsOnline())` to check connectivity at the moment of execution, not at render time
-
-This ensures that if the user goes offline after the form renders, the mutation correctly takes the offline path -- creating the barn locally in IndexedDB and queuing for sync.
-
+| `src/lib/dataCache.ts` | Add `bcs: []` to success path at line 874; verify union type at line 1355 |
+| `src/lib/devicePermissionService.ts` | Add `location: 'prompt'` to early return at line 87 |
+| `supabase/functions/seed-demo-data/index.ts` | Add missing properties to summary type near line 792 |
