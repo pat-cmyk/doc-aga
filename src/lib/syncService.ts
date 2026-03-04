@@ -13,6 +13,7 @@ import { processVoiceFormInput } from './voiceFormQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords, rollbackMilkInventoryDeduction } from './dataCache';
+import { REVENUE_SOURCE_KEYS } from './revenueCategories';
 import { insertBreedingEvent } from './breedingEventBridge';
 import { generateClientId, updateSyncCheckpoint } from './syncCheckpoint';
 import { invokeWithTimeout } from './sttService';
@@ -1529,7 +1530,7 @@ async function syncMilkSale(item: QueueItem): Promise<void> {
       .insert({
         farm_id: farmId,
         amount: milkSale.totalAmount,
-        source: 'Milk Sales',
+        source: REVENUE_SOURCE_KEYS.MILK_SALE,
         transaction_date: milkSale.saleDate,
         linked_milk_log_id: milkSale.linkedMilkLogId,
         notes: milkSale.notes,

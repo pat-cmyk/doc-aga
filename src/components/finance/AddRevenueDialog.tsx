@@ -34,15 +34,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useAddRevenue } from "@/hooks/useRevenues";
-
-const REVENUE_SOURCES = [
-  "Milk Sale",
-  "Animal Sale",
-  "Government Subsidy",
-  "Breeding Service",
-  "Manure Sale",
-  "Other Income",
-] as const;
+import { REVENUE_SOURCES, getRevenueSourceIcon } from "@/lib/revenueCategories";
 
 const revenueSchema = z.object({
   source: z.string().min(1, "Source is required"),
@@ -115,23 +107,6 @@ export function AddRevenueDialog({
     onSuccess?.();
   };
 
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "Milk Sale":
-        return "🥛";
-      case "Animal Sale":
-        return "🐄";
-      case "Government Subsidy":
-        return "🏛️";
-      case "Breeding Service":
-        return "🧬";
-      case "Manure Sale":
-        return "🌱";
-      default:
-        return "💰";
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -170,7 +145,7 @@ export function AddRevenueDialog({
                       {REVENUE_SOURCES.map((source) => (
                         <SelectItem key={source} value={source}>
                           <span className="flex items-center gap-2">
-                            <span>{getSourceIcon(source)}</span>
+                            <span>{getRevenueSourceIcon(source)}</span>
                             <span>{source}</span>
                           </span>
                         </SelectItem>

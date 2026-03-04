@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { AddRevenueDialog } from "./AddRevenueDialog";
+import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 import { FinancialCapacityReport } from "./FinancialCapacityReport";
 
 interface QuickActionsBarProps {
@@ -43,7 +44,7 @@ export function QuickActionsBar({ farmId, canManage }: QuickActionsBarProps) {
 
           <AddRevenueDialog
             farmId={farmId}
-            defaultSource="Animal Sale"
+            defaultSource={REVENUE_SOURCE_KEYS.ANIMAL_SALE}
             trigger={
               <Button variant="outline" size="sm" className="gap-1.5">
                 <ShoppingCart className="h-4 w-4" />
@@ -62,7 +63,7 @@ export function QuickActionsBar({ farmId, canManage }: QuickActionsBarProps) {
             <DropdownMenuContent align="end">
               <AddRevenueDialog
                 farmId={farmId}
-                defaultSource="Milk Sale"
+                defaultSource={REVENUE_SOURCE_KEYS.MILK_SALE}
                 trigger={
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     Record Milk Sale
@@ -71,7 +72,7 @@ export function QuickActionsBar({ farmId, canManage }: QuickActionsBarProps) {
               />
               <AddRevenueDialog
                 farmId={farmId}
-                defaultSource="Government Subsidy"
+                defaultSource={REVENUE_SOURCE_KEYS.GOVERNMENT_SUBSIDY}
                 trigger={
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     Record Subsidy

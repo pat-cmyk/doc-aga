@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, X, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 
 const DISMISSED_KEY = "onboarding_checklist_dismissed";
 const VISITED_MILK_TAB_KEY = "onboarding_visited_milk_tab";
@@ -63,7 +64,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
         .from("farm_revenues")
         .select("id", { count: "exact", head: true })
         .eq("farm_id", farmId)
-        .eq("source", "Milk Sales")
+        .eq("source", REVENUE_SOURCE_KEYS.MILK_SALE)
         .eq("is_deleted", false)
         .limit(1);
       setHasMilkSale((saleCount ?? 0) > 0);

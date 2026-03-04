@@ -4,6 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, differenceInDays, format } from "date-fns";
+import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 
 export interface ProfitabilityData {
   operationalCosts: number;
@@ -60,12 +61,13 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
       const comparisonStartStr = format(comparisonStart, "yyyy-MM-dd");
       const comparisonEndStr = format(comparisonEnd, "yyyy-MM-dd");
 
-      // 1. Get operational costs for current period
+      // 1. Get operational costs for current period (exclude Personal — aligned with useFinancialHealth)
       const { data: expenses, error: expensesError } = await supabase
         .from("farm_expenses")
         .select("amount, allocation_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
+        .neq("allocation_type", "Personal")
         .gte("expense_date", periodStartStr)
         .lte("expense_date", periodEndStr);
 
@@ -75,7 +77,6 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
       }
 
       const operationalCosts = (expenses || [])
-        .filter((e) => e.allocation_type === "Operational" || !e.allocation_type)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
       // 2. Get revenues for current period
@@ -98,9 +99,9 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
 
       (revenues || []).forEach((r) => {
         const amount = Number(r.amount) || 0;
-        if (r.source === "Milk Sale") {
+        if (r.source === REVENUE_SOURCE_KEYS.MILK_SALE) {
           milkRevenue += amount;
-        } else if (r.source === "Animal Sale") {
+        } else if (r.source === REVENUE_SOURCE_KEYS.ANIMAL_SALE) {
           animalSalesRevenue += amount;
         } else {
           otherRevenue += amount;

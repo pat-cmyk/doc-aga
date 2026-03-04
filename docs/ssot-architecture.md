@@ -63,7 +63,7 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 
 | Domain | SSOT Flow |
 |--------|-----------|
-| **Milk Revenue** | `milking_records` (sale) → DB trigger → `revenue_ledger` |
+| **Milk Revenue** | `milking_records` (sale) → `RecordMilkSaleDialog` / DB trigger `sync_milk_sale_to_revenue` → `farm_revenues` (source: `REVENUE_SOURCE_KEYS.MILK_SALE`) |
 | **Animal Weight** | `weight_records` (latest) → DB trigger → `animals.current_weight_kg` |
 | **OVR Scores** | `milking/weight/bcs/health/ai records` → `calculate_animal_ovr` SQL trigger → `animal_ovr_cache` → `useBatchOVRSummary` (list) + `useBioCardData` (BioCard/Summary) — **server-side computation ONLY, no client-side calc** |
 | **Feed Inventory** | `feeding_records` → `feed_inventory_id` + `cost_per_kg_at_time` (cost locked at consumption) |

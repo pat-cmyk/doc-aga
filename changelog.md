@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-03-04 — Finance P0: Revenue Source SSOT + Milk Revenue Misclassification Fix
+
+### Fixed
+- **CRITICAL: Milk revenue classified as "Other Revenue" in Breakeven Dashboard** — `RecordMilkSaleDialog` and `syncService` wrote `source: "Milk Sales"` (plural) but `useProfitability` checked for `"Milk Sale"` (singular). 100% of milk sales fell into `otherRevenue`. Now all paths use `REVENUE_SOURCE_KEYS.MILK_SALE`.
+- **Expense filter inconsistency** between `useFinancialHealth` (`.neq("Personal")`) and `useProfitability` (client-side filter for `"Operational"` only). The hero card and Breakeven Dashboard showed different expense totals. Both now use `.neq("allocation_type", "Personal")` at the DB level.
+
+### Added
+- **`src/lib/revenueCategories.ts`** — SSOT constants file for revenue source names (like `expenseCategories.ts` for expenses). Exports `REVENUE_SOURCES`, `REVENUE_SOURCE_KEYS`, `getRevenueSourceIcon()`.
+- **SQL migration** (`20260304130000_standardize_revenue_sources.sql`): Updates existing `"Milk Sales"` → `"Milk Sale"`, `"Livestock Sales"` → `"Animal Sale"`, adds CHECK constraint matching SSOT, updates `fix_missing_milk_revenues` RPC and `sync_milk_sale_to_revenue` trigger.
+
+### Files Modified
+- `src/lib/revenueCategories.ts` — NEW: SSOT for revenue sources
+- `src/hooks/useProfitability.ts` — Use `REVENUE_SOURCE_KEYS`, align expense filter with `useFinancialHealth`
+- `src/components/finance/AddRevenueDialog.tsx` — Import from SSOT, remove local `REVENUE_SOURCES` and `getSourceIcon`
+- `src/components/finance/QuickActionsBar.tsx` — Use `REVENUE_SOURCE_KEYS` for default sources
+- `src/components/milk-inventory/RecordMilkSaleDialog.tsx` — Use `REVENUE_SOURCE_KEYS.MILK_SALE`
+- `src/lib/syncService.ts` — Use `REVENUE_SOURCE_KEYS.MILK_SALE`
+- `src/components/dashboard/OnboardingChecklist.tsx` — Use `REVENUE_SOURCE_KEYS.MILK_SALE`
+- `supabase/migrations/20260304130000_standardize_revenue_sources.sql` — Data migration + RPC + trigger fix
+
 ## 2026-03-04 — Breeding Hub: "Not Ready" Catch-All (Include Males in Total)
 
 ### Changed

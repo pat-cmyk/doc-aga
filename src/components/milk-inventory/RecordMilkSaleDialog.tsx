@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { deductMilkFromInventoryCache } from "@/lib/dataCache";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -216,7 +217,7 @@ export function RecordMilkSaleDialog({
         await addRevenue.mutateAsync({
           farm_id: farmId,
           amount: totalAmount,
-          source: "Milk Sales",
+          source: REVENUE_SOURCE_KEYS.MILK_SALE,
           transaction_date: format(new Date(), "yyyy-MM-dd"),
           linked_milk_log_id: linkedMilkLogId,
           notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,

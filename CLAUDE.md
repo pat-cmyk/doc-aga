@@ -33,7 +33,7 @@ Before modifying ANY field, function, or component: trace `Table → RPC → Hoo
 
 | Domain | Flow |
 |--------|------|
-| Milk Revenue | `milking_records` (sale) → DB trigger → `revenue_ledger` |
+| Milk Revenue | `milking_records` (sale) → `RecordMilkSaleDialog` / DB trigger `sync_milk_sale_to_revenue` → `farm_revenues` (source: `REVENUE_SOURCE_KEYS.MILK_SALE`) |
 | Animal Weight | `weight_records` (latest) → DB trigger → `animals.current_weight_kg` |
 | OVR Scores | records → `calculate_animal_ovr` trigger → `animal_ovr_cache` (server-side only) |
 | Feed Inventory | `feeding_records` → `feed_inventory_id` + `cost_per_kg_at_time` (locked at consumption) |
