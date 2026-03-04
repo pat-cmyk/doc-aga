@@ -414,6 +414,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBarnRemove(item);
         } else if (item.type === 'milk_feeding') {
           await syncMilkFeeding(item);
+        } else if (item.type === 'milk_sale') {
+          await syncMilkSale(item);
         }
         
         // After parent record syncs, process any linked photos
@@ -449,6 +451,9 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           // Rollback milk inventory deductions on permanent failure
           if (item.type === 'milk_feeding' && item.payload.milkFeeding?.deductions && item.payload.farmId) {
             await rollbackMilkInventoryDeduction(item.payload.farmId, item.payload.milkFeeding.deductions);
+          }
+          if (item.type === 'milk_sale' && item.payload.milkSale?.deductions && item.payload.farmId) {
+            await rollbackMilkInventoryDeduction(item.payload.farmId, item.payload.milkSale.deductions);
           }
           await updateStatus(item.id, 'failed', translateError(error));
           await sendSyncFailureNotification(1, item.id);
@@ -1461,4 +1466,82 @@ async function syncMilkFeeding(item: QueueItem): Promise<void> {
   }
 
   console.log(`[SyncService] Milk feeding synced: ${milkFeeding.totalLiters}L ${milkFeeding.feedType} to ${milkFeeding.animalName || milkFeeding.animalId}`);
+}
+
+async function syncMilkSale(item: QueueItem): Promise<void> {
+  const { milkSale, farmId } = item.payload;
+
+  if (!milkSale || !farmId) {
+    throw new Error('No milk sale data in queue item');
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Step 1: Update milk_inventory rows (FIFO deductions)
+  for (const deduction of milkSale.deductions) {
+    const { data: current } = await supabase
+      .from('milk_inventory')
+      .select('liters_remaining')
+      .eq('id', deduction.id)
+      .single();
+
+    if (current) {
+      const newRemaining = Math.max(0, current.liters_remaining - deduction.litersUsed);
+      const isFullyConsumed = newRemaining < 0.05;
+
+      await supabase
+        .from('milk_inventory')
+        .update({
+          liters_remaining: newRemaining,
+          is_available: !isFullyConsumed,
+        })
+        .eq('id', deduction.id);
+
+      // If fully consumed, mark the milking_record as sold
+      if (isFullyConsumed) {
+        const saleAmount = deduction.litersOriginal * milkSale.pricePerLiter;
+        await supabase
+          .from('milking_records')
+          .update({
+            is_sold: true,
+            price_per_liter: milkSale.pricePerLiter,
+            sale_amount: saleAmount,
+          })
+          .eq('id', deduction.milkingRecordId);
+      }
+    }
+  }
+
+  // Step 2: Create revenue record (idempotent via linked_milk_log_id unique index)
+  const { data: existingRevenue } = await supabase
+    .from('farm_revenues')
+    .select('id')
+    .eq('linked_milk_log_id', milkSale.linkedMilkLogId)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (!existingRevenue) {
+    const { error: revenueError } = await supabase
+      .from('farm_revenues')
+      .insert({
+        farm_id: farmId,
+        amount: milkSale.totalAmount,
+        source: 'Milk Sales',
+        transaction_date: milkSale.saleDate,
+        linked_milk_log_id: milkSale.linkedMilkLogId,
+        notes: milkSale.notes,
+        user_id: user?.id || '',
+      });
+
+    if (revenueError) {
+      // Duplicate check — if already synced, skip
+      if (revenueError.code === '23505') {
+        console.log('[SyncService] Milk sale revenue already synced, skipping...');
+      } else {
+        throw revenueError;
+      }
+    }
+  }
+
+  console.log(`[SyncService] Milk sale synced: ${milkSale.totalLiters}L ${milkSale.species} for ₱${milkSale.totalAmount}`);
 }

@@ -21,6 +21,7 @@ import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { WeightEstimateButton } from "@/components/animal-form/WeightEstimateButton";
 import { QuickAddToggle } from "@/components/animal-form/QuickAddToggle";
 import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSuccessScreen";
+import { useNavigate } from "react-router-dom";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
 import { labels, getLivestockEmoji } from "@/lib/filipinoLabels";
 import VoiceQuickAdd, { type ExtractedAnimalData } from "@/components/animal-form/VoiceQuickAdd";
@@ -41,6 +42,7 @@ interface AnimalFormProps {
 }
 
 const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFormProps) => {
+  const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [genderError, setGenderError] = useState(false);
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
@@ -170,6 +172,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
   };
 
   const handleSuccessAction = (action: string) => {
+    const animalId = addedAnimalData?.animalId;
     switch (action) {
       case "add_another":
         resetForm();
@@ -183,9 +186,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       case "schedule_ai":
       case "record_weight":
       case "add_photo":
-        // For now, just go back to herd - these can be enhanced later
         setShowSuccessScreen(false);
-        onSuccess();
+        if (animalId) {
+          // Navigate to animal profile where all recording actions are available
+          navigate(`/?animalId=${animalId}`);
+        } else {
+          onSuccess();
+        }
         break;
       default:
         setShowSuccessScreen(false);

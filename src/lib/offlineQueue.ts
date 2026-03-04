@@ -77,7 +77,7 @@ export async function getQueueCapacity(): Promise<{ current: number; max: number
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding' | 'milk_sale';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -217,6 +217,17 @@ interface QueueItem {
     barnAssignmentId?: string;
     barnAnimalId?: string;
     barnFarmId?: string;
+    // Milk sale (sell milk from inventory via FIFO)
+    milkSale?: {
+      totalLiters: number;
+      pricePerLiter: number;
+      totalAmount: number;
+      species: string;
+      deductions: Array<{ id: string; litersUsed: number; milkingRecordId: string; litersOriginal: number }>;
+      linkedMilkLogId: string;
+      notes: string;
+      saleDate: string;
+    };
     // Milk feeding (feed good or rejected milk to animal via FIFO)
     milkFeeding?: {
       animalId: string;

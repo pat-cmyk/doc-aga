@@ -33,6 +33,7 @@ import { calculateMilkSplit, MilkSplitResult } from "@/lib/milkSplitCalculation"
 import { AnimalCombobox } from "./AnimalCombobox";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
+import { playSound } from "@/lib/audioFeedback";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
@@ -40,6 +41,7 @@ import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { useFarm } from "@/contexts/FarmContext";
 import { MilkQualityFields } from "./MilkQualityFields";
+import { MilkRecordSuccessScreen } from "./MilkRecordSuccessScreen";
 import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordBulkMilkDialogProps {
@@ -62,6 +64,7 @@ export function RecordBulkMilkDialog({
   const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successData, setSuccessData] = useState<{ totalLiters: number; animalCount: number; session: string; isRejected: boolean } | null>(null);
   const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -403,12 +406,15 @@ export function RecordBulkMilkDialog({
       });
 
       hapticNotification('success');
-      
-      toast({
-        title: isRejected ? "Rejected Milk Recorded" : "Milk Recorded",
-        description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}) split across ${splitPreview.length} animal${splitPreview.length > 1 ? "s" : ""}`,
-      });
+      playSound('success');
 
+      // Show success screen instead of just a toast
+      setSuccessData({
+        totalLiters: parseFloat(totalLiters),
+        animalCount: splitPreview.length,
+        session,
+        isRejected,
+      });
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
@@ -432,6 +438,7 @@ export function RecordBulkMilkDialog({
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalLiters) > 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
@@ -623,6 +630,33 @@ export function RecordBulkMilkDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    {successData && (
+      <MilkRecordSuccessScreen
+        open={!!successData}
+        onClose={() => setSuccessData(null)}
+        totalLiters={successData.totalLiters}
+        animalCount={successData.animalCount}
+        session={successData.session}
+        isRejected={successData.isRejected}
+        onAction={(action) => {
+          setSuccessData(null);
+          if (action === "view_inventory") {
+            // Already on operations tab, just need to scroll/navigate to inventory
+            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
+          } else if (action === "record_another") {
+            onOpenChange(true);
+          } else if (action === "record_sale") {
+            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
+            // Small delay to let tab switch, then open sale dialog
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-milk-sale'));
+            }, 300);
+          }
+        }}
+      />
+    )}
+    </>
   );
 }
 

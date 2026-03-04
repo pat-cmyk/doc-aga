@@ -15,6 +15,9 @@ import type { MilkInventoryItem } from "@/hooks/useMilkInventory";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { deductMilkFromInventoryCache } from "@/lib/dataCache";
+import { addToQueue } from "@/lib/offlineQueue";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { playSound } from "@/lib/audioFeedback";
 
 const SPECIES_LABELS: Record<string, string> = {
   cattle: "Cattle",
@@ -114,6 +117,9 @@ export function RecordMilkSaleDialog({
 
     setIsSubmitting(true);
 
+    const speciesLabel = filterSpecies ? SPECIES_LABELS[filterSpecies] || filterSpecies : "Mixed";
+    const linkedMilkLogId = fifoPreview.records[0].record.milking_record_id;
+
     try {
       // STEP 1: Update local cache immediately for instant UI feedback
       const deductions = fifoPreview.records.map(({ record, litersUsed }) => ({
@@ -122,11 +128,56 @@ export function RecordMilkSaleDialog({
       }));
       await deductMilkFromInventoryCache(farmId, deductions);
 
+      // OFFLINE BRANCH: queue for later sync
+      if (!isOnline) {
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'milk_sale',
+          payload: {
+            farmId,
+            milkSale: {
+              totalLiters: fifoPreview.totalLiters,
+              pricePerLiter: price,
+              totalAmount,
+              species: speciesLabel,
+              deductions: fifoPreview.records.map(({ record, litersUsed }) => ({
+                id: record.id,
+                litersUsed,
+                milkingRecordId: record.milking_record_id,
+                litersOriginal: record.liters_original,
+              })),
+              linkedMilkLogId,
+              notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
+              saleDate: format(new Date(), "yyyy-MM-dd"),
+            },
+          },
+          createdAt: Date.now(),
+        });
+
+        if (isCacheManagerReady()) {
+          await getCacheManager().invalidateForMutation('milk-sale', farmId);
+        }
+        playSound('success');
+
+        toast({
+          title: "Sale Queued (Offline)",
+          description: `${fifoPreview.totalLiters.toFixed(1)}L for ₱${totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })} — will sync when online`,
+        });
+
+        setLitersToSell("");
+        setNotes("");
+        onOpenChange(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // ONLINE PATH: write directly to database
+
       // STEP 2: Update each inventory record in the database
       for (const { record, litersUsed } of fifoPreview.records) {
         const newRemaining = record.liters_remaining - litersUsed;
         const isFullyConsumed = newRemaining <= 0;
-        
+
         // Update milk_inventory table directly
         const { error: invError } = await supabase
           .from("milk_inventory")
@@ -153,9 +204,6 @@ export function RecordMilkSaleDialog({
       }
 
       // STEP 3: Create single revenue record (with duplicate prevention)
-      const speciesLabel = filterSpecies ? SPECIES_LABELS[filterSpecies] || filterSpecies : "Mixed";
-      const linkedMilkLogId = fifoPreview.records[0].record.milking_record_id;
-
       // Check if a revenue entry already exists for this milk log (belt-and-suspenders with DB unique index)
       const { data: existingRevenue } = await supabase
         .from("farm_revenues")
@@ -176,11 +224,12 @@ export function RecordMilkSaleDialog({
       }
 
       // STEP 4: Refetch to sync with server
-      await queryClient.refetchQueries({ 
+      await queryClient.refetchQueries({
         queryKey: ['milk-inventory', farmId],
         type: 'active',
       });
 
+      playSound('success');
       toast({
         title: "Sale Recorded",
         description: `Sold ${fifoPreview.totalLiters.toFixed(1)}L ${filterSpecies ? `(${speciesLabel})` : ""} for ₱${totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
@@ -198,7 +247,7 @@ export function RecordMilkSaleDialog({
         variant: "destructive",
       });
       // Refetch to restore correct state
-      await queryClient.refetchQueries({ 
+      await queryClient.refetchQueries({
         queryKey: ['milk-inventory', farmId],
         type: 'active',
       });

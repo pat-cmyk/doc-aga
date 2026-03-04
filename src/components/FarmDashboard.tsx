@@ -17,6 +17,7 @@ import { DashboardAlertsWidget } from "./dashboard/DashboardAlertsWidget";
 import { MorningBriefCard } from "./dashboard/MorningBriefCard";
 import { DailyActivityCompliance } from "./dashboard/DailyActivityCompliance";
 import { ActivityTimeline } from "./dashboard/ActivityTimeline";
+import { OnboardingChecklist } from "./dashboard/OnboardingChecklist";
 import { useNavigate } from "react-router-dom";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
 import { useQueryClient } from "@tanstack/react-query";
@@ -290,6 +291,9 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
       ) : (
         <DashboardStats stats={stats} trends={trends} farmId={farmId} />
       )}
+
+      {/* Onboarding checklist for new farms */}
+      <OnboardingChecklist farmId={farmId} totalAnimals={stats.totalAnimals} />
 
       {/* Today At A Glance - Compact daily status (action-first) */}
       <DailyActivityCompliance farmId={farmId} />

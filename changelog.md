@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-03-04 — Farmer Journey Audit: Sign-up to First Sale
+
+### Added
+- **Offline milk sales**: `RecordMilkSaleDialog` now works fully offline. FIFO cache deductions happen instantly, sale is queued for server sync on reconnect. `syncMilkSale()` in syncService handles inventory updates, milking_record sale flags, and revenue record creation with idempotent `linked_milk_log_id` check. Cache rollback on permanent failure restores inventory.
+- **Progressive onboarding checklist**: New `OnboardingChecklist` component on FarmDashboard guides new farmers through 5 steps: add animal, record milking, check inventory, record sale, view earnings. Steps auto-complete based on data presence and localStorage visit flags. Dismissible with persistent state.
+- **Post-milking success sheet**: After recording milk (bulk or single), a bottom sheet shows contextual next actions: "View Inventory", "Record Sale", "Record Another", or "Done". Follows the `AddAnimalSuccessScreen` pattern with Taglish labels.
+- **Audio confirmation on record save**: `playSound('success')` chime added to milk recording (bulk/single) and milk sale dialogs on successful submit, complementing existing haptic feedback.
+
+### Changed
+- **Animal success screen actions wired**: "Record First Milk", "Record Weight", "Schedule AI", "Add Photo" buttons in `AddAnimalSuccessScreen` now navigate to the animal's profile page (via `/?animalId=<id>`) instead of silently returning to herd.
+
+### Files Modified
+- `src/lib/offlineQueue.ts` — Added `milk_sale` queue type with FIFO deduction + revenue payload
+- `src/lib/syncService.ts` — Added `syncMilkSale()`, dispatch, and rollback for permanent failures
+- `src/components/milk-inventory/RecordMilkSaleDialog.tsx` — Added offline branch, cache invalidation, audio feedback
+- `src/components/dashboard/OnboardingChecklist.tsx` — New progressive onboarding component
+- `src/components/FarmDashboard.tsx` — Integrated OnboardingChecklist after DashboardStats
+- `src/components/milk-recording/MilkRecordSuccessScreen.tsx` — New post-milking success sheet
+- `src/components/milk-recording/RecordBulkMilkDialog.tsx` — Added success screen, audio feedback
+- `src/components/milk-recording/RecordSingleMilkDialog.tsx` — Added success screen, audio feedback
+- `src/components/AnimalForm.tsx` — Wired success screen action callbacks to navigate to animal profile
+
 ## 2026-03-03 — Unified Health Timeline (Merge Records + Preventive)
 
 ### Changed

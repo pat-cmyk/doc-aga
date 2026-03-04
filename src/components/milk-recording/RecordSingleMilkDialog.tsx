@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { hapticImpact, hapticSelection, hapticNotification } from "@/lib/haptics";
 import { VoiceRecordWithExtraction } from "@/components/ui/VoiceRecordWithExtraction";
+import { playSound } from "@/lib/audioFeedback";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache";
@@ -31,6 +32,7 @@ import { validateRecordDate } from "@/lib/recordValidation";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
 import { MilkQualityFields } from "./MilkQualityFields";
+import { MilkRecordSuccessScreen } from "./MilkRecordSuccessScreen";
 import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordSingleMilkDialogProps {
@@ -60,6 +62,7 @@ export function RecordSingleMilkDialog({
   const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successData, setSuccessData] = useState<{ totalLiters: number; session: string; isRejected: boolean } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
@@ -201,11 +204,14 @@ export function RecordSingleMilkDialog({
       await queryClient.refetchQueries({ queryKey: ['milk-inventory', farmId], type: 'active' });
 
       hapticNotification('success');
-      toast({
-        title: isRejected ? "Rejected Milk Recorded" : "Milk Recorded",
-        description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}) added`,
-      });
+      playSound('success');
 
+      // Show success screen with next actions
+      setSuccessData({
+        totalLiters: litersNum,
+        session,
+        isRejected,
+      });
       onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
@@ -223,6 +229,7 @@ export function RecordSingleMilkDialog({
   const displayName = animalName || earTag || 'This animal';
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
@@ -307,5 +314,30 @@ export function RecordSingleMilkDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {successData && (
+      <MilkRecordSuccessScreen
+        open={!!successData}
+        onClose={() => setSuccessData(null)}
+        totalLiters={successData.totalLiters}
+        animalCount={1}
+        session={successData.session}
+        isRejected={successData.isRejected}
+        onAction={(action) => {
+          setSuccessData(null);
+          if (action === "view_inventory") {
+            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
+          } else if (action === "record_another") {
+            onOpenChange(true);
+          } else if (action === "record_sale") {
+            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-milk-sale'));
+            }, 300);
+          }
+        }}
+      />
+    )}
+    </>
   );
 }
