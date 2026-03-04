@@ -21,6 +21,7 @@ A task is ONLY complete when proven via **Baseline → Execute → Verify**:
   - Data: Run verification SELECT. Unexpected results → report "FIX FAILED".
   - UI (MANDATORY for visual/layout/CSS): Navigate to affected viewport → screenshot → confirm fix. If issue persists → "FIX FAILED", diagnose, iterate.
 - **Governance (FINAL step):** Update `docs/data-relationships-map.md`, `changelog.md`, or `docs/ssot-architecture.md` as applicable. Skipping = incomplete.
+- **Commit & Push (ALWAYS):** After every completed edit, commit and push immediately. Do not batch changes across tasks — each logical change gets its own commit + push. Never leave uncommitted work.
 
 ---
 
