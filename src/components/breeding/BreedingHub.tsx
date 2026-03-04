@@ -102,7 +102,7 @@ export function BreedingHub({
           <div>
             <h2 className="text-lg font-semibold">Breeding Hub</h2>
             <p className="text-sm text-muted-foreground">
-              {animals.length} babae / females ({totalBreedingEligible} breeding eligible)
+              {animals.length} hayop / animals ({totalBreedingEligible} breeding eligible)
             </p>
           </div>
         </div>
@@ -207,12 +207,13 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.notEligible}
               label="Not Ready"
-              description="Not yet ready to breed"
-              descriptionTagalog="Hindi pa handa mag-breed"
+              description="Males, too young, or not yet ready"
+              descriptionTagalog="Lalaki, masyadong bata, o hindi pa handa"
               icon={FERTILITY_STATUS_CONFIG.not_eligible.icon}
               colorClass="text-muted-foreground"
               bgClass="bg-muted/50"
               onClick={() => setSelectedStatus('not_eligible')}
+              badge={stats.maleCount > 0 ? `${stats.maleCount} lalaki / male` : undefined}
             />
           </div>
 

@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import type { BreedingAnimal } from '@/hooks/useBreedingHub';
 
@@ -56,7 +55,7 @@ export function BreedingStatusAnimalList({
             No animals in this status
           </p>
         ) : (
-          <ScrollArea className="max-h-[300px] pr-2">
+          <div className="h-[300px] overflow-y-auto pr-2">
             <div className="space-y-1">
               {animals.map((animal) => (
                 <button
@@ -67,6 +66,9 @@ export function BreedingStatusAnimalList({
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-medium truncate">
                       {animal.name || 'Unnamed'}
+                      {animal.gender?.toLowerCase() !== 'female' && (
+                        <span className="ml-1 text-blue-500" title="Lalaki / Male">♂</span>
+                      )}
                     </span>
                     {animal.ear_tag && (
                       <span className="text-xs text-muted-foreground truncate">
@@ -75,7 +77,11 @@ export function BreedingStatusAnimalList({
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
-                    {animal.fertility_status && FERTILITY_STATUS_CONFIG[animal.fertility_status] && (
+                    {animal.gender?.toLowerCase() !== 'female' ? (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-600 dark:text-blue-400">
+                        ♂ Lalaki
+                      </Badge>
+                    ) : animal.fertility_status && FERTILITY_STATUS_CONFIG[animal.fertility_status] && (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                         {FERTILITY_STATUS_CONFIG[animal.fertility_status].icon} {FERTILITY_STATUS_CONFIG[animal.fertility_status].label}
                       </Badge>
@@ -87,7 +93,7 @@ export function BreedingStatusAnimalList({
                 </button>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>

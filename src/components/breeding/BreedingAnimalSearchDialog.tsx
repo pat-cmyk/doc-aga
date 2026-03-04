@@ -120,7 +120,7 @@ export function BreedingAnimalSearchDialog({
             />
 
             {searchTerm.trim() && (
-              <ScrollArea className="max-h-[300px]">
+              <ScrollArea className="h-[300px]">
                 {searchResults.length > 0 ? (
                   <div className="space-y-1">
                     {searchResults.map((animal) => (

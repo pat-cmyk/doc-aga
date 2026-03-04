@@ -19,6 +19,7 @@ export interface BreedingAnimal {
   name: string | null;
   ear_tag: string | null;
   livestock_type: string;
+  gender?: string;
   fertility_status: FertilityStatus | null;
   last_heat_date: string | null;
   last_ai_date: string | null;
@@ -48,6 +49,7 @@ export interface BreedingHubStats {
   confirmedPregnant: number;
   freshPostpartum: number;
   notEligible: number;
+  maleCount: number;
 }
 
 export interface BreedingHubData {
@@ -87,22 +89,22 @@ export function useBreedingHub(farmId: string | null): BreedingHubData {
         `)
         .eq('farm_id', farmId)
         .eq('is_deleted', false)
-        .is('exit_date', null)
-        .ilike('gender', 'female');
+        .is('exit_date', null);
 
       if (animalsError) throw animalsError;
 
-      const animalIds = animals?.map(a => a.id) || [];
+      // Only fetch AI/heat records for females — males have no breeding records
+      const femaleAnimalIds = animals?.filter(a => a.gender?.toLowerCase() === 'female').map(a => a.id) || [];
       const [aiResult, heatResult] = await Promise.all([
         supabase
           .from('ai_records')
           .select('animal_id, performed_date, pregnancy_confirmed, expected_delivery_date')
-          .in('animal_id', animalIds.length > 0 ? animalIds : ['no-match'])
+          .in('animal_id', femaleAnimalIds.length > 0 ? femaleAnimalIds : ['no-match'])
           .order('performed_date', { ascending: false }),
         supabase
           .from('heat_records')
           .select('animal_id, detected_at, optimal_breeding_start, optimal_breeding_end')
-          .in('animal_id', animalIds.length > 0 ? animalIds : ['no-match'])
+          .in('animal_id', femaleAnimalIds.length > 0 ? femaleAnimalIds : ['no-match'])
           .order('detected_at', { ascending: false }),
       ]);
 
@@ -136,15 +138,14 @@ async function computeBreedingHubFromCache(
   allAnimals: any[],
   farmId: string,
 ): Promise<Omit<BreedingHubData, 'isLoading'>> {
-  const femaleAnimals = allAnimals.filter(
-    a => a.gender?.toLowerCase() === 'female',
-  );
-  if (femaleAnimals.length === 0) return getEmptyData();
+  if (allAnimals.length === 0) return getEmptyData();
 
   const aiRecords: any[] = [];
   const heatRecords: any[] = [];
 
-  for (const animal of femaleAnimals) {
+  // Only fetch breeding records for females — males have none
+  for (const animal of allAnimals) {
+    if (animal.gender?.toLowerCase() !== 'female') continue;
     const cached = await getCachedRecords(animal.id);
     if (cached) {
       for (const ai of cached.ai) {
@@ -166,7 +167,7 @@ async function computeBreedingHubFromCache(
     }
   }
 
-  return computeBreedingHubFromData(femaleAnimals, aiRecords, heatRecords);
+  return computeBreedingHubFromData(allAnimals, aiRecords, heatRecords);
 }
 
 // ---------- Shared computation ----------
@@ -194,6 +195,7 @@ function computeBreedingHubFromData(
   const stats: BreedingHubStats = {
     openCycling: 0, inHeat: 0, bredWaiting: 0, pregCheckDue: 0,
     suspectedPregnant: 0, confirmedPregnant: 0, freshPostpartum: 0, notEligible: 0,
+    maleCount: 0,
   };
 
   const actionsToday: BreedingAction[] = [];
@@ -202,6 +204,14 @@ function computeBreedingHubFromData(
   const now = new Date();
 
   const processedAnimals: BreedingAnimal[] = animals.map(animal => {
+    // Males are "Not Ready" — skip all breeding predictions
+    const isMale = animal.gender?.toLowerCase() !== 'female';
+    if (isMale) {
+      stats.notEligible++;
+      stats.maleCount++;
+      return animal as BreedingAnimal;
+    }
+
     const status = (animal.fertility_status as FertilityStatus) || 'not_eligible';
     const latestAI = latestAIByAnimal.get(animal.id);
     const latestHeat = latestHeatByAnimal.get(animal.id);
@@ -317,6 +327,7 @@ function getEmptyStats(): BreedingHubStats {
   return {
     openCycling: 0, inHeat: 0, bredWaiting: 0, pregCheckDue: 0,
     suspectedPregnant: 0, confirmedPregnant: 0, freshPostpartum: 0, notEligible: 0,
+    maleCount: 0,
   };
 }
 

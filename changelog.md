@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-04 — Breeding Hub: "Not Ready" Catch-All (Include Males in Total)
+
+### Changed
+- **Breeding Hub now shows ALL animals** (`useBreedingHub.ts`): Removed `.ilike('gender', 'female')` filter. Males land in "Not Ready" stat — hub total now matches Animals tab total (no more 9-vs-10 confusion for farmers).
+- **Subtitle updated** (`BreedingHub.tsx`): Changed from `X babae / females` to `X hayop / animals (Y breeding eligible)`.
+- **"Not Ready" description** updated to "Males, too young, or not yet ready / Lalaki, masyadong bata, o hindi pa handa" — reflects catch-all scope.
+- **"Not Ready" badge** shows male count (e.g., "1 lalaki / male") for transparency.
+- **Male indicator in drill-down dialog** (`BreedingStatusAnimalList.tsx`): Males show ♂ symbol + blue "♂ Lalaki" badge instead of fertility status badge.
+- **Optimized record queries**: AI/heat record fetches use `femaleAnimalIds` only — males have no breeding records, so no wasted queries.
+
+### Files Modified
+- `src/hooks/useBreedingHub.ts` — Remove female filter, add `gender` + `maleCount`, male early-return in stats loop
+- `src/components/breeding/BreedingHub.tsx` — Subtitle, "Not Ready" badge + description
+- `src/components/breeding/BreedingStatusAnimalList.tsx` — Male ♂ indicator in drill-down list
+
 ## 2026-03-04 — Breeding Journey Audit: 11 Gaps Fixed (Data Integrity, Offline, UX)
 
 ### Fixed
