@@ -4,6 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { translateError } from "@/lib/errorMessages";
+import { getCachedAnimals, updateAnimalCache } from "@/lib/animalCache";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export interface EditAnimalFormData {
   // Basic Info
@@ -118,6 +120,7 @@ export const useEditAnimalForm = (
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   const initialFormData: EditAnimalFormData = {
     name: "",
@@ -153,27 +156,31 @@ export const useEditAnimalForm = (
   const [formData, setFormData] = useState<EditAnimalFormData>(initialFormData);
   const [originalFormData, setOriginalFormData] = useState<EditAnimalFormData>(initialFormData);
 
-  // Load parent animals for selectors
+  // Load parent animals for selectors — reuses animalCache.ts SSOT (same as Add form)
+  // Enforces: gender filter + (birth_date null OR age ≥ 16 months)
   useEffect(() => {
     const loadParents = async () => {
       if (!farmId) return;
-      
+
       setLoadingParents(true);
       try {
-        const { data: animalsData } = await supabase
-          .from("animals")
-          .select("id, name, ear_tag, gender, breed")
-          .eq("farm_id", farmId)
-          .eq("is_deleted", false);
+        // Use SSOT cache (same logic as Add form) — enforces 16-month age rule
+        const cache = await updateAnimalCache(farmId, isOnline);
+        const data = cache || await getCachedAnimals(farmId);
 
-        if (animalsData) {
+        if (data) {
           // Filter out the current animal from parent options
-          const filteredAnimals = animal 
-            ? animalsData.filter(a => a.id !== animal.id)
-            : animalsData;
-            
-          setMothers(filteredAnimals.filter(a => a.gender === "Female"));
-          setFathers(filteredAnimals.filter(a => a.gender === "Male"));
+          const currentId = animal?.id;
+          setMothers(
+            data.mothers
+              .filter(a => a.id !== currentId)
+              .map(a => ({ id: a.id, name: a.name || null, ear_tag: a.ear_tag || null, breed: a.breed }))
+          );
+          setFathers(
+            data.fathers
+              .filter(a => a.id !== currentId)
+              .map(a => ({ id: a.id, name: a.name || null, ear_tag: a.ear_tag || null, breed: a.breed }))
+          );
         }
       } catch (error) {
         console.error("Error loading parents:", error);
@@ -183,7 +190,7 @@ export const useEditAnimalForm = (
     };
 
     loadParents();
-  }, [farmId, animal?.id]);
+  }, [farmId, animal?.id, isOnline]);
 
   // Initialize form data from animal + load AI records
   useEffect(() => {

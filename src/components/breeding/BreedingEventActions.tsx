@@ -16,18 +16,25 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CheckCircle, Heart, Loader2, Search, XCircle, Flame, Syringe } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Heart, Loader2, Search, XCircle, Flame, Syringe, Info } from 'lucide-react';
 import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
 import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { RecordHeatDialog } from '@/components/heat-detection/RecordHeatDialog';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { addToQueue } from '@/lib/offlineQueue';
+import { playSound } from '@/lib/audioFeedback';
+import { hapticNotification } from '@/lib/haptics';
 import { ScheduleAIDialog } from '@/components/ScheduleAIDialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { BreedingEventType } from '@/types/fertility';
+import { differenceInDays } from 'date-fns';
 
 interface BreedingEventActionProps {
   animalId: string;
   farmId: string;
   animalName?: string;
+  lastAIDate?: string;
   onSuccess?: () => void;
 }
 
@@ -66,7 +73,7 @@ export function ScheduleAIButton({ animalId, farmId, onSuccess }: BreedingEventA
 /**
  * Mark Non-Return (GAP 3)
  */
-export function MarkNonReturnButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
+export function MarkNonReturnButton({ animalId, farmId, animalName, lastAIDate, onSuccess }: BreedingEventActionProps) {
   return (
     <BreedingEventActionDialog
       animalId={animalId}
@@ -80,6 +87,7 @@ export function MarkNonReturnButton({ animalId, farmId, animalName, onSuccess }:
       buttonVariant="outline"
       confirmLabel="Confirm Non-Return"
       successMessage="Marked as suspected pregnant. Schedule pregnancy check."
+      lastAIDate={lastAIDate}
       onSuccess={onSuccess}
     />
   );
@@ -186,6 +194,7 @@ interface BreedingEventActionDialogProps {
   buttonVariant?: 'default' | 'outline' | 'destructive';
   confirmLabel: string;
   successMessage: string;
+  lastAIDate?: string;
   onSuccess?: () => void;
 }
 
@@ -201,25 +210,58 @@ function BreedingEventActionDialog({
   buttonVariant = 'outline',
   confirmLabel,
   successMessage,
+  lastAIDate,
   onSuccess,
 }: BreedingEventActionDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
+
+  // Timing guard for non-return: require 18+ days post-AI
+  const nonReturnTooEarly = eventType === 'non_return' && lastAIDate
+    ? differenceInDays(new Date(), new Date(lastAIDate)) < 18
+    : false;
+  const daysSinceAI = lastAIDate ? differenceInDays(new Date(), new Date(lastAIDate)) : null;
 
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      await insertBreedingEvent({
-        animalId,
-        farmId,
-        eventType,
-        eventDate: new Date().toISOString(),
-        notes: notes || undefined,
-      });
+      if (!isOnline) {
+        // Offline: queue for later sync
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'breeding_event',
+          payload: {
+            breedingEvent: {
+              animalId,
+              farmId,
+              eventType,
+              eventDate: new Date().toISOString(),
+              notes: notes || undefined,
+            },
+          },
+          createdAt: Date.now(),
+        });
 
-      toast({ title: "Success", description: successMessage });
+        playSound('success');
+        hapticNotification('success');
+        toast({ title: "Queued (Offline)", description: `${successMessage} — will sync when online` });
+      } else {
+        await insertBreedingEvent({
+          animalId,
+          farmId,
+          eventType,
+          eventDate: new Date().toISOString(),
+          notes: notes || undefined,
+        });
+
+        playSound('success');
+        hapticNotification('success');
+        toast({ title: "Success", description: successMessage });
+      }
+
       setOpen(false);
       setNotes('');
       onSuccess?.();
@@ -249,6 +291,19 @@ function BreedingEventActionDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
+          {/* Non-return timing guard */}
+          {nonReturnTooEarly && daysSinceAI !== null && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium">Maghintay ng 18-24 araw matapos ang AI</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Wait 18-24 days post-AI before marking non-return. Currently {daysSinceAI} day{daysSinceAI !== 1 ? 's' : ''} since AI.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div>
             <Label>Notes (Optional)</Label>
             <Textarea
@@ -263,7 +318,7 @@ function BreedingEventActionDialog({
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleConfirm} disabled={loading}>
+            <Button onClick={handleConfirm} disabled={loading || nonReturnTooEarly}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {loading ? 'Saving...' : confirmLabel}
             </Button>

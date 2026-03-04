@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { useHeatRecords } from '@/hooks/useHeatRecords';
 import { DETECTION_METHODS, HEAT_INTENSITY } from '@/lib/bcsDefinitions';
 import { insertBreedingEvent } from '@/lib/breedingEventBridge';
+import { playSound } from '@/lib/audioFeedback';
+import { hapticNotification } from '@/lib/haptics';
 import { VoiceInputButton } from '@/components/ui/voice-input-button';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -56,6 +58,8 @@ export function RecordHeatDialog({ animalId, farmId, animalName, trigger }: Reco
       metadata: { detection_method: detectionMethod, intensity, standing_heat: standingHeat },
     });
 
+    playSound('success');
+    hapticNotification('success');
     setOpen(false);
     resetForm();
   };

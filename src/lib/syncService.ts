@@ -13,6 +13,7 @@ import { processVoiceFormInput } from './voiceFormQueueProcessor';
 import { sendSyncSuccessNotification, sendSyncFailureNotification } from './notificationService';
 import { translateError } from './errorMessages';
 import { confirmOptimisticRecords, rollbackOptimisticRecords, rollbackMilkInventoryDeduction } from './dataCache';
+import { insertBreedingEvent } from './breedingEventBridge';
 import { generateClientId, updateSyncCheckpoint } from './syncCheckpoint';
 import { invokeWithTimeout } from './sttService';
 import { startSyncSession, completeSyncSession, recordSyncError, type SyncType } from './syncTelemetry';
@@ -416,6 +417,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncMilkFeeding(item);
         } else if (item.type === 'milk_sale') {
           await syncMilkSale(item);
+        } else if (item.type === 'breeding_event') {
+          await syncBreedingEvent(item);
         }
         
         // After parent record syncs, process any linked photos
@@ -1544,4 +1547,26 @@ async function syncMilkSale(item: QueueItem): Promise<void> {
   }
 
   console.log(`[SyncService] Milk sale synced: ${milkSale.totalLiters}L ${milkSale.species} for ₱${milkSale.totalAmount}`);
+}
+
+/**
+ * Sync a queued breeding event using the SSOT bridge
+ */
+async function syncBreedingEvent(item: QueueItem): Promise<void> {
+  const { breedingEvent } = item.payload;
+
+  if (!breedingEvent) {
+    throw new Error('No breeding event data in queue item');
+  }
+
+  await insertBreedingEvent({
+    animalId: breedingEvent.animalId,
+    farmId: breedingEvent.farmId,
+    eventType: breedingEvent.eventType as any,
+    eventDate: breedingEvent.eventDate,
+    notes: breedingEvent.notes,
+    metadata: breedingEvent.metadata,
+  });
+
+  console.log(`[SyncService] Breeding event synced: ${breedingEvent.eventType} for animal ${breedingEvent.animalId}`);
 }

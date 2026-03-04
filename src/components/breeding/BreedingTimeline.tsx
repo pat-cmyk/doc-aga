@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Heart, Syringe, Baby, CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { BreedingEventType } from '@/types/fertility';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { getCachedRecords } from '@/lib/dataCache';
 
 interface BreedingTimelineProps {
   animalId: string;
@@ -48,10 +50,17 @@ const EVENT_CONFIG: Record<BreedingEventType, {
 };
 
 export function BreedingTimeline({ animalId, className, headerActions }: BreedingTimelineProps) {
-  // Fetch breeding_events
+  const isOnline = useOnlineStatus();
+
+  // Fetch breeding_events — with offline cache fallback
   const { data: breedingEvents = [], isLoading: loadingBreeding } = useQuery({
     queryKey: ['breeding-timeline', animalId],
     queryFn: async () => {
+      if (!isOnline) {
+        // Offline: return cached breeding events from IndexedDB
+        const cached = await getCachedRecords(animalId);
+        return cached?.breeding || [];
+      }
       const { data, error } = await supabase
         .from('breeding_events')
         .select('id, event_type, event_date, notes, metadata, related_heat_record_id, related_ai_record_id')

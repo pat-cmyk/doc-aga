@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, addDays } from 'date-fns';
 import type { FertilityStatus } from '@/types/fertility';
-import { CYCLE_LENGTH_DAYS } from '@/types/fertility';
+import { CYCLE_LENGTH_DAYS, VWP_DAYS } from '@/types/fertility';
 import { getCachedAnimals, getCachedRecords } from '@/lib/dataCache';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -253,20 +253,32 @@ function computeBreedingHubFromData(
     }
 
     // Expected heat predictions (open cycling)
-    if (status === 'open_cycling' && (animal.last_heat_date || latestHeat?.detected_at)) {
-      const lastHeat = new Date(animal.last_heat_date || latestHeat?.detected_at || '');
-      const expectedNextHeat = addDays(lastHeat, cycleLength);
-      const daysUntilHeat = differenceInDays(expectedNextHeat, now);
-      if (daysUntilHeat >= -3 && daysUntilHeat <= 7) {
-        expectedHeatNext7Days.push({
-          type: 'expected_heat',
-          animal: animal as BreedingAnimal,
-          urgency: daysUntilHeat <= 1 ? 'today' : daysUntilHeat <= 3 ? 'soon' : 'upcoming',
-          actionDate: expectedNextHeat.toISOString(),
-          daysRemaining: Math.max(0, daysUntilHeat),
-          description: daysUntilHeat <= 0 ? 'Expected today' : `~${daysUntilHeat} days`,
-          descriptionTagalog: daysUntilHeat <= 0 ? 'Inaasahan ngayon' : `~${daysUntilHeat} araw`,
-        });
+    if (status === 'open_cycling') {
+      let expectedNextHeat: Date | null = null;
+
+      if (animal.last_heat_date || latestHeat?.detected_at) {
+        // Primary: predict from last heat + cycle length
+        const lastHeat = new Date(animal.last_heat_date || latestHeat?.detected_at || '');
+        expectedNextHeat = addDays(lastHeat, cycleLength);
+      } else if (animal.last_calving_date) {
+        // Fallback: predict from last calving + VWP (first post-calving heat)
+        const vwpDays = VWP_DAYS[animal.livestock_type as keyof typeof VWP_DAYS] || 60;
+        expectedNextHeat = addDays(new Date(animal.last_calving_date), vwpDays);
+      }
+
+      if (expectedNextHeat) {
+        const daysUntilHeat = differenceInDays(expectedNextHeat, now);
+        if (daysUntilHeat >= -3 && daysUntilHeat <= 7) {
+          expectedHeatNext7Days.push({
+            type: 'expected_heat',
+            animal: animal as BreedingAnimal,
+            urgency: daysUntilHeat <= 1 ? 'today' : daysUntilHeat <= 3 ? 'soon' : 'upcoming',
+            actionDate: expectedNextHeat.toISOString(),
+            daysRemaining: Math.max(0, daysUntilHeat),
+            description: daysUntilHeat <= 0 ? 'Expected today' : `~${daysUntilHeat} days`,
+            descriptionTagalog: daysUntilHeat <= 0 ? 'Inaasahan ngayon' : `~${daysUntilHeat} araw`,
+          });
+        }
       }
     }
 

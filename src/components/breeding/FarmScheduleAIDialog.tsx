@@ -5,7 +5,7 @@
  * Used from BreedingHub where no animal is pre-selected.
  */
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,12 +34,29 @@ interface FarmScheduleAIDialogProps {
   onOpenChange: (open: boolean) => void;
   animals: Animal[];
   farmId: string | null;
+  preselectedAnimalId?: string | null;
 }
 
-export function FarmScheduleAIDialog({ open, onOpenChange, animals, farmId }: FarmScheduleAIDialogProps) {
+export function FarmScheduleAIDialog({ open, onOpenChange, animals, farmId, preselectedAnimalId }: FarmScheduleAIDialogProps) {
   const [step, setStep] = useState<'pick' | 'form'>('pick');
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [search, setSearch] = useState('');
+
+  // Auto-select preselected animal when dialog opens
+  React.useEffect(() => {
+    if (open && preselectedAnimalId) {
+      const animal = animals.find(a => a.id === preselectedAnimalId);
+      if (animal) {
+        setSelectedAnimal(animal);
+        setStep('form');
+      }
+    }
+    if (!open) {
+      setStep('pick');
+      setSelectedAnimal(null);
+      setSearch('');
+    }
+  }, [open, preselectedAnimalId, animals]);
 
   // Form state
   const [scheduledDate, setScheduledDate] = useState('');

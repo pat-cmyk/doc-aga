@@ -38,6 +38,7 @@ export function BreedingHub({
   const [searchOpen, setSearchOpen] = useState(false);
   const [heatDialogOpen, setHeatDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [preselectedAnimalForAI, setPreselectedAnimalForAI] = useState<string | null>(null);
   const navigate = useNavigate();
   const {
     stats,
@@ -101,7 +102,7 @@ export function BreedingHub({
           <div>
             <h2 className="text-lg font-semibold">Breeding Hub</h2>
             <p className="text-sm text-muted-foreground">
-              {totalBreedingEligible} breeding eligible animals
+              {animals.length} babae / females ({totalBreedingEligible} breeding eligible)
             </p>
           </div>
         </div>
@@ -172,7 +173,7 @@ export function BreedingHub({
               onClick={() => setSelectedStatus('in_heat')}
             />
             <BreedingHubStatCard
-              count={stats.bredWaiting + stats.pregCheckDue + stats.suspectedPregnant}
+              count={stats.bredWaiting + stats.suspectedPregnant}
               label="Bred"
               description="Animals that have been bred and are awaiting pregnancy confirmation"
               descriptionTagalog="Mga hayop na na-breed at naghihintay ng kumpirmasyon ng pagbubuntis"
@@ -180,6 +181,7 @@ export function BreedingHub({
               colorClass="text-blue-600 dark:text-blue-400"
               bgClass="bg-blue-50 dark:bg-blue-900/20"
               isHighlighted={stats.pregCheckDue > 0}
+              badge={stats.pregCheckDue > 0 ? `${stats.pregCheckDue} preg check due` : undefined}
               onClick={() => setSelectedStatus('bred_pipeline')}
             />
             <BreedingHubStatCard
@@ -205,8 +207,8 @@ export function BreedingHub({
             <BreedingHubStatCard
               count={stats.notEligible}
               label="Not Ready"
-              description={FERTILITY_STATUS_CONFIG.not_eligible.description}
-              descriptionTagalog={FERTILITY_STATUS_CONFIG.not_eligible.descriptionTagalog}
+              description="Not yet ready to breed"
+              descriptionTagalog="Hindi pa handa mag-breed"
               icon={FERTILITY_STATUS_CONFIG.not_eligible.icon}
               colorClass="text-muted-foreground"
               bgClass="bg-muted/50"
@@ -233,7 +235,7 @@ export function BreedingHub({
                       key={`${action.animal.id}-${action.type}-${idx}`}
                       action={action}
                       onViewAnimal={handleViewAnimal}
-                      onScheduleAI={() => setAiDialogOpen(true)}
+                      onScheduleAI={() => { setPreselectedAnimalForAI(action.animal.id); setAiDialogOpen(true); }}
                       onRecordHeat={() => setHeatDialogOpen(true)}
                       onConfirmPregnancy={() => {}}
                     />
@@ -367,9 +369,10 @@ export function BreedingHub({
       {/* Farm-level Schedule AI Dialog */}
       <FarmScheduleAIDialog
         open={aiDialogOpen}
-        onOpenChange={setAiDialogOpen}
+        onOpenChange={(open) => { setAiDialogOpen(open); if (!open) setPreselectedAnimalForAI(null); }}
         animals={animals}
         farmId={farmId}
+        preselectedAnimalId={preselectedAnimalForAI}
       />
     </div>
   );

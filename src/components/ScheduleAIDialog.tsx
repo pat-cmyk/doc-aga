@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { playSound } from "@/lib/audioFeedback";
+import { hapticNotification } from "@/lib/haptics";
 
 interface ScheduleAIDialogProps {
   animalId: string;
@@ -25,6 +27,7 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
   const [scheduledDate, setScheduledDate] = useState("");
   const [technician, setTechnician] = useState("");
   const [semenCode, setSemenCode] = useState("");
+  const [bullBreed, setBullBreed] = useState("");
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
@@ -46,12 +49,24 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Build structured notes with bull breed for AI father detection
+      let formattedNotes = '';
+      if (semenCode || bullBreed) {
+        const parts: string[] = [];
+        if (semenCode) parts.push(`Brand: ${semenCode}`);
+        if (bullBreed) parts.push(`Breed: ${bullBreed}`);
+        formattedNotes = parts.join(' | ');
+        if (notes) formattedNotes += ` | ${notes}`;
+      } else {
+        formattedNotes = notes;
+      }
+
       const { data: insertedData, error } = await supabase.from("ai_records").insert({
         animal_id: animalId,
         scheduled_date: scheduledDate,
         technician: technician || null,
         semen_code: semenCode || null,
-        notes: notes || null,
+        notes: formattedNotes || null,
         created_by: user?.id
       }).select('id').single();
 
@@ -69,6 +84,8 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
         });
       }
 
+      playSound('success');
+      hapticNotification('success');
       toast({
         title: "Success!",
         description: "AI breeding scheduled successfully"
@@ -78,6 +95,7 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
       setScheduledDate("");
       setTechnician("");
       setSemenCode("");
+      setBullBreed("");
       setNotes("");
       onSuccess();
     } catch (error: any) {
@@ -130,6 +148,15 @@ export function ScheduleAIDialog({ animalId, farmId, onSuccess, disabled }: Sche
               value={semenCode}
               onChange={(e) => setSemenCode(e.target.value)}
               placeholder="Enter semen code/batch number"
+            />
+          </div>
+          <div>
+            <Label htmlFor="bull_breed">Bull Breed</Label>
+            <Input
+              id="bull_breed"
+              value={bullBreed}
+              onChange={(e) => setBullBreed(e.target.value)}
+              placeholder="e.g. Holstein, Angus (for AI father detection)"
             />
           </div>
           <div>

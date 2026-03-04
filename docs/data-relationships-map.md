@@ -1061,7 +1061,7 @@ non_return       → suspected_pregnant
 pregnancy_confirmed → confirmed_pregnant
 heat_return      → open_cycling
 pregnancy_failed → open_cycling
-calving          → fresh_postpartum (increments parity, sets VWP, resets services)
+calving          → fresh_postpartum (increments parity, sets species-specific VWP [goat/sheep=45d, cattle/carabao=60d], resets services)
 vwp_ended        → open_cycling
 ```
 
@@ -1072,7 +1072,7 @@ vwp_ended        → open_cycling
 | A) Schema ↔ DRM | ✅ No schema changes (trigger already existed) |
 | B) RLS ↔ DRM | ✅ No RLS changes (breeding_events RLS already in place) |
 | C) API/Edge Contracts ↔ DRM | ✅ No edge function changes |
-| D) Offline/Sync ↔ DRM | ⚠️ breeding_events not in offline queue yet (deferred) |
+| D) Offline/Sync ↔ DRM | ✅ breeding_events now cached in IndexedDB + offline queue (2026-03-04) |
 | E) Data integrity | ✅ Bridge is additive — existing data unaffected |
 
 ---
@@ -1632,12 +1632,67 @@ Store: docAgaPhotoQueue / photoQueue
 | Health Photos | `CameraPhotoInput` → `offlinePhotoQueue.addPhoto()` → linked to `single_health` queue item via `pendingPhotoIds` → sync parent first → `syncPendingPhotos()` |
 | Pregnancy Confirm | `ConfirmPregnancyDialog` → `offlineQueue.addToQueue(pregnancy_confirm)` → `syncPregnancyConfirm()` → `ai_records` update + `breeding_events` insert |
 | AI Records | `offlineQueue.addToQueue(ai_record)` → `syncAIRecord()` → `ai_records` insert |
+| Breeding Events | `BreedingEventActionDialog` → `offlineQueue.addToQueue(breeding_event)` → `syncBreedingEvent()` → `insertBreedingEvent()` → `breeding_events` insert |
 
 ### Key Files
 
 | File | Role |
 |------|------|
 | `src/lib/offlinePhotoQueue.ts` | Dedicated IndexedDB store for photo blobs |
-| `src/lib/offlineQueue.ts` | Extended with `ai_record`, `pregnancy_confirm` types + `pendingPhotoIds` |
-| `src/lib/syncService.ts` | Added `syncAIRecord`, `syncPregnancyConfirm`, `syncPendingPhotos` handlers |
-| `src/lib/cacheManager.ts` | Added `pregnancy-confirm` cache dependencies |
+| `src/lib/offlineQueue.ts` | Extended with `ai_record`, `pregnancy_confirm`, `breeding_event` types + `pendingPhotoIds` |
+| `src/lib/syncService.ts` | Added `syncAIRecord`, `syncPregnancyConfirm`, `syncPendingPhotos`, `syncBreedingEvent` handlers |
+| `src/lib/cacheManager.ts` | Added `pregnancy-confirm`, `breeding-event` cache dependencies |
+
+---
+
+### Entry 8 — Breeding Journey Audit (2026-03-04)
+
+**What changed**: Full breeding journey audit — fixed double-counting bug in Breeding Hub "Bred" box, added offline support for breeding events, species-specific VWP in DB trigger, and multiple UX improvements.
+
+**11 Gaps Fixed (P1/P2/P3)**:
+
+| # | Gap | Fix |
+|---|-----|-----|
+| P1-A | "Bred" box double-counted `pregCheckDue` (subset of `bredWaiting`) | Removed `pregCheckDue` from count, show as badge |
+| P1-A | Hub subtitle showed count without context (males excluded) | Changed to `X babae / females (Y breeding eligible)` |
+| P1-A | "Not Ready" said "or male" in females-only context | Overrode to "Not yet ready to breed" |
+| P1-B | Edit form parent dropdown ignored 16-month age rule | Reused `animalCache.ts` (SSOT parity with Add form) |
+| P1-C | Non-return button had no timing guard | Added 18-day minimum post-AI guard with bilingual warning |
+| P2-A | `breeding_events` not in IndexedDB cache | Added to `RecordCache`, `updateRecordsCache()`, `updateRecordsCacheBatch()` |
+| P2-B | Breeding event actions failed silently offline | Added `breeding_event` to offline queue with `syncBreedingEvent()` |
+| P2-C | Post-calving animals with no heat history got no heat prediction | Added VWP fallback: `last_calving_date + VWP_DAYS[livestock_type]` |
+| P3-A | Breeding dialogs missing audio/haptic feedback | Added `playSound('success')` + `hapticNotification('success')` to all breeding dialogs |
+| P3-B | "Schedule AI" from in-heat action card didn't pre-select animal | Added `preselectedAnimalId` prop flow through `BreedingHub` → `FarmScheduleAIDialog` |
+| P3-C | Bull breed field fragile regex in free-text notes | Added structured `Bull Breed` input, auto-formatted as `Brand: X | Breed: Y` |
+| P3-D | DB trigger hardcoded 60-day VWP for all species | Migration: `CASE livestock_type WHEN goat/sheep THEN 45 ELSE 60 END` |
+
+**Files Modified**:
+
+| File | Change |
+|------|--------|
+| `src/components/breeding/BreedingHub.tsx` | Fixed "Bred" count, updated subtitle, "Not Ready" desc, pre-select AI animal |
+| `src/components/breeding/BreedingHubStatCard.tsx` | Added `badge` prop |
+| `src/components/animal-details/hooks/useEditAnimalForm.ts` | Replaced inline query with `animalCache.ts` |
+| `src/components/breeding/BreedingEventActions.tsx` | Non-return timing guard, offline queue, audio/haptic |
+| `src/components/AIRecords.tsx` | Pass `lastAIDate` to `MarkNonReturnButton` |
+| `src/lib/dataCache.ts` | Added `breeding` to `RecordCache`, parallel fetch, batch delta |
+| `src/lib/cacheManager.ts` | Added `breeding-event` cache dependencies |
+| `src/components/breeding/BreedingTimeline.tsx` | Offline fallback from cached breeding events |
+| `src/lib/offlineQueue.ts` | Added `breeding_event` queue type |
+| `src/lib/syncService.ts` | Added `syncBreedingEvent()` dispatch |
+| `src/hooks/useBreedingHub.ts` | VWP fallback for post-calving heat prediction |
+| `src/components/heat-detection/RecordHeatDialog.tsx` | Audio/haptic feedback |
+| `src/components/breeding/RecordCalvingDialog.tsx` | Audio/haptic feedback |
+| `src/components/ScheduleAIDialog.tsx` | Audio/haptic, structured bull breed field |
+| `src/components/breeding/FarmScheduleAIDialog.tsx` | `preselectedAnimalId` prop + auto-select |
+| `supabase/migrations/20260304120000_species_specific_vwp.sql` | Species-specific VWP trigger |
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ Trigger updated via migration, DRM state machine updated |
+| B) RLS ↔ DRM | ✅ No RLS changes |
+| C) API/Edge Contracts ↔ DRM | ✅ No edge function changes |
+| D) Offline/Sync ↔ DRM | ✅ breeding_events now cached + offline queued |
+| E) Data integrity | ✅ "Bred" box double-count fixed, form parity enforced |

@@ -41,6 +41,7 @@ const CACHE_DEPENDENCIES: Record<string, string[]> = {
   'pending-activity': ['pending-activities'],
   'farmer-feedback': ['farmer-feedback'],
   'milk-feeding': ['milk-inventory', 'milk-inventory-rejected', 'feeding-records', 'dashboard'],
+  'breeding-event': ['breeding-hub', 'breeding-analytics', 'breeding-timeline', 'breeding-stats', 'animals'],
 };
 
 /**

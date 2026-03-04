@@ -248,6 +248,7 @@ interface RecordCache {
   feeding: any[];
   bcs: any[];
   heat: any[];
+  breeding: any[];
   lastUpdated: number;
   // Offline-first additions
   syncStatus: CacheSyncStatus;
@@ -1008,7 +1009,7 @@ export async function getCachedRecords(animalId: string): Promise<RecordCache | 
  */
 export async function updateRecordsCache(animalId: string): Promise<RecordCache> {
   try {
-    const [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+    const [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes, breedingRes] = await Promise.all([
       supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).eq('animal_id', animalId)
         .gte('record_date', getDateWindowISO(RECORD_CACHE_WINDOWS.milking)).order('record_date', { ascending: false }),
       supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).eq('animal_id', animalId)
@@ -1021,6 +1022,8 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
         .gte('record_datetime', getDateWindowISO(RECORD_CACHE_WINDOWS.feeding)).order('record_datetime', { ascending: false }),
       supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).eq('animal_id', animalId)
         .order('detected_at', { ascending: false }),
+      supabase.from('breeding_events').select('id, event_type, event_date, notes, metadata, related_heat_record_id, related_ai_record_id')
+        .eq('animal_id', animalId).order('event_date', { ascending: false }).limit(100),
     ]);
 
     const cache: RecordCache = {
@@ -1032,6 +1035,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       feeding: feedingRes.data || [],
       bcs: [],
       heat: heatRes.data || [],
+      breeding: breedingRes.data || [],
       lastUpdated: Date.now(),
       syncStatus: 'synced',
       pendingChanges: 0,
@@ -1052,6 +1056,7 @@ export async function updateRecordsCache(animalId: string): Promise<RecordCache>
       feeding: [],
       bcs: [],
       heat: [],
+      breeding: [],
       lastUpdated: Date.now(),
       syncStatus: 'error' as CacheSyncStatus,
       pendingChanges: 0,
@@ -1084,12 +1089,14 @@ export async function updateRecordsCacheBatch(
     const checkpoint = farmId ? await getCheckpoint(farmId, 'records') : null;
     const isDelta = !!checkpoint;
 
-    let milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes;
+    let milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes, breedingRes;
+
+    const BREEDING_EVENT_COLUMNS = 'id, animal_id, event_type, event_date, notes, metadata, related_heat_record_id, related_ai_record_id';
 
     if (isDelta) {
       // Delta: only records updated since last sync (across ALL animals in farm)
       const since = checkpoint.lastSyncedAt;
-      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes, breedingRes] = await Promise.all([
         supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).in('animal_id', safeIds)
           .gte('updated_at', since).order('record_date', { ascending: false }),
         supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).in('animal_id', safeIds)
@@ -1102,15 +1109,18 @@ export async function updateRecordsCacheBatch(
           .gte('updated_at', since).order('record_datetime', { ascending: false }),
         supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).in('animal_id', safeIds)
           .gte('updated_at', since).order('detected_at', { ascending: false }),
+        supabase.from('breeding_events').select(BREEDING_EVENT_COLUMNS).in('animal_id', safeIds)
+          .gte('updated_at', since).order('event_date', { ascending: false }),
       ]);
 
       const totalDelta = (milkingRes.data?.length || 0) + (weightRes.data?.length || 0) +
         (healthRes.data?.length || 0) + (aiRes.data?.length || 0) +
-        (feedingRes.data?.length || 0) + (heatRes.data?.length || 0);
-      console.log(`[DataCache] Records delta sync: ${totalDelta} changed records across 6 tables`);
+        (feedingRes.data?.length || 0) + (heatRes.data?.length || 0) +
+        (breedingRes.data?.length || 0);
+      console.log(`[DataCache] Records delta sync: ${totalDelta} changed records across 7 tables`);
     } else {
       // Full fetch with date windowing
-      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes] = await Promise.all([
+      [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes, breedingRes] = await Promise.all([
         supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).in('animal_id', safeIds)
           .gte('record_date', getDateWindowISO(RECORD_CACHE_WINDOWS.milking)).order('record_date', { ascending: false }),
         supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).in('animal_id', safeIds)
@@ -1123,6 +1133,8 @@ export async function updateRecordsCacheBatch(
           .gte('record_datetime', getDateWindowISO(RECORD_CACHE_WINDOWS.feeding)).order('record_datetime', { ascending: false }),
         supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).in('animal_id', safeIds)
           .order('detected_at', { ascending: false }),
+        supabase.from('breeding_events').select(BREEDING_EVENT_COLUMNS).in('animal_id', safeIds)
+          .order('event_date', { ascending: false }).limit(100),
       ]);
     }
 
@@ -1143,6 +1155,7 @@ export async function updateRecordsCacheBatch(
     const aiByAnimal = partitionByAnimal(aiRes.data || []);
     const feedingByAnimal = partitionByAnimal(feedingRes.data || []);
     const heatByAnimal = partitionByAnimal(heatRes.data || []);
+    const breedingByAnimal = partitionByAnimal(breedingRes.data || []);
 
     // Store per-animal caches in IndexedDB
     const db = await getDB();
@@ -1155,6 +1168,7 @@ export async function updateRecordsCacheBatch(
           ...milkingByAnimal.keys(), ...weightByAnimal.keys(),
           ...healthByAnimal.keys(), ...aiByAnimal.keys(),
           ...feedingByAnimal.keys(), ...heatByAnimal.keys(),
+          ...breedingByAnimal.keys(),
         ])
       : null;
 
@@ -1177,6 +1191,7 @@ export async function updateRecordsCacheBatch(
           feeding: mergeRecordsById(existing?.feeding || [], feedingByAnimal.get(animalId) || []),
           bcs: existing?.bcs || [],
           heat: mergeRecordsById(existing?.heat || [], heatByAnimal.get(animalId) || []),
+          breeding: mergeRecordsById(existing?.breeding || [], breedingByAnimal.get(animalId) || []),
           lastUpdated: Date.now(),
           syncStatus: 'synced',
           pendingChanges: 0,
@@ -1193,6 +1208,7 @@ export async function updateRecordsCacheBatch(
           feeding: feedingByAnimal.get(animalId) || [],
           bcs: [],
           heat: heatByAnimal.get(animalId) || [],
+          breeding: breedingByAnimal.get(animalId) || [],
           lastUpdated: Date.now(),
           syncStatus: 'synced',
           pendingChanges: 0,

@@ -22,6 +22,8 @@ import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
 import { VoiceInputButton } from '@/components/ui/voice-input-button';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { playSound } from '@/lib/audioFeedback';
+import { hapticNotification } from '@/lib/haptics';
 
 interface RecordCalvingDialogProps {
   animalId: string;
@@ -118,6 +120,8 @@ export function RecordCalvingDialog({
         estimated_days_in_milk: 0,
       }).eq('id', animalId);
 
+      playSound('success');
+      hapticNotification('success');
       toast({
         title: "Calving Recorded! 🎉",
         description: registerCalf && calfGender

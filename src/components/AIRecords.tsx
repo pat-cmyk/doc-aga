@@ -68,6 +68,10 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
 
   const isFemale = gender?.toLowerCase() === 'female';
 
+  // Find latest performed AI date for timing guards
+  const lastPerformedAI = records.find(r => r.performed_date);
+  const lastAIDate = lastPerformedAI?.performed_date || undefined;
+
   // For females with farmId: unified timeline + lifecycle actions
   if (isFemale && farmId) {
     return (
@@ -139,6 +143,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                         animalId={animalId}
                         farmId={farmId}
                         animalName={animalName}
+                        lastAIDate={lastAIDate}
                         onSuccess={loadRecords}
                       />
                     </span>

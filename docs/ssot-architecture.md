@@ -3,7 +3,7 @@
 > **Living document** — Reflects Section 5 of the Core Operating Protocol.
 > Must be kept in sync with `ARCHITECTURE.md`, `changelog.md`, and `/docs/data-relationships-map.md`.
 
-Last updated: 2026-03-02
+Last updated: 2026-03-04
 
 ---
 
@@ -70,8 +70,10 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 | **Milk Feeding** | `milk_inventory` (good/rejected) → `FeedMilkToAnimalDialog` (FIFO) → `feeding_records` (`milk_inventory_id` + `cost_per_kg_at_time`: market price for good, ₱0 for rejected) → `useHerdInvestment` + `useAnimalExpenses` |
 | **Herd Investment** | `animals.purchase_cost` + `farm_expenses` (manual) + `feeding_records` (auto-calculated, includes milk feeding) |
 | **Feed Stock Days** | Roughage inventory only → `useFeedInventory` hook → survival buffer |
-| **Parent Eligibility** | `animals` → filter by gender + (`birth_date` is null OR age >= 16 months) → mother/father dropdowns |
+| **Parent Eligibility** | `animals` → `animalCache.ts` filter by gender + (`birth_date` is null OR age >= 16 months) → mother/father dropdowns (both Add + Edit forms use same SSOT) |
 | **AI Father Detection** | `ai_records` (animal_id) → `useEditAnimalForm` → pre-populate `is_father_ai`, brand, reference, breed |
+| **Fertility State Machine** | `breeding_events` INSERT → DB trigger `update_animal_fertility_status` → `animals.fertility_status` + side effects (parity, VWP, services). VWP is species-specific: goat/sheep=45d, cattle/carabao=60d |
+| **Breeding Offline** | `BreedingEventActionDialog` → `offlineQueue.addToQueue(breeding_event)` → `syncBreedingEvent()` → `insertBreedingEvent()` → `breeding_events`. Cache: `RecordCache.breeding` in IndexedDB |
 | **Cooperative Aggregation** | `cooperative_memberships` (accepted farms) → SECURITY DEFINER RPCs (`get_cooperative_herd_summary`, `get_cooperative_milk_production`, `get_cooperative_health_overview`, `get_cooperative_financial_summary`) → `useCooperative` hooks → `CooperativeDashboard` tabs. **Note:** Cooperative reads are entirely via SECURITY DEFINER functions and do not touch existing farm RLS policies. |
 
 ---
@@ -139,6 +141,7 @@ queryFn: async () => {
 | `useCurrentMarketPrice` | A | `marketPriceCache` |
 | `useHerdValuationUnified` | A | `herdValuationCache` |
 | `useBreedingAnalytics` | A | `breedingAnalyticsCache` |
+| `useBreedingHub` | A | `RecordCache.breeding` (per-animal) |
 | `useBioCardData` | A (composition, partial — deferred to Phase 5) | — |
 | `useRegionalMarketPrices` | B | — |
 | `useRegionalInvestment` | B | — |

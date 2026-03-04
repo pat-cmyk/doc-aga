@@ -22,6 +22,7 @@ interface BreedingHubStatCardProps {
   bgClass: string;
   onClick?: () => void;
   isHighlighted?: boolean;
+  badge?: string;
 }
 
 export function BreedingHubStatCard({
@@ -35,6 +36,7 @@ export function BreedingHubStatCard({
   bgClass,
   onClick,
   isHighlighted = false,
+  badge,
 }: BreedingHubStatCardProps) {
   const card = (
     <button
@@ -57,6 +59,11 @@ export function BreedingHubStatCard({
       {labelTagalog && (
         <span className="text-[10px] text-muted-foreground/70 text-center">
           {labelTagalog}
+        </span>
+      )}
+      {badge && (
+        <span className="text-[9px] font-medium text-amber-600 dark:text-amber-400 mt-0.5 text-center leading-tight">
+          {badge}
         </span>
       )}
     </button>

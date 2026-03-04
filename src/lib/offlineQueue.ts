@@ -77,7 +77,7 @@ export async function getQueueCapacity(): Promise<{ current: number; max: number
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding' | 'milk_sale';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding' | 'milk_sale' | 'breeding_event';
   payload: {
     audioBlob?: Blob;
     farmId?: string;
@@ -240,6 +240,15 @@ interface QueueItem {
       milkInventoryId: string;
       recordDatetime: string;
       notes: string;
+    };
+    // Breeding event (lifecycle transitions: non_return, pregnancy_confirmed, heat_return, etc.)
+    breedingEvent?: {
+      animalId: string;
+      farmId: string;
+      eventType: string;
+      eventDate: string;
+      notes?: string;
+      metadata?: Record<string, unknown>;
     };
   };
   createdAt: number;

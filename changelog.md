@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-03-04 — Breeding Journey Audit: 11 Gaps Fixed (Data Integrity, Offline, UX)
+
+### Fixed
+- **"Bred" box double-counting bug** (`BreedingHub.tsx`): `pregCheckDue` is a SUBSET of `bredWaiting` — adding both inflated the count. Now shows `bredWaiting + suspectedPregnant` with a badge for preg-check-due count.
+- **Hub subtitle misleading** (`BreedingHub.tsx`): Changed from generic count to `X babae / females (Y breeding eligible)` — immediately clarifies why count differs from total animals.
+- **"Not Ready" description said "or male"** in females-only hub context: Overridden to "Not yet ready to breed / Hindi pa handa mag-breed".
+- **Edit form parent dropdown ignored age rule** (`useEditAnimalForm.ts`): Replaced inline query with SSOT `animalCache.ts` — same 16-month minimum as Add form.
+- **Non-return button had no timing guard** (`BreedingEventActions.tsx`): Added 18-day minimum post-AI guard with bilingual warning. Disabled confirm button when too early.
+- **Post-calving heat prediction gap** (`useBreedingHub.ts`): Animals `open_cycling` with no heat history now get VWP fallback prediction from `last_calving_date + VWP_DAYS[livestock_type]`.
+
+### Added
+- **Breeding events offline cache** (`dataCache.ts`, `BreedingTimeline.tsx`): `breeding_events` added to `RecordCache` in IndexedDB. Timeline renders from cache when offline.
+- **Breeding event offline queue** (`offlineQueue.ts`, `syncService.ts`): `breeding_event` type in offline queue. `syncBreedingEvent()` calls `insertBreedingEvent()` on reconnect.
+- **Audio/haptic feedback** on all breeding dialogs: `RecordHeatDialog`, `RecordCalvingDialog`, `ScheduleAIDialog`, `BreedingEventActionDialog` now play success chime + haptic notification.
+- **Pre-select animal for AI scheduling** (`BreedingHub.tsx`, `FarmScheduleAIDialog.tsx`): Clicking "Schedule AI" from an in-heat action card pre-selects that animal and skips to the form step.
+- **Structured bull breed field** (`ScheduleAIDialog.tsx`): New `Bull Breed` input auto-formats into notes as `Brand: X | Breed: Y` for reliable AI father detection.
+- **Species-specific VWP migration** (`20260304120000_species_specific_vwp.sql`): DB trigger now uses `CASE livestock_type WHEN goat/sheep THEN 45 ELSE 60 END` instead of hardcoded 60 days.
+
+### Files Modified
+- `src/components/breeding/BreedingHub.tsx` — Fixed "Bred" count, subtitle, "Not Ready" desc, pre-select AI
+- `src/components/breeding/BreedingHubStatCard.tsx` — Added `badge` prop
+- `src/components/animal-details/hooks/useEditAnimalForm.ts` — SSOT parent cache
+- `src/components/breeding/BreedingEventActions.tsx` — Non-return guard, offline queue, audio/haptic
+- `src/components/AIRecords.tsx` — Pass `lastAIDate` to non-return button
+- `src/lib/dataCache.ts` — `breeding` in RecordCache, parallel fetch, batch delta
+- `src/lib/cacheManager.ts` — `breeding-event` cache dependencies
+- `src/components/breeding/BreedingTimeline.tsx` — Offline cache fallback
+- `src/lib/offlineQueue.ts` — `breeding_event` queue type
+- `src/lib/syncService.ts` — `syncBreedingEvent()` handler
+- `src/hooks/useBreedingHub.ts` — VWP fallback for heat prediction
+- `src/components/heat-detection/RecordHeatDialog.tsx` — Audio/haptic
+- `src/components/breeding/RecordCalvingDialog.tsx` — Audio/haptic
+- `src/components/ScheduleAIDialog.tsx` — Audio/haptic, bull breed field
+- `src/components/breeding/FarmScheduleAIDialog.tsx` — `preselectedAnimalId` prop
+- `supabase/migrations/20260304120000_species_specific_vwp.sql` — New migration
+
 ## 2026-03-04 — Farmer Journey Audit: Sign-up to First Sale
 
 ### Added
