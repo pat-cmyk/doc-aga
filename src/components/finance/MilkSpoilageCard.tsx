@@ -7,11 +7,7 @@ import { useMilkSpoilageReport } from "@/hooks/useMilkSpoilageReport";
 import { formatPHP } from "@/lib/currency";
 import { Droplets, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface MilkSpoilageCardProps {
   farmId: string;

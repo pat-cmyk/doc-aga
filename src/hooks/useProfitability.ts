@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, differenceInDays, format } from "date-fns";
 import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 export interface ProfitabilityData {
   operationalCosts: number;
@@ -17,11 +18,6 @@ export interface ProfitabilityData {
   milkRevenue: number;
   animalSalesRevenue: number;
   otherRevenue: number;
-}
-
-interface DateRange {
-  start: Date;
-  end: Date;
 }
 
 export function useProfitability(farmId: string | undefined, dateRange?: DateRange) {

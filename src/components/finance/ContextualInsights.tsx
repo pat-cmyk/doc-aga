@@ -12,11 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useContextualInsights, Insight } from "@/hooks/useContextualInsights";
 import { cn } from "@/lib/utils";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface ContextualInsightsProps {
   farmId: string;

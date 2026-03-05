@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useFinancialHealth } from "./useFinancialHealth";
 import { useRevenueExpenseComparison } from "./useRevenueExpenseComparison";
 import { useMilkSpoilageReport } from "./useMilkSpoilageReport";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 export interface Insight {
   id: string;
@@ -9,11 +10,6 @@ export interface Insight {
   title: string;
   description: string;
   priority: number;
-}
-
-interface DateRange {
-  start: Date;
-  end: Date;
 }
 
 export function useContextualInsights(farmId: string, dateRange?: DateRange) {

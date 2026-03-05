@@ -5,11 +5,7 @@ import { useRevenueExpenseComparison } from "@/hooks/useRevenueExpenseComparison
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface RevenueExpenseComparisonProps {
   farmId: string;

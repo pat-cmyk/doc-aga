@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, differenceInDays, format } from "date-fns";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface TopSource {
   source: string;
@@ -33,11 +34,6 @@ export interface RevenueExpenseComparisonData {
   // Top breakdowns (top 3 each)
   topRevenueSources: TopSource[];
   topExpenseCategories: TopCategory[];
-}
-
-interface DateRange {
-  start: Date;
-  end: Date;
 }
 
 export function useRevenueExpenseComparison(farmId: string, dateRange?: DateRange) {

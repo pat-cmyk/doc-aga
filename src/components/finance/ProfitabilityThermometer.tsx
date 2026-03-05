@@ -6,11 +6,7 @@ import { TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface ProfitabilityThermometerProps {
   farmId: string;

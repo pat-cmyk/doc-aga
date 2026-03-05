@@ -4,6 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays, subDays, format } from "date-fns";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 export interface FinancialHealthData {
   // Core metrics
@@ -30,11 +31,6 @@ export interface FinancialHealthData {
   // Top sources
   topRevenueSource: string | null;
   topExpenseCategory: string | null;
-}
-
-interface DateRange {
-  start: Date;
-  end: Date;
 }
 
 export function useFinancialHealth(farmId: string, dateRange?: DateRange) {

@@ -3,11 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLastMilkPriceBySpecies } from "./useRevenues";
 import { MILK_REJECTION_REASONS } from "@/constants/milkQuality";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 export interface RejectionReasonBreakdown {
   reason: string;

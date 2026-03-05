@@ -5,11 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useFinancialHealth } from "@/hooks/useFinancialHealth";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface FinancialHealthSummaryProps {
   farmId: string;
