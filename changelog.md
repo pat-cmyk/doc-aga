@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-03-05 — Government Dashboard Audit (8 gaps)
+
+### Fixed
+- **Gap 1 (P0):** `useDashboardStats` animal count missing `exit_date IS NULL` filter — farm dashboard showed exited animals, inflating count vs government dashboard.
+- **Gap 2 (P0):** `useGovernmentHealthStats` mapped `vaccination_count` to both `scheduled_vaccinations` AND `completed_vaccinations`. Now correctly maps all 22 RETURNS TABLE columns from `get_government_health_stats` RPC including exit breakdown, BCS detail, and deworming stats.
+- **Gap 3 (P0):** `useGrantEffectiveness` missing `exit_date IS NULL` filter — Grant Effectiveness panel showed 92 animals instead of 97, inconsistent with Grant Distribution on the same tab.
+- **Gap 5 (P1):** `get_government_milk_analytics` and `get_farm_compliance_metrics` RPCs referenced non-existent `mr.milking_date` column — fixed to `mr.record_date`.
+- **Gap 6 (P1):** Mortality rate denominator used `active_animals_only`, excluding animals that died during the period and inflating the rate. Fixed to `active + deaths_in_period`.
+- **Gap 7 (P1):** `get_government_stats` health_stats CTE counted health events for soft-deleted animals. Added `a.is_deleted = false` filter.
+- **Gap 8 (P2):** `useGovernmentHealthStats` exit breakdown (sold/died/culled/transferred/slaughtered) was hardcoded to 0. Now maps from RPC which already computes them.
+
+### Added
+- **Gap 4 (P2):** `GrantDistributionCard` now shows "Total Active Animals" count above the grant/purchased headline boxes, plus color-coded legend dots matching the bar chart segments.
+
+### SQL Migration
+- `supabase/migrations/20260305100000_gov_dashboard_audit_fixes.sql` — Must be applied via Supabase dashboard. Restores comprehensive `get_government_health_stats` RPC (was overwritten by simplified version in earlier migration), fixes `milking_date` → `record_date`, adds `is_deleted` filter to health stats, corrects mortality denominator.
+
+### Files Modified
+- `src/components/farm-dashboard/hooks/useDashboardStats.ts` — Gap 1
+- `src/hooks/useGovernmentHealthStats.ts` — Gaps 2, 8
+- `src/hooks/useGrantEffectiveness.ts` — Gap 3
+- `src/components/government/GrantDistributionCard.tsx` — Gap 4
+- `supabase/migrations/20260305100000_gov_dashboard_audit_fixes.sql` — Gaps 5, 6, 7, 8
+
 ## 2026-03-05 — Finance Audit Gaps 4, 6, 7, 9, 10
 
 ### Added

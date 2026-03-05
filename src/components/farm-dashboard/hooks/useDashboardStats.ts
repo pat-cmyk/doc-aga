@@ -58,7 +58,8 @@ export const useDashboardStats = (farmId: string, startDate: Date, endDate: Date
         .from("animals")
         .select("*", { count: "exact", head: true })
         .eq("farm_id", farmId)
-        .eq("is_deleted", false);
+        .eq("is_deleted", false)
+        .is("exit_date", null);
 
       // Feed stock days now comes from RPC (get_combined_dashboard_data)
       // which computes it based on roughage only - see useCombinedDashboardData

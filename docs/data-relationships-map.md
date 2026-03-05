@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-02-16 (Unified OVRScore SSOT component)
+Last updated: 2026-03-05 (Government dashboard audit — canonical active animal filter)
 
 ---
 
@@ -212,6 +212,8 @@ Last updated: 2026-02-16 (Unified OVRScore SSOT component)
 | `updated_at` | timestamptz | NO | `now()` | |
 
 **Soft delete**: `is_deleted`. **Tenancy**: Direct `farm_id`.
+
+**Canonical "Active Animal" filter**: `is_deleted = false AND exit_date IS NULL`. All queries counting current animals (farm dashboard, government dashboard, grant analytics) MUST apply both conditions. See `docs/ssot-architecture.md` §3.0.
 
 #### `profiles`
 

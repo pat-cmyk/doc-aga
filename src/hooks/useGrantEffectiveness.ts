@@ -48,7 +48,8 @@ export const useGrantEffectiveness = (
           exit_reason,
           farms!inner(region, province, municipality, data_category)
         `)
-        .eq("is_deleted", false);
+        .eq("is_deleted", false)
+        .is("exit_date", null);
 
       // Apply data category filter
       if (dataCategory !== 'all') {

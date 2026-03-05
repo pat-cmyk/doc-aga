@@ -39,6 +39,12 @@ export function GrantDistributionCard({ region, province, municipality, dataCate
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Total Active Animals */}
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <p className="text-xs text-muted-foreground">Total Active Animals</p>
+          <p className="text-lg font-bold">{data.acquisitionBreakdown.total.toLocaleString()}</p>
+        </div>
+
         {/* Summary Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
@@ -130,10 +136,13 @@ export function GrantDistributionCard({ region, province, municipality, dataCate
               />
             )}
           </div>
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            <span>Purchased ({data.acquisitionBreakdown.purchased})</span>
-            <span>Grant ({data.acquisitionBreakdown.grant})</span>
-            <span>Born ({data.acquisitionBreakdown.bornOnFarm})</span>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Purchased ({data.acquisitionBreakdown.purchased})</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Grant ({data.acquisitionBreakdown.grant})</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Born ({data.acquisitionBreakdown.bornOnFarm})</span>
+            {data.acquisitionBreakdown.unknown > 0 && (
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />Unknown ({data.acquisitionBreakdown.unknown})</span>
+            )}
           </div>
         </div>
       </CardContent>

@@ -3,7 +3,7 @@
 > **Living document** — Reflects Section 5 of the Core Operating Protocol.
 > Must be kept in sync with `ARCHITECTURE.md`, `changelog.md`, and `/docs/data-relationships-map.md`.
 
-Last updated: 2026-03-04
+Last updated: 2026-03-05
 
 ---
 
@@ -58,6 +58,23 @@ Before modifying ANY field, function, or component, you MUST:
 ---
 
 ## 3. Key SSOT Data Flows
+
+### 3.0 Canonical "Active Animal" Filter
+
+**Every query counting current/active animals MUST use both conditions:**
+```
+is_deleted = false AND exit_date IS NULL
+```
+
+| Context | Implementation |
+|---------|---------------|
+| Supabase JS (hooks) | `.eq("is_deleted", false).is("exit_date", null)` |
+| SQL (RPCs/views) | `WHERE a.is_deleted = false AND a.exit_date IS NULL` |
+| `gov_farm_analytics` view | Already applies both filters per species |
+
+**Violations found and fixed (2026-03-05):** `useDashboardStats`, `useGrantEffectiveness` were missing `exit_date IS NULL`. The simplified `get_government_health_stats` RPC from migration `20260204114033` was overwriting the comprehensive version from `20260204112600`.
+
+### 3.1 Critical Data Flows
 
 These are critical synchronized data paths. Breaking any link is a blocking bug:
 
