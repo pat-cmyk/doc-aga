@@ -97,7 +97,7 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
             )} />
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <RevenueList farmId={farmId} canManage={canManage} />
+            <RevenueList farmId={farmId} canManage={canManage} dateRange={dateRange} />
           </CollapsibleContent>
         </Collapsible>
 
@@ -111,7 +111,7 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
             )} />
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <ExpenseList farmId={farmId} canManage={canManage} />
+            <ExpenseList farmId={farmId} canManage={canManage} dateRange={dateRange} />
           </CollapsibleContent>
         </Collapsible>
       </div>

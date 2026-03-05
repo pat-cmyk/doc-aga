@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { showErrorToast } from "@/lib/errorHandling";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { format } from "date-fns";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 export interface Expense {
   id: string;
@@ -30,17 +32,24 @@ interface AddExpenseData {
   allocation_type?: 'Operational' | 'Personal';
 }
 
-export function useExpenses(farmId: string) {
+export function useExpenses(farmId: string, dateRange?: DateRange) {
   return useQuery({
-    queryKey: ["expenses", farmId],
+    queryKey: ["expenses", farmId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("farm_expenses")
         .select("*")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .order("expense_date", { ascending: false });
 
+      if (dateRange) {
+        query = query
+          .gte("expense_date", format(dateRange.start, "yyyy-MM-dd"))
+          .lte("expense_date", format(dateRange.end, "yyyy-MM-dd"));
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Expense[];
     },

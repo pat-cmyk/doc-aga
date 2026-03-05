@@ -30,14 +30,16 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpenses, useDeleteExpense, type Expense } from "@/hooks/useExpenses";
 import { AddExpenseDialog } from "./AddExpenseDialog";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface ExpenseListProps {
   farmId: string;
   canManage: boolean;
+  dateRange?: DateRange;
 }
 
-export function ExpenseList({ farmId, canManage }: ExpenseListProps) {
-  const { data: expenses, isLoading } = useExpenses(farmId);
+export function ExpenseList({ farmId, canManage, dateRange }: ExpenseListProps) {
+  const { data: expenses, isLoading } = useExpenses(farmId, dateRange);
   const deleteExpense = useDeleteExpense();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editExpense, setEditExpense] = useState<Expense | undefined>(undefined);

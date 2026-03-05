@@ -33,14 +33,16 @@ import { useRevenues, useDeleteRevenue, type Revenue } from "@/hooks/useRevenues
 import { getRevenueSourceIcon } from "@/lib/revenueCategories";
 import { formatPHP } from "@/lib/currency";
 import { AddRevenueDialog } from "./AddRevenueDialog";
+import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
 interface RevenueListProps {
   farmId: string;
   canManage: boolean;
+  dateRange?: DateRange;
 }
 
-export function RevenueList({ farmId, canManage }: RevenueListProps) {
-  const { data: revenues, isLoading } = useRevenues(farmId);
+export function RevenueList({ farmId, canManage, dateRange }: RevenueListProps) {
+  const { data: revenues, isLoading } = useRevenues(farmId, dateRange);
   const deleteRevenue = useDeleteRevenue();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editRevenue, setEditRevenue] = useState<Revenue | undefined>(undefined);
