@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-03-05 — Gap 5: Accrual-Basis Financial Report with Inventory
+
+### Changed
+- **Downloadable report now uses accrual-basis for feed costs** — "Feed & Supplements" (cash-basis, when purchased) replaced with "Feed Consumed (Accrual)" (when actually fed, from `feeding_records.cost_per_kg_at_time × kilograms`). Falls back to cash-basis with a note if no feeding records exist.
+- **Financial ratios (ROI, breakeven price) now use accrual costs** — more accurate for bank assessment. Cash flow section stays cash-basis (standard accounting).
+- **Report sections renumbered** from 7 to 8 sections to accommodate the new inventory section.
+- **Data completeness score expanded** from 8 to 11 criteria (adds feeding records, feed inventory, milk inventory checks). Existing scores may decrease — intentional signal to improve data quality.
+
+### Added
+- **New Section 3: Current Assets & Inventory** in both PDF and CSV reports:
+  - **Feed Inventory**: grouped by category (concentrates, roughage, minerals, supplements) with quantity and value from `feed_inventory` table
+  - **Milk Inventory (Good Quality)**: valued at species-specific market prices (cattle ₱30/L, goat ₱45/L, carabao ₱35/L, sheep ₱50/L or last sale price)
+  - **Rejected Milk**: shown separately at ₱0 value (feed-only)
+  - **Total Current Assets** summary line
+- **Accrual cost metadata** in Cost Structure section: shows both accrual (consumed) and cash (purchased) feed amounts for transparency
+- **Dialog preview**: Current Assets summary card showing feed + milk inventory values
+- **3 new data completeness checks**: Feeding Records, Feed Inventory, Milk Inventory
+
+### Files Modified
+- `src/lib/financialReportGenerator.ts` — New interfaces (`CurrentAssets`, `AccrualCostStructure`, `FeedInventoryAsset`, `MilkInventoryAsset`), 4 new fetch functions, `processAccrualCostStructure` (replaces `processCostStructure`), `processCurrentAssets`, updated `assessDataCompleteness` (11 criteria), accrual ratios
+- `src/lib/financialReportExport.ts` — New Section 3 (Current Assets) in PDF + CSV, accrual notes, renumbered sections 3→8, 3 new checklist items
+- `src/components/finance/FinancialCapacityReport.tsx` — Current Assets summary card, 3 new checklist items in dialog preview
+
+### Architecture Notes
+- Dashboards remain cash-basis (no changes to `useFinancialHealth`, `useProfitability`, `useRevenueExpenseComparison`)
+- Report generator uses plain async functions for data fetching (not React hooks) to match existing pattern
+- Milk pricing replicates `useLastMilkPriceBySpecies()` logic as `fetchMilkPrices()` async function
+
 ## 2026-03-04 — Finance P0: Revenue Source SSOT + Milk Revenue Misclassification Fix
 
 ### Fixed

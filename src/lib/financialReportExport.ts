@@ -107,8 +107,97 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
   doc.text(`Market Price Used: ${formatCurrency(report.herdSummary.marketPricePerKg)}/kg live weight`, 14, yPos);
   yPos += 10;
 
-  // Section 3: Production Performance
-  addSectionTitle("3. PRODUCTION PERFORMANCE HISTORY");
+  // Section 3: Current Assets & Inventory (NEW)
+  addSectionTitle("3. CURRENT ASSETS & INVENTORY");
+
+  // Feed Inventory sub-table
+  if (report.currentAssets.feedInventory.length > 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Feed Inventory (as of report date)", 14, yPos);
+    yPos += 5;
+    doc.setFont("helvetica", "normal");
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Category", "Quantity (kg)", "Value (\u20B1)"]],
+      body: [
+        ...report.currentAssets.feedInventory.map((f) => [
+          f.category,
+          f.quantityKg.toLocaleString(),
+          formatCurrency(f.valuePhp),
+        ]),
+        ["TOTAL FEED INVENTORY", "", formatCurrency(report.currentAssets.feedInventoryTotal)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [76, 175, 80], textColor: 255 },
+      styles: { fontSize: 9 },
+      footStyles: { fontStyle: "bold" },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+  } else {
+    doc.setFontSize(9);
+    doc.text("No feed inventory data available.", 14, yPos);
+    yPos += 5;
+  }
+
+  // Milk Inventory sub-table
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Milk Inventory (unsold stock)", 14, yPos);
+  yPos += 5;
+  doc.setFont("helvetica", "normal");
+
+  const milkRows: string[][] = [];
+  report.currentAssets.milkInventoryGood.speciesBreakdown.forEach((s) => {
+    milkRows.push([
+      `${s.species} (Good Quality)`,
+      `${s.liters.toFixed(1)} L`,
+      `\u20B1${s.pricePerLiter}/L`,
+      formatCurrency(s.value),
+    ]);
+  });
+  if (report.currentAssets.milkInventoryRejected.litersRemaining > 0) {
+    milkRows.push([
+      "Rejected Milk (feed-only)",
+      `${report.currentAssets.milkInventoryRejected.litersRemaining.toFixed(1)} L`,
+      "\u20B10/L",
+      "\u20B10",
+    ]);
+  }
+
+  if (milkRows.length > 0) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Type", "Quantity", "Price", "Value (\u20B1)"]],
+      body: [
+        ...milkRows,
+        ["TOTAL MILK VALUE", "", "", formatCurrency(report.currentAssets.milkInventoryGood.valuePhp)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [76, 175, 80], textColor: 255 },
+      styles: { fontSize: 9 },
+      footStyles: { fontStyle: "bold" },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+  } else {
+    doc.setFontSize(9);
+    doc.text("No milk inventory data available.", 14, yPos);
+    yPos += 5;
+  }
+
+  // Total current assets
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(
+    `Total Current Assets: ${formatCurrency(report.currentAssets.totalCurrentAssets)}`,
+    14, yPos
+  );
+  doc.setFont("helvetica", "normal");
+  yPos += 10;
+
+  // Section 4: Production Performance
+  addSectionTitle("4. PRODUCTION PERFORMANCE HISTORY");
 
   autoTable(doc, {
     startY: yPos,
@@ -155,8 +244,8 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     yPos = 20;
   }
 
-  // Section 4: Cost Structure
-  addSectionTitle("4. COST STRUCTURE ANALYSIS");
+  // Section 5: Cost Structure (Accrual for feed)
+  addSectionTitle("5. COST STRUCTURE ANALYSIS");
 
   if (report.costStructure.operationalCosts.length > 0) {
     autoTable(doc, {
@@ -175,14 +264,36 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       styles: { fontSize: 9 },
       footStyles: { fontStyle: "bold" },
     });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    yPos = (doc as any).lastAutoTable.finalY + 5;
   } else {
     doc.text("No operational expenses recorded for this period.", 14, yPos);
-    yPos += 10;
+    yPos += 5;
   }
 
-  // Section 5: Revenue & Cash Flow
-  addSectionTitle("5. REVENUE & CASH FLOW STATEMENT");
+  // Accrual note for feed costs
+  if (report.costStructure.feedCostBasis === 'accrual') {
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(
+      `Feed costs: Accrual basis (consumed: ${formatCurrency(report.costStructure.feedConsumedAmount)}) | Cash basis (purchased: ${formatCurrency(report.costStructure.feedPurchasedAmount)})`,
+      14, yPos
+    );
+    yPos += 5;
+    doc.setTextColor(33, 37, 41);
+  }
+  if (report.costStructure.feedConsumptionNote) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(150);
+    doc.text(`Note: ${report.costStructure.feedConsumptionNote}`, 14, yPos);
+    yPos += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 37, 41);
+  }
+  yPos += 5;
+
+  // Section 6: Revenue & Cash Flow (cash-basis, unchanged)
+  addSectionTitle("6. REVENUE & CASH FLOW STATEMENT");
 
   if (report.cashFlow.revenueBreakdown.length > 0) {
     autoTable(doc, {
@@ -233,8 +344,8 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     yPos = 20;
   }
 
-  // Section 6: Financial Ratios
-  addSectionTitle("6. KEY FINANCIAL RATIOS");
+  // Section 7: Financial Ratios
+  addSectionTitle("7. KEY FINANCIAL RATIOS");
 
   autoTable(doc, {
     startY: yPos,
@@ -275,8 +386,8 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
   });
   yPos = (doc as any).lastAutoTable.finalY + 10;
 
-  // Section 7: Data Completeness
-  addSectionTitle("7. SUPPORTING EVIDENCE CHECKLIST");
+  // Section 8: Data Completeness
+  addSectionTitle("8. SUPPORTING EVIDENCE CHECKLIST");
 
   const checklistItems = [
     [report.dataCompleteness.hasGeoLocation ? "✓" : "✗", "Farm geo-location recorded"],
@@ -285,6 +396,9 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     [report.dataCompleteness.hasProductionRecords ? "✓" : "✗", `Production records (${report.productionMetrics.monthsOfData} months of data)`],
     [report.dataCompleteness.hasExpenseTracking ? "✓" : "✗", `Expense tracking (${report.dataCompleteness.monthsOfExpenseData} months of data)`],
     [report.dataCompleteness.hasRevenueDocumentation ? "✓" : "✗", `Revenue documentation (${report.dataCompleteness.monthsOfRevenueData} months of data)`],
+    [report.dataCompleteness.hasFeedingRecords ? "✓" : "✗", "Feeding records (for accrual cost basis)"],
+    [report.dataCompleteness.hasFeedInventory ? "✓" : "✗", "Feed inventory tracked"],
+    [report.dataCompleteness.hasMilkInventory ? "✓" : "✗", "Milk inventory tracked"],
   ];
 
   autoTable(doc, {
@@ -381,8 +495,32 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("Market Price (PHP/kg)", report.herdSummary.marketPricePerKg);
   addLine("");
 
+  // Current Assets & Inventory
+  addLine("SECTION 3: CURRENT ASSETS & INVENTORY");
+  addLine("");
+  addLine("FEED INVENTORY");
+  addLine("Category", "Quantity (kg)", "Value (PHP)");
+  report.currentAssets.feedInventory.forEach((f) => {
+    addLine(f.category, f.quantityKg.toFixed(1), f.valuePhp.toFixed(2));
+  });
+  addLine("TOTAL FEED INVENTORY", "", report.currentAssets.feedInventoryTotal.toFixed(2));
+  addLine("");
+  addLine("MILK INVENTORY (GOOD QUALITY)");
+  addLine("Species", "Liters", "Price/L (PHP)", "Value (PHP)");
+  report.currentAssets.milkInventoryGood.speciesBreakdown.forEach((s) => {
+    addLine(s.species, s.liters.toFixed(1), s.pricePerLiter, s.value.toFixed(2));
+  });
+  addLine("TOTAL GOOD MILK VALUE", "", "", report.currentAssets.milkInventoryGood.valuePhp.toFixed(2));
+  addLine("");
+  addLine("REJECTED MILK (FEED-ONLY)");
+  addLine("Liters", report.currentAssets.milkInventoryRejected.litersRemaining.toFixed(1));
+  addLine("Value (PHP)", 0);
+  addLine("");
+  addLine("TOTAL CURRENT ASSETS", report.currentAssets.totalCurrentAssets.toFixed(2));
+  addLine("");
+
   // Production Metrics
-  addLine("SECTION 3: PRODUCTION METRICS");
+  addLine("SECTION 4: PRODUCTION METRICS");
   addLine("Metric", "Value");
   addLine("Total Milk Production (L)", report.productionMetrics.totalMilkProduction);
   addLine("Avg Daily Production/Animal (L)", report.productionMetrics.avgDailyProductionPerAnimal.toFixed(2));
@@ -392,8 +530,15 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("Months of Data", report.productionMetrics.monthsOfData);
   addLine("");
 
-  // Cost Structure
-  addLine("SECTION 4: COST STRUCTURE");
+  // Cost Structure (Accrual)
+  addLine("SECTION 5: COST STRUCTURE");
+  addLine("Cost Basis", report.costStructure.feedCostBasis === 'accrual' ? "Accrual (feed consumption-based)" : "Cash (feed purchase-based)");
+  addLine("Feed Consumed (Accrual)", report.costStructure.feedConsumedAmount.toFixed(2));
+  addLine("Feed Purchased (Cash)", report.costStructure.feedPurchasedAmount.toFixed(2));
+  if (report.costStructure.feedConsumptionNote) {
+    addLine("Note", report.costStructure.feedConsumptionNote);
+  }
+  addLine("");
   addLine("Category", "Amount (PHP)", "Percentage");
   report.costStructure.operationalCosts.forEach((c) => {
     addLine(c.category, c.amount, `${c.percentage.toFixed(1)}%`);
@@ -401,8 +546,8 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("TOTAL OPERATIONAL", report.costStructure.totalOperational, "100%");
   addLine("");
 
-  // Revenue & Cash Flow
-  addLine("SECTION 5: REVENUE & CASH FLOW");
+  // Revenue & Cash Flow (cash-basis)
+  addLine("SECTION 6: REVENUE & CASH FLOW");
   addLine("Source", "Amount (PHP)", "Percentage");
   report.cashFlow.revenueBreakdown.forEach((r) => {
     addLine(r.source, r.amount, `${r.percentage.toFixed(1)}%`);
@@ -418,7 +563,7 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("");
 
   // Financial Ratios
-  addLine("SECTION 6: FINANCIAL RATIOS");
+  addLine("SECTION 7: FINANCIAL RATIOS");
   addLine("Ratio", "Value");
   addLine("ROI (%)", report.financialRatios.roi.toFixed(2));
   addLine("Breakeven Price/Liter (PHP)", report.financialRatios.breakevenPricePerLiter?.toFixed(2) || "N/A");
@@ -427,7 +572,7 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("");
 
   // Data Completeness
-  addLine("SECTION 7: DATA COMPLETENESS");
+  addLine("SECTION 8: DATA COMPLETENESS");
   addLine("Check", "Status");
   addLine("Geo-location", report.dataCompleteness.hasGeoLocation ? "Yes" : "No");
   addLine("Animal Inventory", report.dataCompleteness.hasAnimalInventory ? "Yes" : "No");
@@ -435,6 +580,9 @@ export function exportReportToCSV(report: FinancialCapacityReport): void {
   addLine("Production Records", report.dataCompleteness.hasProductionRecords ? "Yes" : "No");
   addLine("Expense Tracking", report.dataCompleteness.hasExpenseTracking ? "Yes" : "No");
   addLine("Revenue Documentation", report.dataCompleteness.hasRevenueDocumentation ? "Yes" : "No");
+  addLine("Feeding Records", report.dataCompleteness.hasFeedingRecords ? "Yes" : "No");
+  addLine("Feed Inventory", report.dataCompleteness.hasFeedInventory ? "Yes" : "No");
+  addLine("Milk Inventory", report.dataCompleteness.hasMilkInventory ? "Yes" : "No");
   addLine("Completeness Score (%)", report.dataCompleteness.completenessScore.toFixed(0));
 
   // Create and download

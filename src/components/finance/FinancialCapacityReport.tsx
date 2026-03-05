@@ -216,6 +216,28 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                 </CardContent>
               </Card>
 
+              {/* Current Assets Summary */}
+              {(report.currentAssets.totalCurrentAssets > 0) && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Info className="h-4 w-4 text-primary" />
+                      Current Assets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="text-muted-foreground">Feed Inventory</div>
+                      <div className="font-medium">{formatCurrency(report.currentAssets.feedInventoryTotal)}</div>
+                      <div className="text-muted-foreground">Milk Inventory</div>
+                      <div className="font-medium">{formatCurrency(report.currentAssets.milkInventoryGood.valuePhp)}</div>
+                      <div className="text-muted-foreground font-medium pt-1 border-t">Total Assets</div>
+                      <div className="font-bold text-primary pt-1 border-t">{formatCurrency(report.currentAssets.totalCurrentAssets)}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Financial Summary */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Card>
@@ -331,6 +353,9 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                     <CheckItem checked={report.dataCompleteness.hasProductionRecords} label="Production Data" />
                     <CheckItem checked={report.dataCompleteness.hasExpenseTracking} label="Expense Records" />
                     <CheckItem checked={report.dataCompleteness.hasRevenueDocumentation} label="Revenue Records" />
+                    <CheckItem checked={report.dataCompleteness.hasFeedingRecords} label="Feeding Records" />
+                    <CheckItem checked={report.dataCompleteness.hasFeedInventory} label="Feed Inventory" />
+                    <CheckItem checked={report.dataCompleteness.hasMilkInventory} label="Milk Inventory" />
                   </div>
                 </CardContent>
               </Card>

@@ -87,10 +87,42 @@ export interface DataCompleteness {
   hasProductionRecords: boolean;
   hasExpenseTracking: boolean;
   hasRevenueDocumentation: boolean;
+  hasFeedingRecords: boolean;
+  hasFeedInventory: boolean;
+  hasMilkInventory: boolean;
   monthsOfExpenseData: number;
   monthsOfRevenueData: number;
   missingItems: string[];
   completenessScore: number;
+}
+
+export interface FeedInventoryAsset {
+  category: string;
+  quantityKg: number;
+  valuePhp: number;
+}
+
+export interface MilkInventoryAsset {
+  quality: 'good' | 'rejected';
+  litersRemaining: number;
+  valuePhp: number;
+  speciesBreakdown: { species: string; liters: number; pricePerLiter: number; value: number }[];
+}
+
+export interface CurrentAssets {
+  feedInventory: FeedInventoryAsset[];
+  feedInventoryTotal: number;
+  milkInventoryGood: MilkInventoryAsset;
+  milkInventoryRejected: MilkInventoryAsset;
+  totalCurrentAssets: number;
+}
+
+export interface AccrualCostStructure extends CostStructure {
+  feedCostBasis: 'accrual' | 'cash';
+  feedConsumedAmount: number;
+  feedPurchasedAmount: number;
+  accrualTotalOperational: number;
+  feedConsumptionNote: string | null;
 }
 
 export interface FinancialCapacityReport {
@@ -99,8 +131,9 @@ export interface FinancialCapacityReport {
   periodEnd: string;
   farmProfile: FarmProfile;
   herdSummary: HerdSummary;
+  currentAssets: CurrentAssets;
   productionMetrics: ProductionMetrics;
-  costStructure: CostStructure;
+  costStructure: AccrualCostStructure;
   cashFlow: CashFlowStatement;
   financialRatios: FinancialRatios;
   dataCompleteness: DataCompleteness;
@@ -129,6 +162,10 @@ export async function generateFinancialReport(
     weightData,
     valuationsData,
     marketPriceData,
+    feedingRecordsData,
+    feedInventoryData,
+    milkInventoryData,
+    milkPricesData,
   ] = await Promise.all([
     fetchFarmProfile(farmId),
     fetchAnimalsData(farmId),
@@ -138,6 +175,10 @@ export async function generateFinancialReport(
     fetchWeightData(farmId),
     fetchValuationsData(farmId),
     fetchMarketPrice(farmId),
+    fetchFeedingRecordsData(farmId, periodStartStr, periodEndStr),
+    fetchFeedInventoryData(farmId),
+    fetchMilkInventoryData(farmId),
+    fetchMilkPrices(farmId),
   ]);
 
   // Log fetch results for debugging
@@ -151,19 +192,26 @@ export async function generateFinancialReport(
     milkingCount: milkingData.length,
     weightsCount: weightData.length,
     valuationsCount: valuationsData.length,
+    feedingRecordsCount: feedingRecordsData.length,
+    feedInventoryCount: feedInventoryData.length,
+    milkInventoryCount: milkInventoryData.length,
   });
 
   // Process data into report sections
   const farmProfile = processFarmProfile(farmData, animalsData);
   const herdSummary = processHerdSummary(animalsData, valuationsData, weightData, marketPriceData);
+  const currentAssets = processCurrentAssets(feedInventoryData, milkInventoryData, milkPricesData);
   const productionMetrics = processProductionMetrics(milkingData, weightData, animalsData, periodMonths);
-  const costStructure = processCostStructure(expensesData);
+  const costStructure = processAccrualCostStructure(expensesData, feedingRecordsData);
   const cashFlow = processCashFlow(revenuesData, expensesData);
+
+  // Financial ratios use accrual costs for breakeven/ROI
+  const accrualNetFarmIncome = cashFlow.grossRevenue - costStructure.accrualTotalOperational;
   const financialRatios = calculateFinancialRatios(
-    cashFlow.netFarmIncome,
+    accrualNetFarmIncome,
     herdSummary.totalValue,
     productionMetrics.totalMilkProduction,
-    costStructure.totalOperational,
+    costStructure.accrualTotalOperational,
     milkingData
   );
   const dataCompleteness = assessDataCompleteness(
@@ -173,7 +221,10 @@ export async function generateFinancialReport(
     milkingData,
     expensesData,
     revenuesData,
-    periodMonths
+    periodMonths,
+    feedingRecordsData,
+    feedInventoryData,
+    milkInventoryData
   );
 
   return {
@@ -182,6 +233,7 @@ export async function generateFinancialReport(
     periodEnd: periodEndStr,
     farmProfile,
     herdSummary,
+    currentAssets,
     productionMetrics,
     costStructure,
     cashFlow,
@@ -433,6 +485,86 @@ async function fetchMarketPrice(farmId: string): Promise<MarketPriceResult> {
   }
 }
 
+async function fetchFeedingRecordsData(farmId: string, startDate: string, endDate: string): Promise<any[]> {
+  const client = supabase as any;
+  const { data, error } = await client
+    .from("feeding_records")
+    .select("id, kilograms, cost_per_kg_at_time, record_datetime, animal:animals!inner(farm_id)")
+    .eq("animal.farm_id", farmId)
+    .not("cost_per_kg_at_time", "is", null)
+    .gte("record_datetime", startDate)
+    .lte("record_datetime", endDate + "T23:59:59");
+
+  if (error) {
+    console.error("[Financial Report] Failed to fetch feeding records:", error);
+  }
+  console.log("[Financial Report] Fetched feeding records:", data?.length || 0);
+  return data || [];
+}
+
+async function fetchFeedInventoryData(farmId: string): Promise<any[]> {
+  const { data, error } = await supabase
+    .from("feed_inventory")
+    .select("id, feed_type, category, quantity_kg, cost_per_unit")
+    .eq("farm_id", farmId);
+
+  if (error) {
+    console.error("[Financial Report] Failed to fetch feed inventory:", error);
+  }
+  console.log("[Financial Report] Fetched feed inventory:", data?.length || 0);
+  return data || [];
+}
+
+async function fetchMilkInventoryData(farmId: string): Promise<any[]> {
+  const client = supabase as any;
+  const { data, error } = await client
+    .from("milk_inventory")
+    .select("id, liters_remaining, is_available, milk_quality, animal:animals!inner(livestock_type, farm_id)")
+    .eq("animal.farm_id", farmId)
+    .eq("is_available", true)
+    .gte("liters_remaining", 0.05);
+
+  if (error) {
+    console.error("[Financial Report] Failed to fetch milk inventory:", error);
+  }
+  console.log("[Financial Report] Fetched milk inventory:", data?.length || 0);
+  return data || [];
+}
+
+async function fetchMilkPrices(farmId: string): Promise<Record<string, number>> {
+  const client = supabase as any;
+  const { data, error } = await client
+    .from("milking_records")
+    .select("price_per_liter, created_at, animal:animals!inner(farm_id, livestock_type)")
+    .eq("animal.farm_id", farmId)
+    .eq("is_sold", true)
+    .not("price_per_liter", "is", null)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[Financial Report] Failed to fetch milk prices:", error);
+    return { cattle: 30, goat: 45, carabao: 35, sheep: 50 };
+  }
+
+  const priceMap: Record<string, number> = {};
+  const seen = new Set<string>();
+  for (const record of data || []) {
+    const type = (record.animal as any)?.livestock_type;
+    if (type && !seen.has(type)) {
+      priceMap[type] = Number(record.price_per_liter);
+      seen.add(type);
+    }
+  }
+
+  return {
+    cattle: priceMap.cattle ?? 30,
+    goat: priceMap.goat ?? 45,
+    carabao: priceMap.carabao ?? 35,
+    sheep: priceMap.sheep ?? 50,
+    ...priceMap,
+  };
+}
+
 // Data processing functions
 function processFarmProfile(farm: any, animals: any[]): FarmProfile {
   // Animals are now pre-filtered for active (exit_date IS NULL) in fetchAnimalsData
@@ -615,11 +747,11 @@ function processProductionMetrics(
   };
 }
 
-function processCostStructure(expenses: any[]): CostStructure {
+function processAccrualCostStructure(expenses: any[], feedingRecords: any[]): AccrualCostStructure {
   // Separate operational and capital expenses
   const operational = expenses.filter((e) => e.allocation_type !== "Personal");
-  const capital = expenses.filter((e) => 
-    e.category === "Equipment & Machinery" || 
+  const capital = expenses.filter((e) =>
+    e.category === "Equipment & Machinery" ||
     e.category === "Infrastructure" ||
     e.category === "Land & Buildings"
   );
@@ -631,13 +763,39 @@ function processCostStructure(expenses: any[]): CostStructure {
     categoryTotals[category] = (categoryTotals[category] || 0) + Number(e.amount);
   });
 
-  const totalOperational = Object.values(categoryTotals).reduce((sum, v) => sum + v, 0);
+  // Accrual feed consumption cost from feeding_records
+  const feedConsumedAmount = feedingRecords.reduce(
+    (sum: number, r: any) => sum + ((r.kilograms || 0) * (r.cost_per_kg_at_time || 0)),
+    0
+  );
+  const feedPurchasedAmount = categoryTotals["Feed & Supplements"] || 0;
+
+  // Determine basis and substitute
+  let feedCostBasis: 'accrual' | 'cash';
+  let feedConsumptionNote: string | null = null;
+
+  if (feedingRecords.length > 0) {
+    feedCostBasis = 'accrual';
+    delete categoryTotals["Feed & Supplements"];
+    if (feedConsumedAmount > 0) {
+      categoryTotals["Feed Consumed (Accrual)"] = feedConsumedAmount;
+    }
+  } else if (feedPurchasedAmount > 0) {
+    feedCostBasis = 'cash';
+    feedConsumptionNote =
+      "Feed costs shown on cash basis (purchase date). " +
+      "No feeding records available for accrual calculation.";
+  } else {
+    feedCostBasis = 'accrual';
+  }
+
+  const accrualTotalOperational = Object.values(categoryTotals).reduce((sum, v) => sum + v, 0);
 
   const operationalCosts: CostBreakdown[] = Object.entries(categoryTotals)
     .map(([category, amount]) => ({
       category,
       amount,
-      percentage: totalOperational > 0 ? (amount / totalOperational) * 100 : 0,
+      percentage: accrualTotalOperational > 0 ? (amount / accrualTotalOperational) * 100 : 0,
     }))
     .sort((a, b) => b.amount - a.amount);
 
@@ -646,14 +804,93 @@ function processCostStructure(expenses: any[]): CostStructure {
     amount: Number(e.amount),
     date: e.expense_date,
   }));
-
   const totalCapital = capitalExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   return {
     operationalCosts,
-    totalOperational,
+    totalOperational: accrualTotalOperational,
     capitalExpenses,
     totalCapital,
+    feedCostBasis,
+    feedConsumedAmount,
+    feedPurchasedAmount,
+    accrualTotalOperational,
+    feedConsumptionNote,
+  };
+}
+
+function processCurrentAssets(
+  feedInventory: any[],
+  milkInventory: any[],
+  milkPrices: Record<string, number>
+): CurrentAssets {
+  // Feed inventory grouped by category
+  const feedByCategory: Record<string, { kg: number; value: number }> = {};
+  feedInventory.forEach((item: any) => {
+    const cat = item.category || "uncategorized";
+    if (!feedByCategory[cat]) {
+      feedByCategory[cat] = { kg: 0, value: 0 };
+    }
+    feedByCategory[cat].kg += Number(item.quantity_kg) || 0;
+    feedByCategory[cat].value += (Number(item.quantity_kg) || 0) * (Number(item.cost_per_unit) || 0);
+  });
+
+  const feedAssets: FeedInventoryAsset[] = Object.entries(feedByCategory)
+    .map(([category, data]) => ({
+      category,
+      quantityKg: data.kg,
+      valuePhp: data.value,
+    }))
+    .sort((a, b) => b.valuePhp - a.valuePhp);
+
+  const feedInventoryTotal = feedAssets.reduce((sum, a) => sum + a.valuePhp, 0);
+
+  // Milk inventory — separate good vs rejected
+  const goodMilk = milkInventory.filter((m: any) => m.milk_quality === "good");
+  const rejectedMilk = milkInventory.filter((m: any) => m.milk_quality === "rejected");
+
+  // Good milk valued at species-specific prices
+  const goodBySpecies: Record<string, number> = {};
+  goodMilk.forEach((m: any) => {
+    const species = (m.animal as any)?.livestock_type || "cattle";
+    goodBySpecies[species] = (goodBySpecies[species] || 0) + (Number(m.liters_remaining) || 0);
+  });
+
+  const goodSpeciesBreakdown = Object.entries(goodBySpecies).map(([species, liters]) => ({
+    species,
+    liters,
+    pricePerLiter: milkPrices[species] || 30,
+    value: liters * (milkPrices[species] || 30),
+  }));
+
+  const goodTotalLiters = goodSpeciesBreakdown.reduce((sum, s) => sum + s.liters, 0);
+  const goodTotalValue = goodSpeciesBreakdown.reduce((sum, s) => sum + s.value, 0);
+
+  const milkInventoryGood: MilkInventoryAsset = {
+    quality: "good",
+    litersRemaining: goodTotalLiters,
+    valuePhp: goodTotalValue,
+    speciesBreakdown: goodSpeciesBreakdown,
+  };
+
+  // Rejected milk valued at zero
+  const rejectedTotalLiters = rejectedMilk.reduce(
+    (sum: number, m: any) => sum + (Number(m.liters_remaining) || 0), 0
+  );
+
+  const milkInventoryRejected: MilkInventoryAsset = {
+    quality: "rejected",
+    litersRemaining: rejectedTotalLiters,
+    valuePhp: 0,
+    speciesBreakdown: [],
+  };
+
+  return {
+    feedInventory: feedAssets,
+    feedInventoryTotal,
+    milkInventoryGood,
+    milkInventoryRejected,
+    totalCurrentAssets: feedInventoryTotal + goodTotalValue,
   };
 }
 
@@ -738,7 +975,10 @@ function assessDataCompleteness(
   milking: any[],
   expenses: any[],
   revenues: any[],
-  periodMonths: number
+  periodMonths: number,
+  feedingRecords: any[],
+  feedInventory: any[],
+  milkInventory: any[]
 ): DataCompleteness {
   const missingItems: string[] = [];
 
@@ -755,7 +995,7 @@ function assessDataCompleteness(
   if (!hasAnimalInventory) missingItems.push("Animal inventory");
 
   // 4. Weight records check - considers ALL weight sources (weight_records + animal fields)
-  const animalsWithWeight = animals.filter(a => 
+  const animalsWithWeight = animals.filter(a =>
     getAnimalEffectiveWeight(a, weights) !== null
   ).length;
   const hasWeightRecords = animals.length > 0 && animalsWithWeight > 0;
@@ -798,13 +1038,32 @@ function assessDataCompleteness(
     missingItems.push(`Bank info fields (${bankFieldsComplete}/4 complete)`);
   }
 
+  // 9. Feeding records check (for accrual cost accuracy)
+  const FEEDING_THRESHOLD = 5;
+  const hasFeedingRecords = feedingRecords.length >= FEEDING_THRESHOLD;
+  if (!hasFeedingRecords) {
+    missingItems.push(`Feeding records (${feedingRecords.length}/${FEEDING_THRESHOLD} minimum for accrual costs)`);
+  }
+
+  // 10. Feed inventory check
+  const hasFeedInventory = feedInventory.length > 0;
+  if (!hasFeedInventory) {
+    missingItems.push("Feed inventory data");
+  }
+
+  // 11. Milk inventory check
+  const hasMilkInventory = milkInventory.length > 0;
+  if (!hasMilkInventory) {
+    missingItems.push("Milk inventory data");
+  }
+
   // Calculate months of data for display
   const expenseDates = expenses.map((e) => new Date(e.expense_date));
   const revenueDates = revenues.map((r) => new Date(r.transaction_date));
-  
+
   const oldestExpense = expenseDates.length > 0 ? Math.min(...expenseDates.map((d) => d.getTime())) : Date.now();
   const oldestRevenue = revenueDates.length > 0 ? Math.min(...revenueDates.map((d) => d.getTime())) : Date.now();
-  
+
   const monthsOfExpenseData = Math.min(
     periodMonths,
     differenceInMonths(new Date(), new Date(oldestExpense)) + 1
@@ -814,7 +1073,7 @@ function assessDataCompleteness(
     differenceInMonths(new Date(), new Date(oldestRevenue)) + 1
   );
 
-  // Calculate completeness score (8 criteria aligned with Dashboard)
+  // Calculate completeness score (11 criteria)
   const checks = [
     hasGeoLocation,
     hasCompleteAddress,
@@ -824,8 +1083,11 @@ function assessDataCompleteness(
     hasExpenseTracking,
     hasRevenueDocumentation,
     hasBankInfo,
+    hasFeedingRecords,
+    hasFeedInventory,
+    hasMilkInventory,
   ];
-  
+
   const completenessScore = (checks.filter(Boolean).length / checks.length) * 100;
 
   console.log("[Financial Report] Data completeness assessment:", {
@@ -838,6 +1100,9 @@ function assessDataCompleteness(
     hasExpenseTracking: `${expenses.length} records`,
     hasRevenueDocumentation: `${revenues.length} records`,
     hasBankInfo: `${bankFieldsComplete}/4`,
+    hasFeedingRecords: `${feedingRecords.length} records`,
+    hasFeedInventory: `${feedInventory.length} items`,
+    hasMilkInventory: `${milkInventory.length} items`,
     completenessScore: `${completenessScore.toFixed(0)}%`,
     missingItems,
   });
@@ -849,6 +1114,9 @@ function assessDataCompleteness(
     hasProductionRecords,
     hasExpenseTracking,
     hasRevenueDocumentation,
+    hasFeedingRecords,
+    hasFeedInventory,
+    hasMilkInventory,
     monthsOfExpenseData,
     monthsOfRevenueData,
     missingItems,
