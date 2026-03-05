@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-03-05 — Finance Audit Gaps 4, 6, 7, 9, 10
+
+### Added
+- **RevenueList component (Gap 4)** — Full CRUD for revenues mirroring ExpenseList. Columns: Date, Source (with icon), Notes, Amount. System-generated revenues (milk/animal sales) show "Auto" badge and are edit/delete protected.
+- **`useUpdateRevenue()` and `useDeleteRevenue()` hooks** — Soft delete (`is_deleted = true`), cache invalidation via CacheManager.
+- **Edit mode in AddRevenueDialog** — Pre-populates form, conditionally calls update vs add, source field disabled for system-generated revenues.
+- **Offline finance support (Gap 9)** — IndexedDB `expensesCache` + `revenuesCache` stores (DB version 7→8). Cache-first hooks: offline serves from IndexedDB with client-side date filtering; online fetches from Supabase and updates cache.
+- **Offline indicator** — "Offline — showing saved data" banner with WifiOff icon in both ExpenseList and RevenueList when offline.
+- **Date-range pagination (Gap 10)** — `useExpenses` and `useRevenues` accept optional `dateRange` for server-side `.gte()/.lte()` filtering. FinanceTab threads its date range to both lists.
+
+### Changed
+- **Currency formatting SSOT (Gap 6)** — Eliminated 11 local `formatCurrency` functions and 3 local `formatCompact` functions across 14+ files. All now import from `src/lib/currency.ts` (`formatPHP`, `formatPHPCompact`). Philippine Peso is the single currency for the entire app.
+- **DateRange consolidation (Gap 7)** — Removed 10 duplicate `interface DateRange` declarations across components and hooks. All now import from `FinanceDateRangePicker.tsx`.
+- **ExpenseList** now uses `formatPHP()` instead of inline `₱` + `toLocaleString()`.
+
+### Files Modified
+- `src/lib/dataCache.ts` — DB version 8, new `expensesCache`/`revenuesCache` stores, 6 new cache functions
+- `src/lib/cacheManager.ts` — Registered `clearExpensesCache`/`clearRevenuesCache` in switch
+- `src/hooks/useExpenses.ts` — Cache-first pattern, dateRange param
+- `src/hooks/useRevenues.ts` — Cache-first pattern, dateRange param, `useUpdateRevenue`, `useDeleteRevenue`
+- `src/components/finance/RevenueList.tsx` — NEW: Full CRUD list with offline indicator
+- `src/components/finance/ExpenseList.tsx` — dateRange prop, offline indicator, formatPHP
+- `src/components/finance/AddRevenueDialog.tsx` — Edit mode support
+- `src/components/FinanceTab.tsx` — RevenueList integration, dateRange threading
+- 14 files — Currency formatting consolidated to `formatPHP`/`formatPHPCompact`
+- 10 files — DateRange import consolidated to FinanceDateRangePicker
+
 ## 2026-03-05 — Gap 5: Accrual-Basis Financial Report with Inventory
 
 ### Changed

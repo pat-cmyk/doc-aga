@@ -162,6 +162,8 @@ queryFn: async () => {
 | `usePendingActivities` | A (MANAGED — `pending-activity` type, conditional) | — |
 | `useFarmerFeedback` | A (MANAGED — `farmer-feedback` type) | — |
 | `useAnimalCostAggregates` | A (MANAGED — cache-first) | `animalCostCache` |
+| `useExpenses` | A (MANAGED — `expense` type; cache-first + date-range) | `expensesCache` |
+| `useRevenues` | A (MANAGED — `revenue` type; cache-first + date-range) | `revenuesCache` |
 | `useProfitability` | A (PARAMETERIZED — date-range dependent) | — |
 | `useFinancialHealth` | A (PARAMETERIZED — date-range dependent) | — |
 | `useProducts` | MANUAL — Marketplace-scoped | — |
