@@ -52,16 +52,16 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       }
 
       // Check if any milking records exist
-      const { count: milkCount } = await supabase
-        .from("milking_records")
+      const { count: milkCount } = await (supabase
+        .from("milking_records") as any)
         .select("id", { count: "exact", head: true })
         .eq("farm_id", farmId)
         .limit(1);
       setHasMilkingRecords((milkCount ?? 0) > 0);
 
       // Check if any milk sale revenue exists
-      const { count: saleCount } = await supabase
-        .from("farm_revenues")
+      const { count: saleCount } = await (supabase
+        .from("farm_revenues") as any)
         .select("id", { count: "exact", head: true })
         .eq("farm_id", farmId)
         .eq("source", REVENUE_SOURCE_KEYS.MILK_SALE)
