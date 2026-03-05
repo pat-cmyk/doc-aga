@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-05 — Government Dashboard Chart Upgrades & Manual
+
+### Changed
+- **SentimentTrendChart:** Converted from stacked bar chart to stacked area chart with SVG gradient fills — smoother, more polished look matching farmer dashboard style.
+- **GovTrendCharts:** Converted Farm Growth and Health Events from line charts to area charts with gradient fills. Added SVG gradients to Livestock Composition stacked areas.
+- **MilkProductionBySpeciesChart:** Added SVG gradient definitions for Cattle, Goat, Carabao area fills.
+- **BreedingSuccessChart:** Added horizontal gradient fills to bar chart cells.
+- **MortalityAnalyticsCard:** Converted flat pie to donut chart with softer cell styling and background stroke separation.
+- **BCSDistributionChart:** Refined donut chart with increased padding angle and cell opacity.
+
+### Added
+- **Government Dashboard User Manual** (`docs/government-dashboard-manual.md`) — Comprehensive guide for government employees covering all 3 tabs, metric definitions, computation methods, filter usage, glossary, and FAQ.
+
 ## 2026-03-05 — Government Dashboard Audit (8 gaps)
 
 ### Fixed
