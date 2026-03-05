@@ -18,11 +18,11 @@ export const BreedingSuccessChart = ({
   isLoading,
 }: BreedingSuccessChartProps) => {
   const data = [
-    { name: "Cattle", rate: cattleSuccessRate, color: "#3b82f6" },
-    { name: "Goat", rate: goatSuccessRate, color: "#8b5cf6" },
-    { name: "Carabao", rate: carabaoSuccessRate, color: "#f59e0b" },
-    { name: "Sheep", rate: sheepSuccessRate, color: "#10b981" },
-  ].filter(item => item.rate > 0); // Only show types with data
+    { name: "Cattle", rate: cattleSuccessRate, color: "#3b82f6", gradientId: "breedCattle" },
+    { name: "Goat", rate: goatSuccessRate, color: "#8b5cf6", gradientId: "breedGoat" },
+    { name: "Carabao", rate: carabaoSuccessRate, color: "#f59e0b", gradientId: "breedCarabao" },
+    { name: "Sheep", rate: sheepSuccessRate, color: "#10b981", gradientId: "breedSheep" },
+  ].filter(item => item.rate > 0);
 
   if (isLoading) {
     return (
@@ -65,7 +65,15 @@ export const BreedingSuccessChart = ({
       <CardContent>
         <ResponsiveContainer width="100%" height={isMobile ? 240 : 300}>
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <defs>
+              {data.map((entry) => (
+                <linearGradient key={entry.gradientId} id={entry.gradientId} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="5%" stopColor={entry.color} stopOpacity={0.9} />
+                  <stop offset="95%" stopColor={entry.color} stopOpacity={0.5} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" strokeOpacity={0.5} />
             <XAxis 
               type="number" 
               domain={[0, 100]} 
@@ -88,7 +96,7 @@ export const BreedingSuccessChart = ({
             />
             <Bar dataKey="rate" radius={[0, 8, 8, 0]}>
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
+                <Cell key={`cell-${index}`} fill={`url(#${entry.gradientId})`} />
               ))}
             </Bar>
           </BarChart>

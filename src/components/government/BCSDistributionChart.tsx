@@ -89,11 +89,13 @@ export function BCSDistributionChart({ stats, isLoading }: BCSDistributionChartP
                   cy="50%"
                   innerRadius={isMobile ? 35 : 40}
                   outerRadius={isMobile ? 60 : 70}
-                  paddingAngle={2}
+                  paddingAngle={3}
                   dataKey="value"
+                  strokeWidth={2}
+                  stroke="hsl(var(--background))"
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.85} />
                   ))}
                 </Pie>
                 <Tooltip 

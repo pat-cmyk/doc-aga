@@ -174,7 +174,21 @@ export const MilkProductionBySpeciesChart = ({
         <CardContent>
           <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <defs>
+                <linearGradient id="milkCattleGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="milkGoatGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="milkCarabaoGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" strokeOpacity={0.5} />
               <XAxis
                 dataKey="date"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize }}
@@ -213,24 +227,24 @@ export const MilkProductionBySpeciesChart = ({
                 dataKey="Cattle"
                 stackId="1"
                 stroke="hsl(var(--chart-1))"
-                fill="hsl(var(--chart-1))"
-                fillOpacity={0.6}
+                fill="url(#milkCattleGradient)"
+                strokeWidth={1.5}
               />
               <Area
                 type="monotone"
                 dataKey="Goat"
                 stackId="1"
                 stroke="hsl(var(--chart-2))"
-                fill="hsl(var(--chart-2))"
-                fillOpacity={0.6}
+                fill="url(#milkGoatGradient)"
+                strokeWidth={1.5}
               />
               <Area
                 type="monotone"
                 dataKey="Carabao"
                 stackId="1"
                 stroke="hsl(var(--chart-3))"
-                fill="hsl(var(--chart-3))"
-                fillOpacity={0.6}
+                fill="url(#milkCarabaoGradient)"
+                strokeWidth={1.5}
               />
             </AreaChart>
           </ResponsiveContainer>

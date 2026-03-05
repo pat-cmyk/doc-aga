@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGovernmentFeedback } from "@/hooks/useGovernmentFeedback";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { TrendingUp } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
@@ -56,20 +56,56 @@ export const SentimentTrendChart = ({ dateFrom, dateTo, region, dataCategory }: 
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={isMobile ? 280 : 320}>
-          <BarChart data={trendData} margin={margin}>
-            <CartesianGrid strokeDasharray="3 3" />
+          <AreaChart data={trendData} margin={margin}>
+            <defs>
+              <linearGradient id="sentimentUrgent" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="sentimentNegative" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="sentimentNeutral" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#64748b" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#64748b" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="sentimentPositive" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" strokeOpacity={0.5} />
             <XAxis dataKey="date" tick={{ fontSize }} {...xAxisProps} />
             <YAxis tick={{ fontSize }} />
-            <Tooltip />
-            <Legend 
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const total = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+                  return (
+                    <div className="rounded-lg border bg-background p-3 shadow-lg">
+                      <p className="font-semibold mb-2">{payload[0]?.payload?.date}</p>
+                      <p className="text-sm font-medium mb-1">Total: {total}</p>
+                      {payload.map((entry: any, index: number) => (
+                        <p key={index} className="text-sm" style={{ color: entry.color }}>
+                          {entry.name}: {entry.value}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Legend
               wrapperStyle={legendProps.wrapperStyle}
               iconSize={legendProps.iconSize}
             />
-            <Bar dataKey="urgent" fill="#ef4444" name="Urgent" stackId="a" />
-            <Bar dataKey="negative" fill="#f97316" name="Negative" stackId="a" />
-            <Bar dataKey="neutral" fill="#64748b" name="Neutral" stackId="a" />
-            <Bar dataKey="positive" fill="#10b981" name="Positive" stackId="a" />
-          </BarChart>
+            <Area type="monotone" dataKey="urgent" fill="url(#sentimentUrgent)" stroke="#ef4444" strokeWidth={2} name="Urgent" stackId="a" />
+            <Area type="monotone" dataKey="negative" fill="url(#sentimentNegative)" stroke="#f97316" strokeWidth={2} name="Negative" stackId="a" />
+            <Area type="monotone" dataKey="neutral" fill="url(#sentimentNeutral)" stroke="#64748b" strokeWidth={2} name="Neutral" stackId="a" />
+            <Area type="monotone" dataKey="positive" fill="url(#sentimentPositive)" stroke="#10b981" strokeWidth={2} name="Positive" stackId="a" />
+          </AreaChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

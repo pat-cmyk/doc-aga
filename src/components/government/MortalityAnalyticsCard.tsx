@@ -90,17 +90,20 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
                   data={exitData}
                   cx="50%"
                   cy="50%"
+                  innerRadius={30}
                   outerRadius={55}
-                  paddingAngle={2}
+                  paddingAngle={3}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
+                  strokeWidth={2}
+                  stroke="hsl(var(--background))"
                 >
                   {exitData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.85} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [`${value} animals`, '']}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
