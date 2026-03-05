@@ -213,7 +213,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
         "Avg Daily Production/Animal",
         `${report.productionMetrics.avgDailyProductionPerAnimal.toFixed(1)} L`,
         "15-20 L",
-        report.productionMetrics.avgDailyProductionPerAnimal >= 15 ? "✓ Within Range" : "Below Target",
+        report.productionMetrics.avgDailyProductionPerAnimal >= 15 ? "OK - Within Range" : "Below Target",
       ],
       [
         "Average Daily Gain",
@@ -222,14 +222,14 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
           : "N/A",
         "0.6-0.8 kg",
         report.productionMetrics.avgDailyGain && report.productionMetrics.avgDailyGain >= 0.6 
-          ? "✓ Acceptable" 
+          ? "OK - Acceptable" 
           : "Monitor",
       ],
       [
         "Mortality Rate (Period)",
         `${report.productionMetrics.mortalityRate.toFixed(1)}%`,
         "< 3%",
-        report.productionMetrics.mortalityRate < 3 ? "✓ Low Risk" : "⚠ Review",
+        report.productionMetrics.mortalityRate < 3 ? "OK - Low Risk" : "ALERT - Review",
       ],
     ],
     theme: "striped",
@@ -354,7 +354,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       [
         "Return on Investment (ROI)",
         `${report.financialRatios.roi.toFixed(1)}%`,
-        report.financialRatios.roi >= 15 ? "✓ ROI of 15-25% is healthy for livestock" : "Below typical range (15-25%)",
+        report.financialRatios.roi >= 15 ? "GOOD - ROI of 15-25% is healthy for livestock" : "Below typical range (15-25%)",
       ],
       [
         "Breakeven Price (per liter)",
@@ -376,7 +376,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
           ? `${report.financialRatios.priceMargin.toFixed(1)}%`
           : "N/A",
         report.financialRatios.priceMargin && report.financialRatios.priceMargin > 20 
-          ? "✓ Healthy margin" 
+          ? "GOOD - Healthy margin" 
           : "Monitor pricing",
       ],
     ],
@@ -390,15 +390,15 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
   addSectionTitle("8. SUPPORTING EVIDENCE CHECKLIST");
 
   const checklistItems = [
-    [report.dataCompleteness.hasGeoLocation ? "✓" : "✗", "Farm geo-location recorded"],
-    [report.dataCompleteness.hasAnimalInventory ? "✓" : "✗", "Animal inventory with details"],
-    [report.dataCompleteness.hasWeightRecords ? "✓" : "✗", "Weight records available"],
-    [report.dataCompleteness.hasProductionRecords ? "✓" : "✗", `Production records (${report.productionMetrics.monthsOfData} months of data)`],
-    [report.dataCompleteness.hasExpenseTracking ? "✓" : "✗", `Expense tracking (${report.dataCompleteness.monthsOfExpenseData} months of data)`],
-    [report.dataCompleteness.hasRevenueDocumentation ? "✓" : "✗", `Revenue documentation (${report.dataCompleteness.monthsOfRevenueData} months of data)`],
-    [report.dataCompleteness.hasFeedingRecords ? "✓" : "✗", "Feeding records (for accrual cost basis)"],
-    [report.dataCompleteness.hasFeedInventory ? "✓" : "✗", "Feed inventory tracked"],
-    [report.dataCompleteness.hasMilkInventory ? "✓" : "✗", "Milk inventory tracked"],
+    [report.dataCompleteness.hasGeoLocation ? "YES" : "NO", "Farm geo-location recorded"],
+    [report.dataCompleteness.hasAnimalInventory ? "YES" : "NO", "Animal inventory with details"],
+    [report.dataCompleteness.hasWeightRecords ? "YES" : "NO", "Weight records available"],
+    [report.dataCompleteness.hasProductionRecords ? "YES" : "NO", `Production records (${report.productionMetrics.monthsOfData} months of data)`],
+    [report.dataCompleteness.hasExpenseTracking ? "YES" : "NO", `Expense tracking (${report.dataCompleteness.monthsOfExpenseData} months of data)`],
+    [report.dataCompleteness.hasRevenueDocumentation ? "YES" : "NO", `Revenue documentation (${report.dataCompleteness.monthsOfRevenueData} months of data)`],
+    [report.dataCompleteness.hasFeedingRecords ? "YES" : "NO", "Feeding records (for accrual cost basis)"],
+    [report.dataCompleteness.hasFeedInventory ? "YES" : "NO", "Feed inventory tracked"],
+    [report.dataCompleteness.hasMilkInventory ? "YES" : "NO", "Milk inventory tracked"],
   ];
 
   autoTable(doc, {
@@ -407,8 +407,14 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     theme: "plain",
     styles: { fontSize: 9 },
     columnStyles: {
-      0: { cellWidth: 10, halign: "center" },
+      0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
       1: { cellWidth: "auto" },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === "body" && data.column.index === 0) {
+        const isYes = data.cell.raw === "YES";
+        data.cell.styles.textColor = isYes ? [76, 175, 80] : [244, 67, 54];
+      }
     },
   });
   yPos = (doc as any).lastAutoTable.finalY + 5;
