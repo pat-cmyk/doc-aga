@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, WifiOff } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpenses, useDeleteExpense, type Expense } from "@/hooks/useExpenses";
+import { formatPHP } from "@/lib/currency";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
@@ -41,6 +43,7 @@ interface ExpenseListProps {
 export function ExpenseList({ farmId, canManage, dateRange }: ExpenseListProps) {
   const { data: expenses, isLoading } = useExpenses(farmId, dateRange);
   const deleteExpense = useDeleteExpense();
+  const isOnline = useOnlineStatus();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editExpense, setEditExpense] = useState<Expense | undefined>(undefined);
 
@@ -79,6 +82,12 @@ export function ExpenseList({ farmId, canManage, dateRange }: ExpenseListProps) 
 
   return (
     <>
+      {!isOnline && expenses && expenses.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-md mb-2">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          <span>Offline — showing saved data</span>
+        </div>
+      )}
       <Card>
         <Table>
           <TableHeader>
@@ -101,9 +110,7 @@ export function ExpenseList({ farmId, canManage, dateRange }: ExpenseListProps) 
                   {expense.description || "-"}
                 </TableCell>
                 <TableCell className="text-right font-semibold">
-                  ₱{Number(expense.amount).toLocaleString("en-PH", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatPHP(Number(expense.amount), true)}
                 </TableCell>
                 {canManage && (
                   <TableCell>

@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { showErrorToast } from "@/lib/errorHandling";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
+import { getCachedExpenses, updateExpensesCache } from "@/lib/dataCache";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { format } from "date-fns";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
@@ -33,9 +35,31 @@ interface AddExpenseData {
 }
 
 export function useExpenses(farmId: string, dateRange?: DateRange) {
+  const isOnline = useOnlineStatus();
+
   return useQuery({
     queryKey: ["expenses", farmId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     queryFn: async () => {
+      // 1. Try IndexedDB cache first
+      const cached = await getCachedExpenses(farmId);
+
+      // 2. If offline, serve from cache with client-side date filtering
+      if (!isOnline) {
+        if (cached) {
+          let items = cached.data as Expense[];
+          if (dateRange) {
+            const startStr = format(dateRange.start, "yyyy-MM-dd");
+            const endStr = format(dateRange.end, "yyyy-MM-dd");
+            items = items.filter(
+              (e) => e.expense_date >= startStr && e.expense_date <= endStr
+            );
+          }
+          return items;
+        }
+        return [] as Expense[];
+      }
+
+      // 3. Online: fetch from Supabase
       let query = supabase
         .from("farm_expenses")
         .select("*")
@@ -51,7 +75,15 @@ export function useExpenses(farmId: string, dateRange?: DateRange) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as Expense[];
+
+      const expenses = data as Expense[];
+
+      // 4. Update cache with unfiltered data (only when no date filter to avoid partial cache)
+      if (!dateRange) {
+        await updateExpensesCache(farmId, expenses);
+      }
+
+      return expenses;
     },
     enabled: !!farmId,
   });

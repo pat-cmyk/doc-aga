@@ -456,6 +456,24 @@ export interface BarnAssignmentsCacheEntry {
   syncStatus: CacheSyncStatus;
 }
 
+// ============= EXPENSES CACHE =============
+
+export interface ExpensesCacheEntry {
+  farmId: string;
+  data: any[]; // Expense[] from useExpenses
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
+// ============= REVENUES CACHE =============
+
+export interface RevenuesCacheEntry {
+  farmId: string;
+  data: any[]; // Revenue[] from useRevenues
+  lastUpdated: number;
+  syncStatus: CacheSyncStatus;
+}
+
 interface DataCacheDB extends DBSchema {
   animals: {
     key: string;
@@ -513,6 +531,14 @@ interface DataCacheDB extends DBSchema {
     key: string;
     value: BarnAssignmentsCacheEntry;
   };
+  expensesCache: {
+    key: string;
+    value: ExpensesCacheEntry;
+  };
+  revenuesCache: {
+    key: string;
+    value: RevenuesCacheEntry;
+  };
 }
 
 // Cache expiration times (in milliseconds)
@@ -530,6 +556,8 @@ const CACHE_TTL = {
   animalCost: 15 * 60 * 1000, // 15 minutes - stable aggregate data
   barns: 30 * 60 * 1000, // 30 minutes - rarely changes
   farmSettings: 60 * 60 * 1000, // 60 minutes - very stable
+  expenses: 30 * 60 * 1000, // 30 minutes - financial data, moderate freshness
+  revenues: 30 * 60 * 1000, // 30 minutes - financial data, moderate freshness
 };
 
 // OFFLINE-FIRST: Grace period - return stale cache even if expired when offline
@@ -646,7 +674,7 @@ let dbInstance: IDBPDatabase<DataCacheDB> | null = null;
 async function getDB() {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 7, {
+  dbInstance = await openDB<DataCacheDB>('dataCacheDB', 8, {
     upgrade(db, oldVersion) {
       // Version 1 stores
       if (!db.objectStoreNames.contains('animals')) {
@@ -707,6 +735,15 @@ async function getDB() {
       if (oldVersion < 7) {
         if (!db.objectStoreNames.contains('barnAssignmentsCache')) {
           db.createObjectStore('barnAssignmentsCache', { keyPath: 'farmId' });
+        }
+      }
+      // Version 8: Add expensesCache and revenuesCache for offline finance
+      if (oldVersion < 8) {
+        if (!db.objectStoreNames.contains('expensesCache')) {
+          db.createObjectStore('expensesCache', { keyPath: 'farmId' });
+        }
+        if (!db.objectStoreNames.contains('revenuesCache')) {
+          db.createObjectStore('revenuesCache', { keyPath: 'farmId' });
         }
       }
     },
@@ -1707,6 +1744,8 @@ export async function clearAllCaches() {
       db.clear('records'),
       db.clear('feedInventory'),
       db.clear('farmData'),
+      db.clear('expensesCache'),
+      db.clear('revenuesCache'),
     ]);
     console.log('[DataCache] All caches cleared');
   } catch (error) {
@@ -3261,5 +3300,103 @@ export async function updateLocalAnimalBarn(
     });
   } catch (error) {
     console.error('[DataCache] Failed to update local animal barn:', error);
+  }
+}
+
+// ============= EXPENSES CACHE FUNCTIONS =============
+
+/**
+ * Get cached expenses for a farm (if within grace period)
+ */
+export async function getCachedExpenses(farmId: string): Promise<ExpensesCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('expensesCache', farmId);
+    if (!cached) return null;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading expenses cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Update the expenses cache for a farm
+ */
+export async function updateExpensesCache(farmId: string, data: any[]): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('expensesCache', {
+      farmId,
+      data,
+      lastUpdated: Date.now(),
+      syncStatus: 'synced' as CacheSyncStatus,
+    });
+    console.log('[DataCache] Expenses cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update expenses cache:', error);
+  }
+}
+
+/**
+ * Clear the expenses cache for a farm
+ */
+export async function clearExpensesCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('expensesCache', farmId);
+    console.log('[DataCache] Expenses cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear expenses cache:', error);
+  }
+}
+
+// ============= REVENUES CACHE FUNCTIONS =============
+
+/**
+ * Get cached revenues for a farm (if within grace period)
+ */
+export async function getCachedRevenues(farmId: string): Promise<RevenuesCacheEntry | null> {
+  try {
+    const db = await getDB();
+    const cached = await db.get('revenuesCache', farmId);
+    if (!cached) return null;
+    if (isCacheUsable(cached.lastUpdated)) return cached;
+    return null;
+  } catch (error) {
+    console.error('[DataCache] Error reading revenues cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Update the revenues cache for a farm
+ */
+export async function updateRevenuesCache(farmId: string, data: any[]): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('revenuesCache', {
+      farmId,
+      data,
+      lastUpdated: Date.now(),
+      syncStatus: 'synced' as CacheSyncStatus,
+    });
+    console.log('[DataCache] Revenues cache updated for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to update revenues cache:', error);
+  }
+}
+
+/**
+ * Clear the revenues cache for a farm
+ */
+export async function clearRevenuesCache(farmId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('revenuesCache', farmId);
+    console.log('[DataCache] Revenues cache cleared for farm:', farmId);
+  } catch (error) {
+    console.error('[DataCache] Failed to clear revenues cache:', error);
   }
 }

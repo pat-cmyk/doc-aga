@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
-import { 
-  clearMilkInventoryCache, 
+import {
+  clearMilkInventoryCache,
   clearDashboardCache,
   clearAnimalCache,
   clearUpcomingAlertsCache,
@@ -11,6 +11,8 @@ import {
   clearBarnsCache,
   clearFarmSettingsCache,
   clearBarnAssignmentsCache,
+  clearExpensesCache,
+  clearRevenuesCache,
 } from "./dataCache";
 
 /**
@@ -81,6 +83,12 @@ async function clearIndexedDBCache(cacheKey: string, farmId: string): Promise<vo
       break;
     case 'farm-settings':
       await clearFarmSettingsCache(farmId);
+      break;
+    case 'expenses':
+      await clearExpensesCache(farmId);
+      break;
+    case 'revenues':
+      await clearRevenuesCache(farmId);
       break;
     // React Query only caches (no IndexedDB equivalent)
     default:

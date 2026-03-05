@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, WifiOff } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRevenues, useDeleteRevenue, type Revenue } from "@/hooks/useRevenues";
 import { getRevenueSourceIcon } from "@/lib/revenueCategories";
 import { formatPHP } from "@/lib/currency";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { AddRevenueDialog } from "./AddRevenueDialog";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
@@ -44,6 +45,7 @@ interface RevenueListProps {
 export function RevenueList({ farmId, canManage, dateRange }: RevenueListProps) {
   const { data: revenues, isLoading } = useRevenues(farmId, dateRange);
   const deleteRevenue = useDeleteRevenue();
+  const isOnline = useOnlineStatus();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editRevenue, setEditRevenue] = useState<Revenue | undefined>(undefined);
 
@@ -85,6 +87,12 @@ export function RevenueList({ farmId, canManage, dateRange }: RevenueListProps) 
 
   return (
     <>
+      {!isOnline && revenues && revenues.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-md mb-2">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          <span>Offline — showing saved data</span>
+        </div>
+      )}
       <Card>
         <Table>
           <TableHeader>
