@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { showErrorToast } from "@/lib/errorHandling";
 import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { updateMilkPriceCache } from "@/lib/dataCache";
 
@@ -74,6 +76,70 @@ export function useAddRevenue() {
         queryClient.invalidateQueries({ queryKey: ["revenues", variables.farm_id] });
         queryClient.invalidateQueries({ queryKey: ["revenue-summary", variables.farm_id] });
       }
+      toast.success("Revenue added successfully");
+    },
+    onError: (error) => {
+      showErrorToast(error, "adding revenue");
+    },
+  });
+}
+
+export function useUpdateRevenue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<Revenue> & { id: string }) => {
+      const { data: revenue, error } = await supabase
+        .from("farm_revenues")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return revenue as Revenue;
+    },
+    onSuccess: async (data) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('revenue', data.farm_id);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["revenues", data.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["revenue-summary", data.farm_id] });
+        queryClient.invalidateQueries({ queryKey: ["profitability", data.farm_id] });
+      }
+      toast.success("Revenue updated successfully");
+    },
+    onError: (error) => {
+      showErrorToast(error, "updating revenue");
+    },
+  });
+}
+
+export function useDeleteRevenue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, farmId }: { id: string; farmId: string }) => {
+      const { error } = await supabase
+        .from("farm_revenues")
+        .update({ is_deleted: true })
+        .eq("id", id);
+
+      if (error) throw error;
+      return { id, farmId };
+    },
+    onSuccess: async (data) => {
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('revenue', data.farmId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["revenues", data.farmId] });
+        queryClient.invalidateQueries({ queryKey: ["revenue-summary", data.farmId] });
+        queryClient.invalidateQueries({ queryKey: ["profitability", data.farmId] });
+      }
+      toast.success("Revenue deleted successfully");
+    },
+    onError: (error) => {
+      showErrorToast(error, "deleting revenue");
     },
   });
 }

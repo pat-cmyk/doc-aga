@@ -5,6 +5,7 @@ import { MobileQuickActions } from "@/components/finance/MobileQuickActions";
 import { ContextualInsights } from "@/components/finance/ContextualInsights";
 import { RevenueExpenseComparison } from "@/components/finance/RevenueExpenseComparison";
 import { ExpenseList } from "@/components/finance/ExpenseList";
+import { RevenueList } from "@/components/finance/RevenueList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
 import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
 import { AnimalCostAnalysis } from "@/components/finance/AnimalCostAnalysis";
@@ -27,6 +28,7 @@ interface FinanceTabProps {
 
 export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [revenuesOpen, setRevenuesOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(() => getPresetRange("this_month"));
 
@@ -85,7 +87,21 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Recent Transactions */}
+        {/* Recent Revenues */}
+        <Collapsible open={revenuesOpen} onOpenChange={setRevenuesOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors border border-border">
+            <span className="font-semibold text-sm">Recent Revenues</span>
+            <ChevronDown className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              revenuesOpen && "rotate-180"
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <RevenueList farmId={farmId} canManage={canManage} />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Recent Expenses */}
         <Collapsible open={transactionsOpen} onOpenChange={setTransactionsOpen}>
           <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors border border-border">
             <span className="font-semibold text-sm">Recent Expenses</span>

@@ -33,7 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useAddRevenue } from "@/hooks/useRevenues";
+import { useAddRevenue, useUpdateRevenue, type Revenue } from "@/hooks/useRevenues";
 import { REVENUE_SOURCES, getRevenueSourceIcon } from "@/lib/revenueCategories";
 
 const revenueSchema = z.object({
@@ -56,51 +56,68 @@ type RevenueFormData = z.infer<typeof revenueSchema>;
 interface AddRevenueDialogProps {
   farmId: string;
   defaultSource?: string;
+  revenue?: Revenue;
   trigger?: React.ReactNode;
   onSuccess?: () => void;
 }
 
-export function AddRevenueDialog({ 
-  farmId, 
+export function AddRevenueDialog({
+  farmId,
   defaultSource,
-  trigger, 
-  onSuccess 
+  revenue,
+  trigger,
+  onSuccess
 }: AddRevenueDialogProps) {
-  const [open, setOpen] = useState(false);
+  const isEditing = !!revenue;
+  const isSystemGenerated = !!(revenue?.linked_milk_log_id || revenue?.linked_animal_id);
+  const [open, setOpen] = useState(isEditing);
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const addRevenue = useAddRevenue();
+  const updateRevenue = useUpdateRevenue();
 
   const form = useForm<RevenueFormData>({
     resolver: zodResolver(revenueSchema),
     defaultValues: {
-      source: defaultSource || "",
-      amount: "",
-      transaction_date: new Date(),
-      notes: "",
+      source: revenue?.source || defaultSource || "",
+      amount: revenue?.amount?.toString() || "",
+      transaction_date: revenue ? new Date(revenue.transaction_date) : new Date(),
+      notes: revenue?.notes || "",
     },
   });
 
-  // Reset form when dialog opens with new default source
+  // Reset form when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       form.reset({
-        source: defaultSource || "",
-        amount: "",
-        transaction_date: new Date(),
-        notes: "",
+        source: revenue?.source || defaultSource || "",
+        amount: revenue?.amount?.toString() || "",
+        transaction_date: revenue ? new Date(revenue.transaction_date) : new Date(),
+        notes: revenue?.notes || "",
       });
+    } else if (isEditing) {
+      onSuccess?.();
     }
     setOpen(newOpen);
   };
 
   const onSubmit = async (data: RevenueFormData) => {
-    await addRevenue.mutateAsync({
-      farm_id: farmId,
-      source: data.source,
-      amount: Number(data.amount),
-      transaction_date: format(data.transaction_date, "yyyy-MM-dd"),
-      notes: data.notes || undefined,
-    });
+    if (isEditing && revenue) {
+      await updateRevenue.mutateAsync({
+        id: revenue.id,
+        source: data.source,
+        amount: Number(data.amount),
+        transaction_date: format(data.transaction_date, "yyyy-MM-dd"),
+        notes: data.notes || null,
+      });
+    } else {
+      await addRevenue.mutateAsync({
+        farm_id: farmId,
+        source: data.source,
+        amount: Number(data.amount),
+        transaction_date: format(data.transaction_date, "yyyy-MM-dd"),
+        notes: data.notes || undefined,
+      });
+    }
 
     form.reset();
     setOpen(false);
@@ -121,10 +138,10 @@ export function AddRevenueDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5 text-primary" />
-            Add Revenue
+            {isEditing ? "Edit Revenue" : "Add Revenue"}
           </DialogTitle>
           <DialogDescription>
-            Record income from farm activities
+            {isEditing ? "Update revenue details" : "Record income from farm activities"}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -135,7 +152,11 @@ export function AddRevenueDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Revenue Source</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={isSystemGenerated}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select source" />
@@ -152,6 +173,11 @@ export function AddRevenueDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  {isSystemGenerated && (
+                    <p className="text-xs text-muted-foreground">
+                      Source cannot be changed for system-generated revenue
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -247,8 +273,8 @@ export function AddRevenueDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={addRevenue.isPending}>
-                Add Revenue
+              <Button type="submit" disabled={addRevenue.isPending || updateRevenue.isPending}>
+                {isEditing ? "Update Revenue" : "Add Revenue"}
               </Button>
             </div>
           </form>
