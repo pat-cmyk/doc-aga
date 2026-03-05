@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, Minus, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useRevenueExpenseComparison } from "@/hooks/useRevenueExpenseComparison";
 import { cn } from "@/lib/utils";
+import { formatPHPCompact } from "@/lib/currency";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
@@ -10,15 +11,6 @@ import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 interface RevenueExpenseComparisonProps {
   farmId: string;
   dateRange?: DateRange;
-}
-
-function formatCompact(value: number): string {
-  if (value >= 1000000) {
-    return `₱${(value / 1000000).toFixed(1)}M`;
-  } else if (value >= 1000) {
-    return `₱${(value / 1000).toFixed(0)}K`;
-  }
-  return `₱${value.toFixed(0)}`;
 }
 
 function TrendIndicator({ value, inverted = false }: { value: number; inverted?: boolean }) {
@@ -65,7 +57,7 @@ function SourceBar({
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground truncate max-w-[100px]">{label}</span>
-        <span className="font-medium">{formatCompact(amount)}</span>
+        <span className="font-medium">{formatPHPCompact(amount)}</span>
       </div>
       <Progress 
         value={percentage} 
@@ -129,7 +121,7 @@ export function RevenueExpenseComparison({ farmId, dateRange }: RevenueExpenseCo
             
             <div className="flex items-baseline gap-3">
               <span className="text-2xl font-bold text-emerald-600">
-                {formatCompact(data.revenueThisMonth)}
+                {formatPHPCompact(data.revenueThisMonth)}
               </span>
               <TrendIndicator value={data.revenueChange} />
             </div>
@@ -162,7 +154,7 @@ export function RevenueExpenseComparison({ farmId, dateRange }: RevenueExpenseCo
             
             <div className="flex items-baseline gap-3">
               <span className="text-2xl font-bold text-orange-600">
-                {formatCompact(data.expenseThisMonth)}
+                {formatPHPCompact(data.expenseThisMonth)}
               </span>
               <TrendIndicator value={data.expenseChange} inverted />
             </div>
@@ -190,18 +182,18 @@ export function RevenueExpenseComparison({ farmId, dateRange }: RevenueExpenseCo
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span>Year-to-Date:</span>
             <span className="font-medium text-foreground">
-              {formatCompact(data.revenueThisYear)} earned
+              {formatPHPCompact(data.revenueThisYear)} earned
             </span>
             <span>•</span>
             <span className="font-medium text-foreground">
-              {formatCompact(data.expenseThisYear)} spent
+              {formatPHPCompact(data.expenseThisYear)} spent
             </span>
             <span>•</span>
             <span className={cn(
               "font-semibold",
               data.netThisYear >= 0 ? "text-emerald-600" : "text-destructive"
             )}>
-              Net {data.netThisYear >= 0 ? "+" : ""}{formatCompact(data.netThisYear)}
+              Net {data.netThisYear >= 0 ? "+" : ""}{formatPHPCompact(data.netThisYear)}
             </span>
           </div>
         </div>

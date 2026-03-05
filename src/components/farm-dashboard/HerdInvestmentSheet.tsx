@@ -2,6 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHerdInvestment } from "@/hooks/useHerdInvestment";
+import { formatPHP } from "@/lib/currency";
 import { ShoppingCart, Gift, Home } from "lucide-react";
 
 interface HerdInvestmentSheetProps {
@@ -9,15 +10,6 @@ interface HerdInvestmentSheetProps {
   onOpenChange: (open: boolean) => void;
   farmId: string;
 }
-
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) {
-    return `₱${(amount / 1000000).toFixed(1)}M`;
-  } else if (amount >= 1000) {
-    return `₱${(amount / 1000).toFixed(0)}K`;
-  }
-  return `₱${amount.toLocaleString()}`;
-};
 
 export const HerdInvestmentSheet = ({ open, onOpenChange, farmId }: HerdInvestmentSheetProps) => {
   const { data: investmentData, isLoading } = useHerdInvestment(farmId);
@@ -93,7 +85,7 @@ export const HerdInvestmentSheet = ({ open, onOpenChange, farmId }: HerdInvestme
           {/* Total Investment */}
           <div className="text-center py-4 bg-muted/50 rounded-lg">
             <p className="text-sm text-muted-foreground">Total Investment</p>
-            <p className="text-3xl font-bold">{formatCurrency(investmentData.totalInvestment)}</p>
+            <p className="text-3xl font-bold">{formatPHP(investmentData.totalInvestment)}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {totalAnimals} animal{totalAnimals !== 1 ? "s" : ""} in herd
             </p>
@@ -151,7 +143,7 @@ export const HerdInvestmentSheet = ({ open, onOpenChange, farmId }: HerdInvestme
                     </p>
                     {source.avgPrice !== null && source.avgPrice > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Avg: {formatCurrency(source.avgPrice)}
+                        Avg: {formatPHP(source.avgPrice)}
                       </p>
                     )}
                   </CardContent>
@@ -164,19 +156,19 @@ export const HerdInvestmentSheet = ({ open, onOpenChange, farmId }: HerdInvestme
           <div className="space-y-2 pt-2 border-t">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Purchase Costs</span>
-              <span className="font-medium">{formatCurrency(investmentData.totalPurchasePrice)}</span>
+              <span className="font-medium">{formatPHP(investmentData.totalPurchasePrice)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Manual Expenses</span>
-              <span className="font-medium">{formatCurrency(investmentData.manualExpenses)}</span>
+              <span className="font-medium">{formatPHP(investmentData.manualExpenses)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Feed Consumption</span>
-              <span className="font-medium">{formatCurrency(investmentData.feedConsumptionCost)}</span>
+              <span className="font-medium">{formatPHP(investmentData.feedConsumptionCost)}</span>
             </div>
             <div className="flex justify-between text-sm font-medium pt-2 border-t">
               <span>Total Investment</span>
-              <span>{formatCurrency(investmentData.totalInvestment)}</span>
+              <span>{formatPHP(investmentData.totalInvestment)}</span>
             </div>
           </div>
         </div>

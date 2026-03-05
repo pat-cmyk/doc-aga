@@ -23,7 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useFinancialReport } from "@/hooks/useFinancialReport";
 import { exportReportToPDF, exportReportToCSV } from "@/lib/financialReportExport";
-import { formatCurrency } from "@/lib/financialReportGenerator";
+import { formatPHP } from "@/lib/currency";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -228,11 +228,11 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                   <CardContent className="text-sm">
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                       <div className="text-muted-foreground">Feed Inventory</div>
-                      <div className="font-medium">{formatCurrency(report.currentAssets.feedInventoryTotal)}</div>
+                      <div className="font-medium">{formatPHP(report.currentAssets.feedInventoryTotal)}</div>
                       <div className="text-muted-foreground">Milk Inventory</div>
-                      <div className="font-medium">{formatCurrency(report.currentAssets.milkInventoryGood.valuePhp)}</div>
+                      <div className="font-medium">{formatPHP(report.currentAssets.milkInventoryGood.valuePhp)}</div>
                       <div className="text-muted-foreground font-medium pt-1 border-t">Total Assets</div>
-                      <div className="font-bold text-primary pt-1 border-t">{formatCurrency(report.currentAssets.totalCurrentAssets)}</div>
+                      <div className="font-bold text-primary pt-1 border-t">{formatPHP(report.currentAssets.totalCurrentAssets)}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -244,7 +244,7 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                   <CardContent className="pt-4 text-center">
                     <div className="text-xs text-muted-foreground mb-1">Gross Revenue</div>
                     <div className="text-lg font-bold text-green-600">
-                      {formatCurrency(report.cashFlow.grossRevenue)}
+                      {formatPHP(report.cashFlow.grossRevenue)}
                     </div>
                   </CardContent>
                 </Card>
@@ -252,7 +252,7 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                   <CardContent className="pt-4 text-center">
                     <div className="text-xs text-muted-foreground mb-1">Total Costs</div>
                     <div className="text-lg font-bold text-red-600">
-                      {formatCurrency(report.cashFlow.operationalCosts)}
+                      {formatPHP(report.cashFlow.operationalCosts)}
                     </div>
                   </CardContent>
                 </Card>
@@ -263,7 +263,7 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                       "text-lg font-bold",
                       report.cashFlow.netFarmIncome >= 0 ? "text-green-600" : "text-red-600"
                     )}>
-                      {formatCurrency(report.cashFlow.netFarmIncome)}
+                      {formatPHP(report.cashFlow.netFarmIncome)}
                     </div>
                   </CardContent>
                 </Card>
@@ -271,7 +271,7 @@ export function FinancialCapacityReport({ farmId, trigger }: FinancialCapacityRe
                   <CardContent className="pt-4 text-center">
                     <div className="text-xs text-muted-foreground mb-1">Herd Value</div>
                     <div className="text-lg font-bold text-primary">
-                      {formatCurrency(report.herdSummary.totalValue)}
+                      {formatPHP(report.herdSummary.totalValue)}
                     </div>
                   </CardContent>
                 </Card>

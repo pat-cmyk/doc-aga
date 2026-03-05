@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
+import { formatPHP } from "@/lib/currency";
 
 interface ProfitabilityThermometerProps {
   farmId: string;
@@ -17,15 +18,6 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
   const { data, isLoading } = useProfitability(farmId, dateRange);
   const { data: spoilageData } = useMilkSpoilageReport(farmId, dateRange);
   const { isMobile, fontSize } = useResponsiveChart({ size: 'small' });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getPeriodLabel = () => {
     if (!dateRange) {
@@ -108,7 +100,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
             }`}
           >
             {netPosition >= 0 ? "+" : ""}
-            {formatCurrency(netPosition)}
+            {formatPHP(netPosition)}
           </p>
         </div>
 
@@ -129,7 +121,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
                 width={isMobile ? 50 : 60}
               />
               <Tooltip
-                formatter={(value: number) => [formatCurrency(value), ""]}
+                formatter={(value: number) => [formatPHP(value), ""]}
                 labelFormatter={(label) => (label === "Costs" ? "Total Costs" : "Total Output")}
                 contentStyle={{
                   borderRadius: "8px",
@@ -165,13 +157,13 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <p className="text-xs text-red-600 dark:text-red-400 font-medium">Costs (Input)</p>
             <p className="text-lg font-bold text-red-700 dark:text-red-300">
-              {formatCurrency(data?.operationalCosts || 0)}
+              {formatPHP(data?.operationalCosts || 0)}
             </p>
           </div>
           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
             <p className="text-xs text-green-600 dark:text-green-400 font-medium">Output</p>
             <p className="text-lg font-bold text-green-700 dark:text-green-300">
-              {formatCurrency(data?.totalOutput || 0)}
+              {formatPHP(data?.totalOutput || 0)}
             </p>
           </div>
         </div>
@@ -180,23 +172,23 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
         <div className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>💰 Cash Revenue (Milk Sales)</span>
-            <span className="font-medium">{formatCurrency(data?.milkRevenue || 0)}</span>
+            <span className="font-medium">{formatPHP(data?.milkRevenue || 0)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>🐄 Animal Sales</span>
-            <span className="font-medium">{formatCurrency(data?.animalSalesRevenue || 0)}</span>
+            <span className="font-medium">{formatPHP(data?.animalSalesRevenue || 0)}</span>
           </div>
           {(data?.otherRevenue || 0) > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>📦 Other Revenue</span>
-              <span className="font-medium">{formatCurrency(data?.otherRevenue || 0)}</span>
+              <span className="font-medium">{formatPHP(data?.otherRevenue || 0)}</span>
             </div>
           )}
           {(spoilageData?.lostRevenue || 0) > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>🥛 Milk Rejected (Lost Revenue)</span>
               <span className="font-medium text-red-600 dark:text-red-400">
-                -{formatCurrency(spoilageData?.lostRevenue || 0)}
+                -{formatPHP(spoilageData?.lostRevenue || 0)}
               </span>
             </div>
           )}
@@ -208,7 +200,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
               }`}
             >
               {(data?.unrealizedGain || 0) >= 0 ? "+" : ""}
-              {formatCurrency(data?.unrealizedGain || 0)}
+              {formatPHP(data?.unrealizedGain || 0)}
             </span>
           </div>
         </div>
@@ -224,13 +216,13 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <p className="text-sm">
             {isProfitable ? "✅" : "⚠️"}{" "}
             <span className="font-medium">
-              You spent {formatCurrency(data?.operationalCosts || 0)} this period.
+              You spent {formatPHP(data?.operationalCosts || 0)} this period.
             </span>{" "}
             {(data?.unrealizedGain || 0) > 0 && (
               <>
                 Your herd grew by{" "}
                 <span className="font-medium text-green-600">
-                  {formatCurrency(data?.unrealizedGain || 0)}
+                  {formatPHP(data?.unrealizedGain || 0)}
                 </span>{" "}
                 in value
                 {(data?.milkRevenue || 0) > 0 && (
@@ -238,7 +230,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
                     {" "}
                     and you sold{" "}
                     <span className="font-medium text-green-600">
-                      {formatCurrency(data?.milkRevenue || 0)}
+                      {formatPHP(data?.milkRevenue || 0)}
                     </span>{" "}
                     in milk
                   </>
@@ -250,7 +242,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
               <>
                 You earned{" "}
                 <span className="font-medium text-green-600">
-                  {formatCurrency(data?.milkRevenue || 0)}
+                  {formatPHP(data?.milkRevenue || 0)}
                 </span>{" "}
                 from milk sales.
               </>

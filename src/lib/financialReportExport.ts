@@ -1,11 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
-import { 
-  FinancialCapacityReport, 
-  formatCurrency, 
-  formatCurrencyDecimal 
-} from "./financialReportGenerator";
+import { FinancialCapacityReport } from "./financialReportGenerator";
+import { formatPHP } from "./currency";
 
 export function exportReportToPDF(report: FinancialCapacityReport): void {
   const doc = new jsPDF();
@@ -88,9 +85,9 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
           c.category,
           c.count.toString(),
           c.acquisitionType,
-          formatCurrency(c.estimatedValue),
+          formatPHP(c.estimatedValue),
         ]),
-        ["TOTAL", report.herdSummary.totalAnimals.toString(), "", formatCurrency(report.herdSummary.totalValue)],
+        ["TOTAL", report.herdSummary.totalAnimals.toString(), "", formatPHP(report.herdSummary.totalValue)],
       ],
       theme: "striped",
       headStyles: { fillColor: [76, 175, 80], textColor: 255 },
@@ -104,7 +101,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
   doc.setFontSize(9);
   doc.text(`Average Animal Weight: ${report.herdSummary.averageWeight?.toFixed(1) || "N/A"} kg`, 14, yPos);
   yPos += 5;
-  doc.text(`Market Price Used: ${formatCurrency(report.herdSummary.marketPricePerKg)}/kg live weight`, 14, yPos);
+  doc.text(`Market Price Used: ${formatPHP(report.herdSummary.marketPricePerKg)}/kg live weight`, 14, yPos);
   yPos += 10;
 
   // Section 3: Current Assets & Inventory (NEW)
@@ -125,9 +122,9 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
         ...report.currentAssets.feedInventory.map((f) => [
           f.category,
           f.quantityKg.toLocaleString(),
-          formatCurrency(f.valuePhp),
+          formatPHP(f.valuePhp),
         ]),
-        ["TOTAL FEED INVENTORY", "", formatCurrency(report.currentAssets.feedInventoryTotal)],
+        ["TOTAL FEED INVENTORY", "", formatPHP(report.currentAssets.feedInventoryTotal)],
       ],
       theme: "striped",
       headStyles: { fillColor: [76, 175, 80], textColor: 255 },
@@ -154,7 +151,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       `${s.species} (Good Quality)`,
       `${s.liters.toFixed(1)} L`,
       `\u20B1${s.pricePerLiter}/L`,
-      formatCurrency(s.value),
+      formatPHP(s.value),
     ]);
   });
   if (report.currentAssets.milkInventoryRejected.litersRemaining > 0) {
@@ -172,7 +169,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       head: [["Type", "Quantity", "Price", "Value (\u20B1)"]],
       body: [
         ...milkRows,
-        ["TOTAL MILK VALUE", "", "", formatCurrency(report.currentAssets.milkInventoryGood.valuePhp)],
+        ["TOTAL MILK VALUE", "", "", formatPHP(report.currentAssets.milkInventoryGood.valuePhp)],
       ],
       theme: "striped",
       headStyles: { fillColor: [76, 175, 80], textColor: 255 },
@@ -190,7 +187,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text(
-    `Total Current Assets: ${formatCurrency(report.currentAssets.totalCurrentAssets)}`,
+    `Total Current Assets: ${formatPHP(report.currentAssets.totalCurrentAssets)}`,
     14, yPos
   );
   doc.setFont("helvetica", "normal");
@@ -254,10 +251,10 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       body: [
         ...report.costStructure.operationalCosts.map((c) => [
           c.category,
-          formatCurrency(c.amount),
+          formatPHP(c.amount),
           `${c.percentage.toFixed(1)}%`,
         ]),
-        ["TOTAL OPERATIONAL", formatCurrency(report.costStructure.totalOperational), "100%"],
+        ["TOTAL OPERATIONAL", formatPHP(report.costStructure.totalOperational), "100%"],
       ],
       theme: "striped",
       headStyles: { fillColor: [76, 175, 80], textColor: 255 },
@@ -275,7 +272,7 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text(
-      `Feed costs: Accrual basis (consumed: ${formatCurrency(report.costStructure.feedConsumedAmount)}) | Cash basis (purchased: ${formatCurrency(report.costStructure.feedPurchasedAmount)})`,
+      `Feed costs: Accrual basis (consumed: ${formatPHP(report.costStructure.feedConsumedAmount)}) | Cash basis (purchased: ${formatPHP(report.costStructure.feedPurchasedAmount)})`,
       14, yPos
     );
     yPos += 5;
@@ -302,10 +299,10 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       body: [
         ...report.cashFlow.revenueBreakdown.map((r) => [
           r.source,
-          formatCurrency(r.amount),
+          formatPHP(r.amount),
           `${r.percentage.toFixed(1)}%`,
         ]),
-        ["GROSS REVENUE", formatCurrency(report.cashFlow.grossRevenue), "100%"],
+        ["GROSS REVENUE", formatPHP(report.cashFlow.grossRevenue), "100%"],
       ],
       theme: "striped",
       headStyles: { fillColor: [76, 175, 80], textColor: 255 },
@@ -320,11 +317,11 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
     startY: yPos,
     head: [["Cash Flow Line Item", "Amount (₱)"]],
     body: [
-      ["Gross Revenue", formatCurrency(report.cashFlow.grossRevenue)],
-      ["Less: Operational Costs", `(${formatCurrency(report.cashFlow.operationalCosts)})`],
-      ["NET FARM INCOME", formatCurrency(report.cashFlow.netFarmIncome)],
-      ["Less: Personal/Household", `(${formatCurrency(report.cashFlow.personalExpenses)})`],
-      ["NET CASH AVAILABLE", formatCurrency(report.cashFlow.netCashAvailable)],
+      ["Gross Revenue", formatPHP(report.cashFlow.grossRevenue)],
+      ["Less: Operational Costs", `(${formatPHP(report.cashFlow.operationalCosts)})`],
+      ["NET FARM INCOME", formatPHP(report.cashFlow.netFarmIncome)],
+      ["Less: Personal/Household", `(${formatPHP(report.cashFlow.personalExpenses)})`],
+      ["NET CASH AVAILABLE", formatPHP(report.cashFlow.netCashAvailable)],
     ],
     theme: "striped",
     headStyles: { fillColor: [33, 150, 243], textColor: 255 },
@@ -359,14 +356,14 @@ export function exportReportToPDF(report: FinancialCapacityReport): void {
       [
         "Breakeven Price (per liter)",
         report.financialRatios.breakevenPricePerLiter 
-          ? formatCurrencyDecimal(report.financialRatios.breakevenPricePerLiter)
+          ? formatPHP(report.financialRatios.breakevenPricePerLiter)
           : "N/A",
         "Cost to produce one liter of milk",
       ],
       [
         "Current Selling Price",
         report.financialRatios.currentSellingPrice 
-          ? formatCurrencyDecimal(report.financialRatios.currentSellingPrice)
+          ? formatPHP(report.financialRatios.currentSellingPrice)
           : "N/A",
         "Average price received",
       ],

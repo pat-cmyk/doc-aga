@@ -5,19 +5,11 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, DollarSign, ChevronRight } from "lucide-react";
 import { useAnimalCostAggregates, CategoryExpenseBreakdown } from "@/hooks/useAnimalCostAggregates";
 import { useNavigate } from "react-router-dom";
+import { formatPHP } from "@/lib/currency";
 
 interface AnimalCostAnalysisProps {
   farmId: string;
 }
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 const categoryColors: Record<string, string> = {
   "Veterinary Services": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -81,11 +73,11 @@ export function AnimalCostAnalysis({ farmId }: AnimalCostAnalysisProps) {
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-xs text-muted-foreground">Total Animal Expenses</p>
-            <p className="text-lg font-bold">{formatCurrency(data.totalAnimalExpenses)}</p>
+            <p className="text-lg font-bold">{formatPHP(data.totalAnimalExpenses)}</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-xs text-muted-foreground">Avg Cost per Animal</p>
-            <p className="text-lg font-bold">{formatCurrency(data.averageCostPerAnimal)}</p>
+            <p className="text-lg font-bold">{formatPHP(data.averageCostPerAnimal)}</p>
           </div>
         </div>
 
@@ -132,7 +124,7 @@ export function AnimalCostAnalysis({ farmId }: AnimalCostAnalysisProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{formatCurrency(animal.totalCost)}</span>
+                      <span className="text-sm font-bold">{formatPHP(animal.totalCost)}</span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Button>
@@ -153,7 +145,7 @@ function CategoryBar({ category, maxAmount }: { category: CategoryExpenseBreakdo
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">{category.category}</span>
-        <span className="font-medium">{formatCurrency(category.totalAmount)}</span>
+        <span className="font-medium">{formatPHP(category.totalAmount)}</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div

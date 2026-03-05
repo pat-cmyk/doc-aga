@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, subMonths, format, differenceInMonths } from "date-fns";
+import { formatPHP } from "./currency";
 
 export interface FarmProfile {
   farmName: string;
@@ -1124,21 +1125,6 @@ function assessDataCompleteness(
   };
 }
 
-// Format currency helper
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-export function formatCurrencyDecimal(value: number): string {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+// Format currency helpers — delegate to SSOT (src/lib/currency.ts)
+export const formatCurrency = (value: number): string => formatPHP(value);
+export const formatCurrencyDecimal = (value: number): string => formatPHP(value, true);

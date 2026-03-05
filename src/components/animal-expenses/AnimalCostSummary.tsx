@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Receipt, Stethoscope, Syringe, Heart, Package } from "lucide-react";
+import { formatPHP } from "@/lib/currency";
 
 interface AnimalCostSummaryProps {
   purchasePrice: number | null;
@@ -34,24 +35,15 @@ export function AnimalCostSummary({
   const acquisitionCost = purchasePrice || 0;
   const totalInvestment = acquisitionCost + totalExpenses;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const getAcquisitionLabel = () => {
     if (acquisitionType === "grant") {
       return `Grant from ${grantSource || "Unknown"}`;
     }
     if (acquisitionType === "purchased" && purchasePrice) {
-      return formatCurrency(purchasePrice);
+      return formatPHP(purchasePrice);
     }
     if (purchasePrice) {
-      return formatCurrency(purchasePrice);
+      return formatPHP(purchasePrice);
     }
     return "Not recorded";
   };
@@ -84,7 +76,7 @@ export function AnimalCostSummary({
         <div className="bg-primary/10 rounded-lg p-4 text-center">
           <p className="text-sm text-muted-foreground">Total Investment</p>
           <p className="text-2xl font-bold text-primary">
-            {formatCurrency(totalInvestment)}
+            {formatPHP(totalInvestment)}
           </p>
         </div>
 
@@ -101,7 +93,7 @@ export function AnimalCostSummary({
                 {categoryIcons[category] || <Receipt className="h-4 w-4" />}
                 {category}
               </span>
-              <span className="font-medium">{formatCurrency(amount)}</span>
+              <span className="font-medium">{formatPHP(amount)}</span>
             </div>
           ))}
 
@@ -111,7 +103,7 @@ export function AnimalCostSummary({
                 <Package className="h-4 w-4" />
                 Feed Consumption
               </span>
-              <span className="font-medium">{formatCurrency(feedConsumptionCost)}</span>
+              <span className="font-medium">{formatPHP(feedConsumptionCost)}</span>
             </div>
           )}
 
@@ -123,7 +115,7 @@ export function AnimalCostSummary({
 
           <div className="flex justify-between pt-2 font-semibold">
             <span>Recorded Expenses</span>
-            <span>{formatCurrency(totalExpenses)}</span>
+            <span>{formatPHP(totalExpenses)}</span>
           </div>
         </div>
       </CardContent>

@@ -8,20 +8,12 @@ import { TrendIndicator } from "./TrendIndicator";
 import { useHerdInvestment } from "@/hooks/useHerdInvestment";
 import { HerdInvestmentSheet } from "./HerdInvestmentSheet";
 import { cn } from "@/lib/utils";
+import { formatPHP } from "@/lib/currency";
 interface DashboardStatsProps {
   stats: StatsType;
   trends?: DashboardStatsTrends | null;
   farmId?: string;
 }
-
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) {
-    return `₱${(amount / 1000000).toFixed(1)}M`;
-  } else if (amount >= 1000) {
-    return `₱${(amount / 1000).toFixed(0)}K`;
-  }
-  return `₱${amount.toLocaleString()}`;
-};
 
 /**
  * Dashboard statistics cards showing key farm metrics with trend indicators
@@ -198,7 +190,7 @@ export const DashboardStats = ({ stats, trends, farmId }: DashboardStatsProps) =
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {investmentData ? formatCurrency(investmentData.totalInvestment) : "—"}
+              {investmentData ? formatPHP(investmentData.totalInvestment) : "—"}
             </div>
             {investmentData && investmentData.purchasedCount > 0 && (
               <p className="text-xs text-muted-foreground mt-1">

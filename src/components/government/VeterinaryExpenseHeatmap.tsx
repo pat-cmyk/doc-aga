@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useVeterinaryExpenseHeatmap } from "@/hooks/useVeterinaryExpenseHeatmap";
 import { Stethoscope, Pill, AlertTriangle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatPHP } from "@/lib/currency";
 import { DataCategory } from "@/types/government";
 import { PriorityLegend } from "@/components/government/PriorityLegend";
 import {
@@ -21,15 +22,6 @@ interface VeterinaryExpenseHeatmapProps {
   municipality?: string;
   dataCategory?: DataCategory;
 }
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const getSeverityColor = (costPerAnimal: number, avgCostPerAnimal: number) => {
   if (avgCostPerAnimal === 0) return "bg-muted";
@@ -143,7 +135,7 @@ export const VeterinaryExpenseHeatmap = ({
                 <Stethoscope className="h-4 w-4" />
                 <span className="text-xs">Veterinary Services</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(data.totalVetExpenses)}</p>
+              <p className="text-xl font-bold">{formatPHP(data.totalVetExpenses)}</p>
             </CardContent>
           </Card>
           <Card className="bg-muted/30">
@@ -152,7 +144,7 @@ export const VeterinaryExpenseHeatmap = ({
                 <Pill className="h-4 w-4" />
                 <span className="text-xs">Medicine & Vaccines</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(data.totalMedicineExpenses)}</p>
+              <p className="text-xl font-bold">{formatPHP(data.totalMedicineExpenses)}</p>
             </CardContent>
           </Card>
           <Card className="bg-muted/30">
@@ -161,7 +153,7 @@ export const VeterinaryExpenseHeatmap = ({
                 <TrendingUp className="h-4 w-4" />
                 <span className="text-xs">Avg Cost/Animal</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(data.avgCostPerAnimal)}</p>
+              <p className="text-xl font-bold">{formatPHP(data.avgCostPerAnimal)}</p>
             </CardContent>
           </Card>
         </div>
@@ -199,13 +191,13 @@ export const VeterinaryExpenseHeatmap = ({
                       {location.province}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {formatCurrency(location.combinedTotal)}
+                      {formatPHP(location.combinedTotal)}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {location.animalCount}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {formatCurrency(location.costPerAnimal)}
+                      {formatPHP(location.costPerAnimal)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge 

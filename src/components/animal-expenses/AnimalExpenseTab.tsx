@@ -21,6 +21,7 @@ import {
 } from "@/hooks/useAnimalExpenses";
 import { AnimalCostSummary } from "./AnimalCostSummary";
 import { AddAnimalExpenseDialog } from "./AddAnimalExpenseDialog";
+import { formatPHP } from "@/lib/currency";
 import { toast } from "sonner";
 
 interface AnimalExpenseTabProps {
@@ -68,15 +69,6 @@ export function AnimalExpenseTab({
       toast.error("Failed to delete expense");
       console.error(error);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
   };
 
   return (
@@ -141,7 +133,7 @@ export function AnimalExpenseTab({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm">
-                      {formatCurrency(expense.amount)}
+                      {formatPHP(expense.amount)}
                     </span>
                     {!readOnly && (
                       <Button

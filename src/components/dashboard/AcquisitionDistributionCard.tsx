@@ -6,19 +6,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Gift, ShoppingCart, Home } from "lucide-react";
 import { useHerdInvestment } from "@/hooks/useHerdInvestment";
+import { formatPHP } from "@/lib/currency";
 
 interface AcquisitionDistributionCardProps {
   farmId: string;
 }
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionCardProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,7 +107,7 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
                 <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{purchasedPercent}%</p>
                 {data.averagePurchasePrice > 0 && (
                   <p className="text-xs text-blue-600 dark:text-blue-400">
-                    Avg: {formatCurrency(data.averagePurchasePrice)}
+                    Avg: {formatPHP(data.averagePurchasePrice)}
                   </p>
                 )}
               </div>
@@ -146,7 +138,7 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
             {/* Total Investment */}
             <div className="p-3 rounded-lg bg-muted/50 flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total Herd Investment</span>
-              <span className="font-bold">{formatCurrency(data.totalInvestment)}</span>
+              <span className="font-bold">{formatPHP(data.totalInvestment)}</span>
             </div>
           </CardContent>
         </CollapsibleContent>

@@ -20,6 +20,7 @@ import { getSourceLabel } from "@/hooks/useMarketPrices";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
+import { formatPHP, formatPHPCompact } from "@/lib/currency";
 
 interface HerdValueChartProps {
   farmId: string;
@@ -30,21 +31,6 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
   const [chartExpanded, setChartExpanded] = useState(false);
   const { data: valuation, isLoading } = useHerdValuationUnified(farmId, livestockType, 3);
   const { fontSize } = useResponsiveChart({ size: 'small' });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatCompact = (value: number) => {
-    if (value >= 1000000) return `₱${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `₱${(value / 1000).toFixed(0)}k`;
-    return `₱${value.toFixed(0)}`;
-  };
 
   if (isLoading) {
     return (
@@ -109,7 +95,7 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
           {/* Current Value */}
           <div className="p-3 rounded-lg bg-muted/30">
             <p className="text-xs text-muted-foreground mb-1">Current Value</p>
-            <p className="text-2xl font-bold">{formatCompact(valuation?.currentValue ?? 0)}</p>
+            <p className="text-2xl font-bold">{formatPHPCompact(valuation?.currentValue ?? 0)}</p>
             <p className="text-xs text-muted-foreground">
               {valuation && valuation.missingWeightCount > 0
                 ? `${valuation.animalsWithWeight} of ${valuation.animalCount} animals valued`
@@ -132,7 +118,7 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                 <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
               )}
               <span className={`text-lg font-bold ${isGrowth ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                {isGrowth ? "+" : ""}{formatCompact(changeAmount)}
+                {isGrowth ? "+" : ""}{formatPHPCompact(changeAmount)}
               </span>
             </div>
             <p className={`text-xs font-medium ${status.color}`}>
@@ -183,14 +169,14 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                         axisLine={false}
                       />
                       <YAxis
-                        tickFormatter={(value) => formatCompact(value)}
+                        tickFormatter={(value) => formatPHPCompact(value)}
                         tick={{ fontSize }}
                         tickLine={false}
                         axisLine={false}
                         width={45}
                       />
                       <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), "Value"]}
+                        formatter={(value: number) => [formatPHP(value), "Value"]}
                         contentStyle={{
                           borderRadius: "8px",
                           border: "1px solid hsl(var(--border))",
@@ -229,14 +215,14 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
                     axisLine={false}
                   />
                   <YAxis
-                    tickFormatter={(value) => formatCompact(value)}
+                    tickFormatter={(value) => formatPHPCompact(value)}
                     tick={{ fontSize }}
                     tickLine={false}
                     axisLine={false}
                     width={50}
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Value"]}
+                    formatter={(value: number) => [formatPHP(value), "Value"]}
                     contentStyle={{
                       borderRadius: "8px",
                       border: "1px solid hsl(var(--border))",

@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFinancialHealth } from "@/hooks/useFinancialHealth";
 import { cn } from "@/lib/utils";
+import { formatPHPCompact } from "@/lib/currency";
 import { format } from "date-fns";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
@@ -14,16 +15,6 @@ interface FinancialHealthSummaryProps {
 
 export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSummaryProps) {
   const { data, isLoading } = useFinancialHealth(farmId, dateRange);
-
-  const formatCompact = (value: number) => {
-    const absValue = Math.abs(value);
-    if (absValue >= 1000000) {
-      return `₱${(value / 1000000).toFixed(1)}M`;
-    } else if (absValue >= 1000) {
-      return `₱${(value / 1000).toFixed(1)}K`;
-    }
-    return `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
-  };
 
   const formatFull = (value: number) => {
     return `₱${value.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -147,7 +138,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           <div className="bg-background/60 rounded-lg p-3 text-center border border-border/50">
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Earned</p>
             <p className="text-lg sm:text-2xl font-bold text-primary" title={formatFull(data.earnedThisMonth)}>
-              {formatCompact(data.earnedThisMonth)}
+              {formatPHPCompact(data.earnedThisMonth)}
             </p>
             <div className={cn("flex items-center justify-center gap-1 text-xs mt-1", getTrendClass(data.earnedChange))}>
               <TrendIcon value={data.earnedChange} />
@@ -159,7 +150,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           <div className="bg-background/60 rounded-lg p-3 text-center border border-border/50">
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Spent</p>
             <p className="text-lg sm:text-2xl font-bold text-destructive" title={formatFull(data.spentThisMonth)}>
-              {formatCompact(data.spentThisMonth)}
+              {formatPHPCompact(data.spentThisMonth)}
             </p>
             <div className={cn("flex items-center justify-center gap-1 text-xs mt-1", getTrendClass(data.spentChange, true))}>
               <TrendIcon value={data.spentChange} />
@@ -179,7 +170,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
               "text-lg sm:text-2xl font-bold",
               data.isProfitable ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
             )} title={formatFull(data.netProfit)}>
-              {data.netProfit >= 0 ? "+" : ""}{formatCompact(data.netProfit)}
+              {data.netProfit >= 0 ? "+" : ""}{formatPHPCompact(data.netProfit)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {data.isProfitable ? "Profit" : "Loss"}
@@ -214,7 +205,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
         )}>
           <span className={data.isProfitable ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
             {data.isProfitable ? "📈" : "📉"} You're {data.isProfitable ? "making" : "losing"}{" "}
-            <strong>{formatCompact(Math.abs(data.dailyProfit))}/day</strong> on average
+            <strong>{formatPHPCompact(Math.abs(data.dailyProfit))}/day</strong> on average
             {data.topRevenueSource && data.isProfitable && (
               <span className="hidden sm:inline"> • Top source: {data.topRevenueSource}</span>
             )}

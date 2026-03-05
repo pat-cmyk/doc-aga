@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Skull, ShoppingCart, Scissors, ArrowRightLeft, Beef, TrendingDown } from "lucide-react";
+import { formatPHP } from "@/lib/currency";
 import { GovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -48,15 +49,6 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
     return "High Risk";
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -84,7 +76,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">Sales Revenue</p>
             <p className="text-lg font-bold text-primary">
-              {formatCurrency(salesRevenue)}
+              {formatPHP(salesRevenue)}
             </p>
           </div>
         </div>
