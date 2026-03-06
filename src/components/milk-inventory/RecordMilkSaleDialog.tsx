@@ -33,7 +33,7 @@ interface RecordMilkSaleDialogProps {
   onOpenChange: (open: boolean) => void;
   availableItems: MilkInventoryItem[];
   totalAvailable: number;
-  filterSpecies?: string | null;
+  filterSpecies: string;
 }
 
 export function RecordMilkSaleDialog({
@@ -55,15 +55,12 @@ export function RecordMilkSaleDialog({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Set default price when dialog opens or species changes
+  // Set default price when dialog opens based on species
   useEffect(() => {
     if (open && pricesBySpecies) {
-      if (filterSpecies && pricesBySpecies[filterSpecies]) {
-        setPricePerLiter(String(pricesBySpecies[filterSpecies]));
-      } else {
-        // Default to general price or first available species price
-        const defaultPrice = pricesBySpecies.cattle || 30;
-        setPricePerLiter(String(defaultPrice));
+      const speciesPrice = pricesBySpecies[filterSpecies];
+      if (speciesPrice) {
+        setPricePerLiter(String(speciesPrice));
       }
     }
   }, [open, filterSpecies, pricesBySpecies]);
@@ -118,7 +115,7 @@ export function RecordMilkSaleDialog({
 
     setIsSubmitting(true);
 
-    const speciesLabel = filterSpecies ? SPECIES_LABELS[filterSpecies] || filterSpecies : "Mixed";
+    const saleSpeciesLabel = SPECIES_LABELS[filterSpecies] || filterSpecies;
     const linkedMilkLogId = fifoPreview.records[0].record.milking_record_id;
 
     try {
@@ -140,7 +137,7 @@ export function RecordMilkSaleDialog({
               totalLiters: fifoPreview.totalLiters,
               pricePerLiter: price,
               totalAmount,
-              species: speciesLabel,
+              species: saleSpeciesLabel,
               deductions: fifoPreview.records.map(({ record, litersUsed }) => ({
                 id: record.id,
                 litersUsed,
@@ -148,7 +145,7 @@ export function RecordMilkSaleDialog({
                 litersOriginal: record.liters_original,
               })),
               linkedMilkLogId,
-              notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
+              notes: notes || `${saleSpeciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
               saleDate: format(new Date(), "yyyy-MM-dd"),
             },
           },
@@ -220,7 +217,7 @@ export function RecordMilkSaleDialog({
           source: REVENUE_SOURCE_KEYS.MILK_SALE,
           transaction_date: format(new Date(), "yyyy-MM-dd"),
           linked_milk_log_id: linkedMilkLogId,
-          notes: notes || `${speciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
+          notes: notes || `${saleSpeciesLabel} milk: ${fifoPreview.totalLiters.toFixed(1)}L from ${fifoPreview.records.length} records @ ₱${price}/L`,
         });
       }
 
@@ -233,7 +230,7 @@ export function RecordMilkSaleDialog({
       playSound('success');
       toast({
         title: "Sale Recorded",
-        description: `Sold ${fifoPreview.totalLiters.toFixed(1)}L ${filterSpecies ? `(${speciesLabel})` : ""} for ₱${totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+        description: `Sold ${fifoPreview.totalLiters.toFixed(1)}L (${saleSpeciesLabel}) for ₱${totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
       });
 
       // Reset form and close
@@ -257,13 +254,9 @@ export function RecordMilkSaleDialog({
     }
   };
 
-  const dialogTitle = filterSpecies 
-    ? `Record ${SPECIES_LABELS[filterSpecies] || filterSpecies} Milk Sale`
-    : "Record Milk Sale";
-
-  const dialogDescription = filterSpecies
-    ? `Sell ${SPECIES_LABELS[filterSpecies] || filterSpecies} milk using FIFO (oldest first)`
-    : "Sell from inventory using FIFO (oldest milk first)";
+  const speciesLabel = SPECIES_LABELS[filterSpecies] || filterSpecies;
+  const dialogTitle = `Record ${speciesLabel} Milk Sale`;
+  const dialogDescription = `Sell ${speciesLabel} milk using FIFO (oldest first)`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -279,9 +272,7 @@ export function RecordMilkSaleDialog({
             <Info className="h-4 w-4" />
             <AlertDescription>
               Available: <strong>{totalAvailable.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</strong> from {availableItems.length} records
-              {filterSpecies && (
-                <span className="text-muted-foreground"> ({SPECIES_LABELS[filterSpecies] || filterSpecies})</span>
-              )}
+              <span className="text-muted-foreground"> ({speciesLabel})</span>
             </AlertDescription>
           </Alert>
 
@@ -314,9 +305,9 @@ export function RecordMilkSaleDialog({
               placeholder="e.g. 65.00"
               className="min-h-[48px]"
             />
-            {filterSpecies && pricesBySpecies?.[filterSpecies] && (
+            {pricesBySpecies?.[filterSpecies] && (
               <p className="text-xs text-muted-foreground">
-                Last {SPECIES_LABELS[filterSpecies] || filterSpecies} price: ₱{pricesBySpecies[filterSpecies]}/L
+                Last {speciesLabel} price: ₱{pricesBySpecies[filterSpecies]}/L
               </p>
             )}
           </div>

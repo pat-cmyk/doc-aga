@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Milk, AlertTriangle, DollarSign, ChevronDown, ChevronRight, Pencil, Trash2, Baby } from "lucide-react";
+import { Milk, AlertTriangle, ChevronDown, ChevronRight, Pencil, Trash2, Baby } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { RecordMilkSaleDialog } from "./RecordMilkSaleDialog";
 import { FeedMilkToAnimalDialog } from "./FeedMilkToAnimalDialog";
@@ -76,19 +76,10 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
     setSaleDialogOpen(true);
   };
 
-  const handleSellAll = () => {
-    setSaleFilterSpecies(null);
-    setSaleDialogOpen(true);
-  };
-
-  // Filter items and compute totals when selling specific species
+  // Filter items and compute totals for the selected species
   const filteredSaleData = useMemo(() => {
-    if (!data) return { items: [], total: 0 };
-    
-    if (!saleFilterSpecies) {
-      return { items: data.items, total: data.summary.totalLiters };
-    }
-    
+    if (!data || !saleFilterSpecies) return { items: [], total: 0 };
+
     const filtered = data.items.filter(item => item.livestock_type === saleFilterSpecies);
     const total = filtered.reduce((sum, item) => sum + item.liters_remaining, 0);
     return { items: filtered, total };
@@ -152,14 +143,8 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
             
             {canManage && (
               <div className="flex gap-2">
-                {stockType === 'good' && (
-                  <Button onClick={handleSellAll} className="gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Record Sale
-                  </Button>
-                )}
-                <Button 
-                  onClick={() => setFeedDialogOpen(true)} 
+                <Button
+                  onClick={() => setFeedDialogOpen(true)}
                   variant={stockType === 'rejected' ? 'default' : 'outline'}
                   className="gap-2"
                 >
@@ -179,15 +164,15 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
         </CardContent>
       </Card>
 
-      {/* Species Summary Cards */}
-      {summary.bySpecies && summary.bySpecies.length > 0 && pricesBySpecies && (
+      {/* Species Summary Cards — primary entry point for sales */}
+      {summary.bySpecies && summary.bySpecies.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground px-1">By Type</h4>
           <MilkSpeciesSummary
             speciesData={summary.bySpecies}
-            pricesBySpecies={pricesBySpecies}
+            pricesBySpecies={pricesBySpecies ?? {}}
             onSellSpecies={handleSellSpecies}
-            canManage={canManage}
+            canManage={canManage && stockType === 'good'}
           />
         </div>
       )}
@@ -329,8 +314,8 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
         })}
         </div>
       )}
-      {/* Sale Dialog (good stock only) */}
-      {stockType === 'good' && (
+      {/* Sale Dialog (good stock only, always species-filtered) */}
+      {stockType === 'good' && saleFilterSpecies && (
         <RecordMilkSaleDialog
           farmId={farmId}
           open={saleDialogOpen}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-06 — Milk Sale: Enforce Species-Level Sales
+
+### Changed
+- **`MilkStockList.tsx`:** Removed the generic "Record Sale" button that mixed all species in one FIFO queue. Sales are now exclusively triggered from per-species cards ("Sell Cattle", "Sell Goat", etc.), ensuring FIFO operates within a single species and the correct species-specific price is pre-filled.
+- **`MilkSpeciesSummary.tsx`:** Species cards now render even while price data is loading (graceful fallback to "No price history"). Previously gated on `pricesBySpecies` being loaded.
+- **`RecordMilkSaleDialog.tsx`:** `filterSpecies` is now required (always a string, never null). Dialog title always shows species name (e.g., "Record Cattle Milk Sale"). Removed dead code for mixed-species fallback.
+
+### Fixed
+- **UX bug:** Users clicking the prominent "Record Sale" button would sell milk from all species mixed together at a single price. Goat milk (₱45/L) would be sold at cattle price (₱30/L) or ₱0 when no price history existed. Now each species is sold separately at its own price.
+
+### Architecture
+- **No new components or hooks.** All species-level infrastructure already existed (`MilkSpeciesSummary`, `filterSpecies` prop, `useLastMilkPriceBySpecies`). Fix was removing the bypass path that let users skip species selection.
+
 ## 2026-03-06 — Voice Training: Taglish Essential 17
 
 ### Changed
