@@ -1,10 +1,11 @@
  import { useState } from "react";
-import { Landmark, MessageSquare, X } from "lucide-react";
+import { Landmark, MessageSquare, FileText, X } from "lucide-react";
 import { ActionFab, QuickAction } from "@/components/ui/action-fab";
 import RicoChat from "@/components/government/RicoChat";
  import { Card } from "@/components/ui/card";
  import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { exportManualPDF } from "@/lib/exportUtils";
 
 const governmentActions: QuickAction[] = [
   { 
@@ -15,12 +16,19 @@ const governmentActions: QuickAction[] = [
     isPrimary: true,
     description: 'Audit & compliance analysis'
   },
-  { 
-    id: 'feedback', 
-    label: 'View Feedback', 
-    icon: MessageSquare, 
+  {
+    id: 'feedback',
+    label: 'View Feedback',
+    icon: MessageSquare,
     color: 'text-green-500',
     description: 'Farmer submissions'
+  },
+  {
+    id: 'manual',
+    label: 'Download Manual',
+    icon: FileText,
+    color: 'text-purple-500',
+    description: 'Dashboard user guide (PDF)'
   },
 ];
 
@@ -35,6 +43,9 @@ export function GovernmentFab() {
         break;
       case 'feedback':
         navigate('/government#farmer-voice');
+        break;
+      case 'manual':
+        exportManualPDF();
         break;
     }
   };

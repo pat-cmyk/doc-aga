@@ -12,6 +12,7 @@
 
 ### Added
 - **Government Dashboard User Manual** (`docs/government-dashboard-manual.md`) — Comprehensive guide for government employees covering all 3 tabs, metric definitions, computation methods, filter usage, glossary, and FAQ.
+- **Download Manual button** — Added to the government dashboard welcome banner and RICO FAB. Generates and downloads the full user manual as a formatted PDF via jsPDF.
 
 ## 2026-03-05 — Government Dashboard Audit (8 gaps)
 

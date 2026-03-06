@@ -56,7 +56,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
-import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
+import { exportToCSV, exportToPDF, exportManualPDF } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { Database as DatabaseIcon } from "lucide-react";
 import { DataCategory } from "@/types/government";
@@ -484,6 +484,18 @@ const GovernmentDashboard = () => {
                   >
                     <Target className="h-4 w-4" />
                     Programs & Insights
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      exportManualPDF();
+                      toast({ title: "Manual Downloaded", description: "Government Dashboard Manual PDF has been saved." });
+                    }}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Download Manual
                   </Button>
                 </div>
               </div>
