@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-06 — Admin View Farm Audit (6 gaps)
+
+### Fixed
+- **Gap 1 (Critical):** BreedingHub completely missing from Operations tab — admin could not see any breeding data (statuses, actions, heat predictions, delivery forecasts, analytics).
+- **Gap 2 (Medium):** BarnListView missing from Animals tab — admin could not see barn/paddock organization of animals.
+- **Gap 3 (Medium):** More tab had flat layout instead of organized sub-tabs (Approvals, Government).
+- **Gap 4 (Required):** BreedingHub lacked `readOnly` prop — Record Heat and Schedule AI write buttons would have been visible to admin. Added `readOnly` prop to hide write actions/dialogs and `onViewAnimal` callback for cross-tab navigation.
+- **Gap 5 (Required):** BarnListView and BarnAnimalManager lacked `readOnly` prop — Add Barn, Edit Barn, Add Animal, and Remove Animal buttons would have been visible to admin.
+- **Gap 6 (Low):** FarmDashboard and FinanceTab cross-tab navigation callbacks were not wired — animal links in FarmDashboard and finance data completeness links now navigate within admin view instead of breaking out.
+
+### Changed
+- **AdminViewFarm.tsx:** Restructured to match farmer Dashboard.tsx — Operations now has 3 sub-tabs (Milk Inventory, Feed Stock, Breeding), Animals tab includes BarnListView above AnimalList in Card wrapper, More tab has 2 sub-tabs (Approvals, Government).
+- **BreedingHub.tsx:** Added `readOnly` and `onViewAnimal` props. When readOnly: hides Record Heat/Schedule AI buttons, skips rendering write dialogs, passes undefined for write callbacks to BreedingActionCard.
+- **BarnListView.tsx:** Added `readOnly` prop. When readOnly: hides Add button, hides Edit (Pencil) button on BarnCard, skips rendering BarnFormDialog, passes readOnly through to BarnAnimalManager.
+- **BarnAnimalManager.tsx:** Added `readOnly` prop. When readOnly: hides add-animal dropdown row and remove (X) buttons.
+
+### Architecture
+- **SSOT compliance:** Zero new hooks, components, or utilities created. All changes reuse existing farmer dashboard components (`BreedingHub`, `BarnListView`, `BarnAnimalManager`) with readOnly props. All hooks (`useBreedingHub`, `useBarns`, `useBarnAnimals`, `useFarmAnimals`) accept farmId and work across both views.
+
 ## 2026-03-05 — Government Dashboard Chart Upgrades & Manual
 
 ### Changed

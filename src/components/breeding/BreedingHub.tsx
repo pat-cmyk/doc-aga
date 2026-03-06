@@ -27,11 +27,15 @@ import { FERTILITY_STATUS_CONFIG } from '@/types/fertility';
 interface BreedingHubProps {
   farmId: string | null;
   livestockType?: string;
+  readOnly?: boolean;
+  onViewAnimal?: (animalId: string) => void;
 }
 
 export function BreedingHub({
   farmId,
   livestockType = 'cattle',
+  readOnly = false,
+  onViewAnimal: onViewAnimalProp,
 }: BreedingHubProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -81,7 +85,11 @@ export function BreedingHub({
   }, [selectedStatus, animals, STATUS_FILTER_MAP]);
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/?tab=animals&animalId=${animalId}`);
+    if (onViewAnimalProp) {
+      onViewAnimalProp(animalId);
+    } else {
+      navigate(`/?tab=animals&animalId=${animalId}`);
+    }
   };
 
   if (isLoading) {
@@ -116,21 +124,25 @@ export function BreedingHub({
             <Search className="h-4 w-4 mr-1" />
             Search
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setHeatDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Record Heat
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setAiDialogOpen(true)}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            Schedule AI
-          </Button>
+          {!readOnly && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setHeatDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Record Heat
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setAiDialogOpen(true)}
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Schedule AI
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -236,9 +248,9 @@ export function BreedingHub({
                       key={`${action.animal.id}-${action.type}-${idx}`}
                       action={action}
                       onViewAnimal={handleViewAnimal}
-                      onScheduleAI={() => { setPreselectedAnimalForAI(action.animal.id); setAiDialogOpen(true); }}
-                      onRecordHeat={() => setHeatDialogOpen(true)}
-                      onConfirmPregnancy={() => {}}
+                      onScheduleAI={readOnly ? undefined : () => { setPreselectedAnimalForAI(action.animal.id); setAiDialogOpen(true); }}
+                      onRecordHeat={readOnly ? undefined : () => setHeatDialogOpen(true)}
+                      onConfirmPregnancy={readOnly ? undefined : () => {}}
                     />
                   ))}
                   {actionsToday.length > 5 && (
@@ -359,22 +371,26 @@ export function BreedingHub({
         animals={animals}
       />
 
-      {/* Farm-level Record Heat Dialog */}
-      <FarmRecordHeatDialog
-        open={heatDialogOpen}
-        onOpenChange={setHeatDialogOpen}
-        animals={animals}
-        farmId={farmId}
-      />
+      {/* Farm-level Record Heat Dialog (hidden in readOnly mode) */}
+      {!readOnly && (
+        <>
+          <FarmRecordHeatDialog
+            open={heatDialogOpen}
+            onOpenChange={setHeatDialogOpen}
+            animals={animals}
+            farmId={farmId}
+          />
 
-      {/* Farm-level Schedule AI Dialog */}
-      <FarmScheduleAIDialog
-        open={aiDialogOpen}
-        onOpenChange={(open) => { setAiDialogOpen(open); if (!open) setPreselectedAnimalForAI(null); }}
-        animals={animals}
-        farmId={farmId}
-        preselectedAnimalId={preselectedAnimalForAI}
-      />
+          {/* Farm-level Schedule AI Dialog */}
+          <FarmScheduleAIDialog
+            open={aiDialogOpen}
+            onOpenChange={(open) => { setAiDialogOpen(open); if (!open) setPreselectedAnimalForAI(null); }}
+            animals={animals}
+            farmId={farmId}
+            preselectedAnimalId={preselectedAnimalForAI}
+          />
+        </>
+      )}
     </div>
   );
 }

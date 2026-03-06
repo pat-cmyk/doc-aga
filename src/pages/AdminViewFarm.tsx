@@ -10,7 +10,10 @@ import { MilkInventoryTab } from "@/components/milk-inventory/MilkInventoryTab";
 import { FinanceTab } from "@/components/FinanceTab";
 import { FarmerFeedbackList } from "@/components/farmer/FarmerFeedbackList";
 import { PendingActivitiesQueue } from "@/components/approval/PendingActivitiesQueue";
+import { BreedingHub } from "@/components/breeding/BreedingHub";
+import { BarnListView } from "@/components/barns/BarnListView";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Eye, Shield, LayoutDashboard, PawPrint, Settings2, Wallet, MoreHorizontal } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +25,8 @@ const AdminViewFarm = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: adminLoading } = useAdminAccess();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [operationsSubtab, setOperationsSubtab] = useState("milk");
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string | undefined>(undefined);
   const isMobile = useIsMobile();
 
   const { data: farm, isLoading: farmLoading } = useQuery({
@@ -41,6 +46,12 @@ const AdminViewFarm = () => {
     },
     enabled: !!farmId && !adminLoading && isAdmin,
   });
+
+  // Navigation callback for cross-tab animal navigation (from FarmDashboard/BreedingHub)
+  const handleNavigateToAnimalDetails = (animalId: string) => {
+    setSelectedAnimalId(animalId);
+    setActiveTab("animals");
+  };
 
   if (adminLoading || farmLoading) {
     return (
@@ -103,7 +114,7 @@ const AdminViewFarm = () => {
         <Alert>
           <Eye className="h-4 w-4" />
           <AlertDescription>
-            You are viewing this farm in <strong>read-only mode</strong>. 
+            You are viewing this farm in <strong>read-only mode</strong>.
             All editing actions are disabled.
           </AlertDescription>
         </Alert>
@@ -160,29 +171,81 @@ const AdminViewFarm = () => {
             </TabsList>
           )}
 
+          {/* Dashboard Tab — with navigation callbacks for cross-tab links */}
           <TabsContent value="dashboard">
-            <FarmDashboard farmId={farmId!} />
-          </TabsContent>
-
-          <TabsContent value="animals">
-            <AnimalList 
-              farmId={farmId!} 
-              readOnly={true}
+            <FarmDashboard
+              farmId={farmId!}
+              onNavigateToAnimals={() => setActiveTab("animals")}
+              onNavigateToAnimalDetails={handleNavigateToAnimalDetails}
             />
           </TabsContent>
 
-          <TabsContent value="operations" className="space-y-6">
-            <MilkInventoryTab farmId={farmId!} canManage={false} />
-            <FeedInventoryTab farmId={farmId!} canManage={false} forecasts={[]} />
+          {/* Animals Tab — BarnListView (readOnly) + AnimalList in Card (matching farmer layout) */}
+          <TabsContent value="animals" className="space-y-4 sm:space-y-6">
+            <BarnListView farmId={farmId!} readOnly={true} />
+            <Card>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle>Animals</CardTitle>
+                <CardDescription>Mga Hayop — Livestock records for this farm</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AnimalList
+                  farmId={farmId!}
+                  readOnly={true}
+                  initialSelectedAnimalId={selectedAnimalId}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
+          {/* Operations Tab — 3 sub-tabs matching farmer dashboard (Milk, Feed, Breeding) */}
+          <TabsContent value="operations" className="space-y-4 sm:space-y-6">
+            <Tabs value={operationsSubtab} onValueChange={setOperationsSubtab} className="space-y-4">
+              <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
+                <TabsTrigger value="milk">Milk Inventory</TabsTrigger>
+                <TabsTrigger value="feed">Feed Stock</TabsTrigger>
+                <TabsTrigger value="breeding">Breeding</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="milk">
+                <MilkInventoryTab farmId={farmId!} canManage={false} />
+              </TabsContent>
+
+              <TabsContent value="feed">
+                <FeedInventoryTab farmId={farmId!} canManage={false} forecasts={[]} />
+              </TabsContent>
+
+              <TabsContent value="breeding">
+                <BreedingHub
+                  farmId={farmId!}
+                  readOnly={true}
+                  onViewAnimal={handleNavigateToAnimalDetails}
+                />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          {/* Finance Tab — with cross-tab navigation */}
           <TabsContent value="finance">
-            <FinanceTab farmId={farmId!} canManage={false} />
+            <FinanceTab farmId={farmId!} canManage={false} onNavigateToTab={setActiveTab} />
           </TabsContent>
 
-          <TabsContent value="more" className="space-y-6">
-            <PendingActivitiesQueue farmId={farmId!} />
-            <FarmerFeedbackList farmId={farmId!} />
+          {/* More Tab — 2 sub-tabs (Approvals, Government) matching farmer dashboard */}
+          <TabsContent value="more" className="space-y-4 sm:space-y-6">
+            <Tabs defaultValue="approvals" className="space-y-4">
+              <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
+                <TabsTrigger value="approvals">Approvals</TabsTrigger>
+                <TabsTrigger value="government">Government</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="approvals">
+                <PendingActivitiesQueue farmId={farmId!} />
+              </TabsContent>
+
+              <TabsContent value="government">
+                <FarmerFeedbackList farmId={farmId!} />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>

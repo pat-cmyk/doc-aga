@@ -10,9 +10,10 @@ import { Progress } from "@/components/ui/progress";
 
 interface BarnListViewProps {
   farmId: string;
+  readOnly?: boolean;
 }
 
-export function BarnListView({ farmId }: BarnListViewProps) {
+export function BarnListView({ farmId, readOnly = false }: BarnListViewProps) {
   const { data: barns = [], isLoading } = useBarns(farmId);
   const [formOpen, setFormOpen] = useState(false);
   const [editBarn, setEditBarn] = useState<Barn | null>(null);
@@ -30,10 +31,12 @@ export function BarnListView({ farmId }: BarnListViewProps) {
               Kulungan at Pastulan — Group animals by housing location
             </CardDescription>
           </div>
-          <Button size="sm" onClick={() => { setEditBarn(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Add</span>
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={() => { setEditBarn(null); setFormOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Add</span>
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -51,20 +54,23 @@ export function BarnListView({ farmId }: BarnListViewProps) {
               expanded={expandedId === barn.id}
               onToggle={() => setExpandedId(expandedId === barn.id ? null : barn.id)}
               onEdit={() => { setEditBarn(barn); setFormOpen(true); }}
+              readOnly={readOnly}
             />
           ))
         )}
       </CardContent>
 
-      <BarnFormDialog
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open);
-          if (!open) setEditBarn(null);
-        }}
-        farmId={farmId}
-        editBarn={editBarn}
-      />
+      {!readOnly && (
+        <BarnFormDialog
+          open={formOpen}
+          onOpenChange={(open) => {
+            setFormOpen(open);
+            if (!open) setEditBarn(null);
+          }}
+          farmId={farmId}
+          editBarn={editBarn}
+        />
+      )}
     </Card>
   );
 }
@@ -76,6 +82,7 @@ function BarnCard({
   expanded,
   onToggle,
   onEdit,
+  readOnly = false,
 }: {
   barn: Barn;
   farmId: string;
@@ -83,6 +90,7 @@ function BarnCard({
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  readOnly?: boolean;
 }) {
   const Icon = barn.barn_type === 'paddock' ? Fence : Warehouse;
   const capacityPercent = barn.capacity ? Math.min(100, ((barn.animal_count || 0) / barn.capacity) * 100) : null;
@@ -108,14 +116,16 @@ function BarnCard({
                 )}
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {expanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
           </button>
         </CollapsibleTrigger>
@@ -124,7 +134,7 @@ function BarnCard({
             {barn.description && (
               <p className="text-xs text-muted-foreground mb-3">{barn.description}</p>
             )}
-            <BarnAnimalManager barn={barn} farmId={farmId} allBarns={allBarns} />
+            <BarnAnimalManager barn={barn} farmId={farmId} allBarns={allBarns} readOnly={readOnly} />
           </div>
         </CollapsibleContent>
       </div>
