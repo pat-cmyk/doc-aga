@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getFarmCategoryLabel } from "@/lib/farmCategories";
 import { Pencil, Plus, Eye, MapPin, Users, Beef, Ticket } from "lucide-react";
 import { AdminAnimalDialog } from "./AdminAnimalDialog";
 import { CreateTicketDialog } from "./CreateTicketDialog";
@@ -197,7 +198,7 @@ export const FarmDetailPanel = ({
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Livestock Type</p>
-                        <p className="font-medium capitalize">{farmDetails.livestock_type}</p>
+                        <p className="font-medium">{getFarmCategoryLabel(farmDetails.livestock_type)}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Status</p>

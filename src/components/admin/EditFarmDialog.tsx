@@ -171,6 +171,7 @@ export const EditFarmDialog = ({ farm, open, onOpenChange }: EditFarmDialogProps
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ruminant">Ruminant</SelectItem>
                   <SelectItem value="cattle">Cattle</SelectItem>
                   <SelectItem value="carabao">Carabao</SelectItem>
                   <SelectItem value="goat">Goat</SelectItem>

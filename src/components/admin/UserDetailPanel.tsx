@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getFarmCategoryLabel } from "@/lib/farmCategories";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -400,7 +401,7 @@ export const UserDetailPanel = ({ userId, open, onOpenChange }: UserDetailPanelP
                               <div>
                                 <p className="text-sm font-medium">{farm.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {farm.region} • {farm.livestock_type}
+                                  {farm.region} • {getFarmCategoryLabel(farm.livestock_type)}
                                 </p>
                               </div>
                               <Badge variant={farm.role === "owner" ? "default" : "secondary"}>

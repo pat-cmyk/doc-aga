@@ -18,6 +18,7 @@ import { CacheSettingsDialog } from "@/components/CacheSettingsDialog";
 import { FarmLogoUpload } from "@/components/FarmLogoUpload";
 import { FarmTeamManagement } from "@/components/FarmTeamManagement";
 import { DevicePermissionHub } from "@/components/permissions/DevicePermissionHub";
+import { getFarmCategoryLabel } from "@/lib/farmCategories";
 import { FarmBankInfoDialog, getBiosecurityLabel, getWaterSourceLabel } from "@/components/farm/FarmBankInfoDialog";
 import { useFarm } from "@/contexts/FarmContext";
 import { FarmSwitcher } from "@/components/FarmSwitcher";
@@ -404,7 +405,7 @@ const Profile = () => {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Livestock Type</p>
-                      <p className="font-medium capitalize">{extendedFarmData?.livestock_type || 'N/A'}</p>
+                      <p className="font-medium">{getFarmCategoryLabel(extendedFarmData?.livestock_type)}</p>
                     </div>
                   </div>
                 </div>

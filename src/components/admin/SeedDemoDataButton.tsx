@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sprout } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getFarmCategoryLabel } from "@/lib/farmCategories";
 
 interface FarmSeedResult {
   farm_id: string;
@@ -157,7 +158,7 @@ export const SeedDemoDataButton = () => {
                     {results.summary.map((farm) => (
                       <TableRow key={farm.farm_id}>
                         <TableCell className="font-medium text-sm">{farm.farm_name}</TableCell>
-                        <TableCell className="text-sm capitalize">{farm.livestock_type}</TableCell>
+                        <TableCell className="text-sm">{getFarmCategoryLabel(farm.livestock_type)}</TableCell>
                         <TableCell className="text-center">{farm.animals_processed}</TableCell>
                         <TableCell className="text-center">{farm.milking_inserted}</TableCell>
                         <TableCell className="text-center">{farm.weight_inserted}</TableCell>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,8 @@ import { Sprout, MapPin, LogOut, Users } from "lucide-react";
 import { getRegions, getProvinces, getMunicipalities } from "@/lib/philippineLocations";
 import { getRegionalCoordinates } from "@/lib/regionalCoordinates";
 import { LocationPermissionDialog } from "@/components/permissions/LocationPermissionDialog";
+import { FARM_CATEGORIES } from "@/lib/farmCategories";
+import { cn } from "@/lib/utils";
 interface FarmSetupProps {
   onFarmCreated: (farmId: string) => void;
 }
@@ -29,7 +32,7 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     province: "",
     municipality: "",
     role_in_farm: "farmer_owner" as "farmer_owner" | "vet",
-    livestock_type: "cattle"
+    livestock_type: "ruminant"
   });
 
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -249,13 +252,6 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
     vet: "I provide veterinary services"
   };
 
-  const livestockDescriptions = {
-    cattle: "Dairy and beef cattle farming",
-    goat: "Goat farming for meat and milk production",
-    sheep: "Sheep farming for meat and wool",
-    carabao: "Water buffalo farming"
-  } as const;
-
   // Show loading state while checking ownership
   if (checkingOwnership) {
     return (
@@ -303,44 +299,74 @@ export default function FarmSetup({ onFarmCreated }: FarmSetupProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="livestock">Livestock Type *</Label>
-              <Select 
-                value={formData.livestock_type} 
-                onValueChange={(value) => setFormData({ ...formData, livestock_type: value })}
-              >
-                <SelectTrigger id="livestock">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cattle">
-                    <div>
-                      <div className="font-medium">🐄 Cattle</div>
-                      <div className="text-sm text-muted-foreground">Dairy and beef cattle</div>
+              <div className="flex items-center justify-between">
+                <Label>Farm Category *</Label>
+                <span className="text-xs text-muted-foreground">Uri ng Farm</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {FARM_CATEGORIES.map((category) => (
+                  <button
+                    key={category.value}
+                    type="button"
+                    disabled={!category.enabled}
+                    onClick={() => category.enabled && setFormData({ ...formData, livestock_type: category.value })}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 min-h-[120px] rounded-lg border-2 transition-all duration-200",
+                      category.enabled && formData.livestock_type === category.value
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        : category.enabled
+                          ? "border-border bg-background hover:border-primary/40 hover:bg-primary/5"
+                          : "border-border bg-muted/30 opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    {/* Coming Soon badge for disabled categories */}
+                    {!category.enabled && (
+                      <Badge variant="secondary" className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0">
+                        Coming Soon
+                      </Badge>
+                    )}
+
+                    {/* Emoji icon */}
+                    <span className="text-3xl sm:text-4xl" role="img" aria-label={category.englishLabel}>
+                      {category.emoji}
+                    </span>
+
+                    {/* English + Filipino labels */}
+                    <div className="text-center">
+                      <span className={cn(
+                        "block text-sm font-semibold",
+                        category.enabled && formData.livestock_type === category.value
+                          ? "text-primary"
+                          : "text-foreground"
+                      )}>
+                        {category.englishLabel}
+                      </span>
+                      <span className={cn(
+                        "block text-xs",
+                        category.enabled && formData.livestock_type === category.value
+                          ? "text-primary/70"
+                          : "text-muted-foreground"
+                      )}>
+                        {category.filipinoLabel}
+                      </span>
                     </div>
-                  </SelectItem>
-                  <SelectItem value="goat">
-                    <div>
-                      <div className="font-medium">🐐 Goat</div>
-                      <div className="text-sm text-muted-foreground">Meat and milk production</div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="sheep">
-                    <div>
-                      <div className="font-medium">🐑 Sheep</div>
-                      <div className="text-sm text-muted-foreground">Meat and wool production</div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="carabao">
-                    <div>
-                      <div className="font-medium">🐃 Carabao (Water Buffalo)</div>
-                      <div className="text-sm text-muted-foreground">Draft and dairy purposes</div>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                {livestockDescriptions[formData.livestock_type as keyof typeof livestockDescriptions]}
-              </p>
+
+                    {/* Species subtitle */}
+                    <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                      {category.speciesSubtitle}
+                    </span>
+
+                    {/* Selected checkmark */}
+                    {category.enabled && formData.livestock_type === category.value && (
+                      <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">

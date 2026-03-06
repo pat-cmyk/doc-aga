@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-06 — Farm Category Selector (Ruminant / Swine / Poultry)
+
+### Added
+- **`src/lib/farmCategories.ts`** (NEW SSOT utility) — `FarmCategory` type, `FARM_CATEGORIES` array with emoji/bilingual labels/enabled flags, `getFarmCategoryLabel()` for display, `getDefaultAnimalType()` for breed dropdown fallback.
+- **Farm category card selector** in FarmSetup.tsx — Replaces species-level dropdown with 3 visual cards: Ruminant (active, with checkmark), Swine (disabled, "Coming Soon" badge), Poultry (disabled, "Coming Soon" badge). Each card shows emoji, English + Filipino labels, and species subtitle. Follows GenderSelector visual pattern.
+- **SQL migration** (`20260306120000_farm_category_ruminant.sql`) — Adds `'ruminant'` to `farms.livestock_type` CHECK constraint. Updates `create_default_farm` RPC default from `'cattle'` to `'ruminant'`.
+- **Taglish labels** in `filipinoLabels.ts` — Added `farmCategory`, `ruminant`, `swine`, `poultry` labels and livestock emojis.
+
+### Changed
+- **FarmSetup.tsx:** Default `livestock_type` changed from `"cattle"` to `"ruminant"`. Removed `livestockDescriptions` constant. Label changed from "Livestock Type" to "Farm Category / Uri ng Farm".
+- **EditFarmDialog.tsx:** Added `<SelectItem value="ruminant">Ruminant</SelectItem>` to admin farm edit dropdown.
+- **AdminAnimalDialog.tsx:** Breed dropdown fallback now uses `getDefaultAnimalType(farm?.livestock_type)` — maps `'ruminant'` → `'cattle'` for breed list.
+- **FarmDetailPanel.tsx, UserDetailPanel.tsx, SeedDemoDataButton.tsx, Profile.tsx:** Replaced `capitalize` CSS with `getFarmCategoryLabel()` for proper display of both new category values and legacy species values.
+
+### Architecture
+- **Backward compatible:** Existing farms with `'cattle'`/`'goat'`/`'sheep'`/`'carabao'` continue to display correctly. `getFarmCategoryLabel()` handles both new and legacy values.
+- **Animal-level unaffected:** `animals.livestock_type` (60+ files) remains `'cattle'|'goat'|'sheep'|'carabao'`. Only `farms.livestock_type` gains the `'ruminant'` category.
+- **SSOT:** Single `farmCategories.ts` utility consumed by all 6 display points + FarmSetup.
+
 ## 2026-03-06 — Admin View Farm Audit (6 gaps)
 
 ### Fixed

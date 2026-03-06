@@ -13,6 +13,12 @@ export const labels = {
   goat: { english: "Goat", filipino: "Kambing" },
   sheep: { english: "Sheep", filipino: "Tupa" },
   carabao: { english: "Carabao", filipino: "Kalabaw" },
+
+  // Farm Categories
+  farmCategory: { english: "Farm Category", filipino: "Uri ng Farm" },
+  ruminant: { english: "Ruminant", filipino: "Ruminante" },
+  swine: { english: "Swine", filipino: "Baboy" },
+  poultry: { english: "Poultry", filipino: "Manukan" },
   
   // Basic Info
   name: { english: "Name", filipino: "Pangalan" },
@@ -117,6 +123,9 @@ export const labels = {
     goat: "🐐",
     sheep: "🐑",
     carabao: "🐃",
+    ruminant: "🐄",
+    swine: "🐖",
+    poultry: "🐔",
   } as Record<string, string>,
 } as const;
 

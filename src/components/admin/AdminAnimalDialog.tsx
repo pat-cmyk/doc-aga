@@ -19,6 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { LIVESTOCK_BREEDS } from "@/lib/livestockBreeds";
+import { getDefaultAnimalType } from "@/lib/farmCategories";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 
 interface AnimalData {
@@ -186,7 +187,7 @@ export const AdminAnimalDialog = ({
     },
   });
 
-  const livestockType = formData.livestock_type || farm?.livestock_type || "cattle";
+  const livestockType = formData.livestock_type || getDefaultAnimalType(farm?.livestock_type);
   const availableBreeds = LIVESTOCK_BREEDS[livestockType as keyof typeof LIVESTOCK_BREEDS] || [];
 
   const handleSubmit = () => {
