@@ -4,14 +4,14 @@ import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Mic, Check, RotateCcw, Play, Loader2, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TRAINING_PHRASES, TrainingPhrase } from "@/lib/voiceTrainingPhrases";
+import { TRAINING_PHRASES, getEssentialPhrases } from "@/lib/voiceTrainingPhrases";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { MicrophonePermissionDialog } from "@/components/MicrophonePermissionDialog";
 import { Capacitor } from "@capacitor/core";
 
-type LanguageFilter = 'all' | 'english' | 'tagalog' | 'taglish';
+type TierFilter = 'essential' | 'all';
 
 export function VoiceTrainingSession() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -20,7 +20,7 @@ export function VoiceTrainingSession() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [recordedSamples, setRecordedSamples] = useState(0);
-  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('all');
+  const [tierFilter, setTierFilter] = useState<TierFilter>('essential');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -29,11 +29,11 @@ export function VoiceTrainingSession() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Filter phrases based on selected language
+  // Filter phrases based on selected tier
   const filteredPhrases = useMemo(() => {
-    if (languageFilter === 'all') return TRAINING_PHRASES;
-    return TRAINING_PHRASES.filter(p => p.language === languageFilter);
-  }, [languageFilter]);
+    if (tierFilter === 'all') return TRAINING_PHRASES;
+    return getEssentialPhrases();
+  }, [tierFilter]);
 
   const currentPhrase = filteredPhrases[currentIndex] || filteredPhrases[0];
   const totalPhrases = filteredPhrases.length;
@@ -44,7 +44,7 @@ export function VoiceTrainingSession() {
     setCurrentIndex(0);
     setRecordedSamples(0);
     setAudioBlob(null);
-  }, [languageFilter]);
+  }, [tierFilter]);
 
   useEffect(() => {
     return () => {
@@ -241,13 +241,11 @@ export function VoiceTrainingSession() {
       <div className="flex-1 flex items-center justify-center">
         <Card className="max-w-2xl w-full p-8">
           <div className="space-y-8">
-            {/* Language Filter Tabs */}
-            <Tabs value={languageFilter} onValueChange={(v) => setLanguageFilter(v as LanguageFilter)} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="english">🇬🇧 English</TabsTrigger>
-                <TabsTrigger value="tagalog">🇵🇭 Tagalog</TabsTrigger>
-                <TabsTrigger value="taglish">🔀 Taglish</TabsTrigger>
+            {/* Tier Filter Tabs */}
+            <Tabs value={tierFilter} onValueChange={(v) => setTierFilter(v as TierFilter)} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="essential">Essential (17)</TabsTrigger>
+                <TabsTrigger value="all">All Phrases ({TRAINING_PHRASES.length})</TabsTrigger>
               </TabsList>
             </Tabs>
 

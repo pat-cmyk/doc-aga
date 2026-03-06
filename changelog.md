@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-06 — Voice Training: Taglish Essential 17
+
+### Changed
+- **`voiceTrainingPhrases.ts`:** Added `tier: 'essential' | 'extended'` field to `TrainingPhrase` interface. 17 curated Taglish phrases marked essential (covering all 11 categories: daily-activities, measurements, health, breeding, sales, financial, questions, emergency, feed, records, polite/conversational). Remaining 54 phrases marked extended. Added `getEssentialPhrases()` and `getExtendedPhrases()` helper functions.
+- **`VoiceTrainingSession.tsx`:** Replaced 4-tab language filter (All/English/Tagalog/Taglish) with 2-tab tier filter: "Essential (17)" (default) and "All Phrases (71)". Farmers now see only 17 Taglish phrases by default during onboarding.
+- **`VoiceTrainingOnboarding.tsx`:** Fixed stale copy — updated from "16 short phrases in English and Tagalog" to "17 Taglish phrases". Description now in Taglish. Timing updated to "5-8 minutes".
+
+### Fixed
+- **DB bug:** `voice_training_samples.language` CHECK constraint only allowed `'english' | 'tagalog'` but code stores `'taglish'` — all Taglish sample INSERTs were failing. Migration adds `'taglish'` to constraint.
+
+### Architecture
+- **SSOT:** `voiceTrainingPhrases.ts` remains single source of truth for all phrases. New `tier` field is the discriminator — no separate arrays, no duplication.
+- **Backward compatible:** Extended phrases remain available. Existing voice training samples unaffected.
+
 ## 2026-03-06 — Farm Category Selector (Ruminant / Swine / Poultry)
 
 ### Added

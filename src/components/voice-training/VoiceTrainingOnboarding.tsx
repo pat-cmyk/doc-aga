@@ -34,7 +34,7 @@ export function VoiceTrainingOnboarding({
           </DialogTitle>
           <DialogDescription className="text-center space-y-4">
             <p>
-              Train the AI to better understand your voice, pronunciation, and accent in both English and Tagalog.
+              I-train ang AI para mas maintindihan ang iyong boses at paraan ng pagsasalita.
             </p>
             
             <div className="space-y-3 pt-4">
@@ -47,7 +47,7 @@ export function VoiceTrainingOnboarding({
               <div className="flex items-start gap-3">
                 <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-left">
-                  <strong>Quick Setup:</strong> Takes only 3-5 minutes to complete
+                  <strong>Quick Setup:</strong> Only 17 phrases, takes 5-8 minutes
                 </p>
               </div>
               <div className="flex items-start gap-3">
@@ -59,7 +59,7 @@ export function VoiceTrainingOnboarding({
             </div>
 
             <p className="text-xs text-muted-foreground pt-2">
-              You'll record 16 short phrases in English and Tagalog
+              Mag-re-record ka ng 17 Taglish phrases na ginagamit sa pag-aalaga ng hayop
             </p>
           </DialogDescription>
         </DialogHeader>
