@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
+import { toTimestamptz } from "@/lib/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -202,7 +203,7 @@ export function EditFeedingRecordDialog({
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const dateTime = format(recordDate, "yyyy-MM-dd'T'HH:mm:ss");
+      const dateTime = toTimestamptz(recordDate);
       const isFreshCut = feedType === FRESH_CUT_OPTION;
       const newFeedInventoryId = isFreshCut ? null : feedType;
       const feedTypeName = isFreshCut

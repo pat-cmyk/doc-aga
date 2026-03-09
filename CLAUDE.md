@@ -97,6 +97,8 @@ Search the codebase before creating ANY new component, hook, or utility. Reuse i
 | `truncateMessages()` | Chat message windowing | `src/lib/chatUtils.ts` |
 | `renderWithProviders()` | Test wrapper | `src/test-utils.tsx` |
 | `findOfflineFaqMatch()` | Offline FAQ matching | `src/lib/faqCache.ts` |
+| `toTimestamptz()` | SSOT timestamp for Supabase `timestamptz` columns (NEVER use naive `format()`) | `src/lib/dateUtils.ts` |
+| `formatPHTime()` / `formatPHDate()` / `formatPHDateAndTime()` | Timezone-safe PH display (Intl-based) | `src/lib/dateUtils.ts` |
 
 ### Form Parity Rule
 

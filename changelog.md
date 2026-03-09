@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-09 — Fix Timezone: Enforce PH Time (UTC+8) for All Timestamps
+
+### Added
+- **`src/lib/dateUtils.ts`** (NEW) — SSOT utility for timestamp handling. `toTimestamptz(date)` wraps `date.toISOString()` for correct UTC storage. `formatPHTime()`, `formatPHDate()`, `formatPHDateAndTime()` use `Intl.DateTimeFormat` with `timeZone: 'Asia/Manila'` for guaranteed PH display regardless of browser timezone.
+- **`src/lib/__tests__/dateUtils.test.ts`** (NEW) — Unit tests covering ISO 8601 output, PH timezone formatting, and midnight boundary cases.
+
+### Fixed
+- **8-hour timestamp offset in feed recordings.** `RecordSingleFeedDialog`, `RecordBulkFeedDialog`, and `EditFeedingRecordDialog` used `format(date, "yyyy-MM-dd'T'HH:mm:ss")` which strips timezone info. Supabase interpreted the naive string as UTC, causing entries at 7:58 PM PHT to display as "Mar 10, 3:58 AM". Now uses `toTimestamptz()` → `"2026-03-09T11:58:00.000Z"` (correct UTC).
+
+### Architecture
+- **SSOT pattern:** `toTimestamptz()` is now the ONLY acceptable way to create timestamps for `timestamptz` columns. All other creation paths (milking, health, weight, heat detection, activity confirmation) already used `.toISOString()` correctly — only the 3 feed recording dialogs had the bug.
+- **No display-side mass refactor.** The 40+ `format(new Date(value), pattern)` display calls use browser timezone, which is correct for PH users once creation timestamps are fixed. `formatPH*()` functions exist for future gradual adoption on non-PH devices.
+
 ## 2026-03-09 — Barn & Paddock: Add Delete Option
 
 ### Added

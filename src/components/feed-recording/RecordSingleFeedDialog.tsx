@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
+import { toTimestamptz } from "@/lib/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -184,7 +185,7 @@ export function RecordSingleFeedDialog({
     const optimisticId = crypto.randomUUID();
 
     try {
-      const dateTime = format(recordDate, "yyyy-MM-dd'T'HH:mm:ss");
+      const dateTime = toTimestamptz(recordDate);
       const feedTypeName = feedType === FRESH_CUT_OPTION
         ? FRESH_CUT_OPTION
         : selectedFeedInventory?.feed_type || feedType;
