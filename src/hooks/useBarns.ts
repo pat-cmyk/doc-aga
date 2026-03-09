@@ -348,6 +348,56 @@ export function useAssignAnimalToBarn(farmId: string | null) {
   });
 }
 
+export function useDeleteBarn(farmId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (barnId: string) => {
+      if (!farmId) throw new Error('No farm ID');
+
+      if (getIsOnline()) {
+        // Step 1: Clear active assignments (unassign all animals)
+        const { error: assignError } = await supabase
+          .from('barn_assignments')
+          .update({ removed_at: new Date().toISOString() })
+          .eq('barn_id', barnId)
+          .eq('farm_id', farmId)
+          .is('removed_at', null);
+
+        if (assignError) throw assignError;
+
+        // Step 2: Soft-delete the barn
+        const { error } = await supabase
+          .from('barns')
+          .update({ is_active: false })
+          .eq('id', barnId);
+
+        if (error) throw error;
+      } else {
+        // Offline: optimistic updates + queue
+        await updateLocalBarn(farmId, 'delete', { id: barnId });
+
+        await addToQueue({
+          id: crypto.randomUUID(),
+          type: 'barn_delete',
+          payload: {
+            farmId,
+            barnId,
+          },
+          createdAt: Date.now(),
+        });
+      }
+    },
+    onSuccess: () => {
+      if (farmId) {
+        try { getCacheManager().invalidateForMutation('barn', farmId); } catch { /* not initialized */ }
+        queryClient.invalidateQueries({ queryKey: ['barns', farmId] });
+        queryClient.invalidateQueries({ queryKey: ['barn-animals'] });
+      }
+    },
+  });
+}
+
 export function useRemoveAnimalFromBarn(farmId: string | null) {
   const queryClient = useQueryClient();
 

@@ -77,7 +77,7 @@ export async function getQueueCapacity(): Promise<{ current: number; max: number
  */
 interface QueueItem {
   id: string;
-  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'milk_feeding' | 'milk_sale' | 'breeding_event';
+  type: 'voice_activity' | 'animal_form' | 'bulk_milk' | 'single_milk' | 'bulk_feed' | 'single_feed' | 'bulk_health' | 'single_health' | 'single_weight' | 'voice_form_input' | 'bulk_bcs' | 'ai_record' | 'pregnancy_confirm' | 'barn_create' | 'barn_update' | 'barn_assign' | 'barn_remove' | 'barn_delete' | 'milk_feeding' | 'milk_sale' | 'breeding_event';
   payload: {
     audioBlob?: Blob;
     farmId?: string;

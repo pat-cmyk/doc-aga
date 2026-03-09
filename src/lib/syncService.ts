@@ -414,6 +414,8 @@ export async function syncQueue(syncType: SyncType = 'manual'): Promise<void> {
           await syncBarnAssign(item);
         } else if (item.type === 'barn_remove') {
           await syncBarnRemove(item);
+        } else if (item.type === 'barn_delete') {
+          await syncBarnDelete(item);
         } else if (item.type === 'milk_feeding') {
           await syncMilkFeeding(item);
         } else if (item.type === 'milk_sale') {
@@ -1394,6 +1396,34 @@ async function syncBarnRemove(item: QueueItem): Promise<void> {
 
   if (error) throw error;
   console.log('[SyncService] Barn assignment removed:', barnAssignmentId);
+}
+
+/**
+ * Sync barn soft-delete from offline queue
+ * Clears active assignments then sets is_active = false
+ */
+async function syncBarnDelete(item: QueueItem): Promise<void> {
+  const { farmId, barnId } = item.payload;
+  if (!barnId) throw new Error('No barn ID for deletion');
+
+  // Step 1: Clear active assignments
+  const { error: assignError } = await supabase
+    .from('barn_assignments')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('barn_id', barnId)
+    .eq('farm_id', farmId)
+    .is('removed_at', null);
+
+  if (assignError) throw assignError;
+
+  // Step 2: Soft-delete the barn
+  const { error } = await supabase
+    .from('barns')
+    .update({ is_active: false })
+    .eq('id', barnId);
+
+  if (error) throw error;
+  console.log('[SyncService] Barn soft-deleted:', barnId);
 }
 
 /**

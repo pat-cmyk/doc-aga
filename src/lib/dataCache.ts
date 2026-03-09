@@ -3240,7 +3240,7 @@ export async function updateLocalBarnAssignment(
  */
 export async function updateLocalBarn(
   farmId: string,
-  action: 'add' | 'update' | 'increment_count' | 'decrement_count',
+  action: 'add' | 'update' | 'delete' | 'increment_count' | 'decrement_count',
   barnData: any
 ): Promise<void> {
   try {
@@ -3251,6 +3251,8 @@ export async function updateLocalBarn(
     let updatedBarns: any[];
     if (action === 'add') {
       updatedBarns = [...currentBarns, barnData];
+    } else if (action === 'delete') {
+      updatedBarns = currentBarns.filter((b: any) => b.id !== barnData.id);
     } else if (action === 'update') {
       updatedBarns = currentBarns.map((b: any) =>
         b.id === barnData.id ? { ...b, ...barnData } : b

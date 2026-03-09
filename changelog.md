@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-09 — Barn & Paddock: Add Delete Option
+
+### Added
+- **`DeleteBarnDialog.tsx`** (NEW) — Confirmation dialog showing barn name, type, and animal count warning. Uses AlertDialog with destructive styling (same pattern as `DeleteMilkRecordDialog`).
+- **`useDeleteBarn()`** hook in `useBarns.ts` — Soft-deletes barn (`is_active = false`), clears active animal assignments first. Supports offline via optimistic cache update + queue.
+- **Delete button** in `BarnListView.tsx` → `BarnCard` — Red trash icon next to edit pencil, only visible when `!readOnly`.
+- **`'barn_delete'`** offline queue type + `syncBarnDelete()` handler in `syncService.ts`.
+- **`'delete'`** action in `updateLocalBarn()` in `dataCache.ts` — Removes barn from cached array for instant UI feedback.
+
+### Architecture
+- Soft-delete via `is_active = false` preserves data history. `useBarns` already filters `.eq('is_active', true)`.
+- Animal assignments cleared before deactivation. `animals.current_barn_id` SET NULL via FK constraint.
+
 ## 2026-03-06 — Milk Sale: Enforce Species-Level Sales
 
 ### Changed

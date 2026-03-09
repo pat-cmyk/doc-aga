@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useBarns, type Barn } from "@/hooks/useBarns";
 import { BarnFormDialog } from "./BarnFormDialog";
 import { BarnAnimalManager } from "./BarnAnimalManager";
+import { DeleteBarnDialog } from "./DeleteBarnDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Warehouse, Fence, ChevronDown, ChevronRight, Pencil, Users } from "lucide-react";
+import { Plus, Warehouse, Fence, ChevronDown, ChevronRight, Pencil, Trash2, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface BarnListViewProps {
@@ -17,6 +18,7 @@ export function BarnListView({ farmId, readOnly = false }: BarnListViewProps) {
   const { data: barns = [], isLoading } = useBarns(farmId);
   const [formOpen, setFormOpen] = useState(false);
   const [editBarn, setEditBarn] = useState<Barn | null>(null);
+  const [deletingBarn, setDeletingBarn] = useState<Barn | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (isLoading) return null;
@@ -54,6 +56,7 @@ export function BarnListView({ farmId, readOnly = false }: BarnListViewProps) {
               expanded={expandedId === barn.id}
               onToggle={() => setExpandedId(expandedId === barn.id ? null : barn.id)}
               onEdit={() => { setEditBarn(barn); setFormOpen(true); }}
+              onDelete={() => setDeletingBarn(barn)}
               readOnly={readOnly}
             />
           ))
@@ -61,15 +64,25 @@ export function BarnListView({ farmId, readOnly = false }: BarnListViewProps) {
       </CardContent>
 
       {!readOnly && (
-        <BarnFormDialog
-          open={formOpen}
-          onOpenChange={(open) => {
-            setFormOpen(open);
-            if (!open) setEditBarn(null);
-          }}
-          farmId={farmId}
-          editBarn={editBarn}
-        />
+        <>
+          <BarnFormDialog
+            open={formOpen}
+            onOpenChange={(open) => {
+              setFormOpen(open);
+              if (!open) setEditBarn(null);
+            }}
+            farmId={farmId}
+            editBarn={editBarn}
+          />
+          {deletingBarn && (
+            <DeleteBarnDialog
+              open={!!deletingBarn}
+              onOpenChange={(open) => { if (!open) setDeletingBarn(null); }}
+              farmId={farmId}
+              barn={deletingBarn}
+            />
+          )}
+        </>
       )}
     </Card>
   );
@@ -82,6 +95,7 @@ function BarnCard({
   expanded,
   onToggle,
   onEdit,
+  onDelete,
   readOnly = false,
 }: {
   barn: Barn;
@@ -90,6 +104,7 @@ function BarnCard({
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   readOnly?: boolean;
 }) {
   const Icon = barn.barn_type === 'paddock' ? Fence : Warehouse;
@@ -117,14 +132,24 @@ function BarnCard({
               </div>
             </div>
             {!readOnly && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )}
             {expanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
           </button>
