@@ -4775,6 +4775,15 @@ export type Database = {
               total_milk_liters: number
             }[]
           }
+      get_grant_effectiveness: {
+        Args: {
+          p_data_category?: string
+          p_municipality?: string
+          p_province?: string
+          p_region?: string
+        }
+        Returns: Json
+      }
       get_health_heatmap_data:
         | {
             Args: {

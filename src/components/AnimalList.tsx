@@ -140,6 +140,7 @@ interface Animal {
   milkingStage?: string | null;
   entry_weight_kg?: number | null;
   entry_weight_unknown?: boolean | null;
+  fertility_status?: string | null;
 }
 
 interface AnimalListProps {
