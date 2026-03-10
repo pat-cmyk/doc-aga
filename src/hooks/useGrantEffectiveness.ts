@@ -1,6 +1,11 @@
 /**
  * @online-only — Cross-farm grant effectiveness metrics.
  * Must NOT cache locally (RLS boundary). See docs/ssot-architecture.md §3.5.
+ *
+ * Uses server-side RPC `get_grant_effectiveness()` to avoid:
+ *   1. PostgREST URL overflow with .in() on 600+ UUIDs
+ *   2. Mortality always 0% (old hook filtered exit_date IS NULL then checked for deaths)
+ *   3. 4 sequential queries (now single round-trip)
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +30,21 @@ export interface GrantEffectivenessData {
   byGrantSource: GrantSourceMetrics[];
 }
 
+const EMPTY_METRICS: AcquisitionMetrics = {
+  count: 0,
+  avgHealthEvents: 0,
+  avgMilkProduction: 0,
+  mortalityRate: 0,
+  breedingSuccessRate: 0,
+};
+
+const EMPTY_RESULT: GrantEffectivenessData = {
+  grantAnimals: EMPTY_METRICS,
+  purchasedAnimals: EMPTY_METRICS,
+  bornOnFarmAnimals: EMPTY_METRICS,
+  byGrantSource: [],
+};
+
 export const useGrantEffectiveness = (
   region?: string,
   province?: string,
@@ -37,141 +57,44 @@ export const useGrantEffectiveness = (
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      // Fetch animals with acquisition type
-      let animalsQuery = supabase
-        .from("animals")
-        .select(`
-          id,
-          acquisition_type,
-          grant_source,
-          exit_date,
-          exit_reason,
-          farms!inner(region, province, municipality, data_category)
-        `)
-        .eq("is_deleted", false)
-        .is("exit_date", null);
-
-      // Apply data category filter
-      if (dataCategory !== 'all') {
-        animalsQuery = animalsQuery.eq("farms.data_category", dataCategory);
-      }
-
-      if (region) animalsQuery = animalsQuery.eq("farms.region", region);
-      if (province) animalsQuery = animalsQuery.eq("farms.province", province);
-      if (municipality) animalsQuery = animalsQuery.eq("farms.municipality", municipality);
-
-      const { data: animals, error: animalsError } = await animalsQuery;
-      if (animalsError) throw animalsError;
-
-      // Get animal IDs for further queries
-      const animalIds = animals?.map(a => a.id) || [];
-      
-      if (animalIds.length === 0) {
-        const emptyMetrics: AcquisitionMetrics = {
-          count: 0,
-          avgHealthEvents: 0,
-          avgMilkProduction: 0,
-          mortalityRate: 0,
-          breedingSuccessRate: 0,
-        };
-        return {
-          grantAnimals: emptyMetrics,
-          purchasedAnimals: emptyMetrics,
-          bornOnFarmAnimals: emptyMetrics,
-          byGrantSource: [],
-        };
-      }
-
-      // Fetch health records for these animals
-      const { data: healthRecords } = await supabase
-        .from("health_records")
-        .select("animal_id")
-        .in("animal_id", animalIds);
-
-      // Fetch milking records
-      const { data: milkingRecords } = await supabase
-        .from("milking_records")
-        .select("animal_id, liters")
-        .in("animal_id", animalIds);
-
-      // Fetch AI records for breeding success
-      const { data: aiRecords } = await supabase
-        .from("ai_records")
-        .select("animal_id, pregnancy_confirmed")
-        .in("animal_id", animalIds);
-
-      // Group animals by acquisition type
-      const grantAnimals = animals?.filter(a => a.acquisition_type === "grant") || [];
-      const purchasedAnimals = animals?.filter(a => a.acquisition_type === "purchased") || [];
-      const bornOnFarmAnimals = animals?.filter(a => a.acquisition_type === "born_on_farm") || [];
-
-      // Helper to calculate metrics for a group
-      const calculateMetrics = (animalGroup: typeof animals): AcquisitionMetrics => {
-        if (!animalGroup || animalGroup.length === 0) {
-          return {
-            count: 0,
-            avgHealthEvents: 0,
-            avgMilkProduction: 0,
-            mortalityRate: 0,
-            breedingSuccessRate: 0,
-          };
-        }
-
-        const groupIds = new Set(animalGroup.map(a => a.id));
-        
-        // Health events per animal
-        const healthEventsCount = healthRecords?.filter(h => groupIds.has(h.animal_id)).length || 0;
-        const avgHealthEvents = animalGroup.length > 0 ? healthEventsCount / animalGroup.length : 0;
-
-        // Milk production per animal
-        const groupMilkRecords = milkingRecords?.filter(m => groupIds.has(m.animal_id)) || [];
-        const totalMilk = groupMilkRecords.reduce((sum, m) => sum + (m.liters || 0), 0);
-        const animalsWithMilk = new Set(groupMilkRecords.map(m => m.animal_id)).size;
-        const avgMilkProduction = animalsWithMilk > 0 ? totalMilk / animalsWithMilk : 0;
-
-        // Mortality rate
-        const deadAnimals = animalGroup.filter(a => 
-          a.exit_date && (a.exit_reason === "died" || a.exit_reason === "slaughtered_emergency")
-        ).length;
-        const mortalityRate = animalGroup.length > 0 ? (deadAnimals / animalGroup.length) * 100 : 0;
-
-        // Breeding success rate
-        const groupAiRecords = aiRecords?.filter(r => groupIds.has(r.animal_id)) || [];
-        const confirmedPregnancies = groupAiRecords.filter(r => r.pregnancy_confirmed).length;
-        const breedingSuccessRate = groupAiRecords.length > 0 
-          ? (confirmedPregnancies / groupAiRecords.length) * 100 
-          : 0;
-
-        return {
-          count: animalGroup.length,
-          avgHealthEvents: Math.round(avgHealthEvents * 10) / 10,
-          avgMilkProduction: Math.round(avgMilkProduction * 10) / 10,
-          mortalityRate: Math.round(mortalityRate * 10) / 10,
-          breedingSuccessRate: Math.round(breedingSuccessRate * 10) / 10,
-        };
-      };
-
-      // Calculate by grant source
-      const grantSources: Record<string, typeof grantAnimals> = {};
-      grantAnimals.forEach(animal => {
-        const source = animal.grant_source || "Unknown Source";
-        if (!grantSources[source]) grantSources[source] = [];
-        grantSources[source].push(animal);
+      const { data, error } = await supabase.rpc("get_grant_effectiveness", {
+        p_region: region || null,
+        p_province: province || null,
+        p_municipality: municipality || null,
+        p_data_category: dataCategory,
       });
 
-      const byGrantSource: GrantSourceMetrics[] = Object.entries(grantSources)
-        .map(([source, animalGroup]) => ({
-          source,
-          ...calculateMetrics(animalGroup),
-        }))
-        .sort((a, b) => b.count - a.count);
+      if (error) {
+        console.error("get_grant_effectiveness RPC error:", error);
+        throw error;
+      }
+
+      if (!data) return EMPTY_RESULT;
+
+      // RPC returns JSON matching our interface shape — parse camelCase keys
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
 
       return {
-        grantAnimals: calculateMetrics(grantAnimals),
-        purchasedAnimals: calculateMetrics(purchasedAnimals),
-        bornOnFarmAnimals: calculateMetrics(bornOnFarmAnimals),
-        byGrantSource,
+        grantAnimals: parseMetrics(parsed.grantAnimals),
+        purchasedAnimals: parseMetrics(parsed.purchasedAnimals),
+        bornOnFarmAnimals: parseMetrics(parsed.bornOnFarmAnimals),
+        byGrantSource: (parsed.byGrantSource || []).map((s: any) => ({
+          source: s.source || "Unknown Source",
+          ...parseMetrics(s),
+        })),
       };
     },
   });
 };
+
+/** Safely parse metrics from RPC JSON, coercing nulls to 0 */
+function parseMetrics(raw: any): AcquisitionMetrics {
+  if (!raw) return EMPTY_METRICS;
+  return {
+    count: Number(raw.count) || 0,
+    avgHealthEvents: Number(raw.avgHealthEvents) || 0,
+    avgMilkProduction: Number(raw.avgMilkProduction) || 0,
+    mortalityRate: Number(raw.mortalityRate) || 0,
+    breedingSuccessRate: Number(raw.breedingSuccessRate) || 0,
+  };
+}

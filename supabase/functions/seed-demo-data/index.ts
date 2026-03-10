@@ -514,10 +514,14 @@ Deno.serve(async (req) => {
         const animalSpecies = (animal.livestock_type || farm.livestock_type || 'cattle').toLowerCase()
         const config = SPECIES_CONFIG[animalSpecies] || SPECIES_CONFIG.cattle
         const isFemale = animal.gender === 'Female' || animal.gender === 'female'
+        const isCalf = !!(animal.life_stage || '').match(/Calf|Newborn|Baby/i)
         const isLactating = animal.is_currently_lactating || (isFemale && (animal.life_stage || '').match(/Cow|Doe|Carabao|Mature/i))
+        // For demo: all mature females (non-calves) get milking/AI records to ensure
+        // government dashboard metrics are populated with insightful data
+        const isMatureFemale = isFemale && !isCalf
 
-        // Milking: only for lactating females, single "Full Day" record per day
-        if (isLactating && isFemale) {
+        // Milking: for mature females (broadened from lactating-only for demo coverage)
+        if (isMatureFemale) {
           for (let d = 1; d <= 7; d++) {
             const date = new Date(now)
             date.setDate(date.getDate() - d)
@@ -581,8 +585,8 @@ Deno.serve(async (req) => {
           })
         }
 
-        // AI Records: for lactating females without a recent AI record
-        if (isFemale && isLactating && !animalsWithAI.has(animal.id)) {
+        // AI Records: for mature females without a recent AI record (broadened for demo coverage)
+        if (isMatureFemale && !animalsWithAI.has(animal.id)) {
           const daysAgo = Math.floor(seededRandom(`${animal.id}_ai_day`) * 7) + 1
           const scheduledDate = new Date(now)
           scheduledDate.setDate(scheduledDate.getDate() - daysAgo)

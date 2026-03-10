@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-10 — Fix: Grant Program Effectiveness — Zero Metrics on Gov Dashboard
+
+### Root Cause (3 bugs)
+1. **`.in()` URL overflow** — `useGrantEffectiveness` queried `health_records`, `milking_records`, `ai_records` using `.in("animal_id", animalIds)` with 688+ UUIDs (~25KB URL). PostgREST URL limit silently failed → all record data returned null → every metric = 0.
+2. **Mortality structurally broken** — Animals query filtered `.is("exit_date", null)` (live only), then mortality check looked for `exit_date && exit_reason === "died"` → always 0%.
+3. **Seed data gap** — `seed-demo-data` only generated milking/AI records for lactating females. Most demo animals don't have `is_currently_lactating` set, so metrics stayed empty.
+
+### Fixed
+- **New RPC `get_grant_effectiveness()`** — Server-side SQL function replaces 4 client-side queries. Single round-trip, no URL overflow, includes deceased animals for proper mortality calculation. `SECURITY DEFINER` pattern.
+- **`useGrantEffectiveness.ts`** — Rewritten to call RPC. Same `GrantEffectivenessData` interface (no component changes needed).
+- **`seed-demo-data/index.ts`** — Broadened milking/AI record generation from "lactating females only" to "all mature females" (non-calves). Ensures demo data populates meaningful metrics.
+
+### Migration Required
+Run `supabase/migrations/20260310150000_get_grant_effectiveness.sql` via Supabase Dashboard SQL Editor.
+
 ## 2026-03-10 — Merge Finance Summary into Cash-Focused Farm P&L
 
 ### Changed
