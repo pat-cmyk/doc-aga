@@ -13,12 +13,13 @@ interface Props {
 
 export const CooperativeOverview = ({ cooperativeId }: Props) => {
   const { data: farms, isLoading: farmsLoading } = useCooperativeMemberFarms(cooperativeId);
-  const { data: herd, isLoading: herdLoading } = useCooperativeHerdSummary(cooperativeId);
-  const { data: milk, isLoading: milkLoading } = useCooperativeMilkProduction(cooperativeId, 30);
-  const { data: health, isLoading: healthLoading } = useCooperativeHealthOverview(cooperativeId);
+  const { data: herd, isLoading: herdLoading, isError: herdError } = useCooperativeHerdSummary(cooperativeId);
+  const { data: milk, isLoading: milkLoading, isError: milkError } = useCooperativeMilkProduction(cooperativeId, 30);
+  const { data: health, isLoading: healthLoading, isError: healthError } = useCooperativeHealthOverview(cooperativeId);
 
   const acceptedFarms = farms?.filter((f: any) => f.invitation_status === "accepted") || [];
   const isLoading = farmsLoading || herdLoading || milkLoading || healthLoading;
+  const hasErrors = herdError || milkError || healthError;
 
   if (isLoading) {
     return (
@@ -37,27 +38,47 @@ export const CooperativeOverview = ({ cooperativeId }: Props) => {
     },
     {
       title: "Total Animals",
-      value: herd?.total_animals ?? 0,
+      value: herdError ? "—" : (herd?.total_animals ?? 0),
       icon: PawPrint,
-      description: herd?.by_species?.map((s: any) => `${s.count} ${s.species}`).join(", ") || "No animals",
+      description: herdError
+        ? "Failed to load"
+        : herd?.by_species?.map((s: any) => `${s.count} ${s.species}`).join(", ") || "No animals",
     },
     {
       title: "Milk (30 days)",
-      value: `${(milk?.total_liters ?? 0).toFixed(1)} L`,
+      value: milkError ? "—" : `${(milk?.total_liters ?? 0).toFixed(1)} L`,
       icon: Milk,
-      description: `From ${milk?.by_farm?.length ?? 0} farms`,
+      description: milkError
+        ? "Failed to load"
+        : `From ${milk?.by_farm?.length ?? 0} farms`,
     },
     {
       title: "Health Records (30d)",
-      value: health?.total_records_30d ?? 0,
+      value: healthError ? "—" : (health?.total_records_30d ?? 0),
       icon: AlertTriangle,
-      description: `${health?.mortality_30d ?? 0} mortalities`,
+      description: healthError
+        ? "Failed to load"
+        : `${health?.mortality_30d ?? 0} mortalities`,
     },
   ];
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Overview</h2>
+
+      {hasErrors && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Some metrics could not be loaded</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Data shown may be incomplete. Please try refreshing the page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (

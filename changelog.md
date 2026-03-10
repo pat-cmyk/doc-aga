@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-10 — Fix: Cooperative Dashboard Zero Metrics (Animals, Milk, Health)
+
+### Root Cause (3 bugs)
+1. **`get_cooperative_health_overview` — column `hr.farm_id` does not exist** — `health_records` table has `animal_id`, not `farm_id`. The RPC queried `hr.farm_id = ANY(_farm_ids)` which crashed with a SQL column-not-found error.
+2. **`get_cooperative_milk_production` — column `volume_liters` does not exist** — `milking_records` column is `liters`, not `volume_liters`. All 3 references used the wrong name. Same crash pattern.
+3. **Silent error-JSON in hooks** — RPCs return `{"error":"not_authorized"}` as valid data (not as a transport error). Hooks passed it through without detection. Component displayed zeros instead of error states.
+
+### Fixed
+- **New migration `20260310170000_fix_cooperative_aggregation_rpcs.sql`** — Fixes health overview to JOIN through `animals` for farm_id. Fixes milk production to use correct `liters` column name. All 4 aggregation RPCs re-declared for auditability.
+- **`useCooperative.ts`** — Added `assertNotErrorJson()` guard to detect error-JSON responses from RPCs and throw them as proper errors for React Query.
+- **`CooperativeOverview.tsx`** — Added `isError` handling to show "—" on failed cards and inline warning banner instead of silent zeros.
+
+### Migration Required
+Run `supabase/migrations/20260310170000_fix_cooperative_aggregation_rpcs.sql` via Supabase Dashboard SQL Editor.
+
 ## 2026-03-10 — Seed: Golden Sunrise Milk Coop (Demo Cooperative)
 
 ### Added

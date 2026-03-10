@@ -6,6 +6,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Guard: detect error-JSON responses from cooperative RPCs.
+ * All cooperative aggregation RPCs return {"error":"..."} on auth failure
+ * instead of raising a PostgreSQL exception. Detect and throw so React Query
+ * treats it as an error state rather than rendering misleading zeros.
+ */
+function assertNotErrorJson(data: unknown): void {
+  if (
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "error" in data
+  ) {
+    throw new Error(
+      `Cooperative RPC error: ${(data as { error: string }).error}`
+    );
+  }
+}
+
 export const useCooperativeMemberFarms = (cooperativeId: string | null) => {
   return useQuery({
     queryKey: ["cooperative-member-farms", cooperativeId],
@@ -30,6 +49,7 @@ export const useCooperativeHerdSummary = (cooperativeId: string | null) => {
         _cooperative_id: cooperativeId,
       });
       if (error) throw error;
+      assertNotErrorJson(data);
       return data as {
         total_animals: number;
         by_species: { species: string; count: number }[];
@@ -51,6 +71,7 @@ export const useCooperativeMilkProduction = (cooperativeId: string | null, days:
         _days: days,
       });
       if (error) throw error;
+      assertNotErrorJson(data);
       return data as {
         total_liters: number;
         daily: { date: string; liters: number }[];
@@ -70,6 +91,7 @@ export const useCooperativeHealthOverview = (cooperativeId: string | null) => {
         _cooperative_id: cooperativeId,
       });
       if (error) throw error;
+      assertNotErrorJson(data);
       return data as {
         total_records_30d: number;
         by_diagnosis: { diagnosis: string; count: number }[];
@@ -90,6 +112,7 @@ export const useCooperativeFinancialSummary = (cooperativeId: string | null, day
         _days: days,
       });
       if (error) throw error;
+      assertNotErrorJson(data);
       return data as {
         total_revenue: number;
         total_expenses: number;
