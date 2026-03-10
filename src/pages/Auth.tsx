@@ -49,7 +49,7 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // If there's a pending redirect (e.g., from invitation flow), go there first
-        if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+        if (pendingRedirect?.startsWith('/invite/accept/')) {
           navigate(pendingRedirect);
           return;
         }
@@ -64,8 +64,6 @@ const Auth = () => {
         
         if (userRoles.includes("admin")) {
           navigate("/admin");
-        } else if (userRoles.includes("cooperative")) {
-          navigate("/cooperative");
         } else if (userRoles.includes("merchant")) {
           navigate("/merchant");
         } else {
@@ -133,7 +131,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     // Preserve redirect URL for invitation flow
-    const redirectTo = (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/'))
+    const redirectTo = pendingRedirect?.startsWith('/invite/accept/')
       ? `${window.location.origin}${pendingRedirect}`
       : `${window.location.origin}/`;
     
@@ -187,7 +185,7 @@ const Auth = () => {
       });
 
       // If there's a pending redirect (e.g., from invitation flow), go there first
-      if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+      if (pendingRedirect?.startsWith('/invite/accept/')) {
         navigate(pendingRedirect);
         return;
       }
@@ -195,8 +193,6 @@ const Auth = () => {
       // Redirect based on role
       if (userRoles.includes("admin")) {
         navigate("/admin");
-      } else if (userRoles.includes("cooperative")) {
-        navigate("/cooperative");
       } else if (userRoles.includes("merchant")) {
         navigate("/merchant");
       } else {
@@ -264,7 +260,7 @@ const Auth = () => {
             }
             setShowVoiceTrainingOnboarding(false);
             // Navigate to pending redirect (invitation) or home
-            if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+            if (pendingRedirect?.startsWith('/invite/accept/')) {
               navigate(pendingRedirect);
             } else {
               navigate("/");
@@ -462,10 +458,6 @@ const Auth = () => {
           
           <div className="mt-6 pt-4 border-t border-border text-center space-y-2">
             <div className="flex justify-center gap-4">
-              <Link to="/auth/cooperative" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Log in as Cooperative
-              </Link>
-              <span className="text-muted-foreground">·</span>
               <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
               </Link>
