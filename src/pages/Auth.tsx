@@ -458,10 +458,6 @@ const Auth = () => {
           
           <div className="mt-6 pt-4 border-t border-border text-center space-y-2">
             <div className="flex justify-center gap-4">
-              <Link to="/auth/cooperative" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Log in as Cooperative
-              </Link>
-              <span className="text-muted-foreground">·</span>
               <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
               </Link>

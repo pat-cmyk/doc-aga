@@ -7,7 +7,7 @@ export type GlobalRole = "admin" | "merchant" | "distributor" | "government";
 export type FarmRoleInFarm = "farmer_owner" | "farmhand" | "vet";
 export type UserRole = GlobalRole | FarmRoleInFarm;
 
-const GLOBAL_ROLES: GlobalRole[] = ["admin", "merchant", "distributor", "government", "cooperative"];
+const GLOBAL_ROLES: GlobalRole[] = ["admin", "merchant", "distributor", "government"];
 
 // Offline permission cache (localStorage) — 7-day expiry matching OFFLINE_GRACE_PERIOD
 const PERMISSIONS_CACHE_KEY = 'cached_permissions';

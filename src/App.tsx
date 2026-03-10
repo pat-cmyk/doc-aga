@@ -281,16 +281,6 @@ const App = () => (
                   <Route path="/auth/merchant" element={<MerchantAuth />} />
                   <Route path="/auth/admin" element={<AdminAuth />} />
                   <Route path="/auth/government" element={<GovernmentAuth />} />
-                  <Route path="/auth/cooperative" element={<CooperativeAuth />} />
-                  <Route 
-                    path="/cooperative" 
-                    element={
-                      <ProtectedRoute requiredRoles={["cooperative"]}>
-                        <CooperativeDashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="/cooperative/invite/accept/:token" element={<CooperativeInviteAccept />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route 
                     path="/admin" 
