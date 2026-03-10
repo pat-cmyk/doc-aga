@@ -240,15 +240,61 @@ export const useCombinedDashboardData = (
           });
         });
 
+        // --- REAL-TIME OVERRIDE FOR CURRENT MONTH ---
+        // ensure_farm_stats only backfills up to CURRENT_DATE - 1.
+        // Override current month with real-time query matching dashboard's
+        // "Total Animals" filter: is_deleted = false AND exit_date IS NULL.
+        const currentMonthKey = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const updatedStageKeys = new Set<string>(result.stageKeys || []);
+
+        try {
+          const { data: currentAnimals } = await supabase
+            .from("animals")
+            .select("milking_stage, life_stage")
+            .eq("farm_id", farmId)
+            .eq("is_deleted", false)
+            .is("exit_date", null);
+
+          if (currentAnimals && currentAnimals.length > 0) {
+            // Match SQL: COALESCE(NULLIF(milking_stage,''), NULLIF(life_stage,''), 'Unknown')
+            const rtStageCounts: Record<string, number> = {};
+            currentAnimals.forEach(a => {
+              const stage = (a.milking_stage || '') !== ''
+                ? a.milking_stage!
+                : (a.life_stage || '') !== ''
+                  ? a.life_stage!
+                  : 'Unknown';
+              rtStageCounts[stage] = (rtStageCounts[stage] || 0) + 1;
+            });
+
+            const entry: MonthlyHeadcount = { month: currentMonthKey };
+            updatedStageKeys.forEach(k => { entry[k] = 0; });
+            Object.entries(rtStageCounts).forEach(([stage, count]) => {
+              entry[stage] = count;
+              updatedStageKeys.add(stage);
+            });
+            monthlyMap[currentMonthKey] = entry;
+          } else if (currentAnimals?.length === 0 && monthlyMap[currentMonthKey]) {
+            const entry: MonthlyHeadcount = { month: currentMonthKey };
+            updatedStageKeys.forEach(k => { entry[k] = 0; });
+            monthlyMap[currentMonthKey] = entry;
+          }
+        } catch (overrideErr) {
+          console.warn('[Dashboard] Current-month headcount override failed:', overrideErr);
+        }
+        // --- END REAL-TIME OVERRIDE ---
+
+        const finalStageKeys = Array.from(updatedStageKeys);
+
         const sortedMonths = Object.keys(monthlyMap).sort((a, b) => {
           return new Date(a).getTime() - new Date(b).getTime();
         });
 
         const processedMonthlyData = sortedMonths.map(month => monthlyMap[month]);
-        
+
         setStats(serverStats);
         setMonthlyHeadcount(processedMonthlyData as MonthlyHeadcount[]);
-        setStageKeys(result.stageKeys || []);
+        setStageKeys(finalStageKeys);
 
         // ========== STEP 5: Update IndexedDB with merged data ==========
         await updateDashboardStatsCache(farmId, {
@@ -257,7 +303,7 @@ export const useCombinedDashboardData = (
           dailyFeed: serverDailyFeed,
           stageCounts: serverStageCounts,
           monthlyData: processedMonthlyData,
-          stageKeys: result.stageKeys || [],
+          stageKeys: finalStageKeys,
         });
       }
 

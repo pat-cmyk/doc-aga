@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-10 — Fix: Headcount Chart Current Month Matches Dashboard Total
+
+### Fixed
+- **useCombinedDashboardData.ts** / **useHeadcountData.ts** — Current month's headcount bar now uses a real-time query (`is_deleted = false AND exit_date IS NULL`) matching the dashboard "Total Animals" card, instead of stale pre-computed daily stats that included exited animals.
+
+### Architecture
+- Past months retain correct historical snapshots from `daily_farm_stats`. Only the current month is overridden with real-time data to ensure SSOT consistency with the dashboard.
+
 ## 2026-03-10 — Fix: Vet View Reproductive Cycle Uses fertility_status as SSOT
 
 ### Fixed

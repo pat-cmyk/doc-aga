@@ -109,6 +109,44 @@ export const useHeadcountData = (
         }
       }
 
+      // --- REAL-TIME OVERRIDE FOR CURRENT MONTH ---
+      const currentMonthKey = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      try {
+        const { data: currentAnimals } = await supabase
+          .from("animals")
+          .select("milking_stage, life_stage")
+          .eq("farm_id", farmId)
+          .eq("is_deleted", false)
+          .is("exit_date", null);
+
+        if (currentAnimals && currentAnimals.length > 0) {
+          const rtStageCounts: Record<string, number> = {};
+          currentAnimals.forEach(a => {
+            const stage = (a.milking_stage || '') !== ''
+              ? a.milking_stage!
+              : (a.life_stage || '') !== ''
+                ? a.life_stage!
+                : 'Unknown';
+            rtStageCounts[stage] = (rtStageCounts[stage] || 0) + 1;
+          });
+
+          const entry: MonthlyHeadcount = { month: currentMonthKey };
+          stageKeysArray.forEach(k => { entry[k] = 0; });
+          Object.entries(rtStageCounts).forEach(([stage, count]) => {
+            entry[stage] = count;
+          });
+          monthlyMap[currentMonthKey] = entry;
+        } else if (currentAnimals?.length === 0 && monthlyMap[currentMonthKey]) {
+          const entry: MonthlyHeadcount = { month: currentMonthKey };
+          stageKeysArray.forEach(k => { entry[k] = 0; });
+          monthlyMap[currentMonthKey] = entry;
+        }
+      } catch (overrideErr) {
+        console.warn('[Headcount] Current-month override failed:', overrideErr);
+      }
+      // --- END REAL-TIME OVERRIDE ---
+
       const sortedMonths = Object.keys(monthlyMap).sort((a, b) => {
         return new Date(a).getTime() - new Date(b).getTime();
       });
