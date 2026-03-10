@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-10 — Feature: Dashboard Switcher for Dual-Role Users (Farm ↔ Cooperative)
+
+### Added
+- **`UserEmailDropdown.tsx`** — Added "Cooperative Dashboard" menu item for users with the `cooperative` global role, following the same pattern as Merchant/Government/Admin portals.
+- **`CooperativeDashboard.tsx`** — Replaced the standalone Sign Out button with the shared `UserEmailDropdown` component, giving cooperative admins consistent profile dropdown navigation (Farm Dashboard, Cooperative Dashboard, Profile, Sign Out) from the cooperative header.
+
+### Impact
+- Dual-role users (Farm Owner/Manager + Cooperative Admin) can now switch between dashboards directly from the profile dropdown — no need to navigate manually or sign out.
+- No database changes. Purely frontend UI reuse.
+
 ## 2026-03-10 — Fix: Cooperative Dashboard Zero Metrics (Animals, Milk, Health)
 
 ### Root Cause (3 bugs)
