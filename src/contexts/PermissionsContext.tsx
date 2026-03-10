@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFarm } from "./FarmContext";
 
 // Type definitions
-export type GlobalRole = "admin" | "merchant" | "distributor" | "government" | "cooperative";
+export type GlobalRole = "admin" | "merchant" | "distributor" | "government";
 export type FarmRoleInFarm = "farmer_owner" | "farmhand" | "vet";
 export type UserRole = GlobalRole | FarmRoleInFarm;
 
