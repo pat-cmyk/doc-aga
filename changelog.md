@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-10 — Fix: Doc Aga Missing `farmId` in Request Body
+
+### Fixed
+- **`DocAgaConsultation.tsx`** — Added `farmId` to the fetch request body sent to the `doc-aga` edge function. Previously, `farmId` was received as a prop but never forwarded, causing the AI to fall back to the user's first farm (wrong for multi-farm users).
+- The `farmId || undefined` guard ensures empty strings (e.g., from `MerchantFab`) are sent as `undefined`, letting the edge function's fallback logic work correctly.
+
+### Impact
+- Multi-farm users now get farm-specific context in Doc Aga consultations.
+- No backend changes — the edge function already handles `farmId` correctly.
+
 ## 2026-03-10 — Feature: Dashboard Switcher for Dual-Role Users (Farm ↔ Cooperative)
 
 ### Added
