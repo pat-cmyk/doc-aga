@@ -105,3 +105,34 @@ export const ALLOCATION_TYPES = {
  * TypeScript type for allocation types
  */
 export type AllocationType = (typeof ALLOCATION_TYPES)[keyof typeof ALLOCATION_TYPES];
+
+/**
+ * Get the emoji icon for a given expense category
+ * Follows the same pattern as getRevenueSourceIcon() in revenueCategories.ts
+ */
+export function getExpenseCategoryIcon(category: string): string {
+  switch (category) {
+    case "Feed & Supplements":
+      return "🌾";
+    case "Veterinary Services":
+      return "💉";
+    case "Medicine & Vaccines":
+      return "💊";
+    case "Labor/Wages":
+      return "👷";
+    case "Equipment & Tools":
+      return "🔧";
+    case "Facility Maintenance":
+      return "🏠";
+    case "Utilities":
+      return "💡";
+    case "Transportation":
+      return "🚛";
+    case "Breeding Services":
+      return "🧬";
+    case "Marketing & Sales":
+      return "📢";
+    default:
+      return "📋";
+  }
+}

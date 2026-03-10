@@ -1,3 +1,8 @@
+/**
+ * @deprecated Replaced by FarmCashFlowSummary.tsx which merges this card with ProfitabilityThermometer
+ * into a single cash-focused P&L view. Kept for reference only.
+ * The underlying useFinancialHealth hook is still used by useContextualInsights.
+ */
 import { TrendingUp, TrendingDown, Minus, CircleCheck, CircleAlert, CircleX, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";

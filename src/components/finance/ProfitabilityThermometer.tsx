@@ -1,3 +1,7 @@
+/**
+ * @deprecated Replaced by FarmCashFlowSummary.tsx which merges this breakeven dashboard
+ * with FinancialHealthSummary into a single cash-focused P&L view. Kept for reference only.
+ */
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useProfitability } from "@/hooks/useProfitability";
 import { useMilkSpoilageReport } from "@/hooks/useMilkSpoilageReport";

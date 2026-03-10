@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-10 — Merge Finance Summary into Cash-Focused Farm P&L
+
+### Changed
+- **FarmCashFlowSummary.tsx** (NEW) — Single hero card replacing both `FinancialHealthSummary` and `ProfitabilityThermometer`. Shows Net Cash Income → Cash In by source (Pumasok) → Cash Out by category (Lumabas) → Breakeven progress → Herd Value (labeled "Hindi pa cash", hidden when zero). Follows USDA/IFCN small-farm cash reporting.
+- **useProfitability.ts** — Added `category` to expense query; new `topExpenseCategories` field returns top 5 expense categories with amounts and percentages.
+- **expenseCategories.ts** — Added `getExpenseCategoryIcon()` utility (mirrors `getRevenueSourceIcon()` pattern from `revenueCategories.ts`).
+- **FinanceTab.tsx** — Swapped hero to `FarmCashFlowSummary`, removed `ProfitabilityThermometer` from "Detailed Analysis" collapsible, renamed section from "Detailed P&L Analysis" → "Detailed Analysis".
+- **FinancialHealthSummary.tsx** / **ProfitabilityThermometer.tsx** — Marked `@deprecated`. Underlying hooks (`useFinancialHealth`, `useProfitability`) remain active.
+
+### Architecture
+- No new Supabase queries — reuses existing `useFinancialHealth` (status, trends, breakeven) + `useProfitability` (revenue breakdown, expense categories, herd value) + `useMilkSpoilageReport` (lost revenue).
+- Taglish labels: "Pumasok / Lumabas", "Walang gastos ngayong buwan", "Hindi pa cash".
+
 ## 2026-03-10 — Fix: Monthly Headcount Phantom Stage Data (Merge Bug)
 
 ### Root Cause

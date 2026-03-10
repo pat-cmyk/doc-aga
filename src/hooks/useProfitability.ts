@@ -7,6 +7,12 @@ import { subDays, differenceInDays, format } from "date-fns";
 import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 import { DateRange } from "@/components/finance/FinanceDateRangePicker";
 
+export interface ExpenseCategoryBreakdown {
+  category: string;
+  amount: number;
+  percentage: number;
+}
+
 export interface ProfitabilityData {
   operationalCosts: number;
   cashRevenue: number;
@@ -18,6 +24,7 @@ export interface ProfitabilityData {
   milkRevenue: number;
   animalSalesRevenue: number;
   otherRevenue: number;
+  topExpenseCategories: ExpenseCategoryBreakdown[];
 }
 
 export function useProfitability(farmId: string | undefined, dateRange?: DateRange) {
@@ -36,6 +43,7 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
           milkRevenue: 0,
           animalSalesRevenue: 0,
           otherRevenue: 0,
+          topExpenseCategories: [],
         };
       }
 
@@ -60,7 +68,7 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
       // 1. Get operational costs for current period (exclude Personal — aligned with useFinancialHealth)
       const { data: expenses, error: expensesError } = await supabase
         .from("farm_expenses")
-        .select("amount, allocation_type")
+        .select("amount, category, allocation_type")
         .eq("farm_id", farmId)
         .eq("is_deleted", false)
         .neq("allocation_type", "Personal")
@@ -74,6 +82,22 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
 
       const operationalCosts = (expenses || [])
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      // 1b. Group expenses by category (top 5)
+      const expenseByCategory: Record<string, number> = {};
+      (expenses || []).forEach((e) => {
+        const cat = e.category || "Other";
+        expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.amount) || 0);
+      });
+
+      const topExpenseCategories: ExpenseCategoryBreakdown[] = Object.entries(expenseByCategory)
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: operationalCosts > 0 ? (amount / operationalCosts) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
 
       // 2. Get revenues for current period
       const { data: revenues, error: revenuesError } = await supabase
@@ -164,6 +188,7 @@ export function useProfitability(farmId: string | undefined, dateRange?: DateRan
         milkRevenue,
         animalSalesRevenue,
         otherRevenue,
+        topExpenseCategories,
       };
     },
     enabled: !!farmId,

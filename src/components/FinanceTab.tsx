@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { FinancialHealthSummary } from "@/components/finance/FinancialHealthSummary";
+import { FarmCashFlowSummary } from "@/components/finance/FarmCashFlowSummary";
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar";
 import { MobileQuickActions } from "@/components/finance/MobileQuickActions";
 import { ContextualInsights } from "@/components/finance/ContextualInsights";
@@ -7,7 +7,6 @@ import { RevenueExpenseComparison } from "@/components/finance/RevenueExpenseCom
 import { ExpenseList } from "@/components/finance/ExpenseList";
 import { RevenueList } from "@/components/finance/RevenueList";
 import { HerdValueChart } from "@/components/finance/HerdValueChart";
-import { ProfitabilityThermometer } from "@/components/finance/ProfitabilityThermometer";
 import { AnimalCostAnalysis } from "@/components/finance/AnimalCostAnalysis";
 import { MilkSpoilageCard } from "@/components/finance/MilkSpoilageCard";
 import { DataCompletenessIndicator } from "@/components/finance/DataCompletenessIndicator";
@@ -54,8 +53,8 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
         onDateRangeChange={setDateRange} 
       />
 
-      {/* HERO: Financial Health Summary - The 15-second answer */}
-      <FinancialHealthSummary farmId={farmId} dateRange={dateRange} />
+      {/* HERO: Farm Cash-Flow P&L — merged from FinancialHealthSummary + ProfitabilityThermometer */}
+      <FarmCashFlowSummary farmId={farmId} dateRange={dateRange} />
 
       {/* Data Completeness Indicator - Shows missing data for financial reports */}
       <DataCompletenessIndicator farmId={farmId} onNavigateToTab={onNavigateToTab} />
@@ -74,14 +73,13 @@ export function FinanceTab({ farmId, canManage, onNavigateToTab }: FinanceTabPro
         {/* Advanced Details */}
         <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
           <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors border border-border">
-            <span className="font-semibold text-sm">Detailed P&L Analysis</span>
+            <span className="font-semibold text-sm">Detailed Analysis</span>
             <ChevronDown className={cn(
               "h-4 w-4 text-muted-foreground transition-transform",
               detailsOpen && "rotate-180"
             )} />
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3 space-y-4">
-            <ProfitabilityThermometer farmId={farmId} dateRange={dateRange} />
             <MilkSpoilageCard farmId={farmId} dateRange={dateRange} />
             <AnimalCostAnalysis farmId={farmId} />
           </CollapsibleContent>
