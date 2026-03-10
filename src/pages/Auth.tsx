@@ -49,7 +49,7 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // If there's a pending redirect (e.g., from invitation flow), go there first
-        if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+        if (pendingRedirect?.startsWith('/invite/accept/')) {
           navigate(pendingRedirect);
           return;
         }
