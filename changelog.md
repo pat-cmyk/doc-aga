@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-03-10 — Fix: Monthly Headcount Phantom Stage Data (Merge Bug)
+
+### Root Cause
+- **useCombinedDashboardData.ts** — Client-side monthly data processing **merged** stage counts across ALL daily entries in a month instead of using the end-of-month snapshot. Stages that appeared mid-month but disappeared by month-end persisted as ghost data (e.g., 4 cows temporarily moved to "Mid-Lactation" on Feb 16-18, then back to "Early Lactation" by Feb 19 — the merge kept the phantom +2 Mid-Lactation, inflating Feb from 10 → 12).
+
+### Fixed
+- Monthly data processing now **replaces** the entire month entry for each daily snapshot (last non-empty day wins = end-of-month headcount). Empty snapshots (feed-only entries) are skipped to avoid zeroing out months.
+
+### Verification
+- Feb 2026: 10 head (was 12). Mar 2026: 11 head. All months reconcile: Dec=0 → Jan=9 (+9) → Feb=10 (+1) → Mar=11 (+1).
+
 ## 2026-03-10 — Fix: Headcount Chart Tooltip & Dialog Consistency
 
 ### Fixed

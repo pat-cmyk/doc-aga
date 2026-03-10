@@ -224,20 +224,36 @@ export const useCombinedDashboardData = (
 
         setCombinedData(dateArray.map(date => dailyDataMap[date]));
 
-        // Process monthly data
+        // Process monthly data — use LAST non-empty snapshot per month
+        // (end-of-month headcount).  Previous code merged stage counts across
+        // all daily entries, so stages that appeared mid-month but disappeared
+        // by month-end persisted as phantom data (e.g. Mid-Lactation +2 in Feb
+        // inflated 10 → 12).  Since RPC returns entries ordered by stat_date,
+        // the last non-empty day's snapshot is the correct end-of-month picture.
         const monthlyMap: Record<string, MonthlyHeadcount> = {};
         (result.monthlyData || []).forEach((item: any) => {
           const statDate = new Date(item.monthDate);
           const monthKey = statDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-          
-          if (!monthlyMap[monthKey]) {
-            monthlyMap[monthKey] = { month: monthKey };
-          }
 
           const stageCounts = item.stageCounts || {};
+          const hasStages = Object.keys(stageCounts).length > 0;
+
+          if (!hasStages) {
+            // Register the month so it appears in the timeline, but don't
+            // overwrite a snapshot we already captured from a later day
+            if (!monthlyMap[monthKey]) {
+              monthlyMap[monthKey] = { month: monthKey };
+            }
+            return;
+          }
+
+          // REPLACE entire month entry with this day's full snapshot.
+          // Last non-empty day wins → correct end-of-month headcount.
+          const entry: MonthlyHeadcount = { month: monthKey };
           Object.entries(stageCounts).forEach(([stage, count]) => {
-            monthlyMap[monthKey][stage] = count as number;
+            entry[stage] = count as number;
           });
+          monthlyMap[monthKey] = entry;
         });
 
         // --- REAL-TIME OVERRIDE FOR CURRENT MONTH ---
