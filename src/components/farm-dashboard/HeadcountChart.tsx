@@ -31,7 +31,8 @@ interface HeadcountChartProps {
 const STAGE_CATEGORIES = {
   productive: [
     // Cattle
-    "Mature Cow", "Early Lactation", "First-Calf Heifer",
+    "Mature Cow", "Early Lactation", "Mid-Lactation", "Late Lactation",
+    "Dry Period", "First-Calf Heifer",
     // Carabao
     "Mature Carabao", "First-Time Mother",
     // Goat
@@ -73,6 +74,9 @@ const STAGE_COLORS: Record<string, string> = {
   "First-Calf Heifer": "hsl(160 50% 50%)",
   "Mature Cow": "hsl(200 60% 50%)",
   "Early Lactation": "hsl(130 55% 55%)",
+  "Mid-Lactation": "hsl(145 55% 50%)",
+  "Late Lactation": "hsl(50 70% 50%)",
+  "Dry Period": "hsl(30 50% 55%)",
   "Bull Calf": "hsl(210 70% 65%)",
   "Young Bull": "hsl(220 65% 55%)",
   "Mature Bull": "hsl(240 60% 45%)",
@@ -104,15 +108,17 @@ const STAGE_COLORS: Record<string, string> = {
   "First-Time Mother Ewe": "hsl(135 50% 50%)",
   "Mature Ewe": "hsl(165 55% 50%)",
   "Young Ram": "hsl(180 55% 55%)",
-  "Mature Ram": "hsl(210 55% 45%)"
+  "Mature Ram": "hsl(210 55% 45%)",
+  "Unknown": "hsl(0 0% 60%)"
 };
 
 type CategoryFilter = "all" | "productive" | "development" | "breeding" | "female" | "male";
 
 const FEMALE_STAGES = [
   // Cattle
-  "Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer", 
+  "Calf", "Heifer Calf", "Yearling Heifer", "Breeding Heifer",
   "Pregnant Heifer", "First-Calf Heifer", "Mature Cow", "Early Lactation",
+  "Mid-Lactation", "Late Lactation", "Dry Period",
   // Carabao
   "Carabao Calf", "Young Carabao", "Breeding Carabao", "Pregnant Carabao",
   "First-Time Mother", "Mature Carabao",
@@ -239,6 +245,15 @@ export const HeadcountChart = ({
       result[key] = Number(monthData[key]) || 0;
     });
     return result;
+  }, [selectedMonth, data, stageKeys]);
+
+  // Compute previous month total for dialog (uses ALL stageKeys, not filtered)
+  const selectedPreviousTotal = useMemo(() => {
+    if (!selectedMonth) return null;
+    const monthIndex = data.findIndex(d => d.month === selectedMonth);
+    if (monthIndex <= 0) return null;
+    const prevMonthData = data[monthIndex - 1];
+    return stageKeys.reduce((sum, key) => sum + (Number(prevMonthData[key]) || 0), 0);
   }, [selectedMonth, data, stageKeys]);
 
   // Navigation helpers for dialog
@@ -516,6 +531,7 @@ export const HeadcountChart = ({
         month={selectedMonth || ""}
         stageData={selectedMonthData}
         stageCategories={STAGE_CATEGORIES}
+        previousTotal={selectedPreviousTotal}
         onNavigate={handleNavigate}
         hasPrev={hasPrevMonth}
         hasNext={hasNextMonth}

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-10 — Fix: Headcount Chart Tooltip & Dialog Consistency
+
+### Fixed
+- **HeadcountChart.tsx** — Added "Mid-Lactation", "Late Lactation", "Dry Period" to `STAGE_CATEGORIES.productive`, `STAGE_COLORS`, and `FEMALE_STAGES`. These milking stages from `animalStages.ts` were previously uncategorized, causing tooltip category breakdowns to sum to less than the total.
+- **HeadcountTooltip.tsx** — Added "Other" catch-all so category breakdown always sums to total. Stages not in any category (e.g., "Unknown") now show instead of being silently dropped.
+- **HeadcountMonthDialog.tsx** — Replaced misleading `created_at`-based "Added" count with derived "Entered" that always reconciles: `Previous + Entered - Exited = Current`. Added "Herd Flow" section showing the math. Fixed "By Category" to derive from `stageData` prop (SSOT) instead of querying `life_stage` from animals table.
+
+### Architecture
+- Month detail dialog now receives `previousTotal` from the chart's enhanced data, ensuring reconcilable herd flow narrative across all months. Category breakdown uses `stageData` (same SSOT as the chart bars), not independent DB queries.
+
 ## 2026-03-10 — Fix: Headcount Chart Current Month Matches Dashboard Total
 
 ### Fixed

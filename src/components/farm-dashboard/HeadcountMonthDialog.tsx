@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Users, TrendingUp, TrendingDown, LogIn, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, TrendingUp, TrendingDown, Minus, LogIn, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ interface HeadcountMonthDialogProps {
   farmId: string;
   month: string;
   stageData: Record<string, number>;
+  previousTotal: number | null;
   onNavigate: (direction: "prev" | "next") => void;
   hasPrev: boolean;
   hasNext: boolean;
@@ -22,15 +23,7 @@ interface HeadcountMonthDialogProps {
   };
 }
 
-interface AnimalSnapshot {
-  id: string;
-  name: string | null;
-  ear_tag: string | null;
-  life_stage: string | null;
-}
-
-interface MonthEvents {
-  births: number;
+interface MonthExits {
   exits: number;
   exitsByReason: Record<string, number>;
 }
@@ -41,13 +34,13 @@ export const HeadcountMonthDialog = ({
   farmId,
   month,
   stageData,
+  previousTotal,
   onNavigate,
   hasPrev,
   hasNext,
   stageCategories
 }: HeadcountMonthDialogProps) => {
-  const [animals, setAnimals] = useState<AnimalSnapshot[]>([]);
-  const [events, setEvents] = useState<MonthEvents>({ births: 0, exits: 0, exitsByReason: {} });
+  const [events, setEvents] = useState<MonthExits>({ exits: 0, exitsByReason: {} });
   const [loading, setLoading] = useState(false);
 
   // Parse month string to get date range
@@ -71,42 +64,29 @@ export const HeadcountMonthDialog = ({
       try {
         const { start, end } = getMonthDateRange(month);
 
-        // Fetch animals that existed during this month
-        const { data: animalsData } = await supabase
+        // Only fetch animals that exited during this month (for exit breakdown)
+        const { data: exitedAnimals } = await supabase
           .from("animals")
-          .select("id, name, ear_tag, life_stage, created_at, exit_date, exit_reason")
+          .select("id, exit_date, exit_reason")
           .eq("farm_id", farmId)
-          .lte("created_at", end + "T23:59:59")
-          .or(`exit_date.is.null,exit_date.gte.${start}`)
-          .eq("is_deleted", false)
-          .order("life_stage");
-
-        setAnimals(animalsData || []);
-
-        // Count births (animals created in this month)
-        const births = (animalsData || []).filter(a => {
-          const createdDate = a.created_at?.split("T")[0];
-          return createdDate && createdDate >= start && createdDate <= end;
-        }).length;
-
-        // Count exits in this month
-        const exitsInMonth = (animalsData || []).filter(a => {
-          return a.exit_date && a.exit_date >= start && a.exit_date <= end;
-        });
+          .gte("exit_date", start)
+          .lte("exit_date", end)
+          .eq("is_deleted", false);
 
         const exitsByReason: Record<string, number> = {};
-        exitsInMonth.forEach(a => {
+        (exitedAnimals || []).forEach(a => {
           const reason = a.exit_reason || "Unknown";
           exitsByReason[reason] = (exitsByReason[reason] || 0) + 1;
         });
 
         setEvents({
-          births,
-          exits: exitsInMonth.length,
+          exits: exitedAnimals?.length || 0,
           exitsByReason
         });
       } catch (error) {
         console.error("Error fetching month details:", error);
+        // Graceful fallback — show 0 exits if query fails
+        setEvents({ exits: 0, exitsByReason: {} });
       } finally {
         setLoading(false);
       }
@@ -115,14 +95,32 @@ export const HeadcountMonthDialog = ({
     fetchDetails();
   }, [open, month, farmId]);
 
-  // Group animals by category
-  const groupedAnimals = {
-    productive: animals.filter(a => a.life_stage && stageCategories.productive.includes(a.life_stage)),
-    development: animals.filter(a => a.life_stage && stageCategories.development.includes(a.life_stage)),
-    breeding: animals.filter(a => a.life_stage && stageCategories.breeding.includes(a.life_stage))
-  };
-
+  // Total headcount from stageData (SSOT — matches chart bar)
   const totalHeadcount = Object.values(stageData).reduce((sum, count) => sum + (count || 0), 0);
+
+  // Derive reconciling herd flow numbers
+  const prevTotal = previousTotal ?? 0;
+  const netChange = totalHeadcount - prevTotal;
+  // entered = how many joined the herd (always >= 0, reconciles with formula)
+  // Formula: previous + entered - exited + adjustments = current
+  const rawEntered = netChange + events.exits;
+  const entered = Math.max(0, rawEntered);
+  const adjustments = rawEntered < 0 ? rawEntered : 0;
+
+  // Category breakdown from stageData (SSOT — matches chart categories)
+  const categoryBreakdown = useMemo(() => {
+    const productive = Object.entries(stageData)
+      .filter(([stage]) => stageCategories.productive.includes(stage))
+      .reduce((sum, [, count]) => sum + count, 0);
+    const development = Object.entries(stageData)
+      .filter(([stage]) => stageCategories.development.includes(stage))
+      .reduce((sum, [, count]) => sum + count, 0);
+    const breeding = Object.entries(stageData)
+      .filter(([stage]) => stageCategories.breeding.includes(stage))
+      .reduce((sum, [, count]) => sum + count, 0);
+    const other = totalHeadcount - productive - development - breeding;
+    return { productive, development, breeding, other };
+  }, [stageData, stageCategories, totalHeadcount]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,13 +163,44 @@ export const HeadcountMonthDialog = ({
               </div>
               <div className="bg-green-500/10 rounded-lg p-3 text-center">
                 <LogIn className="h-5 w-5 mx-auto mb-1 text-green-600" />
-                <p className="text-2xl font-bold text-green-600">{events.births}</p>
-                <p className="text-xs text-muted-foreground">Added</p>
+                <p className="text-2xl font-bold text-green-600">{entered}</p>
+                <p className="text-xs text-muted-foreground">Entered</p>
               </div>
               <div className="bg-red-500/10 rounded-lg p-3 text-center">
                 <LogOut className="h-5 w-5 mx-auto mb-1 text-red-600" />
                 <p className="text-2xl font-bold text-red-600">{events.exits}</p>
                 <p className="text-xs text-muted-foreground">Exits</p>
+              </div>
+            </div>
+
+            {/* Herd Flow — reconcilable math */}
+            <div className="bg-muted/30 rounded-lg p-3 space-y-1.5 text-sm">
+              <p className="font-medium mb-2">Herd Flow</p>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Previous month:</span>
+                <span className="font-medium">{prevTotal}</span>
+              </div>
+              {entered > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>+ Pumasok (Entered):</span>
+                  <span>+{entered}</span>
+                </div>
+              )}
+              {events.exits > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>- Lumabas (Exited):</span>
+                  <span>-{events.exits}</span>
+                </div>
+              )}
+              {adjustments !== 0 && (
+                <div className="flex justify-between text-amber-600">
+                  <span>Adjustments:</span>
+                  <span>{adjustments}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold border-t border-border pt-1.5 mt-1.5">
+                <span>= This month:</span>
+                <span>{totalHeadcount}</span>
               </div>
             </div>
 
@@ -192,15 +221,15 @@ export const HeadcountMonthDialog = ({
             {/* Stage breakdown */}
             <div className="space-y-3">
               <p className="text-sm font-medium">Headcount by Stage</p>
-              
+
               {Object.entries(stageData)
                 .filter(([_, count]) => count > 0)
                 .sort(([, a], [, b]) => b - a)
                 .map(([stage, count]) => {
-                  const percentage = totalHeadcount > 0 
+                  const percentage = totalHeadcount > 0
                     ? ((count / totalHeadcount) * 100).toFixed(0)
                     : 0;
-                  
+
                   return (
                     <div key={stage} className="space-y-1">
                       <div className="flex justify-between text-sm">
@@ -208,7 +237,7 @@ export const HeadcountMonthDialog = ({
                         <span className="font-medium">{count} ({percentage}%)</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-primary transition-all duration-300"
                           style={{ width: `${percentage}%` }}
                         />
@@ -218,22 +247,28 @@ export const HeadcountMonthDialog = ({
                 })}
             </div>
 
-            {/* Category breakdown */}
+            {/* Category breakdown — derived from stageData (SSOT) */}
             <div className="border-t border-border pt-3 space-y-2">
               <p className="text-sm font-medium">By Category</p>
-              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className={`grid ${categoryBreakdown.other > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 text-center text-sm`}>
                 <div className="bg-blue-500/10 rounded p-2">
-                  <p className="font-bold text-blue-600">{groupedAnimals.productive.length}</p>
+                  <p className="font-bold text-blue-600">{categoryBreakdown.productive}</p>
                   <p className="text-xs text-muted-foreground">Productive</p>
                 </div>
                 <div className="bg-amber-500/10 rounded p-2">
-                  <p className="font-bold text-amber-600">{groupedAnimals.development.length}</p>
+                  <p className="font-bold text-amber-600">{categoryBreakdown.development}</p>
                   <p className="text-xs text-muted-foreground">Development</p>
                 </div>
                 <div className="bg-purple-500/10 rounded p-2">
-                  <p className="font-bold text-purple-600">{groupedAnimals.breeding.length}</p>
+                  <p className="font-bold text-purple-600">{categoryBreakdown.breeding}</p>
                   <p className="text-xs text-muted-foreground">Breeding</p>
                 </div>
+                {categoryBreakdown.other > 0 && (
+                  <div className="bg-gray-500/10 rounded p-2">
+                    <p className="font-bold text-gray-600">{categoryBreakdown.other}</p>
+                    <p className="text-xs text-muted-foreground">Other</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

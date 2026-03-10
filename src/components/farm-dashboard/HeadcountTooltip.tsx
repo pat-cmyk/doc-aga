@@ -45,6 +45,10 @@ export const HeadcountTooltip = ({
     }
   });
 
+  // Calculate "Other" for uncategorized stages
+  const categorizedTotal = categoryTotals.productive + categoryTotals.development + categoryTotals.breeding;
+  const otherCount = currentTotal - categorizedTotal;
+
   // Calculate change from previous month
   const change = previousTotal !== undefined ? currentTotal - previousTotal : null;
   const changePercent = previousTotal && previousTotal > 0 
@@ -109,6 +113,12 @@ export const HeadcountTooltip = ({
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Breeding Stock:</span>
               <span className="font-medium text-foreground">{categoryTotals.breeding}</span>
+            </div>
+          )}
+          {otherCount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Other:</span>
+              <span className="font-medium text-foreground">{otherCount}</span>
             </div>
           )}
         </div>
