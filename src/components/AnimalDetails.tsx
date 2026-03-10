@@ -204,6 +204,7 @@ interface Animal {
   source_farm: string | null;
   is_currently_lactating: boolean | null;
   estimated_days_in_milk: number | null;
+  fertility_status: string | null;
 }
 
 interface ParentAnimal {

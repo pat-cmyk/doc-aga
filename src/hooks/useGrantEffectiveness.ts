@@ -57,7 +57,7 @@ export const useGrantEffectiveness = (
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_grant_effectiveness", {
+      const { data, error } = await (supabase.rpc as any)("get_grant_effectiveness", {
         p_region: region || null,
         p_province: province || null,
         p_municipality: municipality || null,
