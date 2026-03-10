@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-03-10 — Seed: Golden Sunrise Milk Coop (Demo Cooperative)
+
+### Added
+- **New migration `20260310160000_seed_golden_sunrise_cooperative.sql`** — Creates "Golden Sunrise Milk Coop" national cooperative for all demo farms (`data_category = 'demo'`).
+  - Admin: the user account for `estehanon@gmail.com` (Estehanon Farm)
+  - Assigns `cooperative` role to the admin user in `user_roles`
+  - Enrolls all demo farms as accepted members in `cooperative_memberships`
+  - Safe to re-run: uses `ON CONFLICT` guards and graceful skip if user not found
+
+### Architecture
+- No farmer-facing code changes — cooperative data is only surfaced through `CooperativeAuth` login and `CooperativeDashboard` UI.
+- Reuses existing `cooperatives` / `cooperative_memberships` tables and all SECURITY DEFINER RPCs from the Phase 1 cooperative migration.
+
+### Migration Required
+Run `supabase/migrations/20260310160000_seed_golden_sunrise_cooperative.sql` via Supabase Dashboard SQL Editor.
+
 ## 2026-03-10 — Fix: Grant Program Effectiveness — Zero Metrics on Gov Dashboard
 
 ### Root Cause (3 bugs)
