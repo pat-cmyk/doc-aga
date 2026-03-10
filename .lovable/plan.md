@@ -1,15 +1,18 @@
 
 
-# Plan: Fix Cooperative Dashboard Zero Metrics
+# Plan: Fix Cooperative Login by Re-running Seed Migration
 
-## Problem
-Two cooperative aggregation RPCs have column reference bugs causing zero metrics:
-1. `get_cooperative_health_overview` references `hr.farm_id` which doesn't exist on `health_records` — needs JOIN through `animals`
-2. `get_cooperative_milk_production` references `volume_liters` instead of correct column `liters`
+## Root Cause
+The previous seed migration for "Golden Sunrise Milk Coop" did not take effect. The `user_roles` table has no `cooperative` entry for `estehanon@gmail.com`, and the `cooperatives` table is empty.
 
 ## Fix
-Run a single database migration containing `CREATE OR REPLACE` for all 4 cooperative aggregation RPCs with the corrected column references. No code changes needed — the frontend hooks already consume these RPCs correctly.
+Run a new database migration that:
+1. Inserts the `cooperative` role into `user_roles` for user `633240e1-84e0-47f3-a9c5-9ee17410a483`
+2. Creates the "Golden Sunrise Milk Coop" cooperative record with that user as admin
+3. Enrolls all demo farms as accepted cooperative members
 
-## No Code Changes
-The existing hooks in `useCooperative.ts` and all cooperative dashboard components remain unchanged.
+The SQL will use direct UUIDs (since we know the user ID) and `ON CONFLICT` guards for safety. This avoids the `auth.users` reference that may have caused the previous migration to fail silently.
+
+## No Code Changes Required
+The `CooperativeAuth.tsx` login flow is correct -- the only issue is missing database data.
 
