@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-10 — Fix: Vet View Reproductive Cycle Uses fertility_status as SSOT
+
+### Fixed
+- **useBioCardData.ts** — `isPregnant` now derived from `animals.fertility_status` (DB trigger SSOT) instead of `ai_records.pregnancy_confirmed`. `expectedDeliveryDate` guarded on active pregnancy status.
+- **AnimalList.tsx** / **AnimalDetails.tsx** — Pass `fertility_status` when constructing `BioCardAnimalData`.
+
+### Architecture
+- **SSOT**: All pregnancy/breeding display across the app (AnimalDetails, AnimalList, dataCache, and now BioCard Vet View) use `animals.fertility_status` as the single source of truth.
+
 ## 2026-03-10 — Fix: Onboarding Checklist Step Actions & Visibility
 
 ### Fixed

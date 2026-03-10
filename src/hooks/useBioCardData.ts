@@ -48,6 +48,7 @@ export interface BioCardAnimalData {
   current_weight_kg: number | null;
   farm_id: string;
   breed: string | null;
+  fertility_status: string | null;
 }
 
 export interface RadarChartData {
@@ -295,8 +296,8 @@ export function useBioCardData(
       ? daysSinceLastHeat 
       : null;
     
-    const latestPregnancy = aiRecords?.find(r => r.pregnancy_confirmed === true);
-    const isPregnant = !!latestPregnancy?.pregnancy_confirmed;
+    // Derive pregnancy from fertility_status (SSOT from DB trigger)
+    const isPregnant = ['suspected_pregnant', 'confirmed_pregnant'].includes(animal.fertility_status || '');
     
     const isInBreedingWindow = latestHeat?.optimal_breeding_start && latestHeat?.optimal_breeding_end
       ? new Date() >= new Date(latestHeat.optimal_breeding_start) && 
@@ -310,7 +311,9 @@ export function useBioCardData(
 
     const reproStatus: ReproStatus = {
       isPregnant,
-      expectedDeliveryDate: latestPregnancy?.expected_delivery_date || null,
+      expectedDeliveryDate: isPregnant
+        ? (aiRecords?.find(r => r.pregnancy_confirmed)?.expected_delivery_date || null)
+        : null,
       daysSinceLastHeat,
       cycleDay,
       isInBreedingWindow,

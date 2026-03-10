@@ -676,6 +676,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
                 milking_stage: animal.milkingStage,
                 avatar_url: animal.avatar_url,
                 current_weight_kg: animal.current_weight_kg,
+                fertility_status: animal.fertility_status ?? null,
               };
               setBioCardAnimal(bioCardData);
               setBioCardSheetOpen(true);

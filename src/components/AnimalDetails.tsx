@@ -1071,6 +1071,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             current_weight_kg: null,
             farm_id: farmId,
             breed: animal.breed,
+            fertility_status: animal.fertility_status ?? null,
           }}
           farmId={farmId}
           isOnline={isOnline}
