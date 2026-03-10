@@ -131,7 +131,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     // Preserve redirect URL for invitation flow
-    const redirectTo = (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/'))
+    const redirectTo = pendingRedirect?.startsWith('/invite/accept/')
       ? `${window.location.origin}${pendingRedirect}`
       : `${window.location.origin}/`;
     
