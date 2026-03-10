@@ -229,8 +229,6 @@ const ConditionalFloatingComponents = () => {
     '/auth/merchant',
     '/auth/admin',
     '/auth/government',
-    '/auth/cooperative',
-    '/cooperative',
     '/privacy',
     '/admin',
     '/marketplace',
