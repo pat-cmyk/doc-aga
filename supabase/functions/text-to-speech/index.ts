@@ -4,7 +4,7 @@ import 'https://deno.land/x/xhr@0.1.0/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 // Security limits
@@ -51,19 +51,22 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const token = authHeader.replace('Bearer ', '')
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     })
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: claimsData, error: authError } = await supabase.auth.getClaims(token)
     
-    if (authError || !user) {
+    if (authError || !claimsData?.claims?.sub) {
       console.error('[text-to-speech] Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Authentication failed' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const user = { id: claimsData.claims.sub as string }
 
     console.log(`[text-to-speech] Request from user: ${user.id}`)
 
