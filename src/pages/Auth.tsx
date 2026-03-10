@@ -260,7 +260,7 @@ const Auth = () => {
             }
             setShowVoiceTrainingOnboarding(false);
             // Navigate to pending redirect (invitation) or home
-            if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+            if (pendingRedirect?.startsWith('/invite/accept/')) {
               navigate(pendingRedirect);
             } else {
               navigate("/");
