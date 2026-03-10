@@ -971,16 +971,10 @@ async function computeAnimalStages(
         hasRecentMilking = (recentMilking?.length || 0) > 0;
       }
 
-      let hasActiveAI = false;
-      if (isFemale) {
-        const { data: aiRecords } = await supabase
-          .from('ai_records')
-          .select('performed_date')
-          .eq('animal_id', animal.id)
-          .order('scheduled_date', { ascending: false })
-          .limit(1);
-        hasActiveAI = (aiRecords?.length || 0) > 0 && !offspringCount;
-      }
+      // Derive hasActiveAI from fertility_status (SSOT from DB trigger)
+      const hasActiveAI = isFemale
+        ? ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(animal.fertility_status || '')
+        : false;
 
       const stageData = {
         birthDate: animal.birth_date ? new Date(animal.birth_date) : null,

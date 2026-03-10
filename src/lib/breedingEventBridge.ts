@@ -11,6 +11,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { BreedingEventType } from '@/types/fertility';
+import { GESTATION_DAYS } from '@/types/fertility';
+import { addDays } from 'date-fns';
 
 interface InsertBreedingEventParams {
   animalId: string;
@@ -47,7 +49,70 @@ export async function insertBreedingEvent(params: InsertBreedingEventParams): Pr
     if (error) {
       console.error(`[BreedingEventBridge] Failed to insert ${params.eventType} event:`, error);
     }
+
+    // Data hygiene: clear ai_records pregnancy when pregnancy ends
+    if (params.eventType === 'pregnancy_failed' || params.eventType === 'heat_return') {
+      await supabase
+        .from('ai_records')
+        .update({ pregnancy_confirmed: false, expected_delivery_date: null })
+        .eq('animal_id', params.animalId)
+        .eq('pregnancy_confirmed', true);
+    }
   } catch (err) {
     console.error(`[BreedingEventBridge] Unexpected error inserting ${params.eventType}:`, err);
   }
+}
+
+/**
+ * Confirm pregnancy with full ai_records sync.
+ * Updates ai_records (expected_delivery_date, pregnancy_confirmed) AND
+ * inserts breeding_event to trigger the fertility state machine.
+ * Use this instead of raw insertBreedingEvent for pregnancy_confirmed.
+ */
+export async function confirmPregnancyWithAISync(params: {
+  animalId: string;
+  farmId: string;
+  notes?: string;
+  livestockType?: string;
+}): Promise<void> {
+  // Get latest performed AI record
+  const { data: aiRecord } = await supabase
+    .from('ai_records')
+    .select('id, performed_date')
+    .eq('animal_id', params.animalId)
+    .not('performed_date', 'is', null)
+    .order('performed_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const gestationDays = GESTATION_DAYS[params.livestockType || 'cattle'] || 283;
+  let expectedDeliveryDate: string | null = null;
+
+  if (aiRecord?.performed_date) {
+    expectedDeliveryDate = addDays(new Date(aiRecord.performed_date), gestationDays)
+      .toISOString().split('T')[0];
+
+    // Sync ai_records (matches legacy ConfirmPregnancyDialog behavior)
+    await supabase
+      .from('ai_records')
+      .update({
+        pregnancy_confirmed: true,
+        expected_delivery_date: expectedDeliveryDate,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', aiRecord.id);
+  }
+
+  // Insert breeding_event (triggers DB state machine → confirmed_pregnant)
+  await insertBreedingEvent({
+    animalId: params.animalId,
+    farmId: params.farmId,
+    eventType: 'pregnancy_confirmed',
+    eventDate: new Date().toISOString(),
+    relatedAiRecordId: aiRecord?.id || undefined,
+    notes: params.notes,
+    metadata: expectedDeliveryDate
+      ? { expected_delivery_date: expectedDeliveryDate, gestation_days: gestationDays }
+      : undefined,
+  });
 }

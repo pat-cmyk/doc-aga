@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, CheckCircle, Heart, Loader2, Search, XCircle, Flame, Syringe, Info } from 'lucide-react';
-import { insertBreedingEvent } from '@/lib/breedingEventBridge';
+import { insertBreedingEvent, confirmPregnancyWithAISync } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
 import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { RecordHeatDialog } from '@/components/heat-detection/RecordHeatDialog';
@@ -35,6 +35,7 @@ interface BreedingEventActionProps {
   farmId: string;
   animalName?: string;
   lastAIDate?: string;
+  livestockType?: string;
   onSuccess?: () => void;
 }
 
@@ -96,7 +97,7 @@ export function MarkNonReturnButton({ animalId, farmId, animalName, lastAIDate, 
 /**
  * Confirm Pregnancy Button - inserts pregnancy_confirmed event directly
  */
-export function ConfirmPregnancyButton({ animalId, farmId, animalName, onSuccess }: BreedingEventActionProps) {
+export function ConfirmPregnancyButton({ animalId, farmId, animalName, livestockType, onSuccess }: BreedingEventActionProps) {
   return (
     <BreedingEventActionDialog
       animalId={animalId}
@@ -110,6 +111,7 @@ export function ConfirmPregnancyButton({ animalId, farmId, animalName, onSuccess
       buttonVariant="outline"
       confirmLabel="Confirm"
       successMessage="Pregnancy confirmed! Monitor for expected calving date."
+      livestockType={livestockType}
       onSuccess={onSuccess}
     />
   );
@@ -195,6 +197,7 @@ interface BreedingEventActionDialogProps {
   confirmLabel: string;
   successMessage: string;
   lastAIDate?: string;
+  livestockType?: string;
   onSuccess?: () => void;
 }
 
@@ -211,6 +214,7 @@ function BreedingEventActionDialog({
   confirmLabel,
   successMessage,
   lastAIDate,
+  livestockType,
   onSuccess,
 }: BreedingEventActionDialogProps) {
   const [open, setOpen] = useState(false);
@@ -249,13 +253,23 @@ function BreedingEventActionDialog({
         hapticNotification('success');
         toast({ title: "Queued (Offline)", description: `${successMessage} — will sync when online` });
       } else {
-        await insertBreedingEvent({
-          animalId,
-          farmId,
-          eventType,
-          eventDate: new Date().toISOString(),
-          notes: notes || undefined,
-        });
+        if (eventType === 'pregnancy_confirmed') {
+          // Use synced path that also updates ai_records
+          await confirmPregnancyWithAISync({
+            animalId,
+            farmId,
+            notes: notes || undefined,
+            livestockType,
+          });
+        } else {
+          await insertBreedingEvent({
+            animalId,
+            farmId,
+            eventType,
+            eventDate: new Date().toISOString(),
+            notes: notes || undefined,
+          });
+        }
 
         playSound('success');
         hapticNotification('success');

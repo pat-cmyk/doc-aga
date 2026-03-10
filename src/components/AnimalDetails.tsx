@@ -408,9 +408,21 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           .order("performed_date", { ascending: false })
           .limit(1);
         
-        // Check for confirmed pregnancy with expected delivery date
-        if (aiRecords && aiRecords.length > 0 && aiRecords[0].pregnancy_confirmed && aiRecords[0].expected_delivery_date) {
+        // Use fertility_status (SSOT from DB trigger) to guard pregnancy display
+        const isConfirmedPregnant = data.fertility_status === 'confirmed_pregnant';
+        if (isConfirmedPregnant && aiRecords?.[0]?.expected_delivery_date) {
           setExpectedDeliveryDate(aiRecords[0].expected_delivery_date);
+        } else if (isConfirmedPregnant) {
+          // New lifecycle path stores expected_delivery_date in breeding_events metadata
+          const { data: pregEvent } = await supabase
+            .from('breeding_events')
+            .select('metadata')
+            .eq('animal_id', animalId)
+            .eq('event_type', 'pregnancy_confirmed')
+            .order('event_date', { ascending: false })
+            .limit(1);
+          const metaDate = (pregEvent?.[0]?.metadata as any)?.expected_delivery_date;
+          setExpectedDeliveryDate(metaDate || null);
         } else {
           setExpectedDeliveryDate(null);
         }
@@ -428,10 +440,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           ? new Date(offspringData[0].birth_date)
           : null;
         
-        // Check if there's an active AI (within last 283 days for gestation)
-        const hasActiveAI = aiRecords && aiRecords.length > 0 && aiRecords[0].performed_date
-          ? differenceInDays(now, new Date(aiRecords[0].performed_date)) <= 283
-          : false;
+        // Derive hasActiveAI from fertility_status (SSOT from DB trigger)
+        const hasActiveAI = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
         
         setStageData({
           birthDate: data.birth_date ? new Date(data.birth_date) : null,

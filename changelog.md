@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-10 — Fix: Pregnancy Status Display Uses fertility_status as SSOT
+
+### Fixed
+- **AnimalDetails.tsx** — `hasActiveAI` now derived from `animals.fertility_status` (DB trigger SSOT) instead of `ai_records` timestamps. Expected delivery date guarded on `fertility_status === 'confirmed_pregnant'` with fallback to `breeding_events.metadata`.
+- **useAnimalDetails.ts** — Same `hasActiveAI` and `expectedDeliveryDate` SSOT fix for the animal details hook.
+- **dataCache.ts** — `buildAnimalWithStageData()` derives `hasActiveAI` from `fertility_status` instead of querying `ai_records`. Removes one Supabase query per animal during cache build.
+
+### Added
+- **breedingEventBridge.ts** — `confirmPregnancyWithAISync()` helper syncs both `ai_records` (pregnancy_confirmed, expected_delivery_date) and `breeding_events` when confirming pregnancy via lifecycle button. Data hygiene: clears `ai_records.pregnancy_confirmed` on `pregnancy_failed` and `heat_return` events.
+- **BreedingEventActions.tsx** — `ConfirmPregnancyButton` now uses `confirmPregnancyWithAISync()` to match legacy `ConfirmPregnancyDialog` behavior. Accepts `livestockType` for species-specific gestation calculation.
+
+### Architecture
+- **SSOT**: `animals.fertility_status` (set by DB trigger `update_animal_fertility_status` on `breeding_events` insert) is now the single source of truth for all pregnancy/breeding display logic across AnimalDetails, AnimalList, and animal cache.
+- **Dual-path parity**: Both legacy `ConfirmPregnancyDialog` and new `ConfirmPregnancyButton` produce identical data state in `ai_records` + `breeding_events`.
+
 ## 2026-03-10 — Animal Profile: Complete CRUD for All Tabs
 
 ### Added

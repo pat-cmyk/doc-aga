@@ -160,6 +160,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                         animalId={animalId}
                         farmId={farmId}
                         animalName={animalName}
+                        livestockType={livestockType}
                         onSuccess={loadRecords}
                       />
                     </span>
