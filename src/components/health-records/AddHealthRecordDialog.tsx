@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { compressImage } from "@/lib/imageUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,36 +88,6 @@ export const AddHealthRecordDialog = ({ animalId, farmId, isOnline, onSuccess, a
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isUploadingImage]);
-
-  const compressImage = async (file: File, maxDim = 1600, quality = 0.8): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let { width, height } = img;
-          const scale = Math.min(1, maxDim / Math.max(width, height));
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('Failed to compress image'));
-          }, 'image/jpeg', quality);
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
 
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) return;

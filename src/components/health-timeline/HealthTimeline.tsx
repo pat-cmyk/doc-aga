@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Stethoscope, Syringe, Bug, Check, X, Plus, Pencil, AlertTriangle, Clock } from 'lucide-react';
+import { Stethoscope, Syringe, Bug, Check, X, Plus, Pencil, Trash2, AlertTriangle, Clock } from 'lucide-react';
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCachedRecords } from '@/lib/dataCache';
@@ -41,6 +41,7 @@ import {
 } from '@/hooks/usePreventiveHealth';
 import { RecordSingleHealthDialog } from '@/components/health-recording/RecordSingleHealthDialog';
 import { EditHealthRecordDialog } from '@/components/health-recording/EditHealthRecordDialog';
+import { DeleteHealthRecordDialog } from '@/components/health-recording/DeleteHealthRecordDialog';
 import { AddPreventiveHealthDialog } from '@/components/preventive-health/AddPreventiveHealthDialog';
 
 // --- Types ---
@@ -232,6 +233,7 @@ export function HealthTimeline({
   // --- Dialog state ---
   const [showHealthDialog, setShowHealthDialog] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<any | null>(null);
   const [showPreventiveDialog, setShowPreventiveDialog] = useState(false);
   const [preventiveScheduleType, setPreventiveScheduleType] = useState<'vaccination' | 'deworming'>('vaccination');
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
@@ -283,6 +285,21 @@ export function HealthTimeline({
 
   const handleSkip = async (scheduleId: string) => {
     await skipSchedule.mutateAsync({ scheduleId });
+  };
+
+  const handleDeleteHealthRecord = async (record: any) => {
+    try {
+      const { error } = await supabase
+        .from('health_records')
+        .delete()
+        .eq('id', record.id);
+      if (error) throw error;
+      toast({ title: "Health record deleted" });
+      loadHealthRecords();
+    } catch (error: any) {
+      console.error('[DeleteHealthRecord] Failed:', error);
+      showErrorToastLegacy(toast, error, 'deleting health record');
+    }
   };
 
   const isLoading = loadingHealth && loadingSchedules;
@@ -471,14 +488,24 @@ export function HealthTimeline({
                                 )}
                                 {/* Action buttons */}
                                 {!readOnly && isHealthVisit && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => setEditingRecord(event.metadata.original_record)}
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
+                                  <div className="flex gap-0.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => setEditingRecord(event.metadata.original_record)}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={() => setDeletingRecord(event.metadata.original_record)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 )}
                                 {!readOnly && isScheduled && (
                                   <div className="flex gap-0.5">
@@ -547,6 +574,16 @@ export function HealthTimeline({
           record={editingRecord}
           animalName={animalName || earTag || 'Unknown'}
           onSuccess={loadHealthRecords}
+        />
+      )}
+
+      {deletingRecord && (
+        <DeleteHealthRecordDialog
+          open={!!deletingRecord}
+          onOpenChange={(open) => !open && setDeletingRecord(null)}
+          record={deletingRecord}
+          animalName={animalName || earTag || 'Unknown'}
+          onDelete={handleDeleteHealthRecord}
         />
       )}
 

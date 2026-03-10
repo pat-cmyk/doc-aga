@@ -141,6 +141,57 @@ export function useAddAnimalExpense() {
   });
 }
 
+export function useEditAnimalExpense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      expenseId,
+      animalId,
+      farmId,
+      category,
+      amount,
+      expense_date,
+      payment_method,
+      description,
+    }: {
+      expenseId: string;
+      animalId: string;
+      farmId: string;
+      category: string;
+      amount: number;
+      expense_date: string;
+      payment_method?: string;
+      description?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("farm_expenses")
+        .update({
+          category,
+          amount,
+          expense_date,
+          payment_method: payment_method || null,
+          description: description || null,
+        })
+        .eq("id", expenseId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["animal-expenses", variables.animalId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["animal-expense-summary", variables.animalId],
+      });
+      getCacheManager().invalidateForMutation('expense', variables.farmId);
+    },
+  });
+}
+
 export function useDeleteAnimalExpense() {
   const queryClient = useQueryClient();
 

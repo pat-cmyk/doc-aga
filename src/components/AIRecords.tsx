@@ -80,6 +80,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
         <BreedingTimeline
           animalId={animalId}
           farmId={farmId}
+          readOnly={readOnly}
         />
 
         {/* Lifecycle Actions - all 8 milestones */}

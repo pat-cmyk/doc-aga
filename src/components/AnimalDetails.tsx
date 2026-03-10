@@ -1240,9 +1240,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         </TabsContent>
 
         <TabsContent value="photos">
-          <PhotoTimelineTab 
-            animalId={animalId} 
+          <PhotoTimelineTab
+            animalId={animalId}
             animalName={animal?.name || animal?.ear_tag || undefined}
+            farmId={farmId}
+            readOnly={readOnly}
           />
         </TabsContent>
 

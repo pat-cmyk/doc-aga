@@ -14,11 +14,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Wheat, Pencil } from "lucide-react";
+import { Loader2, Plus, Wheat, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatPHP } from "@/lib/currency";
 import { RecordSingleFeedDialog } from "@/components/feed-recording/RecordSingleFeedDialog";
 import { EditFeedingRecordDialog, FeedingRecordWithDetails } from "@/components/feed-recording/EditFeedingRecordDialog";
+import { DeleteFeedingRecordDialog } from "@/components/feed-recording/DeleteFeedingRecordDialog";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 
 interface FeedingRecord {
   id: string;
@@ -53,6 +55,7 @@ export function FeedingRecords({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<FeedingRecordWithDetails | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<FeedingRecord | null>(null);
   const [resolvedFarmId, setResolvedFarmId] = useState<string | null>(farmId || null);
   const [resolvedFarmEntryDate, setResolvedFarmEntryDate] = useState<string | null>(animalFarmEntryDate || null);
   const { toast } = useToast();
@@ -71,6 +74,37 @@ export function FeedingRecords({
       cost_per_kg_at_time: record.cost_per_kg_at_time,
     });
     setEditDialogOpen(true);
+  };
+
+  const handleDeleteFeedingRecord = async (record: FeedingRecord) => {
+    try {
+      // Reverse inventory if consumed from feed stock
+      if (record.feed_inventory_id && record.kilograms) {
+        const { data: inv } = await supabase
+          .from('feed_inventory')
+          .select('quantity_kg')
+          .eq('id', record.feed_inventory_id)
+          .single();
+        if (inv) {
+          await supabase
+            .from('feed_inventory')
+            .update({ quantity_kg: inv.quantity_kg + record.kilograms })
+            .eq('id', record.feed_inventory_id);
+        }
+      }
+
+      const { error } = await supabase
+        .from('feeding_records')
+        .delete()
+        .eq('id', record.id);
+      if (error) throw error;
+
+      toast({ title: "Feeding record deleted" });
+      loadFeedingRecords();
+    } catch (error: any) {
+      console.error('[DeleteFeedingRecord] Failed:', error);
+      showErrorToastLegacy(toast, error, 'deleting feeding record');
+    }
   };
 
   useEffect(() => {
@@ -271,14 +305,24 @@ export function FeedingRecords({
                           <span className="text-xs text-muted-foreground">{formatRecordCost(record)}</span>
                         </div>
                         {!readOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditRecord(record)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditRecord(record)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingRecord(record)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -329,14 +373,24 @@ export function FeedingRecords({
                       </TableCell>
                       {!readOnly && (
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditRecord(record)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditRecord(record)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingRecord(record)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -347,6 +401,17 @@ export function FeedingRecords({
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Feeding Record Dialog */}
+      {deletingRecord && (
+        <DeleteFeedingRecordDialog
+          open={!!deletingRecord}
+          onOpenChange={(open) => !open && setDeletingRecord(null)}
+          record={deletingRecord}
+          animalName={animalName}
+          onDelete={handleDeleteFeedingRecord}
+        />
+      )}
     </div>
   );
 }

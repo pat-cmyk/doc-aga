@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Plus, Trash2, Receipt } from "lucide-react";
+import { Plus, Pencil, Trash2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,9 +18,11 @@ import {
   useAnimalExpenses,
   useAnimalExpenseSummary,
   useDeleteAnimalExpense,
+  AnimalExpense,
 } from "@/hooks/useAnimalExpenses";
 import { AnimalCostSummary } from "./AnimalCostSummary";
 import { AddAnimalExpenseDialog } from "./AddAnimalExpenseDialog";
+import { EditAnimalExpenseDialog } from "./EditAnimalExpenseDialog";
 import { formatPHP } from "@/lib/currency";
 import { toast } from "sonner";
 
@@ -46,6 +48,7 @@ export function AnimalExpenseTab({
   readOnly = false,
 }: AnimalExpenseTabProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<AnimalExpense | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { data: expenses, isLoading: expensesLoading } =
@@ -136,15 +139,26 @@ export function AnimalExpenseTab({
                       {formatPHP(expense.amount)}
                     </span>
                     {!readOnly && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteConfirmId(expense.id)}
-                        disabled={!isOnline}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingExpense(expense)}
+                          disabled={!isOnline}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirmId(expense.id)}
+                          disabled={!isOnline}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -170,6 +184,17 @@ export function AnimalExpenseTab({
         farmId={farmId}
         animalName={animalName}
       />
+
+      {/* Edit Expense Dialog */}
+      {editingExpense && (
+        <EditAnimalExpenseDialog
+          open={!!editingExpense}
+          onOpenChange={(open) => !open && setEditingExpense(null)}
+          expense={editingExpense}
+          farmId={farmId}
+          animalName={animalName}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog

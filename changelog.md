@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-03-10 — Animal Profile: Complete CRUD for All Tabs
+
+### Added
+- **Health Delete** — `DeleteHealthRecordDialog.tsx` + Trash2 button in `HealthTimeline.tsx`. Hard delete from `health_records`.
+- **Weight Delete** — `DeleteWeightRecordDialog.tsx` + Trash2 button in `WeightRecords.tsx`. Manually updates `animals.current_weight_kg` to next-latest record after delete (DB trigger only fires on INSERT/UPDATE).
+- **Feeding Delete** — `DeleteFeedingRecordDialog.tsx` + Trash2 button in `FeedingRecords.tsx`. Reverses `feed_inventory.quantity_kg` when deleting records that consumed from stock.
+- **Breeding Delete** — `DeleteBreedingEventDialog.tsx` + Trash2 button in `BreedingTimeline.tsx`. Scoped to `breeding_events` only (legacy `heat_records`/`ai_records` excluded via ID prefix check).
+- **Photo Upload** — `UploadPhotoDialog.tsx` using `CameraPhotoInput`, milestone type selector, label, date picker. Compresses via shared `imageUtils.ts`.
+- **Photo Edit** — `EditPhotoDialog.tsx` for metadata (label, milestone_type, taken_at).
+- **Photo Delete** — `DeletePhotoDialog.tsx` removes from Supabase Storage + DB row.
+- **Expense Edit** — `EditAnimalExpenseDialog.tsx` + `useEditAnimalExpense()` hook + Pencil button in `AnimalExpenseTab.tsx`. Mirrors Add dialog with pre-populated form.
+
+### Refactored
+- **`compressImage()`** extracted from `RecordSingleHealthDialog.tsx` and `AddHealthRecordDialog.tsx` into shared `src/lib/imageUtils.ts`.
+- **`PhotoTimelineTab.tsx`** rewritten to accept `farmId` and `readOnly` props, wire Upload/Edit/Delete dialogs.
+- **`BreedingTimeline.tsx`** now accepts `readOnly` prop, passed from `AIRecords.tsx`.
+
+### Architecture
+- All delete dialogs follow `DeleteMilkRecordFromProfileDialog` pattern: AlertDialog confirmation → haptic warning → Supabase hard delete → query invalidation.
+- All action buttons guarded by `!readOnly` (flows from `AnimalDetails.tsx` permission check).
+- Delete buttons disabled when offline (`!isOnline`).
+
 ## 2026-03-09 — Fix Timezone: Enforce PH Time (UTC+8) for All Timestamps
 
 ### Added

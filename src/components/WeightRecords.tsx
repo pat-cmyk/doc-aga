@@ -4,14 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Scale, TrendingUp, Plus, Pencil } from "lucide-react";
+import { Scale, TrendingUp, Plus, Pencil, Trash2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getCachedRecords } from "@/lib/dataCache";
+import { useToast } from "@/hooks/use-toast";
+import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { BCSHistoryChart } from "@/components/body-condition/BCSHistoryChart";
 import { RecordSingleWeightDialog } from "@/components/weight-recording/RecordSingleWeightDialog";
 import { EditWeightRecordDialog } from "@/components/weight-recording/EditWeightRecordDialog";
+import { DeleteWeightRecordDialog } from "@/components/weight-recording/DeleteWeightRecordDialog";
 import { ADGBadge } from "@/components/weight-recording/ADGBadge";
 import { calculateADG, calculateOverallADG, type ADGResult } from "@/lib/growthMetrics";
 
@@ -42,8 +45,10 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<WeightRecord | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<WeightRecord | null>(null);
   const { isMobile, fontSize, xAxisProps, margin } = useResponsiveChart({ size: 'small' });
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadWeightRecords();
@@ -98,6 +103,35 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
     
     // Always set loading to false, even if offline with no cache
     setLoading(false);
+  };
+
+  const handleDeleteWeightRecord = async (record: WeightRecord) => {
+    try {
+      const { error } = await supabase
+        .from('weight_records')
+        .delete()
+        .eq('id', record.id);
+      if (error) throw error;
+
+      // If this was the latest record, update animal's current_weight_kg
+      const { data: latest } = await supabase
+        .from('weight_records')
+        .select('weight_kg')
+        .eq('animal_id', animalId)
+        .order('measurement_date', { ascending: false })
+        .limit(1);
+
+      await supabase
+        .from('animals')
+        .update({ current_weight_kg: latest?.[0]?.weight_kg ?? null })
+        .eq('id', animalId);
+
+      toast({ title: "Weight record deleted" });
+      loadWeightRecords();
+    } catch (error: any) {
+      console.error('[DeleteWeightRecord] Failed:', error);
+      showErrorToastLegacy(toast, error, 'deleting weight record');
+    }
   };
 
   const calculateAgeInMonths = (measurementDate: string) => {
@@ -304,14 +338,24 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                           <ADGBadge adgResult={record.adgFromPrevious} showDays size="sm" />
                         </div>
                         {!readOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => setEditingRecord(record)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-0.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingRecord(record)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingRecord(record)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -353,14 +397,24 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
                       </TableCell>
                       {!readOnly && (
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setEditingRecord(record)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingRecord(record)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingRecord(record)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -385,6 +439,18 @@ export function WeightRecords({ animalId, animalName, animalBirthDate, animalFar
           record={editingRecord}
           animalName={animalName}
           onSuccess={loadWeightRecords}
+        />
+      )}
+
+      {/* Delete Weight Record Dialog */}
+      {deletingRecord && (
+        <DeleteWeightRecordDialog
+          open={!!deletingRecord}
+          onOpenChange={(open) => !open && setDeletingRecord(null)}
+          record={deletingRecord}
+          animalName={animalName}
+          isLatest={records[0]?.id === deletingRecord.id}
+          onDelete={handleDeleteWeightRecord}
         />
       )}
     </div>

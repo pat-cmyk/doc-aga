@@ -5,23 +5,28 @@
  * deduplicated chronological timeline for an animal.
  */
 
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Heart, Syringe, Baby, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Heart, Syringe, Baby, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react';
 import type { BreedingEventType } from '@/types/fertility';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCachedRecords } from '@/lib/dataCache';
+import { useToast } from '@/hooks/use-toast';
+import { showErrorToastLegacy } from '@/lib/errorHandling';
+import { DeleteBreedingEventDialog } from './DeleteBreedingEventDialog';
 
 interface BreedingTimelineProps {
   animalId: string;
   farmId?: string;
   className?: string;
   headerActions?: React.ReactNode;
+  readOnly?: boolean;
 }
 
 interface TimelineEvent {
@@ -49,8 +54,26 @@ const EVENT_CONFIG: Record<BreedingEventType, {
   heat_return: { icon: Heart, label: 'Heat Return', color: 'text-orange-400' },
 };
 
-export function BreedingTimeline({ animalId, className, headerActions }: BreedingTimelineProps) {
+export function BreedingTimeline({ animalId, className, headerActions, readOnly = false }: BreedingTimelineProps) {
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [deletingEvent, setDeletingEvent] = useState<TimelineEvent | null>(null);
+
+  const handleDeleteBreedingEvent = async (event: TimelineEvent) => {
+    try {
+      const { error } = await supabase
+        .from('breeding_events')
+        .delete()
+        .eq('id', event.id);
+      if (error) throw error;
+      toast({ title: "Breeding event deleted" });
+      queryClient.invalidateQueries({ queryKey: ['breeding-timeline', animalId] });
+    } catch (error: any) {
+      console.error('[DeleteBreedingEvent] Failed:', error);
+      showErrorToastLegacy(toast, error, 'deleting breeding event');
+    }
+  };
 
   // Fetch breeding_events — with offline cache fallback
   const { data: breedingEvents = [], isLoading: loadingBreeding } = useQuery({
@@ -247,6 +270,8 @@ export function BreedingTimeline({ animalId, className, headerActions }: Breedin
                     {monthEvents.map(event => {
                       const config = EVENT_CONFIG[event.event_type];
                       const Icon = config?.icon || Clock;
+                      // Only breeding_events rows are deletable (not legacy heat-/ai-/preg- prefixed IDs)
+                      const isBreedingEvent = !event.id.startsWith('heat-') && !event.id.startsWith('ai-') && !event.id.startsWith('preg-');
 
                       return (
                         <div key={event.id} className="relative">
@@ -261,6 +286,16 @@ export function BreedingTimeline({ animalId, className, headerActions }: Breedin
                               <Badge variant="outline" className="text-[10px]">
                                 {format(new Date(event.event_date), 'MMM d')}
                               </Badge>
+                              {!readOnly && isBreedingEvent && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => setDeletingEvent(event)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(event.event_date), { addSuffix: true })}
@@ -280,6 +315,16 @@ export function BreedingTimeline({ animalId, className, headerActions }: Breedin
           </div>
         )}
       </CardContent>
+
+      {deletingEvent && (
+        <DeleteBreedingEventDialog
+          open={!!deletingEvent}
+          onOpenChange={(open) => !open && setDeletingEvent(null)}
+          event={deletingEvent}
+          eventLabel={EVENT_CONFIG[deletingEvent.event_type]?.label || deletingEvent.event_type}
+          onDelete={handleDeleteBreedingEvent}
+        />
+      )}
     </Card>
   );
 }

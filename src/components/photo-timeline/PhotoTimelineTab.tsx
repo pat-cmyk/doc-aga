@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Camera, Image, Tag } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Camera, Tag, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { MILESTONE_TYPES } from '@/lib/bcsDefinitions';
+import { UploadPhotoDialog } from './UploadPhotoDialog';
+import { EditPhotoDialog } from './EditPhotoDialog';
+import { DeletePhotoDialog } from './DeletePhotoDialog';
 
 interface PhotoTimelineTabProps {
   animalId: string;
   animalName?: string;
+  farmId?: string;
+  readOnly?: boolean;
 }
 
 interface AnimalPhoto {
@@ -24,8 +29,11 @@ interface AnimalPhoto {
   created_at: string;
 }
 
-export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps) {
+export function PhotoTimelineTab({ animalId, animalName, farmId, readOnly = false }: PhotoTimelineTabProps) {
   const [filterMilestone, setFilterMilestone] = useState<string>('all');
+  const [showUpload, setShowUpload] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<AnimalPhoto | null>(null);
+  const [deletingPhoto, setDeletingPhoto] = useState<AnimalPhoto | null>(null);
 
   const { data: photos = [], isLoading } = useQuery({
     queryKey: ['animal-photos-timeline', animalId],
@@ -77,8 +85,8 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
 
   return (
     <div className="space-y-4">
-      {/* Filter */}
-      <div className="flex items-center justify-between">
+      {/* Header: Filter + Upload */}
+      <div className="flex items-center justify-between gap-2">
         <Select value={filterMilestone} onValueChange={setFilterMilestone}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by milestone" />
@@ -93,9 +101,17 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
           </SelectContent>
         </Select>
 
-        <p className="text-sm text-muted-foreground">
-          {filteredPhotos.length} photo{filteredPhotos.length !== 1 ? 's' : ''}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">
+            {filteredPhotos.length} photo{filteredPhotos.length !== 1 ? 's' : ''}
+          </p>
+          {!readOnly && farmId && (
+            <Button size="sm" onClick={() => setShowUpload(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Upload
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Timeline */}
@@ -105,7 +121,9 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
             <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
             <p className="text-lg font-medium">No Photos Yet</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Photos will appear here as milestones are recorded
+              {!readOnly && farmId
+                ? 'Click "Upload" to add the first photo'
+                : 'Photos will appear here as milestones are recorded'}
             </p>
           </CardContent>
         </Card>
@@ -115,7 +133,7 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
           <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
 
           <div className="space-y-6">
-            {filteredPhotos.map((photo, index) => (
+            {filteredPhotos.map((photo) => (
               <div key={photo.id} className="relative flex gap-4 pl-10">
                 {/* Timeline Dot */}
                 <div className="absolute left-2.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
@@ -151,12 +169,34 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
                             <p className="font-medium mt-1">{photo.label}</p>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground whitespace-nowrap">
-                          {format(
-                            new Date(photo.taken_at || photo.created_at),
-                            'MMM d, yyyy'
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm text-muted-foreground whitespace-nowrap">
+                            {format(
+                              new Date(photo.taken_at || photo.created_at),
+                              'MMM d, yyyy'
+                            )}
+                          </p>
+                          {!readOnly && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setEditingPhoto(photo)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => setDeletingPhoto(photo)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -165,6 +205,36 @@ export function PhotoTimelineTab({ animalId, animalName }: PhotoTimelineTabProps
             ))}
           </div>
         </div>
+      )}
+
+      {/* Dialogs */}
+      {farmId && (
+        <UploadPhotoDialog
+          open={showUpload}
+          onOpenChange={setShowUpload}
+          animalId={animalId}
+          farmId={farmId}
+          animalName={animalName}
+        />
+      )}
+
+      {editingPhoto && (
+        <EditPhotoDialog
+          open={!!editingPhoto}
+          onOpenChange={(open) => !open && setEditingPhoto(null)}
+          photo={editingPhoto}
+          animalId={animalId}
+        />
+      )}
+
+      {deletingPhoto && (
+        <DeletePhotoDialog
+          open={!!deletingPhoto}
+          onOpenChange={(open) => !open && setDeletingPhoto(null)}
+          photo={deletingPhoto}
+          animalId={animalId}
+          milestoneLabel={getMilestoneLabel(deletingPhoto.milestone_type)}
+        />
       )}
     </div>
   );
