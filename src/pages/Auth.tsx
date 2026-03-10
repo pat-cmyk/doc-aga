@@ -185,7 +185,7 @@ const Auth = () => {
       });
 
       // If there's a pending redirect (e.g., from invitation flow), go there first
-      if (pendingRedirect?.startsWith('/invite/accept/') || pendingRedirect?.startsWith('/cooperative/invite/accept/')) {
+      if (pendingRedirect?.startsWith('/invite/accept/')) {
         navigate(pendingRedirect);
         return;
       }
@@ -193,8 +193,6 @@ const Auth = () => {
       // Redirect based on role
       if (userRoles.includes("admin")) {
         navigate("/admin");
-      } else if (userRoles.includes("cooperative")) {
-        navigate("/cooperative");
       } else if (userRoles.includes("merchant")) {
         navigate("/merchant");
       } else {
