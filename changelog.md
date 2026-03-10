@@ -1,56 +1,5 @@
 # Changelog
 
-## 2026-03-10 — Fix: Doc Aga Missing `farmId` in Request Body
-
-### Fixed
-- **`DocAgaConsultation.tsx`** — Added `farmId` to the fetch request body sent to the `doc-aga` edge function. Previously, `farmId` was received as a prop but never forwarded, causing the AI to fall back to the user's first farm (wrong for multi-farm users).
-- The `farmId || undefined` guard ensures empty strings (e.g., from `MerchantFab`) are sent as `undefined`, letting the edge function's fallback logic work correctly.
-
-### Impact
-- Multi-farm users now get farm-specific context in Doc Aga consultations.
-- No backend changes — the edge function already handles `farmId` correctly.
-
-## 2026-03-10 — Feature: Dashboard Switcher for Dual-Role Users (Farm ↔ Cooperative)
-
-### Added
-- **`UserEmailDropdown.tsx`** — Added "Cooperative Dashboard" menu item for users with the `cooperative` global role, following the same pattern as Merchant/Government/Admin portals.
-- **`CooperativeDashboard.tsx`** — Replaced the standalone Sign Out button with the shared `UserEmailDropdown` component, giving cooperative admins consistent profile dropdown navigation (Farm Dashboard, Cooperative Dashboard, Profile, Sign Out) from the cooperative header.
-
-### Impact
-- Dual-role users (Farm Owner/Manager + Cooperative Admin) can now switch between dashboards directly from the profile dropdown — no need to navigate manually or sign out.
-- No database changes. Purely frontend UI reuse.
-
-## 2026-03-10 — Fix: Cooperative Dashboard Zero Metrics (Animals, Milk, Health)
-
-### Root Cause (3 bugs)
-1. **`get_cooperative_health_overview` — column `hr.farm_id` does not exist** — `health_records` table has `animal_id`, not `farm_id`. The RPC queried `hr.farm_id = ANY(_farm_ids)` which crashed with a SQL column-not-found error.
-2. **`get_cooperative_milk_production` — column `volume_liters` does not exist** — `milking_records` column is `liters`, not `volume_liters`. All 3 references used the wrong name. Same crash pattern.
-3. **Silent error-JSON in hooks** — RPCs return `{"error":"not_authorized"}` as valid data (not as a transport error). Hooks passed it through without detection. Component displayed zeros instead of error states.
-
-### Fixed
-- **New migration `20260310170000_fix_cooperative_aggregation_rpcs.sql`** — Fixes health overview to JOIN through `animals` for farm_id. Fixes milk production to use correct `liters` column name. All 4 aggregation RPCs re-declared for auditability.
-- **`useCooperative.ts`** — Added `assertNotErrorJson()` guard to detect error-JSON responses from RPCs and throw them as proper errors for React Query.
-- **`CooperativeOverview.tsx`** — Added `isError` handling to show "—" on failed cards and inline warning banner instead of silent zeros.
-
-### Migration Required
-Run `supabase/migrations/20260310170000_fix_cooperative_aggregation_rpcs.sql` via Supabase Dashboard SQL Editor.
-
-## 2026-03-10 — Seed: Golden Sunrise Milk Coop (Demo Cooperative)
-
-### Added
-- **New migration `20260310160000_seed_golden_sunrise_cooperative.sql`** — Creates "Golden Sunrise Milk Coop" national cooperative for all demo farms (`data_category = 'demo'`).
-  - Admin: the user account for `estehanon@gmail.com` (Estehanon Farm)
-  - Assigns `cooperative` role to the admin user in `user_roles`
-  - Enrolls all demo farms as accepted members in `cooperative_memberships`
-  - Safe to re-run: uses `ON CONFLICT` guards and graceful skip if user not found
-
-### Architecture
-- No farmer-facing code changes — cooperative data is only surfaced through `CooperativeAuth` login and `CooperativeDashboard` UI.
-- Reuses existing `cooperatives` / `cooperative_memberships` tables and all SECURITY DEFINER RPCs from the Phase 1 cooperative migration.
-
-### Migration Required
-Run `supabase/migrations/20260310160000_seed_golden_sunrise_cooperative.sql` via Supabase Dashboard SQL Editor.
-
 ## 2026-03-10 — Fix: Grant Program Effectiveness — Zero Metrics on Gov Dashboard
 
 ### Root Cause (3 bugs)

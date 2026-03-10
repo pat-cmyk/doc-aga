@@ -166,8 +166,7 @@ const DocAgaConsultation = ({ initialQuery, onClose, farmId }: DocAgaConsultatio
             ...messages.filter(m => m.role !== "assistant" || !m.content.includes("Kumusta! Ako si Dok Aga")),
             { role: "user", content: textToSend }
           ]),
-          conversationId,
-          farmId: farmId || undefined
+          conversationId
         }),
       });
 

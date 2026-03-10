@@ -71,7 +71,6 @@ export function MerchantFab() {
             onClose={() => setShowDocAga(false)}
             farmId=""
           />
-
         </div>
       )}
 

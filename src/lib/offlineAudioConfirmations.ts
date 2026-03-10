@@ -56,12 +56,6 @@ function saveCachedConfirmations(data: Record<string, CachedConfirmation>): void
  * Call once when the app first comes online.
  */
 export async function cacheOfflineConfirmations(): Promise<void> {
-  // Guard: only call TTS when user is authenticated
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    return;
-  }
-
   const existing = getCachedConfirmations();
   const now = Date.now();
 

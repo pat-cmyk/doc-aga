@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { LayoutDashboard, Users, Milk, Heart, DollarSign, Settings, PawPrint } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Milk, Heart, DollarSign, Settings, PawPrint } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
-import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { CooperativeOverview } from "@/components/cooperative/CooperativeOverview";
 import { CooperativeMemberFarms } from "@/components/cooperative/CooperativeMemberFarms";
 import { CooperativeMilkAnalytics } from "@/components/cooperative/CooperativeMilkAnalytics";
@@ -54,6 +54,11 @@ const CooperativeDashboard = () => {
     init();
   }, [navigate]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth/cooperative");
+  };
+
   if (loading) return <LoadingScreen />;
 
   if (!cooperativeId) {
@@ -66,7 +71,10 @@ const CooperativeDashboard = () => {
             Your account has cooperative access but no cooperative has been assigned yet.
             Please contact your administrator.
           </p>
-          <UserEmailDropdown />
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
       </div>
     );
@@ -84,7 +92,10 @@ const CooperativeDashboard = () => {
               <p className="text-xs text-muted-foreground">Cooperative Dashboard</p>
             </div>
           </div>
-          <UserEmailDropdown />
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
       </header>
 
