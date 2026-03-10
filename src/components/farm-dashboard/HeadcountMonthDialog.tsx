@@ -64,14 +64,15 @@ export const HeadcountMonthDialog = ({
       try {
         const { start, end } = getMonthDateRange(month);
 
-        // Only fetch animals that exited during this month (for exit breakdown)
+        // Fetch animals that exited during this month (for exit breakdown).
+        // Omit is_deleted filter: exited animals are often also soft-deleted,
+        // so filtering on is_deleted=false would miss real exits.
         const { data: exitedAnimals } = await supabase
           .from("animals")
           .select("id, exit_date, exit_reason")
           .eq("farm_id", farmId)
           .gte("exit_date", start)
-          .lte("exit_date", end)
-          .eq("is_deleted", false);
+          .lte("exit_date", end);
 
         const exitsByReason: Record<string, number> = {};
         (exitedAnimals || []).forEach(a => {
@@ -194,7 +195,7 @@ export const HeadcountMonthDialog = ({
               )}
               {adjustments !== 0 && (
                 <div className="flex justify-between text-amber-600">
-                  <span>Adjustments:</span>
+                  <span>± Data corrections:</span>
                   <span>{adjustments}</span>
                 </div>
               )}
