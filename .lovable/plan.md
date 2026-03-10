@@ -1,18 +1,29 @@
 
 
-# Plan: Fix Cooperative Login by Re-running Seed Migration
+# Plan: Fix Doc Aga Missing `farmId` in Request
 
-## Root Cause
-The previous seed migration for "Golden Sunrise Milk Coop" did not take effect. The `user_roles` table has no `cooperative` entry for `estehanon@gmail.com`, and the `cooperatives` table is empty.
+## Problem
+`DocAgaConsultation` receives `farmId` as a prop but never sends it to the `doc-aga` edge function. The fetch body (line 164-170) only includes `messages` and `conversationId`. This means:
+
+1. The edge function falls back to picking the user's first farm — which may be wrong for multi-farm users.
+2. All tool calls (animal search, health records, milking, etc.) operate on the wrong farm.
+3. `MerchantFab` passes `farmId=""` which would fail the UUID validation in the edge function schema.
 
 ## Fix
-Run a new database migration that:
-1. Inserts the `cooperative` role into `user_roles` for user `633240e1-84e0-47f3-a9c5-9ee17410a483`
-2. Creates the "Golden Sunrise Milk Coop" cooperative record with that user as admin
-3. Enrolls all demo farms as accepted cooperative members
 
-The SQL will use direct UUIDs (since we know the user ID) and `ON CONFLICT` guards for safety. This avoids the `auth.users` reference that may have caused the previous migration to fail silently.
+### 1. `src/components/farmhand/DocAgaConsultation.tsx`
+Add `farmId` to the fetch request body:
+```typescript
+body: JSON.stringify({ 
+  messages: truncateMessages([...]),
+  conversationId,
+  farmId: farmId || undefined  // Send farmId if available
+}),
+```
 
-## No Code Changes Required
-The `CooperativeAuth.tsx` login flow is correct -- the only issue is missing database data.
+### 2. `src/components/merchant/MerchantFab.tsx`
+Stop passing empty string `farmId=""`. Either omit it or pass `undefined` so the edge function's fallback logic works correctly.
+
+## No Backend Changes
+The edge function already accepts and handles `farmId` correctly — it validates UUID format, checks farm access via `can_access_farm` RPC, and uses it for all tool calls. The bug is purely client-side: the prop is never forwarded in the HTTP request.
 
