@@ -1,37 +1,24 @@
 
 
-# Plan: Run 2 Database Migrations + Fix Build Error
+# Plan: Deactivate Cooperative Module
 
-## Migration 1: Species-Specific VWP
+## What Changes
 
-The file `supabase/migrations/20260304120000_species_specific_vwp.sql` is ready. It replaces `update_animal_fertility_status()` to use 45-day VWP for goat/sheep and 60-day for cattle/carabao. This is a `CREATE OR REPLACE FUNCTION` — safe, no data changes.
+### 1. Remove cooperative routes from `src/App.tsx`
+- Remove the 3 lazy imports: `CooperativeAuth`, `CooperativeDashboard`, `CooperativeInviteAccept`
+- Remove the 3 route definitions: `/auth/cooperative`, `/cooperative`, `/cooperative/invite/accept/:token`
+- Remove `/auth/cooperative` and `/cooperative` from the public paths array
 
-**SQL to run via migration tool:**
-The full contents of `supabase/migrations/20260304120000_species_specific_vwp.sql` (lines 14-95).
+### 2. Stop redirecting cooperative-role users in `src/pages/Auth.tsx`
+- Remove the `else if (userRoles.includes("cooperative"))` redirect blocks (lines 67-68 and 198-199) — cooperative users will fall through to the normal farmer flow
+- Remove the `pendingRedirect?.startsWith('/cooperative/invite/accept/')` checks so cooperative invite URLs are ignored
 
-## Migration 2: Revenue Source Standardization (Critical)
+### 3. Leave files in place (no deletion)
+- Keep `src/pages/Cooperative*.tsx`, `src/components/cooperative/*`, `src/hooks/useCooperative.ts` on disk — they just won't be routed to
+- Keep database tables/RPCs intact (no destructive migration) — they're unused without the routes
 
-The file `supabase/migrations/20260304130000_standardize_revenue_sources.sql` is ready. It has 5 steps:
-1. Drop old CHECK constraint on `farm_revenues.source`
-2. Update legacy source names ("Milk Sales" → "Milk Sale", "Livestock Sales" → "Animal Sale", etc.)
-3. Add new CHECK constraint with the 6 allowed values
-4. Replace `fix_missing_milk_revenues` RPC to use "Milk Sale"
-5. Replace `sync_milk_sale_to_revenue` trigger to use "Milk Sale"
+### 4. Remove cooperative from `PermissionsContext.tsx`
+- Remove `"cooperative"` from the `GlobalRole` type and `GLOBAL_ROLES` array so it's not checked anywhere
 
-## Verification Queries (after both migrations)
-
-1. `SELECT source, COUNT(*) FROM farm_revenues GROUP BY source ORDER BY source;` — should only show the 6 standard values
-2. `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.farm_revenues'::regclass AND contype = 'c';` — should show `farm_revenues_source_check`
-3. `SELECT prosrc FROM pg_proc WHERE proname = 'sync_milk_sale_to_revenue';` — should contain `'Milk Sale'` not `'Milk Sales'`
-
-## Build Error Fix
-
-`src/components/dashboard/OnboardingChecklist.tsx` line 55 has `TS2589: Type instantiation is excessively deep`. The `.from("milking_records").select("id", { count: "exact", head: true })` call needs an explicit type cast (e.g., `.select("id" as any, ...)`) or restructuring to avoid the deep type recursion from the generated Supabase types.
-
-## Execution Order
-
-1. Run Migration 1 (VWP)
-2. Run Migration 2 (Revenue sources)
-3. Run verification queries
-4. Fix the OnboardingChecklist build error
+This ensures any user with the cooperative role who logs in via the main `/auth` page will be treated as a normal farmer and land on `/` instead of being redirected to the (now removed) `/cooperative` dashboard.
 
