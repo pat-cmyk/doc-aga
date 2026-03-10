@@ -308,6 +308,8 @@ const Dashboard = () => {
       setActiveTab('operations');
     } else if (tab === 'approvals' || tab === 'government') {
       setActiveTab('more');
+    } else if (tab === 'finance') {
+      setActiveTab('finance');
     } else if (tab === 'animals' && !animalIdParam) {
       setActiveTab('animals');
     }

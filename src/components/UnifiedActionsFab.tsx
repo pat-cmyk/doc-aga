@@ -130,6 +130,17 @@ export function UnifiedActionsFab({
     };
   }, [isExpanded]);
 
+  // Listen for external dialog triggers (e.g. from OnboardingChecklist)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.dialog === 'add-animal') handleAction('add-animal');
+      if (detail?.dialog === 'record-milk') handleAction('milk');
+    };
+    window.addEventListener('open-fab-dialog', handler);
+    return () => window.removeEventListener('open-fab-dialog', handler);
+  }, [farmId]);
+
   const handleToggle = () => {
     hapticImpact('light');
     setIsExpanded(!isExpanded);

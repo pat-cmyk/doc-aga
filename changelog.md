@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-10 — Fix: Onboarding Checklist Step Actions & Visibility
+
+### Fixed
+- **OnboardingChecklist.tsx** — Step 1 "Add animal" now opens the FAB's Add Animal sheet via custom event (was navigating to non-existent `/?tab=herd`). Step 2 "Record milk" opens FAB's Record Milk dialog. Step 4 "Record sale" navigates to milk inventory with species card highlighting.
+- **localStorage keys** are now farm-scoped (`_${farmId}` suffix) to support multi-farm users.
+
+### Added
+- **New farm gating** — Checklist only shows for farms created after `2026-03-10` (feature deployment date). Pre-existing farms are auto-dismissed.
+- **Auto-dismiss on completion** — When all 5 steps are done, `DISMISSED_KEY` is set permanently so the checklist never reappears.
+- **UnifiedActionsFab.tsx** — Listens for `open-fab-dialog` custom events to open dialogs from external components.
+- **MilkSpeciesSummary.tsx** — Supports `?highlight=milk-species` URL param to pulse-highlight species cards (used by Step 4).
+- **Dashboard.tsx** — Added missing `?tab=finance` URL param handling (was silently ignored before).
+
 ## 2026-03-10 — Fix: Pregnancy Status Display Uses fertility_status as SSOT
 
 ### Fixed

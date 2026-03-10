@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { SpeciesSummary } from "@/hooks/useMilkInventory";
 import type { SpeciesPriceMap } from "@/hooks/useRevenues";
 
@@ -31,6 +34,23 @@ export function MilkSpeciesSummary({
   onSellSpecies,
   canManage = true,
 }: MilkSpeciesSummaryProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [highlighted, setHighlighted] = useState(false);
+
+  // Highlight cards when navigated from onboarding checklist
+  useEffect(() => {
+    if (searchParams.get("highlight") === "milk-species") {
+      setHighlighted(true);
+      // Clear the URL param without navigation
+      const next = new URLSearchParams(searchParams);
+      next.delete("highlight");
+      setSearchParams(next, { replace: true });
+      // Remove highlight after 3 seconds
+      const timer = setTimeout(() => setHighlighted(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
   if (speciesData.length === 0) return null;
 
   return (
@@ -39,11 +59,14 @@ export function MilkSpeciesSummary({
         const icon = SPECIES_ICONS[species.livestock_type] || "🐄";
         const label = SPECIES_LABELS[species.livestock_type] || species.livestock_type;
         const price = pricesBySpecies[species.livestock_type];
-        
+
         return (
-          <Card 
-            key={species.livestock_type} 
-            className="bg-card border-border hover:border-primary/50 transition-colors"
+          <Card
+            key={species.livestock_type}
+            className={cn(
+              "bg-card border-border hover:border-primary/50 transition-colors",
+              highlighted && "ring-2 ring-primary animate-pulse"
+            )}
           >
             <CardContent className="pt-4 pb-3 space-y-3">
               <div className="flex items-start justify-between">
@@ -57,7 +80,7 @@ export function MilkSpeciesSummary({
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-1">
                 <p className="text-2xl font-bold text-primary">
                   {species.total_liters.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L
@@ -68,8 +91,8 @@ export function MilkSpeciesSummary({
               </div>
 
               {canManage && (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="w-full gap-2"
                   onClick={() => onSellSpecies(species.livestock_type)}
                 >

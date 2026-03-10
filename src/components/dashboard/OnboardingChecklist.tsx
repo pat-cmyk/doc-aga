@@ -7,9 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 
-const DISMISSED_KEY = "onboarding_checklist_dismissed";
-const VISITED_MILK_TAB_KEY = "onboarding_visited_milk_tab";
-const VISITED_FINANCE_KEY = "onboarding_visited_finance";
+/** Farms created before this date won't see the onboarding checklist */
+const FEATURE_DEPLOY_DATE = "2026-03-10";
+
+/** Farm-scoped localStorage helpers */
+const dismissedKey = (farmId: string) => `onboarding_checklist_dismissed_${farmId}`;
+const visitedMilkKey = (farmId: string) => `onboarding_visited_milk_tab_${farmId}`;
+const visitedFinanceKey = (farmId: string) => `onboarding_visited_finance_${farmId}`;
 
 interface OnboardingChecklistProps {
   farmId: string;
@@ -27,20 +31,34 @@ interface ChecklistStep {
 
 export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklistProps) {
   const navigate = useNavigate();
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISSED_KEY) === "true");
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(dismissedKey(farmId)) === "true");
   const [hasMilkingRecords, setHasMilkingRecords] = useState<boolean | null>(null);
   const [hasMilkSale, setHasMilkSale] = useState<boolean | null>(null);
   const [animalCount, setAnimalCount] = useState<number>(totalAnimals ?? 0);
 
-  // Track tab visits
-  const visitedMilkTab = localStorage.getItem(VISITED_MILK_TAB_KEY) === "true";
-  const visitedFinance = localStorage.getItem(VISITED_FINANCE_KEY) === "true";
+  // Track tab visits (farm-scoped)
+  const visitedMilkTab = localStorage.getItem(visitedMilkKey(farmId)) === "true";
+  const visitedFinance = localStorage.getItem(visitedFinanceKey(farmId)) === "true";
 
-  // Fetch data only once on mount
+  // Fetch data + new-farm check on mount
   useEffect(() => {
     if (dismissed) return;
 
     const fetchProgress = async () => {
+      // Gate: only show for farms created after feature deployment
+      const { data: farm } = await supabase
+        .from("farms")
+        .select("created_at")
+        .eq("id", farmId)
+        .single();
+
+      if (farm?.created_at && farm.created_at < FEATURE_DEPLOY_DATE) {
+        // Pre-existing farm — auto-dismiss permanently
+        localStorage.setItem(dismissedKey(farmId), "true");
+        setDismissed(true);
+        return;
+      }
+
       // Fetch animal count only if not passed from parent
       if (totalAnimals === undefined) {
         const { count } = await supabase
@@ -86,14 +104,18 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       label: "Mag-dagdag ng hayop",
       sublabel: "Add your first animal",
       done: animalCount > 0,
-      action: () => navigate("/?tab=herd"),
+      action: () => {
+        window.dispatchEvent(new CustomEvent("open-fab-dialog", { detail: { dialog: "add-animal" } }));
+      },
     },
     {
       id: "record_milk",
       label: "I-record ang gatas",
       sublabel: "Record first milking",
       done: hasMilkingRecords === true,
-      action: () => navigate("/?tab=operations&subtab=milk"),
+      action: () => {
+        window.dispatchEvent(new CustomEvent("open-fab-dialog", { detail: { dialog: "record-milk" } }));
+      },
     },
     {
       id: "check_inventory",
@@ -101,7 +123,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       sublabel: "Check milk inventory",
       done: visitedMilkTab,
       action: () => {
-        localStorage.setItem(VISITED_MILK_TAB_KEY, "true");
+        localStorage.setItem(visitedMilkKey(farmId), "true");
         navigate("/?tab=operations&subtab=milk");
       },
     },
@@ -110,7 +132,9 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       label: "I-record ang benta",
       sublabel: "Record first sale",
       done: hasMilkSale === true,
-      action: () => navigate("/?tab=operations&subtab=milk"),
+      action: () => {
+        navigate("/?tab=operations&subtab=milk&highlight=milk-species");
+      },
     },
     {
       id: "view_earnings",
@@ -118,22 +142,30 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       sublabel: "View your earnings",
       done: visitedFinance,
       action: () => {
-        localStorage.setItem(VISITED_FINANCE_KEY, "true");
+        localStorage.setItem(visitedFinanceKey(farmId), "true");
         navigate("/?tab=finance");
       },
     },
-  ], [animalCount, hasMilkingRecords, hasMilkSale, visitedMilkTab, visitedFinance, navigate]);
+  ], [animalCount, hasMilkingRecords, hasMilkSale, visitedMilkTab, visitedFinance, navigate, farmId]);
 
   const completedCount = steps.filter(s => s.done).length;
   const allDone = completedCount === steps.length;
   const progressPercent = Math.round((completedCount / steps.length) * 100);
+
+  // Auto-dismiss permanently once all steps are completed
+  useEffect(() => {
+    if (allDone && !dismissed) {
+      localStorage.setItem(dismissedKey(farmId), "true");
+      setDismissed(true);
+    }
+  }, [allDone, dismissed, farmId]);
 
   // Don't show if dismissed, all done, or still loading
   if (dismissed || allDone) return null;
   if (hasMilkingRecords === null || hasMilkSale === null) return null;
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, "true");
+    localStorage.setItem(dismissedKey(farmId), "true");
     setDismissed(true);
   };
 
