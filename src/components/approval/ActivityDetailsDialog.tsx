@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimalAvatar } from "@/components/ui/animal-avatar";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// ScrollArea removed — native overflow-y-auto used instead for mobile scrollbar visibility
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
@@ -547,7 +547,7 @@ export const ActivityDetailsDialog = ({
 
           <Separator />
 
-          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
+          <div className="flex-1 max-h-[60vh] overflow-y-auto pr-1">
             <div className="space-y-6">
               {/* Submitter Information */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -590,7 +590,7 @@ export const ActivityDetailsDialog = ({
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           <Separator />
 
