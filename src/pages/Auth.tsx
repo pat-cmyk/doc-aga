@@ -64,8 +64,6 @@ const Auth = () => {
         
         if (userRoles.includes("admin")) {
           navigate("/admin");
-        } else if (userRoles.includes("cooperative")) {
-          navigate("/cooperative");
         } else if (userRoles.includes("merchant")) {
           navigate("/merchant");
         } else {
