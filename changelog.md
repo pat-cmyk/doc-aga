@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-11 — Fix: Government Health Stats RPC Runtime Error
+
+### Root Cause
+- `get_government_health_stats` RPC referenced non-existent columns: `hr.observed_date` (should be `hr.detected_at`) and `hr.cycle_length_days` (doesn't exist in `heat_records`). Every call threw a runtime error, causing the frontend to display zeros.
+
+### Fixed
+- **Database RPC** — Recreated `get_government_health_stats` with `hr.detected_at` and derived `cycle_length_days` via window function (`LAG(detected_at) OVER ...`). Column names in RETURNS TABLE match the frontend hook (`avg_bcs_score`, `completed_vaccinations`, etc.).
+
+### Verified
+- RPC now returns real data for demo farm: avg_bcs_score=3.18, 180 heat events, 901 BCS assessments, 54 exits.
+- No frontend code changes needed.
+
 ## 2026-03-11 — Fix: Farmer Voice Tab — Stats Cards Ignore Time Filter
 
 ### Root Cause
