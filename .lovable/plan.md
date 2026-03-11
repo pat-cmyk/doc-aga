@@ -1,37 +1,37 @@
 
 
-# Plan: Run 2 Database Migrations + Fix Build Error
+# Root Cause: Column Name Mismatch — `get_government_health_stats` RPC
 
-## Migration 1: Species-Specific VWP
+## Problem
 
-The file `supabase/migrations/20260304120000_species_specific_vwp.sql` is ready. It replaces `update_animal_fertility_status()` to use 45-day VWP for goat/sheep and 60-day for cattle/carabao. This is a `CREATE OR REPLACE FUNCTION` — safe, no data changes.
+The database has **two overloads** of `get_government_health_stats`:
+- **5-param version** (no `data_category_filter`): returns columns matching the hook (e.g., `avg_bcs_score`, `completed_vaccinations`)
+- **6-param version** (with `data_category_filter`): returns **different column names** (e.g., `avg_bcs`, `vaccination_count`)
 
-**SQL to run via migration tool:**
-The full contents of `supabase/migrations/20260304120000_species_specific_vwp.sql` (lines 14-95).
+The frontend hook calls the **6-param version** (passing `data_category_filter`), but maps the response using the 5-param column names. This causes every field to be `undefined`, falling back to 0.
 
-## Migration 2: Revenue Source Standardization (Critical)
+**Example**: Hook reads `row.avg_bcs_score` → RPC returns `avg_bcs` → `Number(undefined) || 0 = 0`
 
-The file `supabase/migrations/20260304130000_standardize_revenue_sources.sql` is ready. It has 5 steps:
-1. Drop old CHECK constraint on `farm_revenues.source`
-2. Update legacy source names ("Milk Sales" → "Milk Sale", "Livestock Sales" → "Animal Sale", etc.)
-3. Add new CHECK constraint with the 6 allowed values
-4. Replace `fix_missing_milk_revenues` RPC to use "Milk Sale"
-5. Replace `sync_milk_sale_to_revenue` trigger to use "Milk Sale"
+The migration `20260305100000` was supposed to fix this by dropping and recreating the 6-param version with correct column names, but **it was never applied to the database**.
 
-## Verification Queries (after both migrations)
+## What Has Data vs What Shows Zero
 
-1. `SELECT source, COUNT(*) FROM farm_revenues GROUP BY source ORDER BY source;` — should only show the 6 standard values
-2. `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.farm_revenues'::regclass AND contype = 'c';` — should show `farm_revenues_source_check`
-3. `SELECT prosrc FROM pg_proc WHERE proname = 'sync_milk_sale_to_revenue';` — should contain `'Milk Sale'` not `'Milk Sales'`
+| Field | RPC Returns | Hook Expects | Result |
+|-------|------------|-------------|--------|
+| Avg BCS | `avg_bcs: 3.20` | `avg_bcs_score` | Shows 0.00 |
+| Vaccinations | `vaccination_count: 9` | `completed_vaccinations` | Shows 0 |
+| Deworming | `deworming_count: 6` | `completed_deworming` | Shows 0 |
 
-## Build Error Fix
+The distribution counts (`animals_underweight`, `animals_optimal`, `animals_overweight`, `bcs_assessments_count`) DO match between both versions, which is why the pie chart and counts display correctly.
 
-`src/components/dashboard/OnboardingChecklist.tsx` line 55 has `TS2589: Type instantiation is excessively deep`. The `.from("milking_records").select("id", { count: "exact", head: true })` call needs an explicit type cast (e.g., `.select("id" as any, ...)`) or restructuring to avoid the deep type recursion from the generated Supabase types.
+## Fix
 
-## Execution Order
+**Run a single database migration** that:
+1. Drops the stale 6-param overload
+2. Drops the stale 5-param overload (cleanup)
+3. Recreates **one** 6-param function with `data_category_filter` and the correct RETURNS TABLE column names matching the hook (`avg_bcs_score`, `completed_vaccinations`, `scheduled_vaccinations`, `overdue_vaccinations`, `completed_deworming`, `scheduled_deworming`, `vaccination_compliance_rate`, `heat_events_count`, `avg_cycle_length_days`, `animals_in_optimal_window`, exit breakdown columns, `mortality_rate`, `total_sales_revenue`)
 
-1. Run Migration 1 (VWP)
-2. Run Migration 2 (Revenue sources)
-3. Run verification queries
-4. Fix the OnboardingChecklist build error
+The SQL from migration `20260305100000` already has the correct function body — it just needs to be applied.
+
+No frontend code changes needed.
 
