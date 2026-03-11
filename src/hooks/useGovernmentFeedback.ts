@@ -1,6 +1,7 @@
 /**
  * @cache-status MANUAL — Government-scoped, cross-farm, @online-only. CacheManager not applicable.
  */
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -54,7 +55,12 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
         query = query.gte('created_at', filters.dateFrom);
       }
       if (filters?.dateTo) {
-        query = query.lte('created_at', filters.dateTo);
+        // Append end-of-day time when bare date string (e.g. "2026-03-11") is compared
+        // against timestamptz — otherwise records created during that day are excluded
+        const endOfDay = filters.dateTo.includes('T')
+          ? filters.dateTo
+          : `${filters.dateTo}T23:59:59.999`;
+        query = query.lte('created_at', endOfDay);
       }
 
       const { data, error } = await query;
@@ -72,45 +78,27 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
     },
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ['government-feedback-stats', filters?.dataCategory],
-    queryFn: async () => {
-      let query = supabase
-        .from('farmer_feedback')
-        .select('status, auto_priority, primary_category, created_at, farms!inner(data_category)');
+  // Derive stats from the already-fetched feedbackList (same data, zero extra API calls).
+  // Previously a separate query that ignored dateFrom/dateTo/region filters — bug fix.
+  const stats = useMemo(() => {
+    if (!feedbackList || feedbackList.length === 0) return null;
 
-      // Apply data category filter at query level (SSOT pattern)
-      if (filters?.dataCategory && filters.dataCategory !== 'all') {
-        query = query.eq('farms.data_category', filters.dataCategory);
-      }
+    const total = feedbackList.length;
+    const pending = feedbackList.filter((f: any) => f.status === 'submitted').length;
+    const critical = feedbackList.filter((f: any) => f.auto_priority === 'critical').length;
 
-      const { data, error } = await query;
-      if (error) throw error;
+    const categoryCount: Record<string, number> = {};
+    feedbackList.forEach((f: any) => {
+      categoryCount[f.primary_category] = (categoryCount[f.primary_category] || 0) + 1;
+    });
 
-      const total = data.length;
-      const pending = data.filter(f => f.status === 'submitted').length;
-      const critical = data.filter(f => f.auto_priority === 'critical').length;
-      
-      // Category distribution
-      const categoryCount: Record<string, number> = {};
-      data.forEach(f => {
-        categoryCount[f.primary_category] = (categoryCount[f.primary_category] || 0) + 1;
-      });
+    // Recent submissions (last 7 days from today, within the already-filtered dataset)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recent = feedbackList.filter((f: any) => new Date(f.created_at) >= sevenDaysAgo).length;
 
-      // Recent submissions (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recent = data.filter(f => new Date(f.created_at) >= sevenDaysAgo).length;
-
-      return {
-        total,
-        pending,
-        critical,
-        categoryCount,
-        recent,
-      };
-    },
-  });
+    return { total, pending, critical, categoryCount, recent };
+  }, [feedbackList]);
 
   const updateStatus = useMutation({
     mutationFn: async ({
@@ -152,7 +140,6 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['government-feedback'] });
-      queryClient.invalidateQueries({ queryKey: ['government-feedback-stats'] });
       toast.success('Feedback status updated');
     },
     onError: (error: Error) => {

@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026-03-11 — Fix: Farmer Voice Tab — Stats Cards Ignore Time Filter
+
+### Root Cause
+- **Stats query ignored date/region filters** — `useGovernmentFeedback.ts` had a separate stats `useQuery` that only applied `dataCategory`, ignoring `dateFrom`, `dateTo`, and `region`. The queryKey also omitted these params so cache never invalidated on filter changes. Stats cards always showed ALL-TIME data.
+- **`dateTo` end-of-day boundary** — bare date strings like `"2026-03-11"` compared against `timestamptz` excluded records created during that day (interpreted as `<= 00:00:00Z`).
+
+### Fixed
+- **`useGovernmentFeedback.ts`** — Eliminated separate stats query. Stats are now derived from `feedbackList` via `useMemo` (same data, zero extra API calls, inherently filter-consistent). Fixed `dateTo` to append `T23:59:59.999` for bare date strings.
+- No consumer component changes — `FarmerVoiceDashboard`, `FeedbackPriorityQueue`, and all other sub-components continue working with the same hook return shape.
+
+### Impact
+- Stats cards (Total Submissions, Pending Review, Critical Cases, Last 7 Days) now correctly respond to global date and region filters.
+- No database changes. No farmer-facing code affected.
+
+## 2026-03-10 — Feature: Dashboard Switcher for Dual-Role Users (Farm ↔ Cooperative)
+
+### Added
+- **`UserEmailDropdown.tsx`** — Added "Cooperative Dashboard" menu item for users with the `cooperative` global role, following the same pattern as Merchant/Government/Admin portals.
+- **`CooperativeDashboard.tsx`** — Replaced the standalone Sign Out button with the shared `UserEmailDropdown` component, giving cooperative admins consistent profile dropdown navigation (Farm Dashboard, Cooperative Dashboard, Profile, Sign Out) from the cooperative header.
+
+### Impact
+- Dual-role users (Farm Owner/Manager + Cooperative Admin) can now switch between dashboards directly from the profile dropdown — no need to navigate manually or sign out.
+- No database changes. Purely frontend UI reuse.
+
+## 2026-03-10 — Fix: Cooperative Dashboard Zero Metrics (Animals, Milk, Health)
+
+### Root Cause (3 bugs)
+1. **`get_cooperative_health_overview` — column `hr.farm_id` does not exist** — `health_records` table has `animal_id`, not `farm_id`. The RPC queried `hr.farm_id = ANY(_farm_ids)` which crashed with a SQL column-not-found error.
+2. **`get_cooperative_milk_production` — column `volume_liters` does not exist** — `milking_records` column is `liters`, not `volume_liters`. All 3 references used the wrong name. Same crash pattern.
+3. **Silent error-JSON in hooks** — RPCs return `{"error":"not_authorized"}` as valid data (not as a transport error). Hooks passed it through without detection. Component displayed zeros instead of error states.
+
+### Fixed
+- **New migration `20260310170000_fix_cooperative_aggregation_rpcs.sql`** — Fixes health overview to JOIN through `animals` for farm_id. Fixes milk production to use correct `liters` column name. All 4 aggregation RPCs re-declared for auditability.
+- **`useCooperative.ts`** — Added `assertNotErrorJson()` guard to detect error-JSON responses from RPCs and throw them as proper errors for React Query.
+- **`CooperativeOverview.tsx`** — Added `isError` handling to show "—" on failed cards and inline warning banner instead of silent zeros.
+
+### Migration Required
+Run `supabase/migrations/20260310170000_fix_cooperative_aggregation_rpcs.sql` via Supabase Dashboard SQL Editor.
+
+## 2026-03-10 — Seed: Golden Sunrise Milk Coop (Demo Cooperative)
+
+### Added
+- **New migration `20260310160000_seed_golden_sunrise_cooperative.sql`** — Creates "Golden Sunrise Milk Coop" national cooperative for all demo farms (`data_category = 'demo'`).
+  - Admin: the user account for `estehanon@gmail.com` (Estehanon Farm)
+  - Assigns `cooperative` role to the admin user in `user_roles`
+  - Enrolls all demo farms as accepted members in `cooperative_memberships`
+  - Safe to re-run: uses `ON CONFLICT` guards and graceful skip if user not found
+
+### Architecture
+- No farmer-facing code changes — cooperative data is only surfaced through `CooperativeAuth` login and `CooperativeDashboard` UI.
+- Reuses existing `cooperatives` / `cooperative_memberships` tables and all SECURITY DEFINER RPCs from the Phase 1 cooperative migration.
+
+### Migration Required
+Run `supabase/migrations/20260310160000_seed_golden_sunrise_cooperative.sql` via Supabase Dashboard SQL Editor.
+
 ## 2026-03-10 — Fix: Grant Program Effectiveness — Zero Metrics on Gov Dashboard
 
 ### Root Cause (3 bugs)
