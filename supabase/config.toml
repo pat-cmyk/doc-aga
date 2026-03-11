@@ -57,7 +57,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.process-farmer-feedback]
-verify_jwt = true
+verify_jwt = false
 
 [functions.doc-aga]
 verify_jwt = true

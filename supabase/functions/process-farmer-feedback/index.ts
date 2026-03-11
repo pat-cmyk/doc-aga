@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -13,16 +13,38 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Validate JWT in code
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('[process-farmer-feedback] Auth failed:', claimsError?.message);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log(`[process-farmer-feedback] Request from user: ${userId}`);
+
     const { transcription, farmId } = await req.json();
 
     if (!transcription) {
       throw new Error('No transcription provided');
     }
 
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use service role client for data queries
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get farm context for better analysis
     let farmContext = '';
@@ -115,7 +137,7 @@ Analyze the following farmer feedback and respond ONLY with a JSON object (no ma
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      console.error('[process-farmer-feedback] AI gateway error:', response.status, errorText);
       throw new Error('AI analysis failed');
     }
 
@@ -125,11 +147,10 @@ Analyze the following farmer feedback and respond ONLY with a JSON object (no ma
     // Parse AI response
     let analysis;
     try {
-      // Remove markdown code blocks if present
       const cleanText = analysisText.replace(/```json\n?|\n?```/g, '').trim();
       analysis = JSON.parse(cleanText);
     } catch (e) {
-      console.error('Failed to parse AI response:', analysisText);
+      console.error('[process-farmer-feedback] Failed to parse AI response:', analysisText);
       throw new Error('AI response parsing failed');
     }
 
@@ -138,6 +159,8 @@ Analyze the following farmer feedback and respond ONLY with a JSON object (no ma
     if (analysis.priority_score >= 90) autoPriority = 'critical';
     else if (analysis.priority_score >= 70) autoPriority = 'high';
     else if (analysis.priority_score < 40) autoPriority = 'low';
+
+    console.log(`[process-farmer-feedback] Success for user ${userId}: category=${analysis.primary_category}, priority=${autoPriority}`);
 
     return new Response(
       JSON.stringify({
@@ -151,7 +174,7 @@ Analyze the following farmer feedback and respond ONLY with a JSON object (no ma
     );
 
   } catch (error) {
-    console.error('Error processing feedback:', error);
+    console.error('[process-farmer-feedback] Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
