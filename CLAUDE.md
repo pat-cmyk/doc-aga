@@ -23,6 +23,14 @@ A task is ONLY complete when proven via **Baseline → Execute → Verify**:
 - **Governance (FINAL step):** Update `docs/data-relationships-map.md`, `changelog.md`, or `docs/ssot-architecture.md` as applicable. Skipping = incomplete.
 - **Commit & Push (ALWAYS):** After every completed edit, commit and push immediately. Do not batch changes across tasks — each logical change gets its own commit + push. Never leave uncommitted work.
 
+### Coding Discipline Rules (Always Active)
+
+- **Ambiguous requirements → ASK first.** If requirements are unclear or incomplete, ask clarifying questions before writing any code. Never assume intent.
+- **Edge cases → LIST after coding.** After finishing any code change, list edge cases and suggest test cases to cover them.
+- **>3 files → STOP and decompose.** If a task requires changes to more than 3 files, stop and break it into smaller tasks first. Get approval on the breakdown before proceeding.
+- **Bug fix → TEST first (TDD).** When fixing a bug, start by writing a test that reproduces it, then fix the code until the test passes.
+- **Correction → REFLECT.** Every time you are corrected, reflect on what went wrong and state a plan to avoid repeating the same mistake.
+
 ---
 
 ## SSOT Architecture (Always Active)
