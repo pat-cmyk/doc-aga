@@ -5,6 +5,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCachedFeedInventory, updateFeedInventoryCache } from '@/lib/dataCache';
 import type { FeedInventoryItem } from '@/lib/feedInventory';
 import { DIET_RATIOS } from '@/lib/feedConsumption';
+import { calculateCostPerKg } from '@/lib/feedSplitCalculation';
 
 /**
  * Summary of feed inventory with computed metrics
@@ -67,9 +68,13 @@ export function computeFeedSummary(
   // Feed stock days = roughage only (livestock can survive on roughage alone)
   const feedStockDays = roughageDays;
 
-  // Calculate total inventory value
+  // Calculate total inventory value using SSOT cost-per-kg conversion
   const totalValue = items.reduce((sum, item) => {
-    const costPerKg = item.cost_per_unit || 0;
+    const costPerKg = calculateCostPerKg(
+      item.cost_per_unit ?? null,
+      item.weight_per_unit ?? null,
+      item.unit
+    );
     return sum + (item.quantity_kg * costPerKg);
   }, 0);
 

@@ -233,6 +233,49 @@ describe("useFeedInventory Hook", () => {
       expect(summary.concentrateKg).toBe(0);
     });
 
+    it("should calculate totalValue correctly for barrel-unit items using cost_per_kg", () => {
+      const items: FeedInventoryItem[] = [
+        {
+          id: "1",
+          farm_id: "farm1",
+          feed_type: "Drum Silage",
+          category: "roughage",
+          quantity_kg: 1000, // 5 barrels × 200kg
+          unit: "barrels",
+          weight_per_unit: 200,
+          cost_per_unit: 1000, // ₱1,000 per barrel
+          last_updated: "2026-01-01",
+          created_at: "2026-01-01",
+        },
+      ];
+
+      const summary = computeFeedSummary(items, 100);
+
+      // cost_per_kg = 1000 / 200 = 5, totalValue = 1000 × 5 = 5000
+      expect(summary.totalValue).toBe(5000);
+    });
+
+    it("should calculate totalValue correctly for kg-unit items", () => {
+      const items: FeedInventoryItem[] = [
+        {
+          id: "1",
+          farm_id: "farm1",
+          feed_type: "Hay",
+          category: "roughage",
+          quantity_kg: 500,
+          unit: "kg",
+          cost_per_unit: 10, // ₱10 per kg
+          last_updated: "2026-01-01",
+          created_at: "2026-01-01",
+        },
+      ];
+
+      const summary = computeFeedSummary(items, 100);
+
+      // 500 × 10 = 5000
+      expect(summary.totalValue).toBe(5000);
+    });
+
     it("should default uncategorized items to roughage", () => {
       const items: FeedInventoryItem[] = [
         {

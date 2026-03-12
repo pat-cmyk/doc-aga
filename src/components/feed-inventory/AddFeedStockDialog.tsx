@@ -110,20 +110,14 @@ export function AddFeedStockDialog({
   const watchedWeightPerUnit = form.watch("weight_per_unit");
 
   // Calculate total cost for expense preview
+  // cost_per_unit is always per the user-selected unit (per barrel, per bag, per kg)
+  // so total = quantity_in_units × cost_per_unit
   const calculatedTotalCost = useMemo(() => {
     if (!watchedCostPerUnit || watchedCostPerUnit <= 0 || !watchedQuantity || watchedQuantity <= 0) {
       return null;
     }
-    
-    const needsConversion = selectedUnit === 'bags' || selectedUnit === 'bales' || selectedUnit === 'barrels';
-    let actualQuantityKg = watchedQuantity;
-    
-    if (needsConversion && watchedWeightPerUnit) {
-      actualQuantityKg = watchedQuantity * watchedWeightPerUnit;
-    }
-    
-    return actualQuantityKg * watchedCostPerUnit;
-  }, [watchedQuantity, watchedCostPerUnit, watchedWeightPerUnit, selectedUnit]);
+    return watchedQuantity * watchedCostPerUnit;
+  }, [watchedQuantity, watchedCostPerUnit]);
 
   useEffect(() => {
     if (editItem) {
