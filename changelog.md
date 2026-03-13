@@ -11,8 +11,9 @@
 - **`src/components/feed-inventory/AddFeedStockDialog.tsx`** — Edit form now loads `weight_per_unit` from `editItem` and converts `quantity_kg` back to original units (kg ÷ weight_per_unit). Form label changed from "Cost per Unit" to "Cost per kg (₱)" for clarity.
 
 ### Impact
-- New feeding records will have correct `cost_per_kg_at_time`. Previously recorded values remain incorrect (historical data fix may be needed separately).
-- No database changes. Farmer-facing fix.
+- New feeding records will have correct `cost_per_kg_at_time`.
+- **Data migration `20260313110000_fix_historical_feed_costs.sql`** — Corrects existing `feeding_records.cost_per_kg_at_time` for records linked to non-kg inventory items where the cost was incorrectly divided by `weight_per_unit`. Safe: only updates records matching the exact bug pattern.
+- Farmer-facing fix.
 
 ## 2026-03-13 — Fix: BCS Average Shows 0.00 on Government Dashboard
 
