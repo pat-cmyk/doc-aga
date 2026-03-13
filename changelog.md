@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-03-13 — Fix: Feed Inventory Cost Calculation & Edit Dialog Bugs
+
+### Root Cause (2 bugs)
+1. **`calculateCostPerKg()` wrongly divided by `weightPerUnit`** — `cost_per_unit` is stored as ₱/kg (proven by the form's own total cost preview: `totalKg × costPerUnit`). But `calculateCostPerKg()` in `feedSplitCalculation.ts` treated it as ₱/barrel by dividing `costPerUnit / weightPerUnit` (6/200 = 0.03). Result: feeding records stored `cost_per_kg_at_time = 0.03` instead of `6`, so 21.78 kg × 0.03 = ₱0.65 instead of ₱130.68.
+2. **Edit dialog showed raw kg as barrel count** — `AddFeedStockDialog.tsx` hardcoded `weight_per_unit: undefined` when populating the edit form and loaded `quantity_kg` (19,811.6 kg) without converting back to original units, displaying "19,811.6 barrels" instead of ~99 barrels.
+
+### Fixed
+- **`src/lib/feedSplitCalculation.ts`** — Removed wrong division in `calculateCostPerKg()`. Since `cost_per_unit` is always ₱/kg, the function now returns it directly. All 3 consumers (RecordSingleFeedDialog, RecordBulkFeedDialog, EditFeedingRecordDialog) fixed automatically via SSOT.
+- **`src/components/feed-inventory/AddFeedStockDialog.tsx`** — Edit form now loads `weight_per_unit` from `editItem` and converts `quantity_kg` back to original units (kg ÷ weight_per_unit). Form label changed from "Cost per Unit" to "Cost per kg (₱)" for clarity.
+
+### Impact
+- New feeding records will have correct `cost_per_kg_at_time`. Previously recorded values remain incorrect (historical data fix may be needed separately).
+- No database changes. Farmer-facing fix.
+
+## 2026-03-13 — Fix: BCS Average Shows 0.00 on Government Dashboard
+
+### Root Cause
+- **RPC column name mismatch** — The deployed `get_government_health_stats` RPC (from Lovable migration `20260204132652`) returns `avg_bcs` but the hook reads `avg_bcs_score`. Same mismatch for vaccination/deworming columns. All `undefined` → `0`.
+- **BCS thresholds inconsistent** — Previous migration used `<3`/`3-4`/`>4` but component displays `<2.5`/`2.5-4.0`/`>4.0` (industry standard for 1-5 scale).
+
+### Fixed
+- **New migration `20260313100000_fix_health_stats_bcs_thresholds.sql`** — Re-declares `get_government_health_stats` with correct 21-column RETURNS TABLE matching the hook, and corrected BCS thresholds (`<2.5`/`2.5-4.0`/`>4.0`).
+
+### Migration Required
+Run `supabase/migrations/20260313100000_fix_health_stats_bcs_thresholds.sql` via Supabase Dashboard SQL Editor.
+
+### Impact
+- Average BCS, vaccination/deworming stats will populate correctly on Government Dashboard.
+- No frontend changes. No farmer-facing code affected.
+
 ## 2026-03-11 — Fix: Government Health Stats RPC Runtime Error
 
 ### Root Cause

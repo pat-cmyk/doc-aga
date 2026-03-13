@@ -28,7 +28,9 @@ export interface FeedSplitResult {
 }
 
 /**
- * Calculate cost per kilogram from inventory data
+ * Calculate cost per kilogram from inventory data.
+ * cost_per_unit is always stored as ₱/kg regardless of inventory unit,
+ * so this function simply validates and returns it.
  */
 export function calculateCostPerKg(
   costPerUnit: number | null,
@@ -36,16 +38,6 @@ export function calculateCostPerKg(
   unit: string
 ): number {
   if (!costPerUnit || costPerUnit <= 0) return 0;
-  
-  // If unit is already "kg", cost_per_unit is cost per kg
-  if (unit === 'kg') return costPerUnit;
-  
-  // If we have weight_per_unit, calculate cost per kg
-  if (weightPerUnit && weightPerUnit > 0) {
-    return costPerUnit / weightPerUnit;
-  }
-  
-  // Default: assume 1 unit = 1 kg if no weight info
   return costPerUnit;
 }
 

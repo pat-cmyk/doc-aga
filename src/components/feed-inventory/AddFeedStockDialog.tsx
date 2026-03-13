@@ -127,12 +127,19 @@ export function AddFeedStockDialog({
 
   useEffect(() => {
     if (editItem) {
+      // Convert quantity_kg back to original units for display
+      const needsConversion = editItem.unit === 'bags' || editItem.unit === 'bales' || editItem.unit === 'barrels';
+      const wpu = editItem.weight_per_unit ? Number(editItem.weight_per_unit) : 0;
+      const displayQuantity = (needsConversion && wpu > 0)
+        ? Number(editItem.quantity_kg) / wpu
+        : Number(editItem.quantity_kg);
+
       form.reset({
         feed_type: editItem.feed_type,
         category: (editItem as any).category || "roughage",
-        quantity_kg: Number(editItem.quantity_kg),
+        quantity_kg: displayQuantity,
         unit: editItem.unit,
-        weight_per_unit: undefined,
+        weight_per_unit: wpu > 0 ? wpu : undefined,
         cost_per_unit: editItem.cost_per_unit ? Number(editItem.cost_per_unit) : undefined,
         purchase_date: (editItem as any).purchase_date ? new Date((editItem as any).purchase_date) : undefined,
         expiry_date: (editItem as any).expiry_date ? new Date((editItem as any).expiry_date) : undefined,
@@ -449,7 +456,7 @@ export function AddFeedStockDialog({
                 name="cost_per_unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cost per Unit</FormLabel>
+                    <FormLabel>Cost per kg (₱)</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" placeholder="0.00" {...field} />
                     </FormControl>
