@@ -131,7 +131,7 @@ export function AddFeedStockDialog({
       const needsConversion = editItem.unit === 'bags' || editItem.unit === 'bales' || editItem.unit === 'barrels';
       const wpu = editItem.weight_per_unit ? Number(editItem.weight_per_unit) : 0;
       const displayQuantity = (needsConversion && wpu > 0)
-        ? Number(editItem.quantity_kg) / wpu
+        ? Math.round((Number(editItem.quantity_kg) / wpu) * 100) / 100
         : Number(editItem.quantity_kg);
 
       form.reset({
