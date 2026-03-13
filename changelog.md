@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-03-13 — Fix: Demo Farm Data Audit & Consistency Fixes
+
+### Problem
+Audit of all 11 animals on the Estehanon demo farm revealed pervasive data inconsistencies:
+- 6 animals lactating with parity 0 (biologically impossible — must have calved to lactate)
+- 7 animals missing `birth_date`, causing `calculate-daily-stats` to skip life stage recalculation
+- `fertility_status` stuck at `not_eligible` because `seed-demo-data` creates `ai_records` without `breeding_events` (so the `update_animal_fertility_status` trigger never fires)
+- Tsibato (goat G001) recorded as 10.5 months old but lactating (too young to have calved)
+
+### Added
+- **`supabase/migrations/20260313120000_fix_demo_animal_data.sql`** — Backfills birth_dates for 7 animals, creates phantom offspring for 6 lactating mothers, inserts calving + vwp_ended breeding_events (trigger auto-updates parity/fertility_status), fixes Mang Flora's pregnancy timeline, sets NDA 123 and 0029 to `open_cycling`.
+- **`inferLifeStageWithoutBirthDate()`** — Ported from client-side `src/lib/animalStages.ts` to both `calculate-daily-stats` and `recalculate-animal` Edge Functions. Infers life stage from offspring count + active AI when birth_date is null.
+
+### Changed
+- **`supabase/functions/seed-demo-data/index.ts`** — Four fixes:
+  1. Milking records now require calving evidence (`parity > 0`, `last_calving_date`, or `is_currently_lactating`) instead of just being a non-calf female.
+  2. AI records now create corresponding `breeding_events` (heat_detected, ai_performed, non_return, pregnancy_confirmed) so the fertility trigger fires.
+  3. Pregnant animals (`confirmed_pregnant`/`suspected_pregnant`) are skipped for new AI scheduling.
+  4. Animal query now fetches `parity`, `last_calving_date`, `fertility_status` for eligibility checks.
+- **`supabase/functions/calculate-daily-stats/index.ts`** — Animals without `birth_date` are no longer skipped; females get inferred life stage from reproductive history.
+- **`supabase/functions/recalculate-animal/index.ts`** — Same null birth_date fallback using `inferLifeStageWithoutBirthDate()`.
+
 ## 2026-03-13 — Feature: Life Stage & Breeding Eligibility Restrictions (SSOT)
 
 ### Problem

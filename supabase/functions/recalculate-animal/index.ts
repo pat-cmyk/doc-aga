@@ -16,19 +16,31 @@ interface AnimalStageData {
 }
 
 function calculateLifeStage(data: AnimalStageData): string | null {
-  if (!data.birth_date || !data.gender) return null;
-  
+  if (!data.gender) return null;
+
+  const isMale = data.gender.toLowerCase() === 'male';
+  const isFemale = data.gender.toLowerCase() === 'female';
+
+  // Fallback: infer from reproductive history when birth_date is unknown
+  if (!data.birth_date) {
+    if (isFemale) {
+      return inferLifeStageWithoutBirthDate(
+        data.livestock_type,
+        data.offspring_count,
+        data.has_active_ai
+      );
+    }
+    return null; // Males without birth_date: no reliable inference
+  }
+
   const birthDate = new Date(data.birth_date);
   const today = new Date();
   const ageMonths = Math.floor((today.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-  
-  const isMale = data.gender.toLowerCase() === 'male';
-  const isFemale = data.gender.toLowerCase() === 'female';
-  
+
   if (isMale) {
     return calculateMaleStage(data, ageMonths);
   }
-  
+
   if (!isFemale) return null;
 
   // Species-specific logic for females
@@ -37,27 +49,67 @@ function calculateLifeStage(data: AnimalStageData): string | null {
       if (ageMonths < 6) return 'Calf';
       if (data.offspring_count === 0) return 'Heifer';
       return 'Cow';
-      
+
     case 'carabao':
       if (ageMonths < 6) return 'Calf';
       if (data.offspring_count === 0) return 'Breeding Carabao';
       return 'Mature Carabao';
-      
+
     case 'goat':
       if (ageMonths < 6) return 'Kid';
       if (data.offspring_count === 0) return 'Doeling';
       return 'Doe';
-      
+
     case 'sheep':
       if (ageMonths < 6) return 'Lamb';
       if (data.offspring_count === 0) return 'Ewe Lamb';
       return 'Ewe';
-      
+
     default:
       if (ageMonths < 6) return 'Calf';
       if (data.offspring_count === 0) return 'Heifer';
       return 'Cow';
   }
+}
+
+/**
+ * Infer life stage when birth date is unknown, using reproductive history.
+ * Ported from src/lib/animalStages.ts to keep server-side in sync.
+ */
+function inferLifeStageWithoutBirthDate(
+  livestockType: string,
+  offspringCount: number,
+  hasActiveAI: boolean
+): string | null {
+  const type = livestockType.toLowerCase();
+
+  if (offspringCount >= 2) {
+    if (type === 'cattle') return 'Mature Cow';
+    if (type === 'carabao') return 'Mature Carabao';
+    if (type === 'goat') return 'Mature Doe';
+    if (type === 'sheep') return 'Mature Ewe';
+  }
+
+  if (offspringCount === 1) {
+    if (type === 'cattle') return 'First-Calf Heifer';
+    if (type === 'carabao') return 'First-Time Mother';
+    if (type === 'goat') return 'First Freshener';
+    if (type === 'sheep') return 'First-Time Mother Ewe';
+  }
+
+  if (hasActiveAI) {
+    if (type === 'cattle') return 'Pregnant Heifer';
+    if (type === 'carabao') return 'Pregnant Carabao';
+    if (type === 'goat') return 'Pregnant Doe';
+    if (type === 'sheep') return 'Pregnant Ewe';
+  }
+
+  if (type === 'cattle') return 'Breeding Heifer';
+  if (type === 'carabao') return 'Breeding Carabao';
+  if (type === 'goat') return 'Breeding Doe';
+  if (type === 'sheep') return 'Breeding Ewe';
+
+  return null;
 }
 
 function calculateMaleStage(data: AnimalStageData, ageMonths: number): string | null {

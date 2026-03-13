@@ -456,7 +456,7 @@ Deno.serve(async (req) => {
     for (const farm of demoFarms) {
       const { data: animals, error: animErr } = await supabase
         .from('animals')
-        .select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code, livestock_type')
+        .select('id, gender, life_stage, is_currently_lactating, birth_date, unique_code, livestock_type, parity, last_calving_date, fertility_status')
         .eq('farm_id', farm.id)
         .eq('is_deleted', false)
         .is('exit_date', null)
@@ -507,6 +507,7 @@ Deno.serve(async (req) => {
       const bcsInserts: any[] = []
       const feedInserts: any[] = []
       const aiInserts: any[] = []
+      const breedingEventInserts: any[] = []
       let inventoryLinked = 0
       let zeroCostFallback = 0
 
@@ -516,12 +517,15 @@ Deno.serve(async (req) => {
         const isFemale = animal.gender === 'Female' || animal.gender === 'female'
         const isCalf = !!(animal.life_stage || '').match(/Calf|Newborn|Baby/i)
         const isLactating = animal.is_currently_lactating || (isFemale && (animal.life_stage || '').match(/Cow|Doe|Carabao|Mature/i))
-        // For demo: all mature females (non-calves) get milking/AI records to ensure
-        // government dashboard metrics are populated with insightful data
+        // Mature female = non-calf female (used for AI eligibility)
         const isMatureFemale = isFemale && !isCalf
+        // Milking eligibility requires calving evidence (parity > 0 or last_calving_date)
+        // to avoid biologically impossible milking records for pre-breeding animals
+        const hasCalved = (animal as any).parity > 0 || !!(animal as any).last_calving_date
+        const isEligibleForMilking = isFemale && !isCalf && (hasCalved || animal.is_currently_lactating)
 
-        // Milking: for mature females (broadened from lactating-only for demo coverage)
-        if (isMatureFemale) {
+        // Milking: only for females with calving evidence (parity > 0 or lactating)
+        if (isEligibleForMilking) {
           for (let d = 1; d <= 7; d++) {
             const date = new Date(now)
             date.setDate(date.getDate() - d)
@@ -585,8 +589,11 @@ Deno.serve(async (req) => {
           })
         }
 
-        // AI Records: for mature females without a recent AI record (broadened for demo coverage)
-        if (isMatureFemale && !animalsWithAI.has(animal.id)) {
+        // AI Records: for mature females without a recent AI record
+        // Skip pregnant animals (confirmed or suspected) — can't schedule AI for them
+        const isPregnant = ((animal as any).fertility_status === 'confirmed_pregnant' ||
+                            (animal as any).fertility_status === 'suspected_pregnant')
+        if (isMatureFemale && !animalsWithAI.has(animal.id) && !isPregnant) {
           const daysAgo = Math.floor(seededRandom(`${animal.id}_ai_day`) * 7) + 1
           const scheduledDate = new Date(now)
           scheduledDate.setDate(scheduledDate.getDate() - daysAgo)
@@ -626,6 +633,47 @@ Deno.serve(async (req) => {
             expected_delivery_date: expectedDelivery,
             notes: 'Auto-seeded demo data',
           })
+
+          // Create corresponding breeding_events so the
+          // update_animal_fertility_status trigger fires and keeps
+          // fertility_status / parity / last_calving_date in sync.
+          const heatDate = new Date(scheduledDate)
+          heatDate.setDate(heatDate.getDate() - 1)
+          breedingEventInserts.push({
+            animal_id: animal.id,
+            farm_id: farm.id,
+            event_type: 'heat_detected',
+            event_date: heatDate.toISOString(),
+            notes: 'Auto-seeded demo data',
+          })
+          breedingEventInserts.push({
+            animal_id: animal.id,
+            farm_id: farm.id,
+            event_type: 'ai_performed',
+            event_date: `${performedStr}T08:00:00+08:00`,
+            notes: 'Auto-seeded demo data',
+          })
+
+          if (isConfirmed) {
+            // Non-return at ~21 days after AI
+            const nonReturnDate = new Date(performedDate)
+            nonReturnDate.setDate(nonReturnDate.getDate() + 21)
+            breedingEventInserts.push({
+              animal_id: animal.id,
+              farm_id: farm.id,
+              event_type: 'non_return',
+              event_date: nonReturnDate.toISOString(),
+              notes: 'Auto-seeded demo data',
+            })
+            // Pregnancy confirmed at ~60 days after AI
+            breedingEventInserts.push({
+              animal_id: animal.id,
+              farm_id: farm.id,
+              event_type: 'pregnancy_confirmed',
+              event_date: confirmedAt!,
+              notes: 'Auto-seeded demo data',
+            })
+          }
         }
 
         // Feeding: daily for last 7 days — linked to inventory
@@ -685,6 +733,12 @@ Deno.serve(async (req) => {
       for (let i = 0; i < aiInserts.length; i += batchSize) {
         const { error } = await supabase.from('ai_records').insert(aiInserts.slice(i, i + batchSize))
         if (!error) aiCount += Math.min(batchSize, aiInserts.length - i)
+      }
+      // Insert breeding_events AFTER ai_records so the
+      // update_animal_fertility_status trigger cascades properly
+      for (let i = 0; i < breedingEventInserts.length; i += batchSize) {
+        const { error } = await supabase.from('breeding_events').insert(breedingEventInserts.slice(i, i + batchSize))
+        if (error) console.error('breeding_events insert error:', error.message)
       }
 
       // Batch update inventory balances (deduct consumed amounts)

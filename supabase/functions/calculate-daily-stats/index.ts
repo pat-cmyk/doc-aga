@@ -166,6 +166,50 @@ function calculateMaleStage(data: AnimalStageData, livestockType: string = 'catt
   }
 }
 
+/**
+ * Infer life stage when birth date is unknown, using reproductive history.
+ * Ported from src/lib/animalStages.ts to keep server-side in sync.
+ */
+function inferLifeStageWithoutBirthDate(
+  livestockType: string,
+  offspringCount: number,
+  hasActiveAI: boolean
+): string | null {
+  const type = livestockType.toLowerCase();
+
+  // If has 2+ offspring, animal is mature
+  if (offspringCount >= 2) {
+    if (type === 'cattle') return 'Mature Cow';
+    if (type === 'carabao') return 'Mature Carabao';
+    if (type === 'goat') return 'Mature Doe';
+    if (type === 'sheep') return 'Mature Ewe';
+  }
+
+  // If has exactly 1 offspring, first-time mother
+  if (offspringCount === 1) {
+    if (type === 'cattle') return 'First-Calf Heifer';
+    if (type === 'carabao') return 'First-Time Mother';
+    if (type === 'goat') return 'First Freshener';
+    if (type === 'sheep') return 'First-Time Mother Ewe';
+  }
+
+  // No offspring - check for pregnancy (active AI)
+  if (hasActiveAI) {
+    if (type === 'cattle') return 'Pregnant Heifer';
+    if (type === 'carabao') return 'Pregnant Carabao';
+    if (type === 'goat') return 'Pregnant Doe';
+    if (type === 'sheep') return 'Pregnant Ewe';
+  }
+
+  // Default: assume breeding age for adult females with unknown birth date
+  if (type === 'cattle') return 'Breeding Heifer';
+  if (type === 'carabao') return 'Breeding Carabao';
+  if (type === 'goat') return 'Breeding Doe';
+  if (type === 'sheep') return 'Breeding Ewe';
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -368,7 +412,23 @@ Deno.serve(async (req) => {
       const animalUpdates: Array<{ id: string; life_stage: string | null; milking_stage: string | null }> = [];
 
       for (const animal of animals || []) {
-        if (!animal.birth_date) continue;
+        if (!animal.birth_date) {
+          // Fallback: infer life stage from reproductive history when birth_date is unknown
+          const offspring = offspringByMother.get(animal.id) || [];
+          if (animal.gender?.toLowerCase() === 'female') {
+            const inferredStage = inferLifeStageWithoutBirthDate(
+              animal.livestock_type || 'cattle',
+              offspring.length,
+              animalsWithActiveAI.has(animal.id)
+            );
+            if (inferredStage) {
+              animalUpdates.push({ id: animal.id, life_stage: inferredStage, milking_stage: null });
+              stageCounts[inferredStage] = (stageCounts[inferredStage] || 0) + 1;
+            }
+          }
+          // Males without birth_date: skip (no reliable inference)
+          continue;
+        }
 
         const birthDate = new Date(animal.birth_date);
         const offspring = offspringByMother.get(animal.id) || [];
@@ -389,10 +449,10 @@ Deno.serve(async (req) => {
         if (animal.gender?.toLowerCase() === 'female') {
           const lifeStage = calculateLifeStage(stageData, animal.livestock_type || 'cattle');
           const milkingStage = calculateMilkingStage(stageData);
-          
+
           // Use milking stage for counting if available, otherwise life stage
           stageForCount = milkingStage || lifeStage;
-          
+
           animalUpdates.push({
             id: animal.id,
             life_stage: lifeStage,
@@ -401,7 +461,7 @@ Deno.serve(async (req) => {
         } else if (animal.gender?.toLowerCase() === 'male') {
           const maleStage = calculateMaleStage(stageData, animal.livestock_type || 'cattle');
           stageForCount = maleStage;
-          
+
           animalUpdates.push({
             id: animal.id,
             life_stage: maleStage,
