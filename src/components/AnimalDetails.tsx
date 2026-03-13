@@ -1241,13 +1241,18 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         </TabsContent>
 
         <TabsContent value="ai">
-          <AIRecords 
-            animalId={animalId} 
+          <AIRecords
+            animalId={animalId}
             farmId={farmId}
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
             livestockType={animal?.livestock_type || undefined}
             readOnly={readOnly}
+            birthDate={animal?.birth_date}
+            lifeStage={animal?.life_stage}
+            fertilityStatus={animal?.fertility_status}
+            isCurrentlyLactating={animal?.is_currently_lactating}
+            offspringCount={offspring.length}
           />
         </TabsContent>
 

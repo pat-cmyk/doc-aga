@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-03-13 — Feature: Life Stage & Breeding Eligibility Restrictions (SSOT)
+
+### Problem
+Recording dialogs (single milk, heat detection, AI scheduling, calving) had no life stage or breeding age restrictions. A goat "Doeling" (6-10 months) could be recorded for milking, which is biologically impossible. Males could trigger heat detection from some entry points.
+
+### Added
+- **`src/lib/animalEligibility.ts`** — New SSOT module with `canRecordMilk()`, `canRecordHeat()`, `canScheduleAI()`, `canRecordCalving()`. Each returns `{ eligible, warning?, reason? }` (three-state: block, warn, or allow). Reuses `MIN_BREEDING_AGE_MONTHS` from `fertility.ts` and `LACTATING_STAGES` from `animalQueries.ts`.
+- **`src/lib/__tests__/animalEligibility.test.ts`** — 61 tests covering all species × life stages × recording types, plus missing data edge cases.
+
+### Changed
+- **`MilkingRecords.tsx`** — "Add Record" button disabled with tooltip when animal is ineligible for milking (pre-calving, male, no lactation evidence).
+- **`AIRecords.tsx`** — "Record Heat", "Schedule AI", and "Record Calving" buttons disabled with tooltip when animal is ineligible. Accepts new props (`birthDate`, `lifeStage`, `fertilityStatus`, `isCurrentlyLactating`, `offspringCount`) from `AnimalDetails.tsx`.
+- **`AnimalDetails.tsx`** — Passes eligibility data to `AIRecords`.
+- **`FarmScheduleAIDialog.tsx`** — Filters out confirmed/suspected pregnant animals from picker.
+- **`FarmRecordHeatDialog.tsx`** — Filters out `not_eligible` fertility status animals from picker.
+
+### Edge Cases (missing data defaults)
+- `gender: null` → blocks all female-specific recordings
+- `birth_date: null` → falls back to life_stage; if also null, allows heat/AI/calving with warning
+- `livestock_type: null` → blocks breeding recordings (can't determine species breeding age)
+- `fertility_status: null` → allows AI (treat as open), allows calving with warning
+- `is_currently_lactating: null` → treated as false
+
 ## 2026-03-13 — Fix: Edge Function Build Error + Heat Stats Column Fix
 
 ### Fixed
@@ -8,7 +31,6 @@
 - **Historical feed cost data fix** — Executed UPDATE on `feeding_records` to correct `cost_per_kg_at_time` for non-kg inventory items where cost was incorrectly divided by `weight_per_unit`.
 
 ---
-
 
 ## 2026-03-13 — Fix: Feed Inventory Cost Calculation & Edit Dialog Bugs
 

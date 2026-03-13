@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Loader2, Sun, Moon, Clock, Pencil, ChevronDown, ChevronUp, History, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Loader2, Sun, Moon, Clock, Pencil, ChevronDown, ChevronUp, History, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -18,6 +18,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { hapticNotification } from "@/lib/haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { canRecordMilk, EligibilityInput } from "@/lib/animalEligibility";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MilkRecord {
   id: string;
@@ -82,10 +84,12 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
     };
   }, [animalId]);
 
+  const [milkEligibility, setMilkEligibility] = useState<{ eligible: boolean; warning?: boolean; reason?: string }>({ eligible: true });
+
   const loadAnimalInfo = async () => {
     const { data } = await supabase
       .from("animals")
-      .select("gender, farm_id, farm_entry_date, name, ear_tag")
+      .select("gender, farm_id, farm_entry_date, name, ear_tag, livestock_type, birth_date, life_stage, milking_stage, fertility_status, is_currently_lactating")
       .eq("id", animalId)
       .single();
     setAnimalGender(data?.gender || null);
@@ -93,6 +97,26 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
     setAnimalFarmEntryDate(data?.farm_entry_date || null);
     setAnimalName(data?.name || null);
     setEarTag(data?.ear_tag || null);
+
+    // Count offspring for eligibility check
+    const { count: offspringCount } = await supabase
+      .from("animals")
+      .select("id", { count: 'exact', head: true })
+      .eq("mother_id", animalId);
+
+    if (data) {
+      const eligibilityInput: EligibilityInput = {
+        gender: data.gender,
+        livestock_type: data.livestock_type,
+        birth_date: data.birth_date,
+        life_stage: data.life_stage,
+        milking_stage: data.milking_stage,
+        fertility_status: data.fertility_status,
+        is_currently_lactating: data.is_currently_lactating,
+        offspring_count: offspringCount || 0,
+      };
+      setMilkEligibility(canRecordMilk(eligibilityInput));
+    }
   };
 
   const loadLatestCalvingDate = async () => {
@@ -271,13 +295,40 @@ const MilkingRecords = ({ animalId, readOnly = false }: MilkingRecordsProps) => 
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {!readOnly && (
-              <Button 
-                onClick={() => setShowDialog(true)} 
-                className="w-full sm:w-auto min-h-[48px]"
-              >
-                <Plus className="h-5 w-5 mr-2" />Add Record
-              </Button>
+            {!readOnly && milkEligibility.eligible && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={() => setShowDialog(true)}
+                      className="w-full sm:w-auto min-h-[48px]"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />Add Record
+                      {milkEligibility.warning && <AlertTriangle className="h-4 w-4 ml-1 text-yellow-500" />}
+                    </Button>
+                  </TooltipTrigger>
+                  {milkEligibility.warning && milkEligibility.reason && (
+                    <TooltipContent><p>{milkEligibility.reason}</p></TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {!readOnly && !milkEligibility.eligible && milkEligibility.reason && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        disabled
+                        className="w-full sm:w-auto min-h-[48px] opacity-50 cursor-not-allowed"
+                      >
+                        <Plus className="h-5 w-5 mr-2" />Add Record
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent><p>{milkEligibility.reason}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             
             <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as "all" | "cycle" | "month")}>

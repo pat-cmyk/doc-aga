@@ -61,9 +61,13 @@ export function FarmRecordHeatDialog({ open, onOpenChange, animals, farmId }: Fa
 
   const filteredAnimals = useMemo(() => {
     const q = search.toLowerCase();
-    return animals.filter(a =>
-      (a.name?.toLowerCase().includes(q) || a.ear_tag?.toLowerCase().includes(q))
-    );
+    return animals.filter(a => {
+      const matchesSearch = a.name?.toLowerCase().includes(q) || a.ear_tag?.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+      // Exclude animals marked as not eligible for breeding
+      if (a.fertility_status === 'not_eligible') return false;
+      return true;
+    });
   }, [animals, search]);
 
   const handleSelectAnimal = (animal: Animal) => {

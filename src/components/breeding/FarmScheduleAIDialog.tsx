@@ -70,9 +70,14 @@ export function FarmScheduleAIDialog({ open, onOpenChange, animals, farmId, pres
 
   const filteredAnimals = useMemo(() => {
     const q = search.toLowerCase();
-    return animals.filter(a =>
-      (a.name?.toLowerCase().includes(q) || a.ear_tag?.toLowerCase().includes(q))
-    );
+    return animals.filter(a => {
+      // Search filter
+      const matchesSearch = a.name?.toLowerCase().includes(q) || a.ear_tag?.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+      // Exclude already-pregnant animals (can't schedule AI for pregnant animals)
+      if (a.fertility_status === 'confirmed_pregnant' || a.fertility_status === 'suspected_pregnant') return false;
+      return true;
+    });
   }, [animals, search]);
 
   const handleSelectAnimal = (animal: Animal) => {

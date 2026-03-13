@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, CheckCircle, Clock, Pencil } from "lucide-react";
+import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
@@ -24,6 +24,7 @@ import {
 import { RecordHeatDialog } from "./heat-detection/RecordHeatDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { BREEDING_LIFECYCLE_ACTIONS } from "@/lib/urgencyGlossary";
+import { canRecordHeat, canScheduleAI, canRecordCalving, EligibilityInput, EligibilityResult } from "@/lib/animalEligibility";
 
 interface AIRecordsProps {
   animalId: string;
@@ -32,9 +33,15 @@ interface AIRecordsProps {
   gender?: string;
   livestockType?: string;
   readOnly?: boolean;
+  /** Eligibility data for gating breeding actions */
+  birthDate?: string | null;
+  lifeStage?: string | null;
+  fertilityStatus?: string | null;
+  isCurrentlyLactating?: boolean | null;
+  offspringCount?: number;
 }
 
-const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOnly = false }: AIRecordsProps) => {
+const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOnly = false, birthDate, lifeStage, fertilityStatus, isCurrentlyLactating, offspringCount = 0 }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
@@ -68,6 +75,21 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
 
   const isFemale = gender?.toLowerCase() === 'female';
 
+  // Compute eligibility for breeding actions
+  const eligibilityInput: EligibilityInput = {
+    gender: gender || null,
+    livestock_type: livestockType || null,
+    birth_date: birthDate || null,
+    life_stage: lifeStage || null,
+    milking_stage: null,
+    fertility_status: fertilityStatus || null,
+    is_currently_lactating: isCurrentlyLactating ?? null,
+    offspring_count: offspringCount,
+  };
+  const heatEligibility: EligibilityResult = canRecordHeat(eligibilityInput);
+  const aiEligibility: EligibilityResult = canScheduleAI(eligibilityInput);
+  const calvingEligibility: EligibilityResult = canRecordCalving(eligibilityInput);
+
   // Find latest performed AI date for timing guards
   const lastPerformedAI = records.find(r => r.performed_date);
   const lastAIDate = lastPerformedAI?.performed_date || undefined;
@@ -92,51 +114,96 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
             <CardContent>
             <TooltipProvider delayDuration={300}>
               <div className="flex flex-wrap gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <RecordHeatButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.record_heat.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <ScheduleAIButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.schedule_ai.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <RecordCalvingDialog
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        livestockType={livestockType}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.record_calving.description}</p>
-                  </TooltipContent>
-                </Tooltip>
+                {heatEligibility.eligible ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <RecordHeatButton
+                          animalId={animalId}
+                          farmId={farmId}
+                          animalName={animalName}
+                          onSuccess={loadRecords}
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{heatEligibility.warning && heatEligibility.reason ? heatEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.record_heat.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                          <Flame className="h-4 w-4 text-orange-500" /> Record Heat
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{heatEligibility.reason}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {aiEligibility.eligible ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <ScheduleAIButton
+                          animalId={animalId}
+                          farmId={farmId}
+                          onSuccess={loadRecords}
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{aiEligibility.warning && aiEligibility.reason ? aiEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.schedule_ai.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                          <Calendar className="h-4 w-4" /> Schedule AI
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{aiEligibility.reason}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {calvingEligibility.eligible ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <RecordCalvingDialog
+                          animalId={animalId}
+                          farmId={farmId}
+                          animalName={animalName}
+                          livestockType={livestockType}
+                          onSuccess={loadRecords}
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{calvingEligibility.warning && calvingEligibility.reason ? calvingEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.record_calving.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                          <Baby className="h-4 w-4" /> Record Calving
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-sm">
+                      <p>{calvingEligibility.reason}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
@@ -240,11 +307,11 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>AI/Breeding Records</CardTitle>
-          {!readOnly && (
-            <ScheduleAIDialog 
-              animalId={animalId} 
+          {!readOnly && aiEligibility.eligible && (
+            <ScheduleAIDialog
+              animalId={animalId}
               farmId={farmId}
-              onSuccess={loadRecords} 
+              onSuccess={loadRecords}
               disabled={!isOnline}
             />
           )}
