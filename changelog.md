@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-13 — Fix: Edge Function Build Error + Heat Stats Column Fix
+
+### Fixed
+- **`supabase/functions/process-farmer-feedback/index.ts`** — Replaced non-existent `getClaims(token)` with `getUser()` to fix TS2339 build error. Auth still validates JWT via the Authorization header.
+- **`get_government_health_stats` RPC** — Fixed `heat_stats` CTE referencing non-existent `hr.observed_date` and `hr.cycle_length_days`. Now uses `hr.detected_at` and derives cycle length via `LAG()` window function. Also fixed `optimal_window` CTE.
+- **Historical feed cost data fix** — Executed UPDATE on `feeding_records` to correct `cost_per_kg_at_time` for non-kg inventory items where cost was incorrectly divided by `weight_per_unit`.
+
+---
+
+
 ## 2026-03-13 — Fix: Feed Inventory Cost Calculation & Edit Dialog Bugs
 
 ### Root Cause (2 bugs)
