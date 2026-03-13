@@ -28,13 +28,13 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error('[process-farmer-feedback] Auth failed:', claimsError?.message);
+    const { data: userData, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !userData?.user) {
+      console.error('[process-farmer-feedback] Auth failed:', authError?.message);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
     console.log(`[process-farmer-feedback] Request from user: ${userId}`);
 
     const { transcription, farmId } = await req.json();
