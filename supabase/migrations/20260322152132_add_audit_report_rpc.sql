@@ -440,19 +440,19 @@ BEGIN
   -- SECTION F: User Attribution
   -- ============================================================
   WITH all_records_users AS (
-    SELECT created_at, created_by AS user_id FROM milking_records mr JOIN animals a ON mr.animal_id = a.id
+    SELECT mr.created_at, mr.created_by AS user_id FROM milking_records mr JOIN animals a ON mr.animal_id = a.id
       WHERE a.farm_id = p_farm_id AND mr.created_at >= p_start_date::timestamptz AND mr.created_at < (p_end_date + 1)::timestamptz
     UNION ALL
-    SELECT created_at, created_by FROM feeding_records fr JOIN animals a ON fr.animal_id = a.id
+    SELECT fr.created_at, fr.created_by FROM feeding_records fr JOIN animals a ON fr.animal_id = a.id
       WHERE a.farm_id = p_farm_id AND fr.created_at >= p_start_date::timestamptz AND fr.created_at < (p_end_date + 1)::timestamptz
     UNION ALL
-    SELECT created_at, created_by FROM health_records hr JOIN animals a ON hr.animal_id = a.id
+    SELECT hr.created_at, hr.created_by FROM health_records hr JOIN animals a ON hr.animal_id = a.id
       WHERE a.farm_id = p_farm_id AND hr.created_at >= p_start_date::timestamptz AND hr.created_at < (p_end_date + 1)::timestamptz
     UNION ALL
-    SELECT created_at, recorded_by FROM weight_records wr JOIN animals a ON wr.animal_id = a.id
+    SELECT wr.created_at, wr.recorded_by FROM weight_records wr JOIN animals a ON wr.animal_id = a.id
       WHERE a.farm_id = p_farm_id AND wr.created_at >= p_start_date::timestamptz AND wr.created_at < (p_end_date + 1)::timestamptz
     UNION ALL
-    SELECT created_at, created_by FROM injection_records ir JOIN animals a ON ir.animal_id = a.id
+    SELECT ir.created_at, ir.created_by FROM injection_records ir JOIN animals a ON ir.animal_id = a.id
       WHERE a.farm_id = p_farm_id AND ir.created_at >= p_start_date::timestamptz AND ir.created_at < (p_end_date + 1)::timestamptz
     UNION ALL
     SELECT created_at, user_id FROM farm_expenses
