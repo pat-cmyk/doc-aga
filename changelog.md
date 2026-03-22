@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-22 — Feature: Feed Inventory Consolidation & Stock Adjustment
+
+### Problem
+Each feed repurchase created a new inventory card, overcrowding the screen with duplicate entries for the same feed type. No way to correct inventory counts after physical reconciliation.
+
+### Added
+- **Repurchase merge:** When adding feed stock that matches an existing item (same normalized `feed_type` + `category`), the quantity is merged into the existing row with weighted-average cost. Purchase metadata (cost, supplier, batch) is recorded in the transaction history. No new card is created.
+- **Merge preview alert:** The Add Feed Stock dialog shows an info banner when a merge will occur, so the farmer knows their stock will be consolidated.
+- **`AdjustStockDialog.tsx`** — New lightweight dialog for stock corrections. Enter actual count + reason, and the system records the difference as an adjustment transaction.
+- **"Adjust" button** on each inventory card (visible to managers/owners) for quick stock corrections.
+
+### Changed
+- **`AddFeedStockDialog.tsx`** — Accepts `existingInventory` prop (full items array) instead of just feed type strings. Three-branch submit: edit, merge, or create new. Weighted-average cost calculation on merge.
+- **`FeedStockList.tsx`** — Passes full inventory to dialog. Added Adjust button between Edit and History. Renders `AdjustStockDialog` when active.
+
 ## 2026-03-13 — Fix: Demo Farm Data Audit & Consistency Fixes
 
 ### Problem

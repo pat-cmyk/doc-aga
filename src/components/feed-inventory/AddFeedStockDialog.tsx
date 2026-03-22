@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet, CalendarIcon } from "lucide-react";
+import { Wallet, CalendarIcon, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -74,6 +74,8 @@ interface AddFeedStockDialogProps {
   farmId: string;
   editItem?: FeedInventoryItem | null;
   prefillFeedType?: string;
+  existingInventory?: FeedInventoryItem[];
+  /** @deprecated Use existingInventory instead */
   existingFeedTypes?: string[];
 }
 
@@ -83,8 +85,11 @@ export function AddFeedStockDialog({
   farmId,
   editItem,
   prefillFeedType,
-  existingFeedTypes = [],
+  existingInventory = [],
+  existingFeedTypes: existingFeedTypesProp,
 }: AddFeedStockDialogProps) {
+  // Derive feed type list from inventory (or use legacy prop)
+  const existingFeedTypes = existingFeedTypesProp ?? existingInventory.map(item => item.feed_type);
   const { toast } = useToast();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -108,6 +113,18 @@ export function AddFeedStockDialog({
   const watchedQuantity = form.watch("quantity_kg");
   const watchedCostPerUnit = form.watch("cost_per_unit");
   const watchedWeightPerUnit = form.watch("weight_per_unit");
+  const watchedFeedType = form.watch("feed_type");
+  const watchedCategory = form.watch("category");
+
+  // Detect if this feed type+category already exists in inventory (merge candidate)
+  const mergeTarget = useMemo(() => {
+    if (editItem || !watchedFeedType) return null;
+    const normalized = normalizeFeedType(watchedFeedType);
+    return existingInventory.find(item =>
+      normalizeFeedType(item.feed_type) === normalized &&
+      (item.category || 'roughage') === watchedCategory
+    ) ?? null;
+  }, [editItem, watchedFeedType, watchedCategory, existingInventory]);
 
   // Calculate total cost for expense preview
   const calculatedTotalCost = useMemo(() => {
@@ -242,6 +259,90 @@ export function AddFeedStockDialog({
           title: "Success",
           description: "Feed stock updated successfully",
         });
+      } else if (mergeTarget) {
+        // Merge into existing inventory item (same feed_type + category)
+        const oldQty = Number(mergeTarget.quantity_kg);
+        const oldCost = Number(mergeTarget.cost_per_unit || 0);
+        const newCost = Number(data.cost_per_unit || 0);
+        const newTotalQty = oldQty + actualQuantityKg;
+
+        // Weighted average cost per kg
+        const weightedCost = newTotalQty > 0
+          ? (oldQty * oldCost + actualQuantityKg * newCost) / newTotalQty
+          : newCost;
+
+        // Take latest expiry date
+        const existingExpiry = mergeTarget.expiry_date ? new Date(mergeTarget.expiry_date) : null;
+        const newExpiry = data.expiry_date || null;
+        let latestExpiry: string | null = mergeTarget.expiry_date || null;
+        if (newExpiry) {
+          if (!existingExpiry || newExpiry > existingExpiry) {
+            latestExpiry = format(newExpiry, 'yyyy-MM-dd');
+          }
+        }
+
+        const { error: updateError } = await supabase
+          .from('feed_inventory')
+          .update({
+            quantity_kg: newTotalQty,
+            cost_per_unit: Math.round(weightedCost * 100) / 100,
+            expiry_date: latestExpiry,
+            supplier: data.supplier || mergeTarget.supplier,
+            last_updated: new Date().toISOString(),
+          })
+          .eq('id', mergeTarget.id);
+
+        if (updateError) throw updateError;
+
+        // Record the repurchase as an addition transaction with purchase metadata
+        const purchaseMetadata = [
+          `Repurchase: +${actualQuantityKg.toLocaleString()} kg`,
+          newCost > 0 ? `Cost: ₱${newCost}/kg` : null,
+          data.supplier ? `Supplier: ${data.supplier}` : null,
+          data.batch_number ? `Batch: ${data.batch_number}` : null,
+          data.purchase_date ? `Date: ${format(data.purchase_date, 'yyyy-MM-dd')}` : null,
+        ].filter(Boolean).join(' | ');
+
+        const { error: txError } = await supabase
+          .from('feed_stock_transactions')
+          .insert({
+            feed_inventory_id: mergeTarget.id,
+            transaction_type: 'addition',
+            quantity_change_kg: actualQuantityKg,
+            balance_after: newTotalQty,
+            notes: purchaseMetadata,
+            created_by: user.id,
+          });
+
+        if (txError) throw txError;
+
+        // Create purchase expense linked to existing inventory item
+        const hasExpense = data.cost_per_unit && data.cost_per_unit > 0;
+        if (hasExpense && calculatedTotalCost && calculatedTotalCost > 0) {
+          const { error: expenseError } = await supabase
+            .from('farm_expenses')
+            .insert({
+              farm_id: farmId,
+              user_id: user.id,
+              category: 'Feed & Supplements',
+              amount: calculatedTotalCost,
+              description: `Feed repurchase: ${normalizedFeedType}${data.batch_number ? ` (Batch: ${data.batch_number})` : ''}`,
+              expense_date: data.purchase_date ? format(data.purchase_date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+              allocation_type: 'Capital',
+              linked_feed_inventory_id: mergeTarget.id,
+            });
+
+          if (expenseError) {
+            console.error('Failed to create purchase expense:', expenseError);
+          }
+        }
+
+        toast({
+          title: "Stock Updated",
+          description: hasExpense
+            ? "Feed merged into existing stock and expense recorded"
+            : "Feed merged into existing stock",
+        });
       } else {
         // Create new item
         const { data: newItem, error: insertError } = await supabase
@@ -304,8 +405,8 @@ export function AddFeedStockDialog({
 
         toast({
           title: "Success",
-          description: hasExpense 
-            ? "Feed stock added and purchase expense recorded" 
+          description: hasExpense
+            ? "Feed stock added and purchase expense recorded"
             : "Feed stock added successfully",
         });
       }
@@ -376,6 +477,17 @@ export function AddFeedStockDialog({
                 </FormItem>
               )}
             />
+
+            {/* Merge preview — shown when feed_type+category matches an existing item */}
+            {!editItem && mergeTarget && (
+              <Alert className="bg-primary/5 border-primary/20">
+                <PackagePlus className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm">
+                  This feed already exists in your inventory ({mergeTarget.quantity_kg.toLocaleString()} kg).
+                  The new quantity will be <span className="font-semibold">merged into existing stock</span>.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
             <FormField
