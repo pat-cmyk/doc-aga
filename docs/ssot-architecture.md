@@ -190,6 +190,7 @@ queryFn: async () => {
 | `useInvoices` | MANUAL — Merchant-scoped | — |
 | `usePlatformSettings` | MANUAL — Admin-scoped | — |
 | `useGovernmentFeedback` | MANUAL — Government-scoped, @online-only | — |
+| `useAuditReport` | MANUAL — Admin-scoped, @online-only | — |
 
 ---
 

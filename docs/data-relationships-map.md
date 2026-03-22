@@ -1590,6 +1590,26 @@ cooperative_memberships (invitation_status = 'accepted')
 
 **Key isolation principle**: Cooperative reads are entirely via SECURITY DEFINER functions. No existing farm RLS policies are modified. The cooperative role has zero direct access to farm-scoped tables.
 
+### Bank Audit Report RPC (SECURITY DEFINER)
+
+| RPC | Parameters | Returns |
+|-----|-----------|---------|
+| `get_farm_audit_report` | `p_farm_id uuid, p_start_date date, p_end_date date` | Data integrity audit with 6 sections: farm_summary, daily_entry_log, temporal_integrity, value_distribution, cross_dataset_consistency, user_attribution |
+
+**Read paths**: `farms`, `profiles`, `animals`, `farm_memberships`, `milking_records`, `feeding_records`, `health_records`, `weight_records`, `injection_records`, `farm_expenses`, `farm_revenues` (all read-only, farm-scoped).
+
+**Access**: Admin-only via `SuperAdminRoute`. Used for bank loan assessment — generates neutral report on data entry patterns.
+
+```text
+Admin → AdminViewFarm → "Audit Report" button
+  → /admin/audit-report/:farmId
+    → useAuditReport hook → get_farm_audit_report RPC
+      → UNION ALL across 7 record tables (farm-scoped)
+        → Returns jsonb with temporal analysis, value distribution, cross-dataset checks
+          → AdminAuditReport page (table-based UI)
+            → Export PDF via auditReportExport.ts
+```
+
 ### Invitation Flow
 
 ```text

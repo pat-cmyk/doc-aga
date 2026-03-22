@@ -15,7 +15,7 @@ import { BarnListView } from "@/components/barns/BarnListView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Eye, Shield, LayoutDashboard, PawPrint, Settings2, Wallet, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Eye, Shield, LayoutDashboard, PawPrint, Settings2, Wallet, MoreHorizontal, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -97,15 +97,25 @@ const AdminViewFarm = () => {
               </span>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => navigate("/admin?tab=farms")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Exit View Mode</span>
-            <span className="sm:hidden">Exit</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(`/admin/audit-report/${farmId}`)}
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Audit Report</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate("/admin?tab=farms")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Exit View Mode</span>
+              <span className="sm:hidden">Exit</span>
+            </Button>
+          </div>
         </div>
       </div>
 
