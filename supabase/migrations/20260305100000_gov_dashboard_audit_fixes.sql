@@ -340,9 +340,9 @@ BEGIN
     COALESCE(SUM(dm.total_liters) FILTER (WHERE dm.livestock_type = 'goat'), 0) AS goat_milk_liters,
     COALESCE(SUM(dm.total_liters) FILTER (WHERE dm.livestock_type = 'carabao'), 0) AS carabao_milk_liters,
     COALESCE(SUM(dm.total_liters), 0) AS total_milk_liters,
-    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'cattle'), 0) AS cattle_farms_milking,
-    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'goat'), 0) AS goat_farms_milking,
-    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'carabao'), 0) AS carabao_farms_milking,
+    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'cattle'), 0)::BIGINT AS cattle_farms_milking,
+    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'goat'), 0)::BIGINT AS goat_farms_milking,
+    COALESCE(SUM(dm.farms_milking) FILTER (WHERE dm.livestock_type = 'carabao'), 0)::BIGINT AS carabao_farms_milking,
     AVG(dm.avg_price) FILTER (WHERE dm.livestock_type = 'cattle') AS avg_cattle_price,
     AVG(dm.avg_price) FILTER (WHERE dm.livestock_type = 'goat') AS avg_goat_price,
     AVG(dm.avg_price) FILTER (WHERE dm.livestock_type = 'carabao') AS avg_carabao_price
