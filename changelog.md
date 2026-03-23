@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-23 — Migration: Farm Category Enforcement (ruminant/swine/poultry)
+
+### Problem
+Farm signup failed with "violates check constraint valid_livestock_type" because the frontend sends `livestock_type: 'ruminant'` (a farm category) but the production DB constraint only allowed species values (`cattle`, `goat`, `sheep`, `carabao`). The data model needed to formalize: `farms.livestock_type` = category (ruminant/swine/poultry), `animals.livestock_type` = species (cattle/goat/sheep/carabao).
+
+### Changed
+- **`supabase/migrations/20260323130000_farm_category_migration.sql`** — Migrates all existing farms from species values to `'ruminant'` category, replaces constraint to only allow `('ruminant', 'swine', 'poultry')`, updates `create_default_farm()` with validation.
+- **`supabase/functions/seed-demo-data/index.ts`** — Fixed species fallback chain to never use `farm.livestock_type` (now a category) as a species key. Uses `animal.livestock_type || 'cattle'` directly. Feedback template lookup now derives species from the farm's animals instead of the farm category.
+
+### Data Impact
+- All 66+ existing farms migrated from `'cattle'`/`'goat'`/`'sheep'`/`'carabao'` → `'ruminant'`
+- `animals.livestock_type` unchanged — species-specific logic (breeding, life stages, feed) unaffected
+- Government dashboard unaffected — all RPCs use `animals.livestock_type` for species breakdowns
+
 ## 2026-03-23 — Enhancement: Date Filter in Header + Feed Consumption Card
 
 ### Problem
