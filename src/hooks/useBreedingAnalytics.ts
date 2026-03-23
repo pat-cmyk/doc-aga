@@ -33,6 +33,16 @@ export const CYCLE_LENGTH_DAYS = {
   goat: 21,
 } as const;
 
+export const CONCEPTION_RATE_BENCHMARKS = {
+  cattle: { excellent: 55, good: 45 },
+  goat: { excellent: 65, good: 50 },
+} as const;
+
+export const DAYS_OPEN_BENCHMARKS = {
+  cattle: { excellent: 100, good: 130 },
+  goat: { excellent: 80, good: 110 },
+} as const;
+
 export interface RepeatBreeder {
   id: string;
   name: string | null;
@@ -72,6 +82,11 @@ export interface BreedingAnalytics {
   openCyclingCount: number;
   detectionMethodBreakdown: Record<string, number>;
   
+  // Conception & Pregnancy Efficiency
+  conceptionRate: number;               // (confirmed / performed AI) × 100
+  avgDaysOpen: number;                  // avg days from calving to next confirmed conception
+  twentyOneDayPregnancyRate: number;    // HDR × CR composite — gold-standard KPI
+
   // Breeding Season (optional)
   breedingSeason: {
     isActive: boolean;
@@ -79,7 +94,7 @@ export interface BreedingAnalytics {
     aiThisSeason: number;
     conceptionRate: number;
   } | null;
-  
+
   // Time period
   periodDays: number;
   
@@ -167,6 +182,13 @@ export function useBreedingAnalytics(
       const hdr = calculateHDR(animals, heatRecords, periodDays);
       const breedingSeason = enableSeasonalView ? calculateBreedingSeason(aiRecords) : null;
 
+      // New KPIs: Conception Rate, Days Open, 21-Day Pregnancy Rate
+      const cr = calculateConceptionRate(aiRecords);
+      const daysOpen = calculateDaysOpen(animals, aiRecords);
+      const pregnancyRate = hdr.rate > 0 && cr > 0
+        ? (hdr.rate / 100) * (cr / 100) * 100
+        : 0;
+
       const result = {
         avgServicesPerConception: spc.avgSPC,
         spcByLivestockType: spc.byLivestock,
@@ -183,6 +205,9 @@ export function useBreedingAnalytics(
         avgCycleLengthDays: hdr.avgCycle,
         openCyclingCount: hdr.openCycling,
         detectionMethodBreakdown: hdr.methodBreakdown,
+        conceptionRate: cr,
+        avgDaysOpen: daysOpen,
+        twentyOneDayPregnancyRate: pregnancyRate,
         breedingSeason,
         periodDays,
       };
@@ -220,6 +245,9 @@ function getEmptyAnalytics(periodDays: number, enableSeasonalView: boolean): Omi
     avgCycleLengthDays: 21,
     openCyclingCount: 0,
     detectionMethodBreakdown: {},
+    conceptionRate: 0,
+    avgDaysOpen: 0,
+    twentyOneDayPregnancyRate: 0,
     breedingSeason: enableSeasonalView ? { isActive: false, seasonName: '', aiThisSeason: 0, conceptionRate: 0 } : null,
     periodDays,
   };
@@ -363,4 +391,69 @@ export function getHDRStatus(rate: number): 'excellent' | 'good' | 'needs_improv
   if (rate >= 70) return 'excellent';
   if (rate >= 50) return 'good';
   return 'needs_improvement';
+}
+
+// Helper to get conception rate status
+export function getConceptionRateStatus(rate: number, livestockType: string): 'excellent' | 'good' | 'needs_improvement' {
+  const benchmarks = CONCEPTION_RATE_BENCHMARKS[livestockType as keyof typeof CONCEPTION_RATE_BENCHMARKS] || CONCEPTION_RATE_BENCHMARKS.cattle;
+  if (rate === 0) return 'good';
+  if (rate >= benchmarks.excellent) return 'excellent';
+  if (rate >= benchmarks.good) return 'good';
+  return 'needs_improvement';
+}
+
+// Helper to get days open status
+export function getDaysOpenStatus(days: number, livestockType: string): 'excellent' | 'good' | 'needs_improvement' {
+  const benchmarks = DAYS_OPEN_BENCHMARKS[livestockType as keyof typeof DAYS_OPEN_BENCHMARKS] || DAYS_OPEN_BENCHMARKS.cattle;
+  if (days === 0) return 'good';
+  if (days <= benchmarks.excellent) return 'excellent';
+  if (days <= benchmarks.good) return 'good';
+  return 'needs_improvement';
+}
+
+// ============ New KPI Calculations ============
+
+/**
+ * Conception Rate = (confirmed pregnancies / total AI performed) × 100
+ * Uses all-time AI records (not date-filtered) for accuracy.
+ */
+function calculateConceptionRate(aiRecords: any[]): number {
+  const performed = aiRecords.filter(r => r.performed_date).length;
+  const confirmed = aiRecords.filter(r => r.pregnancy_confirmed === true).length;
+  return performed > 0 ? Math.round((confirmed / performed) * 100) : 0;
+}
+
+/**
+ * Days Open = average days from last_calving_date to next conception (AI confirmed)
+ * Only for animals with parity >= 1 and a confirmed AI after calving.
+ */
+function calculateDaysOpen(animals: any[], aiRecords: any[]): number {
+  const daysOpenValues: number[] = [];
+
+  for (const animal of animals) {
+    if (!animal.last_calving_date || (animal.parity || 0) < 1) continue;
+
+    const calvingDate = new Date(animal.last_calving_date);
+
+    // Find the first confirmed AI after this calving date
+    const confirmedAI = aiRecords
+      .filter(r =>
+        r.animal_id === animal.id &&
+        r.pregnancy_confirmed === true &&
+        r.performed_date &&
+        new Date(r.performed_date) >= calvingDate
+      )
+      .sort((a: any, b: any) =>
+        new Date(a.performed_date).getTime() - new Date(b.performed_date).getTime()
+      )[0];
+
+    if (confirmedAI) {
+      const days = differenceInDays(new Date(confirmedAI.performed_date), calvingDate);
+      if (days > 0 && days < 500) daysOpenValues.push(days);
+    }
+  }
+
+  return daysOpenValues.length > 0
+    ? Math.round(daysOpenValues.reduce((sum, d) => sum + d, 0) / daysOpenValues.length)
+    : 0;
 }

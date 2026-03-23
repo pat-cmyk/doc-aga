@@ -10,6 +10,7 @@ import { ServicesPerConceptionCard } from './ServicesPerConceptionCard';
 import { CalvingIntervalCard } from './CalvingIntervalCard';
 import { HeatDetectionRateCard } from './HeatDetectionRateCard';
 import { BreedingSeasonCard } from './BreedingSeasonCard';
+import { ConceptionRateCard } from './ConceptionRateCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarDays } from 'lucide-react';
 
@@ -91,6 +92,17 @@ export function BreedingAnalyticsSection({
           isLoading={analytics.isLoading}
         />
         
+        {/* Conception Rate, Days Open & Pregnancy Rate */}
+        <ConceptionRateCard
+          conceptionRate={analytics.conceptionRate}
+          avgDaysOpen={analytics.avgDaysOpen}
+          twentyOneDayPregnancyRate={analytics.twentyOneDayPregnancyRate}
+          totalServices={analytics.totalAIServices}
+          confirmedPregnancies={analytics.totalConfirmedPregnancies}
+          isLoading={analytics.isLoading}
+          primaryLivestockType={primaryLivestockType}
+        />
+
         {/* Breeding Season */}
         <BreedingSeasonCard
           breedingSeason={analytics.breedingSeason}

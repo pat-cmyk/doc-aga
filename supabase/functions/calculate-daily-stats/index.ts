@@ -529,14 +529,50 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Auto-generate VWP-ended breeding events ──────────────────────
+    // Animals past their voluntary waiting period should automatically
+    // transition from fresh_postpartum → open_cycling. The DB trigger
+    // update_animal_fertility_status() fires on INSERT and handles the
+    // status change. Query is idempotent — only picks up animals still
+    // in fresh_postpartum (trigger moves them to open_cycling on insert).
+    let vwpTransitioned = 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: vwpAnimals } = await supabase
+      .from('animals')
+      .select('id, farm_id')
+      .eq('fertility_status', 'fresh_postpartum')
+      .eq('is_deleted', false)
+      .lte('voluntary_waiting_end_date', todayStr)
+      .not('voluntary_waiting_end_date', 'is', null);
+
+    if (vwpAnimals && vwpAnimals.length > 0) {
+      const vwpEvents = vwpAnimals.map((a: any) => ({
+        animal_id: a.id,
+        farm_id: a.farm_id,
+        event_type: 'vwp_ended',
+        event_date: new Date().toISOString(),
+        notes: 'Auto-generated: voluntary waiting period completed',
+      }));
+      const { error: vwpError } = await supabase
+        .from('breeding_events')
+        .insert(vwpEvents);
+      if (vwpError) {
+        console.error('VWP auto-transition error:', vwpError.message);
+      } else {
+        vwpTransitioned = vwpEvents.length;
+        console.log(`Auto-generated ${vwpTransitioned} VWP-ended events`);
+      }
+    }
+
     console.log('Daily stats calculation completed successfully');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Calculated stats for ${farms?.length || 0} farms across ${datesToProcess.length} dates`,
+      JSON.stringify({
+        success: true,
+        message: `Calculated stats for ${farms?.length || 0} farms across ${datesToProcess.length} dates. VWP transitions: ${vwpTransitioned}`,
         dates: datesToProcess,
-        farmsProcessed: farms?.length || 0
+        farmsProcessed: farms?.length || 0,
+        vwpTransitioned,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

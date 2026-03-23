@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-03-23 — Feature: Breeding Quick Wins (VWP Auto-Transition, Gold-Standard KPIs, Days Open Badge)
+
+### Added
+- **Auto-generate VWP-ended events** (`calculate-daily-stats/index.ts`) — Nightly cron now automatically transitions animals from `fresh_postpartum` → `open_cycling` when their voluntary waiting period has passed. Idempotent — safe to run multiple times.
+- **ConceptionRateCard** (`src/components/breeding/analytics/ConceptionRateCard.tsx`) — New analytics card showing Conception Rate (%), 21-Day Pregnancy Rate (HDR × CR composite), and Average Days Open with color-coded benchmarks.
+- **Days Open badge** (`BreedingStatusAnimalList.tsx`) — Breeding Hub status drill-down now shows a color-coded "Xd open" badge for animals with `last_calving_date`. Green (<100d), yellow (100-150d), red (>150d).
+
+### Changed
+- **`useBreedingAnalytics.ts`** — Extended with 3 new KPI calculations: `conceptionRate`, `avgDaysOpen`, `twentyOneDayPregnancyRate`. Added `CONCEPTION_RATE_BENCHMARKS` and `DAYS_OPEN_BENCHMARKS` constants. Added `getConceptionRateStatus()` and `getDaysOpenStatus()` helpers.
+- **`BreedingAnalyticsSection.tsx`** — Added ConceptionRateCard to the analytics grid (now 5 cards).
+
 ## 2026-03-23 — Migration: Farm Category Enforcement (ruminant/swine/poultry)
 
 ### Problem
