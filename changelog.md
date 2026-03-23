@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-23 — Enhancement: Date Filter in Header + Feed Consumption Card
+
+### Problem
+The date filter (7d/30d/90d/custom) was hidden inside a collapsible "Filters" panel, requiring a click to access. The Feed Security summary card showed feed stock *forecast* (days remaining) rather than actual feed *consumption*, making it impossible to compare production (milk) vs consumption (feed) at a glance.
+
+### Changed
+- **`GeographySelector.tsx`** — Added date preset buttons (7d | 30d | 90d | Custom) with inline calendar pickers alongside the geography dropdowns. Both primary filters (location + date) are now always visible.
+- **`GovernmentDashboard.tsx`** — Removed date controls from the collapsible filter panel (now in geography bar). Simplified the Filters badge to show comparison status only.
+- **`MapWithSummaryPanel.tsx`** — Replaced `FeedSecuritySummaryCard` with `FeedConsumptionSummaryCard`. Fetches milk total at panel level to pass to feed card for FCR calculation.
+
+### Added
+- **`supabase/migrations/20260323120000_government_feed_consumption.sql`** — New `get_government_feed_consumption()` RPC that aggregates `daily_farm_stats.total_feed_kg` cross-farm with geography/date filters. Mirrors `get_government_milk_analytics` pattern.
+- **`src/hooks/useGovernmentFeedConsumption.ts`** — Online-only hook for feed consumption data.
+- **`src/components/government/FeedConsumptionSummaryCard.tsx`** — Shows total feed consumption (kg), avg daily consumption, and Feed-to-Milk Ratio (FCR) color-coded by efficiency (green ≤ 1.5, amber 1.5-2.5, red > 2.5 kg/L).
+
 ## 2026-03-23 — Feature: Government Dashboard Geography-First Filtering + Choropleth Map
 
 ### Problem

@@ -2,7 +2,8 @@ import { lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MilkProductionSummaryCard } from "./MilkProductionSummaryCard";
-import { FeedSecuritySummaryCard } from "./FeedSecuritySummaryCard";
+import { FeedConsumptionSummaryCard } from "./FeedConsumptionSummaryCard";
+import { useGovernmentMilkAnalytics } from "@/hooks/useGovernmentMilkAnalytics";
 import { DataCategory } from "@/types/government";
 
 const RegionalLivestockMap = lazy(() => import("./RegionalLivestockMap"));
@@ -24,6 +25,16 @@ export const MapWithSummaryPanel = ({
   municipality,
   onRegionSelect,
 }: MapWithSummaryPanelProps) => {
+  // Fetch milk total at this level so it can be shared with FeedConsumptionSummaryCard for FCR
+  const { data: milkData } = useGovernmentMilkAnalytics(
+    dateRange.start,
+    dateRange.end,
+    region,
+    province,
+    municipality,
+    dataCategory
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Map (2/3 width on desktop) */}
@@ -60,11 +71,14 @@ export const MapWithSummaryPanel = ({
           municipality={municipality}
           dataCategory={dataCategory}
         />
-        <FeedSecuritySummaryCard
+        <FeedConsumptionSummaryCard
+          startDate={dateRange.start}
+          endDate={dateRange.end}
           region={region}
           province={province}
           municipality={municipality}
           dataCategory={dataCategory}
+          totalMilkLiters={milkData?.totalMilk}
         />
       </div>
     </div>

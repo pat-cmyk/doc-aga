@@ -502,7 +502,7 @@ const GovernmentDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Geography Selector — persistent above all tabs */}
+        {/* Geography + Date Selector — persistent above all tabs */}
         <GeographySelector
           region={primaryRegion}
           province={primaryProvince}
@@ -510,6 +510,10 @@ const GovernmentDashboard = () => {
           onRegionChange={handlePrimaryRegionChange}
           onProvinceChange={handlePrimaryProvinceChange}
           onMunicipalityChange={handlePrimaryMunicipalityChange}
+          datePreset={primaryPreset}
+          onDatePresetChange={handlePrimaryPresetChange}
+          dateRange={primaryDateRange}
+          onDateRangeChange={setPrimaryDateRange}
         />
 
         {/* Main Navigation Tabs */}
@@ -561,8 +565,7 @@ const GovernmentDashboard = () => {
                     <Filter className="h-4 w-4" />
                     Filters
                     <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                      {primaryPreset === "last7Days" ? "7d" : primaryPreset === "last30Days" ? "30d" : primaryPreset === "last90Days" ? "90d" : "Custom"}
-                      {primaryRegion ? ` • ${primaryRegion.slice(0, 10)}...` : ""}
+                      {comparisonMode ? "Compare" : "Options"}
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
@@ -600,82 +603,9 @@ const GovernmentDashboard = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Date Range</Label>
-                        <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="last7Days">Last 7 Days</SelectItem>
-                            <SelectItem value="last30Days">Last 30 Days</SelectItem>
-                            <SelectItem value="last90Days">Last 90 Days</SelectItem>
-                            <SelectItem value="custom">Custom Range</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        
-                        {primaryPreset === "custom" && (
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Start Date</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !primaryDateRange.start && "text-muted-foreground"
-                                    )}
-                                    size="sm"
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(primaryDateRange.start, "MMM d, yyyy")}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={primaryDateRange.start}
-                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
-                                    initialFocus
-                                    className="pointer-events-auto"
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label className="text-xs">End Date</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !primaryDateRange.end && "text-muted-foreground"
-                                    )}
-                                    size="sm"
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(primaryDateRange.end, "MMM d, yyyy")}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={primaryDateRange.end}
-                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
-                                    initialFocus
-                                    className="pointer-events-auto"
-                                    disabled={(date) => date < primaryDateRange.start}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
+                      <p className="text-xs text-muted-foreground">
+                        Use the geography and date controls above to filter the primary dataset. Toggle comparison mode to compare two time periods.
+                      </p>
                     </CardContent>
                   </Card>
 
