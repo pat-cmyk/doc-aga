@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GovernmentLayout } from "@/components/government/GovernmentLayout";
 import { useRole } from "@/hooks/useRole";
@@ -17,9 +17,8 @@ import { ResponseTemplates } from "@/components/government/ResponseTemplates";
 import { FeedbackExport } from "@/components/government/FeedbackExport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Dynamically import the map component to reduce bundle size
-const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
+import { GeographySelector } from "@/components/government/GeographySelector";
+import { MapWithSummaryPanel } from "@/components/government/MapWithSummaryPanel";
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useBreedingStats } from "@/hooks/useBreedingStats";
 import { useRegionalPCRS } from "@/hooks/useRegionalPCRS";
@@ -503,6 +502,16 @@ const GovernmentDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Geography Selector — persistent above all tabs */}
+        <GeographySelector
+          region={primaryRegion}
+          province={primaryProvince}
+          municipality={primaryMunicipality}
+          onRegionChange={handlePrimaryRegionChange}
+          onProvinceChange={handlePrimaryProvinceChange}
+          onMunicipalityChange={handlePrimaryMunicipalityChange}
+        />
+
         {/* Main Navigation Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
@@ -667,69 +676,6 @@ const GovernmentDashboard = () => {
                         )}
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Region</Label>
-                        <Select 
-                          value={primaryRegion || "all"} 
-                          onValueChange={handlePrimaryRegionChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="All Regions" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Regions</SelectItem>
-                            {regions.map((region) => (
-                              <SelectItem key={region} value={region}>
-                                {region}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {primaryRegion && primaryProvinces.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Province</Label>
-                          <Select 
-                            value={primaryProvince || "all"} 
-                            onValueChange={handlePrimaryProvinceChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Provinces" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Provinces</SelectItem>
-                              {primaryProvinces.map((province) => (
-                                <SelectItem key={province} value={province}>
-                                  {province}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                          <Select 
-                            value={primaryMunicipality || "all"} 
-                            onValueChange={handlePrimaryMunicipalityChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Municipalities" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Municipalities</SelectItem>
-                              {primaryMunicipalities.map((municipality) => (
-                                <SelectItem key={municipality} value={municipality}>
-                                  {municipality}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
 
@@ -821,69 +767,6 @@ const GovernmentDashboard = () => {
                           )}
                         </div>
                         
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Region</Label>
-                          <Select 
-                            value={comparisonRegion || "all"} 
-                            onValueChange={handleComparisonRegionChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Regions" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Regions</SelectItem>
-                              {regions.map((region) => (
-                                <SelectItem key={region} value={region}>
-                                  {region}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {comparisonRegion && comparisonProvinces.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-xs sm:text-sm">Province</Label>
-                            <Select 
-                              value={comparisonProvince || "all"} 
-                              onValueChange={handleComparisonProvinceChange}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="All Provinces" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Provinces</SelectItem>
-                                {comparisonProvinces.map((province) => (
-                                  <SelectItem key={province} value={province}>
-                                    {province}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-
-                        {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                            <Select 
-                              value={comparisonMunicipality || "all"} 
-                              onValueChange={handleComparisonMunicipalityChange}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="All Municipalities" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Municipalities</SelectItem>
-                                {comparisonMunicipalities.map((municipality) => (
-                                  <SelectItem key={municipality} value={municipality}>
-                                    {municipality}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   )}
@@ -911,19 +794,15 @@ const GovernmentDashboard = () => {
                 comparisonMode={comparisonMode}
               />
 
-              {/* Regional Map */}
-              <Suspense fallback={
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Regional Livestock Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="w-full h-[500px] rounded-lg" />
-                  </CardContent>
-                </Card>
-              }>
-                <RegionalLivestockMap dateRange={primaryDateRange} dataCategory={dataCategory} />
-              </Suspense>
+              {/* Regional Map + Summary Sidebar */}
+              <MapWithSummaryPanel
+                dateRange={primaryDateRange}
+                dataCategory={dataCategory}
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+                onRegionSelect={handlePrimaryRegionChange}
+              />
 
               {/* Comparison Summary */}
               {comparisonMode && (

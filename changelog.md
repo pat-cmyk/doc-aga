@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-03-23 — Feature: Government Dashboard Geography-First Filtering + Choropleth Map
+
+### Problem
+The government dashboard's region/province/municipality filters were hidden inside a collapsible panel, requiring users to actively click to access them. The map showed dot markers that did not respond to any filters — always displaying the full national view. Milk production and feed security data were in a separate section far below the map, disconnected from the geographic context. No region boundary polygons were shown.
+
+### Added
+- **`GeographySelector`** — Persistent geography bar above all tabs with National button + cascading Region → Province → Municipality dropdowns. Drives all dashboard data.
+- **`MapWithSummaryPanel`** — 2-column layout (map + summary sidebar) at lg+ breakpoint. Milk production and feed security summaries alongside the map.
+- **`MilkProductionSummaryCard`** — Compact card showing total milk production, species breakdown, and revenue estimate for the selected geography.
+- **`FeedSecuritySummaryCard`** — Compact card showing avg feed stock days and critical/low/adequate farm percentages.
+- **`public/data/ph-regions.geojson`** — Simplified Philippine admin region boundary polygons (17 regions, 24KB). Generated from GADM Level 1 data, dissolved by region, simplified to 1%.
+- **`src/lib/philippineGeoJson.ts`** — Lazy GeoJSON loader with module-level cache + GADM-to-project region name mapping.
+
+### Changed
+- **`RegionalLivestockMap`** — Transformed from dot markers to choropleth fill layers with graduated color scale (farm density). Region boundaries visible. Selected region highlighted with stronger opacity + wider border. Map flies to selected region on geography change. Bidirectional sync: clicking a region polygon updates the geography selector. Clicking the same region again returns to national view.
+- **`GovernmentDashboard`** — Geography selects removed from collapsible filter panel (date range + comparison toggle remain). Geography selector inserted above tabs. Map section replaced with MapWithSummaryPanel.
+
+### Notes
+- Farmer Voice tab components currently filter by region only (not province/municipality). The underlying hook fetches province data, so adding sub-region filtering is a future enhancement.
+- GeoJSON is cached by the service worker after first load for offline access.
+
 ## 2026-03-22 — Feature: Feed Inventory Consolidation & Stock Adjustment
 
 ### Problem
