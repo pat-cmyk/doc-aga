@@ -39,7 +39,7 @@ BEGIN
   JOIN farms f ON f.id = dfs.farm_id
   WHERE dfs.stat_date BETWEEN start_date AND end_date
     AND f.is_deleted = false
-    AND (data_category_filter = 'all' OR f.data_category = data_category_filter)
+    AND (data_category_filter IS NULL OR data_category_filter = 'all' OR f.data_category = data_category_filter)
     AND (region_filter IS NULL OR f.region = region_filter)
     AND (province_filter IS NULL OR f.province = province_filter)
     AND (municipality_filter IS NULL OR f.municipality = municipality_filter)
