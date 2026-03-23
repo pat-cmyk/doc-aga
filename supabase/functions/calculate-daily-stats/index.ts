@@ -487,6 +487,24 @@ Deno.serve(async (req) => {
 
       console.log(`Stage counts for farm ${farm.id}:`, stageCounts);
 
+      // Fetch feed consumption for the target date
+      const animalIds = (animals || []).map((a: any) => a.id);
+      let totalFeedKg = 0;
+      let feedAnimalCount = 0;
+      if (animalIds.length > 0) {
+        const { data: feedData } = await supabase
+          .from('feeding_records')
+          .select('kilograms, animal_id')
+          .in('animal_id', animalIds)
+          .gte('record_datetime', `${targetDate}T00:00:00`)
+          .lt('record_datetime', `${targetDate}T23:59:59.999`);
+
+        if (feedData && feedData.length > 0) {
+          totalFeedKg = feedData.reduce((sum: number, r: any) => sum + (Number(r.kilograms) || 0), 0);
+          feedAnimalCount = new Set(feedData.map((r: any) => r.animal_id)).size;
+        }
+      }
+
       // Upsert the stats into daily_farm_stats table
       const { error: upsertError } = await supabase
         .from('daily_farm_stats')
@@ -495,6 +513,8 @@ Deno.serve(async (req) => {
           stat_date: targetDate,
           total_milk_liters: totalMilk,
           stage_counts: stageCounts,
+          total_feed_kg: totalFeedKg,
+          feed_animal_count: feedAnimalCount,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'farm_id,stat_date'
