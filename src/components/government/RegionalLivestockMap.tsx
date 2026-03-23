@@ -216,7 +216,7 @@ const RegionalLivestockMap = ({
     }
     matchExpr.push("#f0fdf4"); // default
 
-    map.current.setPaintProperty("region-fill", "fill-color", matchExpr);
+    map.current.setPaintProperty("region-fill", "fill-color", matchExpr as any);
   }, [regionalStats, geoJsonLoaded]);
 
   // Update selected region highlight

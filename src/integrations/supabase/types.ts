@@ -4438,6 +4438,10 @@ export type Database = {
           total_matches: number
         }[]
       }
+      get_farm_audit_report: {
+        Args: { p_end_date: string; p_farm_id: string; p_start_date: string }
+        Returns: Json
+      }
       get_farm_compliance_metrics:
         | {
             Args: {
@@ -4591,6 +4595,22 @@ export type Database = {
               unique_semen_count: number
             }[]
           }
+      get_government_feed_consumption: {
+        Args: {
+          data_category_filter?: string
+          end_date: string
+          municipality_filter?: string
+          province_filter?: string
+          region_filter?: string
+          start_date: string
+        }
+        Returns: {
+          report_date: string
+          total_animals_fed: number
+          total_farms_feeding: number
+          total_feed_kg: number
+        }[]
+      }
       get_government_health_stats: {
         Args: {
           data_category_filter?: string
