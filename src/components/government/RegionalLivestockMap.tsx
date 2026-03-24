@@ -1,37 +1,60 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRegionalStats } from "@/hooks/useRegionalStats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import RegionalDetailPanel from "./RegionalDetailPanel";
 import { subDays } from "date-fns";
 import { DataCategory } from "@/types/government";
+import { loadPhilippineRegionGeoJson } from "@/lib/philippineGeoJson";
+import { REGIONAL_COORDINATES } from "@/lib/regionalCoordinates";
 
 interface RegionalLivestockMapProps {
   dateRange?: { start: Date; end: Date };
   dataCategory?: DataCategory;
+  region?: string;
+  province?: string;
+  onRegionSelect?: (region: string | undefined) => void;
 }
 
-const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLivestockMapProps) => {
+const NATIONAL_CENTER: [number, number] = [122.5, 12.5];
+const NATIONAL_ZOOM = 5.5;
+const REGION_ZOOM = 7.5;
+
+// Graduated color scale for choropleth (farm density)
+const COLOR_STOPS = [
+  [0, "#f0fdf4"],    // very light green — no farms
+  [1, "#bbf7d0"],    // light green
+  [3, "#86efac"],    // green
+  [5, "#4ade80"],    // medium green
+  [10, "#22c55e"],   // strong green
+  [20, "#16a34a"],   // dark green
+  [50, "#166534"],   // very dark green
+];
+
+const RegionalLivestockMap = ({
+  dateRange,
+  dataCategory = "live",
+  region,
+  province,
+  onRegionSelect,
+}: RegionalLivestockMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const { data: regionalStats, isLoading } = useRegionalStats(dataCategory);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-
+  const [geoJsonLoaded, setGeoJsonLoaded] = useState(false);
   const [mapToken, setMapToken] = useState<string | null>(null);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
 
-  // Default to last 90 days if no date range provided
+  // Default date range
   const effectiveDateRange = dateRange || {
     start: subDays(new Date(), 90),
     end: new Date(),
   };
 
-  // Resolve Mapbox token from env or backend function
+  // Resolve Mapbox token
   useEffect(() => {
     const envToken = (import.meta as any).env?.VITE_MAPBOX_PUBLIC_TOKEN as string | undefined;
     if (envToken) {
@@ -47,190 +70,241 @@ const RegionalLivestockMap = ({ dateRange, dataCategory = 'live' }: RegionalLive
       .catch(() => {
         if (!cancelled) setMapToken(null);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
+  // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current || !mapToken) return;
-
-    // Initialize map centered on Philippines
     mapboxgl.accessToken = mapToken;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/light-v11",
-      center: [122.5, 12.5], // Center of Philippines
-      zoom: 5.5,
+      center: NATIONAL_CENTER,
+      zoom: NATIONAL_ZOOM,
       pitch: 0,
     });
 
-    // Add navigation controls
     map.current.addControl(
-      new mapboxgl.NavigationControl({
-        visualizePitch: true,
-      }),
+      new mapboxgl.NavigationControl({ visualizePitch: true }),
       "top-right"
     );
 
-    map.current.on("load", () => {
-      setMapLoaded(true);
-    });
+    map.current.on("load", () => setMapLoaded(true));
 
-    // Cleanup
     return () => {
-      markersRef.current.forEach((marker) => marker.remove());
+      popupRef.current?.remove();
       map.current?.remove();
       map.current = null;
     };
   }, [mapToken]);
 
-  const handleRegionClick = (regionName: string) => {
-    setSelectedRegion(regionName);
-    setIsPanelOpen(true);
-  };
-
-  const handlePanelClose = () => {
-    setIsPanelOpen(false);
-    setSelectedRegion(null);
-  };
-
-  // Add markers when data is loaded
+  // Load GeoJSON + add choropleth layers
   useEffect(() => {
-    if (!map.current || !mapLoaded || !regionalStats) return;
+    if (!map.current || !mapLoaded) return;
 
-    // Remove existing markers
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
+    let cancelled = false;
+    loadPhilippineRegionGeoJson()
+      .then((geojson) => {
+        if (cancelled || !map.current) return;
+        // Add source if not already added
+        if (!map.current.getSource("ph-regions")) {
+          map.current.addSource("ph-regions", { type: "geojson", data: geojson });
 
-    // Add new markers for each region
-    regionalStats.forEach((region) => {
-      if (!region.avg_gps_lat || !region.avg_gps_lng) return;
+          // Fill layer (choropleth)
+          map.current.addLayer({
+            id: "region-fill",
+            type: "fill",
+            source: "ph-regions",
+            paint: {
+              "fill-color": "#86efac",
+              "fill-opacity": 0.3,
+            },
+          });
 
-      // Create simplified popup content for hover
-      const popupContent = `
-        <div class="p-2 min-w-[180px]">
-          <h3 class="font-semibold text-sm mb-1">${region.region}</h3>
-          <p class="text-xs text-muted-foreground">Click for detailed statistics</p>
-        </div>
-      `;
+          // Border layer
+          map.current.addLayer({
+            id: "region-border",
+            type: "line",
+            source: "ph-regions",
+            paint: {
+              "line-color": "#166534",
+              "line-width": 1.5,
+              "line-opacity": 0.7,
+            },
+          });
 
-      const popup = new mapboxgl.Popup({
-        offset: 25,
-        closeButton: false,
-        className: "rounded-lg",
-      }).setHTML(popupContent);
+          // Hover highlight layer
+          map.current.addLayer({
+            id: "region-hover",
+            type: "fill",
+            source: "ph-regions",
+            paint: {
+              "fill-color": "#22c55e",
+              "fill-opacity": 0,
+            },
+          });
 
-      // Create custom marker element with size based on farm count
-      const el = document.createElement("div");
-      const size = Math.min(40, 20 + region.farm_count * 2);
-      el.className = "custom-marker";
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.backgroundImage = `radial-gradient(circle, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.6) 100%)`;
-      el.style.borderRadius = "50%";
-      el.style.border = "2px solid white";
-      el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
-      el.style.cursor = "pointer";
-      el.style.display = "flex";
-      el.style.alignItems = "center";
-      el.style.justifyContent = "center";
-      el.style.fontWeight = "600";
-      el.style.fontSize = "11px";
-      el.style.color = "white";
-      el.style.transition = "transform 0.2s, box-shadow 0.2s";
-      el.textContent = region.farm_count.toString();
-      el.setAttribute("aria-label", `View detailed statistics for ${region.region}`);
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
+          // Click handler → update geography selector
+          map.current.on("click", "region-fill", (e) => {
+            if (e.features && e.features[0]) {
+              const clickedRegion = e.features[0].properties?.name;
+              if (clickedRegion && onRegionSelect) {
+                // Toggle: click same region = deselect (back to national)
+                onRegionSelect(clickedRegion === region ? undefined : clickedRegion);
+              }
+            }
+          });
 
-      // Add active state styling
-      const updateActiveState = () => {
-        if (selectedRegion === region.region) {
-          el.style.border = "3px solid hsl(var(--primary))";
-          el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
-        } else {
-          el.style.border = "2px solid white";
-          el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+          // Hover effects
+          map.current.on("mouseenter", "region-fill", (e) => {
+            if (map.current) map.current.getCanvas().style.cursor = "pointer";
+            if (e.features && e.features[0]) {
+              const name = e.features[0].properties?.name;
+              if (name) {
+                map.current?.setPaintProperty("region-hover", "fill-opacity", [
+                  "case", ["==", ["get", "name"], name], 0.15, 0
+                ]);
+
+                // Show popup
+                const coords = e.lngLat;
+                if (popupRef.current) popupRef.current.remove();
+                popupRef.current = new mapboxgl.Popup({
+                  closeButton: false,
+                  closeOnClick: false,
+                  className: "rounded-lg",
+                  offset: 10,
+                })
+                  .setLngLat(coords)
+                  .setHTML(`<div class="p-2 text-sm font-semibold">${name}</div>`)
+                  .addTo(map.current!);
+              }
+            }
+          });
+
+          map.current.on("mouseleave", "region-fill", () => {
+            if (map.current) {
+              map.current.getCanvas().style.cursor = "";
+              map.current.setPaintProperty("region-hover", "fill-opacity", 0);
+            }
+            popupRef.current?.remove();
+          });
         }
-      };
-      updateActiveState();
+        setGeoJsonLoaded(true);
+      })
+      .catch((err) => console.error("[RegionalLivestockMap] GeoJSON load error:", err));
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([region.avg_gps_lng, region.avg_gps_lat])
-        .setPopup(popup)
-        .addTo(map.current!);
+    return () => { cancelled = true; };
+  }, [mapLoaded]);
 
-      markersRef.current.push(marker);
+  // Update choropleth colors based on regional stats
+  useEffect(() => {
+    if (!map.current || !geoJsonLoaded || !regionalStats) return;
 
-      // Hover effects
-      el.addEventListener("mouseenter", () => {
-        el.style.transform = "scale(1.1)";
-        marker.togglePopup();
+    // Build a match expression: region name → color
+    const statsMap = new Map(regionalStats.map((r) => [r.region, r.farm_count]));
+    const matchExpr: any[] = ["match", ["get", "name"]];
+
+    for (const [regionName, farmCount] of statsMap) {
+      // Find the right color stop
+      let color = COLOR_STOPS[0][1];
+      for (const [threshold, c] of COLOR_STOPS) {
+        if (farmCount >= (threshold as number)) color = c;
+      }
+      matchExpr.push(regionName, color as string);
+    }
+    matchExpr.push("#f0fdf4"); // default
+
+    map.current.setPaintProperty("region-fill", "fill-color", matchExpr as any);
+  }, [regionalStats, geoJsonLoaded]);
+
+  // Update selected region highlight
+  useEffect(() => {
+    if (!map.current || !geoJsonLoaded) return;
+
+    if (region) {
+      // Highlight selected region, dim others
+      map.current.setPaintProperty("region-fill", "fill-opacity", [
+        "case", ["==", ["get", "name"], region], 0.6, 0.15,
+      ]);
+      map.current.setPaintProperty("region-border", "line-width", [
+        "case", ["==", ["get", "name"], region], 3, 1,
+      ]);
+      map.current.setPaintProperty("region-border", "line-opacity", [
+        "case", ["==", ["get", "name"], region], 1, 0.4,
+      ]);
+    } else {
+      // National view: all regions visible
+      map.current.setPaintProperty("region-fill", "fill-opacity", 0.3);
+      map.current.setPaintProperty("region-border", "line-width", 1.5);
+      map.current.setPaintProperty("region-border", "line-opacity", 0.7);
+    }
+  }, [region, geoJsonLoaded]);
+
+  // Fly to region on selection change
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    map.current.stop(); // cancel any in-flight animation
+
+    if (region) {
+      const coords = REGIONAL_COORDINATES[region];
+      if (coords) {
+        map.current.flyTo({
+          center: [coords.lng, coords.lat],
+          zoom: REGION_ZOOM,
+          duration: 1200,
+        });
+      }
+    } else {
+      map.current.flyTo({
+        center: NATIONAL_CENTER,
+        zoom: NATIONAL_ZOOM,
+        duration: 1200,
       });
-      el.addEventListener("mouseleave", () => {
-        el.style.transform = "scale(1)";
-        marker.togglePopup();
-      });
-
-      // Click handler
-      el.addEventListener("click", () => {
-        handleRegionClick(region.region);
-      });
-
-      // Keyboard accessibility
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleRegionClick(region.region);
-        }
-      });
-    });
-  }, [regionalStats, mapLoaded, selectedRegion]);
+    }
+  }, [region, mapLoaded]);
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Regional Livestock Distribution</CardTitle>
-          <CardDescription>
-            Interactive map showing livestock statistics across Philippine regions. Click markers for detailed analytics.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="relative">
-          {/* Map container - always rendered */}
-          <div ref={mapContainer} className="w-full h-[500px] rounded-lg shadow-sm" />
-          
-          {/* Loading overlay */}
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
-              <Skeleton className="w-full h-full rounded-lg" />
-            </div>
-          )}
-          
-          {/* Map legend */}
-          {!isLoading && regionalStats && regionalStats.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-primary" />
-                <span className="text-muted-foreground">
-                  Marker size represents number of farms in region
-                </span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">
+          {region ? `${region} — Livestock Distribution` : "National Livestock Distribution"}
+        </CardTitle>
+        <CardDescription>
+          {region
+            ? "Click the highlighted region again to return to national view."
+            : "Click a region to filter all dashboard data to that area."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="relative">
+        <div ref={mapContainer} className="w-full h-[450px] rounded-lg shadow-sm" />
 
-      <RegionalDetailPanel
-        region={selectedRegion}
-        isOpen={isPanelOpen}
-        onClose={handlePanelClose}
-        dateRange={effectiveDateRange}
-        dataCategory={dataCategory}
-      />
-    </>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
+            <Skeleton className="w-full h-full rounded-lg" />
+          </div>
+        )}
+
+        {/* Legend */}
+        {!isLoading && regionalStats && regionalStats.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span className="font-medium">Farm density:</span>
+            {[
+              { color: "#bbf7d0", label: "Low" },
+              { color: "#4ade80", label: "Medium" },
+              { color: "#166534", label: "High" },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: color }} />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

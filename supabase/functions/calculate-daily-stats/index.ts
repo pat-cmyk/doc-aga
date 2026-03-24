@@ -487,6 +487,24 @@ Deno.serve(async (req) => {
 
       console.log(`Stage counts for farm ${farm.id}:`, stageCounts);
 
+      // Fetch feed consumption for the target date
+      const animalIds = (animals || []).map((a: any) => a.id);
+      let totalFeedKg = 0;
+      let feedAnimalCount = 0;
+      if (animalIds.length > 0) {
+        const { data: feedData } = await supabase
+          .from('feeding_records')
+          .select('kilograms, animal_id')
+          .in('animal_id', animalIds)
+          .gte('record_datetime', `${targetDate}T00:00:00`)
+          .lt('record_datetime', `${targetDate}T23:59:59.999`);
+
+        if (feedData && feedData.length > 0) {
+          totalFeedKg = feedData.reduce((sum: number, r: any) => sum + (Number(r.kilograms) || 0), 0);
+          feedAnimalCount = new Set(feedData.map((r: any) => r.animal_id)).size;
+        }
+      }
+
       // Upsert the stats into daily_farm_stats table
       const { error: upsertError } = await supabase
         .from('daily_farm_stats')
@@ -495,6 +513,8 @@ Deno.serve(async (req) => {
           stat_date: targetDate,
           total_milk_liters: totalMilk,
           stage_counts: stageCounts,
+          total_feed_kg: totalFeedKg,
+          feed_animal_count: feedAnimalCount,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'farm_id,stat_date'
@@ -509,14 +529,50 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Auto-generate VWP-ended breeding events ──────────────────────
+    // Animals past their voluntary waiting period should automatically
+    // transition from fresh_postpartum → open_cycling. The DB trigger
+    // update_animal_fertility_status() fires on INSERT and handles the
+    // status change. Query is idempotent — only picks up animals still
+    // in fresh_postpartum (trigger moves them to open_cycling on insert).
+    let vwpTransitioned = 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: vwpAnimals } = await supabase
+      .from('animals')
+      .select('id, farm_id')
+      .eq('fertility_status', 'fresh_postpartum')
+      .eq('is_deleted', false)
+      .lte('voluntary_waiting_end_date', todayStr)
+      .not('voluntary_waiting_end_date', 'is', null);
+
+    if (vwpAnimals && vwpAnimals.length > 0) {
+      const vwpEvents = vwpAnimals.map((a: any) => ({
+        animal_id: a.id,
+        farm_id: a.farm_id,
+        event_type: 'vwp_ended',
+        event_date: new Date().toISOString(),
+        notes: 'Auto-generated: voluntary waiting period completed',
+      }));
+      const { error: vwpError } = await supabase
+        .from('breeding_events')
+        .insert(vwpEvents);
+      if (vwpError) {
+        console.error('VWP auto-transition error:', vwpError.message);
+      } else {
+        vwpTransitioned = vwpEvents.length;
+        console.log(`Auto-generated ${vwpTransitioned} VWP-ended events`);
+      }
+    }
+
     console.log('Daily stats calculation completed successfully');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Calculated stats for ${farms?.length || 0} farms across ${datesToProcess.length} dates`,
+      JSON.stringify({
+        success: true,
+        message: `Calculated stats for ${farms?.length || 0} farms across ${datesToProcess.length} dates. VWP transitions: ${vwpTransitioned}`,
         dates: datesToProcess,
-        farmsProcessed: farms?.length || 0
+        farmsProcessed: farms?.length || 0,
+        vwpTransitioned,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

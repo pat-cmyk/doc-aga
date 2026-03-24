@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { differenceInDays } from 'date-fns';
 import { FERTILITY_STATUS_CONFIG } from '@/types/fertility';
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { BreedingAnimal } from '@/hooks/useBreedingHub';
 
 interface BreedingStatusAnimalListProps {
@@ -76,7 +78,7 @@ export function BreedingStatusAnimalList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                  <div className="flex items-center gap-1.5 ml-2 shrink-0">
                     {animal.gender?.toLowerCase() !== 'female' ? (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-600 dark:text-blue-400">
                         ♂ Lalaki
@@ -86,6 +88,7 @@ export function BreedingStatusAnimalList({
                         {FERTILITY_STATUS_CONFIG[animal.fertility_status].icon} {FERTILITY_STATUS_CONFIG[animal.fertility_status].label}
                       </Badge>
                     )}
+                    <DaysOpenBadge animal={animal} />
                     <Badge variant="outline" className="text-xs">
                       {animal.livestock_type}
                     </Badge>
@@ -97,5 +100,35 @@ export function BreedingStatusAnimalList({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Days Open badge — shows days since last calving for open_cycling/fresh_postpartum animals.
+ * Color-coded: green <100d, yellow 100-150d, red >150d.
+ */
+function DaysOpenBadge({ animal }: { animal: BreedingAnimal }) {
+  if (!animal.last_calving_date) return null;
+
+  const status = animal.fertility_status;
+  const showStatuses: (string | null)[] = ['open_cycling', 'fresh_postpartum', 'in_heat', 'bred_waiting'];
+  if (!showStatuses.includes(status)) return null;
+
+  const daysOpen = differenceInDays(new Date(), new Date(animal.last_calving_date));
+  if (daysOpen <= 0) return null;
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'text-[10px] px-1.5 py-0 font-mono',
+        daysOpen < 100 && 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
+        daysOpen >= 100 && daysOpen < 150 && 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800',
+        daysOpen >= 150 && 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800',
+      )}
+      title={`${daysOpen} days since last calving (Days Open)`}
+    >
+      {daysOpen}d open
+    </Badge>
   );
 }

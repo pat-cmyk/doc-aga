@@ -512,7 +512,9 @@ Deno.serve(async (req) => {
       let zeroCostFallback = 0
 
       for (const animal of animals) {
-        const animalSpecies = (animal.livestock_type || farm.livestock_type || 'cattle').toLowerCase()
+        // Use animal's species directly; never fall back to farm.livestock_type
+        // which is now a category ('ruminant') not a species ('cattle')
+        const animalSpecies = (animal.livestock_type || 'cattle').toLowerCase()
         const config = SPECIES_CONFIG[animalSpecies] || SPECIES_CONFIG.cattle
         const isFemale = animal.gender === 'Female' || animal.gender === 'female'
         const isCalf = !!(animal.life_stage || '').match(/Calf|Newborn|Baby/i)
@@ -780,7 +782,10 @@ Deno.serve(async (req) => {
         if (ownerUserId) {
           const feedbackInserts: any[] = []
           const numFeedback = 5 + Math.floor(seededRandom(`${farm.id}_fbcount`) * 11) // 5-15
-          const species = (farm.livestock_type || 'cattle').toLowerCase()
+          // Determine species from the farm's animals (farm.livestock_type is now a
+          // category like 'ruminant', not a species). Use most common animal species.
+          const animalSpeciesList = (animals || []).map((a: any) => a.livestock_type).filter(Boolean)
+          const species = (animalSpeciesList[0] || 'cattle').toLowerCase()
 
           for (let i = 0; i < numFeedback; i++) {
             const seed = `${farm.id}_fb_${i}`

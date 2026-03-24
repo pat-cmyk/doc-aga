@@ -21,6 +21,81 @@ Banks evaluating farm loan applications need evidence that operational data is g
 - **Online-only**: Queries live Supabase data to ensure tamper-proof results.
 - **Neutral presentation**: Report presents raw metrics without scores or judgments — the bank draws its own conclusions.
 - **Best practices implemented**: Backdating ratio, terminal digit analysis, bulk entry detection, coefficient of variation, and cross-dataset consistency checks (based on OCC/FDIC agricultural lending guidance and forensic accounting literature).
+## 2026-03-23 — Feature: Breeding Quick Wins (VWP Auto-Transition, Gold-Standard KPIs, Days Open Badge)
+
+### Added
+- **Auto-generate VWP-ended events** (`calculate-daily-stats/index.ts`) — Nightly cron now automatically transitions animals from `fresh_postpartum` → `open_cycling` when their voluntary waiting period has passed. Idempotent — safe to run multiple times.
+- **ConceptionRateCard** (`src/components/breeding/analytics/ConceptionRateCard.tsx`) — New analytics card showing Conception Rate (%), 21-Day Pregnancy Rate (HDR × CR composite), and Average Days Open with color-coded benchmarks.
+- **Days Open badge** (`BreedingStatusAnimalList.tsx`) — Breeding Hub status drill-down now shows a color-coded "Xd open" badge for animals with `last_calving_date`. Green (<100d), yellow (100-150d), red (>150d).
+
+### Changed
+- **`useBreedingAnalytics.ts`** — Extended with 3 new KPI calculations: `conceptionRate`, `avgDaysOpen`, `twentyOneDayPregnancyRate`. Added `CONCEPTION_RATE_BENCHMARKS` and `DAYS_OPEN_BENCHMARKS` constants. Added `getConceptionRateStatus()` and `getDaysOpenStatus()` helpers.
+- **`BreedingAnalyticsSection.tsx`** — Added ConceptionRateCard to the analytics grid (now 5 cards).
+
+## 2026-03-23 — Migration: Farm Category Enforcement (ruminant/swine/poultry)
+
+### Problem
+Farm signup failed with "violates check constraint valid_livestock_type" because the frontend sends `livestock_type: 'ruminant'` (a farm category) but the production DB constraint only allowed species values (`cattle`, `goat`, `sheep`, `carabao`). The data model needed to formalize: `farms.livestock_type` = category (ruminant/swine/poultry), `animals.livestock_type` = species (cattle/goat/sheep/carabao).
+
+### Changed
+- **`supabase/migrations/20260323130000_farm_category_migration.sql`** — Migrates all existing farms from species values to `'ruminant'` category, replaces constraint to only allow `('ruminant', 'swine', 'poultry')`, updates `create_default_farm()` with validation.
+- **`supabase/functions/seed-demo-data/index.ts`** — Fixed species fallback chain to never use `farm.livestock_type` (now a category) as a species key. Uses `animal.livestock_type || 'cattle'` directly. Feedback template lookup now derives species from the farm's animals instead of the farm category.
+
+### Data Impact
+- All 66+ existing farms migrated from `'cattle'`/`'goat'`/`'sheep'`/`'carabao'` → `'ruminant'`
+- `animals.livestock_type` unchanged — species-specific logic (breeding, life stages, feed) unaffected
+- Government dashboard unaffected — all RPCs use `animals.livestock_type` for species breakdowns
+
+## 2026-03-23 — Enhancement: Date Filter in Header + Feed Consumption Card
+
+### Problem
+The date filter (7d/30d/90d/custom) was hidden inside a collapsible "Filters" panel, requiring a click to access. The Feed Security summary card showed feed stock *forecast* (days remaining) rather than actual feed *consumption*, making it impossible to compare production (milk) vs consumption (feed) at a glance.
+
+### Changed
+- **`GeographySelector.tsx`** — Added date preset buttons (7d | 30d | 90d | Custom) with inline calendar pickers alongside the geography dropdowns. Both primary filters (location + date) are now always visible.
+- **`GovernmentDashboard.tsx`** — Removed date controls from the collapsible filter panel (now in geography bar). Simplified the Filters badge to show comparison status only.
+- **`MapWithSummaryPanel.tsx`** — Replaced `FeedSecuritySummaryCard` with `FeedConsumptionSummaryCard`. Fetches milk total at panel level to pass to feed card for FCR calculation.
+
+### Added
+- **`supabase/migrations/20260323120000_government_feed_consumption.sql`** — New `get_government_feed_consumption()` RPC that aggregates `daily_farm_stats.total_feed_kg` cross-farm with geography/date filters. Mirrors `get_government_milk_analytics` pattern.
+- **`src/hooks/useGovernmentFeedConsumption.ts`** — Online-only hook for feed consumption data.
+- **`src/components/government/FeedConsumptionSummaryCard.tsx`** — Shows total feed consumption (kg), avg daily consumption, and Feed-to-Milk Ratio (FCR) color-coded by efficiency (green ≤ 1.5, amber 1.5-2.5, red > 2.5 kg/L).
+
+## 2026-03-23 — Feature: Government Dashboard Geography-First Filtering + Choropleth Map
+
+### Problem
+The government dashboard's region/province/municipality filters were hidden inside a collapsible panel, requiring users to actively click to access them. The map showed dot markers that did not respond to any filters — always displaying the full national view. Milk production and feed security data were in a separate section far below the map, disconnected from the geographic context. No region boundary polygons were shown.
+
+### Added
+- **`GeographySelector`** — Persistent geography bar above all tabs with National button + cascading Region → Province → Municipality dropdowns. Drives all dashboard data.
+- **`MapWithSummaryPanel`** — 2-column layout (map + summary sidebar) at lg+ breakpoint. Milk production and feed security summaries alongside the map.
+- **`MilkProductionSummaryCard`** — Compact card showing total milk production, species breakdown, and revenue estimate for the selected geography.
+- **`FeedSecuritySummaryCard`** — Compact card showing avg feed stock days and critical/low/adequate farm percentages.
+- **`public/data/ph-regions.geojson`** — Simplified Philippine admin region boundary polygons (17 regions, 24KB). Generated from GADM Level 1 data, dissolved by region, simplified to 1%.
+- **`src/lib/philippineGeoJson.ts`** — Lazy GeoJSON loader with module-level cache + GADM-to-project region name mapping.
+
+### Changed
+- **`RegionalLivestockMap`** — Transformed from dot markers to choropleth fill layers with graduated color scale (farm density). Region boundaries visible. Selected region highlighted with stronger opacity + wider border. Map flies to selected region on geography change. Bidirectional sync: clicking a region polygon updates the geography selector. Clicking the same region again returns to national view.
+- **`GovernmentDashboard`** — Geography selects removed from collapsible filter panel (date range + comparison toggle remain). Geography selector inserted above tabs. Map section replaced with MapWithSummaryPanel.
+
+### Notes
+- Farmer Voice tab components currently filter by region only (not province/municipality). The underlying hook fetches province data, so adding sub-region filtering is a future enhancement.
+- GeoJSON is cached by the service worker after first load for offline access.
+
+## 2026-03-22 — Feature: Feed Inventory Consolidation & Stock Adjustment
+
+### Problem
+Each feed repurchase created a new inventory card, overcrowding the screen with duplicate entries for the same feed type. No way to correct inventory counts after physical reconciliation.
+
+### Added
+- **Repurchase merge:** When adding feed stock that matches an existing item (same normalized `feed_type` + `category`), the quantity is merged into the existing row with weighted-average cost. Purchase metadata (cost, supplier, batch) is recorded in the transaction history. No new card is created.
+- **Merge preview alert:** The Add Feed Stock dialog shows an info banner when a merge will occur, so the farmer knows their stock will be consolidated.
+- **`AdjustStockDialog.tsx`** — New lightweight dialog for stock corrections. Enter actual count + reason, and the system records the difference as an adjustment transaction.
+- **"Adjust" button** on each inventory card (visible to managers/owners) for quick stock corrections.
+
+### Changed
+- **`AddFeedStockDialog.tsx`** — Accepts `existingInventory` prop (full items array) instead of just feed type strings. Three-branch submit: edit, merge, or create new. Weighted-average cost calculation on merge.
+- **`FeedStockList.tsx`** — Passes full inventory to dialog. Added Adjust button between Edit and History. Renders `AdjustStockDialog` when active.
 
 ## 2026-03-13 — Fix: Demo Farm Data Audit & Consistency Fixes
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GovernmentLayout } from "@/components/government/GovernmentLayout";
 import { useRole } from "@/hooks/useRole";
@@ -17,9 +17,8 @@ import { ResponseTemplates } from "@/components/government/ResponseTemplates";
 import { FeedbackExport } from "@/components/government/FeedbackExport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Dynamically import the map component to reduce bundle size
-const RegionalLivestockMap = lazy(() => import("@/components/government/RegionalLivestockMap"));
+import { GeographySelector } from "@/components/government/GeographySelector";
+import { MapWithSummaryPanel } from "@/components/government/MapWithSummaryPanel";
 import { useGovernmentStats, useHealthHeatmap, useFarmerQueries, useGovernmentStatsTimeseries } from "@/hooks/useGovernmentStats";
 import { useBreedingStats } from "@/hooks/useBreedingStats";
 import { useRegionalPCRS } from "@/hooks/useRegionalPCRS";
@@ -503,6 +502,20 @@ const GovernmentDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Geography + Date Selector — persistent above all tabs */}
+        <GeographySelector
+          region={primaryRegion}
+          province={primaryProvince}
+          municipality={primaryMunicipality}
+          onRegionChange={handlePrimaryRegionChange}
+          onProvinceChange={handlePrimaryProvinceChange}
+          onMunicipalityChange={handlePrimaryMunicipalityChange}
+          datePreset={primaryPreset}
+          onDatePresetChange={handlePrimaryPresetChange}
+          dateRange={primaryDateRange}
+          onDateRangeChange={setPrimaryDateRange}
+        />
+
         {/* Main Navigation Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
@@ -552,8 +565,7 @@ const GovernmentDashboard = () => {
                     <Filter className="h-4 w-4" />
                     Filters
                     <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                      {primaryPreset === "last7Days" ? "7d" : primaryPreset === "last30Days" ? "30d" : primaryPreset === "last90Days" ? "90d" : "Custom"}
-                      {primaryRegion ? ` • ${primaryRegion.slice(0, 10)}...` : ""}
+                      {comparisonMode ? "Compare" : "Options"}
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
@@ -591,145 +603,9 @@ const GovernmentDashboard = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Date Range</Label>
-                        <Select value={primaryPreset} onValueChange={handlePrimaryPresetChange}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="last7Days">Last 7 Days</SelectItem>
-                            <SelectItem value="last30Days">Last 30 Days</SelectItem>
-                            <SelectItem value="last90Days">Last 90 Days</SelectItem>
-                            <SelectItem value="custom">Custom Range</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        
-                        {primaryPreset === "custom" && (
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Start Date</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !primaryDateRange.start && "text-muted-foreground"
-                                    )}
-                                    size="sm"
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(primaryDateRange.start, "MMM d, yyyy")}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={primaryDateRange.start}
-                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, start: date }))}
-                                    initialFocus
-                                    className="pointer-events-auto"
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label className="text-xs">End Date</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !primaryDateRange.end && "text-muted-foreground"
-                                    )}
-                                    size="sm"
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(primaryDateRange.end, "MMM d, yyyy")}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={primaryDateRange.end}
-                                    onSelect={(date) => date && setPrimaryDateRange(prev => ({ ...prev, end: date }))}
-                                    initialFocus
-                                    className="pointer-events-auto"
-                                    disabled={(date) => date < primaryDateRange.start}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-xs sm:text-sm">Region</Label>
-                        <Select 
-                          value={primaryRegion || "all"} 
-                          onValueChange={handlePrimaryRegionChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="All Regions" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Regions</SelectItem>
-                            {regions.map((region) => (
-                              <SelectItem key={region} value={region}>
-                                {region}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {primaryRegion && primaryProvinces.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Province</Label>
-                          <Select 
-                            value={primaryProvince || "all"} 
-                            onValueChange={handlePrimaryProvinceChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Provinces" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Provinces</SelectItem>
-                              {primaryProvinces.map((province) => (
-                                <SelectItem key={province} value={province}>
-                                  {province}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {primaryRegion && primaryProvince && primaryMunicipalities.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                          <Select 
-                            value={primaryMunicipality || "all"} 
-                            onValueChange={handlePrimaryMunicipalityChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Municipalities" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Municipalities</SelectItem>
-                              {primaryMunicipalities.map((municipality) => (
-                                <SelectItem key={municipality} value={municipality}>
-                                  {municipality}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Use the geography and date controls above to filter the primary dataset. Toggle comparison mode to compare two time periods.
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -821,69 +697,6 @@ const GovernmentDashboard = () => {
                           )}
                         </div>
                         
-                        <div className="space-y-2">
-                          <Label className="text-xs sm:text-sm">Region</Label>
-                          <Select 
-                            value={comparisonRegion || "all"} 
-                            onValueChange={handleComparisonRegionChange}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Regions" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Regions</SelectItem>
-                              {regions.map((region) => (
-                                <SelectItem key={region} value={region}>
-                                  {region}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {comparisonRegion && comparisonProvinces.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-xs sm:text-sm">Province</Label>
-                            <Select 
-                              value={comparisonProvince || "all"} 
-                              onValueChange={handleComparisonProvinceChange}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="All Provinces" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Provinces</SelectItem>
-                                {comparisonProvinces.map((province) => (
-                                  <SelectItem key={province} value={province}>
-                                    {province}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-
-                        {comparisonRegion && comparisonProvince && comparisonMunicipalities.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-xs sm:text-sm">Municipality/City</Label>
-                            <Select 
-                              value={comparisonMunicipality || "all"} 
-                              onValueChange={handleComparisonMunicipalityChange}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="All Municipalities" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Municipalities</SelectItem>
-                                {comparisonMunicipalities.map((municipality) => (
-                                  <SelectItem key={municipality} value={municipality}>
-                                    {municipality}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   )}
@@ -911,19 +724,15 @@ const GovernmentDashboard = () => {
                 comparisonMode={comparisonMode}
               />
 
-              {/* Regional Map */}
-              <Suspense fallback={
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Regional Livestock Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="w-full h-[500px] rounded-lg" />
-                  </CardContent>
-                </Card>
-              }>
-                <RegionalLivestockMap dateRange={primaryDateRange} dataCategory={dataCategory} />
-              </Suspense>
+              {/* Regional Map + Summary Sidebar */}
+              <MapWithSummaryPanel
+                dateRange={primaryDateRange}
+                dataCategory={dataCategory}
+                region={primaryRegion}
+                province={primaryProvince}
+                municipality={primaryMunicipality}
+                onRegionSelect={handlePrimaryRegionChange}
+              />
 
               {/* Comparison Summary */}
               {comparisonMode && (

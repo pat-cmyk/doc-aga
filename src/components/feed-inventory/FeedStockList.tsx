@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AddFeedStockDialog } from "./AddFeedStockDialog";
+import { AdjustStockDialog } from "./AdjustStockDialog";
 import { StockTransactionHistory } from "./StockTransactionHistory";
 import { ExpiryBadge } from "./ExpiryBadge";
 import { useFeedInventory } from "@/hooks/useFeedInventory";
@@ -28,6 +29,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FeedInventoryItem | null>(null);
+  const [adjustingItem, setAdjustingItem] = useState<FeedInventoryItem | null>(null);
   const [viewingHistory, setViewingHistory] = useState<string | null>(null);
 
   // Auto-open dialog if prefillFeedType is provided
@@ -79,7 +81,7 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
           farmId={farmId}
           editItem={editingItem}
           prefillFeedType={prefillFeedType}
-          existingFeedTypes={inventory.map(item => item.feed_type)}
+          existingInventory={inventory}
         />
       </div>
     );
@@ -211,18 +213,28 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
 
                 <div className="flex gap-2">
                   {canManage && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="flex-1"
                       onClick={() => handleEdit(item)}
                     >
                       Edit
                     </Button>
                   )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  {canManage && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setAdjustingItem(item)}
+                    >
+                      Adjust
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="flex-1"
                     onClick={() => setViewingHistory(item.id)}
                   >
@@ -241,8 +253,16 @@ export function FeedStockList({ farmId, canManage, prefillFeedType, onPrefillUse
         farmId={farmId}
         editItem={editingItem}
         prefillFeedType={prefillFeedType}
-        existingFeedTypes={inventory.map(item => item.feed_type)}
+        existingInventory={inventory}
       />
+
+      {adjustingItem && (
+        <AdjustStockDialog
+          open={!!adjustingItem}
+          onOpenChange={(open) => !open && setAdjustingItem(null)}
+          item={adjustingItem}
+        />
+      )}
 
       {viewingHistory && (
         <StockTransactionHistory
