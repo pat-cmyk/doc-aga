@@ -46,6 +46,7 @@ const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
 const AdminViewFarm = lazy(() => import("./pages/AdminViewFarm"));
+const AdminAuditReport = lazy(() => import("./pages/AdminAuditReport"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 // Loading fallback component
@@ -290,13 +291,21 @@ const App = () => (
                       </SuperAdminRoute>
                     } 
                   />
-                  <Route 
-                    path="/admin/view-farm/:farmId" 
+                  <Route
+                    path="/admin/view-farm/:farmId"
                     element={
                       <SuperAdminRoute>
                         <AdminViewFarm />
                       </SuperAdminRoute>
-                    } 
+                    }
+                  />
+                  <Route
+                    path="/admin/audit-report/:farmId"
+                    element={
+                      <SuperAdminRoute>
+                        <AdminAuditReport />
+                      </SuperAdminRoute>
+                    }
                   />
                   <Route 
                     path="/government" 
