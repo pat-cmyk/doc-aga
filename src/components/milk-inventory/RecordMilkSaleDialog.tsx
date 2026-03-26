@@ -155,6 +155,9 @@ export function RecordMilkSaleDialog({
         if (isCacheManagerReady()) {
           await getCacheManager().invalidateForMutation('milk-sale', farmId);
         }
+        await queryClient.invalidateQueries({
+          queryKey: ["last-milk-price-by-species", farmId],
+        });
         playSound('success');
 
         toast({
@@ -187,18 +190,16 @@ export function RecordMilkSaleDialog({
 
         if (invError) throw invError;
 
-        // If fully consumed, also mark the milking_record as sold
+        // Always record price_per_liter (for price history), even on partial sales
+        const updateFields: Record<string, any> = { price_per_liter: price };
         if (isFullyConsumed) {
-          const saleAmount = record.liters_original * price;
-          await supabase
-            .from("milking_records")
-            .update({
-              is_sold: true,
-              price_per_liter: price,
-              sale_amount: saleAmount,
-            })
-            .eq("id", record.milking_record_id);
+          updateFields.is_sold = true;
+          updateFields.sale_amount = record.liters_original * price;
         }
+        await supabase
+          .from("milking_records")
+          .update(updateFields)
+          .eq("id", record.milking_record_id);
       }
 
       // STEP 3: Create single revenue record (with duplicate prevention)
@@ -225,6 +226,10 @@ export function RecordMilkSaleDialog({
       await queryClient.refetchQueries({
         queryKey: ['milk-inventory', farmId],
         type: 'active',
+      });
+      // Also invalidate price history so species cards update immediately
+      await queryClient.invalidateQueries({
+        queryKey: ["last-milk-price-by-species", farmId],
       });
 
       playSound('success');

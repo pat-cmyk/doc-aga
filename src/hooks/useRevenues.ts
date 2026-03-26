@@ -219,7 +219,6 @@ export function useLastMilkPriceBySpecies(farmId: string) {
           animals!inner(farm_id, livestock_type)
         `)
         .eq("animals.farm_id", farmId)
-        .eq("is_sold", true)
         .not("price_per_liter", "is", null)
         .order("created_at", { ascending: false });
 

@@ -13,6 +13,9 @@ import { MilkSpeciesSummary } from "./MilkSpeciesSummary";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useLastMilkPriceBySpecies } from "@/hooks/useRevenues";
 import type { MilkInventoryItem, MilkInventorySummary } from "@/hooks/useMilkInventory";
+import type { SpeciesPriceMap } from "@/hooks/useRevenues";
+
+const DEFAULT_PRICES: SpeciesPriceMap = { cattle: 30, goat: 45, carabao: 35, sheep: 50 };
 
 interface MilkStockListProps {
   farmId: string;
@@ -170,7 +173,7 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
           <h4 className="text-sm font-medium text-muted-foreground px-1">By Type</h4>
           <MilkSpeciesSummary
             speciesData={summary.bySpecies}
-            pricesBySpecies={pricesBySpecies ?? {}}
+            pricesBySpecies={pricesBySpecies ?? DEFAULT_PRICES}
             onSellSpecies={handleSellSpecies}
             canManage={canManage && stockType === 'good'}
           />
