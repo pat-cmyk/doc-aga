@@ -210,25 +210,40 @@ export function useLastMilkPriceBySpecies(farmId: string) {
   return useQuery({
     queryKey: ["last-milk-price-by-species", farmId],
     queryFn: async () => {
+      // Step 1: Get farm's animal IDs grouped by species (fast, indexed query)
+      const { data: animals, error: animalsError } = await supabase
+        .from("animals")
+        .select("id, livestock_type")
+        .eq("farm_id", farmId)
+        .eq("is_deleted", false);
+
+      if (animalsError) throw animalsError;
+      if (!animals?.length) {
+        const defaults = { cattle: 30, goat: 45, carabao: 35, sheep: 50 };
+        updateMilkPriceCache(farmId, defaults);
+        return defaults;
+      }
+
+      const animalIds = animals.map(a => a.id);
+      const speciesByAnimalId = new Map(animals.map(a => [a.id, a.livestock_type]));
+
+      // Step 2: Get most recent priced milking records for these animals (with limit)
       const { data, error } = await supabase
         .from("milking_records")
-        .select(`
-          price_per_liter, 
-          animal_id, 
-          created_at,
-          animals!inner(farm_id, livestock_type)
-        `)
-        .eq("animals.farm_id", farmId)
+        .select("price_per_liter, animal_id, created_at")
+        .in("animal_id", animalIds)
         .not("price_per_liter", "is", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
+      // Step 3: Pick most recent price per species
       const priceMap: SpeciesPriceMap = {};
       const seen = new Set<string>();
-      
+
       for (const record of data || []) {
-        const type = (record.animals as any)?.livestock_type;
+        const type = speciesByAnimalId.get(record.animal_id);
         if (type && !seen.has(type)) {
           priceMap[type] = record.price_per_liter as number;
           seen.add(type);
