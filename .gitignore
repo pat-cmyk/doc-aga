@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code local data
+.claude/
+
+# Test coverage output
+coverage/
+
+# Supabase temp files
+supabase/.temp/
+
+# Android build artifacts
+android/gradle/gradle-daemon-jvm.properties
