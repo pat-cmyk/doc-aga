@@ -235,3 +235,14 @@ All in `supabase/functions/<name>/index.ts`. Most use `verify_jwt = false` in `c
 | Changelog | `changelog.md` | Any significant change |
 
 **No task is complete without verifying governance doc consistency.**
+
+---
+
+## Available Custom Skills
+
+- `/write-report <type> [audience] [topic]` — Drafts formal documents, briefs, and
+  pitch materials using Golden Forage conventions and audience-appropriate tone.
+- `/review-pr [file-or-branch] [focus?]` — Reviews code changes against Doc Aga
+  architecture rules (offline-first, SSOT, data accuracy, component reuse).
+- `/simplify` — Built-in: reviews and auto-fixes recent code changes for quality and
+  efficiency using parallel review agents.
