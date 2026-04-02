@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { addDays, differenceInDays, formatDistanceToNow } from "date-fns";
+import { GESTATION_DAYS } from "@/types/fertility";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
@@ -409,12 +410,12 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           .order("performed_date", { ascending: false })
           .limit(1);
         
-        // Use fertility_status (SSOT from DB trigger) to guard pregnancy display
-        const isConfirmedPregnant = data.fertility_status === 'confirmed_pregnant';
-        if (isConfirmedPregnant && aiRecords?.[0]?.expected_delivery_date) {
+        // Show expected delivery for any pregnant-like status (bred_waiting, suspected, confirmed)
+        const isPregnantLike = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
+        if (isPregnantLike && aiRecords?.[0]?.expected_delivery_date) {
           setExpectedDeliveryDate(aiRecords[0].expected_delivery_date);
-        } else if (isConfirmedPregnant) {
-          // New lifecycle path stores expected_delivery_date in breeding_events metadata
+        } else if (isPregnantLike) {
+          // Try breeding_events metadata first
           const { data: pregEvent } = await supabase
             .from('breeding_events')
             .select('metadata')
@@ -423,7 +424,17 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             .order('event_date', { ascending: false })
             .limit(1);
           const metaDate = (pregEvent?.[0]?.metadata as any)?.expected_delivery_date;
-          setExpectedDeliveryDate(metaDate || null);
+          if (metaDate) {
+            setExpectedDeliveryDate(metaDate);
+          } else if (aiRecords?.[0]?.performed_date) {
+            // Compute from AI performed_date + species gestation days
+            const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+            const computed = addDays(new Date(aiRecords[0].performed_date), gestationDays)
+              .toISOString().split('T')[0];
+            setExpectedDeliveryDate(computed);
+          } else {
+            setExpectedDeliveryDate(null);
+          }
         } else {
           setExpectedDeliveryDate(null);
         }
