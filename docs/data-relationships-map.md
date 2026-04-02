@@ -1179,9 +1179,9 @@ erDiagram
 
 ### Integration Point 2: Animal AI/Breeding Tab → Lifecycle Actions
 - **File:** `src/components/AIRecords.tsx`
-- **New prop:** `livestockType` (passed from `AnimalDetails.tsx → animal.livestock_type`)
+- **Props:** `livestockType` + `animalBreed` (passed from `AnimalDetails.tsx`)
 - **Components added** (for female animals, below AI Records/Heat Detection tabs):
-  - `RecordCalvingDialog` — inserts `calving` breeding_event, registers calf, restarts lactation
+  - `RecordCalvingDialog` — inserts `calving` breeding_event, registers calf (with auto-linked sire + derived breed), restarts lactation, prompts placenta check
   - `MarkNonReturnButton` — inserts `non_return` breeding_event (→ suspected_pregnant)
   - `RecordHeatReturnButton` — inserts `heat_return` breeding_event (→ open_cycling)
   - `MarkVWPEndedButton` — inserts `vwp_ended` breeding_event (→ open_cycling)
@@ -1189,8 +1189,11 @@ erDiagram
 
 ### Props Flow
 ```
-AnimalDetails.tsx → animal.livestock_type → AIRecords (livestockType prop)
-  → RecordCalvingDialog (animalId, farmId, animalName, livestockType)
+AnimalDetails.tsx → animal.livestock_type, animal.breed → AIRecords (livestockType, animalBreed props)
+  → RecordCalvingDialog (animalId, farmId, animalName, livestockType, animalBreed)
+    → queries ai_records for pregnancy context (expected_delivery_date, semen_code)
+    → inserts calf with father_id (from AI record sire), breed (dam x sire derived)
+    → stores placenta_expelled in breeding_events.metadata
   → MarkNonReturnButton (animalId, farmId, animalName)
   → RecordHeatReturnButton (animalId, farmId, animalName)
   → MarkVWPEndedButton (animalId, farmId, animalName)
@@ -1198,6 +1201,18 @@ AnimalDetails.tsx → animal.livestock_type → AIRecords (livestockType prop)
 
 ### Data Flow
 All lifecycle action buttons → `insertBreedingEvent()` → `breeding_events` table → DB trigger `update_animal_fertility_status` → updates `animals.fertility_status`
+
+### Calving-Specific Data Flow (Enhanced 2026-04-02)
+```
+RecordCalvingDialog:
+  1. Loads pregnancy context from ai_records (expected_delivery_date, semen_code)
+  2. Validates calving date against expected delivery (warns if >30d off)
+  3. Inserts breeding_event('calving') with metadata: {difficulty, outcome, sire_semen_code}
+  4. If alive + register: inserts calf animal (mother_id, father_id from AI, breed = dam x sire)
+  5. Updates dam: is_currently_lactating=true, milking_stage='early_lactation'
+  6. Clears ai_records.pregnancy_confirmed
+  7. Prompts placenta check → stores in breeding_events.metadata.placenta_expelled
+```
 
 ---
 

@@ -691,12 +691,20 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
                     />
                   )}
-                  {expectedDeliveryDate && (
-                    <Badge className="bg-green-500 hover:bg-green-600 text-xs">
-                      <Baby className="h-3 w-3 mr-1" />
-                      Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
-                    </Badge>
-                  )}
+                  {expectedDeliveryDate && (() => {
+                    const daysUntilDue = differenceInDays(new Date(expectedDeliveryDate), new Date());
+                    const badgeColor = daysUntilDue <= 14
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : daysUntilDue <= 30
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-green-500 hover:bg-green-600';
+                    return (
+                      <Badge className={`${badgeColor} text-xs`}>
+                        <Baby className="h-3 w-3 mr-1" />
+                        Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <CardDescription className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
@@ -1247,6 +1255,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
             livestockType={animal?.livestock_type || undefined}
+            animalBreed={animal?.breed || undefined}
             readOnly={readOnly}
             birthDate={animal?.birth_date}
             lifeStage={animal?.life_stage}
