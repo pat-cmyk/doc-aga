@@ -206,6 +206,8 @@ interface Animal {
   is_currently_lactating: boolean | null;
   estimated_days_in_milk: number | null;
   fertility_status: string | null;
+  last_ai_date: string | null;
+  last_calving_date: string | null;
 }
 
 interface ParentAnimal {
@@ -243,7 +245,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [stageData, setStageData] = useState<AnimalStageData | null>(null);
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
@@ -401,49 +402,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
-        // Get latest AI record with pregnancy info (include records with only scheduled_date)
-        const { data: aiRecords } = await supabase
-          .from("ai_records")
-          .select("performed_date, scheduled_date, pregnancy_confirmed, expected_delivery_date")
-          .eq("animal_id", animalId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        // Show expected delivery for any pregnant-like status (bred_waiting, suspected, confirmed)
-        const isPregnantLike = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
-        if (isPregnantLike) {
-          const aiRecord = aiRecords?.[0];
-          if (aiRecord?.expected_delivery_date) {
-            setExpectedDeliveryDate(aiRecord.expected_delivery_date);
-          } else {
-            // Try breeding_events metadata
-            const { data: pregEvent } = await supabase
-              .from('breeding_events')
-              .select('metadata')
-              .eq('animal_id', animalId)
-              .eq('event_type', 'pregnancy_confirmed')
-              .order('event_date', { ascending: false })
-              .limit(1);
-            const metaDate = (pregEvent?.[0]?.metadata as any)?.expected_delivery_date;
-            if (metaDate) {
-              setExpectedDeliveryDate(metaDate);
-            } else {
-              // Compute from AI date (performed or scheduled) + species gestation days
-              const aiDate = aiRecord?.performed_date || aiRecord?.scheduled_date;
-              if (aiDate) {
-                const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
-                const computed = addDays(new Date(aiDate), gestationDays)
-                  .toISOString().split('T')[0];
-                setExpectedDeliveryDate(computed);
-              } else {
-                setExpectedDeliveryDate(null);
-              }
-            }
-          }
-        } else {
-          setExpectedDeliveryDate(null);
-        }
-        
         // Get recent milking records (last 30 days)
         const { data: milkingRecords } = await supabase
           .from("milking_records")
@@ -599,6 +557,13 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   
   // Map to species-appropriate display names
   const displayLifeStage = displayStageForSpecies(computedLifeStage, animal?.livestock_type || null);
+
+  // Compute expected delivery date synchronously from animal fields (same pattern as other badges)
+  const isPregnantLike = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(animal?.fertility_status || '');
+  const expectedDeliveryDate = isPregnantLike && animal?.last_ai_date
+    ? addDays(new Date(animal.last_ai_date), GESTATION_DAYS[animal.livestock_type || 'cattle'] || 283)
+        .toISOString().split('T')[0]
+    : null;
 
   // Determine tab count based on gender
   const isFemale = animal?.gender?.toLowerCase() === 'female';
