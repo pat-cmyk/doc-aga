@@ -353,6 +353,7 @@ export const UserManagement = () => {
                         <SelectItem value="vet">Veterinarian</SelectItem>
                         {isSuperAdmin && (
                           <>
+                            <SelectItem value="cooperative">Coop Admin</SelectItem>
                             <SelectItem value="government">Government</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </>
