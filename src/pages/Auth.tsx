@@ -64,6 +64,8 @@ const Auth = () => {
         
         if (userRoles.includes("admin")) {
           navigate("/admin");
+        } else if (userRoles.includes("cooperative")) {
+          navigate("/cooperative");
         } else if (userRoles.includes("merchant")) {
           navigate("/merchant");
         } else {
@@ -193,6 +195,8 @@ const Auth = () => {
       // Redirect based on role
       if (userRoles.includes("admin")) {
         navigate("/admin");
+      } else if (userRoles.includes("cooperative")) {
+        navigate("/cooperative");
       } else if (userRoles.includes("merchant")) {
         navigate("/merchant");
       } else {
@@ -457,6 +461,12 @@ const Auth = () => {
           </Tabs>
           
           <div className="mt-6 pt-4 border-t border-border text-center space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Cooperative admin?{" "}
+              <Link to="/auth/cooperative" className="text-primary hover:underline">
+                Log in as Cooperative
+              </Link>
+            </p>
             <div className="flex justify-center gap-4">
               <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
