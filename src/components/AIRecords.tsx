@@ -32,6 +32,7 @@ interface AIRecordsProps {
   animalName?: string;
   gender?: string;
   livestockType?: string;
+  animalBreed?: string;
   readOnly?: boolean;
   /** Eligibility data for gating breeding actions */
   birthDate?: string | null;
@@ -41,7 +42,7 @@ interface AIRecordsProps {
   offspringCount?: number;
 }
 
-const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOnly = false, birthDate, lifeStage, fertilityStatus, isCurrentlyLactating, offspringCount = 0 }: AIRecordsProps) => {
+const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animalBreed, readOnly = false, birthDate, lifeStage, fertilityStatus, isCurrentlyLactating, offspringCount = 0 }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
@@ -182,6 +183,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                           farmId={farmId}
                           animalName={animalName}
                           livestockType={livestockType}
+                          animalBreed={animalBreed}
                           onSuccess={loadRecords}
                         />
                       </span>
