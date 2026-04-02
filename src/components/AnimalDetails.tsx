@@ -245,6 +245,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [stageData, setStageData] = useState<AnimalStageData | null>(null);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
@@ -417,7 +418,39 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         
         // Derive hasActiveAI from fertility_status (SSOT from DB trigger)
         const hasActiveAI = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
-        
+
+        // Compute expected delivery date for pregnant animals (same block as stageData)
+        if (hasActiveAI) {
+          // Try animal.last_ai_date first, then fall back to ai_records query
+          const aiDate = data.last_ai_date;
+          if (aiDate) {
+            const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+            setExpectedDeliveryDate(addDays(new Date(aiDate), gestationDays).toISOString().split('T')[0]);
+          } else {
+            // last_ai_date not set — query ai_records directly
+            const { data: aiRecord } = await supabase
+              .from('ai_records')
+              .select('performed_date, scheduled_date, expected_delivery_date')
+              .eq('animal_id', animalId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (aiRecord?.expected_delivery_date) {
+              setExpectedDeliveryDate(aiRecord.expected_delivery_date);
+            } else {
+              const fallbackDate = aiRecord?.performed_date || aiRecord?.scheduled_date;
+              if (fallbackDate) {
+                const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+                setExpectedDeliveryDate(addDays(new Date(fallbackDate), gestationDays).toISOString().split('T')[0]);
+              } else {
+                setExpectedDeliveryDate(null);
+              }
+            }
+          }
+        } else {
+          setExpectedDeliveryDate(null);
+        }
+
         setStageData({
           birthDate: data.birth_date ? new Date(data.birth_date) : null,
           gender: data.gender,
@@ -557,13 +590,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   
   // Map to species-appropriate display names
   const displayLifeStage = displayStageForSpecies(computedLifeStage, animal?.livestock_type || null);
-
-  // Compute expected delivery date synchronously from animal fields (same pattern as other badges)
-  const isPregnantLike = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(animal?.fertility_status || '');
-  const expectedDeliveryDate = isPregnantLike && animal?.last_ai_date
-    ? addDays(new Date(animal.last_ai_date), GESTATION_DAYS[animal.livestock_type || 'cattle'] || 283)
-        .toISOString().split('T')[0]
-    : null;
 
   // Determine tab count based on gender
   const isFemale = animal?.gender?.toLowerCase() === 'female';
