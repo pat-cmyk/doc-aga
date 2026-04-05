@@ -39,7 +39,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
             <Skull className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{health?.mortality_30d ?? 0}</div>
+            <div className="text-2xl font-bold">{formatNumber(health?.mortality_30d ?? 0)}</div>
           </CardContent>
         </Card>
       </div>
