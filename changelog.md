@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-04-05 — Feature: Animal Profile Export (PDF + CSV) & UX Quick Wins
+
+### Problem
+The Animal Profile was the deepest, most-used screen in the app but (1) had
+no way to generate a shareable record for vets, AI technicians, or LGU
+subsidy claims, and (2) required 4–5 taps to record common events like a
+milking or weight entry from the profile. Farmers also lost their tab
+context between visits.
+
+### Added
+- **`src/hooks/useAnimalProfileExport.ts`** — SSOT aggregation hook that
+  composes `getCachedAnimalDetails` + `useBioCardData` + `useAnimalExpenseSummary`
+  into a normalized `AnimalProfileExportData` payload. No new queries, no
+  new cache stores. Offline-first via IndexedDB.
+- **`src/lib/animalProfileExport/`** — Pure renderers:
+  - `types.ts` — canonical payload shape
+  - `pdf.ts` — jsPDF + jspdf-autotable multi-page farmer-friendly PDF with
+    identity, OVR bar chart, vitals, cost summary, genealogy, 90-day milking
+    history + sparkline, feeding, weight trajectory, health timeline, BCS
+    sparkline, AI/heat/breeding events, and category cost ledger. All
+    section headings in Taglish (English / Filipino).
+  - `csv.ts` — single multi-section CSV (Excel/Sheets friendly)
+  - `sparkline.ts` — canvas → PNG helper
+  - `index.ts` — `downloadAnimalProfile()` public API
+- **`src/components/animal-details/ExportAnimalProfileButton.tsx`** — Header
+  button + bottom-sheet format picker (PDF / CSV / both). Hidden for
+  `isOnlyFarmhand` (sensitive cost data). Shows "Offline snapshot" note
+  when disconnected.
+- **`src/components/animal-details/AnimalQuickActionsStrip.tsx`** — Always-
+  visible row of chips (Milk / Weight / Health) between BioCardSummary and
+  the tabs. Opens the existing standalone Record dialogs directly with the
+  animal pre-selected. Cuts top record-entry flows from 4–5 taps to 2.
+  Milk chip hidden for males. Taglish labels.
+
+### Changed
+- **`src/components/AnimalDetails.tsx`** — Wired `ExportAnimalProfileButton`
+  and `AnimalQuickActionsStrip` into the header and above-tabs region.
+  Added hash-based + localStorage tab persistence keyed by animalId so
+  farmers return to the tab they last used. Controlled `Tabs` component.
+- **`src/components/AIRecords.tsx`** — Collapsed the 5 less-common lifecycle
+  actions (Mark Non-Return, Confirm Pregnancy, Pregnancy Failed, Record
+  Heat Return, Mark VWP Ended) under a "More actions / Iba pang aksyon"
+  Collapsible toggle. Record Heat, Schedule AI, and Record Calving remain
+  always visible. All eligibility gating and tooltips preserved.
+- **`docs/ssot-architecture.md`** — Added section 3.55 documenting the
+  animal profile export as a pure SSOT composition, plus new hook entry
+  in the Hook Inventory table.
+
+### Design Decisions
+- **Zero new dependencies:** `jspdf@3.0.3` and `jspdf-autotable@5.0.2` were
+  already installed for the government dashboard, financial report, and
+  audit report exports. CSV is a plain string builder.
+- **Zero new network calls:** export reads only from cached data via
+  `getCachedAnimalDetails`. Works fully offline and the PDF footer
+  self-identifies as an "Offline snapshot" with the cache `lastUpdated`
+  timestamp.
+- **Read-only module:** the export layer never writes back to Supabase —
+  it cannot introduce data drift.
+- **Permission gate:** Farmhand role sees no export button (the payload
+  contains cost data). Owner, Manager, and Vet can export.
+- **Reuse over redesign:** rather than rebuild quick actions, the strip
+  mounts the exact same `RecordSingle{Milk,Weight,Health}Dialog`
+  components the tab-level "+" buttons already use. No mutation logic
+  duplicated.
+- **Breeding buttons:** preferred a Collapsible grouping over a full
+  picker rewrite to keep all gating logic (407 lines of `animalEligibility.ts`
+  + tooltips) untouched and eliminate regression risk.
+
 ## 2026-03-22 — Feature: Bank Data Integrity Audit Report
 
 ### Problem
