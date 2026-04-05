@@ -54,7 +54,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netIncome >= 0 ? "text-green-600" : "text-red-500"}`}>
-              ₱{netIncome.toLocaleString()}
+              ₱{formatNumber(netIncome)}
             </div>
           </CardContent>
         </Card>
