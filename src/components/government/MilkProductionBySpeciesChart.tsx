@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { format, parseISO } from "date-fns";
 import { Droplets, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
-import { formatPHPCompact } from "@/lib/currency";
+import { formatPHPCompact, formatNumber } from "@/lib/currency";
 import { DataCategory } from "@/types/government";
 
 interface MilkProductionBySpeciesChartProps {
