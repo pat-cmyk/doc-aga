@@ -99,7 +99,7 @@ export const MilkProductionBySpeciesChart = ({
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Total Milk</div>
-            <div className="text-2xl font-bold">{data.totalMilk.toLocaleString()}L</div>
+            <div className="text-2xl font-bold">{formatNumber(data.totalMilk)}L</div>
           </CardContent>
         </Card>
         <Card>
