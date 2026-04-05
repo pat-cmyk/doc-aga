@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Skull, Stethoscope } from "lucide-react";
 import { useCooperativeHealthOverview } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
