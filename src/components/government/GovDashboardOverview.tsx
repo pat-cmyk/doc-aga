@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Users, FileText, TrendingUp, TrendingDown } from "lucide-react";
+import { formatNumber } from "@/lib/currency";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
 import { Skeleton } from "@/components/ui/skeleton";
 
