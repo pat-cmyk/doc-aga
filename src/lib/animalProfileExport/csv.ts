@@ -153,7 +153,7 @@ export function generateAnimalProfileCSV(data: AnimalProfileExportData): string 
     const kg = Number(r.kilograms ?? 0);
     const cpk = Number(r.cost_per_kg_at_time ?? 0);
     lines.push(row([
-      formatDateOnly(r.feed_date ?? r.fed_at),
+      formatDateOnly(r.record_datetime ?? r.feed_date ?? r.fed_at),
       r.feed_type ?? '',
       kg,
       cpk,

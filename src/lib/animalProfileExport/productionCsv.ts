@@ -76,7 +76,8 @@ export function generateAnimalProductionCSV(data: AnimalProfileExportData): stri
   const feedCostByDate = new Map<string, number>();
   for (const r of records.feeding) {
     const iso = formatDateOnly(
-      (r as { feed_date?: string }).feed_date ??
+      (r as { record_datetime?: string }).record_datetime ??
+        (r as { feed_date?: string }).feed_date ??
         (r as { fed_at?: string }).fed_at,
     );
     if (!iso) continue;

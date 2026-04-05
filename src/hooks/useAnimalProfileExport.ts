@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { getCachedAnimalDetails, updateRecordsCache } from '@/lib/dataCache';
 import { useBioCardData, type BioCardAnimalData } from '@/hooks/useBioCardData';
 import { useAnimalExpenseSummary } from '@/hooks/useAnimalExpenses';
@@ -84,34 +85,40 @@ export function useAnimalProfileExport(
         return;
       }
       setCacheLoading(true);
+
       try {
+        // Always read cached animal metadata + genealogy for instant paint.
         const details = await getCachedAnimalDetails(animalId, farmId);
         if (cancelled) return;
 
-        // If we got animal metadata but records are missing or empty, the
-        // user hasn't swiped this animal for offline use yet. The main
-        // "view full profile" path pre-caches records, but an export may
-        // be opened directly from the BioCardSheet before that happens.
-        // Force-populate the per-animal records cache from Supabase when
-        // we're online so the export isn't a pile of zeros.
+        // For records: prefer a FRESH direct Supabase query when online so
+        // the export always reflects the latest data, regardless of whether
+        // the per-animal cache was primed (the farm-level batch preload
+        // writes empty cache entries for animals with no recent rows,
+        // which made earlier fallback paths silently return zeros).
+        // When offline, fall back to whatever is in IndexedDB.
         let records = details?.records ?? null;
-        const recordsEmpty =
-          !records ||
-          ((records.milking?.length ?? 0) === 0 &&
-            (records.weight?.length ?? 0) === 0 &&
-            (records.feeding?.length ?? 0) === 0 &&
-            (records.health?.length ?? 0) === 0 &&
-            (records.ai?.length ?? 0) === 0);
-        if (details?.animal && recordsEmpty && getIsOnline()) {
+
+        if (getIsOnline()) {
           try {
-            records = await updateRecordsCache(animalId);
+            const fresh = await fetchAnimalRecordsDirect(animalId);
+            if (cancelled) return;
+            records = fresh;
+            // Write-through so offline views of this animal benefit too.
+            // Fire-and-forget; failures shouldn't block the export.
+            updateRecordsCache(animalId).catch((err) =>
+              console.warn(
+                '[useAnimalProfileExport] write-through cache refresh failed',
+                err,
+              ),
+            );
           } catch (fetchErr) {
             console.error(
-              '[useAnimalProfileExport] failed to force-populate records cache',
+              '[useAnimalProfileExport] direct records fetch failed, falling back to cache',
               fetchErr,
             );
+            // Leave `records` as whatever the cache returned.
           }
-          if (cancelled) return;
         }
 
         setCached({
@@ -267,4 +274,122 @@ export function useAnimalProfileExport(
   const isReady = !isLoading && data !== null;
 
   return { data, isReady, isLoading };
+}
+
+/**
+ * Direct Supabase fetch for all record types the export renders.
+ *
+ * Deliberately NOT routed through `updateRecordsCache` because that helper
+ * silently swallows errors and returns an empty stub on failure — which
+ * produced mysterious "all zeros" reports for users. Here every query
+ * throws on error so the caller can log and fall back cleanly.
+ *
+ * Windows match the production focus report (milk + feed 365 days back,
+ * everything else 180) so we pull enough history to draw meaningful
+ * trends without hitting bandwidth ceilings on rural connections.
+ */
+async function fetchAnimalRecordsDirect(animalId: string) {
+  const now = Date.now();
+  const daysAgo = (d: number) =>
+    new Date(now - d * 24 * 60 * 60 * 1000).toISOString();
+
+  const [
+    milkingRes,
+    weightRes,
+    feedingRes,
+    healthRes,
+    aiRes,
+    heatRes,
+    breedingRes,
+    bcsRes,
+  ] = await Promise.all([
+    supabase
+      .from('milking_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .gte('record_date', daysAgo(365))
+      .order('record_date', { ascending: false }),
+    supabase
+      .from('weight_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('measurement_date', { ascending: false }),
+    supabase
+      .from('feeding_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .gte('record_datetime', daysAgo(365))
+      .order('record_datetime', { ascending: false }),
+    supabase
+      .from('health_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('visit_date', { ascending: false }),
+    supabase
+      .from('ai_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('scheduled_date', { ascending: false }),
+    supabase
+      .from('heat_records')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('detected_at', { ascending: false }),
+    supabase
+      .from('breeding_events')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('event_date', { ascending: false })
+      .limit(100),
+    supabase
+      .from('body_condition_scores')
+      .select('*')
+      .eq('animal_id', animalId)
+      .order('assessment_date', { ascending: false }),
+  ]);
+
+  // Surface the first error, if any — don't return an empty stub.
+  const errors = [
+    ['milking', milkingRes.error],
+    ['weight', weightRes.error],
+    ['feeding', feedingRes.error],
+    ['health', healthRes.error],
+    ['ai', aiRes.error],
+    ['heat', heatRes.error],
+    ['breeding', breedingRes.error],
+    ['bcs', bcsRes.error],
+  ].filter(([, e]) => e != null);
+  if (errors.length > 0) {
+    const [name, err] = errors[0] as [string, { message?: string }];
+    throw new Error(
+      `[useAnimalProfileExport] ${name} fetch failed: ${err?.message ?? 'unknown error'}`,
+    );
+  }
+
+  // Dev-friendly count summary (visible in browser console, helps users
+  // tell us what came back without needing a full debug build).
+  console.info('[useAnimalProfileExport] direct fetch counts', {
+    animalId,
+    milking: milkingRes.data?.length ?? 0,
+    weight: weightRes.data?.length ?? 0,
+    feeding: feedingRes.data?.length ?? 0,
+    health: healthRes.data?.length ?? 0,
+    ai: aiRes.data?.length ?? 0,
+    heat: heatRes.data?.length ?? 0,
+    breeding: breedingRes.data?.length ?? 0,
+    bcs: bcsRes.data?.length ?? 0,
+  });
+
+  return {
+    animalId,
+    milking: milkingRes.data ?? [],
+    weight: weightRes.data ?? [],
+    feeding: feedingRes.data ?? [],
+    health: healthRes.data ?? [],
+    ai: aiRes.data ?? [],
+    heat: heatRes.data ?? [],
+    breeding: breedingRes.data ?? [],
+    bcs: bcsRes.data ?? [],
+    lastUpdated: Date.now(),
+  };
 }

@@ -146,13 +146,19 @@ export function generateAnimalProductionPDF(data: AnimalProfileExportData): jsPD
   );
   const feedDaily: ChartPoint[] = aggregateDaily(
     feedingRows,
-    (r) => (r as { feed_date?: string; fed_at?: string }).feed_date ??
+    (r) =>
+      (r as { record_datetime?: string; feed_date?: string; fed_at?: string })
+        .record_datetime ??
+      (r as { feed_date?: string }).feed_date ??
       (r as { fed_at?: string }).fed_at,
     (r) => Number((r as { kilograms?: number }).kilograms ?? 0),
   );
   const feedCostDaily: ChartPoint[] = aggregateDaily(
     feedingRows,
-    (r) => (r as { feed_date?: string; fed_at?: string }).feed_date ??
+    (r) =>
+      (r as { record_datetime?: string; feed_date?: string; fed_at?: string })
+        .record_datetime ??
+      (r as { feed_date?: string }).feed_date ??
       (r as { fed_at?: string }).fed_at,
     (r) => {
       const kg = Number((r as { kilograms?: number }).kilograms ?? 0);
@@ -325,7 +331,8 @@ export function generateAnimalProductionPDF(data: AnimalProfileExportData): jsPD
         const cpk = Number((r as { cost_per_kg_at_time?: number }).cost_per_kg_at_time ?? 0);
         return [
           fmtDate(
-            (r as { feed_date?: string }).feed_date ??
+            (r as { record_datetime?: string }).record_datetime ??
+              (r as { feed_date?: string }).feed_date ??
               (r as { fed_at?: string }).fed_at,
           ),
           (r as { feed_type?: string }).feed_type ?? '—',

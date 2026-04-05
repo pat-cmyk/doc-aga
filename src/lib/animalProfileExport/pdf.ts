@@ -301,7 +301,14 @@ export function generateAnimalProfilePDF(data: AnimalProfileExportData): jsPDF {
   }
 
   sectionTitle('Feeding (last 90 days)', 'Pakain');
-  const feedingWindow = sliceLatest(data.records.feeding, 90, 'feed_date');
+  // Feeding rows use `record_datetime` in the real schema. Older fallback
+  // field names (`feed_date`, `fed_at`) are also checked so any legacy
+  // data still slices correctly.
+  const feedingWindow = sliceLatestByAnyKey(
+    data.records.feeding,
+    90,
+    ['record_datetime', 'feed_date', 'fed_at'],
+  );
   if (feedingWindow.length === 0) {
     doc.setFontSize(9);
     doc.setTextColor(...COLORS.muted);
@@ -316,7 +323,7 @@ export function generateAnimalProfilePDF(data: AnimalProfileExportData): jsPDF {
         const kg = Number(r.kilograms ?? 0);
         const cpk = Number(r.cost_per_kg_at_time ?? 0);
         return [
-          fmtDate(r.feed_date ?? r.fed_at),
+          fmtDate(r.record_datetime ?? r.feed_date ?? r.fed_at),
           r.feed_type ?? '—',
           fmtNumber(kg),
           fmtPhp(cpk),
@@ -543,8 +550,28 @@ function sliceLatest<T extends Record<string, unknown>>(
   return rows.filter((r) => {
     const raw = r[dateKey];
     if (!raw) return false;
-    const t = new Date(raw).getTime();
+    const t = new Date(raw as string).getTime();
     return Number.isFinite(t) && t >= cutoff;
+  });
+}
+
+/** Like `sliceLatest` but tries multiple candidate date keys per row. */
+function sliceLatestByAnyKey<T extends Record<string, unknown>>(
+  rows: T[],
+  days: number,
+  dateKeys: string[],
+): T[] {
+  if (!rows || rows.length === 0) return [];
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return rows.filter((r) => {
+    for (const k of dateKeys) {
+      const raw = r[k];
+      if (raw) {
+        const t = new Date(raw as string).getTime();
+        if (Number.isFinite(t)) return t >= cutoff;
+      }
+    }
+    return false;
   });
 }
 

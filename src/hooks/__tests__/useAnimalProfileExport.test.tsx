@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- test mocks cast to any for brevity */
 /**
  * useAnimalProfileExport.test.tsx
  *
  * Unit tests for the animal profile export aggregation hook. All underlying
  * SSOT sources are mocked so the test only exercises the composition logic:
  *   - cache read via getCachedAnimalDetails
+ *   - direct Supabase records fetch (online path)
  *   - vitals/OVR via useBioCardData
  *   - cost rollup via useAnimalExpenseSummary
  *   - offline flag via getIsOnline
@@ -15,6 +17,32 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
 // --- Mocks (must be declared before importing the hook under test) ---
+
+// Shared per-table response map, set up in beforeEach.
+const supabaseResponses: Record<string, { data: unknown[]; error: null | Error }> = {};
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: vi.fn((table: string) => {
+      // Chainable builder that ultimately resolves with whatever was
+      // set in supabaseResponses for this table.
+      const chain: Record<string, unknown> = {};
+      const resolver = Promise.resolve(
+        supabaseResponses[table] ?? { data: [], error: null },
+      );
+      // Every chain method returns `chain` so callers can await at the end.
+      const passthrough = () => chain;
+      chain.select = passthrough;
+      chain.eq = passthrough;
+      chain.gte = passthrough;
+      chain.order = passthrough;
+      chain.limit = passthrough;
+      chain.then = (onFulfilled: (v: unknown) => unknown) =>
+        resolver.then(onFulfilled);
+      return chain;
+    }),
+  },
+}));
 
 vi.mock('@/lib/dataCache', () => ({
   getCachedAnimalDetails: vi.fn(),
@@ -93,7 +121,7 @@ const baseBioCard = {
   marketPricePerKg: 300,
   priceSource: 'system_default',
   growthBenchmark: null,
-  latestBCS: { score: 3.5 } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  latestBCS: { score: 3.5 } as any,
   lactationInfo: {
     stage: 'Peak Lactation',
     daysInMilk: 95,
@@ -157,24 +185,40 @@ const baseExpenseSummary = {
 beforeEach(() => {
   vi.clearAllMocks();
   (getCachedAnimalDetails as any).mockResolvedValue(baseCachedDetails);
-  (updateRecordsCache as any).mockResolvedValue({
-    animalId: 'a1',
-    milking: [],
-    weight: [],
-    feeding: [],
-    health: [],
-    ai: [],
-    heat: [],
-    breeding: [],
-    bcs: [],
-    lastUpdated: 1_712_000_000_000,
-  });
+  (updateRecordsCache as any).mockResolvedValue(undefined);
   (useBioCardData as any).mockReturnValue(baseBioCard);
   (useAnimalExpenseSummary as any).mockReturnValue({
     data: baseExpenseSummary,
     isLoading: false,
   });
   (getIsOnline as any).mockReturnValue(true);
+
+  // Default: Supabase returns the same records that the cache fixture has.
+  // Individual tests can override per-table by mutating supabaseResponses.
+  Object.keys(supabaseResponses).forEach((k) => delete supabaseResponses[k]);
+  supabaseResponses.milking_records = {
+    data: baseCachedDetails.records.milking,
+    error: null,
+  };
+  supabaseResponses.weight_records = {
+    data: baseCachedDetails.records.weight,
+    error: null,
+  };
+  supabaseResponses.feeding_records = {
+    data: baseCachedDetails.records.feeding,
+    error: null,
+  };
+  supabaseResponses.health_records = {
+    data: baseCachedDetails.records.health,
+    error: null,
+  };
+  supabaseResponses.ai_records = { data: [], error: null };
+  supabaseResponses.heat_records = { data: [], error: null };
+  supabaseResponses.breeding_events = { data: [], error: null };
+  supabaseResponses.body_condition_scores = {
+    data: baseCachedDetails.records.bcs,
+    error: null,
+  };
 });
 
 describe('useAnimalProfileExport', () => {
@@ -273,76 +317,67 @@ describe('useAnimalProfileExport', () => {
     expect(result.current.isReady).toBe(false);
   });
 
-  it('handles empty records offline without crashing (no fallback fetch)', async () => {
+  it('uses cached records when offline (no Supabase fetch)', async () => {
     (getIsOnline as any).mockReturnValue(false);
-    (getCachedAnimalDetails as any).mockResolvedValue({
-      ...baseCachedDetails,
-      records: null,
-    });
     const { result } = renderHook(() => useAnimalProfileExport('a1', 'farm-1'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.isReady).toBe(true));
     const data = result.current.data!;
-    expect(data.records.milking).toEqual([]);
-    expect(data.records.weight).toEqual([]);
-    expect(data.records.health).toEqual([]);
-    expect(data.records.feeding).toEqual([]);
-    // Fallback fetch must NOT run offline
-    expect(updateRecordsCache).not.toHaveBeenCalled();
+    // Cache fixture has 1 milking + 1 weight + 1 feeding + 1 health + 1 bcs
+    expect(data.records.milking).toHaveLength(1);
+    expect(data.records.weight).toHaveLength(1);
+    expect(data.records.feeding).toHaveLength(1);
+    expect(data.meta.sourceIsOffline).toBe(true);
   });
 
-  it('force-populates the records cache when it is empty and online', async () => {
-    // First read: animal metadata present but no records cached yet.
+  it('fetches fresh records directly from Supabase when online', async () => {
+    // Cache is stale/empty but Supabase has fresh rows.
     (getCachedAnimalDetails as any).mockResolvedValue({
       ...baseCachedDetails,
       records: null,
     });
-    // Fallback fetch returns real data.
-    (updateRecordsCache as any).mockResolvedValue({
-      animalId: 'a1',
-      milking: [
-        { record_date: '2026-04-01', liters: 22 },
-        { record_date: '2026-03-31', liters: 21 },
+    supabaseResponses.milking_records = {
+      data: [
+        { record_date: '2026-04-01', liters: 22, session: 'AM' },
+        { record_date: '2026-03-31', liters: 21, session: 'PM' },
       ],
-      weight: [{ measurement_date: '2026-03-15', weight_kg: 520 }],
-      feeding: [
+      error: null,
+    };
+    supabaseResponses.feeding_records = {
+      data: [
         {
-          feed_date: '2026-04-01',
+          record_datetime: '2026-04-01T08:00:00Z',
           feed_type: 'napier',
           kilograms: 25,
           cost_per_kg_at_time: 12,
         },
       ],
-      health: [],
-      ai: [],
-      heat: [],
-      breeding: [],
-      bcs: [],
-      lastUpdated: 1_712_500_000_000,
-    });
+      error: null,
+    };
+    supabaseResponses.weight_records = {
+      data: [{ measurement_date: '2026-03-15', weight_kg: 520 }],
+      error: null,
+    };
 
     const { result } = renderHook(() => useAnimalProfileExport('a1', 'farm-1'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.isReady).toBe(true));
-
-    expect(updateRecordsCache).toHaveBeenCalledWith('a1');
     const data = result.current.data!;
     expect(data.records.milking).toHaveLength(2);
+    expect(data.records.feeding).toHaveLength(1);
     expect(data.records.feeding[0].feed_type).toBe('napier');
     expect(data.records.weight).toHaveLength(1);
-    // lastUpdated must reflect the freshly-fetched timestamp
-    expect(data.meta.cacheLastUpdated).toBe(1_712_500_000_000);
   });
 
-  it('does NOT refetch when records cache already has content', async () => {
-    // baseCachedDetails already has milking/weight/feeding rows → skip refetch
+  it('schedules a write-through cache refresh when online', async () => {
     const { result } = renderHook(() => useAnimalProfileExport('a1', 'farm-1'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.isReady).toBe(true));
-    expect(updateRecordsCache).not.toHaveBeenCalled();
+    // write-through fires fire-and-forget — just assert it was called
+    expect(updateRecordsCache).toHaveBeenCalledWith('a1');
   });
 
   it('returns null when called without a farmId', () => {
