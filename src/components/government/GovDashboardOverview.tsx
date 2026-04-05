@@ -90,7 +90,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           <span className="text-xs text-muted-foreground">primary</span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-lg font-semibold text-muted-foreground">{comparison.toLocaleString()}</span>
+          <span className="text-lg font-semibold text-muted-foreground">{formatNumber(comparison)}</span>
           <span className="text-xs text-muted-foreground">comparison</span>
         </div>
         <div className="flex items-center gap-1 text-xs">
