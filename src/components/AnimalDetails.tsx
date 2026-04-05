@@ -36,6 +36,7 @@ import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
+import { ExportAnimalProfileButton } from "./animal-details/ExportAnimalProfileButton";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
@@ -629,8 +630,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 </div>
                 {!readOnly && (
                   <div className="flex flex-col gap-2 items-end">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setEditAnimalDialogOpen(true)}
                       disabled={!isOnline}
@@ -638,6 +639,10 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       <Pencil className="h-4 w-4 mr-1" />
                       Edit All Details
                     </Button>
+                    <ExportAnimalProfileButton
+                      animalId={animalId}
+                      farmId={farmId}
+                    />
                     <RecordAnimalExitDialog 
                       animalId={animalId}
                       animalName={animal.name || animal.ear_tag || 'Animal'}
@@ -824,8 +829,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
               </div>
               {!readOnly && (
                 <div className="flex flex-col gap-2 items-end">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setEditAnimalDialogOpen(true)}
                     disabled={!isOnline}
@@ -833,7 +838,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     <Pencil className="h-4 w-4 mr-1" />
                     Edit All Details
                   </Button>
-                  <RecordAnimalExitDialog 
+                  <ExportAnimalProfileButton
+                    animalId={animalId}
+                    farmId={farmId}
+                  />
+                  <RecordAnimalExitDialog
                     animalId={animalId}
                     animalName={animal.name || animal.ear_tag || 'Animal'}
                     farmId={farmId}
