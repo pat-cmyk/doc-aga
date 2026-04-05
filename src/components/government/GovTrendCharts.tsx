@@ -102,7 +102,7 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+              {entry.name}: {typeof entry.value === 'number' ? formatNumber(entry.value) : entry.value}
               {entry.dataKey === 'totalMilk' || entry.dataKey === 'comparisonTotalMilk' ? 'L' : ''}
             </p>
           ))}
