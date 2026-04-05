@@ -4,6 +4,7 @@ import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { format, parseISO } from "date-fns";
 import { TrendingUp, Activity, Layers } from "lucide-react";
+import { formatNumber } from "@/lib/currency";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface GovTrendChartsProps {
