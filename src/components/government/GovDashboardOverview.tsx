@@ -100,7 +100,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
             <TrendingDown className="h-3 w-3 text-red-500" />
           ) : null}
           <span className={isPositive ? "text-green-600" : diff < 0 ? "text-red-600" : "text-muted-foreground"}>
-            {isPositive ? "+" : ""}{diff.toLocaleString()} ({isPositive ? "+" : ""}{percentChange}%)
+            {isPositive ? "+" : ""}{formatNumber(diff)} ({isPositive ? "+" : ""}{percentChange}%)
           </span>
         </div>
       </div>
