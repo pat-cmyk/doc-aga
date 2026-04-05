@@ -170,7 +170,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.daily_log_count || 0).toLocaleString()}
+                {formatNumber(stats.daily_log_count || 0)}
               </div>
               <GrowthIndicator value={stats.logGrowth || 0} />
             </>
