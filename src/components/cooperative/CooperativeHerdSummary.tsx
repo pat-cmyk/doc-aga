@@ -53,7 +53,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ species, count }) => `${species}: ${count}`}
+                    label={({ species, count }) => `${species}: ${formatNumber(count)}`}
                   >
                     {herd.by_species.map((_: any, i: number) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
