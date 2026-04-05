@@ -232,11 +232,14 @@ export function generateAnimalProfileCSV(data: AnimalProfileExportData): string 
 }
 
 /**
- * Suggest a filename given the animal identity and format.
+ * Suggest a filename given the animal identity, format, and report kind.
+ * The report kind becomes an infix so production reports sort next to
+ * the profile export in a user's Downloads folder.
  */
 export function buildExportFilename(
   identity: { name: string | null; ear_tag: string | null },
   format: 'csv' | 'pdf',
+  kind: 'full' | 'production' = 'full',
 ): string {
   const slug = (identity.name ?? identity.ear_tag ?? 'animal')
     .toString()
@@ -244,5 +247,6 @@ export function buildExportFilename(
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'animal';
   const stamp = new Date().toISOString().slice(0, 10);
-  return `doc-aga-animal-${slug}-${stamp}.${format}`;
+  const infix = kind === 'production' ? 'production' : 'profile';
+  return `doc-aga-animal-${slug}-${infix}-${stamp}.${format}`;
 }

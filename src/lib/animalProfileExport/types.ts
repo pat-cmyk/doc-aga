@@ -119,3 +119,14 @@ export interface AnimalProfileExportData {
 }
 
 export type ExportFormat = 'pdf' | 'csv' | 'both';
+
+/**
+ * Which animal profile report to render.
+ *
+ * - `full` (default) — complete animal profile: identity, vitals, OVR,
+ *   genealogy, costs, and every record type (milking, weight, feeding,
+ *   health, breeding, BCS). Paper trail for vets, subsidy claims, archival.
+ * - `production` — focused milk + feed report with line charts.
+ *   Optimized for farmers/vets who just want the production trend.
+ */
+export type ReportKind = 'full' | 'production';

@@ -253,14 +253,14 @@ describe('generateAnimalProfileCSV', () => {
 });
 
 describe('buildExportFilename', () => {
-  it('uses the animal name when available', () => {
+  it('uses the animal name and defaults to the full profile infix', () => {
     const name = buildExportFilename({ name: 'Bessie', ear_tag: 'ET-001' }, 'pdf');
-    expect(name).toMatch(/^doc-aga-animal-bessie-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(name).toMatch(/^doc-aga-animal-bessie-profile-\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 
   it('falls back to ear tag when name is missing', () => {
     const name = buildExportFilename({ name: null, ear_tag: 'ET-XYZ' }, 'csv');
-    expect(name).toMatch(/^doc-aga-animal-et-xyz-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(name).toMatch(/^doc-aga-animal-et-xyz-profile-\d{4}-\d{2}-\d{2}\.csv$/);
   });
 
   it('slugifies names with spaces and punctuation', () => {
@@ -268,11 +268,22 @@ describe('buildExportFilename', () => {
       { name: "Mang Juan's Cow!!", ear_tag: null },
       'pdf',
     );
-    expect(name).toMatch(/^doc-aga-animal-mang-juan-s-cow-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(name).toMatch(
+      /^doc-aga-animal-mang-juan-s-cow-profile-\d{4}-\d{2}-\d{2}\.pdf$/,
+    );
   });
 
   it('falls back to generic "animal" when both name and ear tag are missing', () => {
     const name = buildExportFilename({ name: null, ear_tag: null }, 'csv');
-    expect(name).toMatch(/^doc-aga-animal-animal-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(name).toMatch(/^doc-aga-animal-animal-profile-\d{4}-\d{2}-\d{2}\.csv$/);
+  });
+
+  it('uses the production infix when the report kind is "production"', () => {
+    const name = buildExportFilename(
+      { name: 'Bessie', ear_tag: 'ET-001' },
+      'pdf',
+      'production',
+    );
+    expect(name).toMatch(/^doc-aga-animal-bessie-production-\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 });

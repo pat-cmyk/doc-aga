@@ -2,7 +2,13 @@
  * ExportAnimalProfileButton
  *
  * Header button on the Animal Profile that lets Owner / Manager / Vet roles
- * download a full animal profile as PDF, CSV, or both.
+ * download an animal profile as PDF, CSV, or both.
+ *
+ * Two report kinds:
+ *   - Full profile — identity, vitals, OVR, genealogy, costs, all records.
+ *     For vets, LGU subsidy claims, archival.
+ *   - Production focus — milk + feed with line charts (PDF) or joined daily
+ *     totals (CSV). For quick production reviews.
  *
  * SSOT: pulls data from `useAnimalProfileExport`, which composes
  * useBioCardData + useAnimalExpenseSummary + getCachedAnimalDetails.
@@ -13,7 +19,14 @@
  */
 
 import { useState } from 'react';
-import { Download, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  FileSpreadsheet,
+  Loader2,
+  LineChart,
+  FileBadge,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -24,11 +37,15 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
-import { hapticNotification } from '@/lib/haptics';
+import { hapticNotification, hapticSelection } from '@/lib/haptics';
 import { useUnifiedPermissions } from '@/contexts/PermissionsContext';
 import { useAnimalProfileExport } from '@/hooks/useAnimalProfileExport';
 import { downloadAnimalProfile } from '@/lib/animalProfileExport';
-import type { ExportFormat } from '@/lib/animalProfileExport/types';
+import type {
+  ExportFormat,
+  ReportKind,
+} from '@/lib/animalProfileExport/types';
+import { cn } from '@/lib/utils';
 
 interface ExportAnimalProfileButtonProps {
   animalId: string;
@@ -50,6 +67,7 @@ export function ExportAnimalProfileButton({
   className,
 }: ExportAnimalProfileButtonProps) {
   const [open, setOpen] = useState(false);
+  const [reportKind, setReportKind] = useState<ReportKind>('full');
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const { toast } = useToast();
   const permissions = useUnifiedPermissions();
@@ -62,6 +80,11 @@ export function ExportAnimalProfileButton({
   // Farmhand-only users don't see the export (sensitive cost data).
   if (permissions.isOnlyFarmhand) return null;
 
+  const handleReportKindChange = (next: ReportKind) => {
+    hapticSelection();
+    setReportKind(next);
+  };
+
   const handleExport = async (format: ExportFormat) => {
     if (!data) {
       toast({
@@ -73,10 +96,11 @@ export function ExportAnimalProfileButton({
     }
     setExporting(format);
     try {
-      downloadAnimalProfile(data, format);
+      downloadAnimalProfile(data, format, reportKind);
       hapticNotification('success');
+      const kindLabel = reportKind === 'production' ? 'Production report' : 'Animal profile';
       toast({
-        title: 'Export ready',
+        title: `${kindLabel} ready`,
         description:
           format === 'both'
             ? 'PDF and CSV saved to your downloads.'
@@ -117,13 +141,40 @@ export function ExportAnimalProfileButton({
       </SheetTrigger>
       <SheetContent side="bottom" className="max-w-md mx-auto rounded-t-2xl">
         <SheetHeader className="text-left">
-          <SheetTitle>Export animal profile</SheetTitle>
+          <SheetTitle>Export animal data</SheetTitle>
           <SheetDescription>
-            I-export ang profile ng hayop. Pumili ng format — gagana ito kahit
-            offline.
+            I-export ang data ng hayop — gagana ito kahit offline.
           </SheetDescription>
         </SheetHeader>
+
+        {/* Report kind segmented toggle */}
+        <div className="mt-4">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            Report type · Uri ng ulat
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <ReportKindOption
+              active={reportKind === 'full'}
+              icon={<FileBadge className="h-4 w-4" />}
+              title="Full profile"
+              subtitle="Buong profile"
+              onClick={() => handleReportKindChange('full')}
+            />
+            <ReportKindOption
+              active={reportKind === 'production'}
+              icon={<LineChart className="h-4 w-4" />}
+              title="Production focus"
+              subtitle="Gatas at pakain"
+              onClick={() => handleReportKindChange('production')}
+            />
+          </div>
+        </div>
+
+        {/* Format picker */}
         <div className="mt-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Format
+          </p>
           <Button
             variant="outline"
             className="w-full justify-start h-auto py-3"
@@ -136,9 +187,11 @@ export function ExportAnimalProfileButton({
               <FileText className="h-5 w-5 mr-3 text-primary" />
             )}
             <div className="text-left">
-              <div className="font-medium">PDF — printable report</div>
+              <div className="font-medium">PDF — printable</div>
               <div className="text-xs text-muted-foreground">
-                Para sa bet, LGU subsidy, o print
+                {reportKind === 'production'
+                  ? 'Graph ng gatas at pakain'
+                  : 'Para sa bet, LGU subsidy, o print'}
               </div>
             </div>
           </Button>
@@ -154,9 +207,11 @@ export function ExportAnimalProfileButton({
               <FileSpreadsheet className="h-5 w-5 mr-3 text-primary" />
             )}
             <div className="text-left">
-              <div className="font-medium">CSV — full raw data</div>
+              <div className="font-medium">CSV — raw data</div>
               <div className="text-xs text-muted-foreground">
-                Excel / Sheets, lahat ng record
+                {reportKind === 'production'
+                  ? 'Araw-araw na gatas at pakain'
+                  : 'Excel / Sheets, lahat ng record'}
               </div>
             </div>
           </Button>
@@ -187,5 +242,42 @@ export function ExportAnimalProfileButton({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ---------- report-kind option card ----------
+interface ReportKindOptionProps {
+  active: boolean;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}
+
+function ReportKindOption({
+  active,
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: ReportKindOptionProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors touch-manipulation',
+        active
+          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+          : 'border-border hover:bg-muted/50',
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-primary">{icon}</div>
+      <div className="text-sm font-medium leading-tight">{title}</div>
+      <div className="text-[11px] text-muted-foreground leading-tight">
+        {subtitle}
+      </div>
+    </button>
   );
 }
