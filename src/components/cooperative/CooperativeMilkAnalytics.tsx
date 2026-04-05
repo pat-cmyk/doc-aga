@@ -29,7 +29,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Total: {(milk?.total_liters ?? 0).toFixed(1)} liters
+            Total: {formatNumber(milk?.total_liters ?? 0)} liters
           </CardTitle>
         </CardHeader>
         <CardContent>
