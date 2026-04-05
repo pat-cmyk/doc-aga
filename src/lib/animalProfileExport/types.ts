@@ -7,6 +7,7 @@
  *
  * Governance: see docs/ssot-architecture.md — Animal Profile Export.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- row aliases are intentionally permissive passthroughs of cached Supabase rows */
 
 export interface AnimalExportIdentity {
   id: string;

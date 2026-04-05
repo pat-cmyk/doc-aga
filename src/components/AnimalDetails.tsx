@@ -37,6 +37,7 @@ import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
 import { ExportAnimalProfileButton } from "./animal-details/ExportAnimalProfileButton";
+import { AnimalQuickActionsStrip } from "./animal-details/AnimalQuickActionsStrip";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
@@ -248,6 +249,47 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
   const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
+
+  // Persistent active tab: hash (#milking) takes precedence, then localStorage,
+  // then a gender-appropriate default. Synced back to both on change so farmers
+  // return to the same tab next time they open this animal.
+  const TAB_STORAGE_KEY = `animal-profile-tab-${animalId}`;
+  const VALID_TABS = ['milking', 'weight', 'feeding', 'health', 'ai', 'photos', 'costs'] as const;
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'weight';
+    const hash = window.location.hash.replace('#', '');
+    if ((VALID_TABS as readonly string[]).includes(hash)) return hash;
+    const stored = localStorage.getItem(TAB_STORAGE_KEY);
+    if (stored && (VALID_TABS as readonly string[]).includes(stored)) return stored;
+    return 'weight';
+  });
+  // Once the animal loads, upgrade the default to the gender-appropriate tab
+  // (milking for females) — only when the user hasn't already picked a tab
+  // via hash or localStorage.
+  useEffect(() => {
+    if (!animal) return;
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace('#', '');
+    const stored = localStorage.getItem(TAB_STORAGE_KEY);
+    if (hash || stored) return;
+    const female = animal.gender?.toLowerCase() === 'female';
+    if (female && activeTab !== 'milking') setActiveTab('milking');
+  }, [animal, activeTab, TAB_STORAGE_KEY]);
+
+  const handleTabChange = (next: string) => {
+    setActiveTab(next);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, next);
+      if (typeof window !== 'undefined') {
+        // Replace, don't push, so back button still leaves the profile cleanly.
+        const url = new URL(window.location.href);
+        url.hash = next;
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch {
+      // localStorage can throw in private mode — fall through silently.
+    }
+  };
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
@@ -1100,7 +1142,21 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         } : null}
       />
 
-      <Tabs defaultValue={isFemale ? 'milking' : 'weight'} className="space-y-4">
+      {animal && !readOnly && (
+        <AnimalQuickActionsStrip
+          animalId={animalId}
+          farmId={farmId}
+          animalName={animal.name}
+          earTag={animal.ear_tag}
+          gender={animal.gender}
+          livestockType={animal.livestock_type || 'cattle'}
+          lifeStage={animal.life_stage}
+          farmEntryDate={animal.farm_entry_date}
+          onRecorded={loadAnimal}
+        />
+      )}
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         {/* Mobile: Horizontal scrollable tabs with icons only */}
         {isMobile ? (
           <div className="relative">

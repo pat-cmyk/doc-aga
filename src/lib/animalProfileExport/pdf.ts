@@ -529,7 +529,7 @@ export function generateAnimalProfilePDF(data: AnimalProfileExportData): jsPDF {
 
 // ====================== HELPERS ======================
 
-function sliceLatest<T extends Record<string, any>>(
+function sliceLatest<T extends Record<string, unknown>>(
   rows: T[],
   days: number,
   dateKey: string,

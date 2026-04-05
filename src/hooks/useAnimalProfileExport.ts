@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- cached animal/records rows are dynamic Supabase objects */
 /**
  * useAnimalProfileExport — SSOT aggregation hook for animal profile export
  *
