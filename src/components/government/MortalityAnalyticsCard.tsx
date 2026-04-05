@@ -62,7 +62,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
         <div className="grid grid-cols-3 gap-3">
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">Total Exits</p>
-            <p className="text-xl font-bold">{totalExits}</p>
+            <p className="text-xl font-bold">{formatNumber(totalExits)}</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">Mortality Rate</p>
