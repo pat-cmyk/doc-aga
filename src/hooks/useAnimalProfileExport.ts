@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { getCachedAnimalDetails } from '@/lib/dataCache';
+import { getCachedAnimalDetails, updateRecordsCache } from '@/lib/dataCache';
 import { useBioCardData, type BioCardAnimalData } from '@/hooks/useBioCardData';
 import { useAnimalExpenseSummary } from '@/hooks/useAnimalExpenses';
 import { getIsOnline } from '@/hooks/useOnlineStatus';
@@ -87,13 +87,40 @@ export function useAnimalProfileExport(
       try {
         const details = await getCachedAnimalDetails(animalId, farmId);
         if (cancelled) return;
+
+        // If we got animal metadata but records are missing or empty, the
+        // user hasn't swiped this animal for offline use yet. The main
+        // "view full profile" path pre-caches records, but an export may
+        // be opened directly from the BioCardSheet before that happens.
+        // Force-populate the per-animal records cache from Supabase when
+        // we're online so the export isn't a pile of zeros.
+        let records = details?.records ?? null;
+        const recordsEmpty =
+          !records ||
+          ((records.milking?.length ?? 0) === 0 &&
+            (records.weight?.length ?? 0) === 0 &&
+            (records.feeding?.length ?? 0) === 0 &&
+            (records.health?.length ?? 0) === 0 &&
+            (records.ai?.length ?? 0) === 0);
+        if (details?.animal && recordsEmpty && getIsOnline()) {
+          try {
+            records = await updateRecordsCache(animalId);
+          } catch (fetchErr) {
+            console.error(
+              '[useAnimalProfileExport] failed to force-populate records cache',
+              fetchErr,
+            );
+          }
+          if (cancelled) return;
+        }
+
         setCached({
           animal: details?.animal ?? null,
           mother: details?.mother ?? null,
           father: details?.father ?? null,
           offspring: details?.offspring ?? [],
-          records: details?.records ?? null,
-          lastUpdated: details?.records?.lastUpdated ?? null,
+          records,
+          lastUpdated: records?.lastUpdated ?? null,
         });
       } catch (err) {
         console.error('[useAnimalProfileExport] cache read failed', err);

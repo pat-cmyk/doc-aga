@@ -18,6 +18,7 @@ import { ReactNode } from 'react';
 
 vi.mock('@/lib/dataCache', () => ({
   getCachedAnimalDetails: vi.fn(),
+  updateRecordsCache: vi.fn(),
 }));
 
 vi.mock('@/hooks/useBioCardData', () => ({
@@ -34,7 +35,7 @@ vi.mock('@/hooks/useOnlineStatus', () => ({
 }));
 
 import { useAnimalProfileExport } from '../useAnimalProfileExport';
-import { getCachedAnimalDetails } from '@/lib/dataCache';
+import { getCachedAnimalDetails, updateRecordsCache } from '@/lib/dataCache';
 import { useBioCardData } from '@/hooks/useBioCardData';
 import { useAnimalExpenseSummary } from '@/hooks/useAnimalExpenses';
 import { getIsOnline } from '@/hooks/useOnlineStatus';
@@ -156,6 +157,18 @@ const baseExpenseSummary = {
 beforeEach(() => {
   vi.clearAllMocks();
   (getCachedAnimalDetails as any).mockResolvedValue(baseCachedDetails);
+  (updateRecordsCache as any).mockResolvedValue({
+    animalId: 'a1',
+    milking: [],
+    weight: [],
+    feeding: [],
+    health: [],
+    ai: [],
+    heat: [],
+    breeding: [],
+    bcs: [],
+    lastUpdated: 1_712_000_000_000,
+  });
   (useBioCardData as any).mockReturnValue(baseBioCard);
   (useAnimalExpenseSummary as any).mockReturnValue({
     data: baseExpenseSummary,
@@ -260,7 +273,8 @@ describe('useAnimalProfileExport', () => {
     expect(result.current.isReady).toBe(false);
   });
 
-  it('handles empty records without crashing', async () => {
+  it('handles empty records offline without crashing (no fallback fetch)', async () => {
+    (getIsOnline as any).mockReturnValue(false);
     (getCachedAnimalDetails as any).mockResolvedValue({
       ...baseCachedDetails,
       records: null,
@@ -274,6 +288,61 @@ describe('useAnimalProfileExport', () => {
     expect(data.records.weight).toEqual([]);
     expect(data.records.health).toEqual([]);
     expect(data.records.feeding).toEqual([]);
+    // Fallback fetch must NOT run offline
+    expect(updateRecordsCache).not.toHaveBeenCalled();
+  });
+
+  it('force-populates the records cache when it is empty and online', async () => {
+    // First read: animal metadata present but no records cached yet.
+    (getCachedAnimalDetails as any).mockResolvedValue({
+      ...baseCachedDetails,
+      records: null,
+    });
+    // Fallback fetch returns real data.
+    (updateRecordsCache as any).mockResolvedValue({
+      animalId: 'a1',
+      milking: [
+        { record_date: '2026-04-01', liters: 22 },
+        { record_date: '2026-03-31', liters: 21 },
+      ],
+      weight: [{ measurement_date: '2026-03-15', weight_kg: 520 }],
+      feeding: [
+        {
+          feed_date: '2026-04-01',
+          feed_type: 'napier',
+          kilograms: 25,
+          cost_per_kg_at_time: 12,
+        },
+      ],
+      health: [],
+      ai: [],
+      heat: [],
+      breeding: [],
+      bcs: [],
+      lastUpdated: 1_712_500_000_000,
+    });
+
+    const { result } = renderHook(() => useAnimalProfileExport('a1', 'farm-1'), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    expect(updateRecordsCache).toHaveBeenCalledWith('a1');
+    const data = result.current.data!;
+    expect(data.records.milking).toHaveLength(2);
+    expect(data.records.feeding[0].feed_type).toBe('napier');
+    expect(data.records.weight).toHaveLength(1);
+    // lastUpdated must reflect the freshly-fetched timestamp
+    expect(data.meta.cacheLastUpdated).toBe(1_712_500_000_000);
+  });
+
+  it('does NOT refetch when records cache already has content', async () => {
+    // baseCachedDetails already has milking/weight/feeding rows → skip refetch
+    const { result } = renderHook(() => useAnimalProfileExport('a1', 'farm-1'), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(updateRecordsCache).not.toHaveBeenCalled();
   });
 
   it('returns null when called without a farmId', () => {

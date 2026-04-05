@@ -71,14 +71,18 @@ export function generateAnimalProfilePDF(data: AnimalProfileExportData): jsPDF {
 
   const sectionTitle = (english: string, filipino: string) => {
     ensureSpace(14);
+    // Draw English first and capture its width WHILE the bold 12pt font
+    // is still active — otherwise getTextWidth measures with the smaller
+    // subtitle font and the two strings overlap.
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(...COLORS.primary);
     doc.text(english, margin, y);
+    const englishWidth = doc.getTextWidth(english);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...COLORS.muted);
-    doc.text(filipino, margin + doc.getTextWidth(english) + 4, y);
+    doc.text(filipino, margin + englishWidth + 4, y);
     y += 6;
     doc.setTextColor(...COLORS.text);
   };
