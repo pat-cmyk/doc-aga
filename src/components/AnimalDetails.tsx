@@ -37,7 +37,6 @@ import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
 import { ExportAnimalProfileButton } from "./animal-details/ExportAnimalProfileButton";
-import { AnimalQuickActionsStrip } from "./animal-details/AnimalQuickActionsStrip";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
@@ -1142,19 +1141,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         } : null}
       />
 
-      {animal && !readOnly && (
-        <AnimalQuickActionsStrip
-          animalId={animalId}
-          farmId={farmId}
-          animalName={animal.name}
-          earTag={animal.ear_tag}
-          gender={animal.gender}
-          livestockType={animal.livestock_type || 'cattle'}
-          lifeStage={animal.life_stage}
-          farmEntryDate={animal.farm_entry_date}
-          onRecorded={loadAnimal}
-        />
-      )}
+      {/* NOTE: AnimalQuickActionsStrip intentionally NOT mounted here.
+          The same strip already lives in BioCardSheet (the drawer that
+          opens when a farmer taps an animal card), which is the primary
+          entry point for quick recording. Repeating it here is redundant
+          since each tab already has its own "+ Add record" button. */}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         {/* Mobile: Horizontal scrollable tabs with icons only */}

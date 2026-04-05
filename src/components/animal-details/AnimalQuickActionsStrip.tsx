@@ -68,6 +68,7 @@ export function AnimalQuickActionsStrip({
   const isFemale = gender?.toLowerCase() === 'female';
   const displayName = animalName ?? earTag ?? 'Animal';
   const compactGridCols = isFemale ? 'grid-cols-3' : 'grid-cols-2';
+  const buttonSizing = isCompact ? 'w-full justify-center' : 'shrink-0';
 
   const handleOpen = (opener: (v: boolean) => void) => {
     hapticSelection();
@@ -89,15 +90,15 @@ export function AnimalQuickActionsStrip({
           <Button
             variant="outline"
             size="sm"
-            className={`${isCompact ? 'w-full justify-center' : 'shrink-0'} h-11 gap-1.5 touch-manipulation`}
+            className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
             onClick={() => handleOpen(setOpenMilk)}
             disabled={!isOnline}
           >
-            <Milk className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium">
+            <Milk className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-xs font-medium leading-tight">
               Record milk
-              <span className="block text-[10px] text-muted-foreground font-normal">
-                I-record ang gatas
+              <span className="block text-[9px] text-muted-foreground font-normal">
+                Gatas
               </span>
             </span>
           </Button>
@@ -105,30 +106,30 @@ export function AnimalQuickActionsStrip({
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 h-11 gap-1.5 touch-manipulation"
+          className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
           onClick={() => handleOpen(setOpenWeight)}
           disabled={!isOnline}
         >
-          <Scale className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium">
+          <Scale className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-xs font-medium leading-tight">
             Add weight
-            <span className="block text-[10px] text-muted-foreground font-normal">
-              Magdagdag ng timbang
+            <span className="block text-[9px] text-muted-foreground font-normal">
+              Timbang
             </span>
           </span>
         </Button>
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 h-11 gap-1.5 touch-manipulation"
+          className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
           onClick={() => handleOpen(setOpenHealth)}
           disabled={!isOnline}
         >
-          <Stethoscope className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium">
+          <Stethoscope className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-xs font-medium leading-tight">
             Log health
-            <span className="block text-[10px] text-muted-foreground font-normal">
-              Mag-log ng kalusugan
+            <span className="block text-[9px] text-muted-foreground font-normal">
+              Kalusugan
             </span>
           </span>
         </Button>
