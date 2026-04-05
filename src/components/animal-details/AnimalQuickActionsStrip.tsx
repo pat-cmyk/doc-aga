@@ -36,8 +36,11 @@ interface AnimalQuickActionsStripProps {
   gender: string | null;
   livestockType: string;
   lifeStage: string | null;
-  farmEntryDate: string | null;
+  /** Optional — used to constrain date pickers in the recording dialogs. */
+  farmEntryDate?: string | null;
   readOnly?: boolean;
+  /** Visual density — "compact" for embedding inside the BioCardSheet drawer. */
+  variant?: 'default' | 'compact';
   onRecorded?: () => void;
 }
 
@@ -49,10 +52,12 @@ export function AnimalQuickActionsStrip({
   gender,
   livestockType,
   lifeStage,
-  farmEntryDate,
+  farmEntryDate = null,
   readOnly = false,
+  variant = 'default',
   onRecorded,
 }: AnimalQuickActionsStripProps) {
+  const isCompact = variant === 'compact';
   const [openMilk, setOpenMilk] = useState(false);
   const [openWeight, setOpenWeight] = useState(false);
   const [openHealth, setOpenHealth] = useState(false);
@@ -62,6 +67,7 @@ export function AnimalQuickActionsStrip({
 
   const isFemale = gender?.toLowerCase() === 'female';
   const displayName = animalName ?? earTag ?? 'Animal';
+  const compactGridCols = isFemale ? 'grid-cols-3' : 'grid-cols-2';
 
   const handleOpen = (opener: (v: boolean) => void) => {
     hapticSelection();
@@ -71,7 +77,11 @@ export function AnimalQuickActionsStrip({
   return (
     <>
       <div
-        className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 -mx-1 px-1"
+        className={
+          isCompact
+            ? `grid ${compactGridCols} gap-2`
+            : 'flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 -mx-1 px-1'
+        }
         role="toolbar"
         aria-label="Quick record actions for this animal"
       >
@@ -79,7 +89,7 @@ export function AnimalQuickActionsStrip({
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 h-11 gap-1.5 touch-manipulation"
+            className={`${isCompact ? 'w-full justify-center' : 'shrink-0'} h-11 gap-1.5 touch-manipulation`}
             onClick={() => handleOpen(setOpenMilk)}
             disabled={!isOnline}
           >

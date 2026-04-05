@@ -28,11 +28,19 @@ context between visits.
   button + bottom-sheet format picker (PDF / CSV / both). Hidden for
   `isOnlyFarmhand` (sensitive cost data). Shows "Offline snapshot" note
   when disconnected.
-- **`src/components/animal-details/AnimalQuickActionsStrip.tsx`** — Always-
-  visible row of chips (Milk / Weight / Health) between BioCardSummary and
-  the tabs. Opens the existing standalone Record dialogs directly with the
-  animal pre-selected. Cuts top record-entry flows from 4–5 taps to 2.
-  Milk chip hidden for males. Taglish labels.
+- **`src/components/animal-details/AnimalQuickActionsStrip.tsx`** — Reusable
+  row of chips (Milk / Weight / Health) that opens the existing standalone
+  Record dialogs directly with the animal pre-selected. Supports two
+  variants: `default` (horizontal scroll, used above the tabs inside
+  `AnimalDetails`) and `compact` (3-column grid, used inside the
+  `BioCardSheet` drawer — see below). Milk chip hidden for males. Taglish
+  labels.
+- **`src/components/animals/BioCardSheet.tsx`** — The quick-view drawer that
+  opens when a farmer taps an animal card now embeds the quick action
+  strip in its footer, **above** the "View Full Records" CTA. This is the
+  critical placement: farmers no longer need to open the full profile at
+  all for the most common flow. Record milk now takes **3 taps total**:
+  Animals tab → animal card → Milk chip → dialog.
 
 ### Changed
 - **`src/components/AnimalDetails.tsx`** — Wired `ExportAnimalProfileButton`

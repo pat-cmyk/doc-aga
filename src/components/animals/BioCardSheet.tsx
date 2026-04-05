@@ -12,6 +12,8 @@ import {
 import { BioCard, BioCardSkeleton } from "@/components/bio-card/BioCard";
 import { useBioCardData, type BioCardAnimalData } from "@/hooks/useBioCardData";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AnimalQuickActionsStrip } from "@/components/animal-details/AnimalQuickActionsStrip";
+import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 
 interface BioCardSheetProps {
   animal: BioCardAnimalData | null;
@@ -30,6 +32,8 @@ export function BioCardSheet({
 }: BioCardSheetProps) {
   const isMobile = useIsMobile();
   const bioData = useBioCardData(animal, farmId);
+  const permissions = useUnifiedPermissions();
+  const canRecord = permissions.canCreateRecords;
 
   const handleViewDetails = () => {
     onOpenChange(false);
@@ -87,12 +91,28 @@ export function BioCardSheet({
           )}
         </div>
 
-        {/* Fixed footer with action button */}
-        <div className="border-t px-4 py-3 bg-background">
+        {/* Fixed footer — quick record actions + full-records CTA.
+            The strip lives HERE (not just in AnimalDetails) so the common
+            "record milk / weight / health" flow is 3 taps total:
+            Animals tab → animal card → record chip → dialog. */}
+        <div className="border-t px-4 py-3 bg-background space-y-3">
+          {canRecord && (
+            <AnimalQuickActionsStrip
+              animalId={animal.id}
+              farmId={farmId}
+              animalName={animal.name}
+              earTag={animal.ear_tag}
+              gender={animal.gender}
+              livestockType={animal.livestock_type}
+              lifeStage={animal.life_stage}
+              variant="compact"
+            />
+          )}
           <Button
             onClick={handleViewDetails}
             className="w-full"
             size="lg"
+            variant="outline"
           >
             <span>View Full Records</span>
             <span className="text-muted-foreground/70 ml-1 text-sm">
