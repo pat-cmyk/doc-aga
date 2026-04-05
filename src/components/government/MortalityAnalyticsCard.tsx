@@ -104,7 +104,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [`${value} animals`, '']}
+                  formatter={(value: number) => [`${formatNumber(value)} animals`, '']}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
