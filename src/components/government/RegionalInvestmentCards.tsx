@@ -54,7 +54,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.averageInvestmentPerFarm)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.farmCount.toLocaleString()} farms
+            {formatNumber(data.farmCount)} farms
           </p>
         </CardContent>
       </Card>
