@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useCooperativeMilkProduction } from "@/hooks/useCooperative";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
