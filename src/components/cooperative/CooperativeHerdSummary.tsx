@@ -33,7 +33,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">
-        Herd Summary — {herd?.total_animals ?? 0} Animals
+        Herd Summary — {formatNumber(herd?.total_animals ?? 0)} Animals
       </h2>
 
       <div className="grid gap-4 md:grid-cols-2">
