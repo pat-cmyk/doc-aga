@@ -132,7 +132,7 @@ export const MilkProductionBySpeciesChart = ({
               <span className="w-2 h-2 rounded-full bg-chart-3" />
               Carabao ({carabaoPercent}%)
             </div>
-            <div className="text-xl font-semibold">{data.totalCarabaoMilk.toLocaleString()}L</div>
+            <div className="text-xl font-semibold">{formatNumber(data.totalCarabaoMilk)}L</div>
             {data.avgCarabaoPrice && (
               <div className="text-xs text-muted-foreground">~₱{data.avgCarabaoPrice.toFixed(0)}/L</div>
             )}
