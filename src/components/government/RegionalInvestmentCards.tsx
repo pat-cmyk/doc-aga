@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Building2, Users, TrendingUp } from "lucide-react";
 import { useRegionalInvestment } from "@/hooks/useRegionalInvestment";
-import { formatPHP } from "@/lib/currency";
+import { formatPHP, formatNumber } from "@/lib/currency";
 import { DataCategory } from "@/types/government";
 
 interface RegionalInvestmentCardsProps {
