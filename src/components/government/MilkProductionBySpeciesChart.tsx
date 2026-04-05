@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { format, parseISO } from "date-fns";
 import { Droplets, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
-import { formatPHPCompact } from "@/lib/currency";
+import { formatPHPCompact, formatNumber } from "@/lib/currency";
 import { DataCategory } from "@/types/government";
 
 interface MilkProductionBySpeciesChartProps {
@@ -99,7 +99,7 @@ export const MilkProductionBySpeciesChart = ({
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Total Milk</div>
-            <div className="text-2xl font-bold">{data.totalMilk.toLocaleString()}L</div>
+            <div className="text-2xl font-bold">{formatNumber(data.totalMilk)}L</div>
           </CardContent>
         </Card>
         <Card>
@@ -108,7 +108,7 @@ export const MilkProductionBySpeciesChart = ({
               <span className="w-2 h-2 rounded-full bg-chart-1" />
               Cattle ({cattlePercent}%)
             </div>
-            <div className="text-xl font-semibold">{data.totalCattleMilk.toLocaleString()}L</div>
+            <div className="text-xl font-semibold">{formatNumber(data.totalCattleMilk)}L</div>
             {data.avgCattlePrice && (
               <div className="text-xs text-muted-foreground">~₱{data.avgCattlePrice.toFixed(0)}/L</div>
             )}
@@ -120,7 +120,7 @@ export const MilkProductionBySpeciesChart = ({
               <span className="w-2 h-2 rounded-full bg-chart-2" />
               Goat ({goatPercent}%)
             </div>
-            <div className="text-xl font-semibold">{data.totalGoatMilk.toLocaleString()}L</div>
+            <div className="text-xl font-semibold">{formatNumber(data.totalGoatMilk)}L</div>
             {data.avgGoatPrice && (
               <div className="text-xs text-muted-foreground">~₱{data.avgGoatPrice.toFixed(0)}/L</div>
             )}
@@ -132,7 +132,7 @@ export const MilkProductionBySpeciesChart = ({
               <span className="w-2 h-2 rounded-full bg-chart-3" />
               Carabao ({carabaoPercent}%)
             </div>
-            <div className="text-xl font-semibold">{data.totalCarabaoMilk.toLocaleString()}L</div>
+            <div className="text-xl font-semibold">{formatNumber(data.totalCarabaoMilk)}L</div>
             {data.avgCarabaoPrice && (
               <div className="text-xs text-muted-foreground">~₱{data.avgCarabaoPrice.toFixed(0)}/L</div>
             )}
@@ -209,10 +209,10 @@ export const MilkProductionBySpeciesChart = ({
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-lg">
                         <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
-                        <p className="text-sm font-medium mb-1">Total: {total.toLocaleString()}L</p>
+                        <p className="text-sm font-medium mb-1">Total: {formatNumber(total)}L</p>
                         {payload.map((entry: any, index: number) => (
                           <p key={index} className="text-sm" style={{ color: entry.color }}>
-                            {entry.name}: {Number(entry.value).toLocaleString()}L
+                            {entry.name}: {formatNumber(Number(entry.value))}L
                           </p>
                         ))}
                       </div>

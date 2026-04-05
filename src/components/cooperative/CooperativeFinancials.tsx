@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import { useCooperativeFinancialSummary } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
@@ -33,7 +34,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱{(fin?.total_revenue ?? 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">₱{formatNumber(fin?.total_revenue ?? 0)}</div>
           </CardContent>
         </Card>
 
@@ -43,7 +44,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱{(fin?.total_expenses ?? 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">₱{formatNumber(fin?.total_expenses ?? 0)}</div>
           </CardContent>
         </Card>
 
@@ -53,7 +54,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netIncome >= 0 ? "text-green-600" : "text-red-500"}`}>
-              ₱{netIncome.toLocaleString()}
+              ₱{formatNumber(netIncome)}
             </div>
           </CardContent>
         </Card>
@@ -69,7 +70,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
               {fin.revenue_by_farm.map((f: any) => (
                 <div key={f.farm_id} className="flex items-center justify-between text-sm">
                   <span>{f.farm_name}</span>
-                  <span className="font-medium">₱{f.total.toLocaleString()}</span>
+                  <span className="font-medium">₱{formatNumber(f.total ?? 0)}</span>
                 </div>
               ))}
             </div>

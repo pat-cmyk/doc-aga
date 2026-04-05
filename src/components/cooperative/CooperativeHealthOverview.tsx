@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Skull, Stethoscope } from "lucide-react";
 import { useCooperativeHealthOverview } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
@@ -28,7 +29,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
             <Stethoscope className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{health?.total_records_30d ?? 0}</div>
+            <div className="text-2xl font-bold">{formatNumber(health?.total_records_30d ?? 0)}</div>
           </CardContent>
         </Card>
 
@@ -38,7 +39,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
             <Skull className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{health?.mortality_30d ?? 0}</div>
+            <div className="text-2xl font-bold">{formatNumber(health?.mortality_30d ?? 0)}</div>
           </CardContent>
         </Card>
       </div>
@@ -53,7 +54,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
               {health.by_diagnosis.map((d: any, i: number) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span>{d.diagnosis}</span>
-                  <span className="font-medium">{d.count}</span>
+                  <span className="font-medium">{formatNumber(d.count)}</span>
                 </div>
               ))}
             </div>

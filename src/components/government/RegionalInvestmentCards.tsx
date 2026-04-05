@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Building2, Users, TrendingUp } from "lucide-react";
 import { useRegionalInvestment } from "@/hooks/useRegionalInvestment";
-import { formatPHP } from "@/lib/currency";
+import { formatPHP, formatNumber } from "@/lib/currency";
 import { DataCategory } from "@/types/government";
 
 interface RegionalInvestmentCardsProps {
@@ -41,7 +41,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.totalHerdInvestment)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.animalCount.toLocaleString()} animals
+            {formatNumber(data.animalCount)} animals
           </p>
         </CardContent>
       </Card>
@@ -54,7 +54,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.averageInvestmentPerFarm)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.farmCount.toLocaleString()} farms
+            {formatNumber(data.farmCount)} farms
           </p>
         </CardContent>
       </Card>
@@ -80,7 +80,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.avgPurchasePrice)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.purchasedAnimalCount.toLocaleString()} purchased
+            {formatNumber(data.purchasedAnimalCount)} purchased
           </p>
         </CardContent>
       </Card>

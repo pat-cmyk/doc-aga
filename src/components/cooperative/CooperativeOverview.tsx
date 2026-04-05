@@ -6,6 +6,7 @@ import {
   useCooperativeMilkProduction,
   useCooperativeHealthOverview,
 } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
@@ -37,13 +38,13 @@ export const CooperativeOverview = ({ cooperativeId }: Props) => {
     },
     {
       title: "Total Animals",
-      value: herd?.total_animals ?? 0,
+      value: formatNumber(herd?.total_animals ?? 0),
       icon: PawPrint,
       description: herd?.by_species?.map((s: any) => `${s.count} ${s.species}`).join(", ") || "No animals",
     },
     {
       title: "Milk (30 days)",
-      value: `${(milk?.total_liters ?? 0).toFixed(1)} L`,
+      value: `${formatNumber(milk?.total_liters ?? 0)} L`,
       icon: Milk,
       description: `From ${milk?.by_farm?.length ?? 0} farms`,
     },
