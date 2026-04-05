@@ -66,7 +66,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
               {milk.by_farm.map((f: any) => (
                 <div key={f.farm_id} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{f.farm_name}</span>
-                  <span className="text-sm text-muted-foreground">{f.total_liters.toFixed(1)} L</span>
+                  <span className="text-sm text-muted-foreground">{(f.total_liters ?? 0).toFixed(1)} L</span>
                 </div>
               ))}
             </div>
