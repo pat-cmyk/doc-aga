@@ -6,6 +6,7 @@ import {
   useCooperativeMilkProduction,
   useCooperativeHealthOverview,
 } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
