@@ -44,7 +44,7 @@ export const CooperativeOverview = ({ cooperativeId }: Props) => {
     },
     {
       title: "Milk (30 days)",
-      value: `${(milk?.total_liters ?? 0).toFixed(1)} L`,
+      value: `${formatNumber(milk?.total_liters ?? 0)} L`,
       icon: Milk,
       description: `From ${milk?.by_farm?.length ?? 0} farms`,
     },

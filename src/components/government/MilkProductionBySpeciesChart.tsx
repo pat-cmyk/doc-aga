@@ -209,10 +209,10 @@ export const MilkProductionBySpeciesChart = ({
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-lg">
                         <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
-                        <p className="text-sm font-medium mb-1">Total: {total.toLocaleString()}L</p>
+                        <p className="text-sm font-medium mb-1">Total: {formatNumber(total)}L</p>
                         {payload.map((entry: any, index: number) => (
                           <p key={index} className="text-sm" style={{ color: entry.color }}>
-                            {entry.name}: {Number(entry.value).toLocaleString()}L
+                            {entry.name}: {formatNumber(Number(entry.value))}L
                           </p>
                         ))}
                       </div>

@@ -193,7 +193,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.health_event_count || 0).toLocaleString()}
+                {formatNumber(stats.health_event_count || 0)}
               </div>
               <GrowthIndicator value={stats.healthGrowth || 0} />
             </>

@@ -54,7 +54,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
               {health.by_diagnosis.map((d: any, i: number) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span>{d.diagnosis}</span>
-                  <span className="font-medium">{d.count}</span>
+                  <span className="font-medium">{formatNumber(d.count)}</span>
                 </div>
               ))}
             </div>

@@ -53,7 +53,7 @@ export const MilkProductionSummaryCard = ({
       <CardContent className="space-y-3">
         <div>
           <div className="text-2xl font-bold">
-            {totalMilk > 0 ? `${totalMilk.toLocaleString("en-PH", { maximumFractionDigits: 0 })} L` : "No data"}
+            {totalMilk > 0 ? `${formatNumber(totalMilk)} L` : "No data"}
           </div>
           {data?.totalRevenueEstimate ? (
             <div className="text-xs text-muted-foreground flex items-center gap-1">

@@ -131,7 +131,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
               >
                 <Icon className="h-4 w-4" style={{ color: item.color }} />
                 <span className="flex-1">{item.name}</span>
-                <span className="font-medium">{item.value}</span>
+                <span className="font-medium">{formatNumber(item.value)}</span>
               </div>
             );
           })}

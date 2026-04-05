@@ -70,7 +70,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
               {fin.revenue_by_farm.map((f: any) => (
                 <div key={f.farm_id} className="flex items-center justify-between text-sm">
                   <span>{f.farm_name}</span>
-                  <span className="font-medium">₱{f.total.toLocaleString()}</span>
+                  <span className="font-medium">₱{formatNumber(f.total ?? 0)}</span>
                 </div>
               ))}
             </div>

@@ -79,7 +79,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
                 {herd.by_breed.slice(0, 10).map((b: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span>{b.breed}</span>
-                    <span className="font-medium">{b.count}</span>
+                    <span className="font-medium">{formatNumber(b.count)}</span>
                   </div>
                 ))}
               </div>

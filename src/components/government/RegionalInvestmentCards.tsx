@@ -80,7 +80,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.avgPurchasePrice)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.purchasedAnimalCount.toLocaleString()} purchased
+            {formatNumber(data.purchasedAnimalCount)} purchased
           </p>
         </CardContent>
       </Card>
