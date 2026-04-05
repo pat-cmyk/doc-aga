@@ -145,7 +145,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.active_animal_count || 0).toLocaleString()}
+                {formatNumber(stats.active_animal_count || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Registered in the system
