@@ -45,7 +45,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
                 <YAxis className="text-xs" />
                 <Tooltip
                   labelFormatter={(d) => new Date(d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}
-                  formatter={(v: number) => [`${v.toFixed(1)} L`, "Production"]}
+                  formatter={(v: number) => [`${formatNumber(v)} L`, "Production"]}
                 />
                 <Bar dataKey="liters" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
