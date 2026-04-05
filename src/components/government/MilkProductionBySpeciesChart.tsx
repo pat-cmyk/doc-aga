@@ -120,7 +120,7 @@ export const MilkProductionBySpeciesChart = ({
               <span className="w-2 h-2 rounded-full bg-chart-2" />
               Goat ({goatPercent}%)
             </div>
-            <div className="text-xl font-semibold">{data.totalGoatMilk.toLocaleString()}L</div>
+            <div className="text-xl font-semibold">{formatNumber(data.totalGoatMilk)}L</div>
             {data.avgGoatPrice && (
               <div className="text-xs text-muted-foreground">~₱{data.avgGoatPrice.toFixed(0)}/L</div>
             )}
