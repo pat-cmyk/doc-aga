@@ -41,7 +41,7 @@ export function RegionalInvestmentCards({ region, province, municipality, dataCa
           </div>
           <p className="text-xl font-bold">{formatPHP(data.totalHerdInvestment)}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.animalCount.toLocaleString()} animals
+            {formatNumber(data.animalCount)} animals
           </p>
         </CardContent>
       </Card>
