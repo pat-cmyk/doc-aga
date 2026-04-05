@@ -44,7 +44,7 @@ export const CooperativeFinancials = ({ cooperativeId }: Props) => {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱{(fin?.total_expenses ?? 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">₱{formatNumber(fin?.total_expenses ?? 0)}</div>
           </CardContent>
         </Card>
 
