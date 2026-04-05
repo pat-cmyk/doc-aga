@@ -38,7 +38,7 @@ export const CooperativeOverview = ({ cooperativeId }: Props) => {
     },
     {
       title: "Total Animals",
-      value: herd?.total_animals ?? 0,
+      value: formatNumber(herd?.total_animals ?? 0),
       icon: PawPrint,
       description: herd?.by_species?.map((s: any) => `${s.count} ${s.species}`).join(", ") || "No animals",
     },
