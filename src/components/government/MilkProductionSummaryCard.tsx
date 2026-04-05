@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGovernmentMilkAnalytics } from "@/hooks/useGovernmentMilkAnalytics";
 import { Droplets, TrendingUp } from "lucide-react";
 import { DataCategory } from "@/types/government";
-import { formatPHPCompact } from "@/lib/currency";
+import { formatPHPCompact, formatNumber } from "@/lib/currency";
 
 interface MilkProductionSummaryCardProps {
   startDate: Date;
