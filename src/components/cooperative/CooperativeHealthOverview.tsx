@@ -29,7 +29,7 @@ export const CooperativeHealthOverview = ({ cooperativeId }: Props) => {
             <Stethoscope className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{health?.total_records_30d ?? 0}</div>
+            <div className="text-2xl font-bold">{formatNumber(health?.total_records_30d ?? 0)}</div>
           </CardContent>
         </Card>
 
