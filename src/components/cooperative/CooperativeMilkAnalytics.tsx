@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useCooperativeMilkProduction } from "@/hooks/useCooperative";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { formatNumber } from "@/lib/currency";
 
 interface Props {
   cooperativeId: string;
@@ -28,7 +29,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Total: {(milk?.total_liters ?? 0).toFixed(1)} liters
+            Total: {formatNumber(milk?.total_liters ?? 0)} liters
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -44,7 +45,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
                 <YAxis className="text-xs" />
                 <Tooltip
                   labelFormatter={(d) => new Date(d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}
-                  formatter={(v: number) => [`${v.toFixed(1)} L`, "Production"]}
+                  formatter={(v: number) => [`${formatNumber(v)} L`, "Production"]}
                 />
                 <Bar dataKey="liters" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -66,7 +67,7 @@ export const CooperativeMilkAnalytics = ({ cooperativeId }: Props) => {
               {milk.by_farm.map((f: any) => (
                 <div key={f.farm_id} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{f.farm_name}</span>
-                  <span className="text-sm text-muted-foreground">{f.total_liters.toFixed(1)} L</span>
+                  <span className="text-sm text-muted-foreground">{formatNumber(f.total_liters ?? 0)} L</span>
                 </div>
               ))}
             </div>

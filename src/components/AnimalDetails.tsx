@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { addDays, differenceInDays, formatDistanceToNow } from "date-fns";
+import { GESTATION_DAYS } from "@/types/fertility";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
@@ -206,6 +207,8 @@ interface Animal {
   is_currently_lactating: boolean | null;
   estimated_days_in_milk: number | null;
   fertility_status: string | null;
+  last_ai_date: string | null;
+  last_calving_date: string | null;
 }
 
 interface ParentAnimal {
@@ -442,34 +445,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
-        // Get latest AI record with pregnancy info
-        const { data: aiRecords } = await supabase
-          .from("ai_records")
-          .select("performed_date, pregnancy_confirmed, expected_delivery_date")
-          .eq("animal_id", animalId)
-          .not("performed_date", "is", null)
-          .order("performed_date", { ascending: false })
-          .limit(1);
-        
-        // Use fertility_status (SSOT from DB trigger) to guard pregnancy display
-        const isConfirmedPregnant = data.fertility_status === 'confirmed_pregnant';
-        if (isConfirmedPregnant && aiRecords?.[0]?.expected_delivery_date) {
-          setExpectedDeliveryDate(aiRecords[0].expected_delivery_date);
-        } else if (isConfirmedPregnant) {
-          // New lifecycle path stores expected_delivery_date in breeding_events metadata
-          const { data: pregEvent } = await supabase
-            .from('breeding_events')
-            .select('metadata')
-            .eq('animal_id', animalId)
-            .eq('event_type', 'pregnancy_confirmed')
-            .order('event_date', { ascending: false })
-            .limit(1);
-          const metaDate = (pregEvent?.[0]?.metadata as any)?.expected_delivery_date;
-          setExpectedDeliveryDate(metaDate || null);
-        } else {
-          setExpectedDeliveryDate(null);
-        }
-        
         // Get recent milking records (last 30 days)
         const { data: milkingRecords } = await supabase
           .from("milking_records")
@@ -485,7 +460,39 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         
         // Derive hasActiveAI from fertility_status (SSOT from DB trigger)
         const hasActiveAI = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
-        
+
+        // Compute expected delivery date for pregnant animals (same block as stageData)
+        if (hasActiveAI) {
+          // Try animal.last_ai_date first, then fall back to ai_records query
+          const aiDate = data.last_ai_date;
+          if (aiDate) {
+            const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+            setExpectedDeliveryDate(addDays(new Date(aiDate), gestationDays).toISOString().split('T')[0]);
+          } else {
+            // last_ai_date not set — query ai_records directly
+            const { data: aiRecord } = await supabase
+              .from('ai_records')
+              .select('performed_date, scheduled_date, expected_delivery_date')
+              .eq('animal_id', animalId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (aiRecord?.expected_delivery_date) {
+              setExpectedDeliveryDate(aiRecord.expected_delivery_date);
+            } else {
+              const fallbackDate = aiRecord?.performed_date || aiRecord?.scheduled_date;
+              if (fallbackDate) {
+                const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+                setExpectedDeliveryDate(addDays(new Date(fallbackDate), gestationDays).toISOString().split('T')[0]);
+              } else {
+                setExpectedDeliveryDate(null);
+              }
+            }
+          }
+        } else {
+          setExpectedDeliveryDate(null);
+        }
+
         setStageData({
           birthDate: data.birth_date ? new Date(data.birth_date) : null,
           gender: data.gender,
@@ -737,12 +744,20 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
                     />
                   )}
-                  {expectedDeliveryDate && (
-                    <Badge className="bg-green-500 hover:bg-green-600 text-xs">
-                      <Baby className="h-3 w-3 mr-1" />
-                      Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
-                    </Badge>
-                  )}
+                  {expectedDeliveryDate && (() => {
+                    const daysUntilDue = differenceInDays(new Date(expectedDeliveryDate), new Date());
+                    const badgeColor = daysUntilDue <= 14
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : daysUntilDue <= 30
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-green-500 hover:bg-green-600';
+                    return (
+                      <Badge className={`${badgeColor} text-xs`}>
+                        <Baby className="h-3 w-3 mr-1" />
+                        Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <CardDescription className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
@@ -1303,6 +1318,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
             livestockType={animal?.livestock_type || undefined}
+            animalBreed={animal?.breed || undefined}
             readOnly={readOnly}
             birthDate={animal?.birth_date}
             lifeStage={animal?.life_stage}

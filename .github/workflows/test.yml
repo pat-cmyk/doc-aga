@@ -34,7 +34,7 @@ jobs:
 
       - name: Report test results to dashboard
         if: always()
-        run: node scripts/report-test-results.js
+        run: node scripts/report-test-results.cjs
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

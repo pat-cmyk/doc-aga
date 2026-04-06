@@ -4,6 +4,7 @@ import { TimeseriesDataPoint } from "@/hooks/useGovernmentStats";
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { format, parseISO } from "date-fns";
 import { TrendingUp, Activity, Layers } from "lucide-react";
+import { formatNumber } from "@/lib/currency";
 import { useResponsiveChart } from "@/hooks/useResponsiveChart";
 
 interface GovTrendChartsProps {
@@ -101,7 +102,7 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
           <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+              {entry.name}: {typeof entry.value === 'number' ? formatNumber(entry.value) : entry.value}
               {entry.dataKey === 'totalMilk' || entry.dataKey === 'comparisonTotalMilk' ? 'L' : ''}
             </p>
           ))}
@@ -235,12 +236,12 @@ export const GovTrendCharts = ({ data, comparisonData, isLoading, error, compari
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-lg">
                         <p className="font-semibold mb-2">{payload[0]?.payload?.fullDate}</p>
-                        <p className="text-sm font-medium text-foreground mb-1">Total: {total.toLocaleString()} animals</p>
+                        <p className="text-sm font-medium text-foreground mb-1">Total: {formatNumber(total)} animals</p>
                         {payload.map((entry: any, index: number) => {
                           const percentage = total > 0 ? ((Number(entry.value) / total) * 100).toFixed(1) : '0';
                           return (
                             <p key={index} className="text-sm" style={{ color: entry.color }}>
-                              {entry.name}: {Number(entry.value).toLocaleString()} ({percentage}%)
+                              {entry.name}: {formatNumber(Number(entry.value))} ({percentage}%)
                             </p>
                           );
                         })}

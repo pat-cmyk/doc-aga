@@ -4486,7 +4486,9 @@ export type Database = {
       }
       get_cooperative_farm_ids: {
         Args: { _cooperative_id: string }
-        Returns: string[]
+        Returns: {
+          farm_id: string
+        }[]
       }
       get_cooperative_financial_summary: {
         Args: { _cooperative_id: string; _days?: number }
@@ -4517,6 +4519,7 @@ export type Database = {
           farm_id: string
           farm_name: string
           invitation_status: string
+          membership_id: string
           municipality: string
           region: string
         }[]
@@ -5160,6 +5163,7 @@ export type Database = {
       is_merchant: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_vet: { Args: { _farm_id: string; _user_id: string }; Returns: boolean }
+      leave_cooperative: { Args: { _membership_id: string }; Returns: string }
       log_user_activity: {
         Args: {
           _activity_category: string
@@ -5186,6 +5190,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      remove_farm_from_cooperative: {
+        Args: { _cooperative_id: string; _membership_id: string }
+        Returns: string
       }
       requires_approval: {
         Args: { _activity_type: string; _farm_id: string; _user_id: string }

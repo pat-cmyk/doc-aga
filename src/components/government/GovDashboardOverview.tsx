@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Users, FileText, TrendingUp, TrendingDown } from "lucide-react";
+import { formatNumber } from "@/lib/currency";
 import { GovStatsWithGrowth } from "@/hooks/useGovernmentStats";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -85,11 +86,11 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
     return (
       <div className="space-y-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold">{primary.toLocaleString()}</span>
+          <span className="text-2xl font-bold">{formatNumber(primary)}</span>
           <span className="text-xs text-muted-foreground">primary</span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-lg font-semibold text-muted-foreground">{comparison.toLocaleString()}</span>
+          <span className="text-lg font-semibold text-muted-foreground">{formatNumber(comparison)}</span>
           <span className="text-xs text-muted-foreground">comparison</span>
         </div>
         <div className="flex items-center gap-1 text-xs">
@@ -99,7 +100,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
             <TrendingDown className="h-3 w-3 text-red-500" />
           ) : null}
           <span className={isPositive ? "text-green-600" : diff < 0 ? "text-red-600" : "text-muted-foreground"}>
-            {isPositive ? "+" : ""}{diff.toLocaleString()} ({isPositive ? "+" : ""}{percentChange}%)
+            {isPositive ? "+" : ""}{formatNumber(diff)} ({isPositive ? "+" : ""}{percentChange}%)
           </span>
         </div>
       </div>
@@ -122,7 +123,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
             />
           ) : (
             <>
-              <div className="text-2xl font-bold">{(stats.farm_count || 0).toLocaleString()}</div>
+              <div className="text-2xl font-bold">{formatNumber(stats.farm_count || 0)}</div>
               <GrowthIndicator value={stats.farmGrowth || 0} />
             </>
           )}
@@ -144,7 +145,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.active_animal_count || 0).toLocaleString()}
+                {formatNumber(stats.active_animal_count || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Registered in the system
@@ -169,7 +170,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.daily_log_count || 0).toLocaleString()}
+                {formatNumber(stats.daily_log_count || 0)}
               </div>
               <GrowthIndicator value={stats.logGrowth || 0} />
             </>
@@ -192,7 +193,7 @@ export const GovDashboardOverview = ({ stats, comparisonStats, isLoading, error,
           ) : (
             <>
               <div className="text-2xl font-bold">
-                {(stats.health_event_count || 0).toLocaleString()}
+                {formatNumber(stats.health_event_count || 0)}
               </div>
               <GrowthIndicator value={stats.healthGrowth || 0} />
             </>

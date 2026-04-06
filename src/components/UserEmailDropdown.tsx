@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Store, Shield, BarChart3, Settings, Users } from "lucide-react";
 import { showErrorToast } from "@/lib/errorHandling";
 
 export const UserEmailDropdown = () => {
@@ -150,6 +150,13 @@ export const UserEmailDropdown = () => {
           </DropdownMenuItem>
         )}
         
+        {globalRoles.includes("cooperative") && (
+          <DropdownMenuItem onClick={() => navigate("/cooperative")}>
+            <Users className="mr-2 h-4 w-4" />
+            <span>Cooperative Portal</span>
+          </DropdownMenuItem>
+        )}
+
         {globalRoles.includes("government") && (
           <DropdownMenuItem onClick={() => navigate("/government")}>
             <BarChart3 className="mr-2 h-4 w-4" />

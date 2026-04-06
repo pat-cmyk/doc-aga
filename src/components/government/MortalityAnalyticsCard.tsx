@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Skull, ShoppingCart, Scissors, ArrowRightLeft, Beef, TrendingDown } from "lucide-react";
-import { formatPHP } from "@/lib/currency";
+import { formatPHP, formatNumber } from "@/lib/currency";
 import { GovernmentHealthStats } from "@/hooks/useGovernmentHealthStats";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -62,7 +62,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
         <div className="grid grid-cols-3 gap-3">
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">Total Exits</p>
-            <p className="text-xl font-bold">{totalExits}</p>
+            <p className="text-xl font-bold">{formatNumber(totalExits)}</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">Mortality Rate</p>
@@ -104,7 +104,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [`${value} animals`, '']}
+                  formatter={(value: number) => [`${formatNumber(value)} animals`, '']}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
@@ -131,7 +131,7 @@ export function MortalityAnalyticsCard({ stats, isLoading }: MortalityAnalyticsC
               >
                 <Icon className="h-4 w-4" style={{ color: item.color }} />
                 <span className="flex-1">{item.name}</span>
-                <span className="font-medium">{item.value}</span>
+                <span className="font-medium">{formatNumber(item.value)}</span>
               </div>
             );
           })}

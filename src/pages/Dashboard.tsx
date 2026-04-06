@@ -31,6 +31,7 @@ import { preloadAllData } from "@/lib/dataCache";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { FarmSwitcher } from "@/components/FarmSwitcher";
 import { GovernmentConnectTab } from "@/components/farmer/GovernmentConnectTab";
+import { CooperativeMembershipCard } from "@/components/farmer/CooperativeMembershipCard";
 import { FarmerFeedbackList } from "@/components/farmer/FarmerFeedbackList";
 import { PendingActivitiesQueue } from "@/components/approval/PendingActivitiesQueue";
 import { ApprovalSettings } from "@/components/approval/ApprovalSettings";
@@ -491,6 +492,11 @@ const Dashboard = () => {
           </Card>
         </div>
       )}
+
+      {/* Cooperative Membership Card */}
+      <div className="container mx-auto px-4 pt-2 max-w-7xl">
+        <CooperativeMembershipCard />
+      </div>
 
       {/* Main Content */}
       <main className={cn(

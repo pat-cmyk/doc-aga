@@ -42,6 +42,15 @@ export function formatPHPCompact(value: number): string {
  * @param value - The numeric value to format
  * @returns Simple formatted string (e.g., "₱12,500")
  */
+/**
+ * Format a number with thousand separators, rounded to nearest whole number.
+ * @param value - The numeric value to format
+ * @returns Formatted string (e.g., "1,000", "12,500")
+ */
+export function formatNumber(value: number): string {
+  return Math.round(value).toLocaleString("en-PH");
+}
+
 export function formatPesoSimple(value: number): string {
   return `₱${value.toLocaleString("en-PH")}`;
 }

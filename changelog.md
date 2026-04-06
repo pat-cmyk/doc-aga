@@ -75,6 +75,41 @@ context between visits.
 - **Breeding buttons:** preferred a Collapsible grouping over a full
   picker rewrite to keep all gating logic (407 lines of `animalEligibility.ts`
   + tooltips) untouched and eliminate regression risk.
+## 2026-04-02 — Enhancement: Smart Calving Dialog (Data Integrity + Context)
+
+### Problem
+The calving recording flow had several data integrity gaps: calf records were missing father linkage (from AI records), breed was not inherited from parents, "stillborn" was mixed in with difficulty levels (allowing impossible states like registering a stillborn calf), and farmers had no context about expected delivery dates while recording. Additionally, no post-calving health prompt existed for retained placenta, the single most dangerous post-partum complication.
+
+### Changed
+- **`src/components/breeding/RecordCalvingDialog.tsx`** — Major enhancement:
+  - **Sire auto-linking**: Queries latest AI record on dialog open; sets calf's `father_id` from sire
+  - **Breed inheritance**: Auto-derives calf breed as `${damBreed} x ${sireBreed}` (reuses `AnimalForm` pattern)
+  - **Stillborn separated from difficulty**: New "Calf Outcome" field (alive/stillborn); stillborn auto-disables calf registration
+  - **Difficulty scale aligned to BIF 1-5**: normal, slight assist, moderate (mechanical pull), difficult (major force), cesarean
+  - **Pregnancy context panel**: Shows expected delivery date, days pregnant, and semen code from AI record
+  - **Calving date validation**: Warns if calving date is >30 days off from expected delivery
+  - **Post-calving placenta check**: After recording, prompts "Lumabas ba ang inunan?" (Taglish). Stores response in `breeding_events.metadata`. Retained placenta triggers urgent warning toast
+  - **AI record cleanup**: Clears `pregnancy_confirmed` on the related AI record after calving resolves the pregnancy
+  - **Taglish labels**: All form fields now have bilingual labels
+- **`src/components/AnimalDetails.tsx`** — "Due Soon" badge now urgency-colored: green (>30d), amber (14-30d), red (<14d to due date)
+- **`src/components/AIRecords.tsx`** — Passes `animalBreed` prop through to `RecordCalvingDialog`
+
+### Data Flow
+```
+AI record (semen_code, performed_date, expected_delivery_date)
+  → RecordCalvingDialog (pre-populates pregnancy context)
+  → breeding_events.insert('calving', metadata: {difficulty, outcome, placenta, sire_semen_code})
+  → DB trigger: fertility_status → fresh_postpartum, parity++, VWP set
+  → animals.insert (calf: mother_id, father_id from AI, breed derived)
+  → animals.update (dam: is_currently_lactating, milking_stage: early_lactation)
+  → ai_records.update (pregnancy_confirmed: false)
+```
+
+### Design Decisions
+- **No new tables or migrations**: All new data stored in existing `breeding_events.metadata` JSONB
+- **SSOT preserved**: Fertility state machine untouched; all calving logic flows through `insertBreedingEvent()`
+- **Breed derivation reuses `AnimalForm.tsx` pattern**: `${motherBreed} x ${fatherBreed}`
+- **Placenta check is optional**: Farmer can skip — stored in metadata when answered, absent when skipped
 
 ## 2026-03-22 — Feature: Bank Data Integrity Audit Report
 
