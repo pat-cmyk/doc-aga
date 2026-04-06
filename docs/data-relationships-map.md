@@ -752,6 +752,73 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 
 ## 8) Change Log + Consistency Check
 
+**Date**: 2026-04-05
+
+**What changed**: Introduced the Animal Profile Export read path (PDF + CSV). No schema, RLS, or RPC changes — **pure read-side composition** of existing SSOT sources.
+
+**Read flow**:
+
+```
+AnimalDetails header
+  └─ ExportAnimalProfileButton
+       └─ useAnimalProfileExport(animalId, farmId, farmMeta)
+            ├─ getCachedAnimalDetails(animalId, farmId)       [IndexedDB: animals + records stores]
+            │    └─ returns { animal, mother, father, offspring, records }
+            │         where records = { milking, weight, feeding, health, ai, heat, breeding, bcs }
+            ├─ useBioCardData(animalId, farmId)               [composition hook — see Hook Inventory]
+            │    ├─ useGrowthBenchmark
+            │    ├─ useBodyConditionScores
+            │    ├─ useHeatRecords
+            │    ├─ usePreventiveHealthSchedules
+            │    ├─ useUpcomingAlerts
+            │    ├─ animal_ovr_cache (read-only)
+            │    └─ get_market_price() RPC
+            ├─ useAnimalExpenseSummary(animalId)              [reads farm_expenses + feeding_records]
+            └─ getIsOnline()                                   [active connectivity probe]
+```
+
+**Output**: a normalized `AnimalProfileExportData` payload passed to either `generateAnimalProfilePDF()` (jsPDF + jspdf-autotable) or `generateAnimalProfileCSV()` (plain string builder). Both are pure functions.
+
+**Data sources touched** (read-only):
+- `animals` (identity + genealogy + purchase_price) — via IndexedDB cache
+- `milking_records`, `weight_records`, `feeding_records`, `health_records`, `ai_records`, `heat_records`, `breeding_events`, `body_condition_scores` — via per-animal IndexedDB `records` store
+- `farm_expenses` (animal-scoped) — via `useAnimalExpenseSummary` (online query, no cache store of its own)
+- `feeding_records.cost_per_kg_at_time` — feed consumption cost rollup (locked cost pattern preserved)
+- `animal_ovr_cache` (read-only; server-side `calculate_animal_ovr()` is the only writer)
+- `get_market_price()` RPC — via `useBioCardData`
+
+**Data sources NOT touched** (by design):
+- No writes to any table
+- No new RPC calls
+- No new cache stores
+- No new network requests beyond what the composed hooks already make
+
+**Offline guarantees**:
+- `getCachedAnimalDetails` returns from IndexedDB only (7-day grace via `isCacheUsable`)
+- `meta.sourceIsOffline` on the payload is derived from `getIsOnline()` (active connectivity probe — never `navigator.onLine`)
+- When offline, the PDF footer and CSV banner declare "Offline snapshot — data as of {cacheLastUpdated}"
+
+**Permission boundary**:
+- `ExportAnimalProfileButton` is hidden when `useUnifiedPermissions().isOnlyFarmhand === true` (cost data is sensitive)
+- Owner, Manager, and Vet roles can export
+
+**Files**:
+- `src/hooks/useAnimalProfileExport.ts` (aggregation hook)
+- `src/lib/animalProfileExport/types.ts` (payload shape)
+- `src/lib/animalProfileExport/csv.ts`
+- `src/lib/animalProfileExport/pdf.ts`
+- `src/lib/animalProfileExport/sparkline.ts`
+- `src/lib/animalProfileExport/index.ts` (`downloadAnimalProfile()` public API)
+- `src/components/animal-details/ExportAnimalProfileButton.tsx`
+
+**Tests**:
+- `src/lib/animalProfileExport/__tests__/csv.test.ts` (12 tests — banner, sections, escaping, filename)
+- `src/hooks/__tests__/useAnimalProfileExport.test.tsx` (7 tests — composition, offline flag, edge cases)
+
+**Consistency check**: ✅ No schema drift — all tables and RPCs referenced already existed and are documented in Sections 2 and 7. Read-side composition only.
+
+---
+
 **Date**: 2026-02-16
 
 **What changed**: Added `source_farm` text column to `animals` table for tracking the origin farm of purchased/granted animals.

@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
@@ -46,6 +47,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
@@ -206,22 +208,42 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <MarkNonReturnButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        lastAIDate={lastAIDate}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
-                  </TooltipContent>
-                </Tooltip>
+              </div>
+              <Collapsible open={moreActionsOpen} onOpenChange={setMoreActionsOpen} className="mt-2">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-muted-foreground"
+                    aria-expanded={moreActionsOpen}
+                    aria-label="Toggle additional breeding actions"
+                  >
+                    {moreActionsOpen ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                    More actions / Iba pang aksyon
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <MarkNonReturnButton
+                            animalId={animalId}
+                            farmId={farmId}
+                            animalName={animalName}
+                            lastAIDate={lastAIDate}
+                            onSuccess={loadRecords}
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-sm">
+                        <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
@@ -283,7 +305,9 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
                     <p>{BREEDING_LIFECYCLE_ACTIONS.vwp_ended.description}</p>
                   </TooltipContent>
                 </Tooltip>
-              </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </TooltipProvider>
             </CardContent>
           </Card>
