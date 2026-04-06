@@ -82,10 +82,10 @@ export function BottomNav({ activeTab, onTabChange, pendingCount = 0, disabled =
               </div>
               <span
                 className={cn(
-                  "text-[10px] font-medium",
-                  isActive 
-                    ? "opacity-100 animate-slide-up" 
-                    : "opacity-0 h-0 overflow-hidden"
+                  "text-[11px] font-medium leading-tight",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground/70"
                 )}
               >
                 {item.label}
