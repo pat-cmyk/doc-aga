@@ -48,6 +48,9 @@ const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
 const AdminViewFarm = lazy(() => import("./pages/AdminViewFarm"));
 const AdminAuditReport = lazy(() => import("./pages/AdminAuditReport"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const CooperativeAuth = lazy(() => import("./pages/CooperativeAuth"));
+const CooperativeDashboard = lazy(() => import("./pages/CooperativeDashboard"));
+const CooperativeInviteAccept = lazy(() => import("./pages/CooperativeInviteAccept"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -326,6 +329,9 @@ const App = () => (
                   <Route path="/farmhand" element={<FarmhandDashboard />} />
                   <Route path="/voice-training" element={<VoiceTraining />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/auth/cooperative" element={<CooperativeAuth />} />
+                  <Route path="/cooperative" element={<CooperativeDashboard />} />
+                  <Route path="/cooperative/invite/accept/:token" element={<CooperativeInviteAccept />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
