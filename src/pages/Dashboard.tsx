@@ -43,6 +43,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useFarm } from "@/contexts/FarmContext";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
+import { MyCooperativeTab } from "@/components/cooperative/farmer-view/MyCooperativeTab";
+import { useMyCoopMembership } from "@/hooks/useMyCooperative";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -67,6 +69,7 @@ const Dashboard = () => {
 
   // Get pending activities count for badge
   const { pendingCount } = usePendingActivities(farmId || undefined, undefined);
+  const { data: coopMembership } = useMyCoopMembership(farmId);
 
   const handleRefresh = async () => {
     await syncQueue();
@@ -604,6 +607,9 @@ const Dashboard = () => {
                       )}
                     </TabsTrigger>
                   )}
+                  {coopMembership && (
+                    <TabsTrigger value="cooperative">Cooperative</TabsTrigger>
+                  )}
                   <TabsTrigger value="government">Government</TabsTrigger>
                   {canManageFarm && (
                     <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -613,6 +619,12 @@ const Dashboard = () => {
                 {canManageFarm && (
                   <TabsContent value="approvals">
                     <PendingActivitiesQueue farmId={farmId} />
+                  </TabsContent>
+                )}
+
+                {coopMembership && farmId && (
+                  <TabsContent value="cooperative">
+                    <MyCooperativeTab farmId={farmId} />
                   </TabsContent>
                 )}
 
