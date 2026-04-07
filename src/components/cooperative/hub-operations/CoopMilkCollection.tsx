@@ -4,7 +4,7 @@ import { Loader2, Droplet } from "lucide-react";
 import { useCoopMilkReceivings } from "@/hooks/useCoopMilkCollection";
 import { RecordMilkReceiptDialog } from "./RecordMilkReceiptDialog";
 import { CoopMilkReceivingLog } from "./CoopMilkReceivingLog";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, subDays } from "date-fns";
 
 interface Props {
   cooperativeId: string;
@@ -12,8 +12,9 @@ interface Props {
 
 export const CoopMilkCollection = ({ cooperativeId }: Props) => {
   const today = format(new Date(), "yyyy-MM-dd");
+  const sevenDaysAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
-    from: today,
+    from: sevenDaysAgo,
     to: today,
   });
 
