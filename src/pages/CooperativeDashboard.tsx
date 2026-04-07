@@ -15,6 +15,8 @@ import { CooperativeFinancials } from "@/components/cooperative/CooperativeFinan
 import { CooperativeSettings } from "@/components/cooperative/CooperativeSettings";
 import { CoopMilkCollection } from "@/components/cooperative/hub-operations/CoopMilkCollection";
 import { CoopPriceSchedule } from "@/components/cooperative/hub-operations/CoopPriceSchedule";
+import { CoopFeedInventory } from "@/components/cooperative/hub-operations/CoopFeedInventory";
+import { CoopFeedDisbursement } from "@/components/cooperative/hub-operations/CoopFeedDisbursement";
 
 const CooperativeDashboard = () => {
   const navigate = useNavigate();
@@ -138,6 +140,14 @@ const CooperativeDashboard = () => {
               <Droplet className="h-4 w-4" />
               <span className="hidden sm:inline">Milk Collection</span>
             </TabsTrigger>
+            <TabsTrigger value="hub-feed" className="gap-1.5">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Hub Feed</span>
+            </TabsTrigger>
+            <TabsTrigger value="feed-release" className="gap-1.5">
+              <Truck className="h-4 w-4" />
+              <span className="hidden sm:inline">Feed Release</span>
+            </TabsTrigger>
             <TabsTrigger value="pricing" className="gap-1.5">
               <Tag className="h-4 w-4" />
               <span className="hidden sm:inline">Pricing</span>
@@ -168,6 +178,12 @@ const CooperativeDashboard = () => {
           {/* CAIN Hub Operations */}
           <TabsContent value="milk-collection">
             <CoopMilkCollection cooperativeId={cooperativeId} />
+          </TabsContent>
+          <TabsContent value="hub-feed">
+            <CoopFeedInventory cooperativeId={cooperativeId} />
+          </TabsContent>
+          <TabsContent value="feed-release">
+            <CoopFeedDisbursement cooperativeId={cooperativeId} />
           </TabsContent>
           <TabsContent value="pricing">
             <CoopPriceSchedule cooperativeId={cooperativeId} />
