@@ -27,7 +27,7 @@ Doc Aga's existing cooperative module is a **read-only aggregation dashboard** (
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Milk ledger model | Separate coop ledger (`coop_milk_receivings`) | Coop measures at hub — may differ from farm records (transport loss, re-grading). Clean separation of concerns. |
+| Milk ledger model | Separate coop ledger (`coop_milk_receivings`) with farm FIFO deduction | Coop records at hub independently. Farm's milk_inventory is FIFO-deducted (like a sale) to keep inventory accurate. No farm_revenue created (payment via SOA). |
 | Feed sync to farm | Auto-create `feed_inventory` entry on farm side | Zero friction for farmer. Feed appears ready for feeding records. Tagged `supplier = 'Cooperative Hub'` to distinguish from self-purchased. |
 | SOA settlement period | Bi-monthly (1st-15th, 16th-end of month) | Aligns with typical PH dairy cooperative pay cycles. |
 | Milk pricing | Standing price list by species with effective dates | Simplifies daily hub operations. Price auto-populates on receipt, can be overridden per transaction. |
@@ -108,6 +108,7 @@ The hub's own ledger of milk received from member farms. Independent of the farm
 | `total_value` | NUMERIC | GENERATED ALWAYS AS (volume_liters * price_per_liter) STORED | |
 | `received_by` | UUID | FK → auth.users | Hub operator |
 | `notes` | TEXT | | |
+| `farm_milk_deductions` | JSONB | | Array of {milk_inventory_id, liters_deducted} — tracks FIFO deduction from farm milk_inventory |
 | `status` | TEXT | NOT NULL, CHECK IN ('active','reversed'), default 'active' | Immutability: only status can change |
 | `entry_type` | TEXT | NOT NULL, CHECK IN ('original','reversal','correction'), default 'original' | Type of ledger entry |
 | `original_receiving_id` | UUID | FK → coop_milk_receivings, NULL for originals | Links reversal/correction to original |
@@ -229,7 +230,15 @@ Pre-computed Statement of Account per member farm per bi-monthly period.
    - Price is editable (override allowed)
    - Total value computed live: `volume × price`
 4. On submit: calls `record_coop_milk_receiving()` RPC
-5. Receipt appears in daily log
+5. RPC internally:
+   - Inserts `coop_milk_receivings` record
+   - **Farm-side FIFO deduction:** Deducts `volume_liters` from the farm's `milk_inventory` using FIFO (oldest available first), mirroring the existing `RecordMilkSaleDialog` deduction pattern:
+     - Queries `milk_inventory` WHERE `farm_id` = target farm, `is_available = true`, `milk_quality = 'good'`, ordered by `record_date ASC`
+     - Deducts liters from each inventory record until volume is fulfilled (supports partial deduction)
+     - Sets `is_available = false` on fully consumed records
+     - Records the deduction details in `farm_milk_deductions` JSONB column
+   - Does **NOT** create a `farm_revenues` entry (payment happens via SOA settlement, not per-delivery)
+6. Receipt appears in daily log, farm milk inventory reflects the deduction
 
 #### Return Trip — Feed-Out
 
@@ -417,6 +426,17 @@ All verify the requesting user owns the farm via `is_farm_owner()` or `can_acces
 
 ## DB Triggers
 
+### Milk Receipt — Farm Inventory Sync
+
+Handled inside the `record_coop_milk_receiving` RPC (not a trigger — needs transactional control):
+1. Query farm's `milk_inventory` WHERE `farm_id = _farm_id`, `is_available = true`, `milk_quality = 'good'`, `liters_remaining >= 0.05` ORDER BY `record_date ASC`
+2. FIFO deduction loop: for each inventory record, deduct min(remaining_to_deduct, liters_remaining)
+3. Update `milk_inventory.liters_remaining` and set `is_available = false` if fully consumed
+4. Store deduction details in `coop_milk_receivings.farm_milk_deductions` as JSONB: `[{milk_inventory_id, liters_deducted}]`
+5. If farm doesn't have enough available milk inventory to cover the full volume → RPC still succeeds (the coop's own receiving record is the source of truth; the farm inventory deduction is best-effort — farm may not have recorded all milking yet)
+
+**Correction reversal:** When a milk receiving is reversed, the FIFO deductions are reversed — `liters_remaining` is restored on each `milk_inventory` record, `is_available` is set back to `true` where applicable. The deduction details in `farm_milk_deductions` provide the exact records to reverse.
+
 ### `on_coop_feed_disbursement_insert`
 
 **Fires:** AFTER INSERT on `coop_feed_disbursements`
@@ -471,7 +491,8 @@ The auto-created `feed_inventory` entries are owned by the farm (existing RLS ap
 | `calculateInventoryValue()` | `src/lib/feedInventory.ts` | Compute coop inventory value |
 | `REVENUE_SOURCE_KEYS` | `src/lib/revenueCategories.ts` | Pattern for SOA revenue computation |
 | `useCooperative*.ts` hook patterns | `src/hooks/useCooperative.ts` | New hooks follow same React Query + RPC pattern |
-| `RecordMilkSaleDialog` UX patterns | `src/components/milk-inventory/RecordMilkSaleDialog.tsx` | Coop milk receipt dialog structure |
+| `RecordMilkSaleDialog` UX + FIFO logic | `src/components/milk-inventory/RecordMilkSaleDialog.tsx` | Coop milk receipt dialog structure + FIFO deduction pattern for farm milk_inventory |
+| `deductMilkFromInventoryCache()` | `src/lib/dataCache.ts` | Pattern reference for farm-side milk inventory deduction |
 | `AddFeedStockDialog` UX patterns | `src/components/feed-inventory/AddFeedStockDialog.tsx` | Coop feed stock dialog structure |
 | `FinanceDateRangePicker` | `src/components/finance/FinanceDateRangePicker.tsx` | SOA period selection |
 | `financialReportGenerator.ts` | `src/lib/financialReportGenerator.ts` | SOA report structure and patterns |
@@ -520,7 +541,11 @@ Content:
 ### Coop Admin Flow
 1. Login as cooperative admin
 2. Set milk prices via Price Schedule tab
-3. Record milk receipt for a member farm → verify appears in log
+3. Record milk receipt for a member farm → verify:
+   - Appears in coop milk collection log
+   - Farm's `milk_inventory` FIFO-deducted (liters_remaining decreased, is_available updated)
+   - `farm_milk_deductions` JSONB populated with deduction details
+   - No `farm_revenues` entry created (payment via SOA only)
 4. Add feed stock to hub inventory → verify appears in Hub Feed tab
 5. Record feed disbursement to member farm → verify:
    - Hub inventory decremented
