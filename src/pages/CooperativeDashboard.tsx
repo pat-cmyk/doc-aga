@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { LogOut, LayoutDashboard, Users, Milk, Heart, DollarSign, Settings, PawPrint } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Milk, Heart, DollarSign, Settings, PawPrint, Droplet, Package, Truck, Tag, FileText } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { CooperativeOverview } from "@/components/cooperative/CooperativeOverview";
 import { CooperativeMemberFarms } from "@/components/cooperative/CooperativeMemberFarms";
@@ -13,6 +13,8 @@ import { CooperativeHerdSummary } from "@/components/cooperative/CooperativeHerd
 import { CooperativeHealthOverview } from "@/components/cooperative/CooperativeHealthOverview";
 import { CooperativeFinancials } from "@/components/cooperative/CooperativeFinancials";
 import { CooperativeSettings } from "@/components/cooperative/CooperativeSettings";
+import { CoopMilkCollection } from "@/components/cooperative/hub-operations/CoopMilkCollection";
+import { CoopPriceSchedule } from "@/components/cooperative/hub-operations/CoopPriceSchedule";
 
 const CooperativeDashboard = () => {
   const navigate = useNavigate();
@@ -131,6 +133,15 @@ const CooperativeDashboard = () => {
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
+            {/* CAIN Hub Operations */}
+            <TabsTrigger value="milk-collection" className="gap-1.5">
+              <Droplet className="h-4 w-4" />
+              <span className="hidden sm:inline">Milk Collection</span>
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className="gap-1.5">
+              <Tag className="h-4 w-4" />
+              <span className="hidden sm:inline">Pricing</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -153,6 +164,13 @@ const CooperativeDashboard = () => {
           </TabsContent>
           <TabsContent value="settings">
             <CooperativeSettings cooperativeId={cooperativeId} cooperativeName={cooperativeName} />
+          </TabsContent>
+          {/* CAIN Hub Operations */}
+          <TabsContent value="milk-collection">
+            <CoopMilkCollection cooperativeId={cooperativeId} />
+          </TabsContent>
+          <TabsContent value="pricing">
+            <CoopPriceSchedule cooperativeId={cooperativeId} />
           </TabsContent>
         </Tabs>
       </main>
