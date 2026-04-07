@@ -32,6 +32,36 @@ Doc Aga's existing cooperative module is a **read-only aggregation dashboard** (
 | SOA settlement period | Bi-monthly (1st-15th, 16th-end of month) | Aligns with typical PH dairy cooperative pay cycles. |
 | Milk pricing | Standing price list by species with effective dates | Simplifies daily hub operations. Price auto-populates on receipt, can be overridden per transaction. |
 | Architecture | Extend existing cooperative module | Follows established SECURITY DEFINER RPC pattern, same dashboard shell, SSOT-compliant. |
+| Record immutability | Correction entries (reversal + correction pairs) | Government funds are involved — every transaction must be traceable. No edits or deletes. "Corrections" create a reversal of the original + a new corrected entry. SOA computes on active records only. |
+
+---
+
+## Immutability & Audit Trail
+
+All operational records (`coop_milk_receivings`, `coop_feed_disbursements`) are **immutable after creation**. No UPDATEs or DELETEs are permitted on the core data fields. Corrections follow a **reversal + correction pair** pattern (similar to double-entry accounting):
+
+### Correction Flow
+
+**Example:** Coop admin recorded 50L milk from Farm A, but the actual volume was 45L.
+
+1. **Original stays untouched:** Record #001 — `+50L, entry_type = 'original', status = 'reversed'`
+2. **Reversal created:** Record #002 — `-50L, entry_type = 'reversal', original_id = #001, reversal_reason = "Volume correction"`
+3. **Correction created:** Record #003 — `+45L, entry_type = 'correction', original_id = #001, reversal_reason = "Volume correction"`
+
+**Net effect:** 50 - 50 + 45 = 45L. Full trail preserved. Every record has a timestamp and `created_by` for audit.
+
+### Rules
+
+- **No DELETE** on `coop_milk_receivings` or `coop_feed_disbursements` — ever.
+- **No UPDATE** on core data fields (volume, price, quantity, cost). Only `status` can be updated (from 'active' to 'reversed').
+- All queries that compute totals (SOA, dashboards) filter `WHERE status = 'active'` — reversed entries are excluded and their reversal/correction pairs provide the corrected values.
+- Feed disbursement reversals must also reverse the farm-side `feed_inventory` entry (mark it with `quantity_kg = 0` or create a negative adjustment).
+- The `coop_milk_price_schedule` is append-only — prices are never edited, only superseded by new effective dates.
+- `coop_soa_periods` tracks `revision_number` — if a finalized SOA needs re-computation (due to corrections in the period), the revision increments and links to the previous version.
+
+### Farmer Visibility
+
+The farmer's "My Cooperative" view shows **net results** by default (reversals cancel out). An expandable detail view shows the full correction trail for transparency.
 
 ---
 
@@ -78,11 +108,16 @@ The hub's own ledger of milk received from member farms. Independent of the farm
 | `total_value` | NUMERIC | GENERATED ALWAYS AS (volume_liters * price_per_liter) STORED | |
 | `received_by` | UUID | FK → auth.users | Hub operator |
 | `notes` | TEXT | | |
+| `status` | TEXT | NOT NULL, CHECK IN ('active','reversed'), default 'active' | Immutability: only status can change |
+| `entry_type` | TEXT | NOT NULL, CHECK IN ('original','reversal','correction'), default 'original' | Type of ledger entry |
+| `original_receiving_id` | UUID | FK → coop_milk_receivings, NULL for originals | Links reversal/correction to original |
+| `reversal_reason` | TEXT | | Why the correction was made |
 | `created_at` | TIMESTAMPTZ | default now() | |
 
 **Indexes:**
 - `idx_coop_milk_receivings_coop_date` ON (cooperative_id, receiving_date DESC)
 - `idx_coop_milk_receivings_farm` ON (farm_id, receiving_date DESC)
+- `idx_coop_milk_receivings_active` ON (cooperative_id, farm_id) WHERE status = 'active'
 
 ---
 
@@ -132,11 +167,16 @@ Feed released from hub to member farm. Triggers auto-sync to farm's `feed_invent
 | `disbursed_by` | UUID | FK → auth.users | Hub operator |
 | `farm_feed_inventory_id` | UUID | FK → feed_inventory | Auto-created entry on farm side |
 | `notes` | TEXT | | |
+| `status` | TEXT | NOT NULL, CHECK IN ('active','reversed'), default 'active' | Immutability: only status can change |
+| `entry_type` | TEXT | NOT NULL, CHECK IN ('original','reversal','correction'), default 'original' | Type of ledger entry |
+| `original_disbursement_id` | UUID | FK → coop_feed_disbursements, NULL for originals | Links reversal/correction to original |
+| `reversal_reason` | TEXT | | Why the correction was made |
 | `created_at` | TIMESTAMPTZ | default now() | |
 
 **Indexes:**
 - `idx_coop_feed_disbursements_coop_date` ON (cooperative_id, disbursement_date DESC)
 - `idx_coop_feed_disbursements_farm` ON (farm_id, disbursement_date DESC)
+- `idx_coop_feed_disbursements_active` ON (cooperative_id, farm_id) WHERE status = 'active'
 
 ---
 
@@ -160,10 +200,12 @@ Pre-computed Statement of Account per member farm per bi-monthly period.
 | `finalized_at` | TIMESTAMPTZ | | When admin locks the period |
 | `settled_at` | TIMESTAMPTZ | | When payment is made |
 | `notes` | TEXT | | |
+| `revision_number` | INTEGER | NOT NULL, default 1 | Increments on re-computation after corrections |
+| `previous_soa_id` | UUID | FK → coop_soa_periods | Links to prior revision (NULL for first) |
 | `created_by` | UUID | FK → auth.users | |
 | `created_at` | TIMESTAMPTZ | default now() | |
 
-**Unique constraint:** `(cooperative_id, farm_id, period_start)` — one SOA per farm per period.
+**Unique constraint:** `(cooperative_id, farm_id, period_start, revision_number)` — one SOA per farm per period per revision.
 
 **Indexes:**
 - `idx_coop_soa_coop_period` ON (cooperative_id, period_start DESC)
@@ -274,9 +316,11 @@ src/components/cooperative/hub-operations/
 ├── RecordFeedDisbursementDialog.tsx    — Form: farm, select feed, quantity
 ├── CoopPriceSchedule.tsx               — Price list + "Set Price" button
 ├── SetMilkPriceDialog.tsx              — Form: species, price, effective_date
+├── CorrectMilkReceivingDialog.tsx      — Correction form: shows original, enter corrected values + reason
+├── CorrectFeedDisbursementDialog.tsx   — Correction form: shows original, enter corrected qty + reason
 └── CoopStatements.tsx                  — SOA management container
-    ├── CoopSOAList.tsx                 — Period list with status badges
-    ├── CoopSOADetail.tsx               — Single farm: milk lines + feed lines + net
+    ├── CoopSOAList.tsx                 — Period list with status badges + revision indicator
+    ├── CoopSOADetail.tsx               — Single farm: milk lines + feed lines + net + correction trail
     └── CoopSOAExport.tsx               — PDF/CSV export
 ```
 
@@ -297,6 +341,7 @@ src/hooks/
 ├── useCoopMilkCollection.ts
 │   ├── useCoopMilkReceivings(cooperativeId, dateRange?)
 │   ├── useAddCoopMilkReceiving()
+│   ├── useCorrectCoopMilkReceiving()                      — Creates reversal + correction pair
 │   └── useCoopMilkReceivingsByFarm(cooperativeId, farmId)
 │
 ├── useCoopFeedInventory.ts
@@ -307,6 +352,7 @@ src/hooks/
 ├── useCoopFeedDisbursement.ts
 │   ├── useCoopFeedDisbursements(cooperativeId, dateRange?)
 │   ├── useAddCoopFeedDisbursement()
+│   ├── useCorrectCoopFeedDisbursement()                    — Creates reversal + correction pair
 │   └── useCoopFeedDisbursementsByFarm(cooperativeId, farmId)
 │
 ├── useCoopPriceSchedule.ts
@@ -349,9 +395,12 @@ All verify `is_cooperative_admin(auth.uid(), _cooperative_id)` before executing.
 | `set_coop_milk_price` | cooperative_id, species, price_per_liter, effective_date, notes | UUID | Set new price |
 | `get_coop_price_schedule` | cooperative_id | TABLE (all prices, ordered by effective_date DESC) | Price history |
 | `get_active_coop_price` | cooperative_id, species | NUMERIC | Current effective price |
-| `compute_coop_soa` | cooperative_id, farm_id, period_start, period_end | JSON {milk_liters, milk_value, feed_kg, feed_cost, net_balance, line_items} | Compute SOA |
+| `compute_coop_soa` | cooperative_id, farm_id, period_start, period_end | JSON {milk_liters, milk_value, feed_kg, feed_cost, net_balance, line_items} | Compute SOA (uses WHERE status='active') |
 | `finalize_coop_soa` | cooperative_id, farm_id, period_start, period_end | TEXT ('success' or error) | Lock SOA |
 | `settle_coop_soa` | cooperative_id, farm_id, period_start, period_end | TEXT | Mark settled |
+| `correct_coop_milk_receiving` | original_id, new_volume_liters, new_price_per_liter, reason | UUID (correction id) | Creates reversal + correction pair. Sets original status='reversed'. |
+| `correct_coop_feed_disbursement` | original_id, new_quantity_kg, reason | UUID (correction id) | Creates reversal + correction pair. Reverses farm feed_inventory, creates new one. |
+| `recompute_coop_soa` | cooperative_id, farm_id, period_start, period_end | UUID (new SOA id) | Re-computes finalized SOA after corrections. Increments revision_number. |
 
 ### Farmer RPCs (SECURITY DEFINER, read-only)
 
@@ -394,11 +443,13 @@ All verify the requesting user owns the farm via `is_farm_owner()` or `can_acces
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |-------|--------|--------|--------|--------|
-| `coop_milk_price_schedule` | Coop admin | Coop admin | Coop admin | None (append-only) |
-| `coop_milk_receivings` | Coop admin OR farm owner (own farm_id) | Coop admin | Coop admin | Coop admin |
-| `coop_feed_inventory` | Coop admin | Coop admin | Coop admin | Coop admin |
-| `coop_feed_disbursements` | Coop admin OR farm owner (own farm_id) | Coop admin | None (immutable after creation) | None |
+| `coop_milk_price_schedule` | Coop admin | Coop admin | None (append-only) | None |
+| `coop_milk_receivings` | Coop admin OR farm owner (own farm_id) | Via RPC only | `status` field only, via RPC (reversal) | None (immutable) |
+| `coop_feed_inventory` | Coop admin | Coop admin | Coop admin (quantity adjustments) | None |
+| `coop_feed_disbursements` | Coop admin OR farm owner (own farm_id) | Via RPC only | `status` field only, via RPC (reversal) | None (immutable) |
 | `coop_soa_periods` | Coop admin OR farm owner (own farm_id) | Via RPC only | Via RPC only (finalize/settle) | None |
+
+**Immutability enforcement:** UPDATE policies on `coop_milk_receivings` and `coop_feed_disbursements` restrict updates to the `status` column only. All other columns are frozen after INSERT. This is enforced at the RLS policy level with a CHECK that only `status` differs between OLD and NEW rows.
 
 All cross-farm queries go through SECURITY DEFINER RPCs that verify `is_cooperative_admin()` internally. Farmer-side reads verify farm ownership.
 
@@ -488,8 +539,24 @@ Content:
 6. Go to Feed Inventory tab → verify coop-sourced entries appear with badge
 7. Record feeding using coop-sourced feed → verify `cost_per_kg_at_time` captures coop cost
 
+### Immutability & Corrections
+1. Record a milk receipt → attempt direct UPDATE on volume_liters → should be blocked by RLS
+2. Record a milk receipt → correct it via `correct_coop_milk_receiving` RPC → verify:
+   - Original record status = 'reversed'
+   - Reversal record created with negative volume, entry_type = 'reversal'
+   - Correction record created with correct volume, entry_type = 'correction'
+   - SOA query returns only the corrected net amount
+3. Record a feed disbursement → correct it → verify:
+   - Hub inventory adjusts correctly (reversed amount restored, new amount deducted)
+   - Farm feed_inventory: original entry zeroed out, new entry created
+   - Farmer's "My Feed Receipts" shows net result
+4. Finalize an SOA → make a correction in that period → recompute SOA → verify revision_number increments and previous_soa_id links to prior version
+5. Farmer views correction trail → verify expandable detail shows original + reversal + correction
+
 ### Edge Cases
 - Disbursement exceeding hub stock → should fail with error
 - SOA for period with no transactions → should show zeros
 - Farm not a coop member → "My Cooperative" section should not appear
 - Price change mid-period → receipts before change use old price, after use new price
+- Correction on already-reversed record → should fail (can't reverse twice)
+- Correction that would make hub stock negative → should fail with error
