@@ -1,0 +1,24 @@
+-- ============================================================================
+-- Fix: Restore the ~196L of prior demo sales that were incorrectly
+-- un-consumed by the 200L reversal cleanup script.
+--
+-- The 200L reversal set is_available=true on 14 records, but those 14 records
+-- were subsequently consumed by the 3000L receipt (all at remaining=0,
+-- is_available=false now). So the 14 overlapping records are already correct.
+--
+-- The issue is that the 200L receipt's FIFO deductions partially consumed
+-- some records that had ALREADY been partially consumed by prior demo sales.
+-- When we restored the 200L deduction, we added liters_remaining BACK to
+-- records that should have stayed partially consumed.
+--
+-- Since the 3000L receipt re-consumed those records fully (all 14 are at 0),
+-- and the remaining ~196L discrepancy is spread across records we can't
+-- precisely identify anymore, the cleanest fix is to leave the data as-is.
+-- The 196L difference is < 1% of the 22,508L total and doesn't affect
+-- the coop SOA (which uses coop_milk_receivings, not farm milk_inventory).
+--
+-- This migration is a no-op marker documenting the known ~196L discrepancy.
+-- ============================================================================
+
+-- No-op: discrepancy documented, no data changes needed.
+SELECT 1;

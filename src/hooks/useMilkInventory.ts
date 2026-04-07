@@ -77,29 +77,43 @@ export function useMilkInventory(farmId: string) {
     queryKey: ["milk-inventory", farmId],
     queryFn: async () => {
       console.log('[MilkInventory] Fetching from milk_inventory table...');
-      const { data, error } = await supabase
-        .from("milk_inventory")
-        .select(`
-          id,
-          milking_record_id,
-          animal_id,
-          record_date,
-          liters_original,
-          liters_remaining,
-          is_available,
-          created_at,
-          client_generated_id,
-          milk_quality,
-          milk_quality_rejection_reason,
-          animals!inner(name, ear_tag, livestock_type)
-        `)
-        .eq("farm_id", farmId)
-        .eq("is_available", true)
-        .eq("milk_quality", "good")
-        .gte("liters_remaining", 0.05)
-        .order("record_date", { ascending: true });
+      // Paginate to avoid Supabase default 1000-row limit
+      let allData: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
 
-      if (error) throw error;
+      while (true) {
+        const { data, error } = await supabase
+          .from("milk_inventory")
+          .select(`
+            id,
+            milking_record_id,
+            animal_id,
+            record_date,
+            liters_original,
+            liters_remaining,
+            is_available,
+            created_at,
+            client_generated_id,
+            milk_quality,
+            milk_quality_rejection_reason,
+            animals!inner(name, ear_tag, livestock_type)
+          `)
+          .eq("farm_id", farmId)
+          .eq("is_available", true)
+          .eq("milk_quality", "good")
+          .gte("liters_remaining", 0.05)
+          .order("record_date", { ascending: true })
+          .range(offset, offset + batchSize - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      const data = allData;
 
       const items: MilkInventoryCacheItem[] = (data || []).map((r: any) => ({
         id: r.id,
@@ -372,27 +386,38 @@ export function useMilkSalesHistory(farmId: string) {
   return useQuery({
     queryKey: ["milk-sales-history", farmId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("milk_inventory")
-        .select(`
-          id,
-          milking_record_id,
-          animal_id,
-          record_date,
-          liters_original,
-          liters_remaining,
-          is_available,
-          created_at,
-          animals!inner(name, ear_tag, livestock_type)
-        `)
-        .eq("farm_id", farmId)
-        .eq("is_available", false)
-        .order("updated_at", { ascending: false })
-        .limit(100);
+      // Fetch all consumed records with pagination to avoid 1000-row default limit
+      let allData: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
 
-      if (error) throw error;
+      while (true) {
+        const { data, error } = await supabase
+          .from("milk_inventory")
+          .select(`
+            id,
+            milking_record_id,
+            animal_id,
+            record_date,
+            liters_original,
+            liters_remaining,
+            is_available,
+            updated_at,
+            animals!inner(name, ear_tag, livestock_type)
+          `)
+          .eq("farm_id", farmId)
+          .eq("is_available", false)
+          .order("updated_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
 
-      return (data || []).map((r: any) => ({
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      return allData.map((r: any) => ({
         id: r.id,
         milking_record_id: r.milking_record_id,
         animal_id: r.animal_id,
@@ -400,6 +425,7 @@ export function useMilkSalesHistory(farmId: string) {
         ear_tag: r.animals?.ear_tag,
         livestock_type: r.animals?.livestock_type || 'cattle',
         record_date: r.record_date,
+        updated_at: r.updated_at,
         liters_original: parseFloat(r.liters_original),
         liters_sold: parseFloat(r.liters_original) - parseFloat(r.liters_remaining),
       }));
