@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useCooperativeHerdSummary } from "@/hooks/useCooperative";
+import { formatNumber } from "@/lib/currency";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface Props {
@@ -32,7 +33,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">
-        Herd Summary — {herd?.total_animals ?? 0} Animals
+        Herd Summary — {formatNumber(herd?.total_animals ?? 0)} Animals
       </h2>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -52,7 +53,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ species, count }) => `${species}: ${count}`}
+                    label={({ species, count }) => `${species}: ${formatNumber(count)}`}
                   >
                     {herd.by_species.map((_: any, i: number) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -78,7 +79,7 @@ export const CooperativeHerdSummary = ({ cooperativeId }: Props) => {
                 {herd.by_breed.slice(0, 10).map((b: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span>{b.breed}</span>
-                    <span className="font-medium">{b.count}</span>
+                    <span className="font-medium">{formatNumber(b.count)}</span>
                   </div>
                 ))}
               </div>

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { CreateCooperativeDialog } from "./CreateCooperativeDialog";
 import { UserDetailPanel } from "./UserDetailPanel";
 import { EditUserDialog } from "./EditUserDialog";
 import {
@@ -225,10 +226,13 @@ export const UserManagement = () => {
             <CardTitle>User Management</CardTitle>
             <CardDescription>Manage user accounts and permissions</CardDescription>
           </div>
-          <CreateUserDialog 
-            onUserCreated={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
-            isSuperAdmin={isSuperAdmin}
-          />
+          <div className="flex gap-2">
+            {isSuperAdmin && <CreateCooperativeDialog />}
+            <CreateUserDialog
+              onUserCreated={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+              isSuperAdmin={isSuperAdmin}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -353,6 +357,7 @@ export const UserManagement = () => {
                         <SelectItem value="vet">Veterinarian</SelectItem>
                         {isSuperAdmin && (
                           <>
+                            <SelectItem value="cooperative">Coop Admin</SelectItem>
                             <SelectItem value="government">Government</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </>

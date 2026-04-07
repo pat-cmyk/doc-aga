@@ -95,7 +95,7 @@ export const CreateUserDialog = ({ onUserCreated, isSuperAdmin = false }: Create
     vet: "Veterinary professional",
     distributor: "Product distributor",
     government: "Government analytics access (super admin only)",
-    
+    cooperative: "Cooperative dashboard admin (super admin only)",
     admin: "System administrator (super admin only)",
   };
 
@@ -196,6 +196,15 @@ export const CreateUserDialog = ({ onUserCreated, isSuperAdmin = false }: Create
                 </SelectItem>
                 {isSuperAdmin && (
                   <>
+                    <SelectItem value="cooperative">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium flex items-center gap-1">
+                          Coop Admin
+                          <ShieldAlert className="h-3 w-3" />
+                        </span>
+                        <span className="text-xs text-muted-foreground">{roleDescriptions.cooperative}</span>
+                      </div>
+                    </SelectItem>
                     <SelectItem value="government">
                       <div className="flex flex-col items-start">
                         <span className="font-medium flex items-center gap-1">

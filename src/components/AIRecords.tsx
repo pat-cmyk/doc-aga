@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
@@ -32,6 +33,7 @@ interface AIRecordsProps {
   animalName?: string;
   gender?: string;
   livestockType?: string;
+  animalBreed?: string;
   readOnly?: boolean;
   /** Eligibility data for gating breeding actions */
   birthDate?: string | null;
@@ -41,10 +43,11 @@ interface AIRecordsProps {
   offspringCount?: number;
 }
 
-const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOnly = false, birthDate, lifeStage, fertilityStatus, isCurrentlyLactating, offspringCount = 0 }: AIRecordsProps) => {
+const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animalBreed, readOnly = false, birthDate, lifeStage, fertilityStatus, isCurrentlyLactating, offspringCount = 0 }: AIRecordsProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
   const loadRecords = async () => {
@@ -182,6 +185,7 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                           farmId={farmId}
                           animalName={animalName}
                           livestockType={livestockType}
+                          animalBreed={animalBreed}
                           onSuccess={loadRecords}
                         />
                       </span>
@@ -204,22 +208,42 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <MarkNonReturnButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        lastAIDate={lastAIDate}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
-                  </TooltipContent>
-                </Tooltip>
+              </div>
+              <Collapsible open={moreActionsOpen} onOpenChange={setMoreActionsOpen} className="mt-2">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-muted-foreground"
+                    aria-expanded={moreActionsOpen}
+                    aria-label="Toggle additional breeding actions"
+                  >
+                    {moreActionsOpen ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                    More actions / Iba pang aksyon
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <MarkNonReturnButton
+                            animalId={animalId}
+                            farmId={farmId}
+                            animalName={animalName}
+                            lastAIDate={lastAIDate}
+                            onSuccess={loadRecords}
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-sm">
+                        <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
@@ -281,7 +305,9 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, readOn
                     <p>{BREEDING_LIFECYCLE_ACTIONS.vwp_ended.description}</p>
                   </TooltipContent>
                 </Tooltip>
-              </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </TooltipProvider>
             </CardContent>
           </Card>

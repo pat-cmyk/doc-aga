@@ -191,6 +191,41 @@ queryFn: async () => {
 | `usePlatformSettings` | MANUAL — Admin-scoped | — |
 | `useGovernmentFeedback` | MANUAL — Government-scoped, @online-only | — |
 | `useAuditReport` | MANUAL — Admin-scoped, @online-only | — |
+| `useAnimalProfileExport` | A (COMPOSITION — reads via `getCachedAnimalDetails` + `useBioCardData` + `useAnimalExpenseSummary`; no new cache store, no new network) | inherited |
+
+---
+
+## 3.55 Animal Profile Export (SSOT Composition)
+
+The downloadable animal profile (PDF + CSV) is a **pure composition** of existing
+SSOT sources. It adds zero new tables, no new queries, and no new cache stores.
+
+**Aggregation hook:** `src/hooks/useAnimalProfileExport.ts`
+- Reads all record history via `getCachedAnimalDetails(animalId, farmId)`
+  (same path AnimalDetails uses — guarantees the export matches what the user
+  sees on screen).
+- Reads vitals, OVR, sparklines, reproductive status, immunity, growth
+  benchmark via `useBioCardData` (canonical BioCard SSOT).
+- Reads per-animal cost rollup (manual expenses + feed consumption cost)
+  via `useAnimalExpenseSummary`.
+- Returns a normalized `AnimalProfileExportData` payload.
+
+**Renderers:** `src/lib/animalProfileExport/`
+- `pdf.ts` — jsPDF + jspdf-autotable multi-page farmer-friendly PDF.
+- `csv.ts` — multi-section single-file CSV (Excel/Sheets friendly).
+- `sparkline.ts` — canvas → PNG helper for embedding mini charts in PDF.
+- `index.ts` — public `downloadAnimalProfile(data, format)` helper.
+
+**Entry point:** `src/components/animal-details/ExportAnimalProfileButton.tsx`
+mounted in `AnimalDetails.tsx` header. Hidden for `isOnlyFarmhand` (sensitive
+cost data).
+
+**Offline-first guarantee:** All reads go through the IndexedDB cache layer.
+`meta.sourceIsOffline` is set via `getIsOnline()` and surfaces an "Offline
+snapshot" footer on the PDF and banner in the CSV.
+
+**Do NOT:** duplicate any recording/mutation logic here. This module is
+read-only and must never write back to Supabase.
 
 ---
 

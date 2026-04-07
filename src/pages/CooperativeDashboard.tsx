@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { LogOut, LayoutDashboard, Users, Milk, Heart, DollarSign, Settings, PawPrint, Droplet, Package, Truck, Tag, FileText } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
+import { UserEmailDropdown } from "@/components/UserEmailDropdown";
 import { CooperativeOverview } from "@/components/cooperative/CooperativeOverview";
 import { CooperativeMemberFarms } from "@/components/cooperative/CooperativeMemberFarms";
 import { CooperativeMilkAnalytics } from "@/components/cooperative/CooperativeMilkAnalytics";
@@ -97,10 +98,7 @@ const CooperativeDashboard = () => {
               <p className="text-xs text-muted-foreground">Cooperative Dashboard</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+          <UserEmailDropdown />
         </div>
       </header>
 

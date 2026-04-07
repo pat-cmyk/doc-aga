@@ -233,6 +233,7 @@ const ConditionalFloatingComponents = () => {
     '/auth/merchant',
     '/auth/admin',
     '/auth/government',
+    '/auth/cooperative',
     '/privacy',
     '/admin',
     '/marketplace',
@@ -330,7 +331,14 @@ const App = () => (
                   <Route path="/voice-training" element={<VoiceTraining />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/auth/cooperative" element={<CooperativeAuth />} />
-                  <Route path="/cooperative" element={<CooperativeDashboard />} />
+                  <Route
+                    path="/cooperative"
+                    element={
+                      <ProtectedRoute requiredRoles={["cooperative"]}>
+                        <CooperativeDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/cooperative/invite/accept/:token" element={<CooperativeInviteAccept />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

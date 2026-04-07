@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +118,11 @@ const CooperativeAuth = () => {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
             </Button>
           </form>
+          <div className="mt-4 pt-4 border-t text-center">
+            <Link to="/auth" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Back to Farmer Login
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

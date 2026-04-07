@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { addDays, differenceInDays, formatDistanceToNow } from "date-fns";
+import { GESTATION_DAYS } from "@/types/fertility";
 import MilkingRecords from "./MilkingRecords";
 import HealthRecords from "./HealthRecords";
 import AIRecords from "./AIRecords";
@@ -36,6 +37,7 @@ import { GrowthBenchmarkCard } from "./growth/GrowthBenchmarkCard";
 import { PhotoTimelineTab } from "./photo-timeline/PhotoTimelineTab";
 import { EditAcquisitionWeightDialog } from "./animal-details/EditAcquisitionWeightDialog";
 import { EditAnimalDialog } from "./animal-details/EditAnimalDialog";
+import { ExportAnimalProfileButton } from "./animal-details/ExportAnimalProfileButton";
 import { AnimalExpenseTab } from "./animal-expenses/AnimalExpenseTab";
 import { GenderBadge } from "@/components/ui/gender-indicator";
 import { BioCardSummary } from "./animal-details/BioCardSummary";
@@ -205,6 +207,8 @@ interface Animal {
   is_currently_lactating: boolean | null;
   estimated_days_in_milk: number | null;
   fertility_status: string | null;
+  last_ai_date: string | null;
+  last_calving_date: string | null;
 }
 
 interface ParentAnimal {
@@ -247,6 +251,47 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   const [caching, setCaching] = useState(false);
   const [editWeightDialogOpen, setEditWeightDialogOpen] = useState(false);
   const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
+
+  // Persistent active tab: hash (#milking) takes precedence, then localStorage,
+  // then a gender-appropriate default. Synced back to both on change so farmers
+  // return to the same tab next time they open this animal.
+  const TAB_STORAGE_KEY = `animal-profile-tab-${animalId}`;
+  const VALID_TABS = ['milking', 'weight', 'feeding', 'health', 'ai', 'photos', 'costs'] as const;
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'weight';
+    const hash = window.location.hash.replace('#', '');
+    if ((VALID_TABS as readonly string[]).includes(hash)) return hash;
+    const stored = localStorage.getItem(TAB_STORAGE_KEY);
+    if (stored && (VALID_TABS as readonly string[]).includes(stored)) return stored;
+    return 'weight';
+  });
+  // Once the animal loads, upgrade the default to the gender-appropriate tab
+  // (milking for females) — only when the user hasn't already picked a tab
+  // via hash or localStorage.
+  useEffect(() => {
+    if (!animal) return;
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace('#', '');
+    const stored = localStorage.getItem(TAB_STORAGE_KEY);
+    if (hash || stored) return;
+    const female = animal.gender?.toLowerCase() === 'female';
+    if (female && activeTab !== 'milking') setActiveTab('milking');
+  }, [animal, activeTab, TAB_STORAGE_KEY]);
+
+  const handleTabChange = (next: string) => {
+    setActiveTab(next);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, next);
+      if (typeof window !== 'undefined') {
+        // Replace, don't push, so back button still leaves the profile cleanly.
+        const url = new URL(window.location.href);
+        url.hash = next;
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch {
+      // localStorage can throw in private mode — fall through silently.
+    }
+  };
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
@@ -400,34 +445,6 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
-        // Get latest AI record with pregnancy info
-        const { data: aiRecords } = await supabase
-          .from("ai_records")
-          .select("performed_date, pregnancy_confirmed, expected_delivery_date")
-          .eq("animal_id", animalId)
-          .not("performed_date", "is", null)
-          .order("performed_date", { ascending: false })
-          .limit(1);
-        
-        // Use fertility_status (SSOT from DB trigger) to guard pregnancy display
-        const isConfirmedPregnant = data.fertility_status === 'confirmed_pregnant';
-        if (isConfirmedPregnant && aiRecords?.[0]?.expected_delivery_date) {
-          setExpectedDeliveryDate(aiRecords[0].expected_delivery_date);
-        } else if (isConfirmedPregnant) {
-          // New lifecycle path stores expected_delivery_date in breeding_events metadata
-          const { data: pregEvent } = await supabase
-            .from('breeding_events')
-            .select('metadata')
-            .eq('animal_id', animalId)
-            .eq('event_type', 'pregnancy_confirmed')
-            .order('event_date', { ascending: false })
-            .limit(1);
-          const metaDate = (pregEvent?.[0]?.metadata as any)?.expected_delivery_date;
-          setExpectedDeliveryDate(metaDate || null);
-        } else {
-          setExpectedDeliveryDate(null);
-        }
-        
         // Get recent milking records (last 30 days)
         const { data: milkingRecords } = await supabase
           .from("milking_records")
@@ -443,7 +460,39 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         
         // Derive hasActiveAI from fertility_status (SSOT from DB trigger)
         const hasActiveAI = ['bred_waiting', 'suspected_pregnant', 'confirmed_pregnant'].includes(data.fertility_status || '');
-        
+
+        // Compute expected delivery date for pregnant animals (same block as stageData)
+        if (hasActiveAI) {
+          // Try animal.last_ai_date first, then fall back to ai_records query
+          const aiDate = data.last_ai_date;
+          if (aiDate) {
+            const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+            setExpectedDeliveryDate(addDays(new Date(aiDate), gestationDays).toISOString().split('T')[0]);
+          } else {
+            // last_ai_date not set — query ai_records directly
+            const { data: aiRecord } = await supabase
+              .from('ai_records')
+              .select('performed_date, scheduled_date, expected_delivery_date')
+              .eq('animal_id', animalId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (aiRecord?.expected_delivery_date) {
+              setExpectedDeliveryDate(aiRecord.expected_delivery_date);
+            } else {
+              const fallbackDate = aiRecord?.performed_date || aiRecord?.scheduled_date;
+              if (fallbackDate) {
+                const gestationDays = GESTATION_DAYS[data.livestock_type || 'cattle'] || 283;
+                setExpectedDeliveryDate(addDays(new Date(fallbackDate), gestationDays).toISOString().split('T')[0]);
+              } else {
+                setExpectedDeliveryDate(null);
+              }
+            }
+          }
+        } else {
+          setExpectedDeliveryDate(null);
+        }
+
         setStageData({
           birthDate: data.birth_date ? new Date(data.birth_date) : null,
           gender: data.gender,
@@ -629,8 +678,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                 </div>
                 {!readOnly && (
                   <div className="flex flex-col gap-2 items-end">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setEditAnimalDialogOpen(true)}
                       disabled={!isOnline}
@@ -638,6 +687,10 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       <Pencil className="h-4 w-4 mr-1" />
                       Edit All Details
                     </Button>
+                    <ExportAnimalProfileButton
+                      animalId={animalId}
+                      farmId={farmId}
+                    />
                     <RecordAnimalExitDialog 
                       animalId={animalId}
                       animalName={animal.name || animal.ear_tag || 'Animal'}
@@ -691,12 +744,20 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                       colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
                     />
                   )}
-                  {expectedDeliveryDate && (
-                    <Badge className="bg-green-500 hover:bg-green-600 text-xs">
-                      <Baby className="h-3 w-3 mr-1" />
-                      Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
-                    </Badge>
-                  )}
+                  {expectedDeliveryDate && (() => {
+                    const daysUntilDue = differenceInDays(new Date(expectedDeliveryDate), new Date());
+                    const badgeColor = daysUntilDue <= 14
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : daysUntilDue <= 30
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-green-500 hover:bg-green-600';
+                    return (
+                      <Badge className={`${badgeColor} text-xs`}>
+                        <Baby className="h-3 w-3 mr-1" />
+                        Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <CardDescription className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
@@ -824,8 +885,8 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
               </div>
               {!readOnly && (
                 <div className="flex flex-col gap-2 items-end">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setEditAnimalDialogOpen(true)}
                     disabled={!isOnline}
@@ -833,7 +894,11 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     <Pencil className="h-4 w-4 mr-1" />
                     Edit All Details
                   </Button>
-                  <RecordAnimalExitDialog 
+                  <ExportAnimalProfileButton
+                    animalId={animalId}
+                    farmId={farmId}
+                  />
+                  <RecordAnimalExitDialog
                     animalId={animalId}
                     animalName={animal.name || animal.ear_tag || 'Animal'}
                     farmId={farmId}
@@ -1091,7 +1156,13 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
         } : null}
       />
 
-      <Tabs defaultValue={isFemale ? 'milking' : 'weight'} className="space-y-4">
+      {/* NOTE: AnimalQuickActionsStrip intentionally NOT mounted here.
+          The same strip already lives in BioCardSheet (the drawer that
+          opens when a farmer taps an animal card), which is the primary
+          entry point for quick recording. Repeating it here is redundant
+          since each tab already has its own "+ Add record" button. */}
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         {/* Mobile: Horizontal scrollable tabs with icons only */}
         {isMobile ? (
           <div className="relative">
@@ -1247,6 +1318,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
             animalName={animal?.name || animal?.ear_tag || undefined}
             gender={animal?.gender || undefined}
             livestockType={animal?.livestock_type || undefined}
+            animalBreed={animal?.breed || undefined}
             readOnly={readOnly}
             birthDate={animal?.birth_date}
             lifeStage={animal?.life_stage}

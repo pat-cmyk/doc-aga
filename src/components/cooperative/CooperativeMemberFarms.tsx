@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, MapPin, UserMinus } from "lucide-react";
 import { useCooperativeMemberFarms } from "@/hooks/useCooperative";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   cooperativeId: string;
@@ -9,6 +14,38 @@ interface Props {
 
 export const CooperativeMemberFarms = ({ cooperativeId }: Props) => {
   const { data: farms, isLoading } = useCooperativeMemberFarms(cooperativeId);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const removeMutation = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const { data, error } = await supabase.rpc('remove_farm_from_cooperative', {
+        _cooperative_id: cooperativeId,
+        _membership_id: membershipId,
+      });
+      if (error) throw error;
+      if (typeof data === 'string' && data.startsWith('error:')) {
+        throw new Error(data.replace('error:', ''));
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cooperative-member-farms'] });
+      toast({
+        title: "Farm Removed",
+        description: "The farm has been removed from the cooperative.",
+      });
+      setConfirmRemoveId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -49,6 +86,40 @@ export const CooperativeMemberFarms = ({ cooperativeId }: Props) => {
                   <p className="text-xs text-muted-foreground mt-2">
                     Joined {new Date(farm.accepted_at).toLocaleDateString()}
                   </p>
+                )}
+                {/* Remove Farm */}
+                {confirmRemoveId === farm.membership_id ? (
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                    <p className="text-xs text-destructive flex-1">Remove this farm?</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-7"
+                      onClick={() => setConfirmRemoveId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="text-xs h-7"
+                      disabled={removeMutation.isPending}
+                      onClick={() => removeMutation.mutate(farm.membership_id)}
+                    >
+                      {removeMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-6 text-muted-foreground hover:text-destructive mt-2 px-0"
+                    onClick={() => setConfirmRemoveId(farm.membership_id)}
+                  >
+                    <UserMinus className="h-3 w-3 mr-1" />
+                    Remove from cooperative
+                  </Button>
                 )}
               </CardContent>
             </Card>
