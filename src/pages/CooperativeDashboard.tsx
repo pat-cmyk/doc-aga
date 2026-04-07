@@ -17,6 +17,7 @@ import { CoopMilkCollection } from "@/components/cooperative/hub-operations/Coop
 import { CoopPriceSchedule } from "@/components/cooperative/hub-operations/CoopPriceSchedule";
 import { CoopFeedInventory } from "@/components/cooperative/hub-operations/CoopFeedInventory";
 import { CoopFeedDisbursement } from "@/components/cooperative/hub-operations/CoopFeedDisbursement";
+import { CoopStatements } from "@/components/cooperative/hub-operations/CoopStatements";
 
 const CooperativeDashboard = () => {
   const navigate = useNavigate();
@@ -152,6 +153,10 @@ const CooperativeDashboard = () => {
               <Tag className="h-4 w-4" />
               <span className="hidden sm:inline">Pricing</span>
             </TabsTrigger>
+            <TabsTrigger value="statements" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Statements</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -187,6 +192,9 @@ const CooperativeDashboard = () => {
           </TabsContent>
           <TabsContent value="pricing">
             <CoopPriceSchedule cooperativeId={cooperativeId} />
+          </TabsContent>
+          <TabsContent value="statements">
+            <CoopStatements cooperativeId={cooperativeId} />
           </TabsContent>
         </Tabs>
       </main>
