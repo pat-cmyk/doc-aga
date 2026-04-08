@@ -76,7 +76,7 @@ export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead>Sold Date</TableHead>
               <TableHead>Animal</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-right">Original</TableHead>
@@ -87,7 +87,7 @@ export function MilkSalesHistory({ farmId }: MilkSalesHistoryProps) {
             {data.map((sale) => (
               <TableRow key={sale.id}>
                 <TableCell className="whitespace-nowrap">
-                  {format(new Date(sale.record_date), "MMM d, yyyy")}
+                  {format(new Date(sale.updated_at || sale.record_date), "MMM d, yyyy")}
                 </TableCell>
                 <TableCell>
                   {sale.animal_name || sale.ear_tag || "—"}
