@@ -391,5 +391,6 @@ async function fetchAnimalRecordsDirect(animalId: string) {
     breeding: breedingRes.data ?? [],
     bcs: bcsRes.data ?? [],
     lastUpdated: Date.now(),
+    syncStatus: 'synced' as const,
   };
 }

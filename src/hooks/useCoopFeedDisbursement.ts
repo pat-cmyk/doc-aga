@@ -32,7 +32,7 @@ export const useCoopFeedDisbursements = (
     queryKey: ["coop-feed-disbursements", cooperativeId, dateRange],
     queryFn: async () => {
       if (!cooperativeId) return [];
-      const { data, error } = await supabase.rpc("get_coop_feed_disbursements", {
+      const { data, error } = await (supabase.rpc as any)("get_coop_feed_disbursements", {
         _cooperative_id: cooperativeId,
         _date_from: dateRange?.from || null,
         _date_to: dateRange?.to || null,
@@ -55,7 +55,7 @@ export const useAddCoopFeedDisbursement = () => {
       quantityKg: number;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc("record_coop_feed_disbursement", {
+      const { data, error } = await (supabase.rpc as any)("record_coop_feed_disbursement", {
         _cooperative_id: params.cooperativeId,
         _farm_id: params.farmId,
         _coop_feed_inventory_id: params.coopFeedInventoryId,
@@ -81,7 +81,7 @@ export const useCorrectCoopFeedDisbursement = () => {
       newQuantityKg: number;
       reason: string;
     }) => {
-      const { data, error } = await supabase.rpc("correct_coop_feed_disbursement", {
+      const { data, error } = await (supabase.rpc as any)("correct_coop_feed_disbursement", {
         _original_id: params.originalId,
         _new_quantity_kg: params.newQuantityKg,
         _reason: params.reason,

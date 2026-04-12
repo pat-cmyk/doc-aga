@@ -33,7 +33,7 @@ export const useCoopMilkReceivings = (
     queryKey: ["coop-milk-receivings", cooperativeId, dateRange],
     queryFn: async () => {
       if (!cooperativeId) return [];
-      const { data, error } = await supabase.rpc("get_coop_milk_receivings", {
+      const { data, error } = await (supabase.rpc as any)("get_coop_milk_receivings", {
         _cooperative_id: cooperativeId,
         _date_from: dateRange?.from || null,
         _date_to: dateRange?.to || null,
@@ -60,7 +60,7 @@ export const useAddCoopMilkReceiving = () => {
       pricePerLiter?: number;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc("record_coop_milk_receiving", {
+      const { data, error } = await (supabase.rpc as any)("record_coop_milk_receiving", {
         _cooperative_id: params.cooperativeId,
         _farm_id: params.farmId,
         _receiving_date: params.receivingDate,
@@ -90,7 +90,7 @@ export const useCorrectCoopMilkReceiving = () => {
       newPricePerLiter?: number;
       reason: string;
     }) => {
-      const { data, error } = await supabase.rpc("correct_coop_milk_receiving", {
+      const { data, error } = await (supabase.rpc as any)("correct_coop_milk_receiving", {
         _original_id: params.originalId,
         _new_volume_liters: params.newVolumeLiters,
         _new_price_per_liter: params.newPricePerLiter || null,

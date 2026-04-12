@@ -59,8 +59,7 @@ export const useCoopSOAPeriods = (cooperativeId: string | null) => {
     queryKey: ["coop-soa-periods", cooperativeId],
     queryFn: async () => {
       if (!cooperativeId) return [];
-      const { data, error } = await supabase
-        .from("coop_soa_periods")
+      const { data, error } = await (supabase.from as any)("coop_soa_periods")
         .select("*, farms(name)")
         .eq("cooperative_id", cooperativeId)
         .order("period_start", { ascending: false })
@@ -83,7 +82,7 @@ export const useComputeCoopSOA = () => {
       periodStart: string;
       periodEnd: string;
     }) => {
-      const { data, error } = await supabase.rpc("compute_coop_soa", {
+      const { data, error } = await (supabase.rpc as any)("compute_coop_soa", {
         _cooperative_id: params.cooperativeId,
         _farm_id: params.farmId,
         _period_start: params.periodStart,
@@ -106,7 +105,7 @@ export const useFinalizeCoopSOA = () => {
       periodEnd: string;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc("finalize_coop_soa", {
+      const { data, error } = await (supabase.rpc as any)("finalize_coop_soa", {
         _cooperative_id: params.cooperativeId,
         _farm_id: params.farmId,
         _period_start: params.periodStart,
@@ -131,7 +130,7 @@ export const useSettleCoopSOA = () => {
       farmId: string;
       periodStart: string;
     }) => {
-      const { data, error } = await supabase.rpc("settle_coop_soa", {
+      const { data, error } = await (supabase.rpc as any)("settle_coop_soa", {
         _cooperative_id: params.cooperativeId,
         _farm_id: params.farmId,
         _period_start: params.periodStart,
@@ -155,7 +154,6 @@ export function getBimonthlyPeriod(date: Date): { start: string; end: string } {
   const day = date.getDate();
 
   if (day <= 15) {
-    // First half: 1st to 15th
     const start = new Date(year, month, 1);
     const end = new Date(year, month, 15);
     return {
@@ -163,9 +161,8 @@ export function getBimonthlyPeriod(date: Date): { start: string; end: string } {
       end: formatDateISO(end),
     };
   } else {
-    // Second half: 16th to last day
     const start = new Date(year, month, 16);
-    const end = new Date(year, month + 1, 0); // Last day of month
+    const end = new Date(year, month + 1, 0);
     return {
       start: formatDateISO(start),
       end: formatDateISO(end),
