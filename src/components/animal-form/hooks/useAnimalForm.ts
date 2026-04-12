@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 
 export interface AnimalFormData {
@@ -318,6 +319,10 @@ export const useAnimalForm = (farmId: string, onSuccess: () => void) => {
         variant: "destructive"
       });
     } else {
+      // Invalidate all animal-related caches (animals, dashboard, lactating-animals, etc.)
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('animal', farmId);
+      }
       toast({
         title: "Success!",
         description: "Animal added successfully"

@@ -258,9 +258,10 @@ export function RecordCalvingDialog({
       playSound('success');
       hapticNotification('success');
 
-      // Invalidate breeding + animal caches so timeline and profile refresh
+      // Invalidate breeding + animal caches so timeline, profile, and dashboard refresh
       if (isCacheManagerReady()) {
         await getCacheManager().invalidateForMutation('breeding-event', farmId);
+        await getCacheManager().invalidateForMutation('animal', farmId);
       }
 
       // Store metadata for potential placenta update later

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { updateAnimalCache, getCachedAnimals } from "@/lib/animalCache";
+import { getCacheManager, isCacheManagerReady } from "@/lib/cacheManager";
 import { getOfflineMessage, translateError } from "@/lib/errorMessages";
 import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
@@ -436,9 +437,9 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
         });
       }
       
-      // Invalidate lactating-animals cache if we added a lactating female
-      if (formData.gender === 'Female' && formData.is_currently_lactating) {
-        queryClient.invalidateQueries({ queryKey: ['lactating-animals'] });
+      // Invalidate all animal-related caches (animals, dashboard, lactating-animals, etc.)
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('animal', farmId);
       }
       
       // Show success screen instead of immediate callback
