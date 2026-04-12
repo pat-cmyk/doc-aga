@@ -1,69 +1,33 @@
 
 
-# Add Thousand-Separator Number Formatting to Cooperative & Government Dashboards
+# Fix Pre-Existing Build Errors Blocking Preview
 
-## Goal
-Ensure all numeric displays across the cooperative and government dashboards use comma-separated formatting (e.g., "1,000") with decimals rounded to the nearest whole number for readability.
+## Problem
+The preview shows a Lovable placeholder instead of Doc Aga because the build is failing due to pre-existing TypeScript errors unrelated to the formatting changes. There are two categories of errors:
 
-## Approach
-Add a `formatNumber` utility to `src/lib/currency.ts` and apply it across all affected components. This keeps formatting centralized and consistent with the existing `formatPHP` / `formatPHPCompact` pattern.
+1. **`useAnimalProfileExport.ts`** — `fetchAnimalRecordsDirect()` (line 383-394) returns an object missing the required `syncStatus` field from the `RecordCache` interface.
 
-## Step 1 — Add `formatNumber` utility
-Add to `src/lib/currency.ts`:
-```ts
-export function formatNumber(value: number): string {
-  return Math.round(value).toLocaleString("en-PH");
-}
-```
+2. **Cooperative hooks** (`useCoopFeedDisbursement`, `useCoopFeedInventory`, `useCoopMilkCollection`, `useCoopPriceSchedule`, `useCoopSOA`, `useMyCooperative`) — these call RPC functions (e.g., `get_coop_feed_disbursements`) that are not yet registered in the auto-generated `src/integrations/supabase/types.ts`. Since that file cannot be manually edited, these hooks need `as any` casts on the `.rpc()` calls to unblock the build.
 
-## Step 2 — Update Cooperative Dashboard Components
+## Plan
 
-**CooperativeOverview.tsx** (line 46):
-- `(milk?.total_liters ?? 0).toFixed(1)` → `formatNumber(milk?.total_liters ?? 0)` + " L"
+### Step 1 — Fix `useAnimalProfileExport.ts`
+Add the missing `syncStatus: 'synced'` property to the return object in `fetchAnimalRecordsDirect()` (line ~383).
 
-**CooperativeMilkAnalytics.tsx**:
-- Line 31: total liters → `formatNumber(...)`
-- Line 47: tooltip formatter → round and format
-- Line 69: per-farm liters → `formatNumber(...)`
+### Step 2 — Fix cooperative hooks with `as any` RPC casts
+In each of the following files, cast the RPC function name argument to `as any` to bypass the type check (the functions exist in the database but aren't in the auto-generated types yet):
 
-**CooperativeFinancials.tsx** (lines 36, 46, 56, 72):
-- `.toLocaleString()` calls already work but switch to `formatNumber()` for consistency and rounding
+- `src/hooks/useCoopFeedDisbursement.ts` (3 RPC calls)
+- `src/hooks/useCoopFeedInventory.ts` (2 RPC calls + 1 cast fix)
+- `src/hooks/useCoopMilkCollection.ts` (3 RPC calls)
+- `src/hooks/useCoopPriceSchedule.ts` (4 RPC calls + 1 cast fix)
+- `src/hooks/useCoopSOA.ts` (4 RPC calls + table reference)
+- `src/hooks/useMyCooperative.ts` (2 RPC calls + 1 cast fix)
 
-**CooperativeHerdSummary.tsx** (lines 35, 55, 81):
-- Wrap animal counts with `formatNumber()`
-
-**CooperativeHealthOverview.tsx** (lines 31, 41, 55):
-- Wrap record/mortality/diagnosis counts with `formatNumber()`
-
-## Step 3 — Update Government Dashboard Components
-
-**GovDashboardOverview.tsx**:
-- Replace all `.toLocaleString()` calls with `formatNumber()` (stats cards and comparison display)
-
-**MilkProductionBySpeciesChart.tsx** (lines 102, 111, 123, 135, 212, 215):
-- Replace `.toLocaleString()` with `formatNumber()` for milk totals in summary cards and tooltips
-
-**MilkProductionSummaryCard.tsx** (line 56):
-- Replace `.toLocaleString("en-PH", ...)` with `formatNumber()`
-
-**MortalityAnalyticsCard.tsx** (line 65, 107, 134):
-- Wrap exit counts with `formatNumber()`
-
-**RegionalInvestmentCards.tsx** (lines 44, 57, 83):
-- Replace `.toLocaleString()` with `formatNumber()`
-
-**GovTrendCharts.tsx** (lines 104, 238, 243):
-- Replace `.toLocaleString()` with `formatNumber()` in tooltips
-
-**FeedSecuritySummaryCard.tsx** — percentages only, no changes needed (already `.toFixed(0)%`)
-
-## Files Changed (~12 files)
-- `src/lib/currency.ts` — add `formatNumber`
-- 5 cooperative components
-- 6 government components
+### Step 3 — Verify build
+Run `npx tsc --noEmit` to confirm all errors are resolved and preview can load.
 
 ## Notes
-- Percentages (e.g., mortality rate `2.15%`) keep their decimal precision — only counts and volumes get rounded
-- Currency displays already use `formatPHP`/`formatPHPCompact` which handle their own formatting — no changes needed there
-- The `formatNumber` function uses `Math.round` + `en-PH` locale for consistent comma separators
+- The `types.ts` file was previously edited which is forbidden — it will be regenerated automatically, so we use `as any` as a temporary workaround for the coop hooks.
+- These errors pre-date the number formatting changes.
 
