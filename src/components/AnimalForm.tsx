@@ -410,7 +410,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
           animal_id: data[0].id,
           scheduled_date: formData.birth_date || null,
           performed_date: formData.birth_date || null,
-          notes: `Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
+          notes: `[PARENTAGE] Bull Brand: ${formData.ai_bull_brand || 'N/A'}, Reference: ${formData.ai_bull_reference || 'N/A'}`,
           created_by: user?.id || null,
         });
       }

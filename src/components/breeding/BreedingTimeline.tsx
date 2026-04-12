@@ -132,7 +132,8 @@ export function BreedingTimeline({ animalId, className, headerActions, readOnly 
         });
       });
 
-      aiResult.data?.forEach(ai => {
+      // Filter out parentage AI records (from is_father_ai — about the mother's AI, not this animal's breeding)
+      aiResult.data?.filter(ai => !ai.notes?.startsWith('[PARENTAGE]')).forEach(ai => {
         // Scheduled but not performed
         if (ai.scheduled_date && !ai.performed_date) {
           combined.push({
