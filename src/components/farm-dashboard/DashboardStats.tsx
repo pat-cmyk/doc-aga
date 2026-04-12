@@ -25,10 +25,16 @@ export const DashboardStats = ({ stats, trends, farmId }: DashboardStatsProps) =
   return (
     <>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="min-h-[100px] sm:min-h-[120px]">
+        <Card
+          className="min-h-[100px] sm:min-h-[120px] cursor-pointer transition-colors hover:bg-accent/50"
+          onClick={() => navigate('/?tab=animals')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Animals</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalAnimals}</div>
