@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Calendar, CheckCircle, Clock, Pencil, Flame, Baby, ChevronDown, ChevronUp, Search, XCircle, AlertTriangle, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleAIDialog } from "./ScheduleAIDialog";
 import ConfirmPregnancyDialog from "./ConfirmPregnancyDialog";
@@ -25,7 +25,7 @@ import {
 import { RecordHeatDialog } from "./heat-detection/RecordHeatDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { BREEDING_LIFECYCLE_ACTIONS } from "@/lib/urgencyGlossary";
-import { canRecordHeat, canScheduleAI, canRecordCalving, EligibilityInput, EligibilityResult } from "@/lib/animalEligibility";
+import { canRecordHeat, canScheduleAI, canRecordCalving, canMarkNonReturn, canConfirmPregnancy, canRecordPregnancyFailed, canRecordHeatReturn, canCompleteVWP, EligibilityInput, EligibilityResult } from "@/lib/animalEligibility";
 
 interface AIRecordsProps {
   animalId: string;
@@ -92,6 +92,11 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
   const heatEligibility: EligibilityResult = canRecordHeat(eligibilityInput);
   const aiEligibility: EligibilityResult = canScheduleAI(eligibilityInput);
   const calvingEligibility: EligibilityResult = canRecordCalving(eligibilityInput);
+  const nonReturnEligibility: EligibilityResult = canMarkNonReturn(eligibilityInput);
+  const confirmPregnancyEligibility: EligibilityResult = canConfirmPregnancy(eligibilityInput);
+  const pregnancyFailedEligibility: EligibilityResult = canRecordPregnancyFailed(eligibilityInput);
+  const heatReturnEligibility: EligibilityResult = canRecordHeatReturn(eligibilityInput);
+  const vwpEligibility: EligibilityResult = canCompleteVWP(eligibilityInput);
 
   // Find latest performed AI date for timing guards
   const lastPerformedAI = records.find(r => r.performed_date);
@@ -228,83 +233,158 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <MarkNonReturnButton
-                            animalId={animalId}
-                            farmId={farmId}
-                            animalName={animalName}
-                            lastAIDate={lastAIDate}
-                            onSuccess={loadRecords}
-                          />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-sm">
-                        <p>{BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <ConfirmPregnancyButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        livestockType={livestockType}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.pregnancy_confirmed.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <PregnancyFailedButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.pregnancy_failed.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <RecordHeatReturnButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.heat_return.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <MarkVWPEndedButton
-                        animalId={animalId}
-                        farmId={farmId}
-                        animalName={animalName}
-                        onSuccess={loadRecords}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-sm">
-                    <p>{BREEDING_LIFECYCLE_ACTIONS.vwp_ended.description}</p>
-                  </TooltipContent>
-                </Tooltip>
+                    {nonReturnEligibility.eligible ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <MarkNonReturnButton
+                              animalId={animalId}
+                              farmId={farmId}
+                              animalName={animalName}
+                              lastAIDate={lastAIDate}
+                              onSuccess={loadRecords}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{nonReturnEligibility.warning && nonReturnEligibility.reason ? nonReturnEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.non_return.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                              <Search className="h-5 w-5 text-purple-500" /> Suspected Pregnant
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{nonReturnEligibility.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {confirmPregnancyEligibility.eligible ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <ConfirmPregnancyButton
+                              animalId={animalId}
+                              farmId={farmId}
+                              animalName={animalName}
+                              livestockType={livestockType}
+                              onSuccess={loadRecords}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{confirmPregnancyEligibility.warning && confirmPregnancyEligibility.reason ? confirmPregnancyEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.pregnancy_confirmed.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                              <CheckCircle className="h-5 w-5 text-pink-500" /> Confirm Pregnancy
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{confirmPregnancyEligibility.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {pregnancyFailedEligibility.eligible ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <PregnancyFailedButton
+                              animalId={animalId}
+                              farmId={farmId}
+                              animalName={animalName}
+                              onSuccess={loadRecords}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{BREEDING_LIFECYCLE_ACTIONS.pregnancy_failed.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                              <XCircle className="h-5 w-5 text-red-500" /> Pregnancy Failed
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{pregnancyFailedEligibility.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {heatReturnEligibility.eligible ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <RecordHeatReturnButton
+                              animalId={animalId}
+                              farmId={farmId}
+                              animalName={animalName}
+                              onSuccess={loadRecords}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{heatReturnEligibility.warning && heatReturnEligibility.reason ? heatReturnEligibility.reason : BREEDING_LIFECYCLE_ACTIONS.heat_return.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                              <AlertTriangle className="h-5 w-5 text-orange-500" /> Heat Returned
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{heatReturnEligibility.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {vwpEligibility.eligible ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <MarkVWPEndedButton
+                              animalId={animalId}
+                              farmId={farmId}
+                              animalName={animalName}
+                              onSuccess={loadRecords}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{BREEDING_LIFECYCLE_ACTIONS.vwp_ended.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button variant="outline" size="sm" className="gap-2 opacity-50 cursor-not-allowed" disabled>
+                              <Heart className="h-5 w-5 text-green-500" /> VWP Complete
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-sm">
+                          <p>{vwpEligibility.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
