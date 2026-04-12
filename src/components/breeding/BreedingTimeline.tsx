@@ -55,7 +55,7 @@ const EVENT_CONFIG: Record<BreedingEventType, {
   heat_return: { icon: Heart, label: 'Heat Return', color: 'text-orange-400' },
 };
 
-export function BreedingTimeline({ animalId, className, headerActions, readOnly = false }: BreedingTimelineProps) {
+export function BreedingTimeline({ animalId, farmId, className, headerActions, readOnly = false }: BreedingTimelineProps) {
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const queryClient = useQueryClient();
