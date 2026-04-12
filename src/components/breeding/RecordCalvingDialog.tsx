@@ -29,6 +29,7 @@ import { VoiceInputButton } from '@/components/ui/voice-input-button';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { playSound } from '@/lib/audioFeedback';
 import { hapticNotification } from '@/lib/haptics';
+import { getCacheManager, isCacheManagerReady } from '@/lib/cacheManager';
 import { differenceInDays, format } from 'date-fns';
 
 interface PregnancyContext {
@@ -183,7 +184,7 @@ export function RecordCalvingDialog({
       };
 
       // 1. Insert calving breeding event (triggers state machine)
-      await insertBreedingEvent({
+      const result = await insertBreedingEvent({
         animalId,
         farmId,
         eventType: 'calving',
@@ -192,6 +193,16 @@ export function RecordCalvingDialog({
         notes: notes || undefined,
         metadata,
       });
+
+      if (!result.success) {
+        toast({
+          title: "Failed to record calving / Hindi naitala ang panganganak",
+          description: "The calving event could not be saved. Please try again. / Hindi na-save. Subukan ulit.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
       // 2. Register calf if alive and opted in
       if (calfOutcome === 'alive' && registerCalf && calfGender) {
@@ -246,6 +257,11 @@ export function RecordCalvingDialog({
 
       playSound('success');
       hapticNotification('success');
+
+      // Invalidate breeding + animal caches so timeline and profile refresh
+      if (isCacheManagerReady()) {
+        await getCacheManager().invalidateForMutation('breeding-event', farmId);
+      }
 
       // Store metadata for potential placenta update later
       setCalvingEventMetadata(metadata);

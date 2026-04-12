@@ -405,3 +405,104 @@ export function canRecordCalving(animal: EligibilityInput): EligibilityResult {
     reason: "Hindi buntis / Not pregnant",
   };
 }
+
+// ---------------------------------------------------------------------------
+// "More Actions" Eligibility — fertility-status-based gating
+// ---------------------------------------------------------------------------
+
+/**
+ * Can this animal be marked as suspected pregnant (non-return)?
+ * Requires: Female + bred_waiting status (AI performed, waiting for result)
+ */
+export function canMarkNonReturn(animal: EligibilityInput): EligibilityResult {
+  if (!isFemale(animal.gender)) {
+    return { eligible: false, reason: "Lalaki / Male" };
+  }
+  if (animal.fertility_status === 'bred_waiting') {
+    return { eligible: true };
+  }
+  if (animal.fertility_status === 'suspected_pregnant' || animal.fertility_status === 'confirmed_pregnant') {
+    return { eligible: false, reason: "Buntis na — hindi kailangan / Already pregnant" };
+  }
+  if (animal.fertility_status === 'fresh_postpartum') {
+    return { eligible: false, reason: "Bagong panganak — recovery pa / Just calved — still recovering" };
+  }
+  return { eligible: false, reason: "Walang AI record — i-schedule muna / No AI performed — schedule AI first" };
+}
+
+/**
+ * Can this animal's pregnancy be confirmed?
+ * Requires: Female + suspected_pregnant status
+ */
+export function canConfirmPregnancy(animal: EligibilityInput): EligibilityResult {
+  if (!isFemale(animal.gender)) {
+    return { eligible: false, reason: "Lalaki / Male" };
+  }
+  if (animal.fertility_status === 'suspected_pregnant') {
+    return { eligible: true };
+  }
+  if (animal.fertility_status === 'confirmed_pregnant') {
+    return { eligible: false, reason: "Confirmed na / Already confirmed pregnant" };
+  }
+  if (animal.fertility_status === 'bred_waiting') {
+    return { eligible: true, warning: true, reason: "Hindi pa suspected — i-mark muna as non-return / Not yet suspected — mark non-return first" };
+  }
+  if (animal.fertility_status === 'fresh_postpartum') {
+    return { eligible: false, reason: "Bagong panganak — recovery pa / Just calved — still recovering" };
+  }
+  return { eligible: false, reason: "Hindi buntis / Not pregnant" };
+}
+
+/**
+ * Can pregnancy failure be recorded for this animal?
+ * Requires: Female + suspected_pregnant OR confirmed_pregnant
+ */
+export function canRecordPregnancyFailed(animal: EligibilityInput): EligibilityResult {
+  if (!isFemale(animal.gender)) {
+    return { eligible: false, reason: "Lalaki / Male" };
+  }
+  if (animal.fertility_status === 'suspected_pregnant' || animal.fertility_status === 'confirmed_pregnant') {
+    return { eligible: true };
+  }
+  if (animal.fertility_status === 'fresh_postpartum') {
+    return { eligible: false, reason: "Nanganak na / Already calved" };
+  }
+  return { eligible: false, reason: "Hindi buntis — walang pregnancy na i-fail / Not pregnant — no pregnancy to fail" };
+}
+
+/**
+ * Can heat return be recorded for this animal?
+ * Requires: Female + bred_waiting OR suspected_pregnant (returned to heat before confirmation)
+ */
+export function canRecordHeatReturn(animal: EligibilityInput): EligibilityResult {
+  if (!isFemale(animal.gender)) {
+    return { eligible: false, reason: "Lalaki / Male" };
+  }
+  if (animal.fertility_status === 'bred_waiting' || animal.fertility_status === 'suspected_pregnant') {
+    return { eligible: true };
+  }
+  if (animal.fertility_status === 'confirmed_pregnant') {
+    return { eligible: true, warning: true, reason: "Confirmed pregnant — i-verify kung talagang bumalik sa heat / Confirmed pregnant — verify heat return" };
+  }
+  if (animal.fertility_status === 'fresh_postpartum') {
+    return { eligible: false, reason: "Bagong panganak — recovery pa / Just calved — still recovering" };
+  }
+  return { eligible: false, reason: "Hindi pa na-breed / Not yet bred" };
+}
+
+/**
+ * Can VWP (voluntary waiting period) completion be recorded?
+ * Requires: Female + fresh_postpartum status
+ */
+export function canCompleteVWP(animal: EligibilityInput): EligibilityResult {
+  if (!isFemale(animal.gender)) {
+    return { eligible: false, reason: "Lalaki / Male" };
+  }
+  if (animal.fertility_status === 'fresh_postpartum') {
+    return { eligible: true };
+  }
+  if (animal.fertility_status === 'open_cycling') {
+    return { eligible: false, reason: "Open cycling na / Already open cycling" };
+  }
+  return { eligible: false, reason: "Hindi postpartum / Not in postpartum period" };
+}
