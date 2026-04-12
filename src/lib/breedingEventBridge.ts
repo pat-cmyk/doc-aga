@@ -29,8 +29,11 @@ interface InsertBreedingEventParams {
  * Insert a breeding_events row to trigger the fertility state machine.
  * Should be called AFTER the legacy table write succeeds.
  * Failures are logged but do not throw — the legacy write already succeeded.
+ *
+ * Returns { success, error } so callers where the breeding_event IS the
+ * primary write (e.g. calving) can gate downstream steps on success.
  */
-export async function insertBreedingEvent(params: InsertBreedingEventParams): Promise<void> {
+export async function insertBreedingEvent(params: InsertBreedingEventParams): Promise<{ success: boolean; error?: any }> {
   try {
     const { data: userData } = await supabase.auth.getUser();
 
@@ -48,6 +51,7 @@ export async function insertBreedingEvent(params: InsertBreedingEventParams): Pr
 
     if (error) {
       console.error(`[BreedingEventBridge] Failed to insert ${params.eventType} event:`, error);
+      return { success: false, error };
     }
 
     // Data hygiene: clear ai_records pregnancy when pregnancy ends
@@ -58,8 +62,11 @@ export async function insertBreedingEvent(params: InsertBreedingEventParams): Pr
         .eq('animal_id', params.animalId)
         .eq('pregnancy_confirmed', true);
     }
+
+    return { success: true };
   } catch (err) {
     console.error(`[BreedingEventBridge] Unexpected error inserting ${params.eventType}:`, err);
+    return { success: false, error: err };
   }
 }
 
