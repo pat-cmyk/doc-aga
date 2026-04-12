@@ -46,12 +46,12 @@ export const useMyCoopMembership = (farmId: string | null) => {
     queryKey: ["my-coop-membership", farmId],
     queryFn: async () => {
       if (!farmId) return null;
-      const { data, error } = await supabase.rpc("get_my_coop_membership", {
+      const { data, error } = await (supabase.rpc as any)("get_my_coop_membership", {
         _farm_id: farmId,
       });
       if (error) throw error;
       if (!data || (Array.isArray(data) && data.length === 0)) return null;
-      return (Array.isArray(data) ? data[0] : data) as MyCoopMembership;
+      return (Array.isArray(data) ? data[0] : data) as unknown as MyCoopMembership;
     },
     enabled: !!farmId,
   });
@@ -65,7 +65,7 @@ export const useMyMilkDeliveries = (
     queryKey: ["my-coop-milk-deliveries", farmId, dateRange],
     queryFn: async () => {
       if (!farmId) return [];
-      const { data, error } = await supabase.rpc("get_my_coop_milk_deliveries", {
+      const { data, error } = await (supabase.rpc as any)("get_my_coop_milk_deliveries", {
         _farm_id: farmId,
         _date_from: dateRange?.from || null,
         _date_to: dateRange?.to || null,
@@ -85,7 +85,7 @@ export const useMyFeedReceipts = (
     queryKey: ["my-coop-feed-receipts", farmId, dateRange],
     queryFn: async () => {
       if (!farmId) return [];
-      const { data, error } = await supabase.rpc("get_my_coop_feed_receipts", {
+      const { data, error } = await (supabase.rpc as any)("get_my_coop_feed_receipts", {
         _farm_id: farmId,
         _date_from: dateRange?.from || null,
         _date_to: dateRange?.to || null,
@@ -102,7 +102,7 @@ export const useMyCoopSOA = (farmId: string | null) => {
     queryKey: ["my-coop-soa", farmId],
     queryFn: async () => {
       if (!farmId) return [];
-      const { data, error } = await supabase.rpc("get_my_coop_soa", {
+      const { data, error } = await (supabase.rpc as any)("get_my_coop_soa", {
         _farm_id: farmId,
       });
       if (error) throw error;

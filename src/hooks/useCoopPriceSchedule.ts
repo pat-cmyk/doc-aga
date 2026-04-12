@@ -20,11 +20,11 @@ export const useCoopPriceSchedule = (cooperativeId: string | null) => {
     queryKey: ["coop-price-schedule", cooperativeId],
     queryFn: async () => {
       if (!cooperativeId) return [];
-      const { data, error } = await supabase.rpc("get_coop_price_schedule", {
+      const { data, error } = await (supabase.rpc as any)("get_coop_price_schedule", {
         _cooperative_id: cooperativeId,
       });
       if (error) throw error;
-      return (data || []) as CoopPriceEntry[];
+      return (data || []) as unknown as CoopPriceEntry[];
     },
     enabled: !!cooperativeId,
   });
@@ -35,7 +35,7 @@ export const useActiveCoopPrice = (cooperativeId: string | null, species: string
     queryKey: ["coop-active-price", cooperativeId, species],
     queryFn: async () => {
       if (!cooperativeId || !species) return null;
-      const { data, error } = await supabase.rpc("get_active_coop_price", {
+      const { data, error } = await (supabase.rpc as any)("get_active_coop_price", {
         _cooperative_id: cooperativeId,
         _species: species,
       });
@@ -57,7 +57,7 @@ export const useSetCoopMilkPrice = () => {
       effectiveDate: string;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc("set_coop_milk_price", {
+      const { data, error } = await (supabase.rpc as any)("set_coop_milk_price", {
         _cooperative_id: params.cooperativeId,
         _species: params.species,
         _price_per_liter: params.pricePerLiter,

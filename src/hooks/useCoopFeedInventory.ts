@@ -26,11 +26,11 @@ export const useCoopFeedInventory = (cooperativeId: string | null) => {
     queryKey: ["coop-feed-inventory", cooperativeId],
     queryFn: async () => {
       if (!cooperativeId) return [];
-      const { data, error } = await supabase.rpc("get_coop_feed_inventory", {
+      const { data, error } = await (supabase.rpc as any)("get_coop_feed_inventory", {
         _cooperative_id: cooperativeId,
       });
       if (error) throw error;
-      return (data || []) as CoopFeedItem[];
+      return (data || []) as unknown as CoopFeedItem[];
     },
     enabled: !!cooperativeId,
   });
@@ -52,7 +52,7 @@ export const useAddCoopFeedStock = () => {
       expiryDate?: string;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc("add_coop_feed_stock", {
+      const { data, error } = await (supabase.rpc as any)("add_coop_feed_stock", {
         _cooperative_id: params.cooperativeId,
         _feed_type: params.feedType,
         _category: params.category,

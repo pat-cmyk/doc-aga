@@ -1027,6 +1027,396 @@ export type Database = {
           },
         ]
       }
+      coop_feed_disbursements: {
+        Row: {
+          category: string
+          coop_feed_inventory_id: string
+          cooperative_id: string
+          cost_per_kg: number
+          created_at: string
+          disbursed_by: string
+          disbursement_date: string
+          entry_type: string
+          farm_feed_inventory_id: string | null
+          farm_id: string
+          feed_type: string
+          id: string
+          notes: string | null
+          original_disbursement_id: string | null
+          quantity_kg: number
+          reversal_reason: string | null
+          status: string
+          total_cost: number | null
+        }
+        Insert: {
+          category: string
+          coop_feed_inventory_id: string
+          cooperative_id: string
+          cost_per_kg: number
+          created_at?: string
+          disbursed_by: string
+          disbursement_date: string
+          entry_type?: string
+          farm_feed_inventory_id?: string | null
+          farm_id: string
+          feed_type: string
+          id?: string
+          notes?: string | null
+          original_disbursement_id?: string | null
+          quantity_kg: number
+          reversal_reason?: string | null
+          status?: string
+          total_cost?: number | null
+        }
+        Update: {
+          category?: string
+          coop_feed_inventory_id?: string
+          cooperative_id?: string
+          cost_per_kg?: number
+          created_at?: string
+          disbursed_by?: string
+          disbursement_date?: string
+          entry_type?: string
+          farm_feed_inventory_id?: string | null
+          farm_id?: string
+          feed_type?: string
+          id?: string
+          notes?: string | null
+          original_disbursement_id?: string | null
+          quantity_kg?: number
+          reversal_reason?: string | null
+          status?: string
+          total_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_feed_disbursements_coop_feed_inventory_id_fkey"
+            columns: ["coop_feed_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "coop_feed_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_feed_disbursements_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_feed_disbursements_farm_feed_inventory_id_fkey"
+            columns: ["farm_feed_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "feed_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_feed_disbursements_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_feed_disbursements_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_feed_disbursements_original_disbursement_id_fkey"
+            columns: ["original_disbursement_id"]
+            isOneToOne: false
+            referencedRelation: "coop_feed_disbursements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coop_feed_inventory: {
+        Row: {
+          batch_number: string | null
+          category: string
+          cooperative_id: string
+          cost_per_kg: number
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          feed_type: string
+          id: string
+          last_updated: string
+          notes: string | null
+          purchase_date: string | null
+          quantity_kg: number
+          supplier: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          category?: string
+          cooperative_id: string
+          cost_per_kg: number
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          feed_type: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          purchase_date?: string | null
+          quantity_kg: number
+          supplier?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          category?: string
+          cooperative_id?: string
+          cost_per_kg?: number
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          feed_type?: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          purchase_date?: string | null
+          quantity_kg?: number
+          supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_feed_inventory_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coop_milk_price_schedule: {
+        Row: {
+          cooperative_id: string
+          created_at: string
+          created_by: string
+          effective_date: string
+          id: string
+          notes: string | null
+          price_per_liter: number
+          species: string
+        }
+        Insert: {
+          cooperative_id: string
+          created_at?: string
+          created_by: string
+          effective_date: string
+          id?: string
+          notes?: string | null
+          price_per_liter: number
+          species: string
+        }
+        Update: {
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string
+          effective_date?: string
+          id?: string
+          notes?: string | null
+          price_per_liter?: number
+          species?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_milk_price_schedule_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coop_milk_receivings: {
+        Row: {
+          cooperative_id: string
+          created_at: string
+          entry_type: string
+          farm_id: string
+          farm_milk_deductions: Json | null
+          id: string
+          milk_quality: string
+          notes: string | null
+          original_receiving_id: string | null
+          price_per_liter: number
+          received_by: string
+          receiving_date: string
+          reversal_reason: string | null
+          session: string
+          species: string
+          status: string
+          total_value: number | null
+          volume_liters: number
+        }
+        Insert: {
+          cooperative_id: string
+          created_at?: string
+          entry_type?: string
+          farm_id: string
+          farm_milk_deductions?: Json | null
+          id?: string
+          milk_quality?: string
+          notes?: string | null
+          original_receiving_id?: string | null
+          price_per_liter: number
+          received_by: string
+          receiving_date: string
+          reversal_reason?: string | null
+          session: string
+          species: string
+          status?: string
+          total_value?: number | null
+          volume_liters: number
+        }
+        Update: {
+          cooperative_id?: string
+          created_at?: string
+          entry_type?: string
+          farm_id?: string
+          farm_milk_deductions?: Json | null
+          id?: string
+          milk_quality?: string
+          notes?: string | null
+          original_receiving_id?: string | null
+          price_per_liter?: number
+          received_by?: string
+          receiving_date?: string
+          reversal_reason?: string | null
+          session?: string
+          species?: string
+          status?: string
+          total_value?: number | null
+          volume_liters?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_milk_receivings_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_milk_receivings_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_milk_receivings_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_milk_receivings_original_receiving_id_fkey"
+            columns: ["original_receiving_id"]
+            isOneToOne: false
+            referencedRelation: "coop_milk_receivings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coop_soa_periods: {
+        Row: {
+          cooperative_id: string
+          created_at: string
+          created_by: string | null
+          farm_id: string
+          finalized_at: string | null
+          id: string
+          net_balance: number
+          notes: string | null
+          period_end: string
+          period_start: string
+          previous_soa_id: string | null
+          revision_number: number
+          settled_at: string | null
+          status: string
+          total_feed_cost: number
+          total_feed_kg: number
+          total_milk_liters: number
+          total_milk_value: number
+        }
+        Insert: {
+          cooperative_id: string
+          created_at?: string
+          created_by?: string | null
+          farm_id: string
+          finalized_at?: string | null
+          id?: string
+          net_balance?: number
+          notes?: string | null
+          period_end: string
+          period_start: string
+          previous_soa_id?: string | null
+          revision_number?: number
+          settled_at?: string | null
+          status?: string
+          total_feed_cost?: number
+          total_feed_kg?: number
+          total_milk_liters?: number
+          total_milk_value?: number
+        }
+        Update: {
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string | null
+          farm_id?: string
+          finalized_at?: string | null
+          id?: string
+          net_balance?: number
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          previous_soa_id?: string | null
+          revision_number?: number
+          settled_at?: string | null
+          status?: string
+          total_feed_cost?: number
+          total_feed_kg?: number
+          total_milk_liters?: number
+          total_milk_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_soa_periods_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_soa_periods_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_soa_periods_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coop_soa_periods_previous_soa_id_fkey"
+            columns: ["previous_soa_id"]
+            isOneToOne: false
+            referencedRelation: "coop_soa_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cooperative_memberships: {
         Row: {
           accepted_at: string | null
@@ -4303,6 +4693,21 @@ export type Database = {
           success: boolean
         }[]
       }
+      add_coop_feed_stock: {
+        Args: {
+          _batch_number?: string
+          _category: string
+          _cooperative_id: string
+          _cost_per_kg: number
+          _expiry_date?: string
+          _feed_type: string
+          _notes?: string
+          _purchase_date?: string
+          _quantity_kg: number
+          _supplier?: string
+        }
+        Returns: string
+      }
       admin_add_animal: {
         Args: {
           _animal_data: Json
@@ -4401,6 +4806,32 @@ export type Database = {
         Args: { p_client_id: string; p_user_id: string }
         Returns: Json
       }
+      compute_coop_soa: {
+        Args: {
+          _cooperative_id: string
+          _farm_id: string
+          _period_end: string
+          _period_start: string
+        }
+        Returns: Json
+      }
+      correct_coop_feed_disbursement: {
+        Args: {
+          _new_quantity_kg: number
+          _original_id: string
+          _reason?: string
+        }
+        Returns: string
+      }
+      correct_coop_milk_receiving: {
+        Args: {
+          _new_price_per_liter?: number
+          _new_volume_liters: number
+          _original_id: string
+          _reason?: string
+        }
+        Returns: string
+      }
       create_default_farm:
         | {
             Args: {
@@ -4455,6 +4886,16 @@ export type Database = {
         Args: { p_end_date: string; p_farm_id: string; p_start_date: string }
         Returns: Json
       }
+      finalize_coop_soa: {
+        Args: {
+          _cooperative_id: string
+          _farm_id: string
+          _notes?: string
+          _period_end: string
+          _period_start: string
+        }
+        Returns: string
+      }
       fix_animal_weights: { Args: { p_farm_id: string }; Returns: Json }
       fix_missing_milk_revenues: { Args: { p_farm_id: string }; Returns: Json }
       fix_valuation_calculations: { Args: { p_farm_id: string }; Returns: Json }
@@ -4462,6 +4903,10 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      get_active_coop_price: {
+        Args: { _cooperative_id: string; _species: string }
+        Returns: number
+      }
       get_all_farms_for_integrity_check: {
         Args: never
         Returns: {
@@ -4483,6 +4928,87 @@ export type Database = {
           p_start_date: string
         }
         Returns: Json
+      }
+      get_coop_feed_disbursements: {
+        Args: {
+          _cooperative_id: string
+          _date_from?: string
+          _date_to?: string
+        }
+        Returns: {
+          category: string
+          cost_per_kg: number
+          created_at: string
+          disbursed_by: string
+          disbursement_date: string
+          entry_type: string
+          farm_id: string
+          farm_name: string
+          feed_type: string
+          id: string
+          notes: string
+          original_disbursement_id: string
+          quantity_kg: number
+          reversal_reason: string
+          status: string
+          total_cost: number
+        }[]
+      }
+      get_coop_feed_inventory: {
+        Args: { _cooperative_id: string }
+        Returns: {
+          batch_number: string
+          category: string
+          cost_per_kg: number
+          created_at: string
+          expiry_date: string
+          feed_type: string
+          id: string
+          last_updated: string
+          notes: string
+          purchase_date: string
+          quantity_kg: number
+          supplier: string
+          total_value: number
+        }[]
+      }
+      get_coop_milk_receivings: {
+        Args: {
+          _cooperative_id: string
+          _date_from?: string
+          _date_to?: string
+        }
+        Returns: {
+          created_at: string
+          entry_type: string
+          farm_id: string
+          farm_name: string
+          id: string
+          milk_quality: string
+          notes: string
+          original_receiving_id: string
+          price_per_liter: number
+          received_by: string
+          receiving_date: string
+          reversal_reason: string
+          session: string
+          species: string
+          status: string
+          total_value: number
+          volume_liters: number
+        }[]
+      }
+      get_coop_price_schedule: {
+        Args: { _cooperative_id: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          effective_date: string
+          id: string
+          notes: string
+          price_per_liter: number
+          species: string
+        }[]
       }
       get_cooperative_farm_ids: {
         Args: { _cooperative_id: string }
@@ -4947,6 +5473,67 @@ export type Database = {
           source: string
         }[]
       }
+      get_my_coop_feed_receipts: {
+        Args: { _date_from?: string; _date_to?: string; _farm_id: string }
+        Returns: {
+          category: string
+          cost_per_kg: number
+          created_at: string
+          disbursement_date: string
+          entry_type: string
+          feed_type: string
+          id: string
+          original_disbursement_id: string
+          quantity_kg: number
+          status: string
+          total_cost: number
+        }[]
+      }
+      get_my_coop_membership: {
+        Args: { _farm_id: string }
+        Returns: {
+          accepted_at: string
+          cooperative_id: string
+          cooperative_name: string
+          invitation_status: string
+        }[]
+      }
+      get_my_coop_milk_deliveries: {
+        Args: { _date_from?: string; _date_to?: string; _farm_id: string }
+        Returns: {
+          created_at: string
+          entry_type: string
+          id: string
+          milk_quality: string
+          original_receiving_id: string
+          price_per_liter: number
+          receiving_date: string
+          session: string
+          species: string
+          status: string
+          total_value: number
+          volume_liters: number
+        }[]
+      }
+      get_my_coop_soa: {
+        Args: { _farm_id: string; _period_end?: string; _period_start?: string }
+        Returns: {
+          cooperative_name: string
+          finalized_at: string
+          id: string
+          net_balance: number
+          notes: string
+          period_end: string
+          period_start: string
+          revision_number: number
+          settled_at: string
+          status: string
+          total_feed_cost: number
+          total_feed_kg: number
+          total_milk_liters: number
+          total_milk_value: number
+        }[]
+      }
       get_regional_data_quality: {
         Args: {
           data_category_filter?: string
@@ -5191,6 +5778,30 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_coop_feed_disbursement: {
+        Args: {
+          _coop_feed_inventory_id: string
+          _cooperative_id: string
+          _farm_id: string
+          _notes?: string
+          _quantity_kg: number
+        }
+        Returns: string
+      }
+      record_coop_milk_receiving: {
+        Args: {
+          _cooperative_id: string
+          _farm_id: string
+          _milk_quality?: string
+          _notes?: string
+          _price_per_liter?: number
+          _receiving_date: string
+          _session: string
+          _species: string
+          _volume_liters: number
+        }
+        Returns: string
+      }
       remove_farm_from_cooperative: {
         Args: { _cooperative_id: string; _membership_id: string }
         Returns: string
@@ -5200,6 +5811,24 @@ export type Database = {
         Returns: boolean
       }
       run_daily_stats_job: { Args: never; Returns: undefined }
+      set_coop_milk_price: {
+        Args: {
+          _cooperative_id: string
+          _effective_date: string
+          _notes?: string
+          _price_per_liter: number
+          _species: string
+        }
+        Returns: string
+      }
+      settle_coop_soa: {
+        Args: {
+          _cooperative_id: string
+          _farm_id: string
+          _period_start: string
+        }
+        Returns: string
+      }
       update_sync_checkpoint: {
         Args: {
           p_farm_id: string
