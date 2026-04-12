@@ -20,6 +20,7 @@ import { getCachedRecords } from '@/lib/dataCache';
 import { useToast } from '@/hooks/use-toast';
 import { showErrorToastLegacy } from '@/lib/errorHandling';
 import { DeleteBreedingEventDialog } from './DeleteBreedingEventDialog';
+import MarkAIPerformedDialog from '../MarkAIPerformedDialog';
 
 interface BreedingTimelineProps {
   animalId: string;
@@ -132,7 +133,8 @@ export function BreedingTimeline({ animalId, className, headerActions, readOnly 
         });
       });
 
-      aiResult.data?.forEach(ai => {
+      // Filter out parentage AI records (from is_father_ai — about the mother's AI, not this animal's breeding)
+      aiResult.data?.filter(ai => !ai.notes?.startsWith('[PARENTAGE]')).forEach(ai => {
         // Scheduled but not performed
         if (ai.scheduled_date && !ai.performed_date) {
           combined.push({
@@ -208,7 +210,7 @@ export function BreedingTimeline({ animalId, className, headerActions, readOnly 
       event_type: e.event_type as BreedingEventType,
       event_date: e.event_date,
       notes: e.notes,
-      metadata: e.metadata,
+      metadata: { ...e.metadata, related_ai_record_id: e.related_ai_record_id },
     })),
     ...filteredLegacy,
   ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
@@ -305,6 +307,27 @@ export function BreedingTimeline({ animalId, className, headerActions, readOnly 
                                 {event.notes}
                               </p>
                             )}
+                            {/* Mark as Performed button for ai_scheduled events */}
+                            {!readOnly && event.event_type === 'ai_scheduled' && farmId && (() => {
+                              const meta = event.metadata as Record<string, unknown> | null;
+                              // Legacy record: original_id in metadata; breeding_events row: related_ai_record_id
+                              const aiRecordId = (meta?.original_id as string) || (meta?.related_ai_record_id as string);
+                              if (!aiRecordId) return null;
+                              return (
+                                <div className="mt-1">
+                                  <MarkAIPerformedDialog
+                                    recordId={aiRecordId}
+                                    animalId={animalId}
+                                    farmId={farmId}
+                                    scheduledDate={event.event_date}
+                                    onSuccess={() => {
+                                      queryClient.invalidateQueries({ queryKey: ['breeding-timeline', animalId] });
+                                      queryClient.invalidateQueries({ queryKey: ['breeding-timeline-legacy', animalId] });
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
