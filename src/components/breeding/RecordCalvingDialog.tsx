@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Baby, Loader2, AlertTriangle, Calendar, Info } from 'lucide-react';
+import { calculateLifeStage } from '@/lib/animalStages';
 import { supabase } from '@/integrations/supabase/client';
 import { insertBreedingEvent } from '@/lib/breedingEventBridge';
 import { useToast } from '@/hooks/use-toast';
@@ -212,6 +213,18 @@ export function RecordCalvingDialog({
 
         const calfBreed = deriveCalfBreed();
 
+        // Compute species-specific life stage for newborn (e.g. "Calf", "Carabao Calf", "Kid", "Lamb")
+        const calfLifeStage = calculateLifeStage({
+          birthDate: new Date(calvingDate),
+          gender: calfGender,
+          livestockType: livestockType || 'cattle',
+          offspringCount: 0,
+          hasActiveAI: false,
+          milkingStartDate: null,
+          lastCalvingDate: null,
+          hasRecentMilking: false,
+        });
+
         const { error: calfError } = await supabase.from('animals').insert([{
           farm_id: farmId,
           name: calfName || null,
@@ -226,7 +239,7 @@ export function RecordCalvingDialog({
           acquisition_type: 'born_on_farm',
           farm_entry_date: calvingDate,
           fertility_status: 'not_eligible',
-          life_stage: 'calf',
+          life_stage: calfLifeStage,
         }]);
 
         if (calfError) {
