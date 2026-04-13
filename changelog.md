@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-04-13 — Feature: Comprehensive Government Dashboard Reports
+
+### Problem
+Government dashboard exports only covered partial data from the Livestock Analytics tab (summary stats, top-10 heatmap, top-20 queries). Missing: breeding stats, health/BCS/mortality details, PCRS risk scores, and the entire Farmer Voice and Programs & Insights tabs had zero export capability. Government officers presenting to DA/NDA needed comprehensive reports.
+
+### Added
+- **Full Dashboard Report** — "Full Report" dropdown in header exports all 3 tabs as PDF or CSV
+- **Per-Tab Exports** — Each tab (Livestock Analytics, Farmer Voice, Programs & Insights) gets its own CSV/PDF export buttons
+- **`src/hooks/useExportData.ts`** — Data aggregation hook that composes preloaded livestock data with on-demand Programs & Farmer Voice data via React Query cache deduplication
+- **`src/lib/exportUtils.ts`** — Composable CSV/PDF section generators covering:
+  - Livestock: summary stats, breeding (AI procedures, success rates by species, expected deliveries), health & welfare (vaccination, BCS, mortality, exits), PCRS risk scores, health heatmap
+  - Farmer Voice: feedback overview, category breakdown, full feedback list
+  - Programs: grant distribution, regional investment, veterinary expenses, milk production by species, feed security
+- PDF full report includes professional cover page, table of contents, and per-page footers
+- Loading spinners on all export buttons during data preparation
+- Export `BreedingStats` interface from `useBreedingStats.ts` for reuse
+
+### Changed
+- **`GovernmentLayout.tsx`** — Added `onExportFullReport` and `isExporting` props for header-level export dropdown
+- **`GovernmentDashboard.tsx`** — Export state machine pattern (scope + format + useEffect trigger) replaces inline export handlers
+- **`docs/government-dashboard-manual.md`** — Section 7 rewritten to document all export options
+
+### Technical Notes
+- All exports are client-side (jsPDF + autoTable for PDF, Blob for CSV)
+- `useExportData` leverages React Query's 5-minute staleTime cache — if child components already fetched data, export triggers zero network requests
+- Legacy `exportToCSV`/`exportToPDF` preserved for backward compatibility
+
 ## 2026-04-05 — Feature: Animal Profile Export (PDF + CSV) & UX Quick Wins
 
 ### Problem

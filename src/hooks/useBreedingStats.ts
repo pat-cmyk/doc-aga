@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DataCategory } from "@/types/government";
 
-interface BreedingStats {
+export interface BreedingStats {
   total_ai_scheduled: number;
   total_ai_performed: number;
   total_pregnancies_confirmed: number;

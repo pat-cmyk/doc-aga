@@ -4,15 +4,19 @@ import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 import { DataCategory } from "@/types/government";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Database as DatabaseIcon } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Database as DatabaseIcon, Download, FileText, Table, Loader2 } from "lucide-react";
 
 interface GovernmentLayoutProps {
   children: ReactNode;
   dataCategory?: DataCategory;
   onDataCategoryChange?: (value: DataCategory) => void;
+  onExportFullReport?: (format: 'csv' | 'pdf') => void;
+  isExporting?: boolean;
 }
 
-export const GovernmentLayout = ({ children, dataCategory, onDataCategoryChange }: GovernmentLayoutProps) => {
+export const GovernmentLayout = ({ children, dataCategory, onDataCategoryChange, onExportFullReport, isExporting }: GovernmentLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card pt-safe">
@@ -26,6 +30,32 @@ export const GovernmentLayout = ({ children, dataCategory, onDataCategoryChange 
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {onExportFullReport && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2" disabled={isExporting}>
+                    {isExporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isExporting ? "Preparing..." : "Full Report"}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onExportFullReport('pdf')} className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    Download PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onExportFullReport('csv')} className="gap-2">
+                    <Table className="h-4 w-4" />
+                    Download CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {dataCategory && onDataCategoryChange && (
               <Select value={dataCategory} onValueChange={(value: DataCategory) => onDataCategoryChange(value)}>
                 <SelectTrigger className="w-[130px] h-8 text-xs">
