@@ -79,16 +79,28 @@ function csvEscape(value: string | number | null | undefined): string {
   return str;
 }
 
-/** Format a number as peso currency. */
+/**
+ * Format a number as peso currency for PDF/CSV.
+ * Uses "P" instead of "₱" (U+20B1) because jsPDF Helvetica lacks the glyph.
+ * Whole numbers: no decimals. Fractional: 2 decimals.
+ */
 function peso(value: number | null | undefined): string {
   if (value == null) return "N/A";
-  return `\u20B1${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const isWhole = Number.isInteger(value) || Math.abs(value - Math.round(value)) < 0.005;
+  return `P${Math.round(value).toLocaleString()}`;
 }
 
-/** Format a number as percentage string. */
+/** Format a number as percentage string (keeps decimals for precision). */
 function pct(value: number | null | undefined, decimals = 1): string {
   if (value == null) return "N/A";
   return `${value.toFixed(decimals)}%`;
+}
+
+/** Format a plain number: whole numbers only, with commas. No prefix. */
+function fmtNum(value: number | null | undefined, suffix?: string): string {
+  if (value == null) return "N/A";
+  const formatted = Math.round(value).toLocaleString();
+  return suffix ? `${formatted} ${suffix}` : formatted;
 }
 
 /** Trigger a browser download for a blob. */
@@ -713,7 +725,7 @@ export function pdfHealthPage(doc: jsPDF, data: FullExportData, y: number): numb
     y = ensureSpace(doc, y, 34);
     y = drawKpiRow(doc, y, [
       { value: pct(hs.vaccination_compliance_rate), label: "Vaccination Compliance", accentColor: vaccAccent },
-      { value: hs.avg_bcs_score?.toFixed(2) ?? "N/A", label: "BCS Average", accentColor: bcsAccent },
+      { value: hs.avg_bcs_score?.toFixed(1) ?? "N/A", label: "BCS Average", accentColor: bcsAccent },
       { value: pct(hs.mortality_rate), label: "Mortality Rate", accentColor: mortAccent },
     ]);
 
@@ -918,7 +930,7 @@ export function pdfProductionPage(doc: jsPDF, data: FullExportData, y: number): 
     y = ensureSpace(doc, y, 34);
     const milkKpis: KpiCardOptions[] = [
       { value: peso(ma.totalRevenueEstimate), label: "Total Revenue Estimate", accentColor: GOV_COLORS.primary },
-      { value: `${(ma.totalMilk ?? 0).toLocaleString()} L`, label: "Total Milk", accentColor: GOV_COLORS.accent },
+      { value: fmtNum(ma.totalMilk, "L"), label: "Total Milk", accentColor: GOV_COLORS.accent },
     ];
     y = drawKpiRow(doc, y, milkKpis);
   }

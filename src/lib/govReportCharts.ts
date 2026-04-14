@@ -165,10 +165,16 @@ export function drawKpiCard(
   doc.setFillColor(...(accent as [number, number, number]));
   doc.rect(x, y + 1, 3, h - 2, 'F');
 
-  // Big number
-  doc.setFontSize(20);
+  // Big number — auto-size font to fit card width
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...GOV_COLORS.text);
+  const maxTextWidth = w - 12; // 8mm left padding + 4mm right margin
+  let fontSize = 20;
+  doc.setFontSize(fontSize);
+  while (fontSize > 10 && doc.getTextWidth(opts.value) > maxTextWidth) {
+    fontSize -= 1;
+    doc.setFontSize(fontSize);
+  }
   doc.text(opts.value, x + 8, y + 12);
 
   // Label
