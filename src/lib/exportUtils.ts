@@ -15,7 +15,7 @@ import {
   GOV_COLORS, ensureSpace, drawSectionHeader, drawKpiCard, drawKpiRow,
   drawHorizontalBarChart, drawStackedBar, drawProgressGauge, drawMiniSparkline,
   govTrendChartToPng, govGroupedBarChartToPng, generateExecutiveSummary,
-  type KpiCardOptions,
+  formatAdaptive, type KpiCardOptions,
 } from "./govReportCharts";
 
 // ---------------------------------------------------------------------------
@@ -657,21 +657,48 @@ export function pdfBreedingPage(doc: jsPDF, data: FullExportData, y: number): nu
   const bs = data.breedingStats;
   if (!bs) return y;
 
-  // KPI row: AI Success Rate, Currently Pregnant, Due This Quarter
+  // Row 1: AI Activity KPIs
+  y = ensureSpace(doc, y, 34);
+  y = drawKpiRow(doc, y, [
+    { value: fmtNum(bs.total_ai_scheduled), label: "AI Scheduled", accentColor: GOV_COLORS.accent },
+    { value: fmtNum(bs.total_ai_performed), label: "AI Performed", accentColor: GOV_COLORS.primary },
+    { value: fmtNum(bs.unique_semen_count), label: "Semen Sources", accentColor: GOV_COLORS.accent },
+  ]);
+
+  // Row 2: Outcomes
   const aiRate = bs.ai_success_rate ?? 0;
   const aiAccent = aiRate > 60 ? GOV_COLORS.low : aiRate >= 40 ? GOV_COLORS.accent : GOV_COLORS.danger;
 
   y = ensureSpace(doc, y, 34);
   y = drawKpiRow(doc, y, [
     { value: pct(bs.ai_success_rate), label: "AI Success Rate", accentColor: aiAccent },
-    { value: String(bs.currently_pregnant ?? 0), label: "Currently Pregnant", accentColor: GOV_COLORS.primary },
-    { value: String(bs.due_this_quarter ?? 0), label: "Due This Quarter", accentColor: GOV_COLORS.accent },
+    { value: fmtNum(bs.currently_pregnant), label: "Currently Pregnant", accentColor: GOV_COLORS.primary },
+    { value: fmtNum(bs.due_this_quarter), label: "Due This Quarter", accentColor: GOV_COLORS.accent },
   ]);
+
+  // AI Activities Summary table
+  y = ensureSpace(doc, y, 30);
+  autoTable(doc, {
+    startY: y,
+    head: [["AI Activity Metric", "Count"]],
+    body: [
+      ["AI Procedures Scheduled", fmtNum(bs.total_ai_scheduled)],
+      ["AI Procedures Performed", fmtNum(bs.total_ai_performed)],
+      ["Pregnancies Confirmed (from AI)", fmtNum(bs.total_pregnancies_confirmed)],
+      ["Currently Pregnant", fmtNum(bs.currently_pregnant)],
+      ["Due This Quarter", fmtNum(bs.due_this_quarter)],
+      ["Unique Semen/Bull Codes", fmtNum(bs.unique_semen_count)],
+    ],
+    theme: "striped",
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255 },
+  });
+  y = getLastTableY(doc) + 8;
 
   // Horizontal bar chart: Breeding Success by Species
   y = ensureSpace(doc, y, 40);
   y = drawHorizontalBarChart(doc, PDF_MARGIN, y, {
-    title: "Breeding Success by Species",
+    title: "Breeding Success Rate by Species (%)",
     items: [
       { label: "Cattle", value: Math.round(bs.cattle_success_rate ?? 0), color: hexToRgb(GOV_COLORS.cattle) },
       { label: "Goat", value: Math.round(bs.goat_success_rate ?? 0), color: hexToRgb(GOV_COLORS.goat) },

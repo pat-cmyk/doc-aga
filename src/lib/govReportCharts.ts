@@ -44,6 +44,22 @@ const PAGE_WIDTH = 210; // A4
 const MARGIN = 14;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 182mm
 
+/**
+ * Adaptive number formatter: whole numbers, commas, K/M suffixes for large values.
+ * 1,234 → "1,234"  |  45,678 → "45,678"  |  1,234,567 → "1.2M"  |  789,012 → "789K"
+ */
+export function formatAdaptive(value: number | null | undefined): string {
+  if (value == null) return "N/A";
+  const v = Math.round(value);
+  if (Math.abs(v) >= 1_000_000) {
+    return `${(v / 1_000_000).toFixed(1)}M`;
+  }
+  if (Math.abs(v) >= 100_000) {
+    return `${Math.round(v / 1_000)}K`;
+  }
+  return v.toLocaleString();
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -183,15 +199,26 @@ export function drawKpiCard(
   doc.setTextColor(...GOV_COLORS.muted);
   doc.text(opts.label, x + 8, y + 17);
 
-  // Trend arrow
+  // Trend indicator — draw triangle with jsPDF primitives (unicode arrows don't render in Helvetica)
   if (opts.trend) {
-    const arrow = opts.trend.direction === 'up' ? '\u25B2'
-                : opts.trend.direction === 'down' ? '\u25BC'
-                : '\u2013'; // flat = en-dash
     const trendColor = opts.trend.positive ? GOV_COLORS.low : GOV_COLORS.danger;
+    const tx = x + 8;
+    const ty = y + 20.5;
+    const triSize = 1.8;
+
+    doc.setFillColor(...(trendColor as [number, number, number]));
+    if (opts.trend.direction === 'up') {
+      // Upward triangle
+      doc.triangle(tx, ty - triSize, tx - triSize, ty + triSize * 0.5, tx + triSize, ty + triSize * 0.5, 'F');
+    } else if (opts.trend.direction === 'down') {
+      // Downward triangle
+      doc.triangle(tx, ty + triSize, tx - triSize, ty - triSize * 0.5, tx + triSize, ty - triSize * 0.5, 'F');
+    }
+
+    // Trend text next to triangle
     doc.setFontSize(7);
     doc.setTextColor(...(trendColor as [number, number, number]));
-    doc.text(`${arrow} ${opts.trend.value}`, x + 8, y + 22);
+    doc.text(opts.trend.value, tx + triSize + 1.5, ty + 1);
   }
 
   // Reset
@@ -273,9 +300,9 @@ export function drawHorizontalBarChart(
       doc.roundedRect(x + labelW, y, fillW, barH, 1.5, 1.5, 'F');
     }
 
-    // Value text
+    // Value text — adaptive formatting (whole numbers, commas, K/M for large)
     doc.setFontSize(8);
-    doc.text(String(item.value), x + CONTENT_WIDTH - 2, y + barH * 0.7, { align: 'right' });
+    doc.text(formatAdaptive(item.value), x + CONTENT_WIDTH - 2, y + barH * 0.7, { align: 'right' });
 
     y += barH + 2;
   }
@@ -324,7 +351,7 @@ export function drawStackedBar(
       doc.setFontSize(6);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text(String(seg.value), sx + segW / 2, y + barH / 2 + 1, { align: 'center' });
+      doc.text(formatAdaptive(seg.value), sx + segW / 2, y + barH / 2 + 1, { align: 'center' });
     }
 
     sx += segW;
@@ -341,7 +368,7 @@ export function drawStackedBar(
       doc.setFillColor(...(seg.color as [number, number, number]));
       doc.rect(lx, y, 3, 3, 'F');
       doc.setTextColor(...GOV_COLORS.text);
-      const legendText = showValues ? `${seg.label} (${seg.value})` : seg.label;
+      const legendText = showValues ? `${seg.label} (${formatAdaptive(seg.value)})` : seg.label;
       doc.text(legendText, lx + 4.5, y + 2.5);
       lx += doc.getTextWidth(legendText) + 8;
     }
