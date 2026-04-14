@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-04-14 — Feature: Visual Government Dashboard PDF Redesign
+
+### Problem
+The government PDF export was a data dump — uniform blue autoTables with no charts, KPI cards, visual hierarchy, or narrative flow. The animal profile export demonstrated what "good" looks like (canvas charts, colored headers, sparklines, progress bars, story arc), making the gap embarrassingly visible.
+
+### Added
+- **`src/lib/govReportCharts.ts`** — Government-specific visual primitives module:
+  - `drawKpiCard` / `drawKpiRow` — styled metric cards with big numbers, accent bars, trend arrows
+  - `drawHorizontalBarChart` — labeled horizontal bars with track backgrounds
+  - `drawStackedBar` — proportional composition bars with legends (BCS, PCRS, feed security, grants)
+  - `drawProgressGauge` — compliance gauges (vaccination)
+  - `drawSectionHeader` — full-width green header bands with white text
+  - `drawMiniSparkline` — inline trend lines using jsPDF line primitives
+  - `govTrendChartToPng` — canvas-rendered multi-series area/line charts (720×320px → 182×75mm)
+  - `govGroupedBarChartToPng` — canvas-rendered grouped vertical bar charts
+  - `generateExecutiveSummary` — auto-narrative generator (2-3 key finding sentences)
+  - `GOV_COLORS` palette: farm-green, harvest-gold, species colors, risk semantic colors
+
+### Changed
+- **`src/lib/exportUtils.ts`** — Complete rewrite of all PDF generators:
+  - Cover page: institutional green band, DA branding, metadata, confidential notice
+  - Executive Dashboard (replaces TOC): 6 KPI cards + narrative + species distribution chart
+  - Livestock Trends: canvas-rendered farm/animal count trend chart
+  - Breeding: KPI row + success-by-species bar chart + deliveries table
+  - Health: KPI cards + vaccination gauge + BCS/mortality/PCRS stacked bars + heatmap table
+  - Farmer Voice: KPI row + category bar chart + critical feedback table
+  - Grants: acquisition stacked bar + investment KPIs + source table
+  - Production: milk-by-species bars + revenue KPIs + feed security stacked bar + vet table
+  - Enhanced footer: green line separator, branded layout
+
+### Technical Notes
+- Canvas charts use offscreen `<canvas>` → PNG data URL → `doc.addImage()` (no external charting libs)
+- jsPDF drawing primitives (`rect`, `roundedRect`, `circle`, `line`) for KPI cards and bar charts
+- `GOV_COLORS` palette derived from app design tokens (farm-green, harvest-gold)
+- Species colors match Recharts in dashboard UI for consistency
+- CSV generators unchanged — this is a PDF-only redesign
+
 ## 2026-04-13 — Feature: Comprehensive Government Dashboard Reports
 
 ### Problem

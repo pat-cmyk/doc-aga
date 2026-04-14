@@ -11,6 +11,12 @@ import type { PCRSSummary } from "@/hooks/useRegionalPCRS";
 import type { MilkAnalyticsSummary } from "@/hooks/useGovernmentMilkAnalytics";
 import type { FeedSecuritySummary } from "@/hooks/useRegionalFeedSecurity";
 import type { DataCategory } from "@/types/government";
+import {
+  GOV_COLORS, ensureSpace, drawSectionHeader, drawKpiCard, drawKpiRow,
+  drawHorizontalBarChart, drawStackedBar, drawProgressGauge, drawMiniSparkline,
+  govTrendChartToPng, govGroupedBarChartToPng, generateExecutiveSummary,
+  type KpiCardOptions,
+} from "./govReportCharts";
 
 // ---------------------------------------------------------------------------
 // Full Export Data Interface (new comprehensive export)
@@ -424,286 +430,349 @@ export function csvProgramsSection(data: FullExportData): string {
 }
 
 // ---------------------------------------------------------------------------
-// PDF Section Generators
+// PDF Section Generators (visual-rich using govReportCharts primitives)
 // ---------------------------------------------------------------------------
 
 const PDF_MARGIN = 14;
-const PDF_BLUE: [number, number, number] = [59, 130, 246];
+
+/** Convert a hex color string to an RGB tuple. */
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ] as const;
+}
 
 export function pdfCoverPage(doc: jsPDF, data: FullExportData): number {
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text("Government Livestock Dashboard Report", pageWidth / 2, 60, { align: "center" });
+  // Full-width green band at top (40mm tall)
+  doc.setFillColor(...GOV_COLORS.primary);
+  doc.rect(0, 0, pageWidth, 40, 'F');
 
-  doc.setFontSize(14);
+  // White text inside band
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text("Doc Aga \u2014 Golden Forage Ventures", pageWidth / 2, 72, { align: "center" });
+  doc.text("Republic of the Philippines", PDF_MARGIN, 12);
+  doc.text("Department of Agriculture", PDF_MARGIN, 18);
 
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text("Government Livestock Dashboard Report", PDF_MARGIN, 32);
+
+  // Below band — normal text
+  doc.setTextColor(...GOV_COLORS.text);
   doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
   doc.text(
     `Report Period: ${format(data.dateRange.start, "MMM d, yyyy")} \u2013 ${format(data.dateRange.end, "MMM d, yyyy")}`,
-    pageWidth / 2,
-    88,
-    { align: "center" }
+    PDF_MARGIN,
+    52
   );
 
-  doc.text(`Region: ${data.region || "All Regions"}`, pageWidth / 2, 96, { align: "center" });
+  const locationParts: string[] = [];
+  if (data.region) locationParts.push(`Region: ${data.region}`);
+  if (data.province) locationParts.push(`Province: ${data.province}`);
+  if (data.municipality) locationParts.push(`Municipality: ${data.municipality}`);
+  doc.text(locationParts.length > 0 ? locationParts.join("  |  ") : "All Regions", PDF_MARGIN, 60);
 
-  if (data.province) {
-    doc.text(`Province: ${data.province}`, pageWidth / 2, 104, { align: "center" });
-  }
-  if (data.municipality) {
-    doc.text(`Municipality: ${data.municipality}`, pageWidth / 2, 112, { align: "center" });
-  }
-
-  doc.text(`Data Category: ${data.dataCategory ?? "live"}`, pageWidth / 2, 122, { align: "center" });
+  doc.text(`Data Category: ${data.dataCategory ?? "live"}`, PDF_MARGIN, 68);
 
   if (data.comparisonDateRange) {
     doc.text(
       `Comparison: ${format(data.comparisonDateRange.start, "MMM d, yyyy")} \u2013 ${format(data.comparisonDateRange.end, "MMM d, yyyy")} (${data.comparisonRegion || "All Regions"})`,
-      pageWidth / 2,
-      132,
-      { align: "center" }
+      PDF_MARGIN,
+      76
     );
   }
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
-  doc.text(`Generated: ${format(new Date(), "MMMM d, yyyy 'at' h:mm a")}`, pageWidth / 2, 150, { align: "center" });
+  doc.setTextColor(...GOV_COLORS.muted);
+  doc.text(`Generated: ${format(new Date(), "MMMM d, yyyy 'at' h:mm a")}`, PDF_MARGIN, 130);
+  doc.text("CONFIDENTIAL \u2014 For Official Use Only", PDF_MARGIN, 145);
 
-  doc.addPage();
-  return 20;
-}
-
-export function pdfTableOfContents(doc: jsPDF, sections: string[]): number {
-  let yPos = 20;
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Table of Contents", PDF_MARGIN, yPos);
-  yPos += 12;
-
-  doc.setFontSize(11);
+  doc.setTextColor(...GOV_COLORS.text);
   doc.setFont("helvetica", "normal");
-  sections.forEach((section, idx) => {
-    doc.text(`${idx + 1}. ${section}`, PDF_MARGIN + 4, yPos);
-    yPos += 7;
-  });
-
   doc.addPage();
-  return 20;
+  return 18;
 }
 
-export function pdfLivestockSection(doc: jsPDF, data: FullExportData, yPos: number): number {
-  const { stats, comparisonStats } = data;
+export function pdfExecutiveDashboard(doc: jsPDF, data: FullExportData): number {
+  let y = drawSectionHeader(doc, 18, "Executive Summary");
 
-  // Section title
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("1. Livestock Analytics", PDF_MARGIN, yPos);
-  yPos += 8;
+  if (data.stats) {
+    const s = data.stats;
+    y = ensureSpace(doc, y, 60);
 
-  // ---- Summary Statistics ----
-  if (stats) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Summary Statistics", PDF_MARGIN, yPos);
-    yPos += 5;
+    // Row 1: Total Farms, Active Animals, Daily Logs
+    const row1: KpiCardOptions[] = [
+      {
+        value: (s.farm_count ?? 0).toLocaleString(),
+        label: "Total Farms",
+        accentColor: GOV_COLORS.primary,
+        ...(typeof s.farmGrowth === 'number' ? {
+          trend: { direction: s.farmGrowth >= 0 ? 'up' as const : 'down' as const, value: `${Math.abs(s.farmGrowth).toFixed(1)}%`, positive: s.farmGrowth >= 0 },
+        } : {}),
+      },
+      {
+        value: (s.active_animal_count ?? 0).toLocaleString(),
+        label: "Active Animals",
+        accentColor: GOV_COLORS.primary,
+      },
+      {
+        value: (s.daily_log_count ?? 0).toLocaleString(),
+        label: "Daily Logs",
+        accentColor: GOV_COLORS.accent,
+        ...(typeof s.logGrowth === 'number' ? {
+          trend: { direction: s.logGrowth >= 0 ? 'up' as const : 'down' as const, value: `${Math.abs(s.logGrowth).toFixed(1)}%`, positive: s.logGrowth >= 0 },
+        } : {}),
+      },
+    ];
+    y = drawKpiRow(doc, y, row1);
 
-    const hasComp = !!comparisonStats;
-    const tableRows: any[][] = [];
-
-    const addRow = (label: string, pv: number, pg: number, cv?: number, cg?: number) => {
-      const row: any[] = [label, pv.toLocaleString(), `${pg}%`];
-      if (hasComp && cv !== undefined) {
-        const diff = pv - cv;
-        const change = cv !== 0 ? (((pv - cv) / cv) * 100).toFixed(1) : "0.0";
-        row.push(cv.toLocaleString(), `${cg ?? 0}%`, diff.toLocaleString(), `${change}%`);
-      }
-      tableRows.push(row);
-    };
-
-    addRow("Total Farms", stats.farm_count, stats.farmGrowth, comparisonStats?.farm_count, comparisonStats?.farmGrowth);
-    addRow("Active Animals", stats.active_animal_count, 0, comparisonStats?.active_animal_count, 0);
-    addRow("Daily Logs", stats.daily_log_count, stats.logGrowth, comparisonStats?.daily_log_count, comparisonStats?.logGrowth);
-    addRow("Health Events", stats.health_event_count, stats.healthGrowth, comparisonStats?.health_event_count, comparisonStats?.healthGrowth);
-    addRow("Avg Milk (L)", Math.round(stats.avg_milk_liters), 0, comparisonStats ? Math.round(comparisonStats.avg_milk_liters) : undefined, 0);
-    addRow("Doc Aga Queries", stats.doc_aga_query_count, 0, comparisonStats?.doc_aga_query_count, 0);
-
-    const headers = hasComp
-      ? [["Metric", "Primary", "Growth", "Comparison", "Growth", "Diff", "% Change"]]
-      : [["Metric", "Value", "Growth"]];
-
-    autoTable(doc, {
-      startY: yPos,
-      head: headers,
-      body: tableRows,
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 10;
+    // Row 2: Health Events, Avg Milk, Doc Aga Queries
+    const row2: KpiCardOptions[] = [
+      {
+        value: (s.health_event_count ?? 0).toLocaleString(),
+        label: "Health Events",
+        accentColor: GOV_COLORS.danger,
+        ...(typeof s.healthGrowth === 'number' ? {
+          trend: { direction: s.healthGrowth >= 0 ? 'up' as const : 'down' as const, value: `${Math.abs(s.healthGrowth).toFixed(1)}%`, positive: s.healthGrowth <= 0 },
+        } : {}),
+      },
+      {
+        value: `${Math.round(s.avg_milk_liters ?? 0)}`,
+        label: "Avg Milk (L)",
+        accentColor: GOV_COLORS.accent,
+      },
+      {
+        value: (s.doc_aga_query_count ?? 0).toLocaleString(),
+        label: "Doc Aga Queries",
+        accentColor: GOV_COLORS.primary,
+      },
+    ];
+    y = drawKpiRow(doc, y, row2);
   }
 
-  // ---- Breeding Statistics ----
-  const bs = data.breedingStats;
-  if (bs) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Reproduction & Breeding", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["AI Scheduled", String(bs.total_ai_scheduled)],
-        ["AI Performed", String(bs.total_ai_performed)],
-        ["Pregnancies Confirmed", String(bs.total_pregnancies_confirmed)],
-        ["Currently Pregnant", String(bs.currently_pregnant)],
-        ["AI Success Rate", pct(bs.ai_success_rate)],
-        ["Due This Quarter", String(bs.due_this_quarter)],
-        ["Unique Semen Codes", String(bs.unique_semen_count)],
-      ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 8;
-
-    // Species success rates
-    yPos = addPageIfNeeded(doc, yPos);
+  // Auto-generated narrative
+  const narrative = generateExecutiveSummary(data);
+  if (narrative) {
+    y = ensureSpace(doc, y, 20);
     doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Breeding Success by Species", PDF_MARGIN, yPos);
-    yPos += 4;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...GOV_COLORS.text);
+    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+    const lines = doc.splitTextToSize(narrative, contentWidth);
+    doc.text(lines, PDF_MARGIN, y);
+    y += lines.length * 4 + 6;
+  }
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Species", "Success Rate"]],
-      body: [
-        ["Cattle", pct(bs.cattle_success_rate)],
-        ["Goat", pct(bs.goat_success_rate)],
-        ["Carabao", pct(bs.carabao_success_rate)],
-        ["Sheep", pct(bs.sheep_success_rate)],
-      ],
-      theme: "striped",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 8;
+  // Livestock distribution bar chart from latest timeseries
+  if (data.timeseriesData && data.timeseriesData.length > 0) {
+    const latest = data.timeseriesData[data.timeseriesData.length - 1];
+    const speciesItems = [
+      { label: "Cattle", value: latest.cattle_count ?? 0, color: hexToRgb(GOV_COLORS.cattle) },
+      { label: "Goat", value: latest.goat_count ?? 0, color: hexToRgb(GOV_COLORS.goat) },
+      { label: "Carabao", value: latest.carabao_count ?? 0, color: hexToRgb(GOV_COLORS.carabao) },
+      { label: "Sheep", value: latest.sheep_count ?? 0, color: hexToRgb(GOV_COLORS.sheep) },
+    ].filter(item => item.value > 0);
 
-    // Expected Deliveries by Month
-    if (bs.expected_deliveries_by_month && Object.keys(bs.expected_deliveries_by_month).length > 0) {
-      yPos = addPageIfNeeded(doc, yPos);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("Expected Deliveries by Month", PDF_MARGIN, yPos);
-      yPos += 4;
-
-      const months = Object.keys(bs.expected_deliveries_by_month).sort();
-      const speciesSet = new Set<string>();
-      months.forEach((m) => {
-        Object.keys(bs.expected_deliveries_by_month[m]?.by_type ?? {}).forEach((s) => speciesSet.add(s));
+    if (speciesItems.length > 0) {
+      y = ensureSpace(doc, y, 40);
+      y = drawHorizontalBarChart(doc, PDF_MARGIN, y, {
+        title: "Livestock Distribution",
+        items: speciesItems,
       });
-      const speciesList = Array.from(speciesSet).sort();
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [["Month", "Total", ...speciesList]],
-        body: months.map((m) => {
-          const entry = bs.expected_deliveries_by_month[m];
-          return [m, String(entry?.total ?? 0), ...speciesList.map((sp) => String(entry?.by_type?.[sp] ?? 0))];
-        }),
-        theme: "striped",
-        styles: { fontSize: 7 },
-        headStyles: { fillColor: PDF_BLUE },
-      });
-      yPos = getLastTableY(doc) + 8;
     }
   }
 
-  // ---- Health & Welfare ----
-  const hs = data.healthStats;
-  if (hs) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Animal Health & Welfare", PDF_MARGIN, yPos);
-    yPos += 5;
+  return y;
+}
+
+export function pdfLivestockTrendsPage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Livestock Population Trends");
+
+  if (data.timeseriesData && data.timeseriesData.length >= 3) {
+    const farmSeries = {
+      label: "Farms",
+      points: data.timeseriesData.map(d => ({ date: d.date, value: d.total_farms ?? 0 })),
+      color: `rgb(${GOV_COLORS.primary.join(',')})`,
+      fill: `rgba(${GOV_COLORS.primary.join(',')}, 0.1)`,
+    };
+    const animalSeries = {
+      label: "Animals",
+      points: data.timeseriesData.map(d => ({
+        date: d.date,
+        value: (d.cattle_count ?? 0) + (d.goat_count ?? 0) + (d.carabao_count ?? 0) + (d.sheep_count ?? 0),
+      })),
+      color: `rgb(${GOV_COLORS.accent.join(',')})`,
+    };
+
+    const png = govTrendChartToPng([farmSeries, animalSeries], {
+      title: "Farm & Animal Population Over Time",
+    });
+
+    if (png) {
+      y = ensureSpace(doc, y, 80);
+      doc.addImage(png, 'PNG', PDF_MARGIN, y, 182, 75);
+      y += 80;
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(...GOV_COLORS.muted);
+      doc.text("Chart rendering unavailable in this environment.", PDF_MARGIN, y);
+      doc.setTextColor(...GOV_COLORS.text);
+      y += 8;
+    }
+  } else {
+    doc.setFontSize(9);
+    doc.setTextColor(...GOV_COLORS.muted);
+    doc.text("Insufficient data for trend visualization (minimum 3 data points required).", PDF_MARGIN, y);
+    doc.setTextColor(...GOV_COLORS.text);
+    y += 8;
+  }
+
+  return y;
+}
+
+export function pdfBreedingPage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Reproduction & Breeding");
+
+  const bs = data.breedingStats;
+  if (!bs) return y;
+
+  // KPI row: AI Success Rate, Currently Pregnant, Due This Quarter
+  const aiRate = bs.ai_success_rate ?? 0;
+  const aiAccent = aiRate > 60 ? GOV_COLORS.low : aiRate >= 40 ? GOV_COLORS.accent : GOV_COLORS.danger;
+
+  y = ensureSpace(doc, y, 34);
+  y = drawKpiRow(doc, y, [
+    { value: pct(bs.ai_success_rate), label: "AI Success Rate", accentColor: aiAccent },
+    { value: String(bs.currently_pregnant ?? 0), label: "Currently Pregnant", accentColor: GOV_COLORS.primary },
+    { value: String(bs.due_this_quarter ?? 0), label: "Due This Quarter", accentColor: GOV_COLORS.accent },
+  ]);
+
+  // Horizontal bar chart: Breeding Success by Species
+  y = ensureSpace(doc, y, 40);
+  y = drawHorizontalBarChart(doc, PDF_MARGIN, y, {
+    title: "Breeding Success by Species",
+    items: [
+      { label: "Cattle", value: Math.round(bs.cattle_success_rate ?? 0), color: hexToRgb(GOV_COLORS.cattle) },
+      { label: "Goat", value: Math.round(bs.goat_success_rate ?? 0), color: hexToRgb(GOV_COLORS.goat) },
+      { label: "Carabao", value: Math.round(bs.carabao_success_rate ?? 0), color: hexToRgb(GOV_COLORS.carabao) },
+      { label: "Sheep", value: Math.round(bs.sheep_success_rate ?? 0), color: hexToRgb(GOV_COLORS.sheep) },
+    ],
+  });
+
+  // Expected Deliveries table
+  if (bs.expected_deliveries_by_month && Object.keys(bs.expected_deliveries_by_month).length > 0) {
+    y = ensureSpace(doc, y, 30);
+    const months = Object.keys(bs.expected_deliveries_by_month).sort();
+    const speciesSet = new Set<string>();
+    months.forEach((m) => {
+      Object.keys(bs.expected_deliveries_by_month[m]?.by_type ?? {}).forEach((s) => speciesSet.add(s));
+    });
+    const speciesList = Array.from(speciesSet).sort();
 
     autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Vaccination Scheduled", String(hs.scheduled_vaccinations)],
-        ["Vaccination Completed", String(hs.completed_vaccinations)],
-        ["Vaccination Compliance", pct(hs.vaccination_compliance_rate)],
-        ["Deworming Scheduled", String(hs.scheduled_deworming)],
-        ["Deworming Completed", String(hs.completed_deworming)],
-        ["Heat Events", String(hs.heat_events_count)],
-        ["Avg Cycle Length (days)", hs.avg_cycle_length_days?.toFixed(1) ?? "N/A"],
-        ["Animals in Optimal Window", String(hs.animals_in_optimal_window)],
-        ["BCS Average", hs.avg_bcs_score?.toFixed(2) ?? "N/A"],
-        ["BCS Underweight", String(hs.animals_underweight)],
-        ["BCS Optimal", String(hs.animals_optimal)],
-        ["BCS Overweight", String(hs.animals_overweight)],
-        ["Mortality Rate", pct(hs.mortality_rate)],
-        ["Total Exits", String(hs.total_exits)],
-        ["Sold", String(hs.exits_sold)],
-        ["Died", String(hs.exits_died)],
-        ["Culled", String(hs.exits_culled)],
-        ["Transferred", String(hs.exits_transferred)],
-        ["Slaughtered", String(hs.exits_slaughtered)],
-        ["Total Sales Revenue", peso(hs.total_sales_revenue)],
-      ],
+      startY: y,
+      head: [["Month", "Total", ...speciesList]],
+      body: months.map((m) => {
+        const entry = bs.expected_deliveries_by_month[m];
+        return [m, String(entry?.total ?? 0), ...speciesList.map((sp) => String(entry?.by_type?.[sp] ?? 0))];
+      }),
       theme: "striped",
       styles: { fontSize: 7 },
-      headStyles: { fillColor: PDF_BLUE },
+      headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255 },
     });
-    yPos = getLastTableY(doc) + 8;
+    y = getLastTableY(doc) + 8;
   }
 
-  // ---- PCRS Summary ----
+  return y;
+}
+
+export function pdfHealthPage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Animal Health & Welfare");
+
+  const hs = data.healthStats;
+  if (hs) {
+    // KPI row: Vaccination Compliance, BCS Average, Mortality Rate
+    const vaccRate = hs.vaccination_compliance_rate ?? 0;
+    const vaccAccent = vaccRate >= 80 ? GOV_COLORS.low : GOV_COLORS.danger;
+
+    const bcsScore = hs.avg_bcs_score ?? 0;
+    const bcsAccent = (bcsScore >= 2.5 && bcsScore <= 4.0) ? GOV_COLORS.low : GOV_COLORS.accent;
+
+    const mortRate = hs.mortality_rate ?? 0;
+    const mortAccent = mortRate < 2 ? GOV_COLORS.low : mortRate <= 5 ? GOV_COLORS.accent : GOV_COLORS.danger;
+
+    y = ensureSpace(doc, y, 34);
+    y = drawKpiRow(doc, y, [
+      { value: pct(hs.vaccination_compliance_rate), label: "Vaccination Compliance", accentColor: vaccAccent },
+      { value: hs.avg_bcs_score?.toFixed(2) ?? "N/A", label: "BCS Average", accentColor: bcsAccent },
+      { value: pct(hs.mortality_rate), label: "Mortality Rate", accentColor: mortAccent },
+    ]);
+
+    // Progress gauge: Vaccination Compliance
+    y = ensureSpace(doc, y, 12);
+    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+    y = drawProgressGauge(doc, PDF_MARGIN, y, contentWidth, {
+      label: "Vaccination",
+      current: hs.completed_vaccinations ?? 0,
+      total: hs.scheduled_vaccinations ?? 1,
+      color: vaccAccent,
+    });
+
+    // Stacked bar: BCS Distribution
+    y = ensureSpace(doc, y, 20);
+    y = drawStackedBar(doc, PDF_MARGIN, y, contentWidth, {
+      title: "BCS Distribution",
+      segments: [
+        { label: "Underweight", value: hs.animals_underweight ?? 0, color: GOV_COLORS.danger },
+        { label: "Optimal", value: hs.animals_optimal ?? 0, color: GOV_COLORS.primary },
+        { label: "Overweight", value: hs.animals_overweight ?? 0, color: GOV_COLORS.accent },
+      ],
+    });
+
+    // Stacked bar: Mortality/Exit Breakdown
+    y = ensureSpace(doc, y, 20);
+    y = drawStackedBar(doc, PDF_MARGIN, y, contentWidth, {
+      title: "Exit Breakdown",
+      segments: [
+        { label: "Sold", value: hs.exits_sold ?? 0, color: [59, 130, 246] },
+        { label: "Died", value: hs.exits_died ?? 0, color: GOV_COLORS.danger },
+        { label: "Culled", value: hs.exits_culled ?? 0, color: GOV_COLORS.accent },
+        { label: "Transferred", value: hs.exits_transferred ?? 0, color: GOV_COLORS.muted },
+        { label: "Slaughtered", value: hs.exits_slaughtered ?? 0, color: GOV_COLORS.danger },
+      ],
+    });
+  }
+
+  // PCRS Risk Distribution
   const pcrs = data.pcrsData;
   if (pcrs) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("PCRS Summary (Pregnant Cow Risk Score)", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Total Pregnant", String(pcrs.totalPregnant)],
-        ["Critical Risk", String(pcrs.totalCritical)],
-        ["High Risk", String(pcrs.totalHigh)],
-        ["Moderate Risk", String(pcrs.totalModerate)],
-        ["Low Risk", String(pcrs.totalLow)],
-        ["Avg Risk Score", pcrs.avgRiskScore?.toFixed(2) ?? "N/A"],
+    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+    y = ensureSpace(doc, y, 20);
+    y = drawStackedBar(doc, PDF_MARGIN, y, contentWidth, {
+      title: "PCRS Risk Distribution",
+      segments: [
+        { label: "Critical", value: pcrs.totalCritical ?? 0, color: GOV_COLORS.critical },
+        { label: "High", value: pcrs.totalHigh ?? 0, color: GOV_COLORS.high },
+        { label: "Moderate", value: pcrs.totalModerate ?? 0, color: GOV_COLORS.moderate },
+        { label: "Low", value: pcrs.totalLow ?? 0, color: GOV_COLORS.low },
       ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
     });
-    yPos = getLastTableY(doc) + 8;
   }
 
-  // ---- Health Heatmap Top 10 ----
+  // Health Heatmap Top 10
   if (data.heatmapData && data.heatmapData.length > 0) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Health Heatmap - Top Municipalities", PDF_MARGIN, yPos);
-    yPos += 5;
-
+    y = ensureSpace(doc, y, 30);
     autoTable(doc, {
-      startY: yPos,
+      startY: y,
       head: [["Municipality", "Region", "Events", "Animals", "Rate", "Symptoms"]],
       body: data.heatmapData.slice(0, 10).map((item) => [
         item.municipality,
@@ -715,106 +784,48 @@ export function pdfLivestockSection(doc: jsPDF, data: FullExportData, yPos: numb
       ]),
       theme: "striped",
       styles: { fontSize: 7 },
-      headStyles: { fillColor: PDF_BLUE },
+      headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255 },
       columnStyles: { 5: { cellWidth: 40 } },
     });
-    yPos = getLastTableY(doc) + 8;
+    y = getLastTableY(doc) + 8;
   }
 
-  // ---- Farmer Queries ----
-  if (data.farmerQueries && data.farmerQueries.length > 0) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Top Farmer Queries", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Date", "Question"]],
-      body: data.farmerQueries.slice(0, 20).map((q) => [
-        format(new Date(q.created_at), "MMM d, h:mm a"),
-        q.question.length > 80 ? q.question.substring(0, 80) + "..." : q.question,
-      ]),
-      theme: "striped",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: PDF_BLUE },
-      columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: contentWidth - 30 },
-      },
-    });
-    yPos = getLastTableY(doc) + 10;
-  }
-
-  return yPos;
+  return y;
 }
 
-export function pdfFarmerVoiceSection(doc: jsPDF, data: FullExportData, yPos: number): number {
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("2. Farmer Voice", PDF_MARGIN, yPos);
-  yPos += 8;
+export function pdfFarmerVoicePage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Farmer Voice & Feedback");
 
-  // ---- Feedback Overview ----
   const fs = data.feedbackStats;
   if (fs) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Feedback Overview", PDF_MARGIN, yPos);
-    yPos += 5;
+    // KPI row: Total, Pending, Critical, Recent
+    y = ensureSpace(doc, y, 34);
+    y = drawKpiRow(doc, y, [
+      { value: String(fs.total ?? 0), label: "Total", accentColor: GOV_COLORS.primary },
+      { value: String(fs.pending ?? 0), label: "Pending", accentColor: GOV_COLORS.accent },
+      { value: String(fs.critical ?? 0), label: "Critical", accentColor: GOV_COLORS.danger },
+      { value: String(fs.recent ?? 0), label: "Recent", accentColor: GOV_COLORS.primary },
+    ]);
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Total Submissions", String(fs.total)],
-        ["Pending Review", String(fs.pending)],
-        ["Critical Cases", String(fs.critical)],
-        ["Recent (Last 7 Days)", String(fs.recent)],
-      ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 8;
-
-    // ---- Category Breakdown ----
+    // Horizontal bar chart: Feedback by Category
     if (fs.categoryCount && Object.keys(fs.categoryCount).length > 0) {
-      yPos = addPageIfNeeded(doc, yPos);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("Feedback by Category", PDF_MARGIN, yPos);
-      yPos += 4;
-
-      const catRows = Object.entries(fs.categoryCount)
+      const items = Object.entries(fs.categoryCount)
         .sort(([, a], [, b]) => b - a)
-        .map(([cat, count]) => [cat, String(count)]);
+        .map(([label, value]) => ({ label, value, color: GOV_COLORS.primary as readonly number[] }));
 
-      autoTable(doc, {
-        startY: yPos,
-        head: [["Category", "Count"]],
-        body: catRows,
-        theme: "striped",
-        styles: { fontSize: 7 },
-        headStyles: { fillColor: PDF_BLUE },
+      y = ensureSpace(doc, y, items.length * 10 + 10);
+      y = drawHorizontalBarChart(doc, PDF_MARGIN, y, {
+        title: "Feedback by Category",
+        items,
       });
-      yPos = getLastTableY(doc) + 8;
     }
   }
 
-  // ---- Full Feedback List ----
+  // Feedback list table
   if (data.feedbackList && data.feedbackList.length > 0) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Feedback List", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    const fbRows = data.feedbackList.map((item: any) => {
-      const farm = item.farms; // Nested join from farmer_feedback → farms!inner
+    y = ensureSpace(doc, y, 30);
+    const fbRows = data.feedbackList.slice(0, 15).map((item: any) => {
+      const farm = item.farms;
       return [
         item.created_at ? format(new Date(item.created_at), "MM/dd") : "",
         (farm?.name ?? item.farm_id ?? "").toString().substring(0, 12),
@@ -827,203 +838,127 @@ export function pdfFarmerVoiceSection(doc: jsPDF, data: FullExportData, yPos: nu
     });
 
     autoTable(doc, {
-      startY: yPos,
+      startY: y,
       head: [["Date", "Farm", "Municipality", "Category", "Priority", "Status", "Summary"]],
       body: fbRows,
       theme: "striped",
       styles: { fontSize: 6, cellPadding: 1.5 },
-      headStyles: { fillColor: PDF_BLUE, fontSize: 7 },
-      columnStyles: {
-        6: { cellWidth: 50 },
-      },
+      headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255, fontSize: 7 },
+      columnStyles: { 6: { cellWidth: 50 } },
     });
-    yPos = getLastTableY(doc) + 10;
+    y = getLastTableY(doc) + 10;
   }
 
-  return yPos;
+  return y;
 }
 
-export function pdfProgramsSection(doc: jsPDF, data: FullExportData, yPos: number): number {
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("3. Programs & Insights", PDF_MARGIN, yPos);
-  yPos += 8;
+export function pdfGrantsPage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Grant Program & Investment");
 
-  // ---- Grant Distribution ----
   const ga = data.grantAnalytics;
   if (ga) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Grant Program Distribution", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Total Grant Recipients", String(ga.totalGrantAnimals)],
-        ["Total Purchased", String(ga.totalPurchasedAnimals)],
-        ["Total Born on Farm", String(ga.totalBornOnFarm)],
-        ["Grant Percentage", pct(ga.grantPercentage)],
-        ["Average Purchase Price", peso(ga.avgPurchasePrice)],
+    // Stacked bar: Acquisition Distribution
+    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+    y = ensureSpace(doc, y, 20);
+    y = drawStackedBar(doc, PDF_MARGIN, y, contentWidth, {
+      title: "Acquisition Distribution",
+      segments: [
+        { label: "Grant", value: ga.totalGrantAnimals ?? 0, color: GOV_COLORS.primary },
+        { label: "Purchased", value: ga.totalPurchasedAnimals ?? 0, color: [59, 130, 246] },
+        { label: "Born on Farm", value: ga.totalBornOnFarm ?? 0, color: GOV_COLORS.accent },
       ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
     });
-    yPos = getLastTableY(doc) + 6;
 
+    // Grant source breakdown table
     if (ga.grantSourceBreakdown && ga.grantSourceBreakdown.length > 0) {
-      yPos = addPageIfNeeded(doc, yPos);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("Grant Source Breakdown", PDF_MARGIN, yPos);
-      yPos += 4;
-
+      y = ensureSpace(doc, y, 30);
       autoTable(doc, {
-        startY: yPos,
+        startY: y,
         head: [["Source", "Count", "Percentage"]],
         body: ga.grantSourceBreakdown.map((s) => [s.grantSource, String(s.count), pct(s.percentage)]),
         theme: "striped",
         styles: { fontSize: 7 },
-        headStyles: { fillColor: PDF_BLUE },
+        headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255 },
       });
-      yPos = getLastTableY(doc) + 8;
+      y = getLastTableY(doc) + 8;
     }
   }
 
-  // ---- Regional Investment ----
   const ri = data.regionalInvestment;
   if (ri) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Regional Investment Summary", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Total Herd Investment", peso(ri.totalHerdInvestment)],
-        ["Total Animal Expenses", peso(ri.totalAnimalExpenses)],
-        ["Average Per Farm", peso(ri.averageInvestmentPerFarm)],
-        ["Average Per Animal", peso(ri.averageInvestmentPerAnimal)],
-        ["Total Farms", String(ri.farmCount)],
-        ["Total Animals", String(ri.animalCount)],
-      ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 8;
+    // KPI row: Total Herd Investment, Avg Per Farm, Avg Per Animal
+    y = ensureSpace(doc, y, 34);
+    y = drawKpiRow(doc, y, [
+      { value: peso(ri.totalHerdInvestment), label: "Total Herd Investment", accentColor: GOV_COLORS.primary },
+      { value: peso(ri.averageInvestmentPerFarm), label: "Avg Per Farm", accentColor: GOV_COLORS.accent },
+      { value: peso(ri.averageInvestmentPerAnimal), label: "Avg Per Animal", accentColor: GOV_COLORS.primary },
+    ]);
   }
 
-  // ---- Veterinary Expenses ----
-  const ve = data.veterinaryExpenses;
-  if (ve) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Veterinary Expense Summary", PDF_MARGIN, yPos);
-    yPos += 5;
+  return y;
+}
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Total Veterinary Services", peso(ve.totalVetExpenses)],
-        ["Total Medicine & Vaccines", peso(ve.totalMedicineExpenses)],
-        ["Combined Total", peso(ve.totalCombined)],
-        ["Average Cost Per Animal", peso(ve.avgCostPerAnimal)],
-        ["Total Animals", String(ve.totalAnimals)],
-        ["Total Farms", String(ve.totalFarms)],
-      ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
-    });
-    yPos = getLastTableY(doc) + 6;
+export function pdfProductionPage(doc: jsPDF, data: FullExportData, y: number): number {
+  y = drawSectionHeader(doc, y, "Production Economics");
 
-    if (ve.byLocation && ve.byLocation.length > 0) {
-      yPos = addPageIfNeeded(doc, yPos);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("Veterinary Expense Hotspots (Top 10)", PDF_MARGIN, yPos);
-      yPos += 4;
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [["Municipality", "Province", "Total", "Animals", "Per Animal"]],
-        body: ve.byLocation.slice(0, 10).map((loc) => [
-          loc.municipality,
-          loc.province,
-          peso(loc.combinedTotal),
-          String(loc.animalCount),
-          peso(loc.costPerAnimal),
-        ]),
-        theme: "striped",
-        styles: { fontSize: 7 },
-        headStyles: { fillColor: PDF_BLUE },
-      });
-      yPos = getLastTableY(doc) + 8;
-    }
-  }
-
-  // ---- Milk Production by Species ----
   const ma = data.milkAnalytics;
   if (ma) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Milk Production by Species", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Species", "Total Liters", "Revenue Estimate", "Avg Price/L"]],
-      body: [
-        ["Cattle", ma.totalCattleMilk.toLocaleString(), peso(ma.cattleRevenueEstimate), ma.avgCattlePrice != null ? peso(ma.avgCattlePrice) : "N/A"],
-        ["Goat", ma.totalGoatMilk.toLocaleString(), peso(ma.goatRevenueEstimate), ma.avgGoatPrice != null ? peso(ma.avgGoatPrice) : "N/A"],
-        ["Carabao", ma.totalCarabaoMilk.toLocaleString(), peso(ma.carabaoRevenueEstimate), ma.avgCarabaoPrice != null ? peso(ma.avgCarabaoPrice) : "N/A"],
-        ["Total", ma.totalMilk.toLocaleString(), peso(ma.totalRevenueEstimate), ""],
+    // Horizontal bar chart: Milk Production by Species
+    y = ensureSpace(doc, y, 40);
+    y = drawHorizontalBarChart(doc, PDF_MARGIN, y, {
+      title: "Milk Production by Species (Liters)",
+      items: [
+        { label: "Cattle", value: ma.totalCattleMilk ?? 0, color: hexToRgb(GOV_COLORS.cattle) },
+        { label: "Goat", value: ma.totalGoatMilk ?? 0, color: hexToRgb(GOV_COLORS.goat) },
+        { label: "Carabao", value: ma.totalCarabaoMilk ?? 0, color: hexToRgb(GOV_COLORS.carabao) },
       ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
     });
-    yPos = getLastTableY(doc) + 8;
+
+    // KPI row: Total Revenue, Total Milk
+    y = ensureSpace(doc, y, 34);
+    const milkKpis: KpiCardOptions[] = [
+      { value: peso(ma.totalRevenueEstimate), label: "Total Revenue Estimate", accentColor: GOV_COLORS.primary },
+      { value: `${(ma.totalMilk ?? 0).toLocaleString()} L`, label: "Total Milk", accentColor: GOV_COLORS.accent },
+    ];
+    y = drawKpiRow(doc, y, milkKpis);
   }
 
-  // ---- Feed Security ----
   const fss = data.feedSecurity;
   if (fss) {
-    yPos = addPageIfNeeded(doc, yPos);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Feed Security Status", PDF_MARGIN, yPos);
-    yPos += 5;
-
-    const adequatePct = fss.totalFarms > 0 ? (fss.adequateFarms / fss.totalFarms) * 100 : 0;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Status", "Farms", "Percentage"]],
-      body: [
-        ["Critical (<7 days)", String(fss.criticalFarms), pct(fss.overallCriticalPercentage)],
-        ["Low (7-30 days)", String(fss.lowFarms), pct(fss.overallLowPercentage)],
-        ["Adequate (>30 days)", String(fss.adequateFarms), pct(adequatePct)],
-        ["Total", String(fss.totalFarms), "100%"],
+    // Stacked bar: Feed Security Status
+    const contentWidth = doc.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+    y = ensureSpace(doc, y, 20);
+    y = drawStackedBar(doc, PDF_MARGIN, y, contentWidth, {
+      title: "Feed Security Status",
+      segments: [
+        { label: "Critical", value: fss.criticalFarms ?? 0, color: GOV_COLORS.danger },
+        { label: "Low", value: fss.lowFarms ?? 0, color: GOV_COLORS.accent },
+        { label: "Adequate", value: fss.adequateFarms ?? 0, color: GOV_COLORS.primary },
       ],
-      theme: "striped",
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: PDF_BLUE },
     });
-    yPos = getLastTableY(doc) + 10;
   }
 
-  return yPos;
+  const ve = data.veterinaryExpenses;
+  if (ve && ve.byLocation && ve.byLocation.length > 0) {
+    y = ensureSpace(doc, y, 30);
+    autoTable(doc, {
+      startY: y,
+      head: [["Municipality", "Province", "Total", "Animals", "Cost/Animal"]],
+      body: ve.byLocation.slice(0, 5).map((loc) => [
+        loc.municipality,
+        loc.province,
+        peso(loc.combinedTotal),
+        String(loc.animalCount),
+        peso(loc.costPerAnimal),
+      ]),
+      theme: "striped",
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [...GOV_COLORS.primary] as any, textColor: 255 },
+    });
+    y = getLastTableY(doc) + 8;
+  }
+
+  return y;
 }
 
 export function pdfFooters(doc: jsPDF, data: FullExportData): void {
@@ -1033,14 +968,29 @@ export function pdfFooters(doc: jsPDF, data: FullExportData): void {
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+
+    // Thin green line
+    doc.setDrawColor(...GOV_COLORS.primary);
+    doc.setLineWidth(0.3);
+    doc.line(PDF_MARGIN, pageHeight - 13, pageWidth - PDF_MARGIN, pageHeight - 13);
+
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
-    doc.text(
-      `Doc Aga Government Dashboard  |  ${data.region || "All Regions"}  |  ${format(data.dateRange.start, "MMM d")} \u2013 ${format(data.dateRange.end, "MMM d, yyyy")}  |  Page ${i} of ${pageCount}`,
-      pageWidth / 2,
-      pageHeight - 8,
-      { align: "center" }
-    );
+    doc.setTextColor(...GOV_COLORS.muted);
+
+    // Left: report name
+    doc.text("Doc Aga Government Dashboard Report", PDF_MARGIN, pageHeight - 8);
+
+    // Center: page number
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: "center" });
+
+    // Right: generated date
+    doc.text(`Generated: ${format(new Date(), "MMM d, yyyy")}`, pageWidth - PDF_MARGIN, pageHeight - 8, { align: "right" });
+
+    // Reset
+    doc.setDrawColor(0, 0, 0);
+    doc.setTextColor(...GOV_COLORS.text);
+    doc.setFont("helvetica", "normal");
   }
 }
 
@@ -1060,33 +1010,48 @@ export function exportFullDashboardCSV(data: FullExportData): void {
 }
 
 export function exportFullDashboardPDF(data: FullExportData): void {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
+  // Page 1: Cover
   pdfCoverPage(doc, data);
 
-  const sections: string[] = [];
-  if (data.stats || data.breedingStats || data.healthStats || data.pcrsData || data.heatmapData?.length) {
-    sections.push("Livestock Analytics");
-  }
-  if (data.feedbackStats || data.feedbackList?.length) {
-    sections.push("Farmer Voice");
-  }
-  if (data.grantAnalytics || data.regionalInvestment || data.veterinaryExpenses || data.milkAnalytics || data.feedSecurity) {
-    sections.push("Programs & Insights");
+  // Page 2: Executive Dashboard (always shown if stats exist)
+  let y = pdfExecutiveDashboard(doc, data);
+
+  // Page 3: Livestock Trends
+  if (data.timeseriesData && data.timeseriesData.length >= 3) {
+    doc.addPage();
+    y = pdfLivestockTrendsPage(doc, data, 18);
   }
 
-  let yPos = pdfTableOfContents(doc, sections);
+  // Page 4: Breeding
+  if (data.breedingStats) {
+    doc.addPage();
+    y = pdfBreedingPage(doc, data, 18);
+  }
 
-  if (sections.includes("Livestock Analytics")) {
-    yPos = pdfLivestockSection(doc, data, yPos);
+  // Page 5: Health
+  if (data.healthStats || data.pcrsData || (data.heatmapData && data.heatmapData.length > 0)) {
+    doc.addPage();
+    y = pdfHealthPage(doc, data, 18);
   }
-  if (sections.includes("Farmer Voice")) {
-    yPos = addPageIfNeeded(doc, yPos);
-    yPos = pdfFarmerVoiceSection(doc, data, yPos);
+
+  // Page 6: Farmer Voice
+  if (data.feedbackStats || (data.feedbackList && data.feedbackList.length > 0)) {
+    doc.addPage();
+    y = pdfFarmerVoicePage(doc, data, 18);
   }
-  if (sections.includes("Programs & Insights")) {
-    yPos = addPageIfNeeded(doc, yPos);
-    yPos = pdfProgramsSection(doc, data, yPos);
+
+  // Page 7: Grants & Investment
+  if (data.grantAnalytics || data.regionalInvestment) {
+    doc.addPage();
+    y = pdfGrantsPage(doc, data, 18);
+  }
+
+  // Page 8: Production Economics
+  if (data.milkAnalytics || data.feedSecurity || data.veterinaryExpenses) {
+    doc.addPage();
+    y = pdfProductionPage(doc, data, 18);
   }
 
   pdfFooters(doc, data);
@@ -1117,39 +1082,37 @@ export function exportTabCSV(tab: "livestock" | "farmer-voice" | "programs", dat
 }
 
 export function exportTabPDF(tab: "livestock" | "farmer-voice" | "programs", data: FullExportData): void {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Lightweight header instead of full cover page
-  doc.setFontSize(18);
+  // Slim green header band (12mm) instead of full cover
+  doc.setFillColor(...GOV_COLORS.primary);
+  doc.rect(0, 0, pageWidth, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  const tabTitles: Record<string, string> = {
-    livestock: "Livestock Analytics Report",
-    "farmer-voice": "Farmer Voice Report",
-    programs: "Programs & Insights Report",
-  };
-  doc.text(tabTitles[tab], pageWidth / 2, 20, { align: "center" });
-
-  doc.setFontSize(9);
+  const tabTitles = { livestock: "Livestock Analytics Report", "farmer-voice": "Farmer Voice Report", programs: "Programs & Insights Report" };
+  doc.text(tabTitles[tab], PDF_MARGIN, 8);
+  doc.setTextColor(...GOV_COLORS.muted);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text(
-    `${format(data.dateRange.start, "MMM d, yyyy")} \u2013 ${format(data.dateRange.end, "MMM d, yyyy")}  |  ${data.region || "All Regions"}  |  Generated: ${format(new Date(), "MMM d, yyyy h:mm a")}`,
-    pageWidth / 2,
-    28,
-    { align: "center" }
-  );
+  doc.text(`${format(data.dateRange.start, "MMM d, yyyy")} \u2013 ${format(data.dateRange.end, "MMM d, yyyy")}  |  ${data.region || "All Regions"}`, PDF_MARGIN, 17);
 
-  let yPos = 38;
+  let y = 24;
 
   switch (tab) {
     case "livestock":
-      yPos = pdfLivestockSection(doc, data, yPos);
+      y = pdfExecutiveDashboard(doc, data);
+      if (data.timeseriesData && data.timeseriesData.length >= 3) { doc.addPage(); y = pdfLivestockTrendsPage(doc, data, 18); }
+      if (data.breedingStats) { doc.addPage(); y = pdfBreedingPage(doc, data, 18); }
+      if (data.healthStats || data.pcrsData || (data.heatmapData && data.heatmapData.length > 0)) { doc.addPage(); y = pdfHealthPage(doc, data, 18); }
       break;
     case "farmer-voice":
-      yPos = pdfFarmerVoiceSection(doc, data, yPos);
+      y = pdfFarmerVoicePage(doc, data, y);
       break;
     case "programs":
-      yPos = pdfProgramsSection(doc, data, yPos);
+      if (data.grantAnalytics || data.regionalInvestment) { y = pdfGrantsPage(doc, data, y); }
+      if (data.milkAnalytics || data.feedSecurity || data.veterinaryExpenses) { doc.addPage(); y = pdfProductionPage(doc, data, 18); }
       break;
   }
 
