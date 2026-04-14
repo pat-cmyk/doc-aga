@@ -1,5 +1,69 @@
 # Changelog
 
+## 2026-04-14 — Feature: Visual Government Dashboard PDF Redesign
+
+### Problem
+The government PDF export was a data dump — uniform blue autoTables with no charts, KPI cards, visual hierarchy, or narrative flow. The animal profile export demonstrated what "good" looks like (canvas charts, colored headers, sparklines, progress bars, story arc), making the gap embarrassingly visible.
+
+### Added
+- **`src/lib/govReportCharts.ts`** — Government-specific visual primitives module:
+  - `drawKpiCard` / `drawKpiRow` — styled metric cards with big numbers, accent bars, trend arrows
+  - `drawHorizontalBarChart` — labeled horizontal bars with track backgrounds
+  - `drawStackedBar` — proportional composition bars with legends (BCS, PCRS, feed security, grants)
+  - `drawProgressGauge` — compliance gauges (vaccination)
+  - `drawSectionHeader` — full-width green header bands with white text
+  - `drawMiniSparkline` — inline trend lines using jsPDF line primitives
+  - `govTrendChartToPng` — canvas-rendered multi-series area/line charts (720×320px → 182×75mm)
+  - `govGroupedBarChartToPng` — canvas-rendered grouped vertical bar charts
+  - `generateExecutiveSummary` — auto-narrative generator (2-3 key finding sentences)
+  - `GOV_COLORS` palette: farm-green, harvest-gold, species colors, risk semantic colors
+
+### Changed
+- **`src/lib/exportUtils.ts`** — Complete rewrite of all PDF generators:
+  - Cover page: institutional green band, DA branding, metadata, confidential notice
+  - Executive Dashboard (replaces TOC): 6 KPI cards + narrative + species distribution chart
+  - Livestock Trends: canvas-rendered farm/animal count trend chart
+  - Breeding: KPI row + success-by-species bar chart + deliveries table
+  - Health: KPI cards + vaccination gauge + BCS/mortality/PCRS stacked bars + heatmap table
+  - Farmer Voice: KPI row + category bar chart + critical feedback table
+  - Grants: acquisition stacked bar + investment KPIs + source table
+  - Production: milk-by-species bars + revenue KPIs + feed security stacked bar + vet table
+  - Enhanced footer: green line separator, branded layout
+
+### Technical Notes
+- Canvas charts use offscreen `<canvas>` → PNG data URL → `doc.addImage()` (no external charting libs)
+- jsPDF drawing primitives (`rect`, `roundedRect`, `circle`, `line`) for KPI cards and bar charts
+- `GOV_COLORS` palette derived from app design tokens (farm-green, harvest-gold)
+- Species colors match Recharts in dashboard UI for consistency
+- CSV generators unchanged — this is a PDF-only redesign
+
+## 2026-04-13 — Feature: Comprehensive Government Dashboard Reports
+
+### Problem
+Government dashboard exports only covered partial data from the Livestock Analytics tab (summary stats, top-10 heatmap, top-20 queries). Missing: breeding stats, health/BCS/mortality details, PCRS risk scores, and the entire Farmer Voice and Programs & Insights tabs had zero export capability. Government officers presenting to DA/NDA needed comprehensive reports.
+
+### Added
+- **Full Dashboard Report** — "Full Report" dropdown in header exports all 3 tabs as PDF or CSV
+- **Per-Tab Exports** — Each tab (Livestock Analytics, Farmer Voice, Programs & Insights) gets its own CSV/PDF export buttons
+- **`src/hooks/useExportData.ts`** — Data aggregation hook that composes preloaded livestock data with on-demand Programs & Farmer Voice data via React Query cache deduplication
+- **`src/lib/exportUtils.ts`** — Composable CSV/PDF section generators covering:
+  - Livestock: summary stats, breeding (AI procedures, success rates by species, expected deliveries), health & welfare (vaccination, BCS, mortality, exits), PCRS risk scores, health heatmap
+  - Farmer Voice: feedback overview, category breakdown, full feedback list
+  - Programs: grant distribution, regional investment, veterinary expenses, milk production by species, feed security
+- PDF full report includes professional cover page, table of contents, and per-page footers
+- Loading spinners on all export buttons during data preparation
+- Export `BreedingStats` interface from `useBreedingStats.ts` for reuse
+
+### Changed
+- **`GovernmentLayout.tsx`** — Added `onExportFullReport` and `isExporting` props for header-level export dropdown
+- **`GovernmentDashboard.tsx`** — Export state machine pattern (scope + format + useEffect trigger) replaces inline export handlers
+- **`docs/government-dashboard-manual.md`** — Section 7 rewritten to document all export options
+
+### Technical Notes
+- All exports are client-side (jsPDF + autoTable for PDF, Blob for CSV)
+- `useExportData` leverages React Query's 5-minute staleTime cache — if child components already fetched data, export triggers zero network requests
+- Legacy `exportToCSV`/`exportToPDF` preserved for backward compatibility
+
 ## 2026-04-05 — Feature: Animal Profile Export (PDF + CSV) & UX Quick Wins
 
 ### Problem

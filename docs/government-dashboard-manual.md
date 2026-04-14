@@ -428,13 +428,35 @@ The toggle at the top-right switches between real and demo datasets. Demo data i
 
 ## 7. Exporting Data
 
-### CSV Export
+The dashboard supports comprehensive data exports at two levels:
 
-Available on the Livestock Analytics tab via the "Export CSV" button. Exports the current filtered dataset as a comma-separated values file suitable for spreadsheet analysis.
+### Full Dashboard Report
 
-### PDF Export
+Available via the **"Full Report"** dropdown button in the dashboard header. Downloads a report covering **all three tabs** (Livestock Analytics, Farmer Voice, Programs & Insights) in either PDF or CSV format. All active filters (date range, geography, data source) are respected.
 
-Available on the Livestock Analytics tab via the "Export PDF" button. Generates a formatted PDF report of the current dashboard view, suitable for printing or sharing.
+- **PDF**: Professional formatted report with cover page, table of contents, and sections for each tab. Includes summary statistics, breeding data, health metrics, farmer feedback, grant analytics, milk production, and feed security.
+- **CSV**: Machine-readable export with metadata header and clearly separated sections for each data domain. Suitable for spreadsheet analysis.
+
+### Per-Tab Exports
+
+Each tab has its own **"Export CSV"** and **"Export PDF"** buttons that download only that tab's data:
+
+| Tab | Data Included |
+|-----|---------------|
+| **Livestock Analytics** | Summary statistics, breeding/reproduction, health & welfare (vaccination, BCS, mortality), PCRS risk scores, health heatmap, expected deliveries, farmer queries |
+| **Farmer Voice** | Feedback overview, category breakdown, full feedback list with status/priority/sentiment |
+| **Programs & Insights** | Grant distribution, regional investment, veterinary expenses, milk production by species, feed security status |
+
+### Export Behavior
+
+- Exports respect all active filters (date range, geography, data source)
+- In comparison mode, both primary and comparison datasets are included
+- Buttons show a loading spinner while data is being prepared
+- File naming: `gov-full-report-{date}.pdf`, `gov-livestock-report-{date}.csv`, etc.
+
+### Legacy: Feedback-Specific Export
+
+The Farmer Voice tab also retains the original **Tools → Export** menu for feedback-specific exports with additional filtering options (All, Critical only, Pending only).
 
 ---
 

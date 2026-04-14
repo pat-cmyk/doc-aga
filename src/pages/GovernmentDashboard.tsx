@@ -55,9 +55,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
-import { exportToCSV, exportToPDF, exportManualPDF } from "@/lib/exportUtils";
+import { exportToCSV, exportToPDF, exportManualPDF, exportFullDashboardCSV, exportFullDashboardPDF, exportTabCSV, exportTabPDF } from "@/lib/exportUtils";
+import { useExportData, type ExportScope } from "@/hooks/useExportData";
 import { useToast } from "@/hooks/use-toast";
-import { Database as DatabaseIcon } from "lucide-react";
+import { Database as DatabaseIcon, Loader2 } from "lucide-react";
 import { DataCategory } from "@/types/government";
 
 type DatePreset = "last7Days" | "last30Days" | "last90Days" | "custom";
@@ -292,25 +293,55 @@ const GovernmentDashboard = () => {
     { enabled: !!hasAccess }
   );
 
-  const handleExportCSV = () => {
+  // ---------------------------------------------------------------------------
+  // Export state machine
+  // ---------------------------------------------------------------------------
+  const [exportScope, setExportScope] = useState<ExportScope | null>(null);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf' | null>(null);
+
+  const { data: exportData, isReady: exportReady, isLoading: exportLoading } = useExportData(
+    exportScope || 'full',
+    {
+      dateRange: primaryDateRange,
+      comparisonDateRange,
+      region: primaryRegion,
+      province: primaryProvince,
+      municipality: primaryMunicipality,
+      comparisonRegion,
+      dataCategory,
+      comparisonMode,
+    },
+    {
+      stats: stats || null,
+      comparisonStats: comparisonStats || null,
+      timeseriesData,
+      comparisonTimeseriesData,
+      heatmapData: heatmapData || [],
+      comparisonHeatmapData: comparisonHeatmapData || [],
+      farmerQueries: farmerQueries || [],
+      comparisonFarmerQueries: comparisonFarmerQueries || [],
+      breedingStats,
+      healthStats,
+      pcrsData,
+    },
+    exportScope !== null,
+  );
+
+  // Trigger download when export data is ready
+  useEffect(() => {
+    if (!exportReady || !exportData || !exportScope || !exportFormat) return;
+
     try {
-      exportToCSV({
-        stats: stats || null,
-        comparisonStats: comparisonStats || null,
-        timeseriesData,
-        comparisonTimeseriesData,
-        heatmapData: heatmapData || [],
-        comparisonHeatmapData: comparisonHeatmapData || [],
-        farmerQueries: farmerQueries || [],
-        comparisonFarmerQueries: comparisonFarmerQueries || [],
-        dateRange: primaryDateRange,
-        comparisonDateRange: comparisonMode ? comparisonDateRange : undefined,
-        region: primaryRegion,
-        comparisonRegion: comparisonMode ? comparisonRegion : undefined,
-      });
+      if (exportScope === 'full') {
+        if (exportFormat === 'pdf') exportFullDashboardPDF(exportData);
+        else exportFullDashboardCSV(exportData);
+      } else {
+        if (exportFormat === 'pdf') exportTabPDF(exportScope, exportData);
+        else exportTabCSV(exportScope, exportData);
+      }
       toast({
         title: "Export Successful",
-        description: "Your CSV report has been downloaded.",
+        description: `Your ${exportFormat.toUpperCase()} report has been downloaded.`,
       });
     } catch (error) {
       toast({
@@ -319,36 +350,21 @@ const GovernmentDashboard = () => {
         variant: "destructive",
       });
     }
+
+    setExportScope(null);
+    setExportFormat(null);
+  }, [exportReady, exportData, exportScope, exportFormat, toast]);
+
+  const handleExport = (scope: ExportScope, fmt: 'csv' | 'pdf') => {
+    setExportScope(scope);
+    setExportFormat(fmt);
   };
 
-  const handleExportPDF = () => {
-    try {
-      exportToPDF({
-        stats: stats || null,
-        comparisonStats: comparisonStats || null,
-        timeseriesData,
-        comparisonTimeseriesData,
-        heatmapData: heatmapData || [],
-        comparisonHeatmapData: comparisonHeatmapData || [],
-        farmerQueries: farmerQueries || [],
-        comparisonFarmerQueries: comparisonFarmerQueries || [],
-        dateRange: primaryDateRange,
-        comparisonDateRange: comparisonMode ? comparisonDateRange : undefined,
-        region: primaryRegion,
-        comparisonRegion: comparisonMode ? comparisonRegion : undefined,
-      });
-      toast({
-        title: "Export Successful",
-        description: "Your PDF report has been downloaded.",
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "There was an error exporting your report.",
-        variant: "destructive",
-      });
-    }
-  };
+  const isExporting = exportScope !== null;
+
+  // Legacy handlers kept for backward compat with existing button wiring
+  const handleExportCSV = () => handleExport('livestock', 'csv');
+  const handleExportPDF = () => handleExport('livestock', 'pdf');
 
   const handlePrimaryPresetChange = (value: DatePreset) => {
     setPrimaryPreset(value);
@@ -438,7 +454,7 @@ const GovernmentDashboard = () => {
   }
 
   return (
-    <GovernmentLayout dataCategory={dataCategory} onDataCategoryChange={setDataCategory}>
+    <GovernmentLayout dataCategory={dataCategory} onDataCategoryChange={setDataCategory} onExportFullReport={(fmt) => handleExport('full', fmt)} isExporting={isExporting}>
       <div className="space-y-4 sm:space-y-6">
         {/* Welcome Banner */}
         <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
@@ -547,8 +563,9 @@ const GovernmentDashboard = () => {
                   size="sm"
                   onClick={handleExportCSV}
                   className="gap-2"
+                  disabled={isExporting}
                 >
-                  <Download className="h-4 w-4" />
+                  {isExporting && exportScope === 'livestock' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export CSV
                 </Button>
                 <Button
@@ -556,8 +573,9 @@ const GovernmentDashboard = () => {
                   size="sm"
                   onClick={handleExportPDF}
                   className="gap-2"
+                  disabled={isExporting}
                 >
-                  <Download className="h-4 w-4" />
+                  {isExporting && exportScope === 'livestock' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export PDF
                 </Button>
                 <CollapsibleTrigger asChild>
@@ -882,6 +900,30 @@ const GovernmentDashboard = () => {
 
           {/* Tab 2: Farmer Voice */}
           <TabsContent value="farmer-voice" className="space-y-6">
+            {/* Export buttons for Farmer Voice tab */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('farmer-voice', 'csv')}
+                className="gap-2"
+                disabled={isExporting}
+              >
+                {isExporting && exportScope === 'farmer-voice' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('farmer-voice', 'pdf')}
+                className="gap-2"
+                disabled={isExporting}
+              >
+                {isExporting && exportScope === 'farmer-voice' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export PDF
+              </Button>
+            </div>
+
             <div className="space-y-6">
               {/* Stats Header with Action Menu */}
               <FarmerVoiceDashboard
@@ -960,6 +1002,30 @@ const GovernmentDashboard = () => {
 
           {/* Tab 3: Programs & Insights */}
           <TabsContent value="programs" className="space-y-6">
+            {/* Export buttons for Programs tab */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('programs', 'csv')}
+                className="gap-2"
+                disabled={isExporting}
+              >
+                {isExporting && exportScope === 'programs' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('programs', 'pdf')}
+                className="gap-2"
+                disabled={isExporting}
+              >
+                {isExporting && exportScope === 'programs' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export PDF
+              </Button>
+            </div>
+
             {/* Grant Distribution Analytics */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b">
