@@ -718,6 +718,7 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 | `admin-permanent-delete-farm` | Permanently delete farm + data | `farms`, all related tables | Super admin |
 | `merchant-signup` | Register merchant account | `merchants`, `user_roles` | User auth |
 | `send-team-invitation` | Send farm team invites | `farm_memberships` | Farm owner |
+| `send-user-invitation` | Send platform-role invites (admin/government/merchant/distributor/cooperative). Grants role immediately if user already exists. | `user_invitations`, `user_roles` (via `admin_assign_role`) | Super admin |
 | `calculate-daily-stats` | Compute daily farm statistics | `daily_farm_stats`, record tables | Service role (scheduled) |
 | `calculate-ovr-scores` | Compute animal OVR scores | `animal_ovr_cache`, record tables | Service role |
 | `generate-predictive-insights` | AI-powered farm predictions | Record tables, `farms`, `animals` | User auth, farm membership |

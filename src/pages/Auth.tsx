@@ -20,6 +20,9 @@ const VoiceTrainingOnboarding = lazy(() => import("@/components/voice-training/V
   default: module.VoiceTrainingOnboarding
 })));
 
+const isInviteRedirect = (path: string | null | undefined) =>
+  !!path && (path.startsWith('/invite/accept/') || path.startsWith('/invite/user/'));
+
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,7 +52,7 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // If there's a pending redirect (e.g., from invitation flow), go there first
-        if (pendingRedirect?.startsWith('/invite/accept/')) {
+        if (isInviteRedirect(pendingRedirect)) {
           navigate(pendingRedirect);
           return;
         }
@@ -133,7 +136,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     // Preserve redirect URL for invitation flow
-    const redirectTo = pendingRedirect?.startsWith('/invite/accept/')
+    const redirectTo = isInviteRedirect(pendingRedirect)
       ? `${window.location.origin}${pendingRedirect}`
       : `${window.location.origin}/`;
     
@@ -187,7 +190,7 @@ const Auth = () => {
       });
 
       // If there's a pending redirect (e.g., from invitation flow), go there first
-      if (pendingRedirect?.startsWith('/invite/accept/')) {
+      if (isInviteRedirect(pendingRedirect)) {
         navigate(pendingRedirect);
         return;
       }
@@ -264,7 +267,7 @@ const Auth = () => {
             }
             setShowVoiceTrainingOnboarding(false);
             // Navigate to pending redirect (invitation) or home
-            if (pendingRedirect?.startsWith('/invite/accept/')) {
+            if (isInviteRedirect(pendingRedirect)) {
               navigate(pendingRedirect);
             } else {
               navigate("/");

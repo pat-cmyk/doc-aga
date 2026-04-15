@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-04-15 — Feature: Admin Dashboard email-invite flow for global roles
+
+### Problem
+Super admins could only onboard platform-level users (admin / government / merchant / distributor / cooperative) via `CreateUserDialog`, which required the admin to set a password and share it out-of-band. There was no email-invite path for global roles — that pattern only existed for farm-scoped roles via `FarmTeamManagement`.
+
+### Added
+- **DB migration `supabase/migrations/20260415120000_user_invitations.sql`**
+  - New `user_invitations` table (email, role, invitation_token, status, expires_at, ...) with super-admin RLS.
+  - `get_user_invitation_public(_token)` SECURITY DEFINER RPC — anon-readable narrow projection for the accept page.
+  - `accept_user_invitation(_token)` SECURITY DEFINER RPC — validates token, enforces email match, inserts into `user_roles`, marks invitation accepted (idempotent).
+  - `admin_revoke_user_invitation(_invitation_id)` SECURITY DEFINER RPC — super admin only.
+- **Edge function `supabase/functions/send-user-invitation/`** — super-admin-only endpoint:
+  - If email belongs to existing user → grants role immediately via `admin_assign_role` RPC, no email sent.
+  - Otherwise → inserts pending row + sends Resend email with link to `/invite/user/<token>`.
+  - Reuses pending invite row if same email + same role (refreshes expiry).
+  - Rejects if a pending invite exists with a different role (forces explicit revoke).
+- **`src/components/admin/InviteUserDialog.tsx`** — email + role picker dialog, posts to the edge function.
+- **`src/components/admin/PendingInvitationsTable.tsx`** — lists pending/accepted/revoked/expired invitations with Resend / Revoke actions.
+- **`src/hooks/useUserInvitations.ts`** — `useUserInvitations`, `useRevokeUserInvitation`, `useResendUserInvitation`.
+- **`src/pages/UserInviteAccept.tsx`** + route `/invite/user/:token` — invitee landing page; redirects to `/auth` for signup/sign-in then calls `accept_user_invitation` and routes to the role's home (`/admin`, `/government`, `/merchant`, `/distributor`, `/cooperative`).
+
+### Changed
+- **`src/components/admin/UserManagement.tsx`** — added the `Invite User` button beside `Create User`; renders `PendingInvitationsTable` below the user table for super admins.
+- **`src/pages/Auth.tsx`** — `pendingRedirect` whitelist now also accepts `/invite/user/...` paths so the post-signup return works for the new flow (added local `isInviteRedirect` helper).
+- **`supabase/config.toml`** — registered `send-user-invitation` with `verify_jwt = true`.
+
+### Deployment
+- User must run the migration in Supabase SQL Editor (https://supabase.com/dashboard/project/sxorybjlxyquxteptdyk/sql).
+- User must ask Lovable to deploy the new `send-user-invitation` edge function.
+
 ## 2026-04-14 — Feature: Visual Government Dashboard PDF Redesign
 
 ### Problem

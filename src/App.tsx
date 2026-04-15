@@ -41,6 +41,7 @@ const DistributorFinder = lazy(() => import("./pages/DistributorFinder"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const MessagingPage = lazy(() => import("./pages/MessagingPage"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
+const UserInviteAccept = lazy(() => import("./pages/UserInviteAccept"));
 const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
 const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -326,6 +327,7 @@ const App = () => (
                   <Route path="/orders" element={<OrderHistory />} />
                   <Route path="/messages" element={<MessagingPage />} />
                   <Route path="/invite/accept/:token" element={<InviteAccept />} />
+                  <Route path="/invite/user/:token" element={<UserInviteAccept />} />
                   <Route path="/admin/create-user" element={<AdminCreateUser />} />
                   <Route path="/farmhand" element={<FarmhandDashboard />} />
                   <Route path="/voice-training" element={<VoiceTraining />} />
