@@ -4522,6 +4522,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_user_id: string | null
+          email: string
+          id: string
+          invitation_status: string
+          invitation_token: string
+          invited_at: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          token_expires_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          email: string
+          id?: string
+          invitation_status?: string
+          invitation_token?: string
+          invited_at?: string
+          invited_by?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          token_expires_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          email?: string
+          id?: string
+          invitation_status?: string
+          invitation_token?: string
+          invited_at?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          token_expires_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -4693,6 +4732,7 @@ export type Database = {
           success: boolean
         }[]
       }
+      accept_user_invitation: { Args: { _token: string }; Returns: Json }
       add_coop_feed_stock: {
         Args: {
           _batch_number?: string
@@ -4764,6 +4804,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["user_role"]
           _user_id: string
         }
+        Returns: undefined
+      }
+      admin_revoke_user_invitation: {
+        Args: { _invitation_id: string }
         Returns: undefined
       }
       approve_pending_activity:
@@ -5690,6 +5734,16 @@ export type Database = {
         }[]
       }
       get_user_cooperative_id: { Args: { _user_id: string }; Returns: string }
+      get_user_invitation_public: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          invitation_status: string
+          invited_at: string
+          role: Database["public"]["Enums"]["user_role"]
+          token_expires_at: string
+        }[]
+      }
       handle_merchant_signup: {
         Args: {
           _business_address: string
