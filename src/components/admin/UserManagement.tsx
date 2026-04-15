@@ -8,9 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { InviteUserDialog } from "./InviteUserDialog";
 import { CreateCooperativeDialog } from "./CreateCooperativeDialog";
 import { UserDetailPanel } from "./UserDetailPanel";
 import { EditUserDialog } from "./EditUserDialog";
+import { PendingInvitationsTable } from "./PendingInvitationsTable";
+import { USER_INVITATIONS_QUERY_KEY } from "@/hooks/useUserInvitations";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -219,6 +222,7 @@ export const UserManagement = () => {
   }
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -226,8 +230,15 @@ export const UserManagement = () => {
             <CardTitle>User Management</CardTitle>
             <CardDescription>Manage user accounts and permissions</CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {isSuperAdmin && <CreateCooperativeDialog />}
+            <InviteUserDialog
+              isSuperAdmin={isSuperAdmin}
+              onInvitationSent={() => {
+                queryClient.invalidateQueries({ queryKey: USER_INVITATIONS_QUERY_KEY });
+                queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+              }}
+            />
             <CreateUserDialog
               onUserCreated={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
               isSuperAdmin={isSuperAdmin}
@@ -440,5 +451,8 @@ export const UserManagement = () => {
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+
+    {isSuperAdmin && <PendingInvitationsTable />}
+    </div>
   );
 };
