@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-04-16 — Fix: Government Dashboard reloads on every tab refocus
+
+### Problem
+Returning to the Doc Aga browser tab from any other tab caused the Government Dashboard to flash a full-screen loading spinner and re-render the entire dashboard tree (every chart, hook, and `useGovernmentAccess` query). Users perceived this as the dashboard "verifying access" repeatedly, which it was — but unnecessarily.
+
+### Root cause
+1. `@supabase/supabase-js` re-emits `SIGNED_IN` and `TOKEN_REFRESHED` on tab `visibilitychange` (session recovery + auto-refresh restart). For users away more than ~5 min, at least one event fires nearly every refocus.
+2. `PermissionsProvider` reacted to all three events (`SIGNED_IN` / `SIGNED_OUT` / `TOKEN_REFRESHED`) by calling `fetchAllPermissions()` which started with `setIsLoading(true)`. That single line blanked the UI.
+3. `GovernmentDashboard` gates the entire page on `accessLoading || rolesLoading`, so the dashboard unmounted, then remounted — re-running `useGovernmentAccess`'s own redundant `user_roles` query plus all dashboard hooks (whose 5-min `staleTime` made them stale during a normal tab switch).
+
+### Changed
+- **`src/contexts/PermissionsContext.tsx`** — `fetchAllPermissions` now supports a `silent` mode that skips `setIsLoading(true)` and only updates state if roles/farm-roles actually changed (shallow-equal comparison). Auth event handler:
+  - `SIGNED_OUT` and `SIGNED_IN` with a *new* user id → blocking refetch (real auth change).
+  - `SIGNED_IN` re-broadcast for the *same* user id (Supabase's tab-focus / cross-tab sync) → silent revalidation.
+  - `TOKEN_REFRESHED` / `USER_UPDATED` → silent revalidation.
+  - Adds a fetch sequence counter so out-of-order responses from concurrent fetches are dropped.
+- **`src/hooks/useGovernmentAccess.ts`** — rewritten as a thin wrapper around `useUnifiedPermissions` (SSOT for roles). Eliminates the second `user_roles` query that ran on every dashboard mount. Tri-state `hasAccess: null | boolean` contract preserved so the existing `!!hasAccess` query gates and the redirect logic in `GovernmentDashboard` continue to work.
+
+### Verification
+- `npm run build` ✓
+- `npm run test` ✓ (403 passed, 56 skipped)
+- Live verification on `/government`: simulated full `visibilitychange` cycle (hidden → visible) via `preview_eval`. After the cycle, `document.querySelectorAll('.animate-spin').length === 0` and all 8 dashboard section headings remained mounted (Population Overview, Active Farms, Active Animals, Daily Logs, Health Events, National Livestock Distribution, Milk Production, Welcome banner).
+
+### Edge cases known and accepted
+- A user whose `government` role is revoked in another session will keep seeing the dashboard until their next page navigation or full reload (silent revalidation hides the role drop because the existing `enabled` gates still cover the followup queries via RLS).
+- Cold-load `SIGNED_IN` from Supabase session recovery is treated as silent because `lastUserIdRef` is seeded from the localStorage permissions cache on mount — matches existing behavior of trusting the cache.
+
+---
+
 ## 2026-04-15 — Feature: Admin Dashboard email-invite flow for global roles
 
 ### Problem

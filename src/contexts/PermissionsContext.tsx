@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFarm } from "./FarmContext";
 
@@ -138,22 +138,56 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [allRoles, setAllRoles] = useState<UserRole[]>(cachedPerms?.allRoles ?? []);
   const [farmRoles, setFarmRoles] = useState<FarmRoleResult[]>(cachedPerms?.farmRoles ?? []);
 
-  const fetchAllPermissions = useCallback(async () => {
-    setIsLoading(true);
-    
+  // Track in-flight fetches so we can drop stale results when a newer fetch
+  // (e.g. triggered by SIGNED_OUT) lands first. Without this, two parallel
+  // fetches can overwrite each other in arbitrary order.
+  const fetchSeqRef = useRef(0);
+  // Tracks whether we've completed at least one fetch since the provider mounted.
+  // Used to decide whether a refetch should silently revalidate (no spinner)
+  // or block the UI with isLoading=true.
+  const hasInitializedRef = useRef(false);
+  // Track the last user id we observed so we can distinguish a real sign-in
+  // (new user) from a Supabase-internal SIGNED_IN re-broadcast on tab focus
+  // or cross-tab session sync (same user). Initialized from localStorage
+  // cache so session recovery on cold load doesn't look like a new login.
+  const lastUserIdRef = useRef<string | null>(cachedPerms?.userId ?? null);
+
+  const arraysShallowEqual = <T,>(a: T[], b: T[], keyFn: (x: T) => string): boolean => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    const aKeys = a.map(keyFn).sort();
+    const bKeys = b.map(keyFn).sort();
+    for (let i = 0; i < aKeys.length; i++) {
+      if (aKeys[i] !== bKeys[i]) return false;
+    }
+    return true;
+  };
+
+  const fetchAllPermissions = useCallback(async (options?: { silent?: boolean }) => {
+    const seq = ++fetchSeqRef.current;
+    // Silent revalidation skips the loading flag so the UI doesn't blank out
+    // when a background event (e.g. tab visibility change → TOKEN_REFRESHED)
+    // triggers a refetch. Initial mount always blocks.
+    const silent = options?.silent === true && hasInitializedRef.current;
+    if (!silent) setIsLoading(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
+      // If a newer fetch has started, discard this stale result entirely.
+      if (seq !== fetchSeqRef.current) return;
+
       if (!user) {
         setUserId(null);
         setAllRoles([]);
         setFarmRoles([]);
+        lastUserIdRef.current = null;
         try { localStorage.removeItem(PERMISSIONS_CACHE_KEY); } catch { /* ignore */ }
-        setIsLoading(false);
         return;
       }
 
       setUserId(user.id);
+      lastUserIdRef.current = user.id;
 
       // Fetch all permission data in parallel
       const [rolesResult, membershipsResult, ownedFarmsResult] = await Promise.all([
@@ -178,9 +212,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           .eq("is_deleted", false),
       ]);
 
+      // If a newer fetch has started, discard this stale result entirely.
+      if (seq !== fetchSeqRef.current) return;
+
       // Process user roles
       const roles = (rolesResult.data || []).map(r => r.role as UserRole);
-      setAllRoles(roles);
 
       // Process farm roles
       const processedFarmRoles: FarmRoleResult[] = [];
@@ -211,11 +247,23 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      setFarmRoles(processedFarmRoles);
+      // Only update state if data actually changed. This prevents downstream
+      // re-renders during silent revalidation when nothing has changed,
+      // which is the common case for TOKEN_REFRESHED on tab focus.
+      setAllRoles(prev => arraysShallowEqual(prev, roles, r => r) ? prev : roles);
+      setFarmRoles(prev =>
+        arraysShallowEqual(
+          prev,
+          processedFarmRoles,
+          r => `${r.farmId}|${r.roleInFarm}|${r.isOwner ? '1' : '0'}|${r.farmName}`,
+        ) ? prev : processedFarmRoles
+      );
 
       // Cache for offline fallback
       setCachedPermissions(user.id, roles, processedFarmRoles);
     } catch (error) {
+      // Drop stale errors too.
+      if (seq !== fetchSeqRef.current) return;
       console.error("Error fetching permissions:", error);
       // Offline fallback: restore from cached permissions instead of clearing
       const cached = getCachedPermissions();
@@ -227,7 +275,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       }
       // If no cache, keep whatever state we already have (may be from initial cache load)
     } finally {
-      setIsLoading(false);
+      if (seq === fetchSeqRef.current) {
+        hasInitializedRef.current = true;
+        if (!silent) setIsLoading(false);
+      }
     }
   }, []);
 
@@ -235,9 +286,22 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchAllPermissions();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUserId = session?.user?.id ?? null;
+      const userChanged = newUserId !== lastUserIdRef.current;
+
+      // SIGNED_OUT: blocking refetch so UI gates immediately.
+      // SIGNED_IN with new user: blocking refetch (real login).
+      // SIGNED_IN with same user: silent revalidation — Supabase re-emits
+      //   SIGNED_IN on tab focus / cross-tab sync; do not blank the UI.
+      // TOKEN_REFRESHED / USER_UPDATED: silent revalidation.
+      // INITIAL_SESSION: ignored — initial fetch already runs above.
+      if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && userChanged)) {
+        lastUserIdRef.current = newUserId;
         fetchAllPermissions();
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        lastUserIdRef.current = newUserId;
+        fetchAllPermissions({ silent: true });
       }
     });
 
