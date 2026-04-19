@@ -1420,6 +1420,7 @@ export type Database = {
       cooperative_memberships: {
         Row: {
           accepted_at: string | null
+          accepted_ip: unknown
           cooperative_id: string
           created_at: string
           farm_id: string
@@ -1428,10 +1429,12 @@ export type Database = {
           invitation_token: string
           invited_at: string
           invited_email: string
+          last_resend_at: string | null
           token_expires_at: string
         }
         Insert: {
           accepted_at?: string | null
+          accepted_ip?: unknown
           cooperative_id: string
           created_at?: string
           farm_id: string
@@ -1440,10 +1443,12 @@ export type Database = {
           invitation_token?: string
           invited_at?: string
           invited_email: string
+          last_resend_at?: string | null
           token_expires_at?: string
         }
         Update: {
           accepted_at?: string | null
+          accepted_ip?: unknown
           cooperative_id?: string
           created_at?: string
           farm_id?: string
@@ -1452,6 +1457,7 @@ export type Database = {
           invitation_token?: string
           invited_at?: string
           invited_email?: string
+          last_resend_at?: string | null
           token_expires_at?: string
         }
         Relationships: [
@@ -2093,6 +2099,7 @@ export type Database = {
       }
       farm_memberships: {
         Row: {
+          accepted_ip: unknown
           created_at: string
           farm_id: string
           id: string
@@ -2101,11 +2108,13 @@ export type Database = {
           invited_at: string | null
           invited_by: string | null
           invited_email: string | null
+          last_resend_at: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           token_expires_at: string | null
           user_id: string | null
         }
         Insert: {
+          accepted_ip?: unknown
           created_at?: string
           farm_id: string
           id?: string
@@ -2114,11 +2123,13 @@ export type Database = {
           invited_at?: string | null
           invited_by?: string | null
           invited_email?: string | null
+          last_resend_at?: string | null
           role_in_farm: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string | null
           user_id?: string | null
         }
         Update: {
+          accepted_ip?: unknown
           created_at?: string
           farm_id?: string
           id?: string
@@ -2127,6 +2138,7 @@ export type Database = {
           invited_at?: string | null
           invited_by?: string | null
           invited_email?: string | null
+          last_resend_at?: string | null
           role_in_farm?: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string | null
           user_id?: string | null
@@ -4525,6 +4537,7 @@ export type Database = {
       user_invitations: {
         Row: {
           accepted_at: string | null
+          accepted_ip: unknown
           accepted_user_id: string | null
           email: string
           id: string
@@ -4532,11 +4545,13 @@ export type Database = {
           invitation_token: string
           invited_at: string
           invited_by: string | null
+          last_resend_at: string | null
           role: Database["public"]["Enums"]["user_role"]
           token_expires_at: string
         }
         Insert: {
           accepted_at?: string | null
+          accepted_ip?: unknown
           accepted_user_id?: string | null
           email: string
           id?: string
@@ -4544,11 +4559,13 @@ export type Database = {
           invitation_token?: string
           invited_at?: string
           invited_by?: string | null
+          last_resend_at?: string | null
           role: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string
         }
         Update: {
           accepted_at?: string | null
+          accepted_ip?: unknown
           accepted_user_id?: string | null
           email?: string
           id?: string
@@ -4556,6 +4573,7 @@ export type Database = {
           invitation_token?: string
           invited_at?: string
           invited_by?: string | null
+          last_resend_at?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           token_expires_at?: string
         }
@@ -5815,6 +5833,21 @@ export type Database = {
         }
         Returns: string
       }
+      lookup_invitation: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          invited_at: string
+          inviter_email: string
+          inviter_name: string
+          role: string
+          role_label: string
+          status: string
+          target_name: string
+          type: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -5859,6 +5892,14 @@ export type Database = {
       remove_farm_from_cooperative: {
         Args: { _cooperative_id: string; _membership_id: string }
         Returns: string
+      }
+      request_invitation_resend: {
+        Args: { p_token: string }
+        Returns: {
+          new_token: string
+          reason: string
+          sent: boolean
+        }[]
       }
       requires_approval: {
         Args: { _activity_type: string; _farm_id: string; _user_id: string }
