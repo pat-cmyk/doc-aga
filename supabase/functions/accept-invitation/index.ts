@@ -97,6 +97,56 @@ function resolveRedirect(invite: InviteLookup, extra: { farm_id?: string | null 
   return "/"; // coop
 }
 
+async function runAcceptAsUser(
+  invite: InviteLookup,
+  userJwt: string,
+  token: string,
+): Promise<{ error?: string; farm_id?: string | null }> {
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: `Bearer ${userJwt}` } }, auth: { persistSession: false } },
+  );
+
+  if (invite.type === "user") {
+    const { data, error } = await userClient.rpc("accept_user_invitation", { _token: token });
+    if (error) return { error: error.message };
+    return { farm_id: null };
+  }
+  if (invite.type === "farm") {
+    const { data, error } = await userClient.rpc("accept_farm_invitation", { p_token: token });
+    if (error) return { error: error.message };
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.success) return { error: row?.error_code ?? "accept_failed" };
+    return { farm_id: row.farm_id };
+  }
+  if (invite.type === "coop") {
+    const { error } = await userClient
+      .from("cooperative_memberships")
+      .update({ invitation_status: "accepted", accepted_at: new Date().toISOString() })
+      .eq("invitation_token", token);
+    if (error) return { error: error.message };
+    return { farm_id: null };
+  }
+  return { error: "unsupported" };
+}
+
+async function writeAcceptedIp(
+  admin: ReturnType<typeof createClient>,
+  invite: InviteLookup,
+  token: string,
+  userId: string,
+  ip: string,
+) {
+  if (invite.type === "user") {
+    await admin.from("user_invitations").update({ accepted_ip: ip }).eq("invitation_token", token);
+  } else if (invite.type === "farm") {
+    await admin.from("farm_memberships").update({ accepted_ip: ip, user_id: userId }).eq("invitation_token", token);
+  } else {
+    await admin.from("cooperative_memberships").update({ accepted_ip: ip }).eq("invitation_token", token);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -127,5 +177,24 @@ serve(async (req) => {
   if (invite.status !== "pending") return json({ code: "TOKEN_NOT_FOUND" }, 404);
 
   // Branch: existing user (authed) vs new user (has password) — implemented in B4 + B5
-  return json({ code: "not_implemented", invite }, 501);
+  const authHeader = req.headers.get("Authorization");
+  const hasAuth = !!authHeader && authHeader.startsWith("Bearer ");
+  if (hasAuth) {
+    const jwt = authHeader!.replace("Bearer ", "");
+    const { data: { user }, error: uErr } = await admin.auth.getUser(jwt);
+    if (uErr || !user?.email) return json({ code: "EMAIL_MISMATCH" }, 409);
+    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+      return json({ code: "EMAIL_MISMATCH" }, 409);
+    }
+    const acceptResult = await runAcceptAsUser(invite, jwt, token);
+    if (acceptResult.error) return json({ code: acceptResult.error }, 409);
+    await writeAcceptedIp(admin, invite, token, user.id, ip);
+    return json({
+      session: null, // client already has a session; no need to re-issue
+      redirectTo: resolveRedirect(invite, { farm_id: acceptResult.farm_id }),
+      invite: { type: invite.type, role: invite.role, target_name: invite.target_name },
+    });
+  }
+
+  return json({ code: "not_implemented", invite }, 501); // new-user branch lands in Task B5
 });
