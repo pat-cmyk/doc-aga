@@ -206,7 +206,56 @@ function SignInCard({
     </CenteredCard>
   );
 }
-function AutoAcceptCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void }): JSX.Element { return <div data-testid="auto-accept-card" />; }
+function AutoAcceptCard({
+  invite, token, onSuccess,
+}: {
+  invite: InviteLookup;
+  token: string;
+  onSuccess: (redirectTo: string) => void;
+}) {
+  const [done, setDone] = useState(false);
+  const [redirect, setRedirect] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) { setErr("no_session"); return; }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sess.session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ token }),
+      });
+      const body = await res.json();
+      if (!res.ok) { setErr(body.code ?? "accept_failed"); return; }
+      setRedirect(body.redirectTo ?? "/");
+      setDone(true);
+    })();
+  }, [token]);
+
+  if (err) return <InfoCard title="Couldn't accept invite" body={`Error: ${err}. Please refresh and try again.`} />;
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>You're in</CardTitle>
+          <CardDescription>
+            You've been granted <strong>{invite.role_label}</strong> access by <strong>{invite.inviter_name}</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button className="w-full" disabled={!done} onClick={() => onSuccess(redirect!)}>
+            {done ? "Go to Dashboard →" : <Loader2 className="h-4 w-4 animate-spin" />}
+          </Button>
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
 function MismatchCard(_: { invite: InviteLookup; sessionEmail: string }): JSX.Element { return <div data-testid="mismatch-card" />; }
 function ExpiredCard(_: { token: string }): JSX.Element { return <div data-testid="expired-card" />; }
 function AlreadyAcceptedCard(_: { invite: InviteLookup; onGo: () => void }): JSX.Element { return <div data-testid="already-accepted-card" />; }
