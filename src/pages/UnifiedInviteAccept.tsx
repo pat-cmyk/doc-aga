@@ -256,6 +256,35 @@ function AutoAcceptCard({
     </CenteredCard>
   );
 }
-function MismatchCard(_: { invite: InviteLookup; sessionEmail: string }): JSX.Element { return <div data-testid="mismatch-card" />; }
+function MismatchCard({
+  invite, sessionEmail,
+}: {
+  invite: InviteLookup;
+  sessionEmail: string;
+}) {
+  async function signOutAndReload() {
+    await supabase.auth.signOut();
+    window.location.reload();
+  }
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>Signed in as a different account</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertTitle>Email mismatch</AlertTitle>
+            <AlertDescription>
+              This invite was sent to <strong>{invite.email}</strong>.<br />
+              You're signed in as <strong>{sessionEmail}</strong>.
+            </AlertDescription>
+          </Alert>
+          <Button className="w-full" onClick={signOutAndReload}>Sign out &amp; continue</Button>
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
 function ExpiredCard(_: { token: string }): JSX.Element { return <div data-testid="expired-card" />; }
 function AlreadyAcceptedCard(_: { invite: InviteLookup; onGo: () => void }): JSX.Element { return <div data-testid="already-accepted-card" />; }
