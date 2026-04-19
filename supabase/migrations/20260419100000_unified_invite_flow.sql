@@ -1,12 +1,15 @@
--- Unified Invite Flow: accepted_ip column + lookup_invitation + request_invitation_resend
+-- Unified Invite Flow: accepted_ip + last_resend_at columns + lookup_invitation + request_invitation_resend
 -- Spec: docs/superpowers/specs/2026-04-19-unified-invite-flow-design.md
 
 BEGIN;
 
--- 1. Audit column on all three invitation tables
+-- 1. Audit + rate-limit columns on all three invitation tables
 ALTER TABLE public.farm_memberships        ADD COLUMN IF NOT EXISTS accepted_ip inet;
+ALTER TABLE public.farm_memberships        ADD COLUMN IF NOT EXISTS last_resend_at timestamptz;
 ALTER TABLE public.user_invitations        ADD COLUMN IF NOT EXISTS accepted_ip inet;
+ALTER TABLE public.user_invitations        ADD COLUMN IF NOT EXISTS last_resend_at timestamptz;
 ALTER TABLE public.cooperative_memberships ADD COLUMN IF NOT EXISTS accepted_ip inet;
+ALTER TABLE public.cooperative_memberships ADD COLUMN IF NOT EXISTS last_resend_at timestamptz;
 
 -- 2. lookup_invitation — unified read RPC
 CREATE OR REPLACE FUNCTION public.lookup_invitation(p_token uuid)
@@ -115,7 +118,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.lookup_invitation(uuid) TO anon, authenticated;
 
--- 3. request_invitation_resend — self-serve resend with guardrails
+-- 3. request_invitation_resend — read-then-guard-then-update, ≤1 resend per token per 24h
 CREATE OR REPLACE FUNCTION public.request_invitation_resend(p_token uuid)
 RETURNS TABLE (sent boolean, reason text, new_token uuid)
 LANGUAGE plpgsql
@@ -124,55 +127,71 @@ SET search_path = public
 AS $$
 DECLARE
   v_new_token uuid := gen_random_uuid();
-  v_inviter uuid;
-  v_last_resend_at timestamptz;
+  v_last_at timestamptz;
 BEGIN
   -- user_invitations branch
-  UPDATE public.user_invitations
-     SET invitation_token  = v_new_token,
-         token_expires_at  = now() + interval '7 days',
-         invitation_status = 'pending'
+  SELECT COALESCE(last_resend_at, invited_at) INTO v_last_at
+    FROM public.user_invitations
    WHERE invitation_token = p_token
      AND invitation_status IN ('pending', 'expired')
-     AND (accepted_at IS NULL)
-   RETURNING invited_by, invited_at INTO v_inviter, v_last_resend_at;
+     AND accepted_at IS NULL
+   FOR UPDATE;
 
   IF FOUND THEN
-    IF v_last_resend_at > now() - interval '24 hours' THEN
-      -- roll back by reverting token
-      UPDATE public.user_invitations
-         SET invitation_token = p_token
-       WHERE invitation_token = v_new_token;
+    IF v_last_at > now() - interval '24 hours' THEN
       RETURN QUERY SELECT false, 'recent_resend'::text, NULL::uuid;
       RETURN;
     END IF;
+    UPDATE public.user_invitations
+       SET invitation_token  = v_new_token,
+           token_expires_at  = now() + interval '7 days',
+           invitation_status = 'pending',
+           last_resend_at    = now()
+     WHERE invitation_token = p_token;
     RETURN QUERY SELECT true, NULL::text, v_new_token;
     RETURN;
   END IF;
 
   -- farm_memberships branch
-  UPDATE public.farm_memberships
-     SET invitation_token = v_new_token,
-         token_expires_at = now() + interval '7 days',
-         invitation_status = 'pending'
+  SELECT COALESCE(last_resend_at, invited_at) INTO v_last_at
+    FROM public.farm_memberships
    WHERE invitation_token = p_token
      AND invitation_status = 'pending'
-   RETURNING invited_by INTO v_inviter;
+   FOR UPDATE;
 
   IF FOUND THEN
+    IF v_last_at > now() - interval '24 hours' THEN
+      RETURN QUERY SELECT false, 'recent_resend'::text, NULL::uuid;
+      RETURN;
+    END IF;
+    UPDATE public.farm_memberships
+       SET invitation_token  = v_new_token,
+           token_expires_at  = now() + interval '7 days',
+           invitation_status = 'pending',
+           last_resend_at    = now()
+     WHERE invitation_token = p_token;
     RETURN QUERY SELECT true, NULL::text, v_new_token;
     RETURN;
   END IF;
 
   -- cooperative_memberships branch
-  UPDATE public.cooperative_memberships
-     SET invitation_token = v_new_token,
-         token_expires_at = now() + interval '7 days',
-         invitation_status = 'pending'
+  SELECT COALESCE(last_resend_at, invited_at) INTO v_last_at
+    FROM public.cooperative_memberships
    WHERE invitation_token = p_token
-     AND invitation_status = 'pending';
+     AND invitation_status = 'pending'
+   FOR UPDATE;
 
   IF FOUND THEN
+    IF v_last_at > now() - interval '24 hours' THEN
+      RETURN QUERY SELECT false, 'recent_resend'::text, NULL::uuid;
+      RETURN;
+    END IF;
+    UPDATE public.cooperative_memberships
+       SET invitation_token  = v_new_token,
+           token_expires_at  = now() + interval '7 days',
+           invitation_status = 'pending',
+           last_resend_at    = now()
+     WHERE invitation_token = p_token;
     RETURN QUERY SELECT true, NULL::text, v_new_token;
     RETURN;
   END IF;
