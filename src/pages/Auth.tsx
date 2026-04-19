@@ -21,7 +21,7 @@ const VoiceTrainingOnboarding = lazy(() => import("@/components/voice-training/V
 })));
 
 const isInviteRedirect = (path: string | null | undefined) =>
-  !!path && (path.startsWith('/invite/accept/') || path.startsWith('/invite/user/'));
+  !!path && (path.startsWith('/invite/') || path.startsWith('/cooperative/invite/'));
 
 const Auth = () => {
   const navigate = useNavigate();
