@@ -110,7 +110,7 @@ type AcceptRequest = {
 };
 
 async function loadInvite(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   token: string,
 ): Promise<InviteLookup | null> {
   const { data, error } = await admin.rpc("lookup_invitation", { p_token: token });
@@ -170,7 +170,7 @@ async function runAcceptAsUser(
 }
 
 async function writeAcceptedIp(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   invite: InviteLookup,
   token: string,
   userId: string,
