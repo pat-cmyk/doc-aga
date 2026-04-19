@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Unified invite flow
+
+- Introduces a single `/invite/:token` route that replaces `/invite/accept/:token`, `/invite/user/:token`, and `/cooperative/invite/accept/:token` for new email invitations.
+- Invitees set a password once and are redirected directly to their role-appropriate dashboard — no more bounce through `/auth`, no email verification round-trip (backed by `email_confirm: true` on server-side `admin.createUser`).
+- Legacy URLs continue to work via redirect shims for 90 days, then are removed.
+- New audit column `accepted_ip` and rate-limit column `last_resend_at` on all three invitation tables.
+- Self-serve expired-link resend with a 24h-per-token guardrail.
+- Gated behind `VITE_UNIFIED_INVITE_FLOW` feature flag until rollout complete.
+
 ## 2026-04-15 — Feature: Admin Dashboard email-invite flow for global roles
 
 ### Problem
