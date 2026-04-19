@@ -52,6 +52,44 @@ function validatePassword(pw: string): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+function maskToken(token: string): string {
+  if (!token || token.length < 8) return "****";
+  return `****${token.slice(-4)}`;
+}
+
+function extractIp(req: Request): string | null {
+  const raw = req.headers.get("cf-connecting-ip")
+    ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? null;
+  if (!raw) return null;
+  const ipv4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+  const ipv6 = /^[a-f0-9:]+$/i;
+  if (ipv4.test(raw) || ipv6.test(raw)) return raw;
+  return null;
+}
+
+function mapAcceptError(msg: string): string {
+  const m = (msg ?? "").toLowerCase();
+  if (m.includes("not_authenticated")) return "EMAIL_MISMATCH"; // shouldn't reach here but safe
+  if (m.includes("email_mismatch")) return "EMAIL_MISMATCH";
+  if (m.includes("invitation_accepted") || m.includes("already_accepted")) return "TOKEN_ALREADY_ACCEPTED";
+  if (m.includes("invitation_expired") || m.includes("token_expired") || m.includes("expired")) return "TOKEN_EXPIRED";
+  if (m.includes("invitation_revoked") || m.includes("revoked")) return "TOKEN_REVOKED";
+  if (m.includes("invitation_not_found") || m.includes("invalid_token") || m.includes("not_found")) return "TOKEN_NOT_FOUND";
+  return "INTERNAL";
+}
+
+function statusFor(code: string): number {
+  switch (code) {
+    case "TOKEN_EXPIRED":
+    case "TOKEN_REVOKED": return 410;
+    case "TOKEN_NOT_FOUND": return 404;
+    case "EMAIL_MISMATCH":
+    case "TOKEN_ALREADY_ACCEPTED": return 409;
+    default: return 500;
+  }
+}
+
 type InviteLookup = {
   type: "farm" | "user" | "coop";
   status: "pending" | "accepted" | "revoked" | "expired" | "declined";
@@ -80,7 +118,7 @@ async function loadInvite(
   return data[0] as InviteLookup;
 }
 
-function resolveRedirect(invite: InviteLookup, extra: { farm_id?: string | null }): string {
+function resolveRedirect(invite: InviteLookup): string {
   if (invite.type === "user") {
     const map: Record<string, string> = {
       admin: "/admin",
@@ -109,26 +147,26 @@ async function runAcceptAsUser(
   );
 
   if (invite.type === "user") {
-    const { data, error } = await userClient.rpc("accept_user_invitation", { _token: token });
-    if (error) return { error: error.message };
+    const { error } = await userClient.rpc("accept_user_invitation", { _token: token });
+    if (error) return { error: mapAcceptError(error.message) };
     return { farm_id: null };
   }
   if (invite.type === "farm") {
     const { data, error } = await userClient.rpc("accept_farm_invitation", { p_token: token });
-    if (error) return { error: error.message };
+    if (error) return { error: mapAcceptError(error.message) };
     const row = Array.isArray(data) ? data[0] : data;
-    if (!row?.success) return { error: row?.error_code ?? "accept_failed" };
+    if (!row?.success) return { error: mapAcceptError(row?.error_code ?? "accept_failed") };
     return { farm_id: row.farm_id };
   }
   if (invite.type === "coop") {
-    const { error } = await userClient
-      .from("cooperative_memberships")
-      .update({ invitation_status: "accepted", accepted_at: new Date().toISOString() })
-      .eq("invitation_token", token);
-    if (error) return { error: error.message };
+    const { data, error } = await userClient.rpc("accept_cooperative_invitation", { _token: token });
+    if (error) return { error: mapAcceptError(error.message) };
+    if (typeof data === "string" && data.startsWith("error:")) {
+      return { error: mapAcceptError(data.replace(/^error:/, "")) };
+    }
     return { farm_id: null };
   }
-  return { error: "unsupported" };
+  return { error: "INTERNAL" };
 }
 
 async function writeAcceptedIp(
@@ -136,7 +174,7 @@ async function writeAcceptedIp(
   invite: InviteLookup,
   token: string,
   userId: string,
-  ip: string,
+  ip: string | null,
 ) {
   if (invite.type === "user") {
     await admin.from("user_invitations").update({ accepted_ip: ip }).eq("invitation_token", token);
@@ -156,12 +194,18 @@ serve(async (req) => {
   const { token, full_name, password } = body ?? {};
   if (!token) return json({ code: "bad_request" }, 400);
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = extractIp(req);
 
   const tRate = rateCheck(tokenRate, token, RATE_LIMIT_TOKEN_MAX);
-  if (!tRate.allowed) return json({ code: "rate_limited", retry_after: tRate.retryAfter }, 429);
-  const iRate = rateCheck(ipRate, ip, RATE_LIMIT_IP_MAX);
-  if (!iRate.allowed) return json({ code: "rate_limited", retry_after: iRate.retryAfter }, 429);
+  if (!tRate.allowed) {
+    console.log("invite_rate_limited", { token: maskToken(token), ip });
+    return json({ code: "rate_limited", retry_after: tRate.retryAfter }, 429);
+  }
+  const iRate = rateCheck(ipRate, ip ?? "unknown", RATE_LIMIT_IP_MAX);
+  if (!iRate.allowed) {
+    console.log("invite_rate_limited", { token: maskToken(token), ip });
+    return json({ code: "rate_limited", retry_after: iRate.retryAfter }, 429);
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -170,11 +214,26 @@ serve(async (req) => {
   );
 
   const invite = await loadInvite(admin, token);
-  if (!invite) return json({ code: "TOKEN_NOT_FOUND" }, 404);
-  if (invite.status === "expired") return json({ code: "TOKEN_EXPIRED" }, 410);
-  if (invite.status === "revoked") return json({ code: "TOKEN_REVOKED" }, 410);
-  if (invite.status === "accepted") return json({ code: "TOKEN_ALREADY_ACCEPTED" }, 409);
-  if (invite.status !== "pending") return json({ code: "TOKEN_NOT_FOUND" }, 404);
+  if (!invite) {
+    console.log("invite_lookup_miss", { token: maskToken(token), status: undefined });
+    return json({ code: "TOKEN_NOT_FOUND" }, 404);
+  }
+  if (invite.status === "expired") {
+    console.log("invite_lookup_miss", { token: maskToken(token), status: invite.status });
+    return json({ code: "TOKEN_EXPIRED" }, 410);
+  }
+  if (invite.status === "revoked") {
+    console.log("invite_lookup_miss", { token: maskToken(token), status: invite.status });
+    return json({ code: "TOKEN_REVOKED" }, 410);
+  }
+  if (invite.status === "accepted") {
+    console.log("invite_lookup_miss", { token: maskToken(token), status: invite.status });
+    return json({ code: "TOKEN_ALREADY_ACCEPTED" }, 409);
+  }
+  if (invite.status !== "pending") {
+    console.log("invite_lookup_miss", { token: maskToken(token), status: invite.status });
+    return json({ code: "TOKEN_NOT_FOUND" }, 404);
+  }
 
   // Branch: existing user (authed) vs new user (has password) — implemented in B4 + B5
   const authHeader = req.headers.get("Authorization");
@@ -182,16 +241,25 @@ serve(async (req) => {
   if (hasAuth) {
     const jwt = authHeader!.replace("Bearer ", "");
     const { data: { user }, error: uErr } = await admin.auth.getUser(jwt);
-    if (uErr || !user?.email) return json({ code: "EMAIL_MISMATCH" }, 409);
+    if (uErr || !user?.email) {
+      console.log("invite_email_mismatch", { token: maskToken(token), expected_domain: invite.email.split("@")[1] });
+      return json({ code: "EMAIL_MISMATCH" }, 409);
+    }
     if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+      console.log("invite_email_mismatch", { token: maskToken(token), expected_domain: invite.email.split("@")[1] });
       return json({ code: "EMAIL_MISMATCH" }, 409);
     }
     const acceptResult = await runAcceptAsUser(invite, jwt, token);
-    if (acceptResult.error) return json({ code: acceptResult.error }, 409);
-    await writeAcceptedIp(admin, invite, token, user.id, ip);
+    if (acceptResult.error) return json({ code: acceptResult.error }, statusFor(acceptResult.error));
+    try {
+      await writeAcceptedIp(admin, invite, token, user.id, ip);
+    } catch (_e) {
+      console.error("writeAcceptedIp failed", { type: invite.type, token: maskToken(token) });
+    }
+    console.log("invite_accepted", { type: invite.type, role: invite.role, token: maskToken(token) });
     return json({
       session: null, // client already has a session; no need to re-issue
-      redirectTo: resolveRedirect(invite, { farm_id: acceptResult.farm_id }),
+      redirectTo: resolveRedirect(invite),
       invite: { type: invite.type, role: invite.role, target_name: invite.target_name },
     });
   }
@@ -201,38 +269,47 @@ serve(async (req) => {
   const pwCheck = validatePassword(password);
   if (!pwCheck.ok) return json({ code: "WEAK_PASSWORD", reason: pwCheck.reason }, 422);
 
-  // Check if email already has an account — if so, tell client to switch to sign-in UI
-  const { data: existing } = await admin.auth.admin.listUsers();
-  if (existing?.users?.some((u) => u.email?.toLowerCase() === invite.email.toLowerCase())) {
-    return json({ code: "USER_EXISTS_SIGN_IN_REQUIRED" }, 409);
-  }
-
   const { data: created, error: cErr } = await admin.auth.admin.createUser({
     email: invite.email,
     password,
     email_confirm: true,
     user_metadata: { full_name: full_name ?? invite.email.split("@")[0] },
   });
-  if (cErr || !created?.user) return json({ code: "INTERNAL", message: cErr?.message }, 500);
+  if (cErr) {
+    console.error("invite_create_user_failed", { token: maskToken(token), error: cErr.message });
+    if (/already (been )?registered|already exists|duplicate/i.test(cErr.message)) {
+      return json({ code: "USER_EXISTS_SIGN_IN_REQUIRED" }, 409);
+    }
+    return json({ code: "INTERNAL", message: cErr.message }, 500);
+  }
+  if (!created?.user) return json({ code: "INTERNAL", message: "user_creation_failed" }, 500);
 
   // Sign in to mint a session the client can install
   const { data: session, error: sErr } = await admin.auth.signInWithPassword({
     email: invite.email,
     password,
   });
-  if (sErr || !session?.session) return json({ code: "INTERNAL", message: sErr?.message }, 500);
+  if (sErr || !session?.session) {
+    console.error("invite_signin_failed", { token: maskToken(token), error: sErr?.message });
+    return json({ code: "INTERNAL", message: sErr?.message }, 500);
+  }
 
   const acceptResult = await runAcceptAsUser(invite, session.session.access_token, token);
-  if (acceptResult.error) return json({ code: acceptResult.error }, 409);
+  if (acceptResult.error) return json({ code: acceptResult.error }, statusFor(acceptResult.error));
 
-  await writeAcceptedIp(admin, invite, token, created.user.id, ip);
+  try {
+    await writeAcceptedIp(admin, invite, token, created.user.id, ip);
+  } catch (_e) {
+    console.error("writeAcceptedIp failed", { type: invite.type, token: maskToken(token) });
+  }
 
+  console.log("invite_accepted", { type: invite.type, role: invite.role, token: maskToken(token) });
   return json({
     session: {
       access_token: session.session.access_token,
       refresh_token: session.session.refresh_token,
     },
-    redirectTo: resolveRedirect(invite, { farm_id: acceptResult.farm_id }),
+    redirectTo: resolveRedirect(invite),
     invite: { type: invite.type, role: invite.role, target_name: invite.target_name },
   });
 });
