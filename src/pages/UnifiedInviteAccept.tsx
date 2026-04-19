@@ -81,7 +81,74 @@ function InfoCard({ title, body }: { title: string; body: string }) {
 }
 
 // NewUserCard, SignInCard, AutoAcceptCard, MismatchCard, ExpiredCard, AlreadyAcceptedCard implemented in D2–D7
-function NewUserCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void; onExists: () => void }): JSX.Element { return <div data-testid="new-user-card" />; }
+function NewUserCard({
+  invite, token, onSuccess, onExists,
+}: {
+  invite: InviteLookup;
+  token: string;
+  onSuccess: (redirectTo: string) => void;
+  onExists: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) { showErrorToast("Password must be at least 8 characters"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ token, full_name: name.trim(), password }),
+      });
+      const body = await res.json();
+      if (res.status === 409 && body.code === "USER_EXISTS_SIGN_IN_REQUIRED") { onExists(); return; }
+      if (!res.ok) { showErrorToast(body.message ?? body.code ?? "Something went wrong"); return; }
+      if (body.session?.access_token && body.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: body.session.access_token,
+          refresh_token: body.session.refresh_token,
+        });
+      }
+      onSuccess(body.redirectTo ?? "/");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>Welcome to Doc Aga</CardTitle>
+          <CardDescription>
+            You've been invited as <strong>{invite.role_label}</strong> by <strong>{invite.inviter_name}</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label>Full name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+            </div>
+            <div>
+              <Label>Password</Label>
+              <div className="flex gap-2">
+                <Input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                <Button type="button" variant="ghost" onClick={() => setShowPw((s) => !s)}>{showPw ? "Hide" : "Show"}</Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
+            </div>
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Accept & continue →"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
 function SignInCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void }): JSX.Element { return <div data-testid="sign-in-card" />; }
 function AutoAcceptCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void }): JSX.Element { return <div data-testid="auto-accept-card" />; }
 function MismatchCard(_: { invite: InviteLookup; sessionEmail: string }): JSX.Element { return <div data-testid="mismatch-card" />; }
