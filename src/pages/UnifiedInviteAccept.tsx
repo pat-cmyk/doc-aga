@@ -12,11 +12,23 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { showErrorToast } from "@/lib/errorHandling";
 
-function friendlyErrorMessage(code: string | undefined, fallback: string): string {
+function friendlyErrorMessage(code: string | undefined, fallback: string, reason?: string): string {
+  if (code === "WEAK_PASSWORD" && reason) {
+    const reasonMap: Record<string, string> = {
+      too_short: "Password must be at least 8 characters.",
+      too_long: "Password must be 128 characters or fewer.",
+      missing_lowercase: "Password must include a lowercase letter.",
+      missing_uppercase: "Password must include an uppercase letter.",
+      missing_number: "Password must include a number.",
+      missing_symbol: "Password must include a symbol (e.g. ! @ # $).",
+      too_common: "This password is too common. Please choose a less predictable one.",
+    };
+    return reasonMap[reason] ?? "Password doesn't meet requirements. Use 8+ characters with upper, lower, number, and symbol.";
+  }
   if (!code) return fallback;
   const map: Record<string, string> = {
     rate_limited: "Too many attempts. Please wait a minute and try again.",
-    WEAK_PASSWORD: "Password must be at least 8 characters and not a common password.",
+    WEAK_PASSWORD: "Password must be 8+ characters with upper, lower, number, and symbol.",
     USER_EXISTS_SIGN_IN_REQUIRED: "An account already exists. Please sign in.",
     EMAIL_MISMATCH: "This invite was sent to a different email.",
     TOKEN_EXPIRED: "This invite link has expired.",
@@ -123,7 +135,7 @@ function NewUserCard({
       });
       const body = await res.json();
       if (res.status === 409 && body.code === "USER_EXISTS_SIGN_IN_REQUIRED") { onExists(); return; }
-      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Something went wrong")); return; }
+      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Something went wrong", body.reason)); return; }
       if (body.session?.access_token && body.session?.refresh_token) {
         try {
           await supabase.auth.setSession({
@@ -205,7 +217,7 @@ function SignInCard({
         body: JSON.stringify({ token }),
       });
       const body = await res.json();
-      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Sign-in failed")); return; }
+      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Sign-in failed", body.reason)); return; }
       onSuccess(body.redirectTo ?? "/");
     } finally { setBusy(false); }
   }
