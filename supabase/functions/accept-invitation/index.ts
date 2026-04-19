@@ -40,14 +40,36 @@ function rateCheck(
   return { allowed: true };
 }
 
+// Covers obvious weak-but-character-diverse patterns like "Password1!" that would
+// otherwise pass the required_characters check. Stays in sync with the policy in
+// supabase/config.toml ([auth.password] required_characters = upper+lower+number+symbol).
 const COMMON_PASSWORDS = new Set<string>([
-  "password", "12345678", "qwerty123", "password1", "iloveyou",
-  "admin123", "welcome1", "letmein1", "abc12345", "111111111",
-  // short embedded sample; full list pulled at build via env if needed
+  "password", "password1", "password1!", "password123", "password123!",
+  "p@ssw0rd", "p@ssw0rd1", "p@ssw0rd1!", "passw0rd", "passw0rd!",
+  "welcome1", "welcome1!", "welcome123", "welcome123!",
+  "admin123", "admin123!", "administrator", "administrator1",
+  "qwerty123", "qwerty123!", "qwertyuiop",
+  "letmein1", "letmein1!", "letmein123",
+  "iloveyou", "iloveyou1", "iloveyou1!",
+  "abc12345", "abcd1234", "abcd1234!",
+  "changeme", "changeme1", "changeme1!",
+  "summer2024", "summer2025", "summer2026", "winter2024", "winter2025", "winter2026",
+  "spring2024", "spring2025", "spring2026", "autumn2024", "autumn2025", "autumn2026",
+  "12345678", "123456789", "1234567890",
+  "docaga123", "docaga2026", "goldenforage",
 ]);
 
 function validatePassword(pw: string): { ok: boolean; reason?: string } {
-  if (!pw || pw.length < 8) return { ok: false, reason: "too_short" };
+  if (!pw) return { ok: false, reason: "too_short" };
+  if (pw.length < 8) return { ok: false, reason: "too_short" };
+  if (pw.length > 128) return { ok: false, reason: "too_long" };
+  // Must include all four character classes — matches supabase/config.toml
+  // [auth.password] required_characters. admin.createUser bypasses GoTrue's own
+  // check, so we enforce it here to keep policy consistent across invite vs. direct signup.
+  if (!/[a-z]/.test(pw)) return { ok: false, reason: "missing_lowercase" };
+  if (!/[A-Z]/.test(pw)) return { ok: false, reason: "missing_uppercase" };
+  if (!/\d/.test(pw)) return { ok: false, reason: "missing_number" };
+  if (!/[^A-Za-z0-9]/.test(pw)) return { ok: false, reason: "missing_symbol" };
   if (COMMON_PASSWORDS.has(pw.toLowerCase())) return { ok: false, reason: "too_common" };
   return { ok: true };
 }
