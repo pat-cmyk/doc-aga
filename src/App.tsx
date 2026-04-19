@@ -40,8 +40,6 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const DistributorFinder = lazy(() => import("./pages/DistributorFinder"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const MessagingPage = lazy(() => import("./pages/MessagingPage"));
-const InviteAccept = lazy(() => import("./pages/InviteAccept"));
-const UserInviteAccept = lazy(() => import("./pages/UserInviteAccept"));
 const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
 const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -51,7 +49,6 @@ const AdminAuditReport = lazy(() => import("./pages/AdminAuditReport"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CooperativeAuth = lazy(() => import("./pages/CooperativeAuth"));
 const CooperativeDashboard = lazy(() => import("./pages/CooperativeDashboard"));
-const CooperativeInviteAccept = lazy(() => import("./pages/CooperativeInviteAccept"));
 const UnifiedInviteAccept = lazy(() => import("./pages/UnifiedInviteAccept"));
 
 // Redirect shim: legacy invite paths → unified /invite/:token when flag is on
@@ -333,19 +330,9 @@ const App = () => (
                   <Route path="/distributors" element={<DistributorFinder />} />
                   <Route path="/orders" element={<OrderHistory />} />
                   <Route path="/messages" element={<MessagingPage />} />
-                  {import.meta.env.VITE_UNIFIED_INVITE_FLOW === "true" && (
-                    <Route path="/invite/:token" element={<UnifiedInviteAccept />} />
-                  )}
-                  <Route path="/invite/accept/:token" element={
-                    import.meta.env.VITE_UNIFIED_INVITE_FLOW === "true"
-                      ? <LegacyInviteRedirect basePath="/invite" />
-                      : <InviteAccept />
-                  } />
-                  <Route path="/invite/user/:token" element={
-                    import.meta.env.VITE_UNIFIED_INVITE_FLOW === "true"
-                      ? <LegacyInviteRedirect basePath="/invite" />
-                      : <UserInviteAccept />
-                  } />
+                  <Route path="/invite/:token" element={<UnifiedInviteAccept />} />
+                  <Route path="/invite/accept/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
+                  <Route path="/invite/user/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
                   <Route path="/admin/create-user" element={<AdminCreateUser />} />
                   <Route path="/farmhand" element={<FarmhandDashboard />} />
                   <Route path="/voice-training" element={<VoiceTraining />} />
@@ -359,11 +346,7 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="/cooperative/invite/accept/:token" element={
-                    import.meta.env.VITE_UNIFIED_INVITE_FLOW === "true"
-                      ? <LegacyInviteRedirect basePath="/invite" />
-                      : <CooperativeInviteAccept />
-                  } />
+                  <Route path="/cooperative/invite/accept/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
