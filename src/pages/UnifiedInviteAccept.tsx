@@ -149,7 +149,63 @@ function NewUserCard({
     </CenteredCard>
   );
 }
-function SignInCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void }): JSX.Element { return <div data-testid="sign-in-card" />; }
+function SignInCard({
+  invite, token, onSuccess,
+}: {
+  invite: InviteLookup;
+  token: string;
+  onSuccess: (redirectTo: string) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: invite.email, password });
+      if (error || !data.session) { showErrorToast(error?.message ?? "Sign-in failed"); return; }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ token }),
+      });
+      const body = await res.json();
+      if (!res.ok) { showErrorToast(body.message ?? body.code); return; }
+      onSuccess(body.redirectTo ?? "/");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign in to accept</CardTitle>
+          <CardDescription>Welcome back. Sign in to accept your invite to <strong>{invite.target_name}</strong>.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label>Email</Label>
+              <Input value={invite.email} disabled />
+            </div>
+            <div>
+              <Label>Password</Label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+            </div>
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in & accept"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
 function AutoAcceptCard(_: { invite: InviteLookup; token: string; onSuccess: (redirectTo: string) => void }): JSX.Element { return <div data-testid="auto-accept-card" />; }
 function MismatchCard(_: { invite: InviteLookup; sessionEmail: string }): JSX.Element { return <div data-testid="mismatch-card" />; }
 function ExpiredCard(_: { token: string }): JSX.Element { return <div data-testid="expired-card" />; }
