@@ -262,7 +262,10 @@ serve(async (req) => {
       appUrl ??
       Deno.env.get("APP_URL") ??
       "https://doc-aga.goldenforage.com";
-    const acceptUrl = `${baseUrl.replace(/\/$/, "")}/invite/user/${invitationToken}`;
+    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+    const acceptUrl = Deno.env.get("UNIFIED_INVITE_FLOW") === "true"
+      ? `${cleanBaseUrl}/invite/${invitationToken}`
+      : `${cleanBaseUrl}/invite/user/${invitationToken}`;
     const { label, description } = roleCopy[role];
 
     const emailResponse = await resend.emails.send({
