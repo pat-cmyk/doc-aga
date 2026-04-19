@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
-import { showErrorToast } from "@/lib/errorHandling";
+import { toast } from "sonner";
 
 function friendlyErrorMessage(code: string | undefined, fallback: string, reason?: string): string {
   if (code === "WEAK_PASSWORD" && reason) {
@@ -125,7 +125,7 @@ function NewUserCard({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) { showErrorToast("Password must be at least 8 characters"); return; }
+    if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     setBusy(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
@@ -135,7 +135,7 @@ function NewUserCard({
       });
       const body = await res.json();
       if (res.status === 409 && body.code === "USER_EXISTS_SIGN_IN_REQUIRED") { onExists(); return; }
-      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Something went wrong", body.reason)); return; }
+      if (!res.ok) { toast.error(friendlyErrorMessage(body.code, body.message ?? "Something went wrong", body.reason)); return; }
       if (body.session?.access_token && body.session?.refresh_token) {
         try {
           await supabase.auth.setSession({
@@ -206,7 +206,7 @@ function SignInCard({
     setBusy(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: invite.email, password });
-      if (error || !data.session) { showErrorToast(error?.message ?? "Sign-in failed"); return; }
+      if (error || !data.session) { toast.error(error?.message ?? "Sign-in failed"); return; }
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
         method: "POST",
         headers: {
@@ -217,7 +217,7 @@ function SignInCard({
         body: JSON.stringify({ token }),
       });
       const body = await res.json();
-      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Sign-in failed", body.reason)); return; }
+      if (!res.ok) { toast.error(friendlyErrorMessage(body.code, body.message ?? "Sign-in failed", body.reason)); return; }
       onSuccess(body.redirectTo ?? "/");
     } finally { setBusy(false); }
   }
