@@ -52,8 +52,80 @@ function validatePassword(pw: string): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+type InviteLookup = {
+  type: "farm" | "user" | "coop";
+  status: "pending" | "accepted" | "revoked" | "expired" | "declined";
+  email: string;
+  role: string;
+  role_label: string;
+  inviter_name: string;
+  inviter_email: string;
+  target_name: string;
+  invited_at: string;
+  expires_at: string;
+};
+
+type AcceptRequest = {
+  token: string;
+  full_name?: string;
+  password?: string;
+};
+
+async function loadInvite(
+  admin: ReturnType<typeof createClient>,
+  token: string,
+): Promise<InviteLookup | null> {
+  const { data, error } = await admin.rpc("lookup_invitation", { p_token: token });
+  if (error || !data || !Array.isArray(data) || data.length === 0) return null;
+  return data[0] as InviteLookup;
+}
+
+function resolveRedirect(invite: InviteLookup, extra: { farm_id?: string | null }): string {
+  if (invite.type === "user") {
+    const map: Record<string, string> = {
+      admin: "/admin",
+      government: "/government",
+      merchant: "/merchant",
+      distributor: "/distributor",
+      cooperative: "/cooperative",
+    };
+    return map[invite.role] ?? "/";
+  }
+  if (invite.type === "farm") {
+    return invite.role === "farmhand" ? "/farmhand" : "/";
+  }
+  return "/"; // coop
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  return json({ error: "not_implemented" }, 501); // replaced in B3
+
+  let body: AcceptRequest;
+  try { body = await req.json(); } catch { return json({ code: "bad_request" }, 400); }
+  const { token, full_name, password } = body ?? {};
+  if (!token) return json({ code: "bad_request" }, 400);
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+
+  const tRate = rateCheck(tokenRate, token, RATE_LIMIT_TOKEN_MAX);
+  if (!tRate.allowed) return json({ code: "rate_limited", retry_after: tRate.retryAfter }, 429);
+  const iRate = rateCheck(ipRate, ip, RATE_LIMIT_IP_MAX);
+  if (!iRate.allowed) return json({ code: "rate_limited", retry_after: iRate.retryAfter }, 429);
+
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  const invite = await loadInvite(admin, token);
+  if (!invite) return json({ code: "TOKEN_NOT_FOUND" }, 404);
+  if (invite.status === "expired") return json({ code: "TOKEN_EXPIRED" }, 410);
+  if (invite.status === "revoked") return json({ code: "TOKEN_REVOKED" }, 410);
+  if (invite.status === "accepted") return json({ code: "TOKEN_ALREADY_ACCEPTED" }, 409);
+  if (invite.status !== "pending") return json({ code: "TOKEN_NOT_FOUND" }, 404);
+
+  // Branch: existing user (authed) vs new user (has password) — implemented in B4 + B5
+  return json({ code: "not_implemented", invite }, 501);
 });
