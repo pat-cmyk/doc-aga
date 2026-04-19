@@ -196,5 +196,43 @@ serve(async (req) => {
     });
   }
 
-  return json({ code: "not_implemented", invite }, 501); // new-user branch lands in Task B5
+  // New-user branch
+  if (!password) return json({ code: "bad_request", message: "password required" }, 400);
+  const pwCheck = validatePassword(password);
+  if (!pwCheck.ok) return json({ code: "WEAK_PASSWORD", reason: pwCheck.reason }, 422);
+
+  // Check if email already has an account — if so, tell client to switch to sign-in UI
+  const { data: existing } = await admin.auth.admin.listUsers();
+  if (existing?.users?.some((u) => u.email?.toLowerCase() === invite.email.toLowerCase())) {
+    return json({ code: "USER_EXISTS_SIGN_IN_REQUIRED" }, 409);
+  }
+
+  const { data: created, error: cErr } = await admin.auth.admin.createUser({
+    email: invite.email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: full_name ?? invite.email.split("@")[0] },
+  });
+  if (cErr || !created?.user) return json({ code: "INTERNAL", message: cErr?.message }, 500);
+
+  // Sign in to mint a session the client can install
+  const { data: session, error: sErr } = await admin.auth.signInWithPassword({
+    email: invite.email,
+    password,
+  });
+  if (sErr || !session?.session) return json({ code: "INTERNAL", message: sErr?.message }, 500);
+
+  const acceptResult = await runAcceptAsUser(invite, session.session.access_token, token);
+  if (acceptResult.error) return json({ code: acceptResult.error }, 409);
+
+  await writeAcceptedIp(admin, invite, token, created.user.id, ip);
+
+  return json({
+    session: {
+      access_token: session.session.access_token,
+      refresh_token: session.session.refresh_token,
+    },
+    redirectTo: resolveRedirect(invite, { farm_id: acceptResult.farm_id }),
+    invite: { type: invite.type, role: invite.role, target_name: invite.target_name },
+  });
 });
