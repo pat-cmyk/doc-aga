@@ -12,6 +12,23 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { showErrorToast } from "@/lib/errorHandling";
 
+function friendlyErrorMessage(code: string | undefined, fallback: string): string {
+  if (!code) return fallback;
+  const map: Record<string, string> = {
+    rate_limited: "Too many attempts. Please wait a minute and try again.",
+    WEAK_PASSWORD: "Password must be at least 8 characters and not a common password.",
+    USER_EXISTS_SIGN_IN_REQUIRED: "An account already exists. Please sign in.",
+    EMAIL_MISMATCH: "This invite was sent to a different email.",
+    TOKEN_EXPIRED: "This invite link has expired.",
+    TOKEN_REVOKED: "This invite was cancelled by the administrator.",
+    TOKEN_ALREADY_ACCEPTED: "This invite has already been used.",
+    TOKEN_NOT_FOUND: "This invite link is invalid.",
+    INTERNAL: "Something went wrong on our side. Please try again in a moment.",
+    bad_request: "Invalid request. Please refresh and try again.",
+  };
+  return map[code] ?? fallback;
+}
+
 type Phase =
   | "loading"
   | "new_user"
@@ -106,12 +123,19 @@ function NewUserCard({
       });
       const body = await res.json();
       if (res.status === 409 && body.code === "USER_EXISTS_SIGN_IN_REQUIRED") { onExists(); return; }
-      if (!res.ok) { showErrorToast(body.message ?? body.code ?? "Something went wrong"); return; }
+      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Something went wrong")); return; }
       if (body.session?.access_token && body.session?.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: body.session.access_token,
-          refresh_token: body.session.refresh_token,
-        });
+        try {
+          await supabase.auth.setSession({
+            access_token: body.session.access_token,
+            refresh_token: body.session.refresh_token,
+          });
+        } catch (err) {
+          // Account was created but session install failed. Bounce to sign-in
+          // so the user can use the password they just set.
+          onExists();
+          return;
+        }
       }
       onSuccess(body.redirectTo ?? "/");
     } finally { setBusy(false); }
@@ -129,14 +153,20 @@ function NewUserCard({
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <Label>Full name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              <Label htmlFor="invite-full-name">Full name</Label>
+              <Input id="invite-full-name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
             </div>
             <div>
-              <Label>Password</Label>
+              <Label htmlFor="invite-password">Password</Label>
               <div className="flex gap-2">
-                <Input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-                <Button type="button" variant="ghost" onClick={() => setShowPw((s) => !s)}>{showPw ? "Hide" : "Show"}</Button>
+                <Input id="invite-password" type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowPw((s) => !s)}
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  aria-pressed={showPw}
+                >{showPw ? "Hide" : "Show"}</Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
             </div>
@@ -175,7 +205,7 @@ function SignInCard({
         body: JSON.stringify({ token }),
       });
       const body = await res.json();
-      if (!res.ok) { showErrorToast(body.message ?? body.code); return; }
+      if (!res.ok) { showErrorToast(friendlyErrorMessage(body.code, body.message ?? "Sign-in failed")); return; }
       onSuccess(body.redirectTo ?? "/");
     } finally { setBusy(false); }
   }
@@ -190,12 +220,12 @@ function SignInCard({
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <Label>Email</Label>
-              <Input value={invite.email} disabled />
+              <Label htmlFor="invite-signin-email">Email</Label>
+              <Input id="invite-signin-email" value={invite.email} disabled />
             </div>
             <div>
-              <Label>Password</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+              <Label htmlFor="invite-signin-password">Password</Label>
+              <Input id="invite-signin-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
             </div>
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in & accept"}
@@ -237,7 +267,13 @@ function AutoAcceptCard({
     })();
   }, [token]);
 
-  if (err) return <InfoCard title="Couldn't accept invite" body={`Error: ${err}. Please refresh and try again.`} />;
+  if (err) {
+    // Known terminal states the user can act on — surface them with a meaningful card.
+    if (err === "TOKEN_EXPIRED") return <ExpiredCard token={token} />;
+    if (err === "TOKEN_REVOKED") return <InfoCard title="Invite cancelled" body="This invite was cancelled. Please contact the person who invited you." />;
+    if (err === "TOKEN_ALREADY_ACCEPTED") return <AlreadyAcceptedCard invite={invite} onGo={() => onSuccess(resolveInviteRedirect(invite))} />;
+    return <InfoCard title="Couldn't accept invite" body={friendlyErrorMessage(err, "Please try refreshing.")} />;
+  }
   return (
     <CenteredCard>
       <Card>
@@ -309,7 +345,11 @@ function ExpiredCard({ token }: { token: string }) {
         </CardHeader>
         <CardContent className="space-y-3">
           {state === "sent" && <Alert><AlertDescription>We've sent you a new invite. Check your email.</AlertDescription></Alert>}
-          {state === "failed" && <Alert><AlertDescription>Couldn't resend automatically ({reason}). Contact the person who invited you.</AlertDescription></Alert>}
+          {state === "failed" && <Alert><AlertDescription>
+            {reason === "recent_resend"
+              ? "We already sent a new link recently. Please check your email."
+              : `Couldn't resend automatically. Please contact the person who invited you.`}
+          </AlertDescription></Alert>}
           {state !== "sent" && <Button className="w-full" disabled={state === "requesting"} onClick={requestResend}>
             {state === "requesting" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request a new link"}
           </Button>}
