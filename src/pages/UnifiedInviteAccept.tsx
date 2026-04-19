@@ -286,5 +286,36 @@ function MismatchCard({
     </CenteredCard>
   );
 }
-function ExpiredCard(_: { token: string }): JSX.Element { return <div data-testid="expired-card" />; }
+function ExpiredCard({ token }: { token: string }) {
+  const [state, setState] = useState<"idle" | "requesting" | "sent" | "failed">("idle");
+  const [reason, setReason] = useState<string | null>(null);
+
+  async function requestResend() {
+    setState("requesting");
+    const { data, error } = await supabase.rpc("request_invitation_resend", { p_token: token });
+    if (error || !data || !(Array.isArray(data) ? data[0]?.sent : (data as any).sent)) {
+      setReason((Array.isArray(data) ? data[0]?.reason : (data as any)?.reason) ?? "unknown");
+      setState("failed"); return;
+    }
+    setState("sent");
+  }
+
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>This invite has expired</CardTitle>
+          <CardDescription>Invite links are valid for 7 days.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {state === "sent" && <Alert><AlertDescription>We've sent you a new invite. Check your email.</AlertDescription></Alert>}
+          {state === "failed" && <Alert><AlertDescription>Couldn't resend automatically ({reason}). Contact the person who invited you.</AlertDescription></Alert>}
+          {state !== "sent" && <Button className="w-full" disabled={state === "requesting"} onClick={requestResend}>
+            {state === "requesting" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request a new link"}
+          </Button>}
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
 function AlreadyAcceptedCard(_: { invite: InviteLookup; onGo: () => void }): JSX.Element { return <div data-testid="already-accepted-card" />; }
