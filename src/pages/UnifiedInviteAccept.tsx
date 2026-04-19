@@ -318,4 +318,18 @@ function ExpiredCard({ token }: { token: string }) {
     </CenteredCard>
   );
 }
-function AlreadyAcceptedCard(_: { invite: InviteLookup; onGo: () => void }): JSX.Element { return <div data-testid="already-accepted-card" />; }
+function AlreadyAcceptedCard({ invite, onGo }: { invite: InviteLookup; onGo: () => void }) {
+  return (
+    <CenteredCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>You've already joined</CardTitle>
+          <CardDescription>You already have access to <strong>{invite.target_name}</strong>.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button className="w-full" onClick={onGo}>Go to Dashboard →</Button>
+        </CardContent>
+      </Card>
+    </CenteredCard>
+  );
+}
