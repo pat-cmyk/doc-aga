@@ -15,7 +15,8 @@ import { BarnListView } from "@/components/barns/BarnListView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Eye, Shield, LayoutDashboard, PawPrint, Settings2, Wallet, MoreHorizontal, FileText } from "lucide-react";
+import { ArrowLeft, Eye, Shield, LayoutDashboard, PawPrint, Settings2, Wallet, MoreHorizontal, FileText, Mic } from "lucide-react";
+import { VoiceHealthByFarmhand } from "@/components/admin/VoiceHealthByFarmhand";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -240,12 +241,16 @@ const AdminViewFarm = () => {
             <FinanceTab farmId={farmId!} canManage={false} onNavigateToTab={setActiveTab} />
           </TabsContent>
 
-          {/* More Tab — 2 sub-tabs (Approvals, Government) matching farmer dashboard */}
+          {/* More Tab — 3 sub-tabs (Approvals, Government, Voice Health) */}
           <TabsContent value="more" className="space-y-4 sm:space-y-6">
             <Tabs defaultValue="approvals" className="space-y-4">
               <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide">
                 <TabsTrigger value="approvals">Approvals</TabsTrigger>
                 <TabsTrigger value="government">Government</TabsTrigger>
+                <TabsTrigger value="voice-health" className="flex items-center gap-2">
+                  <Mic className="h-4 w-4" />
+                  Voice Health
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="approvals">
@@ -254,6 +259,10 @@ const AdminViewFarm = () => {
 
               <TabsContent value="government">
                 <FarmerFeedbackList farmId={farmId!} />
+              </TabsContent>
+
+              <TabsContent value="voice-health">
+                <VoiceHealthByFarmhand farmId={farmId!} />
               </TabsContent>
             </Tabs>
           </TabsContent>

@@ -34,6 +34,30 @@ export interface DataEntryAnalytics {
     typed_count: number;
     voice_pct: number;
   }>;
+  /**
+   * Voice attempt lifecycle metrics (added 2026-05). Captures the "speak → see wrong
+   * preview → cancel → re-type manually" pattern that input_method alone can't see.
+   * Optional for backward compatibility with older migrations.
+   */
+  voice_attempts?: {
+    attempts_total: number;
+    committed_count: number;
+    cancelled_count: number;
+    timeout_count: number;
+    error_count: number;
+    /** % of attempts that ended in cancel OR timeout */
+    abandonment_pct: number;
+    /** Number of cancelled attempts followed by a manual entry of the same record_type within 5 min */
+    abandoned_then_manual_count: number;
+    /** abandoned_then_manual_count / (cancelled + timeout) * 100 */
+    abandoned_then_manual_pct: number;
+    daily: Array<{
+      day: string;
+      attempts: number;
+      committed: number;
+      abandoned: number;
+    }>;
+  };
 }
 
 interface UseDataEntryAnalyticsParams {

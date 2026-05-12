@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSTTAnalytics, useCorrectionStats } from "@/hooks/useSTTAnalytics";
+import { useAbandonedVoiceAttempts } from "@/hooks/useAbandonedVoiceAttempts";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { Mic, Clock, CheckCircle, XCircle, AlertTriangle, Users, Download, TrendingUp } from "lucide-react";
+import { Mic, Clock, CheckCircle, XCircle, AlertTriangle, Users, Download, TrendingUp, MicOff } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +21,10 @@ export function STTAnalyticsDashboard() {
 
   const { data: analytics, isLoading, error } = useSTTAnalytics(startDate);
   const { data: correctionStats } = useCorrectionStats();
+
+  // Days-back parameter aligned to the selected dateRange
+  const daysBack = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
+  const { data: abandoned, isLoading: abandonedLoading } = useAbandonedVoiceAttempts(20, daysBack);
 
   const handleExportCSV = () => {
     if (!analytics?.daily_breakdown) return;
@@ -407,6 +412,89 @@ export function STTAnalyticsDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* NEW: Abandoned voice attempts — the qualitative complement to "Recent Corrections".
+          These are voice attempts the user CANCELLED outright (didn't even edit + submit),
+          which is the strongest signal that "voice got it so wrong they gave up." */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <MicOff className="h-4 w-4 text-amber-500" />
+            Abandoned Voice Attempts
+          </CardTitle>
+          <CardDescription>
+            Voice attempts cancelled or timed out at the confirmation step. Items marked
+            <Badge variant="destructive" className="mx-1">retyped</Badge>
+            were followed within 5 min by a manual entry of the same record type —
+            the clearest signal that voice quality failed the farmer.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {abandonedLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : abandoned?.rows && abandoned.rows.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Type</TableHead>
+                  <TableHead>What was heard / parsed</TableHead>
+                  <TableHead className="w-40">Farmer</TableHead>
+                  <TableHead className="w-32">Date</TableHead>
+                  <TableHead className="w-28">Outcome</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {abandoned.rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {row.record_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm max-w-md">
+                      <div className="line-clamp-1 italic text-muted-foreground">
+                        "{row.transcript_preview || "(no transcript captured)"}"
+                      </div>
+                      {row.parsed_fields && Object.keys(row.parsed_fields).length > 0 && (
+                        <div className="text-xs text-muted-foreground/80 mt-1 line-clamp-1">
+                          parsed: {Object.entries(row.parsed_fields)
+                            .filter(([, v]) => v !== null && v !== "")
+                            .slice(0, 4)
+                            .map(([k, v]) => `${k}=${v}`)
+                            .join(", ")}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="font-medium">{row.user_display_name}</div>
+                      {row.farm_name && (
+                        <div className="text-xs text-muted-foreground">{row.farm_name}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(row.started_at), "MMM d, HH:mm")}
+                    </TableCell>
+                    <TableCell>
+                      {row.followed_by_manual_within_5m ? (
+                        <Badge variant="destructive">retyped</Badge>
+                      ) : row.outcome === "timeout" ? (
+                        <Badge variant="secondary">timeout</Badge>
+                      ) : (
+                        <Badge variant="outline">cancelled</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+              No abandoned voice attempts in this period.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

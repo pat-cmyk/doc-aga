@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDataEntryAnalytics } from "@/hooks/useDataEntryAnalytics";
 import { useLocationFilters } from "@/hooks/useLocationFilters";
 import { DataCategory } from "@/types/government";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Mic, Keyboard, TrendingUp, TrendingDown, Download, Hash } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Mic, Keyboard, TrendingUp, TrendingDown, Download, Hash, MicOff, AlertOctagon } from "lucide-react";
 import { format, subDays } from "date-fns";
 
 interface DataEntryAnalyticsProps {
@@ -94,6 +94,21 @@ export function DataEntryAnalytics({ dataCategory }: DataEntryAnalyticsProps) {
   const trendUp = summary.voice_pct > summary.prev_voice_pct;
   const trendDiff = Math.abs(summary.voice_pct - summary.prev_voice_pct);
 
+  const voiceAttempts = analytics?.voice_attempts;
+  // Merge attempt-daily into entry-daily so the chart can show one cancelled line aligned to dates.
+  const dailyChartData = (() => {
+    const byDay = new Map<string, { day: string; voice_count: number; typed_count: number; abandoned: number }>();
+    (analytics?.daily ?? []).forEach((d) => {
+      byDay.set(d.day, { day: d.day, voice_count: d.voice_count, typed_count: d.typed_count, abandoned: 0 });
+    });
+    (voiceAttempts?.daily ?? []).forEach((d) => {
+      const prev = byDay.get(d.day);
+      if (prev) prev.abandoned = d.abandoned;
+      else byDay.set(d.day, { day: d.day, voice_count: 0, typed_count: 0, abandoned: d.abandoned });
+    });
+    return Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+  })();
+
   const activityLabels: Record<string, string> = {
     milking: "Milking",
     feeding: "Feeding",
@@ -147,8 +162,8 @@ export function DataEntryAnalytics({ dataCategory }: DataEntryAnalyticsProps) {
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Summary Cards — 4 entry-method cards + 2 abandonment cards */}
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -198,6 +213,36 @@ export function DataEntryAnalytics({ dataCategory }: DataEntryAnalyticsProps) {
             <p className="text-xs text-muted-foreground">vs previous period</p>
           </CardContent>
         </Card>
+
+        {/* NEW: voice attempts cancelled OR timed out as % of attempts */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MicOff className="h-4 w-4 text-amber-500" />Voice Abandoned
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{voiceAttempts?.abandonment_pct ?? 0}%</div>
+            <p className="text-xs text-muted-foreground">
+              {(voiceAttempts?.cancelled_count ?? 0) + (voiceAttempts?.timeout_count ?? 0)} of {voiceAttempts?.attempts_total ?? 0} attempts
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* NEW: abandoned voice → manually retyped within 5 min (highest-signal quality metric) */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertOctagon className="h-4 w-4 text-red-600" />Voice → Manual Retry
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{voiceAttempts?.abandoned_then_manual_pct ?? 0}%</div>
+            <p className="text-xs text-muted-foreground">
+              {voiceAttempts?.abandoned_then_manual_count ?? 0} retyped after cancel
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts */}
@@ -205,19 +250,21 @@ export function DataEntryAnalytics({ dataCategory }: DataEntryAnalyticsProps) {
         {/* Daily Trend */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Daily Voice vs Typed</CardTitle>
+            <CardTitle className="text-base">Daily Voice vs Typed vs Abandoned</CardTitle>
             <CardDescription>Entry volume over time</CardDescription>
           </CardHeader>
           <CardContent>
-            {analytics?.daily && analytics.daily.length > 0 ? (
+            {dailyChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={analytics.daily}>
+                <LineChart data={dailyChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" tickFormatter={(v) => format(new Date(v), "MMM d")} fontSize={12} />
                   <YAxis fontSize={12} />
                   <Tooltip labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="voice_count" stroke="hsl(var(--primary))" strokeWidth={2} name="Voice" />
                   <Line type="monotone" dataKey="typed_count" stroke="hsl(var(--muted-foreground))" strokeWidth={2} name="Typed" strokeDasharray="5 5" />
+                  <Line type="monotone" dataKey="abandoned" stroke="hsl(0 84% 60%)" strokeWidth={2} name="Voice Abandoned" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

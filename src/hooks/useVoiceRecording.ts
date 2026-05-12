@@ -27,31 +27,46 @@ import {
   type VoiceState,
   type VoiceStateData,
 } from '@/lib/voiceStateMachine';
+import {
+  useVoiceSessionTracking,
+  type VoiceRecordType,
+  type VoiceCancelReason,
+} from './useVoiceSessionTracking';
 
 export interface UseVoiceRecordingOptions {
   /** Prefer realtime transcription (ElevenLabs Scribe). Default: true */
   preferRealtime?: boolean;
-  
+
   /** Callback when transcription is complete */
   onTranscription?: (text: string) => void;
-  
+
   /** Callback for partial transcripts (realtime mode only) */
   onPartialTranscript?: (text: string) => void;
-  
+
   /** Callback on error */
   onError?: (error: Error) => void;
-  
+
   /** Callback when audio is queued offline */
   onOfflineQueued?: (queueId: string) => void;
-  
+
   /** Enable echo cancellation. Default: true */
   echoCancellation?: boolean;
-  
+
   /** Enable noise suppression. Default: true */
   noiseSuppression?: boolean;
-  
+
   /** Offline queue metadata for form-specific recordings */
   offlineMetadata?: Partial<AudioQueueMetadata>;
+
+  /**
+   * Voice attempt tracking — when set, every recording attempt is logged to
+   * voice_session_attempts so admins can monitor voice abandonment.
+   * Omit (or pass null) for voice flows we don't want to track (e.g. AI chat input).
+   */
+  trackingContext?: {
+    recordType: VoiceRecordType;
+    farmId?: string | null;
+  } | null;
 }
 
 export interface UseVoiceRecordingReturn {
@@ -62,15 +77,19 @@ export interface UseVoiceRecordingReturn {
   finalTranscript: string;
   error: Error | null;
   offlineQueueId: string | null;
-  
+
+  /** voice_session_attempts.id for the in-flight attempt, if tracking is enabled. */
+  sessionId: string | null;
+
   // Actions
   startRecording: () => Promise<void>;
   stopRecording: () => void;
-  cancelRecording: () => void;
+  /** Cancel current recording. Optional reason describes why (defaults to 'user_cancelled'). */
+  cancelRecording: (reason?: VoiceCancelReason) => void;
   confirmTranscription: () => void;
   retryRecording: () => void;
   reset: () => void;
-  
+
   // Helpers
   isRecording: boolean;
   isProcessingAudio: boolean;
@@ -78,7 +97,7 @@ export interface UseVoiceRecordingReturn {
   isOffline: boolean;
   stateLabel: string;
   stateColor: string;
-  
+
   // Audio visualization
   mediaStream: MediaStream | null;
 }
@@ -95,19 +114,24 @@ export function useVoiceRecording(
     echoCancellation = true,
     noiseSuppression = true,
     offlineMetadata,
+    trackingContext,
   } = options;
 
   const isOnline = useOnlineStatus();
 
   const [stateData, dispatch] = useReducer(voiceReducer, createInitialState());
-  
+
   // Refs for batch mode
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  
+
   // Track if we're using realtime mode
   const isUsingRealtimeRef = useRef(false);
+
+  // Voice session tracking — only emits events when trackingContext is provided.
+  const tracking = useVoiceSessionTracking();
+  const sessionIdRef = useRef<string | null>(null);
 
   // ElevenLabs Scribe hook for realtime mode
   const realtime = useRealtimeTranscription({
@@ -118,12 +142,23 @@ export function useVoiceRecording(
     onComplete: (fullText) => {
       console.log('[useVoiceRecording] Realtime complete:', fullText);
       dispatch({ type: 'PROCESSING_COMPLETE', transcript: fullText });
+      // Mark the attempt as having reached the preview/confirmation step.
+      if (sessionIdRef.current) {
+        tracking.preview(sessionIdRef.current, {
+          transcriptPreview: fullText,
+          modelProvider: 'elevenlabs',
+        });
+      }
       onTranscription?.(fullText);
     },
     onError: (error) => {
       console.error('[useVoiceRecording] Realtime error:', error);
       // Fall back to batch mode
       dispatch({ type: 'ERROR', error });
+      if (sessionIdRef.current) {
+        tracking.markError(sessionIdRef.current, error.message);
+        sessionIdRef.current = null;
+      }
       onError?.(error);
     },
     echoCancellation,
@@ -170,6 +205,20 @@ export function useVoiceRecording(
 
     dispatch({ type: 'REQUEST_MIC' });
 
+    // Begin voice attempt tracking (best-effort; never block the recording flow).
+    if (trackingContext) {
+      tracking
+        .start({
+          recordType: trackingContext.recordType,
+          farmId: trackingContext.farmId ?? null,
+          modelProvider: preferRealtime ? 'elevenlabs' : 'gemini',
+        })
+        .then((id) => {
+          sessionIdRef.current = id;
+        })
+        .catch((err) => console.warn('[useVoiceRecording] tracking.start failed:', err));
+    }
+
     try {
       // Request microphone access directly - getUserMedia is more reliable than permissions.query
       // on Android WebView, and must be called within user gesture context
@@ -211,9 +260,18 @@ export function useVoiceRecording(
           : 'Failed to access microphone'
       );
       dispatch({ type: 'MIC_DENIED', error: micError });
+      // Tracking: log permission failure or error before resetting.
+      if (sessionIdRef.current) {
+        if (micError.message.includes('denied') && trackingContext) {
+          tracking.cancel(sessionIdRef.current, trackingContext.recordType, 'permission_denied');
+        } else {
+          tracking.markError(sessionIdRef.current, micError.message);
+        }
+        sessionIdRef.current = null;
+      }
       onError?.(micError);
     }
-  }, [stateData.state, preferRealtime, realtime, onError]);
+  }, [stateData.state, preferRealtime, realtime, onError, trackingContext, tracking]);
 
   /**
    * Start batch recording (fallback mode using Gemini)
@@ -339,16 +397,26 @@ export function useVoiceRecording(
 
       console.log('[useVoiceRecording] Batch transcription:', transcript);
       dispatch({ type: 'PROCESSING_COMPLETE', transcript });
+      if (sessionIdRef.current) {
+        tracking.preview(sessionIdRef.current, {
+          transcriptPreview: transcript,
+          modelProvider: 'gemini',
+        });
+      }
       onTranscription?.(transcript);
       hapticNotification('success');
     } catch (error: any) {
       console.error('[useVoiceRecording] Batch processing error:', error);
       const processingError = new Error(error.message || 'Failed to process audio');
       dispatch({ type: 'ERROR', error: processingError });
+      if (sessionIdRef.current) {
+        tracking.markError(sessionIdRef.current, processingError.message);
+        sessionIdRef.current = null;
+      }
       onError?.(processingError);
       hapticNotification('error');
     }
-  }, [onTranscription, onError, onOfflineQueued, offlineMetadata]);
+  }, [onTranscription, onError, onOfflineQueued, offlineMetadata, tracking]);
 
   /**
    * Stop recording - works for both realtime and batch modes
@@ -381,26 +449,43 @@ export function useVoiceRecording(
   }, [stateData.state, realtime]);
 
   /**
-   * Cancel recording without processing
+   * Cancel recording without processing. Optional reason describes why
+   * (defaults to 'user_cancelled'; the dialog's preview-toast "Cancel" button
+   * passes this in to distinguish user-cancel from auto-timeout).
    */
-  const cancelRecording = useCallback(() => {
-    console.log('[useVoiceRecording] Cancelling recording...');
-    
+  const cancelRecording = useCallback((reason: VoiceCancelReason = 'user_cancelled') => {
+    console.log('[useVoiceRecording] Cancelling recording. reason=', reason);
+
     if (isUsingRealtimeRef.current) {
       realtime.endSession();
       isUsingRealtimeRef.current = false;
     }
-    
+
+    // Tracking: log cancellation so admins can correlate "voice → cancel → manual".
+    if (sessionIdRef.current && trackingContext) {
+      tracking.cancel(
+        sessionIdRef.current,
+        trackingContext.recordType,
+        reason,
+        stateData.finalTranscript || undefined,
+      );
+      sessionIdRef.current = null;
+    }
+
     cleanupStream();
     dispatch({ type: 'RESET' });
     hapticImpact('light');
-  }, [realtime, cleanupStream]);
+  }, [realtime, cleanupStream, trackingContext, tracking, stateData.finalTranscript]);
 
   /**
-   * Confirm transcription (from preview state)
+   * Confirm transcription (from preview state).
+   * Note: commit() linkage is called by the record-entry dialog, not here,
+   * since only the dialog knows the final_record_id.
    */
   const confirmTranscription = useCallback(() => {
     dispatch({ type: 'PREVIEW_CONFIRM' });
+    // sessionIdRef is intentionally NOT cleared here — the dialog's submit handler
+    // reads it to call tracking.commit() with the new record id.
   }, []);
 
   /**
@@ -412,16 +497,29 @@ export function useVoiceRecording(
   }, [startRecording]);
 
   /**
-   * Reset to initial state
+   * Reset to initial state.
+   * If a tracked attempt is still mid-flight (preview shown but never confirmed
+   * or explicitly cancelled), mark it as 'timeout' so we don't leave 'pending' rows.
    */
   const reset = useCallback(() => {
     if (isUsingRealtimeRef.current) {
       realtime.endSession();
       isUsingRealtimeRef.current = false;
     }
+    if (sessionIdRef.current) {
+      // If we were in preview state and got reset (e.g. auto-reset from showPreview=false flow),
+      // the attempt was effectively confirmed by something downstream; if not in preview,
+      // treat as a timeout.
+      if (stateData.state === 'preview') {
+        // Leave it pending — caller (record dialog) is expected to call commit().
+      } else {
+        tracking.markTimeout(sessionIdRef.current);
+        sessionIdRef.current = null;
+      }
+    }
     cleanupStream();
     dispatch({ type: 'RESET' });
-  }, [realtime, cleanupStream]);
+  }, [realtime, cleanupStream, tracking, stateData.state]);
 
   return {
     // State
@@ -431,7 +529,8 @@ export function useVoiceRecording(
     finalTranscript: stateData.finalTranscript,
     error: stateData.error,
     offlineQueueId: stateData.offlineQueueId,
-    
+    sessionId: sessionIdRef.current,
+
     // Actions
     startRecording,
     stopRecording,

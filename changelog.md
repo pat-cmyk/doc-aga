@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased — Voice abandonment monitoring (admin dashboard)
+
+### Problem
+The admin dashboard could see *whether* an entry came from voice or typing (`input_method` on the 5 record tables) and *whether* a transcription happened (`stt_analytics`), but the most diagnostic UX failure was invisible: a farmer speaks, the confirmation preview shows wrong parsed data, they cancel, and re-type the whole thing manually. `transcription_corrections` only tracks in-flow edits, never full abandonment.
+
+### Added
+- **DB migration `20260512120000_voice_session_attempts.sql`** — new `voice_session_attempts` table tracking every voice attempt's lifecycle (`started_at → preview_shown_at → ended_at`) with outcome (`committed | cancelled | timeout | error | pending`), `cancel_reason`, transcript preview, parsed fields, and `followed_by_manual_within_5m` flag. RLS lets users insert/update their own rows and super admins read all.
+- **DB migration `20260512120100_stt_session_id_on_records.sql`** — `stt_session_id uuid` column on `milking_records`, `feeding_records`, `weight_records`, `health_records`, `injection_records` (sparse indexes, FK to `voice_session_attempts`).
+- **DB migration `20260512120200_voice_abandonment_rpcs.sql`**:
+  - Extends `get_data_entry_analytics` with a new `voice_attempts` block (attempts_total, committed/cancelled/timeout/error counts, `abandonment_pct`, `abandoned_then_manual_count` + `_pct`, daily breakdown).
+  - New `get_voice_health_by_farm(_farm_id, _start_date, _end_date)` — per-farmhand voice-quality breakdown (super-admin gated).
+  - New `get_recent_abandoned_voice_attempts(_limit, _start_date)` — qualitative panel showing transcript + parsed-fields side-by-side for cancelled attempts.
+- **`src/hooks/useVoiceSessionTracking.ts`** — SSOT for emitting voice lifecycle events (`start / preview / cancel / commit / markError / markTimeout / consumeRecentlyCancelled`). Uses `sessionStorage` (`lastCancelledVoiceAttempt:<recordType>`) to correlate "cancel → manual entry within 5 min."
+- **`src/hooks/useAbandonedVoiceAttempts.ts`** and **`src/hooks/useVoiceHealthByFarm.ts`** — React Query wrappers for the new RPCs.
+- **`src/components/admin/VoiceHealthByFarmhand.tsx`** — per-farmhand table (Attempts, Committed, Cancelled, Timeout, Abandoned %, Retry %, Avg latency) with farm-level summary cards.
+- **AdminViewFarm > More > Voice Health tab** (`src/pages/AdminViewFarm.tsx`) — per-farm drill-down surface so admins can see voice quality for a specific farm's farmhands.
+
+### Changed
+- **`src/hooks/useVoiceRecording.ts`** — accepts new `trackingContext?: { recordType, farmId }` option. When set, automatically calls `tracking.start()` on `startRecording`, `tracking.preview()` on transcription complete, `tracking.cancel(reason)` on `cancelRecording`, `tracking.markError` on errors, and `tracking.markTimeout` on reset-from-non-preview states. `cancelRecording` now accepts an optional `VoiceCancelReason` arg.
+- **`src/components/ui/VoiceRecordButton.tsx`** — accepts `trackingContext`, `onConfirm`, `onCancel` props. The preview toast's "Cancel" action now calls `cancelRecording('user_cancelled')` so admin dashboards see the abandonment. Auto-submit success fires `onConfirm(sessionId)` so parent dialogs can call `tracking.commit()` with the new record id.
+- **`src/components/admin/DataEntryAnalytics.tsx`** — adds 2 new summary cards ("Voice Abandoned", "Voice → Manual Retry") and a third line ("Voice Abandoned") on the daily chart. Now uses a 6-column grid on lg screens.
+- **`src/components/admin/STTAnalyticsDashboard.tsx`** — adds new "Abandoned Voice Attempts" panel showing transcript + parsed fields + `retyped` badge for cancellations followed by manual retyping.
+- **`src/hooks/useDataEntryAnalytics.ts`** — interface extended with optional `voice_attempts` block.
+- **`src/components/health-records/AddHealthRecordDialog.tsx`** — passes `trackingContext={{ recordType: 'health', farmId }}` to each of its 3 VoiceRecordButtons (exemplar wiring for field-level voice).
+
+### Known limitations / follow-up
+- **Field-level voice attempts stay 'pending' in DB** — `AddHealthRecordDialog` uses voice to fill individual text fields without a 1:1 mapping to a record commit. These attempts are captured but `outcome` stays `pending` until a TTL job runs. Cancellation telemetry still works.
+- **Farmhand activity flow not yet wired** (`src/components/farmhand/VoiceRecordButton.tsx`, `ActivityConfirmation.tsx`) — this is the *primary* place where the abandonment behavior occurs (farmer speaks, sees activity confirmation, cancels, retypes). The farmhand voice button uses its own MediaRecorder loop rather than `useVoiceRecording`, so wiring requires either a refactor to share the unified hook or surgical inserts of `useVoiceSessionTracking`. Follow-up ticket.
+- **Other record dialogs** (`RecordBulkBCSDialog`, milking, feeding, weight, injection dialogs) — `trackingContext` wiring follows the same pattern as `AddHealthRecordDialog`; ~1 line per VoiceRecordButton.
+- **Cross-tab manual retries not detected** — the 5-min "voice → manual" correlation uses `sessionStorage`, so retries on a different tab/device aren't linked. Acceptable for v1.
+- **No STT confidence scores** — deferred; abandonment is a stronger signal anyway.
+
+### How to verify
+- Run migrations in Supabase SQL Editor (Lovable Cloud restriction — Claude Code can't `supabase db push`).
+- `/admin?tab=operations&subtab=entry-methods` — should show 2 new summary cards and a 3rd line on the daily chart.
+- `/admin?tab=ai-voice` — should show new "Abandoned Voice Attempts" panel.
+- `/admin/view-farm/<farmId>` → More → Voice Health — per-farmhand table.
+
 ## Unreleased — Unified invite flow
 
 - Introduces a single `/invite/:token` route that replaces `/invite/accept/:token`, `/invite/user/:token`, and `/cooperative/invite/accept/:token` for new email invitations.

@@ -20,6 +20,7 @@ import { Mic, Square, Loader2, X, Check, AlertCircle, Radio, WifiOff, CloudUploa
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useVoiceRecording, type UseVoiceRecordingOptions } from '@/hooks/useVoiceRecording';
+import type { VoiceRecordType } from '@/hooks/useVoiceSessionTracking';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePendingAudioCount } from '@/hooks/usePendingAudioCount';
 import { useAudioLevelMeter } from '@/hooks/useAudioLevelMeter';
@@ -72,6 +73,21 @@ export interface VoiceRecordButtonProps {
   
   /** Offline queue metadata for form-specific recordings */
   offlineMetadata?: Partial<AudioQueueMetadata>;
+
+  /**
+   * Voice attempt tracking — pass this for record-entry flows we want monitored.
+   * Omit for AI chat / general flows we don't want polluting the abandonment metrics.
+   */
+  trackingContext?: {
+    recordType: VoiceRecordType;
+    farmId?: string | null;
+  } | null;
+
+  /** Called when the user confirms a voice transcription (clicks accept or auto-submit fires). */
+  onConfirm?: (sessionId: string | null) => void;
+
+  /** Called when the user cancels the preview toast. Exposes the sessionId for late commits/edits. */
+  onCancel?: (sessionId: string | null) => void;
 }
 
 const sizeConfig = {
@@ -100,6 +116,9 @@ export function VoiceRecordButton({
   idleLabel = 'Voice',
   recordingLabel = 'Stop',
   offlineMetadata,
+  trackingContext,
+  onConfirm,
+  onCancel,
 }: VoiceRecordButtonProps) {
   const isOnline = useOnlineStatus();
   const { stats: pendingStats } = usePendingAudioCount();
@@ -148,9 +167,10 @@ export function VoiceRecordButton({
           playSound('success');
           hapticNotification('success');
           autoSubmit.onSubmit();
+          onConfirm?.(sessionIdRef.current);
           toast.success('Saved!');
         }, delayMs);
-        
+
         // Show preview toast with cancel option
         toast.info(`Heard: "${previewText}"`, {
           duration: delayMs,
@@ -158,6 +178,10 @@ export function VoiceRecordButton({
             label: 'Cancel',
             onClick: () => {
               clearAutoSubmitTimers();
+              // Tracking: mark the underlying voice attempt as cancelled, so it
+              // shows up in admin abandonment metrics.
+              cancelRecording('user_cancelled');
+              onCancel?.(sessionIdRef.current);
               toast.info('Cancelled');
             },
           },
@@ -167,7 +191,9 @@ export function VoiceRecordButton({
         toast.success(`Heard: "${previewText}"`);
       }
     }
-  }, [onTranscription, showPreview, autoSubmit, previewDurationMs]);
+    // cancelRecording is defined by useVoiceRecording below — referenced via closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onTranscription, showPreview, autoSubmit, previewDurationMs, onCancel, onConfirm]);
 
   const clearAutoSubmitTimers = useCallback(() => {
     if (autoSubmitTimerRef.current) {
@@ -186,6 +212,7 @@ export function VoiceRecordButton({
     state,
     partialTranscript,
     error,
+    sessionId,
     startRecording,
     stopRecording,
     cancelRecording,
@@ -209,7 +236,15 @@ export function VoiceRecordButton({
       }
     },
     offlineMetadata,
+    trackingContext,
   });
+
+  // Latest sessionId snapshot for callbacks fired from auto-submit timers /
+  // toast actions, which would otherwise capture stale closure values.
+  const sessionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   // Cleanup timers on unmount
   useEffect(() => {
