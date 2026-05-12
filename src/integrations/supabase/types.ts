@@ -2620,6 +2620,7 @@ export type Database = {
           milk_inventory_id: string | null
           notes: string | null
           record_datetime: string
+          stt_session_id: string | null
         }
         Insert: {
           animal_id: string
@@ -2635,6 +2636,7 @@ export type Database = {
           milk_inventory_id?: string | null
           notes?: string | null
           record_datetime: string
+          stt_session_id?: string | null
         }
         Update: {
           animal_id?: string
@@ -2650,6 +2652,7 @@ export type Database = {
           milk_inventory_id?: string | null
           notes?: string | null
           record_datetime?: string
+          stt_session_id?: string | null
         }
         Relationships: [
           {
@@ -2678,6 +2681,13 @@ export type Database = {
             columns: ["milk_inventory_id"]
             isOneToOne: false
             referencedRelation: "milk_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feeding_records_stt_session_id_fkey"
+            columns: ["stt_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_session_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -2726,6 +2736,7 @@ export type Database = {
           input_method: string
           notes: string | null
           resolution_notes: string | null
+          stt_session_id: string | null
           treatment: string | null
           visit_date: string
         }
@@ -2739,6 +2750,7 @@ export type Database = {
           input_method?: string
           notes?: string | null
           resolution_notes?: string | null
+          stt_session_id?: string | null
           treatment?: string | null
           visit_date: string
         }
@@ -2752,6 +2764,7 @@ export type Database = {
           input_method?: string
           notes?: string | null
           resolution_notes?: string | null
+          stt_session_id?: string | null
           treatment?: string | null
           visit_date?: string
         }
@@ -2768,6 +2781,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_records_stt_session_id_fkey"
+            columns: ["stt_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_session_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -2948,6 +2968,7 @@ export type Database = {
           medicine_name: string | null
           photo_path: string | null
           record_datetime: string
+          stt_session_id: string | null
         }
         Insert: {
           animal_id: string
@@ -2960,6 +2981,7 @@ export type Database = {
           medicine_name?: string | null
           photo_path?: string | null
           record_datetime: string
+          stt_session_id?: string | null
         }
         Update: {
           animal_id?: string
@@ -2972,6 +2994,7 @@ export type Database = {
           medicine_name?: string | null
           photo_path?: string | null
           record_datetime?: string
+          stt_session_id?: string | null
         }
         Relationships: [
           {
@@ -2986,6 +3009,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "injection_records_stt_session_id_fkey"
+            columns: ["stt_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_session_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -3343,6 +3373,7 @@ export type Database = {
           record_date: string
           sale_amount: number | null
           session: string
+          stt_session_id: string | null
         }
         Insert: {
           animal_id: string
@@ -3359,6 +3390,7 @@ export type Database = {
           record_date: string
           sale_amount?: number | null
           session: string
+          stt_session_id?: string | null
         }
         Update: {
           animal_id?: string
@@ -3375,6 +3407,7 @@ export type Database = {
           record_date?: string
           sale_amount?: number | null
           session?: string
+          stt_session_id?: string | null
         }
         Relationships: [
           {
@@ -3389,6 +3422,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milking_records_stt_session_id_fkey"
+            columns: ["stt_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_session_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -4633,6 +4673,87 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_session_attempts: {
+        Row: {
+          cancel_reason: string | null
+          created_at: string
+          ended_at: string | null
+          farm_id: string | null
+          final_record_id: string | null
+          final_record_table: string | null
+          followed_by_manual_record_id: string | null
+          followed_by_manual_within_5m: boolean
+          id: string
+          model_provider: string | null
+          model_version: string | null
+          outcome: string | null
+          parsed_fields: Json | null
+          preview_shown_at: string | null
+          record_type: string
+          started_at: string
+          transcript_preview: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          created_at?: string
+          ended_at?: string | null
+          farm_id?: string | null
+          final_record_id?: string | null
+          final_record_table?: string | null
+          followed_by_manual_record_id?: string | null
+          followed_by_manual_within_5m?: boolean
+          id?: string
+          model_provider?: string | null
+          model_version?: string | null
+          outcome?: string | null
+          parsed_fields?: Json | null
+          preview_shown_at?: string | null
+          record_type: string
+          started_at?: string
+          transcript_preview?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          created_at?: string
+          ended_at?: string | null
+          farm_id?: string | null
+          final_record_id?: string | null
+          final_record_table?: string | null
+          followed_by_manual_record_id?: string | null
+          followed_by_manual_within_5m?: boolean
+          id?: string
+          model_provider?: string | null
+          model_version?: string | null
+          outcome?: string | null
+          parsed_fields?: Json | null
+          preview_shown_at?: string | null
+          record_type?: string
+          started_at?: string
+          transcript_preview?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_session_attempts_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_session_attempts_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_training_samples: {
         Row: {
           audio_url: string
@@ -4674,6 +4795,7 @@ export type Database = {
           measurement_method: string | null
           notes: string | null
           recorded_by: string | null
+          stt_session_id: string | null
           weight_kg: number
         }
         Insert: {
@@ -4686,6 +4808,7 @@ export type Database = {
           measurement_method?: string | null
           notes?: string | null
           recorded_by?: string | null
+          stt_session_id?: string | null
           weight_kg: number
         }
         Update: {
@@ -4698,6 +4821,7 @@ export type Database = {
           measurement_method?: string | null
           notes?: string | null
           recorded_by?: string | null
+          stt_session_id?: string | null
           weight_kg?: number
         }
         Relationships: [
@@ -4706,6 +4830,13 @@ export type Database = {
             columns: ["animal_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weight_records_stt_session_id_fkey"
+            columns: ["stt_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_session_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -5596,6 +5727,10 @@ export type Database = {
           total_milk_value: number
         }[]
       }
+      get_recent_abandoned_voice_attempts: {
+        Args: { _limit?: number; _start_date?: string }
+        Returns: Json
+      }
       get_regional_data_quality: {
         Args: {
           data_category_filter?: string
@@ -5761,6 +5896,10 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           token_expires_at: string
         }[]
+      }
+      get_voice_health_by_farm: {
+        Args: { _end_date?: string; _farm_id: string; _start_date?: string }
+        Returns: Json
       }
       handle_merchant_signup: {
         Args: {
