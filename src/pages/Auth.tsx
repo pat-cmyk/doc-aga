@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { logAuthEvent } from "@/lib/authLogger";
 import { AppDownloadSection } from "@/components/AppDownloadSection";
+import { RouteSeo } from "@/components/seo/RouteSeo";
 
 // Lazy load components to reduce auth page bundle size
 const PasswordStrengthIndicator = lazy(() => import("@/components/PasswordStrengthIndicator"));

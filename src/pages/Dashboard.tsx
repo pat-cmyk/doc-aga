@@ -46,6 +46,7 @@ import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 import { MyCooperativeTab } from "@/components/cooperative/farmer-view/MyCooperativeTab";
 import { useMyCoopMembership } from "@/hooks/useMyCooperative";
+import { RouteSeo } from "@/components/seo/RouteSeo";
 
 const Dashboard = () => {
   const navigate = useNavigate();
