@@ -245,7 +245,13 @@ const Auth = () => {
 
   return (
     <>
+      <RouteSeo
+        title="Sign in or register | Doc Aga"
+        description="Sign in to your Doc Aga farm account or create a new account to start tracking livestock, milk, feed, and farm finances."
+        path="/auth"
+      />
       <Suspense fallback={null}>
+
         <VoiceTrainingOnboarding
           open={showVoiceTrainingOnboarding}
           onOpenChange={setShowVoiceTrainingOnboarding}
