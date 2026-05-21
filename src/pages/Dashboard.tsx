@@ -395,7 +395,7 @@ const Dashboard = () => {
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {farmLogoUrl ? (
                     <Avatar className="h-9 w-9 shrink-0">
-                      <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
+                      <AvatarImage src={farmLogoUrl} alt={farmName} fetchPriority="high" />
                       <AvatarFallback className="bg-primary/10">
                         <Sprout className="h-5 w-5 text-primary" />
                       </AvatarFallback>
@@ -426,7 +426,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-3">
                 {farmLogoUrl ? (
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage loading="lazy" src={farmLogoUrl} alt={farmName} />
+                    <AvatarImage src={farmLogoUrl} alt={farmName} fetchPriority="high" />
                     <AvatarFallback className="bg-primary/10">
                       <Sprout className="h-6 w-6 text-primary" />
                     </AvatarFallback>
