@@ -1,0 +1,13 @@
+# Doc Aga
+
+> Offline-first livestock farm management PWA for Filipino farmers. Track animals, milk production, feed inventory, finances, and get AI-powered veterinary assistance in Taglish.
+
+Doc Aga helps small and mid-sized dairy and livestock farms in the Philippines manage their herds without depending on reliable internet. The platform combines daily record-keeping, financial tracking, a farmer-to-farmer marketplace, and an AI veterinary assistant designed for low-literacy and bilingual users.
+
+## Pages
+
+- [Home](/): Dashboard entry point for farmers, managers, farmhands, and vets.
+- [Sign in](/auth): Farmer account access and registration.
+- [Marketplace](/marketplace): Buy and sell feed, supplies, and livestock products.
+- [Distributors](/distributors): Find local feed and livestock supply distributors.
+- [Privacy Policy](/privacy): How Doc Aga handles user and farm data.
