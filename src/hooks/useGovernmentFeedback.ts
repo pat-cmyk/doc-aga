@@ -80,8 +80,13 @@ export const useGovernmentFeedback = (filters?: FeedbackFilters) => {
 
   // Derive stats from the already-fetched feedbackList (same data, zero extra API calls).
   // Previously a separate query that ignored dateFrom/dateTo/region filters — bug fix.
+  // Return null only while loading; an empty list yields zero-valued stats so
+  // consumers can distinguish "still loading" from "loaded, no results".
   const stats = useMemo(() => {
-    if (!feedbackList || feedbackList.length === 0) return null;
+    if (!feedbackList) return null;
+    if (feedbackList.length === 0) {
+      return { total: 0, pending: 0, critical: 0, categoryCount: {}, recent: 0 };
+    }
 
     const total = feedbackList.length;
     const pending = feedbackList.filter((f: any) => f.status === 'submitted').length;
