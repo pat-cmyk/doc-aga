@@ -42,6 +42,7 @@ export const DocAgaLogo = ({
         src={docAgaLogo} 
         alt="Doc Aga Logo" 
         className="h-full w-full object-cover"
+        fetchPriority="high"
       />
     </div>
   );
