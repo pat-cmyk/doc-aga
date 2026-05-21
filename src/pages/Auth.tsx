@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import { logAuthEvent } from "@/lib/authLogger";
 import { AppDownloadSection } from "@/components/AppDownloadSection";
+import { RouteSeo } from "@/components/seo/RouteSeo";
 
 // Lazy load components to reduce auth page bundle size
 const PasswordStrengthIndicator = lazy(() => import("@/components/PasswordStrengthIndicator"));
@@ -245,7 +246,13 @@ const Auth = () => {
 
   return (
     <>
+      <RouteSeo
+        title="Sign in or register | Doc Aga"
+        description="Sign in to your Doc Aga farm account or create a new account to start tracking livestock, milk, feed, and farm finances."
+        path="/auth"
+      />
       <Suspense fallback={null}>
+
         <VoiceTrainingOnboarding
           open={showVoiceTrainingOnboarding}
           onOpenChange={setShowVoiceTrainingOnboarding}

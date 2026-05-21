@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Doc Aga - Farm Management System</title>
-    <meta name="description" content="Comprehensive farm management system with AI-powered veterinary assistance, livestock tracking, and marketplace" />
+    <title>Doc Aga — Farm Management System for Filipino Farmers</title>
+    <meta name="description" content="Offline-first livestock farm management for Filipino farmers. Track animals, milk, feed, finances, and get AI veterinary help — all in Taglish." />
     <meta name="author" content="Doc Aga" />
-    
+
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#10b981" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,37 +14,37 @@
     <meta name="apple-mobile-web-app-title" content="Doc Aga" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    
+
     <!-- Performance Optimizations: Preconnect to critical origins -->
     <link rel="preconnect" href="https://sxorybjlxyquxteptdyk.supabase.co" />
     <link rel="preconnect" href="https://sxorybjlxyquxteptdyk.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://sxorybjlxyquxteptdyk.supabase.co" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    
+
     <style>
       /* Critical CSS for above-the-fold content */
       @font-face {
         font-family: system-ui;
         font-display: swap;
       }
-      
+
       body {
         margin: 0;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
-      
+
       #root {
         min-height: 100vh;
       }
-      
+
       /* Loading skeleton styles */
       .skeleton-loading {
         animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         background-color: #e5e7eb;
         border-radius: 0.375rem;
       }
-      
+
       @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
@@ -52,14 +52,34 @@
     </style>
 
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta property="og:title" content="Doc Aga" />
-    <meta property="og:description" content="Lovable Generated Project" />
+
+    <!-- Sitewide Open Graph fallback (per-route Helmet overrides for JS-aware crawlers) -->
+    <meta property="og:title" content="Doc Aga — Farm Management System" />
+    <meta property="og:description" content="Offline-first livestock farm management for Filipino farmers. Track animals, milk, feed, finances, and get AI veterinary help." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://doc-aga.goldenforage.com/" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Sitewide structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Doc Aga",
+        "url": "https://doc-aga.goldenforage.com",
+        "description": "Offline-first livestock farm management platform for Filipino farmers.",
+        "logo": "https://doc-aga.goldenforage.com/pwa-512x512.png"
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Doc Aga",
+        "url": "https://doc-aga.goldenforage.com"
+      }
+    </script>
   </head>
 
   <body>

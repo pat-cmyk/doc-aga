@@ -46,6 +46,7 @@ import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { PhilippineTimeBanner } from "@/components/ui/PhilippineTimeBanner";
 import { MyCooperativeTab } from "@/components/cooperative/farmer-view/MyCooperativeTab";
 import { useMyCoopMembership } from "@/hooks/useMyCooperative";
+import { RouteSeo } from "@/components/seo/RouteSeo";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -383,7 +384,13 @@ const Dashboard = () => {
 
   return (
     <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto overflow-x-hidden max-w-full">
+      <RouteSeo
+        title="Dashboard — Doc Aga Farm Management"
+        description="Manage your livestock, milk production, feed inventory, and farm finances from one offline-first dashboard built for Filipino farmers."
+        path="/"
+      />
       <PullToRefreshIndicator />
+
       {/* Header - Optimized for mobile with 2-row layout */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 pt-safe">
         <div className="container mx-auto px-4 py-3">

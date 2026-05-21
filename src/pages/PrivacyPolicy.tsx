@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { RouteSeo } from "@/components/seo/RouteSeo";
 
 const PrivacyPolicy = () => {
   const lastUpdated = new Date().toLocaleDateString('en-US', {
@@ -12,6 +13,12 @@ const PrivacyPolicy = () => {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
+      <RouteSeo
+        title="Privacy Policy | Doc Aga"
+        description="How Doc Aga collects, uses, and protects farm and user data across our livestock management platform."
+        path="/privacy"
+      />
+
       <div className="max-w-3xl mx-auto">
         <Link to="/">
           <Button variant="ghost" className="mb-6">
