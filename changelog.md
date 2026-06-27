@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased — Security hardening
+
+- **Rate-limit the public farmer-feedback endpoint.** `process-farmer-feedback`
+  (verify_jwt=false) now uses the in-memory limiter from `doc-aga` (10 req/min,
+  keyed on user id with caller-IP fallback), returning HTTP 429 + `Retry-After`.
+  Audit confirmed it was the only `verify_jwt=false` function hitting the paid AI
+  gateway without a limit (`rico` already had one).
+- **Baseline security headers.** New `public/_headers` (CSP, HSTS,
+  X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+  for the web host; CSP `<meta>` injected into `index.html` at build time only
+  (via `vite.config.ts`) so it also covers the Capacitor bundle without breaking
+  the Vite dev server. CSP allowlists Supabase, the Lovable AI gateway,
+  ElevenLabs, Mapbox, Turnstile and Google Fonts.
+- **CORS allowlist.** Replaced wildcard `Access-Control-Allow-Origin: *` across
+  all 33 edge functions with a shared `_shared/cors.ts` helper that echoes the
+  Origin only when on the `ALLOWED_ORIGINS` allowlist (sensible defaults when
+  unset). OPTIONS preflight preserved.
+- **Cloudflare Turnstile** on the merchant-signup and farmer-feedback public
+  forms, verified server-side via `_shared/turnstile.ts`. Progressive: a no-op
+  until `VITE_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` are configured.
+- **`.env` no longer tracked** (gitignored; only public anon keys were
+  committed, so no rotation needed); added documented `.env.example`.
+- **Auth failure-path tests** (`src/pages/Auth.test.tsx`) covering wrong
+  password, password reset for an unknown email, signup with an existing email,
+  and a re-used confirmation link — asserting generic, non-enumerating messages.
+
+### Manual steps required
+- Set `ALLOWED_ORIGINS` (edge secret) before relying on the CORS lock in prod.
+- Set `TURNSTILE_SECRET` (edge) and `VITE_TURNSTILE_SITE_KEY` (frontend) to
+  enforce Turnstile.
+- Confirm the static host applies `public/_headers`; verify the Android voice
+  pipeline and Mapbox under the CSP on-device.
+
 ## Unreleased — Unified invite flow
 
 - Introduces a single `/invite/:token` route that replaces `/invite/accept/:token`, `/invite/user/:token`, and `/cooperative/invite/accept/:token` for new email invitations.
