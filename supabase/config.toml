@@ -106,3 +106,9 @@ verify_jwt = true
 
 [functions.send-user-invitation]
 verify_jwt = true
+
+[functions.export-user-data]
+verify_jwt = true
+
+[functions.delete-user-account]
+verify_jwt = true

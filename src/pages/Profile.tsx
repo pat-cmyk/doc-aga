@@ -22,6 +22,7 @@ import { getFarmCategoryLabel } from "@/lib/farmCategories";
 import { FarmBankInfoDialog, getBiosecurityLabel, getWaterSourceLabel } from "@/components/farm/FarmBankInfoDialog";
 import { useFarm } from "@/contexts/FarmContext";
 import { FarmSwitcher } from "@/components/FarmSwitcher";
+import { PrivacyDataSection } from "@/components/privacy/PrivacyDataSection";
 
 // Extended farm data not stored in FarmContext (local to Profile page)
 interface ExtendedFarmData {
@@ -526,6 +527,9 @@ const Profile = () => {
               </form>
             </CardContent>
           </Card>
+
+          {/* Privacy & Data (export / delete account) */}
+          <PrivacyDataSection />
         </div>
       </div>
     </div>
