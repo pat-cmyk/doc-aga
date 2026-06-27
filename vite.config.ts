@@ -5,6 +5,31 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import { visualizer } from "rollup-plugin-visualizer";
 
+// Content-Security-Policy injected as a <meta> into the built index.html only.
+// It is applied at BUILD time (not in the Vite dev server, which needs
+// 'unsafe-eval'/inline for HMR) so it ships in the production web bundle AND the
+// Capacitor (Android/iOS) bundle, where there is no HTTP layer to send headers.
+// The full header set (HSTS, X-Frame-Options, etc.) is served via public/_headers
+// for the web host. Keep this CSP in sync with public/_headers.
+// 'unsafe-inline' on style-src is required by Radix/shadcn + Mapbox GL inline
+// styles; blob:/worker-src by Mapbox GL workers and the PWA service worker.
+const CSP_META = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  "manifest-src 'self'",
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "script-src 'self' https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://ai.gateway.lovable.dev https://api.elevenlabs.io wss://api.elevenlabs.io https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://connectivitycheck.gstatic.com https://fonts.googleapis.com https://fonts.gstatic.com",
+  "upgrade-insecure-requests",
+].join("; ");
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -14,6 +39,24 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    // Inject the CSP <meta> into index.html for production/native builds only.
+    {
+      name: "inject-csp-meta",
+      apply: "build" as const,
+      transformIndexHtml: {
+        order: "pre" as const,
+        handler: () => [
+          {
+            tag: "meta",
+            attrs: {
+              "http-equiv": "Content-Security-Policy",
+              content: CSP_META,
+            },
+            injectTo: "head-prepend" as const,
+          },
+        ],
+      },
+    },
     VitePWA({
       strategies: 'injectManifest', // Use custom service worker
       srcDir: 'src',
