@@ -1,11 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { verifyTurnstile } from "../_shared/turnstile.ts";
 
 // Rate limiting configuration — this endpoint is public (verify_jwt=false) and
 // calls the paid Lovable AI gateway, so we cap requests to prevent cost-burn abuse.
@@ -46,6 +43,7 @@ function checkRateLimit(
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -100,7 +98,18 @@ serve(async (req) => {
       );
     }
 
-    const { transcription, farmId } = await req.json();
+    const { transcription, farmId, turnstileToken } = await req.json();
+
+    // Bot/abuse protection on this public-facing flow (no-op until
+    // TURNSTILE_SECRET is configured).
+    const turnstile = await verifyTurnstile(turnstileToken, callerIp);
+    if (!turnstile.ok) {
+      console.warn(`[process-farmer-feedback] Turnstile failed: ${turnstile.reason}`);
+      return new Response(
+        JSON.stringify({ error: 'Verification failed. Please try again.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!transcription) {
       throw new Error('No transcription provided');

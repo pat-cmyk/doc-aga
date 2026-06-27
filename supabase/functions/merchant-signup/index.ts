@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { verifyTurnstile } from "../_shared/turnstile.ts";
 
 // Input validation schema
 const merchantSignupSchema = z.object({
@@ -65,6 +62,7 @@ function checkRateLimit(id: string, max: number, window: number): { allowed: boo
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -106,6 +104,20 @@ serve(async (req) => {
 
     // Parse and validate input with Zod
     const rawBody = await req.json();
+
+    // Bot/abuse protection (no-op until TURNSTILE_SECRET is configured).
+    const callerIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || null;
+    const turnstile = await verifyTurnstile(rawBody?.turnstileToken, callerIp);
+    if (!turnstile.ok) {
+      console.warn('merchant-signup Turnstile failed:', turnstile.reason);
+      return new Response(
+        JSON.stringify({ error: 'Verification failed. Please try again.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const parseResult = merchantSignupSchema.safeParse(rawBody);
     
     if (!parseResult.success) {

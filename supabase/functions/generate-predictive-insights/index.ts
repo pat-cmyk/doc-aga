@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 // Helper function to calculate median
 function calculateMedian(values: number[]): number {
@@ -15,6 +11,7 @@ function calculateMedian(values: number[]): number {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

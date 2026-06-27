@@ -3,11 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { executeToolCall } from "./tools.ts";
 import { sanitizeUserMessage } from "../_shared/sanitizeMessage.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const corsHeaders = { 
-  'Access-Control-Allow-Origin': '*', 
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' 
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 // Rate limiting configuration
 const RATE_LIMIT_MAX = 15;
@@ -332,6 +328,7 @@ function getFarmerTools(): any[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

@@ -3,11 +3,7 @@
  import { executeAnalystToolCall, getAnalystTools, DataCategory } from "../_shared/analyst-tools.ts";
  import { sanitizeUserMessage } from "../_shared/sanitizeMessage.ts";
  import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
- 
- const corsHeaders = { 
-   'Access-Control-Allow-Origin': '*', 
-   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' 
- };
+import { buildCorsHeaders } from "../_shared/cors.ts";
  
  // Rate limiting configuration
  const RATE_LIMIT_MAX = 15;
@@ -207,6 +203,7 @@ Always present data clearly with context about what the numbers mean for policy 
  }
  
  serve(async (req) => {
+   const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
    if (req.method === 'OPTIONS') {
      return new Response('ok', { headers: corsHeaders });
    }

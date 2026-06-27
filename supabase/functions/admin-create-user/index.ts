@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 // Input validation schema
 const createUserSchema = z.object({
@@ -56,6 +52,7 @@ function checkRateLimit(id: string, max: number, window: number): { allowed: boo
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

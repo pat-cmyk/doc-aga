@@ -12,6 +12,7 @@ import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { Loader2 } from "lucide-react";
 import { DocAgaLogo } from "@/components/DocAgaLogo";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
+import { TurnstileWidget, isTurnstileEnabled } from "@/components/security/TurnstileWidget";
 
 const MerchantAuth = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const MerchantAuth = () => {
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [businessAddress, setBusinessAddress] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -112,6 +114,15 @@ const MerchantAuth = () => {
       return;
     }
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      toast({
+        title: "Verification required",
+        description: "Please complete the verification challenge.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -170,6 +181,7 @@ const MerchantAuth = () => {
           contactPhone,
           contactEmail,
           businessAddress,
+          turnstileToken,
         },
       });
 
@@ -362,6 +374,12 @@ const MerchantAuth = () => {
                     />
                   </div>
                 </div>
+
+                <TurnstileWidget
+                  onVerify={setTurnstileToken}
+                  onExpire={() => setTurnstileToken(null)}
+                  className="flex justify-center"
+                />
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (

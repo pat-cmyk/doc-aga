@@ -61,11 +61,13 @@ export const useFarmerFeedback = (farmId?: string) => {
       transcription,
       voiceAudioUrl,
       isAnonymous,
+      turnstileToken,
     }: {
       farmId: string;
       transcription: string;
       voiceAudioUrl?: string;
       isAnonymous: boolean;
+      turnstileToken?: string | null;
     }) => {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -96,7 +98,7 @@ export const useFarmerFeedback = (farmId?: string) => {
 
       // Process with AI
       const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke('process-farmer-feedback', {
-        body: { transcription, farmId },
+        body: { transcription, farmId, turnstileToken },
       });
 
       if (aiError) throw aiError;

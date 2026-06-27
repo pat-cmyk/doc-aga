@@ -9,6 +9,7 @@ import { useFarmerFeedback } from "@/hooks/useFarmerFeedback";
 import { useFeedbackNotifications } from "@/hooks/useFeedbackNotifications";
 import { toast } from "sonner";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
+import { TurnstileWidget, isTurnstileEnabled } from "@/components/security/TurnstileWidget";
 
 interface GovernmentConnectTabProps {
   farmId: string;
@@ -17,6 +18,7 @@ interface GovernmentConnectTabProps {
 export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
   const [transcription, setTranscription] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const { submitFeedback, isSubmitting } = useFarmerFeedback(farmId);
   
@@ -34,13 +36,20 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
       return;
     }
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      toast.error("Kumpletuhin muna ang verification.");
+      return;
+    }
+
     submitFeedback({
       farmId,
       transcription,
       isAnonymous,
+      turnstileToken,
     });
 
     setTranscription("");
+    setTurnstileToken(null);
   };
 
   return (
@@ -98,6 +107,12 @@ export const GovernmentConnectTab = ({ farmId }: GovernmentConnectTabProps) => {
               Isumite nang anonymous (hindi makikita ang inyong pangalan)
             </Label>
           </div>
+
+          <TurnstileWidget
+            onVerify={setTurnstileToken}
+            onExpire={() => setTurnstileToken(null)}
+            className="flex justify-center"
+          />
 
           <Button
             onClick={handleSubmit}

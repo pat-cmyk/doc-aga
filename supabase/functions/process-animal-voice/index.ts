@@ -4,14 +4,10 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Import SSOT prompts from shared library
 import { 
+import { buildCorsHeaders } from "../_shared/cors.ts";
   ANIMAL_EXTRACTION_PROMPT,
   isLikelyAnimalRegistration 
 } from "../_shared/stt-prompts.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Input validation constants and schema
 const MAX_TRANSCRIPTION_LENGTH = 5000;
@@ -36,6 +32,7 @@ interface ExtractedAnimalData {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

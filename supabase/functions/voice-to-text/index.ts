@@ -5,11 +5,7 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Import SSOT prompts from shared library
 import { TRANSCRIPTION_SYSTEM_PROMPT } from "../_shared/stt-prompts.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 // Security limits
 const RATE_LIMIT_MAX = 20;
@@ -186,6 +182,7 @@ async function transcribeWithGemini(audioBase64: string, keyterms?: string[]): P
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

@@ -4,13 +4,9 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Import SSOT prompts from shared library
 import { getActivityExtractionPrompt } from "../_shared/stt-prompts.ts";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 console.log('[process-farmhand-activity] v2025-10-20-SSOT');
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Default weights for units when inventory lookup fails
 const DEFAULT_WEIGHTS = {
@@ -423,6 +419,7 @@ async function resolveFeedTypeFromInventory(
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req, "authorization, x-client-info, apikey, content-type");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
