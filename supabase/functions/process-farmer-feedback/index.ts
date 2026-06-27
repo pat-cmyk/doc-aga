@@ -7,6 +7,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Rate limiting configuration — this endpoint is public (verify_jwt=false) and
+// calls the paid Lovable AI gateway, so we cap requests to prevent cost-burn abuse.
+// Mirrors the in-memory limiter pattern in supabase/functions/doc-aga/index.ts.
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW = 60000; // 60 seconds
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  identifier: string,
+  maxRequests: number,
+  windowMs: number
+): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(identifier);
+
+  // Clean up old entries periodically (prevent memory leak)
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - windowMs;
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (val.resetAt < cutoff) rateLimitMap.delete(key);
+    }
+  }
+
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(identifier, { count: 1, resetAt: now + windowMs });
+    return { allowed: true };
+  }
+
+  if (record.count >= maxRequests) {
+    const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+
+  record.count++;
+  return { allowed: true };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,6 +74,31 @@ serve(async (req) => {
 
     const userId = userData.user.id;
     console.log(`[process-farmer-feedback] Request from user: ${userId}`);
+
+    // Apply rate limiting (keyed on user id, with caller IP as fallback) before
+    // doing any paid AI gateway work.
+    const callerIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown';
+    const rateLimitKey = userId || callerIp;
+    const rateCheck = checkRateLimit(rateLimitKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!rateCheck.allowed) {
+      console.warn(`[process-farmer-feedback] Rate limit exceeded for ${rateLimitKey}`);
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded. Please try again later.',
+          retryAfter: rateCheck.retryAfter,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateCheck.retryAfter || 60),
+          },
+        }
+      );
+    }
 
     const { transcription, farmId } = await req.json();
 
