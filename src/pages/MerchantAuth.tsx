@@ -149,7 +149,9 @@ const MerchantAuth = () => {
         });
 
         if (signInError) {
-          throw new Error("Email already registered with incorrect password. Please use the correct password or sign in.");
+          // Anti-enumeration: don't confirm the email is registered. Frame it
+          // conditionally so it reads the same whether or not an account exists.
+          throw new Error("We couldn't sign you in. Please check your password, or log in if you already have an account.");
         }
         
         session = signInData.session;

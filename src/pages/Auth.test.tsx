@@ -189,6 +189,31 @@ describe("Auth — failure paths", () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
+  it("signup is non-enumerating even when Supabase returns an explicit 'already registered' error", async () => {
+    const user = userEvent.setup();
+    // Auto-confirm projects return an explicit error instead of obfuscating —
+    // the page must still NOT confirm the email exists.
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "User already registered", status: 400 } as never,
+    } as never);
+
+    renderAuth();
+    await user.click(await screen.findByRole("tab", { name: /sign up/i }));
+    await user.type(await screen.findByLabelText(/full name/i), "Juan Dela Cruz");
+    await user.type(screen.getByLabelText(/^email$/i), "taken@example.com");
+    await user.type(screen.getByLabelText(/^password$/i), "Sup3r$ecret!");
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    await waitFor(() => expect(toastSpy).toHaveBeenCalled());
+
+    const text = allToastText();
+    expect(text).not.toMatch(/already registered|already exists|email.*taken/i);
+    expect(text).not.toContain("taken@example.com");
+    expect(text).toMatch(/check your email/i);
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
   it("an already-used confirmation link lands on a safe sign-in page without leaking internal error detail", async () => {
     // Second click on a confirmation link: the user is not authenticated and the
     // provider appends an error fragment to the URL.

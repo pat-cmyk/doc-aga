@@ -103,6 +103,22 @@ const Auth = () => {
 
     if (error) {
       setLoading(false);
+      // Anti-enumeration: never confirm that an email is already registered.
+      // Show the same neutral message we'd show a brand-new signup so an attacker
+      // cannot tell whether the address has an account.
+      const message = (error.message || "").toLowerCase();
+      if (
+        message.includes("already registered") ||
+        message.includes("already been registered") ||
+        message.includes("user already exists")
+      ) {
+        toast({
+          title: "Check your email",
+          description:
+            "If you don't already have an account, we've sent a confirmation link. If you do, please log in instead.",
+        });
+        return;
+      }
       showErrorToastLegacy(toast, error, "signing up");
       return;
     }
