@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { StorageNotice } from "@/components/privacy/StorageNotice";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
@@ -284,6 +285,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <SyncHandler />
+              <StorageNotice />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
