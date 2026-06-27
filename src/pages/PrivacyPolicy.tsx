@@ -4,18 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RouteSeo } from "@/components/seo/RouteSeo";
 
-const PrivacyPolicy = () => {
-  const lastUpdated = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+// Fixed revision date — bump this whenever the policy text actually changes.
+const LAST_UPDATED = "June 27, 2026";
 
+const PrivacyPolicy = () => {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <RouteSeo
         title="Privacy Policy | Doc Aga"
-        description="How Doc Aga collects, uses, and protects farm and user data across our livestock management platform."
+        description="How Doc Aga collects, uses, shares, and protects farm and user data across our livestock management platform."
         path="/privacy"
       />
 
@@ -30,132 +27,192 @@ const PrivacyPolicy = () => {
         <Card>
           <CardContent className="p-6 md:p-8 space-y-8">
             <div className="text-center border-b border-border pb-6">
-              <h1 className="text-3xl font-bold text-foreground mb-2">Privacy Policy for Doc-Aga</h1>
-              <p className="text-muted-foreground">Last updated: {lastUpdated}</p>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Privacy Policy for Doc Aga</h1>
+              <p className="text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+            </div>
+
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-muted-foreground">
+              <strong className="text-foreground">Note:</strong> This policy describes how the
+              app actually handles data, but it is a working draft and not legal advice.
+              Golden Forage should have it reviewed by legal counsel for GDPR, CCPA, and
+              Philippine Data Privacy Act (RA 10173) compliance before relying on it.
             </div>
 
             <section className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">1. Introduction</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Welcome to Doc-Aga ("we," "our," or "us"). We are committed to protecting your privacy. 
-                This Privacy Policy explains how our mobile application collects, uses, and safeguards 
-                your information when you use our farm management services.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                By using Doc-Aga, you agree to the collection and use of information in accordance with this policy.
+                Doc Aga ("we," "our," or "us"), operated by Golden Forage, provides an
+                offline-first livestock farm management platform. This Privacy Policy explains
+                what information we collect, how we use and share it, who processes it on our
+                behalf, and the choices and rights you have. By using Doc Aga you agree to this
+                policy.
               </p>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">2. Information We Collect</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We collect the following types of information to provide and improve our Service:
-              </p>
-              
+
               <div className="space-y-3">
-                <h3 className="text-lg font-medium text-foreground">Personal Information</h3>
-                <p className="text-muted-foreground">When you create an account, we may ask for personal details such as:</p>
+                <h3 className="text-lg font-medium text-foreground">Account &amp; identity</h3>
                 <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                  <li>Your Name</li>
-                  <li>Email Address</li>
-                  <li>Password (encrypted and secured)</li>
+                  <li>Name, email address, and phone number</li>
+                  <li>Password (hashed and managed by our authentication provider; we never see it in plain text)</li>
+                  <li>Your role(s) and farm/cooperative memberships</li>
                 </ul>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-medium text-foreground">Farm and Operational Data</h3>
-                <p className="text-muted-foreground">To function as a management tool, we store data you input, including:</p>
+                <h3 className="text-lg font-medium text-foreground">Farm &amp; location data</h3>
                 <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                  <li>Farm Name and Location</li>
-                  <li>Animal records (IDs, breeds, birth dates, health records)</li>
-                  <li>Inventory details (feeds, quantities)</li>
-                  <li>Activity logs (feeding, treatments)</li>
+                  <li>Farm name and <strong>precise GPS location</strong></li>
+                  <li>Animal records (IDs, breeds, birth dates, health, breeding, weight, milk)</li>
+                  <li>Inventory, feeding, and financial records</li>
+                  <li>Photos of animals, farms, and receipts</li>
                 </ul>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-medium text-foreground">Device Permissions</h3>
-                <p className="text-muted-foreground">Our app may request access to certain device features to enhance functionality:</p>
+                <h3 className="text-lg font-medium text-foreground">Voice data</h3>
+                <p className="text-muted-foreground">
+                  If you use voice features (voice-to-text logging, voice training, or talking to
+                  Doc Aga), we collect <strong>audio recordings</strong> and their transcripts.
+                  Audio is sent to our speech provider for transcription and may be stored to
+                  improve recognition of your voice. You can clear your voice training data at any
+                  time from your Profile.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-medium text-foreground">AI assistant content</h3>
+                <p className="text-muted-foreground">
+                  Questions and content you send to the Doc Aga or RICO AI assistants, along with
+                  relevant farm context, are processed by our AI provider to generate responses.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-medium text-foreground">Technical &amp; usage data</h3>
                 <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                  <li><strong>Camera & Photos:</strong> To allow you to upload photos of your animals or farm receipts.</li>
-                  <li><strong>Microphone:</strong> To enable voice command features or voice-to-text logging.</li>
-                  <li><strong>Location:</strong> To help localize your farm data or provide weather-related insights.</li>
+                  <li>Authentication and activity logs, including IP address and device/user-agent</li>
+                  <li>Device permissions you grant (camera, microphone, location)</li>
                 </ul>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">3. How We Use Your Information</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We use the collected data for the following purposes:
-              </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                <li><strong>To Provide the Service:</strong> Creating your account, storing your farm records, and allowing you to access them across devices.</li>
-                <li><strong>To Improve the App:</strong> Analyzing usage trends to fix bugs and develop new features.</li>
-                <li><strong>Communication:</strong> Sending you administrative emails (e.g., password resets, account notifications). We do not sell your email address to third parties.</li>
+                <li><strong>To provide the service:</strong> create your account, store and sync your farm records across devices, and power voice and AI features.</li>
+                <li><strong>To keep it secure:</strong> authentication, abuse/bot prevention, rate limiting, and audit logging.</li>
+                <li><strong>To improve the app:</strong> diagnose bugs and understand usage.</li>
+                <li><strong>To communicate:</strong> administrative emails such as invitations, password resets, and notifications. We do not sell your personal information.</li>
               </ul>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">4. Data Storage and Security</h2>
+              <h2 className="text-xl font-semibold text-foreground">4. Sharing With Government Programs</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Your data is securely stored on cloud servers (e.g., Supabase, Google Cloud). We implement 
-                industry-standard security measures to protect your personal information from unauthorized 
-                access, alteration, or disclosure. However, no method of transmission over the internet 
-                is 100% secure, and we cannot guarantee absolute security.
+                Doc Aga includes a "Boses ng Magsasaka" (Farmer Voice) feature that lets you send
+                feedback to Philippine government agencies (e.g., the Department of Agriculture /
+                National Dairy Authority). When you submit feedback, authorized government and
+                administrator users may see your message, its analysis, and your farm's location.
+                Unless you choose to submit <strong>anonymously</strong>, your identity may also be
+                visible to them. Aggregated, regional farm statistics may likewise be visible to
+                government users.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">5. Third-Party Services</h2>
+              <h2 className="text-xl font-semibold text-foreground">5. Third-Party Processors (Subprocessors)</h2>
               <p className="text-muted-foreground leading-relaxed">
-                We may use third-party services that may collect information used to identify you. 
-                Services used by the app include:
+                We rely on the following service providers, who process data on our behalf:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                <li>Google Play Services</li>
-                <li>Supabase (Database and Authentication)</li>
-                <li>Mapbox (Mapping Services)</li>
+                <li><strong>Supabase</strong> (via Lovable Cloud) — database, authentication, and file storage</li>
+                <li><strong>Lovable AI Gateway</strong> — AI processing for the Doc Aga and RICO assistants and feedback analysis</li>
+                <li><strong>ElevenLabs</strong> — speech-to-text and text-to-speech for voice features</li>
+                <li><strong>Mapbox</strong> — maps for farm and regional views</li>
+                <li><strong>Cloudflare (Turnstile)</strong> — bot protection on public forms</li>
+                <li><strong>Resend</strong> — sending transactional emails</li>
+                <li><strong>Google Play Services / app stores</strong> — app distribution</li>
               </ul>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">6. Data Retention and Deletion</h2>
+              <h2 className="text-xl font-semibold text-foreground">6. International Data Transfers</h2>
               <p className="text-muted-foreground leading-relaxed">
-                We retain your personal information and farm data for as long as your account is active.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                <strong>Account Deletion:</strong> You have the right to request the deletion of your account 
-                and all associated data. You may do this within the app settings or by contacting us at the 
-                email below. Upon request, we will permanently delete your data from our servers.
+                Some of the providers above are located outside the Philippines (for example, in
+                the United States). This means your information may be transferred to and processed
+                in other countries with different data-protection laws.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">7. Children's Privacy</h2>
+              <h2 className="text-xl font-semibold text-foreground">7. Cookies &amp; On-Device Storage</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Our Service is not directed to anyone under the age of 13. We do not knowingly collect 
-                personally identifiable information from children under 13.
+                As an offline-first app, Doc Aga stores data on your device using browser storage
+                (IndexedDB and localStorage) — including a cached copy of your farm data and your
+                preferences — so the app works without a connection. This stays on your device and
+                is not shared except through the syncs described above. You can clear it from your
+                Profile (Cache Settings) or via your browser/app settings.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">8. Changes to This Privacy Policy</h2>
+              <h2 className="text-xl font-semibold text-foreground">8. Your Rights &amp; Choices</h2>
               <p className="text-muted-foreground leading-relaxed">
-                We may update our Privacy Policy from time to time. We will notify you of any changes by 
-                posting the new Privacy Policy on this page. You are advised to review this page periodically 
-                for any changes.
+                Depending on your jurisdiction (e.g., GDPR, CCPA, RA 10173), you may have the rights
+                below. You can exercise the first three yourself in the app:
+              </p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
+                <li><strong>Access &amp; portability:</strong> Profile → "Export my data" downloads a JSON copy of your data.</li>
+                <li><strong>Erasure:</strong> Profile → "Delete my account" permanently removes your account, owned farms, and personal data.</li>
+                <li><strong>Rectification:</strong> update your name, phone, and records directly in the app.</li>
+                <li><strong>Objection / restriction:</strong> contact us using the details below.</li>
+              </ul>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">9. Data Storage &amp; Security</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Your data is stored on managed cloud infrastructure with row-level security,
+                encrypted transport (HTTPS), role-based access controls, and audit logging. No
+                method of transmission or storage is 100% secure, and we cannot guarantee absolute
+                security.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">9. Contact Us</h2>
+              <h2 className="text-xl font-semibold text-foreground">10. Data Retention &amp; Deletion</h2>
               <p className="text-muted-foreground leading-relaxed">
-                If you have any questions or suggestions about our Privacy Policy, do not hesitate to contact us at:
+                We retain your personal and farm data for as long as your account is active. When
+                you delete your account (Profile → "Delete my account"), we delete your account,
+                the farms you own — including their animals and records — and your personal data.
+                Some minimal records may be retained where required by law.
               </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">11. Children's Privacy</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Our Service is not directed to anyone under the age of 13, and we do not knowingly
+                collect personal information from children under 13.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">12. Changes to This Policy</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                We may update this Privacy Policy from time to time. We will post the updated policy
+                on this page and revise the "Last updated" date above.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">13. Contact Us</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
                 <li><strong>Email:</strong> grow@goldenforage.com</li>
-                <li><strong>Developer:</strong> Golden Forage</li>
+                <li><strong>Operator:</strong> Golden Forage</li>
               </ul>
             </section>
 
