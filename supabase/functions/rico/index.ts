@@ -236,7 +236,19 @@ Always present data clearly with context about what the numbers mean for policy 
      }
  
      const userId = claimsData.user.id;
- 
+
+     // RICO serves national/regional government analytics. Gate on the
+     // government/admin role explicitly (defense-in-depth) instead of relying
+     // solely on each queried table having a perfect RLS policy.
+     const { data: hasGovAccess, error: govError } = await supabase
+       .rpc('has_government_access', { _user_id: userId });
+     if (govError || !hasGovAccess) {
+       return new Response(JSON.stringify({ error: 'Forbidden' }), {
+         status: 403,
+         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+       });
+     }
+
      // Rate limiting
      const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
      if (!rateCheck.allowed) {

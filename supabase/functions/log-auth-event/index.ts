@@ -36,7 +36,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     // Parse request body first to check event type
-    const { userId, eventType, ipAddress, userAgent, metadata } = await req.json();
+    const { userId, eventType, userAgent, metadata } = await req.json();
 
     if (!userId || !eventType) {
       return new Response(
@@ -45,68 +45,59 @@ serve(async (req) => {
       );
     }
 
-    // For signup events, we allow without auth since the user just created their account
-    // and may not have a valid session token yet
-    const isSignupEvent = eventType === "signup";
+    // Every event (including signup) requires a valid session. The signup flow
+    // logs this AFTER the account's session is established, so a token is always
+    // available. Allowing signup unauthenticated previously let anyone POST a
+    // forged event for any userId — written via the service role (bypassing RLS)
+    // with an attacker-controlled IP/metadata, polluting the audit trail.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.warn("Missing authorization header");
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    if (!isSignupEvent) {
-      // Verify JWT authentication for all non-signup events
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) {
-        console.warn("Missing authorization header for non-signup event");
-        return new Response(
-          JSON.stringify({ error: "Missing authorization header" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    // Create client with anon key to verify the user's token
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
-      // Create client with anon key to verify the user's token
-      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      console.warn("Invalid or expired token:", authError?.message);
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      if (authError || !user) {
-        console.warn("Invalid or expired token:", authError?.message);
-        return new Response(
-          JSON.stringify({ error: "Invalid or expired token" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    // Users can only log events for themselves.
+    if (userId !== user.id) {
+      console.warn(`User ${user.id} attempted to log event for user ${userId}`);
+      return new Response(
+        JSON.stringify({ error: "Cannot log events for other users" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      // Validate that the userId matches the authenticated user
-      // Users can only log events for themselves
-      if (userId !== user.id) {
-        console.warn(`User ${user.id} attempted to log event for user ${userId}`);
-        return new Response(
-          JSON.stringify({ error: "Cannot log events for other users" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check rate limit for authenticated user
-      if (!checkRateLimit(user.id)) {
-        console.warn(`Rate limit exceeded for user ${user.id}`);
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    } else {
-      // For signup events, apply rate limiting based on IP to prevent abuse
-      const clientIp = ipAddress || req.headers.get("x-forwarded-for") || "unknown";
-      if (!checkRateLimit(`signup_${clientIp}`)) {
-        console.warn(`Signup rate limit exceeded for IP ${clientIp}`);
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    // Rate-limit (and record the IP) from the real connection, never the request
+    // body — a body-supplied ipAddress can be rotated to bypass the limit.
+    const serverIp = req.headers.get("cf-connecting-ip")
+      || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || null;
+    if (!checkRateLimit(user.id)) {
+      console.warn(`Rate limit exceeded for user ${user.id}`);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Use service role for inserting the log (bypasses RLS)
@@ -140,7 +131,7 @@ serve(async (req) => {
       activity_type: eventType,
       activity_category: eventInfo.category,
       description: eventInfo.description,
-      ip_address: ipAddress || null,
+      ip_address: serverIp,
       user_agent: userAgent || null,
       metadata: metadata || {},
     });

@@ -49,7 +49,11 @@ export const AdminGlobalSearch = ({ onSelectFarm }: AdminGlobalSearchProps) => {
       if (!searchQuery || searchQuery.length < 2) return [];
 
       const results: SearchResult[] = [];
-      const searchTerm = `%${searchQuery}%`;
+      // Strip PostgREST .or() filter metacharacters (commas/parens/wildcards/
+      // backslashes) so a crafted query can't alter the filter logic.
+      const sanitizedQuery = searchQuery.replace(/[,()*\\]/g, " ").trim();
+      if (sanitizedQuery.length < 2) return [];
+      const searchTerm = `%${sanitizedQuery}%`;
 
       // Search farms
       const { data: farms } = await supabase

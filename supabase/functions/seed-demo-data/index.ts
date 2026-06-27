@@ -383,7 +383,17 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const isCron = body?.source === 'cron'
 
-    if (!isCron) {
+    if (isCron) {
+      // The cron path runs with the service role, so it must present the shared
+      // secret (same pattern as process-auto-approvals). Without this, anyone
+      // could POST { source: "cron" } and trigger privileged demo writes.
+      const cronSecret = req.headers.get('x-cron-secret')
+      const expectedSecret = Deno.env.get('CRON_SECRET')
+      if (!expectedSecret || cronSecret !== expectedSecret) {
+        console.warn('Unauthorized cron attempt to trigger seed-demo-data')
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+      }
+    } else {
       const authHeader = req.headers.get('Authorization')
       if (!authHeader?.startsWith('Bearer ')) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })

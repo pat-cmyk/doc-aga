@@ -118,10 +118,12 @@ serve(async (req) => {
     // Use service role client for data queries
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get farm context for better analysis
+    // Get farm context for better analysis. Read through the user-scoped client
+    // (supabaseAuth) so farm RLS applies — prevents echoing back the name/location
+    // of an arbitrary farmId the caller can't access (IDOR).
     let farmContext = '';
     if (farmId) {
-      const { data: farm } = await supabase
+      const { data: farm } = await supabaseAuth
         .from('farms')
         .select('name, region, province, municipality, livestock_type')
         .eq('id', farmId)

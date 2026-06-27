@@ -25,6 +25,26 @@
 - **Auth failure-path tests** (`src/pages/Auth.test.tsx`) covering wrong
   password, password reset for an unknown email, signup with an existing email,
   and a re-used confirmation link — asserting generic, non-enumerating messages.
+- **Non-enumerating signup.** `Auth.tsx` / `MerchantAuth.tsx` no longer confirm
+  that an email is already registered — both return a neutral, conditional
+  message.
+- **OWASP / access-control review remediations:**
+  - `log-auth-event`: removed the unauthenticated "signup" path that allowed
+    forged service-role audit-log writes; every event now requires a valid
+    session, enforces `userId === user.id`, and records the server-derived IP
+    (never the request-body value).
+  - `seed-demo-data`: the `source:"cron"` path now requires the `x-cron-secret`
+    shared secret (same pattern as `process-auto-approvals`) instead of being
+    unauthenticated.
+  - `rico`: added an explicit `has_government_access` (admin/government) gate so
+    authorization isn't left solely to per-table RLS.
+  - `process-farmer-feedback`: the farm-context lookup now runs through the
+    user-scoped (RLS) client, preventing cross-farm name/location disclosure.
+  - `AdminGlobalSearch`: strips PostgREST `.or()` metacharacters from the search
+    term (filter-string hardening).
+  - Audits found **no** exploitable SQL injection / XSS and **no** credential or
+    sensitive-data leaks (secrets stay server-side, logs are masked, API
+    responses are minimal).
 
 ### Manual steps required
 - Set `ALLOWED_ORIGINS` (edge secret) before relying on the CORS lock in prod.
@@ -32,6 +52,9 @@
   enforce Turnstile.
 - Confirm the static host applies `public/_headers`; verify the Android voice
   pipeline and Mapbox under the CSP on-device.
+- Update the `seed-demo-data` scheduled (cron) job to send the
+  `x-cron-secret: <CRON_SECRET>` header — same as the `process-auto-approvals`
+  cron — or the nightly demo seeding will 401 after this change.
 
 ## Unreleased — Unified invite flow
 
