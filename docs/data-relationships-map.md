@@ -1800,4 +1800,46 @@ Store: docAgaPhotoQueue / photoQueue
 | B) RLS ↔ DRM | ✅ No RLS changes |
 | C) API/Edge Contracts ↔ DRM | ✅ No edge function changes |
 | D) Offline/Sync ↔ DRM | ✅ breeding_events now cached + offline queued |
+
+---
+
+## Entry 9 — Unified Invite Flow (2026-04-19)
+
+### New Columns on Invitation Tables
+
+The following columns were added to **all three** invitation tables (`farm_memberships`, `user_invitations`, `cooperative_memberships`) via migration `supabase/migrations/20260419_unified_invite_flow.sql`:
+
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `accepted_ip` | `inet` | YES | Populated by the `accept-invitation` Edge Function with the caller's validated IPv4 or IPv6 address. NULL if address cannot be determined or validated. Audit trail only — not used for access control. |
+| `last_resend_at` | `timestamptz` | YES | Timestamp of the most recent successful invitation resend. Used by `request_invitation_resend` RPC's 24-hour guardrail. NULL until first resend. |
+
+### New RPCs
+
+| RPC | Signature | Security | Notes |
+|-----|-----------|----------|-------|
+| `lookup_invitation` | `(p_token uuid) → record` | `SECURITY DEFINER`, `STABLE`, callable by `anon` + `authenticated` | Probes all three invitation tables in order (`user_invitations` → `farm_memberships` → `cooperative_memberships`), returns a normalized shape: `type`, `status`, `email`, `role`, `role_label`, `inviter_name`, `inviter_email`, `target_name`, `invited_at`, `expires_at`. Used by `useInviteLookup` hook in `src/pages/UnifiedInviteAccept.tsx`. Returns NULL if token not found. |
+| `request_invitation_resend` | `(p_token uuid) → void` | `SECURITY DEFINER`, callable by `anon` + `authenticated` | Read-then-guard-then-update pattern with `FOR UPDATE` row locking. Checks `last_resend_at`; rejects with error if a resend was issued within the last 24 hours. On success, sets `last_resend_at = now()` and triggers the appropriate invitation email. Applied uniformly to all three invitation types. |
+
+### New Edge Function
+
+| Function | Purpose | Tables Touched | Auth/Role Check |
+|----------|---------|---------------|-----------------|
+| `accept-invitation` | Unified accept handler for all three invitation types. For new users: calls `supabase.auth.admin.createUser` with `email_confirm: true`, signs in, dispatches to per-type accept RPC, returns session. For existing users (authed JWT): skips user creation, dispatches accept RPC under user's own JWT. Populates `accepted_ip`. | `user_invitations`, `farm_memberships`, `cooperative_memberships`, `user_roles`, `auth.users` | JWT optional (new user path uses anon; existing user path validates JWT) |
+
+### Feature Flag Gating
+
+| Flag | Scope | Effect |
+|------|-------|--------|
+| `VITE_UNIFIED_INVITE_FLOW` | Frontend (Vite env var) | Enables `/invite/:token` route and `UnifiedInviteAccept` page; legacy routes become redirect shims |
+| `UNIFIED_INVITE_FLOW` | Edge Function runtime secret | Controls email CTA URL in `send-team-invitation` and `send-user-invitation` — points to `/invite/:token` when `true`, legacy URLs when `false` |
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ New columns + RPCs documented above |
+| B) RLS ↔ DRM | ✅ `lookup_invitation` and `request_invitation_resend` are SECURITY DEFINER (bypass RLS); `accepted_ip` and `last_resend_at` are populated server-side only |
+| C) API/Edge Contracts ↔ DRM | ✅ `accept-invitation` Edge Function documented; per-type accept RPCs unchanged |
+| D) Offline/Sync ↔ DRM | ✅ Invite accept is online-only (Category C pattern); no IndexedDB changes |
 | E) Data integrity | ✅ "Bred" box double-count fixed, form parity enforced |

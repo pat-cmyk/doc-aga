@@ -48,7 +48,9 @@ const handler = async (req: Request): Promise<Response> => {
         ? "You'll be able to manage animals and records."
         : "You'll have access to assigned animals.";
 
-    const acceptUrl = `${appUrl}/invite/accept/${invitationToken}`;
+    const acceptUrl = Deno.env.get("UNIFIED_INVITE_FLOW") === "true"
+      ? `${appUrl}/invite/${invitationToken}`
+      : `${appUrl}/invite/accept/${invitationToken}`;
 
     const emailResponse = await resend.emails.send({
       from: "Doc Aga <updates@doc-aga.goldenforage.com>",

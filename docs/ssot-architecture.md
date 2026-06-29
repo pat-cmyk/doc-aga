@@ -304,3 +304,29 @@ syncQueue processes item
 ### Stale Device Warning
 
 On first online after mount, `App.tsx` calls `checkForStaleQueueOnOtherDevices()` via `check_stale_sync_items` RPC. If pending items exist from another `client_id`, a toast warns the user.
+
+---
+
+## Unified Invite Flow (2026-04-19)
+
+A single route `/invite/:token` handles all three invitation types (farm membership,
+global role, cooperative membership). The page drives its state machine off one
+normalized read RPC, `public.lookup_invitation(p_token uuid)`, which probes
+`user_invitations`, `farm_memberships`, and `cooperative_memberships` and returns a
+canonical shape (`type`, `status`, `email`, `role`, `role_label`, `inviter_name`,
+`inviter_email`, `target_name`, `invited_at`, `expires_at`).
+
+Accept flows funnel through the `accept-invitation` Edge Function — the only caller
+of `supabase.auth.admin.createUser`. For new users it creates an account with
+`email_confirm: true`, signs them in, dispatches to the existing per-type accept
+RPCs (`accept_user_invitation`, `accept_farm_invitation`, `accept_cooperative_invitation`),
+and returns a session the client installs directly. For existing users (authed JWT),
+it skips auth creation and dispatches to the accept RPC under the user's own JWT.
+
+Legacy routes (`/invite/accept/:token`, `/invite/user/:token`,
+`/cooperative/invite/accept/:token`) are redirect shims during a 90-day migration
+window, then removed.
+
+Rollout is gated by `VITE_UNIFIED_INVITE_FLOW` (frontend) and `UNIFIED_INVITE_FLOW`
+(Edge Function runtime, controls email CTA URL in `send-team-invitation` and
+`send-user-invitation`).
