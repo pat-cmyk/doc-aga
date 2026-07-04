@@ -2,6 +2,11 @@
 
 ## Unreleased — Security hardening
 
+- **Production boot fallback.** `vite.config.ts` now injects the project's public
+  backend URL/project id/publishable key when the hosting build environment does
+  not provide `VITE_SUPABASE_*`, preventing a blank screen from `supabaseUrl is
+  required` after `.env` was untracked. These values are publishable frontend
+  configuration, not secrets.
 - **Rate-limit the public farmer-feedback endpoint.** `process-farmer-feedback`
   (verify_jwt=false) now uses the in-memory limiter from `doc-aga` (10 req/min,
   keyed on user id with caller-IP fallback), returning HTTP 429 + `Retry-After`.
