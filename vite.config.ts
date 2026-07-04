@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -30,11 +30,35 @@ const CSP_META = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Public Lovable Cloud fallback values. These are publishable frontend values,
+// not secrets. Keep them here so production builds still boot if the hosting
+// build environment does not inject VITE_* variables after `.env` was untracked.
+const PUBLIC_SUPABASE_FALLBACKS = {
+  VITE_SUPABASE_URL: "https://sxorybjlxyquxteptdyk.supabase.co",
+  VITE_SUPABASE_PROJECT_ID: "sxorybjlxyquxteptdyk",
+  VITE_SUPABASE_PUBLISHABLE_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InN4b3J5YmpseHlxdXh0ZXB0ZHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNjQ3ODUsImV4cCI6MjA3NDc0MDc4NX0.WalyDDm7YNNcdiZrrB3PfMUpD2Qj8ld-9SWMv5lB1cA",
+} as const;
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const publicSupabaseEnv = {
+    VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || PUBLIC_SUPABASE_FALLBACKS.VITE_SUPABASE_URL,
+    VITE_SUPABASE_PROJECT_ID: env.VITE_SUPABASE_PROJECT_ID || PUBLIC_SUPABASE_FALLBACKS.VITE_SUPABASE_PROJECT_ID,
+    VITE_SUPABASE_PUBLISHABLE_KEY:
+      env.VITE_SUPABASE_PUBLISHABLE_KEY || PUBLIC_SUPABASE_FALLBACKS.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+
+  return ({
   server: {
     host: "::",
     port: 8080,
+  },
+  define: {
+    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseEnv.VITE_SUPABASE_URL),
+    "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(publicSupabaseEnv.VITE_SUPABASE_PROJECT_ID),
+    "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabaseEnv.VITE_SUPABASE_PUBLISHABLE_KEY),
   },
   plugins: [
     react(),
@@ -138,4 +162,5 @@ export default defineConfig(({ mode }) => ({
     // Optimize chunk size warnings
     chunkSizeWarningLimit: 1000,
   },
-}));
+  });
+});
