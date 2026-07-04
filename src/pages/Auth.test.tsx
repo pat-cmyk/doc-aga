@@ -84,8 +84,8 @@ describe("Auth — failure paths", () => {
   it("login with a wrong password shows a generic, non-enumerating message and keeps the UI usable", async () => {
     const user = userEvent.setup();
     vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: {},
-      error: { message: "Invalid login credentials", status: 400 },
+      data: { user: null, session: null },
+      error: { message: "Invalid login credentials", status: 400, code: "invalid_credentials", name: "AuthApiError", __isAuthError: true } as any,
     });
 
     renderAuth();
@@ -112,8 +112,8 @@ describe("Auth — failure paths", () => {
   it("repeated wrong-password attempts each show the same generic error and never break the UI", async () => {
     const user = userEvent.setup();
     vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: {},
-      error: { message: "Invalid login credentials", status: 400 },
+      data: { user: null, session: null },
+      error: { message: "Invalid login credentials", status: 400, code: "invalid_credentials", name: "AuthApiError", __isAuthError: true } as any,
     });
 
     renderAuth();
@@ -167,7 +167,7 @@ describe("Auth — failure paths", () => {
     // Supabase's anti-enumeration response for an existing email: an obfuscated
     // user with no identities and no session, and NO error.
     vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "obfuscated", identities: [] }, session: null },
+      data: { user: { id: "obfuscated", identities: [] } as any, session: null },
       error: null,
     });
 
