@@ -112,8 +112,8 @@ describe("Auth — failure paths", () => {
   it("repeated wrong-password attempts each show the same generic error and never break the UI", async () => {
     const user = userEvent.setup();
     vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: {},
-      error: { message: "Invalid login credentials", status: 400 },
+      data: { user: null, session: null },
+      error: { message: "Invalid login credentials", status: 400, code: "invalid_credentials", name: "AuthApiError", __isAuthError: true } as any,
     });
 
     renderAuth();
