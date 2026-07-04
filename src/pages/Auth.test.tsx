@@ -167,7 +167,7 @@ describe("Auth — failure paths", () => {
     // Supabase's anti-enumeration response for an existing email: an obfuscated
     // user with no identities and no session, and NO error.
     vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "obfuscated", identities: [] }, session: null },
+      data: { user: { id: "obfuscated", identities: [] } as any, session: null },
       error: null,
     });
 
