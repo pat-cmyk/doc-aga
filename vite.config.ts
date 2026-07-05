@@ -22,6 +22,7 @@ const CSP_META = [
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: data:",
   "font-src 'self' data: https://fonts.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "script-src 'self' https://challenges.cloudflare.com",
