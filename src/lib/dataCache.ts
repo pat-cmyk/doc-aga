@@ -1127,21 +1127,25 @@ export async function updateRecordsCacheBatch(
     if (isDelta) {
       // Delta: only records updated since last sync (across ALL animals in farm)
       const since = checkpoint.lastSyncedAt;
+      // NOTE: These tables don't have an updated_at column. Use created_at
+      // (present on every table) so delta sync picks up newly inserted records
+      // since the last checkpoint. Edits to existing records won't be detected
+      // via delta — the periodic full-sync branch below covers that case.
       [milkingRes, weightRes, healthRes, aiRes, feedingRes, heatRes, breedingRes] = await Promise.all([
         supabase.from('milking_records').select(MILKING_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('record_date', { ascending: false }),
+          .gte('created_at', since).order('record_date', { ascending: false }),
         supabase.from('weight_records').select(WEIGHT_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('measurement_date', { ascending: false }),
+          .gte('created_at', since).order('measurement_date', { ascending: false }),
         supabase.from('health_records').select(HEALTH_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('visit_date', { ascending: false }),
+          .gte('created_at', since).order('visit_date', { ascending: false }),
         supabase.from('ai_records').select(AI_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('scheduled_date', { ascending: false }),
+          .gte('created_at', since).order('scheduled_date', { ascending: false }),
         supabase.from('feeding_records').select(FEEDING_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('record_datetime', { ascending: false }),
+          .gte('created_at', since).order('record_datetime', { ascending: false }),
         supabase.from('heat_records').select(HEAT_RECORD_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('detected_at', { ascending: false }),
+          .gte('created_at', since).order('detected_at', { ascending: false }),
         supabase.from('breeding_events').select(BREEDING_EVENT_COLUMNS).in('animal_id', safeIds)
-          .gte('updated_at', since).order('event_date', { ascending: false }),
+          .gte('created_at', since).order('event_date', { ascending: false }),
       ]);
 
       const totalDelta = (milkingRes.data?.length || 0) + (weightRes.data?.length || 0) +
