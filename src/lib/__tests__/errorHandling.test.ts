@@ -42,6 +42,11 @@ describe('translateError (regression)', () => {
       .toEqual(ERROR_MESSAGES.PERMISSION_DENIED);
   });
 
+  it('maps "Access denied" errors to PERMISSION_DENIED', () => {
+    expect(translateError(new Error('Access denied')))
+      .toEqual(ERROR_MESSAGES.PERMISSION_DENIED);
+  });
+
   it('still falls back with context', () => {
     const result = translateError(new Error('some unknown thing'), 'saving milk record');
     expect(result.title).toBe(ERROR_MESSAGES.FALLBACK.title);

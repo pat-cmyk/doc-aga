@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
+import { reportSilentError } from "@/lib/errorMonitor";
 
 export type ErrorLogStatus = "new" | "investigating" | "resolved" | "ignored";
 export type ErrorLogSeverity = "toast" | "crash" | "silent" | "server";
@@ -58,7 +59,10 @@ export function useErrorLogs() {
     queryKey: ["admin-error-logs"],
     queryFn: async () => {
       const { data, error } = await rpc("get_error_monitoring_summary");
-      if (error) throw new Error(error.message);
+      if (error) {
+        reportSilentError(error, "error monitoring summary query");
+        throw new Error(error.message);
+      }
       return data as unknown as ErrorMonitoringSummary;
     },
     refetchInterval: 60000,
@@ -73,6 +77,8 @@ export function useErrorLogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-error-logs"] });
     },
+    // Intentional: showErrorToastLegacy routes through translateError → captureError,
+    // so failed admin mutations appear in the error log themselves.
     onError: (err: Error) => {
       showErrorToastLegacy(toast, err, "updating error status");
     },
@@ -87,6 +93,8 @@ export function useErrorLogs() {
       queryClient.invalidateQueries({ queryKey: ["admin-error-logs"] });
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     },
+    // Intentional: showErrorToastLegacy routes through translateError → captureError,
+    // so failed admin mutations appear in the error log themselves.
     onError: (err: Error) => {
       showErrorToastLegacy(toast, err, "linking ticket");
     },
@@ -95,7 +103,7 @@ export function useErrorLogs() {
   return {
     summary,
     groups: summary?.groups ?? [],
-    counts: summary?.counts,
+    counts: summary?.counts ?? { new: 0, investigating: 0, crashes_24h: 0, total_24h: 0 },
     isLoading,
     error,
     refetch,

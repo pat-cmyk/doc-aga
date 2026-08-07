@@ -161,6 +161,7 @@ function matchError(error: unknown, context?: string): TranslatedError {
   if (
     message.includes("row-level security") ||
     message.includes("permission denied") ||
+    message.includes("access denied") ||
     message.includes("policy") ||
     message.includes("403") ||
     message.includes("forbidden") ||
