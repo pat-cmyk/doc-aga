@@ -1,13 +1,14 @@
 import { useSystemHealth, calculateHealthScore, getHealthStatus, getTrendIndicator } from "@/hooks/useSystemHealth";
+import { useErrorLogs } from "@/hooks/useErrorLogs";
 import { describeError } from "@/lib/errorHandling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Users, Building2, Beef, MessageSquare, AlertTriangle, 
-  CheckCircle2, Clock, TrendingUp, Activity, Mic, 
-  RefreshCw, ExternalLink, HeartPulse, Inbox, ShieldAlert
+import {
+  Users, Building2, Beef, MessageSquare, AlertTriangle,
+  CheckCircle2, Clock, TrendingUp, Activity, Mic,
+  RefreshCw, ExternalLink, HeartPulse, Inbox, ShieldAlert, Bug
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { format, parseISO } from "date-fns";
@@ -21,6 +22,7 @@ interface SystemOverviewProps {
 
 export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) => {
   const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth(dataCategory);
+  const { counts: errorCounts } = useErrorLogs();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const { fontSize } = useResponsiveChart({ size: 'small' });
@@ -81,7 +83,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
       </Card>
 
       {/* Critical Alerts Panel */}
-      {metrics && (metrics.support.urgent > 0 || metrics.feedback.pending > 20 || metrics.approvals.pending > 10 || metrics.stt.failed_24h > 0) && (
+      {((metrics && (metrics.support.urgent > 0 || metrics.feedback.pending > 20 || metrics.approvals.pending > 10 || metrics.stt.failed_24h > 0)) || errorCounts.new > 0) && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -91,7 +93,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              {metrics.support.urgent > 0 && (
+              {metrics && metrics.support.urgent > 0 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -102,7 +104,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.support.urgent} Urgent Ticket{metrics.support.urgent > 1 ? "s" : ""}
                 </Button>
               )}
-              {metrics.feedback.pending > 20 && (
+              {metrics && metrics.feedback.pending > 20 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -113,7 +115,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.feedback.pending} Pending Feedback
                 </Button>
               )}
-              {metrics.approvals.pending > 10 && (
+              {metrics && metrics.approvals.pending > 10 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -124,15 +126,27 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.approvals.pending} Pending Approvals
                 </Button>
               )}
-              {metrics.stt.failed_24h > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+              {metrics && metrics.stt.failed_24h > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="border-destructive/50 text-destructive hover:bg-destructive/10"
                   onClick={() => navigateToTab("ai-voice")}
                 >
                   <Mic className="h-4 w-4 mr-2" />
                   {metrics.stt.failed_24h} STT Failure{metrics.stt.failed_24h > 1 ? "s" : ""} (24h)
+                </Button>
+              )}
+              {errorCounts.new > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={() => navigateToTab("operations", "errors")}
+                >
+                  <Bug className="h-4 w-4 mr-2" />
+                  {errorCounts.new} New Error{errorCounts.new > 1 ? "s" : ""}
+                  {errorCounts.crashes_24h > 0 ? ` (${errorCounts.crashes_24h} crash${errorCounts.crashes_24h > 1 ? "es" : ""} 24h)` : ""}
                 </Button>
               )}
             </div>
