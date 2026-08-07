@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-08-07 — Silent error reporting for sync, voice, and health-query failures
+
+- **`src/lib/syncTelemetry.ts`** — `recordSyncError()` now calls
+  `reportSilentError(error, 'sync')` (from `src/lib/errorMonitor.ts`) as its
+  first line, so background sync failures are captured (severity: `silent`)
+  in addition to being written to `sync_analytics`.
+- **`src/components/animal-form/VoiceQuickAdd.tsx`** — Both catch paths
+  (edge-function extraction failure in `processTranscription`, and the
+  non-permission branch of `useVoiceRecording`'s `onError`) now call
+  `reportSilentError(error, 'voice transcription')` before rendering the
+  inline `describeError()` message — restores the capture that was dropped
+  when this component switched from `translateError` to `describeError`.
+- **`src/hooks/useSystemHealth.ts`** — `useQuery`'s `queryFn` now calls
+  `reportSilentError(error, 'system health query')` before re-throwing the
+  RPC error. TanStack Query v5 (installed: `^5.83.0`) removed per-query
+  `onError`, so this is done inside `queryFn` rather than in the query
+  options; it fires once per failed fetch attempt (including internal
+  retries), which is acceptable for a silent, non-blocking signal.
+- **`src/lib/__tests__/syncTelemetry.test.ts`** — Mocks `@/lib/errorMonitor`
+  and asserts `recordSyncError()` calls `reportSilentError` with the raw
+  error and `'sync'` context.
+
 ## 2026-08-07 — Root crash boundary + error-monitor boot wiring
 
 - **`src/components/AppErrorBoundary.tsx`** — New class-based error boundary

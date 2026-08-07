@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { describeError } from '@/lib/errorHandling';
+import { reportSilentError } from '@/lib/errorMonitor';
 import { Mic, Square, Loader2, Check, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog';
@@ -75,6 +76,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
       }
     } catch (error) {
       console.error('Voice processing error:', error);
+      reportSilentError(error, 'voice transcription');
       setComponentState('error');
       setErrorMessage(describeError(error).description);
       hapticNotification('error');
@@ -97,6 +99,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
       if (error.message.includes('denied') || error.message.includes('permission')) {
         setShowPermissionDialog(true);
       } else {
+        reportSilentError(error, 'voice transcription');
         setComponentState('error');
         setErrorMessage(describeError(error).description);
       }
