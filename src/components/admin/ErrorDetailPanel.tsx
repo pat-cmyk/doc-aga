@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,28 @@ interface ErrorDetailPanelProps {
 export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) => {
   const { updateStatus, linkTicket } = useErrorLogs();
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  // FIX10: createTicket can succeed while the follow-up set_error_log_ticket
+  // link fails (network blip between the two calls) — without tracking the
+  // created ticket id separately, the panel falls back to showing "Create
+  // Ticket" again, and a retry there creates a SECOND ticket for the same
+  // error. This lets the panel offer "Retry link" instead.
+  const [pendingTicketId, setPendingTicketId] = useState<string | null>(null);
+
+  // Reset when the panel is pointed at a different error (or closed) so a
+  // stale pending-link state from one error can't bleed into another.
+  useEffect(() => {
+    setPendingTicketId(null);
+  }, [errorLog?.id]);
 
   if (!errorLog) return null;
+
+  const retryLink = () => {
+    if (!pendingTicketId) return;
+    linkTicket.mutate(
+      { id: errorLog.id, ticketId: pendingTicketId },
+      { onSuccess: () => setPendingTicketId(null) },
+    );
+  };
 
   const contextRoute = typeof errorLog.context?.route === "string" ? errorLog.context.route : "—";
   const contextDevice = typeof errorLog.context?.user_agent === "string" ? errorLog.context.user_agent : "—";
@@ -104,6 +124,13 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
               <Ticket className="h-4 w-4" />
               Linked ticket: <Badge variant="secondary">{errorLog.linked_ticket_number}</Badge>
             </div>
+          ) : pendingTicketId ? (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Ticket created — linking…</span>
+              <Button variant="outline" size="sm" onClick={retryLink} disabled={linkTicket.isPending}>
+                Retry link
+              </Button>
+            </div>
           ) : (
             <Button onClick={() => setTicketDialogOpen(true)}>
               <Ticket className="h-4 w-4 mr-2" />
@@ -121,7 +148,17 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
           initialDescription={`Created from Error Monitoring.\n\nError: ${errorLog.message}\nSeverity: ${errorLog.severity}\nRoute: ${contextRoute}\nOccurrences: ${errorLog.occurrence_count}\nAffected users: ${errorLog.affected_user_count}\nFirst seen: ${errorLog.first_seen_at}`}
           initialPriority={errorLog.severity === "crash" ? "high" : "medium"}
           initialTags={["auto-error"]}
-          onCreated={(ticketId) => linkTicket.mutate({ id: errorLog.id, ticketId })}
+          onCreated={(ticketId) => {
+            // FIX10: remember the ticket id BEFORE attempting the link, so a
+            // failed link (default error toast still fires via linkTicket's
+            // own onError) leaves "Retry link" available instead of a
+            // "Create Ticket" button that would mint a duplicate ticket.
+            setPendingTicketId(ticketId);
+            linkTicket.mutate(
+              { id: errorLog.id, ticketId },
+              { onSuccess: () => setPendingTicketId(null) },
+            );
+          }}
         />
       </SheetContent>
     </Sheet>

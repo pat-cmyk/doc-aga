@@ -31,9 +31,17 @@ import {
   _resetForTests,
   _resetSessionCountersForTests,
   _peekQueueForTests,
+  _setCurrentUserIdForTests,
   _DEDUP_WINDOW_MS_FOR_TESTS as DEDUP_WINDOW_MS,
   _DEDUP_WINDOW_MS_SILENT_FOR_TESTS as DEDUP_WINDOW_MS_SILENT,
 } from '@/lib/errorMonitor';
+
+// Default signed-in user for every test that doesn't care about FIX1's
+// per-session attribution guard — flushQueue() is a no-op while
+// currentUserId is null, so every pre-existing test needs a stable
+// "someone is logged in" baseline. Tests exercising the attribution guard
+// itself override this explicitly.
+const DEFAULT_TEST_USER_ID = 'test-user-default';
 
 beforeEach(async () => {
   // Drain the previous test's background work FIRST, while `onlineState`
@@ -46,6 +54,7 @@ beforeEach(async () => {
   onlineState = true;
   rpcMock.mockReset();
   rpcMock.mockResolvedValue({ data: 'log-id-1', error: null });
+  _setCurrentUserIdForTests(DEFAULT_TEST_USER_ID);
 });
 
 // Safety net: if a fake-timers test above ever times out mid-await, its own
@@ -600,5 +609,74 @@ describe('I1 — captureError return value (the only handoff channel, no severit
       'log_client_error',
       expect.objectContaining({ _payload: expect.objectContaining({ severity: 'silent' }) }),
     );
+  });
+});
+
+describe('FIX1 — queued-report attribution to the wrong user', () => {
+  it('drops a queued report captured under a different user session, without submitting it', async () => {
+    _setCurrentUserIdForTests('user-A');
+    // Stay offline through capture + mark so the row is still sitting in
+    // IndexedDB (with userId 'user-A' baked in) when we flip sessions below.
+    onlineState = false;
+    const handle = captureError(new Error('cross-user report'), { severity: 'toast' })!;
+    const markResult = await handle.requestReport();
+    expect(markResult.status).toBe('queued');
+
+    // Session changes to a different user before this row ever flushes.
+    _setCurrentUserIdForTests('user-B');
+    onlineState = true;
+    rpcMock.mockClear();
+    await flushQueue();
+
+    // Neither log_client_error nor submit_error_report may fire for a row
+    // captured under someone else's session.
+    expect(rpcMock).not.toHaveBeenCalled();
+    const remaining = await _peekQueueForTests();
+    expect(remaining.find((r) => r.fingerprint === handle.fingerprint)).toBeUndefined();
+  });
+
+  it('treats flushQueue as a no-op while there is no known session (rows preserved, nothing submitted)', async () => {
+    _setCurrentUserIdForTests(null);
+    const handle = captureError(new Error('no session yet'), { severity: 'toast' })!;
+    // captureError() schedules its own post-write auto-flush; wait for it to
+    // settle before asserting, then flush explicitly for good measure.
+    await flushQueue();
+
+    expect(rpcMock).not.toHaveBeenCalled();
+    const remaining = await _peekQueueForTests();
+    expect(remaining.some((r) => r.fingerprint === handle.fingerprint)).toBe(true);
+  });
+});
+
+describe('FIX3 — pre-login "Not authenticated" is transient, not a strike', () => {
+  it('never burns an attempt on 3 consecutive "Not authenticated" rejections; the row survives untouched', async () => {
+    // Capture while offline, then synchronize on the write actually landing
+    // (via the side-effect-free _peekQueueForTests) BEFORE flipping online —
+    // otherwise captureError's own post-write auto-flush can observe
+    // onlineState=true first and race an extra, uncounted flushQueue() call
+    // against the explicit ones below.
+    onlineState = false;
+    const handle = captureError(new Error('captured before login finished'), { severity: 'toast' })!;
+    await _peekQueueForTests();
+
+    onlineState = true;
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') {
+        return Promise.resolve({ data: null, error: { message: 'Not authenticated' } });
+      }
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+
+    await flushQueue();
+    await flushQueue();
+    await flushQueue();
+
+    const logCalls = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error').length;
+    expect(logCalls).toBe(3);
+
+    const remaining = await _peekQueueForTests();
+    const row = remaining.find((r) => r.fingerprint === handle.fingerprint);
+    expect(row).toBeDefined();
+    expect(row?.attempts ?? 0).toBe(0);
   });
 });

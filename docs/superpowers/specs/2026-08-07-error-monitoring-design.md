@@ -281,3 +281,7 @@ narrowly, from what was drafted.
   catch paths, and `useSystemHealth`'s `queryFn`. Extending silent capture to
   the remaining caught-but-unreported error sites across the app is a
   tracked follow-up, not a gap in this feature's stated scope.
+- **Known accepted limitation: `log_client_error` trusts client-supplied
+  fingerprints; an authenticated user could join an existing error group and
+  overwrite its latest message/context.** Blast radius is admin triage data
+  only (no farmer-facing exposure); revisit if signal quality degrades.

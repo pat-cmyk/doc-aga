@@ -51,6 +51,13 @@ interface QueuedReport {
   attempts?: number;
   /** Consecutive PERMANENT submit_error_report rejections for this row (see bumpSubmitAttemptsOrGiveUp). */
   submitAttempts?: number;
+  /**
+   * The authenticated user id at capture time (undefined if captured while
+   * signed out). Guards against a wrong-user ticket: if the session has
+   * switched users by the time this row would flush, it must never be
+   * submitted under the new session — see flushQueue()'s attribution check.
+   */
+  userId?: string;
 }
 
 interface ErrorMonitorDBSchema extends DBSchema {
@@ -150,6 +157,19 @@ let pendingAutoFlush: Promise<void> = Promise.resolve();
 const dedup = new Map<string, { lastQueuedAt: number; pendingCount: number }>();
 const handles = new Map<string, CaptureHandle>();
 const fingerprintToLogId = new Map<string, string>();
+// FIX2: the error-GROUP row's farm_id tracks the LATEST occurrence across all
+// reporters (see log_client_error's upsert), so a late-flushing reporter on a
+// different farm than whoever most recently hit the error would otherwise get
+// a ticket linked to someone else's farm. This map remembers the farm this
+// *session* actually captured the error under, so submit_error_report can be
+// told the right farm explicitly instead of trusting the group row.
+const fingerprintToFarmId = new Map<string, string | null>();
+// FIX1: the authenticated user id for this session, kept in sync by
+// initErrorMonitor()'s auth subscription. A queued report must never be
+// submitted under a *different* session than the one that captured it (see
+// flushQueue()'s attribution check) — see _setCurrentUserIdForTests for how
+// unit tests control this without a real auth flow.
+let currentUserId: string | null = null;
 
 function getDb(): Promise<IDBPDatabase<ErrorMonitorDBSchema>> {
   if (!dbPromise) {
@@ -300,7 +320,9 @@ export function captureError(
           : undefined,
       occurrence_count: 1 + pending,
       reportRequested: false,
+      userId: currentUserId ?? undefined,
     };
+    fingerprintToFarmId.set(fingerprint, report.farm_id ?? null);
 
     const handle: CaptureHandle =
       existingHandle ?? {
@@ -375,9 +397,16 @@ async function enqueue(report: QueuedReport): Promise<void> {
 // PostgREST returns PGRST202 ("Could not find the function") for these RPCs —
 // that message doesn't match this pattern, so it's intentionally treated as
 // transient: flushes stop and retry until the SQL runs, no data lost.
-const PERMANENT_LOG_ERROR_RE = /invalid payload|not authenticated|access denied/i;
+// FIX3: "not authenticated" is deliberately NOT in this list. A pre-login
+// capture (e.g. an error on the auth screen itself) must not burn a strike —
+// it self-resolves the moment the user signs in. flushQueue()'s `if
+// (!currentUserId) return` guard (FIX1) already stops every flush attempt
+// while there's no session, so in practice this RPC rejection should never
+// even fire; treating it as transient here is defense in depth, not the
+// primary safeguard.
+const PERMANENT_LOG_ERROR_RE = /invalid payload|access denied/i;
 // R2: same idea for submit_error_report's permanent rejections.
-const PERMANENT_SUBMIT_ERROR_RE = /not a reporter|error log not found|not authenticated/i;
+const PERMANENT_SUBMIT_ERROR_RE = /not a reporter|error log not found/i;
 
 function showReportFailedToast(): void {
   sonnerToast('Hindi naipadala ang report. Subukan ulit mamaya. (Could not send report.)');
@@ -473,9 +502,25 @@ export async function flushQueue(): Promise<void> {
     // Wait for any in-flight captureError() writes so we don't miss entries
     // that were queued microtasks ago but haven't hit IndexedDB yet.
     await enqueueChain;
+    // FIX1: without a known session there is no safe attribution check below
+    // (a captured-while-signed-out row has no userId to compare against, and
+    // a row captured under a *previous* user could otherwise be submitted
+    // before we've learned who's logged in now). Stop the whole flush and
+    // keep every row for the next attempt — initErrorMonitor()'s auth
+    // subscription re-triggers flushQueue() as soon as a session resolves.
+    if (!currentUserId) return;
     const db = await getDb();
     const entries = await db.getAll(STORE);
     for (const entry of entries) {
+      // FIX1: never submit (or even re-log) a report captured under a
+      // different user session than the one we're in now — that would
+      // attribute one farmer's error to another farmer's ticket/account.
+      if (entry.userId && entry.userId !== currentUserId) {
+        console.warn('[errorMonitor] dropping queued report from a different user session');
+        if (entry.id !== undefined) await db.delete(STORE, entry.id);
+        continue;
+      }
+
       // C1: a report-only row already knows its server-side log id (created
       // by requestReport() when the original row had already been flushed).
       // Skip log_client_error entirely and go straight to submit.
@@ -530,9 +575,14 @@ export async function flushQueue(): Promise<void> {
       const note = freshEntry?.userNote ?? entry.userNote;
 
       if (wantsReport) {
+        // FIX2: tell the server the farm THIS report was captured under,
+        // rather than letting it fall back to the error-group row's farm_id
+        // (which tracks the latest occurrence across all reporters and can
+        // belong to a different farmer by the time this row flushes).
         const { data: ticket, error: submitError } = await safeRpc('submit_error_report', {
           _error_log_id: logId,
           _user_note: note ?? null,
+          _farm_id: (freshEntry ?? entry).farm_id ?? null,
         });
         if (submitError) {
           // R2: same strike policy as the log path — permanent rejections
@@ -573,9 +623,13 @@ async function requestReport(fingerprint: string, note?: string): Promise<Report
     await enqueueChain;
     const logId = fingerprintToLogId.get(fingerprint);
     if (logId && getIsOnline()) {
+      // FIX2: use the farm this session actually captured the error under,
+      // not whatever farm the (possibly since-mutated) error-group row
+      // currently points at.
       const { data, error } = await safeRpc('submit_error_report', {
         _error_log_id: logId,
         _user_note: note ?? null,
+        _farm_id: fingerprintToFarmId.get(fingerprint) ?? null,
       });
       if (!error && typeof data === 'string') {
         return { status: 'submitted', ticketNumber: data };
@@ -633,8 +687,12 @@ export async function submitOneTapReport(handle: CaptureHandle): Promise<void> {
     if (result.status === 'submitted') {
       showReportSuccessToast(result.ticketNumber);
     } else if (result.status === 'queued') {
+      // FIX8: neutral copy. The old "will send when back online" wording
+      // implied connectivity was the only reason for queuing, but a
+      // mid-flush hiccup can also land here while already online — say
+      // "we'll send it" rather than committing to a specific trigger.
       sonnerToast.success('Salamat!', {
-        description: 'Ipapadala ang report kapag may internet na. (Will send when back online.)',
+        description: "Naitala ang report — ipapadala namin ito. (Report recorded — we'll send it.)",
       });
     } else {
       showReportFailedToast();
@@ -650,6 +708,20 @@ let initialized = false;
 export function initErrorMonitor(): void {
   if (initialized || typeof window === 'undefined') return;
   initialized = true;
+
+  // FIX1: keep currentUserId in sync with the real session so flushQueue()
+  // can refuse to submit a report under the wrong user. Seed it immediately
+  // (auth state may already be resolved before this subscription attaches),
+  // then keep it current — and re-flush whenever a session appears, so
+  // errors captured while signed out (or mid-login) go out as soon as
+  // there's someone to attribute them to.
+  void supabase.auth.getSession().then(({ data }) => {
+    currentUserId = data.session?.user?.id ?? null;
+  });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    currentUserId = session?.user?.id ?? null;
+    if (session?.user) void flushQueue();
+  });
 
   window.addEventListener('error', (event) => {
     // Stale-chunk errors trigger a reload in main.tsx — don't log them
@@ -686,12 +758,24 @@ export async function _resetForTests(): Promise<void> {
   dedup.clear();
   handles.clear();
   fingerprintToLogId.clear();
+  fingerprintToFarmId.clear();
+  currentUserId = null;
   try {
     const db = await getDb();
     await db.clear(STORE);
   } catch {
     // ignore
   }
+}
+
+/**
+ * FIX1: test-only control for the module's notion of "who is signed in
+ * right now" — real tests don't drive a Supabase auth flow, so this is the
+ * only way to exercise flushQueue()'s wrong-user attribution guard and its
+ * no-session guard.
+ */
+export function _setCurrentUserIdForTests(userId: string | null): void {
+  currentUserId = userId;
 }
 
 /**
@@ -711,10 +795,14 @@ export function _resetSessionCountersForTests(): void {
 
 /** R4: test-only peek at the raw queue contents, waiting for pending writes first. */
 export async function _peekQueueForTests(): Promise<
-  Array<{ fingerprint: string; reportRequested: boolean }>
+  Array<{ fingerprint: string; reportRequested: boolean; attempts?: number }>
 > {
   await enqueueChain.catch(() => undefined);
   const db = await getDb();
   const rows = await db.getAll(STORE);
-  return rows.map((r) => ({ fingerprint: r.fingerprint, reportRequested: r.reportRequested }));
+  return rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    reportRequested: r.reportRequested,
+    attempts: r.attempts,
+  }));
 }

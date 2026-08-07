@@ -31,16 +31,25 @@ export interface ErrorLogGroup {
   linked_ticket_number: string | null;
 }
 
+export interface ErrorMonitoringCounts {
+  new: number;
+  investigating: number;
+  crashes_24h: number;
+  total_24h: number;
+}
+
 export interface ErrorMonitoringSummary {
-  counts: {
-    new: number;
-    investigating: number;
-    crashes_24h: number;
-    total_24h: number;
-  };
+  counts: ErrorMonitoringCounts;
   groups: ErrorLogGroup[];
   last_updated: string;
 }
+
+const DEFAULT_COUNTS: ErrorMonitoringCounts = {
+  new: 0,
+  investigating: 0,
+  crashes_24h: 0,
+  total_24h: 0,
+};
 
 // types.ts is Lovable-generated and stale until regeneration; narrow typed
 // cast for the new error-monitoring RPCs only (per CLAUDE.md — no `as any`).
@@ -51,6 +60,37 @@ type ErrorAdminRpc = (
 const rpc: ErrorAdminRpc = (fn, params) =>
   (supabase.rpc as unknown as ErrorAdminRpc)(fn, params);
 
+/**
+ * FIX5: lightweight counts-only poll for the SystemOverview "Requires
+ * Attention" badge. Passes `_include_groups: false` so the RPC skips its
+ * expensive grouped-rows subquery entirely — SystemOverview only ever reads
+ * `counts`, so paying for the full row-level detail on every 60s poll was
+ * pure waste. Use `useErrorLogs()` instead when the row-level groups are
+ * actually needed (the admin error-monitoring screen).
+ */
+export function useErrorCounts() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-error-counts"],
+    queryFn: async () => {
+      const { data, error } = await rpc("get_error_monitoring_summary", {
+        _include_groups: false,
+      });
+      if (error) {
+        reportSilentError(error, "error monitoring counts query");
+        throw new Error(error.message);
+      }
+      return (data as unknown as ErrorMonitoringSummary).counts;
+    },
+    refetchInterval: 60000,
+  });
+
+  return {
+    counts: data ?? DEFAULT_COUNTS,
+    isLoading,
+    error,
+  };
+}
+
 export function useErrorLogs() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -58,7 +98,9 @@ export function useErrorLogs() {
   const { data: summary, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-error-logs"],
     queryFn: async () => {
-      const { data, error } = await rpc("get_error_monitoring_summary");
+      const { data, error } = await rpc("get_error_monitoring_summary", {
+        _include_groups: true,
+      });
       if (error) {
         reportSilentError(error, "error monitoring summary query");
         throw new Error(error.message);
@@ -103,7 +145,7 @@ export function useErrorLogs() {
   return {
     summary,
     groups: summary?.groups ?? [],
-    counts: summary?.counts ?? { new: 0, investigating: 0, crashes_24h: 0, total_24h: 0 },
+    counts: summary?.counts ?? DEFAULT_COUNTS,
     isLoading,
     error,
     refetch,

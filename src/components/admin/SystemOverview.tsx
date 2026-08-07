@@ -1,5 +1,5 @@
 import { useSystemHealth, calculateHealthScore, getHealthStatus, getTrendIndicator } from "@/hooks/useSystemHealth";
-import { useErrorLogs } from "@/hooks/useErrorLogs";
+import { useErrorCounts } from "@/hooks/useErrorLogs";
 import { describeError } from "@/lib/errorHandling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,10 @@ interface SystemOverviewProps {
 
 export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) => {
   const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth(dataCategory);
-  const { counts: errorCounts } = useErrorLogs();
+  // FIX5: SystemOverview only ever reads counts, not the row-level groups —
+  // useErrorCounts() polls the same RPC with _include_groups: false so this
+  // 60s poll skips the expensive grouped-rows subquery entirely.
+  const { counts: errorCounts } = useErrorCounts();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const { fontSize } = useResponsiveChart({ size: 'small' });

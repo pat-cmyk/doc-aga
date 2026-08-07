@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { buildCorsHeaders } from "../_shared/cors.ts";
-import { logServerError } from '../_shared/errorLogger.ts';
+import { logServerErrorInBackground } from '../_shared/errorLogger.ts';
 
 const RATE_LIMIT_MAX = 30;
 const RATE_LIMIT_WINDOW = 60000;
@@ -576,7 +576,7 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in calculate-daily-stats:', error);
-    await logServerError('calculate-daily-stats', error);
+    logServerErrorInBackground('calculate-daily-stats', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
       JSON.stringify({ error: errorMessage }),

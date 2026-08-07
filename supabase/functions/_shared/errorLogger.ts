@@ -70,3 +70,25 @@ export async function logServerError(
     console.error('[errorLogger] failed to log server error:', logErr);
   }
 }
+
+/**
+ * FIX9: fire-and-forget wrapper shared by every Edge Function's catch block.
+ * Prefers `EdgeRuntime.waitUntil()` so the log write can finish after the
+ * response is sent without delaying it (Supabase's Deno deploy runtime keeps
+ * the isolate alive until the awaited promise settles); falls back to a bare
+ * `void` call on runtimes where `EdgeRuntime` isn't available (e.g. local
+ * `supabase functions serve`, tests) so logging never blocks or throws into
+ * the caller's response path either way.
+ */
+export function logServerErrorInBackground(
+  fnName: string,
+  error: unknown,
+  context: Record<string, unknown> = {},
+): void {
+  try {
+    // @ts-expect-error EdgeRuntime is provided by Supabase's Deno deploy runtime
+    EdgeRuntime.waitUntil(logServerError(fnName, error, context));
+  } catch {
+    void logServerError(fnName, error, context);
+  }
+}

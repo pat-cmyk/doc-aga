@@ -1,14 +1,24 @@
 -- Error Monitoring & One-Tap Error Tickets
 -- Spec: docs/superpowers/specs/2026-08-07-error-monitoring-design.md
 -- Run this file in the Supabase Dashboard SQL Editor (Lovable Cloud — no CLI access).
+-- Idempotent by design (FIX6): safe to paste and re-run in full if a partial
+-- run failed midway — enum creation swallows "already exists", tables/indexes
+-- use IF NOT EXISTS, and policies are dropped-then-recreated.
 
 -- ─── Enums ────────────────────────────────────────────────────────────
-CREATE TYPE error_severity AS ENUM ('toast', 'crash', 'silent', 'server');
-CREATE TYPE error_log_status AS ENUM ('new', 'investigating', 'resolved', 'ignored');
+DO $$ BEGIN
+  CREATE TYPE error_severity AS ENUM ('toast', 'crash', 'silent', 'server');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE error_log_status AS ENUM ('new', 'investigating', 'resolved', 'ignored');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ─── Tables ───────────────────────────────────────────────────────────
 -- One row per fingerprint. Upserts increment occurrence_count.
-CREATE TABLE public.client_error_logs (
+CREATE TABLE IF NOT EXISTS public.client_error_logs (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   fingerprint TEXT NOT NULL UNIQUE,
   severity error_severity NOT NULL,
@@ -28,11 +38,11 @@ CREATE TABLE public.client_error_logs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_client_error_logs_status ON public.client_error_logs(status);
-CREATE INDEX idx_client_error_logs_last_seen ON public.client_error_logs(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_error_logs_status ON public.client_error_logs(status);
+CREATE INDEX IF NOT EXISTS idx_client_error_logs_last_seen ON public.client_error_logs(last_seen_at DESC);
 
 -- Per-user hourly rate limiting for log_client_error.
-CREATE TABLE public.error_report_rate (
+CREATE TABLE IF NOT EXISTS public.error_report_rate (
   user_id UUID NOT NULL,
   hour_bucket TIMESTAMPTZ NOT NULL,
   report_count INTEGER NOT NULL DEFAULT 1,
@@ -45,14 +55,17 @@ ALTER TABLE public.error_report_rate ENABLE ROW LEVEL SECURITY;
 
 -- Super admins read/triage. NO INSERT policy: all client writes go through
 -- SECURITY DEFINER RPCs; Edge Functions insert via service role (bypasses RLS).
+DROP POLICY IF EXISTS "Super admins can view error logs" ON public.client_error_logs;
 CREATE POLICY "Super admins can view error logs"
   ON public.client_error_logs FOR SELECT
   USING (is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Super admins can update error logs" ON public.client_error_logs;
 CREATE POLICY "Super admins can update error logs"
   ON public.client_error_logs FOR UPDATE
   USING (is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Super admins can delete error logs" ON public.client_error_logs;
 CREATE POLICY "Super admins can delete error logs"
   ON public.client_error_logs FOR DELETE
   USING (is_super_admin(auth.uid()));
@@ -162,9 +175,15 @@ $$;
 -- SECURITY DEFINER function is the sanctioned bypass). Idempotent: a second
 -- report on the same error adds an internal comment instead of a new ticket.
 -- Returns the ticket_number.
+-- FIX2: _farm_id lets the CALLER tell us which farm THEY captured this error
+-- under. The error-group row's farm_id tracks the LATEST occurrence across
+-- every reporter (see log_client_error's upsert), so without this, a farmer
+-- whose report flushes late could get a ticket linked to a different farm
+-- than their own — whichever farm most recently re-triggered the same error.
 CREATE OR REPLACE FUNCTION public.submit_error_report(
   _error_log_id UUID,
-  _user_note TEXT DEFAULT NULL
+  _user_note TEXT DEFAULT NULL,
+  _farm_id UUID DEFAULT NULL
 )
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -227,7 +246,7 @@ BEGIN
     (subject, description, priority, created_by, linked_farm_id, linked_user_id, tags)
   VALUES (
     COALESCE(_log.translated_title, 'App error report'),
-    _description, _priority, _uid, _log.farm_id, _uid,
+    _description, _priority, _uid, COALESCE(_farm_id, _log.farm_id), _uid,
     ARRAY['auto-error']
   )
   RETURNING * INTO _ticket;
@@ -241,7 +260,11 @@ END;
 $$;
 
 -- ─── RPC: get_error_monitoring_summary ────────────────────────────────
-CREATE OR REPLACE FUNCTION public.get_error_monitoring_summary()
+-- FIX5: _include_groups lets a lightweight poller (SystemOverview's counts
+-- badge, every 60s) skip the expensive grouped-rows subquery entirely and
+-- fetch only counts + last_updated. The full admin error-monitoring screen
+-- passes true to get the row-level detail it actually renders.
+CREATE OR REPLACE FUNCTION public.get_error_monitoring_summary(_include_groups BOOLEAN DEFAULT true)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -263,7 +286,7 @@ BEGIN
       'total_24h', (SELECT COUNT(*) FROM client_error_logs
                     WHERE last_seen_at > now() - interval '24 hours')
     ),
-    'groups', COALESCE((
+    'groups', CASE WHEN _include_groups THEN COALESCE((
       SELECT jsonb_agg(g)
       FROM (
         SELECT jsonb_build_object(
@@ -291,7 +314,7 @@ BEGIN
         ORDER BY cel.last_seen_at DESC
         LIMIT 200
       ) sub
-    ), '[]'::jsonb),
+    ), '[]'::jsonb) ELSE '[]'::jsonb END,
     'last_updated', now()
   ) INTO result;
 
