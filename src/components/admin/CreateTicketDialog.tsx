@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -30,6 +30,11 @@ interface CreateTicketDialogProps {
   onOpenChange: (open: boolean) => void;
   linkedFarmId?: string;
   linkedUserId?: string;
+  initialSubject?: string;
+  initialDescription?: string;
+  initialPriority?: TicketPriority;
+  initialTags?: string[];
+  onCreated?: (ticketId: string) => void;
 }
 
 export const CreateTicketDialog = ({
@@ -37,6 +42,11 @@ export const CreateTicketDialog = ({
   onOpenChange,
   linkedFarmId,
   linkedUserId,
+  initialSubject,
+  initialDescription,
+  initialPriority,
+  initialTags,
+  onCreated,
 }: CreateTicketDialogProps) => {
   const { createTicket } = useSupportTickets();
   const isOnline = useOnlineStatus();
@@ -45,6 +55,17 @@ export const CreateTicketDialog = ({
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [selectedFarmId, setSelectedFarmId] = useState(linkedFarmId || "");
   const [selectedUserId, setSelectedUserId] = useState(linkedUserId || "");
+
+  // Seed prefill values each time the dialog opens
+  useEffect(() => {
+    if (open) {
+      setSubject(initialSubject ?? "");
+      setDescription(initialDescription ?? "");
+      setPriority(initialPriority ?? "medium");
+      setSelectedFarmId(linkedFarmId ?? "");
+      setSelectedUserId(linkedUserId ?? "");
+    }
+  }, [open, initialSubject, initialDescription, initialPriority, linkedFarmId, linkedUserId]);
 
   // Fetch farms for linking
   const { data: farms } = useQuery({
@@ -80,13 +101,15 @@ export const CreateTicketDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    await createTicket.mutateAsync({
+    const created = await createTicket.mutateAsync({
       subject,
       description,
       priority,
       linked_farm_id: selectedFarmId || undefined,
       linked_user_id: selectedUserId || undefined,
+      tags: initialTags,
     });
+    onCreated?.(created.id);
 
     // Reset form
     setSubject("");
