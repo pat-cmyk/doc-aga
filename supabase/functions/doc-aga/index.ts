@@ -4,6 +4,7 @@ import { executeToolCall } from "./tools.ts";
 import { sanitizeUserMessage } from "../_shared/sanitizeMessage.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { logServerError } from "../_shared/errorLogger.ts";
 
 // Rate limiting configuration
 const RATE_LIMIT_MAX = 15;
@@ -779,6 +780,7 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("doc-aga error:", error);
+    await logServerError("doc-aga", error);
     return new Response(JSON.stringify({ error: error.message || "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
