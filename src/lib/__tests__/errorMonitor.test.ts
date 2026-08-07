@@ -32,6 +32,7 @@ import {
   _resetSessionCountersForTests,
   _peekQueueForTests,
   _DEDUP_WINDOW_MS_FOR_TESTS as DEDUP_WINDOW_MS,
+  _DEDUP_WINDOW_MS_SILENT_FOR_TESTS as DEDUP_WINDOW_MS_SILENT,
 } from '@/lib/errorMonitor';
 
 beforeEach(async () => {
@@ -527,6 +528,62 @@ describe('retry policy (R1-R4)', () => {
     expect(rows.length).toBe(50);
     const protectedRow = rows.find((r) => r.fingerprint === protectedHandle.fingerprint);
     expect(protectedRow?.reportRequested).toBe(true);
+  });
+});
+
+describe('per-severity session caps and dedup window', () => {
+  it('caps silent captures at 10 distinct sends per session, independent of the toast/crash cap', async () => {
+    for (let i = 0; i < 25; i++) {
+      // Non-numeric distinguishing character — normalizeMessage() collapses
+      // digits to '#', so numeric suffixes would all fingerprint identically.
+      captureError(new Error(`silent unique ${'z'.repeat(i + 1)}`), { severity: 'silent' });
+    }
+    await flushQueue();
+    expect(rpcMock.mock.calls.length).toBe(10);
+  });
+
+  it('silent errors at their cap do not block a subsequent toast error from sending', async () => {
+    for (let i = 0; i < 10; i++) {
+      captureError(new Error(`silent unique ${'z'.repeat(i + 1)}`), { severity: 'silent' });
+    }
+    // 11th distinct silent capture — cap already reached, must be dropped.
+    captureError(new Error(`silent unique ${'z'.repeat(11)}`), { severity: 'silent' });
+    // A toast error must still send: it draws from the separate
+    // SESSION_CAP_TOAST_CRASH budget, untouched by silent traffic.
+    captureError(new Error('a toast error'), { severity: 'toast' });
+    await flushQueue();
+
+    const payloads = rpcMock.mock.calls.map((c) => c[1]._payload);
+    expect(
+      payloads.some((p) => p.severity === 'toast' && p.message === 'a toast error'),
+    ).toBe(true);
+    // 10 silent sends (cap) + 1 toast send = 11; the 11th silent never sent.
+    expect(rpcMock.mock.calls.length).toBe(11);
+  });
+
+  it('uses a 30-minute dedup window for silent severity, unlike the 5-minute toast/crash window', async () => {
+    const start = new Date('2026-01-01T00:00:00.000Z');
+    // Fake ONLY Date — see the I6(b) test above for why faking timers
+    // wholesale would hang every await in this test.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(start);
+    try {
+      captureError(new Error('recurring sync failure'), { severity: 'silent' });
+      await flushQueue();
+      expect(rpcMock).toHaveBeenCalledTimes(1);
+
+      // Advance 15 minutes — one background-sync retry cycle. Still well
+      // inside the 30-minute silent dedup window (DEDUP_WINDOW_MS_SILENT),
+      // so the same recurring failure must NOT send again.
+      vi.setSystemTime(new Date(start.getTime() + 15 * 60 * 1000));
+      expect(15 * 60 * 1000).toBeLessThan(DEDUP_WINDOW_MS_SILENT);
+      captureError(new Error('recurring sync failure'), { severity: 'silent' });
+      await flushQueue();
+
+      expect(rpcMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

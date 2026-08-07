@@ -76,7 +76,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
       }
     } catch (error) {
       console.error('Voice processing error:', error);
-      reportSilentError(error, 'voice transcription');
+      reportSilentError(error, 'voice transcription: extraction');
       setComponentState('error');
       setErrorMessage(describeError(error).description);
       hapticNotification('error');
@@ -99,7 +99,7 @@ const VoiceQuickAdd: React.FC<VoiceQuickAddProps> = ({ onDataExtracted, disabled
       if (error.message.includes('denied') || error.message.includes('permission')) {
         setShowPermissionDialog(true);
       } else {
-        reportSilentError(error, 'voice transcription');
+        reportSilentError(error, 'voice transcription: recording');
         setComponentState('error');
         setErrorMessage(describeError(error).description);
       }

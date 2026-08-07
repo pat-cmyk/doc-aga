@@ -61,7 +61,16 @@ interface ErrorMonitorDBSchema extends DBSchema {
 }
 
 const DEDUP_WINDOW_MS = 5 * 60 * 1000;
-const SESSION_CAP = 20;
+// Silent errors (background sync, etc.) retry on their own schedule — the
+// app's background sync retries every ~15 min, so a 5 min window would burn
+// a fresh slot every retry. 30 min dedups across multiple retry cycles of a
+// single recurring failure while still surfacing a *new* distinct failure.
+const DEDUP_WINDOW_MS_SILENT = 30 * 60 * 1000;
+// Two independent session budgets: silent background noise (sync retries,
+// caught-but-not-shown errors) must not be able to starve out farmer-facing
+// toast/crash errors by exhausting a single shared cap first.
+const SESSION_CAP_TOAST_CRASH = 20;
+const SESSION_CAP_SILENT = 10;
 const QUEUE_CAP = 50;
 const DB_NAME = 'errorMonitorDB';
 const STORE = 'reportQueue' as const;
@@ -69,7 +78,10 @@ const RPC_TIMEOUT_MS = 20_000;
 const MAX_LOG_ATTEMPTS = 3;
 
 // Exported for tests only — not part of the module's behavioral contract.
-export { DEDUP_WINDOW_MS as _DEDUP_WINDOW_MS_FOR_TESTS };
+export {
+  DEDUP_WINDOW_MS as _DEDUP_WINDOW_MS_FOR_TESTS,
+  DEDUP_WINDOW_MS_SILENT as _DEDUP_WINDOW_MS_SILENT_FOR_TESTS,
+};
 
 // The auto-generated Supabase types (types.ts) are Lovable-managed and do not
 // yet include the error-monitoring RPCs from migration
@@ -115,7 +127,10 @@ async function safeRpc(
 
 // ─── Module state ─────────────────────────────────────────────────────
 let dbPromise: Promise<IDBPDatabase<ErrorMonitorDBSchema>> | null = null;
-let sessionSendCount = 0;
+// Split so silent background noise (sync retries, etc.) can't starve
+// farmer-facing toast/crash errors by exhausting a single shared cap first.
+let sessionSendCountToastCrash = 0;
+let sessionSendCountSilent = 0;
 let flushing = false;
 // R3: set when flushQueue() is called while a flush is already in progress.
 // A row can land in IndexedDB *after* the running flush's getAll() snapshot
@@ -237,18 +252,23 @@ export function captureError(
     const existingHandle = handles.get(fingerprint) ?? null;
     const entry = dedup.get(fingerprint);
     const now = Date.now();
+    const isSilent = opts.severity === 'silent';
+    const dedupWindow = isSilent ? DEDUP_WINDOW_MS_SILENT : DEDUP_WINDOW_MS;
 
-    if (entry && now - entry.lastQueuedAt < DEDUP_WINDOW_MS) {
+    if (entry && now - entry.lastQueuedAt < dedupWindow) {
       // Within dedup window: count locally, flush with the next send
       entry.pendingCount += 1;
       return existingHandle;
     }
 
-    if (sessionSendCount >= SESSION_CAP) {
+    const sessionCap = isSilent ? SESSION_CAP_SILENT : SESSION_CAP_TOAST_CRASH;
+    const sessionCount = isSilent ? sessionSendCountSilent : sessionSendCountToastCrash;
+    if (sessionCount >= sessionCap) {
       console.error('[errorMonitor] session cap reached, dropping:', message);
       return existingHandle;
     }
-    sessionSendCount += 1;
+    if (isSilent) sessionSendCountSilent += 1;
+    else sessionSendCountToastCrash += 1;
 
     const pending = entry?.pendingCount ?? 0;
     dedup.set(fingerprint, { lastQueuedAt: now, pendingCount: 0 });
@@ -657,7 +677,8 @@ export async function _resetForTests(): Promise<void> {
   // next test and race its assertions.
   await enqueueChain.catch(() => undefined);
   await pendingAutoFlush.catch(() => undefined);
-  sessionSendCount = 0;
+  sessionSendCountToastCrash = 0;
+  sessionSendCountSilent = 0;
   flushing = false;
   flushAgain = false;
   enqueueChain = Promise.resolve();
@@ -674,14 +695,16 @@ export async function _resetForTests(): Promise<void> {
 }
 
 /**
- * R4: resets only the session-scoped capture counters (SESSION_CAP dedup
- * bookkeeping), leaving IndexedDB and fingerprintToLogId untouched. Lets a
- * test push more than SESSION_CAP distinct errors into the queue across
- * several "sessions" to exercise QUEUE_CAP eviction, which SESSION_CAP would
- * otherwise make unreachable in a single test.
+ * R4: resets only the session-scoped capture counters (per-severity session
+ * cap + dedup bookkeeping), leaving IndexedDB and fingerprintToLogId
+ * untouched. Lets a test push more than a session cap's worth of distinct
+ * errors into the queue across several "sessions" to exercise QUEUE_CAP
+ * eviction, which the session caps would otherwise make unreachable in a
+ * single test.
  */
 export function _resetSessionCountersForTests(): void {
-  sessionSendCount = 0;
+  sessionSendCountToastCrash = 0;
+  sessionSendCountSilent = 0;
   dedup.clear();
   handles.clear();
 }
