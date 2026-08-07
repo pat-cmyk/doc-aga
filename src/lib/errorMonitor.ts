@@ -47,8 +47,10 @@ interface QueuedReport {
    * straight to submit_error_report.
    */
   logId?: string;
-  /** Consecutive log_client_error failures for this row (see bumpAttemptsOrGiveUp). */
+  /** Consecutive PERMANENT log_client_error rejections for this row (see bumpLogAttemptsOrGiveUp). */
   attempts?: number;
+  /** Consecutive PERMANENT submit_error_report rejections for this row (see bumpSubmitAttemptsOrGiveUp). */
+  submitAttempts?: number;
 }
 
 interface ErrorMonitorDBSchema extends DBSchema {
@@ -115,6 +117,12 @@ async function safeRpc(
 let dbPromise: Promise<IDBPDatabase<ErrorMonitorDBSchema>> | null = null;
 let sessionSendCount = 0;
 let flushing = false;
+// R3: set when flushQueue() is called while a flush is already in progress.
+// A row can land in IndexedDB *after* the running flush's getAll() snapshot
+// (e.g. requestReport() persisting a report-only row) — without this, that
+// row would be stranded until some unrelated future trigger. The in-progress
+// flush re-runs itself once more after finishing, exactly once, to pick it up.
+let flushAgain = false;
 let lastHandle: CaptureHandle | null = null;
 // Chains pending enqueue() calls so flushQueue() can await "everything
 // captured so far has been written" without a caller having to await
@@ -322,8 +330,23 @@ async function enqueue(report: QueuedReport): Promise<void> {
     const tx = db.transaction(STORE, 'readwrite');
     const count = await tx.store.count();
     if (count >= QUEUE_CAP) {
-      const oldestCursor = await tx.store.openCursor();
-      if (oldestCursor) await oldestCursor.delete();
+      // R4: prefer evicting the oldest row that is NOT a farmer's pending
+      // report — routine telemetry can be dropped under pressure, a report
+      // intent must not be, unless literally every queued row is one (then
+      // there's nothing better to evict).
+      let evictId: number | undefined;
+      let fallbackId: number | undefined;
+      let cursor = await tx.store.openCursor();
+      while (cursor) {
+        if (fallbackId === undefined) fallbackId = cursor.value.id;
+        if (!cursor.value.reportRequested) {
+          evictId = cursor.value.id;
+          break;
+        }
+        cursor = await cursor.continue();
+      }
+      const idToEvict = evictId ?? fallbackId;
+      if (idToEvict !== undefined) await tx.store.delete(idToEvict);
     }
     await tx.store.add(report);
     await tx.done;
@@ -332,23 +355,43 @@ async function enqueue(report: QueuedReport): Promise<void> {
   }
 }
 
+// R1(a): only a server response that explicitly rejects the payload counts
+// as a "strike" — transport failures, timeouts, and anything else transient
+// are not the farmer's (or the row's) fault and must never burn an attempt,
+// or a flaky connection would silently discard queued error reports.
+const PERMANENT_LOG_ERROR_RE = /invalid payload|not authenticated|access denied/i;
+// R2: same idea for submit_error_report's permanent rejections.
+const PERMANENT_SUBMIT_ERROR_RE = /not a reporter|error log not found|not authenticated/i;
+
+function showReportFailedToast(): void {
+  sonnerToast('Hindi naipadala ang report. Subukan ulit mamaya. (Could not send report.)');
+}
+
 /**
- * On a log_client_error failure: bump the row's attempt counter and persist
- * it so the entry survives to the next flush, UNLESS it's already failed
- * MAX_LOG_ATTEMPTS times, in which case give up and drop it (logged, not
- * silently — but the flush keeps moving instead of blocking on a poison row).
+ * On a log_client_error failure: only a PERMANENT server rejection burns a
+ * strike (persisted so it survives to the next flush); after MAX_LOG_ATTEMPTS
+ * permanent strikes, give up and drop the row — but if it's a farmer's
+ * pending report, surface a failure toast first so they aren't left with a
+ * false promise. Transport failures/timeouts never increment attempts; the
+ * row is left completely untouched and the flush just stops for a later retry.
  */
-async function bumpAttemptsOrGiveUp(
+async function bumpLogAttemptsOrGiveUp(
   db: IDBPDatabase<ErrorMonitorDBSchema>,
   entry: QueuedReport,
   errorMessage: string,
 ): Promise<'stopped' | 'dropped'> {
+  if (!PERMANENT_LOG_ERROR_RE.test(errorMessage)) {
+    console.error('[errorMonitor] flush stopped (transport, no strike):', errorMessage);
+    return 'stopped';
+  }
+
   const attempts = (entry.attempts ?? 0) + 1;
   if (attempts >= MAX_LOG_ATTEMPTS) {
-    console.error(
-      `[errorMonitor] giving up on entry after ${attempts} attempts:`,
-      errorMessage,
-    );
+    console.error(`[errorMonitor] giving up on entry after ${attempts} attempts:`, errorMessage);
+    // Re-read fresh — a Report tap may have landed on this row since we
+    // snapshotted it at the top of the flush loop.
+    const fresh = entry.id !== undefined ? await db.get(STORE, entry.id) : undefined;
+    if (fresh?.reportRequested ?? entry.reportRequested) showReportFailedToast();
     if (entry.id !== undefined) await db.delete(STORE, entry.id);
     return 'dropped';
   }
@@ -357,8 +400,58 @@ async function bumpAttemptsOrGiveUp(
   return 'stopped';
 }
 
+/**
+ * Same strike policy as bumpLogAttemptsOrGiveUp, for submit_error_report.
+ * Keeps the row (with its now-known logId) across transport failures so the
+ * next flush retries the submit directly; drops it after MAX_LOG_ATTEMPTS
+ * permanent rejections, with a failure toast since the row is always a
+ * farmer's pending report by construction (wantsReport was true to get here).
+ */
+async function bumpSubmitAttemptsOrGiveUp(
+  db: IDBPDatabase<ErrorMonitorDBSchema>,
+  entry: QueuedReport,
+  logId: string,
+  note: string | undefined,
+  errorMessage: string,
+): Promise<void> {
+  if (entry.id === undefined) return;
+  if (!PERMANENT_SUBMIT_ERROR_RE.test(errorMessage)) {
+    console.error('[errorMonitor] report submit failed (transport, will retry):', errorMessage);
+    await db.put(STORE, { ...entry, logId, reportRequested: true, userNote: note });
+    return;
+  }
+
+  const submitAttempts = (entry.submitAttempts ?? 0) + 1;
+  if (submitAttempts >= MAX_LOG_ATTEMPTS) {
+    console.error(
+      `[errorMonitor] giving up on report submit after ${submitAttempts} attempts:`,
+      errorMessage,
+    );
+    showReportFailedToast();
+    await db.delete(STORE, entry.id);
+    return;
+  }
+  console.error('[errorMonitor] report submit failed, will retry:', errorMessage);
+  await db.put(STORE, {
+    ...entry,
+    logId,
+    reportRequested: true,
+    userNote: note,
+    submitAttempts,
+  });
+}
+
 export async function flushQueue(): Promise<void> {
-  if (flushing || !getIsOnline()) return;
+  if (flushing) {
+    // R3: don't run concurrently — but remember a re-run is owed, since new
+    // work (e.g. a report-only row from requestReport()) may land in
+    // IndexedDB after this in-progress flush already took its getAll()
+    // snapshot, and would otherwise be stranded until some unrelated future
+    // trigger fires.
+    flushAgain = true;
+    return;
+  }
+  if (!getIsOnline()) return;
   flushing = true;
   try {
     // Wait for any in-flight captureError() writes so we don't miss entries
@@ -373,6 +466,12 @@ export async function flushQueue(): Promise<void> {
       let logId: string | null = entry.logId ?? null;
 
       if (!logId) {
+        // R5: if this call times out on the client side AFTER the server
+        // already processed it (slow response, not a real failure), the
+        // retry below will re-log the same fingerprint with the same
+        // occurrence_count on the next flush — occurrence_count is an
+        // advisory triage signal, not an exact count, and may double-count
+        // in that rare timed-out-but-actually-succeeded case.
         const { data, error } = await safeRpc('log_client_error', {
           _payload: {
             fingerprint: entry.fingerprint,
@@ -386,15 +485,20 @@ export async function flushQueue(): Promise<void> {
           },
         });
         if (error) {
-          // Network/auth failure (or RPC timeout) — persist an attempt count
-          // and stop; remaining entries wait for a later flush.
-          const outcome = await bumpAttemptsOrGiveUp(db, entry, error.message);
+          // R1: only a permanent server rejection burns a strike; transport
+          // failures/timeouts stop the flush without touching the row.
+          const outcome = await bumpLogAttemptsOrGiveUp(db, entry, error.message);
           if (outcome === 'stopped') return;
           continue; // gave up on this poison row — keep flushing the rest
         }
         logId = typeof data === 'string' ? data : null;
         if (!logId) {
-          // Server-side rate limit — drop the entry, nothing more to retry.
+          // Server-side rate limit (hourly window). R1(b): never silently
+          // discard a farmer's pending report just because of a rate limit
+          // that resets on its own — keep it for a later flush. Plain,
+          // non-report rows aren't worth retrying indefinitely for this.
+          const fresh = entry.id !== undefined ? await db.get(STORE, entry.id) : undefined;
+          if (fresh?.reportRequested ?? entry.reportRequested) continue;
           if (entry.id !== undefined) await db.delete(STORE, entry.id);
           continue;
         }
@@ -415,18 +519,10 @@ export async function flushQueue(): Promise<void> {
           _user_note: note ?? null,
         });
         if (submitError) {
-          console.error('[errorMonitor] report submit failed, will retry:', submitError.message);
-          // Keep the row (now carrying the known logId) so the next flush
-          // retries the submit directly, without re-logging.
-          if (entry.id !== undefined) {
-            await db.put(STORE, {
-              ...(freshEntry ?? entry),
-              id: entry.id,
-              logId,
-              reportRequested: true,
-              userNote: note,
-            });
-          }
+          // R2: same strike policy as the log path — permanent rejections
+          // count toward a cap (with a failure toast before dropping),
+          // transport failures/timeouts just preserve the row for a retry.
+          await bumpSubmitAttemptsOrGiveUp(db, freshEntry ?? entry, logId, note, submitError.message);
           continue;
         }
         if (typeof ticket === 'string') {
@@ -440,6 +536,16 @@ export async function flushQueue(): Promise<void> {
     console.error('[errorMonitor] flush failed:', flushError);
   } finally {
     flushing = false;
+    if (flushAgain) {
+      flushAgain = false;
+      // AWAITED (not fire-and-forget): a caller's `await flushQueue()` must
+      // see the *complete* picture, including anything a concurrent trigger
+      // stranded mid-flush. A fire-and-forget re-run here would leave
+      // untracked background work that can bleed into a later, unrelated
+      // flushQueue() call (or even the next test) with no way to wait for
+      // it — exactly the kind of stranding this mechanism exists to prevent.
+      await flushQueue();
+    }
   }
 }
 
@@ -515,7 +621,7 @@ export async function submitOneTapReport(handle: CaptureHandle): Promise<void> {
         description: 'Ipapadala ang report kapag may internet na. (Will send when back online.)',
       });
     } else {
-      sonnerToast('Hindi naipadala ang report. Subukan ulit mamaya. (Could not send report.)');
+      showReportFailedToast();
     }
   } catch (err) {
     console.error('[errorMonitor] submitOneTapReport failed:', err);
@@ -557,6 +663,7 @@ export async function _resetForTests(): Promise<void> {
   await pendingAutoFlush.catch(() => undefined);
   sessionSendCount = 0;
   flushing = false;
+  flushAgain = false;
   lastHandle = null;
   enqueueChain = Promise.resolve();
   pendingAutoFlush = Promise.resolve();
@@ -569,4 +676,27 @@ export async function _resetForTests(): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+/**
+ * R4: resets only the session-scoped capture counters (SESSION_CAP dedup
+ * bookkeeping), leaving IndexedDB and fingerprintToLogId untouched. Lets a
+ * test push more than SESSION_CAP distinct errors into the queue across
+ * several "sessions" to exercise QUEUE_CAP eviction, which SESSION_CAP would
+ * otherwise make unreachable in a single test.
+ */
+export function _resetSessionCountersForTests(): void {
+  sessionSendCount = 0;
+  dedup.clear();
+  handles.clear();
+}
+
+/** R4: test-only peek at the raw queue contents, waiting for pending writes first. */
+export async function _peekQueueForTests(): Promise<
+  Array<{ fingerprint: string; reportRequested: boolean }>
+> {
+  await enqueueChain.catch(() => undefined);
+  const db = await getDb();
+  const rows = await db.getAll(STORE);
+  return rows.map((r) => ({ fingerprint: r.fingerprint, reportRequested: r.reportRequested }));
 }

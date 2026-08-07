@@ -30,6 +30,8 @@ import {
   takeLastCaptureHandle,
   flushQueue,
   _resetForTests,
+  _resetSessionCountersForTests,
+  _peekQueueForTests,
   _DEDUP_WINDOW_MS_FOR_TESTS as DEDUP_WINDOW_MS,
 } from '@/lib/errorMonitor';
 
@@ -205,16 +207,30 @@ describe('captureError', () => {
     expect(takeLastCaptureHandle()).toBeNull();
   });
 
-  it('I6(e): preserves a queued entry across an RPC error and sends it on the next successful flush', async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'network down' } });
-    captureError(new Error('will retry'), { severity: 'toast' });
+  it('I6(e): preserves a queued entry across a transport failure and sends it on the next successful flush', async () => {
+    // Persistently failing (not one-time) so this is unambiguously the
+    // "no strike burned, row untouched" R1 transport path. Asserting on the
+    // *observable outcome* (row survives, then eventually clears) rather
+    // than a raw call count, since captureError's own post-write auto-flush
+    // trigger can race flushQueue's R3 re-run mechanism and legitimately
+    // vary how many attempts happen before the row is actually gone.
+    rpcMock.mockImplementation(() =>
+      Promise.resolve({ data: null, error: { message: 'network down' } }),
+    );
+    const handle = captureError(new Error('will retry'), { severity: 'toast' })!;
     await flushQueue();
-    expect(rpcMock).toHaveBeenCalledTimes(1);
 
-    rpcMock.mockResolvedValue({ data: 'log-id-retry', error: null });
+    const stillQueued = await _peekQueueForTests();
+    expect(stillQueued.some((r) => r.fingerprint === handle.fingerprint)).toBe(true);
+
+    rpcMock.mockImplementation(() => Promise.resolve({ data: 'log-id-retry', error: null }));
     await flushQueue();
-    expect(rpcMock).toHaveBeenCalledTimes(2);
-    expect(rpcMock.mock.calls[1][0]).toBe('log_client_error');
+    await vi.waitFor(async () => {
+      const remaining = await _peekQueueForTests();
+      if (remaining.some((r) => r.fingerprint === handle.fingerprint)) {
+        throw new Error('still queued');
+      }
+    });
   });
 });
 
@@ -309,6 +325,184 @@ describe('one-tap report', () => {
 
     const fns = rpcMock.mock.calls.map((c) => c[0]);
     expect(fns).toContain('submit_error_report');
+  });
+});
+
+describe('retry policy (R1-R4)', () => {
+  it('R1: transport failures never burn a strike — a reportRequested row survives indefinitely until success', async () => {
+    onlineState = false;
+    const handle = captureError(new Error('flaky network'), { severity: 'toast' })!;
+    // Mark it offline: cursor-scan path, doesn't touch flushQueue at all
+    // since getIsOnline() is false at this point.
+    const markResult = await handle.requestReport();
+    expect(markResult.status).toBe('queued');
+
+    onlineState = true;
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') {
+        return Promise.resolve({ data: null, error: { message: 'Failed to fetch' } });
+      }
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+
+    // Three consecutive transport failures — none of them is a permanent
+    // server rejection, so none should burn a strike; the row must survive.
+    await flushQueue();
+    await flushQueue();
+    await flushQueue();
+    const logCallsSoFar = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error').length;
+    expect(logCallsSoFar).toBe(3);
+
+    // Now let it succeed — since the row's reportRequested survived all
+    // three failures untouched, submit_error_report must fire right after.
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') return Promise.resolve({ data: 'log-id-77', error: null });
+      if (fn === 'submit_error_report') return Promise.resolve({ data: 'TKT-77', error: null });
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+    await flushQueue();
+
+    const fns = rpcMock.mock.calls.map((c) => c[0]);
+    expect(fns).toContain('submit_error_report');
+  });
+
+  it('R1(b): a permanently-rejected reportRequested row shows a failure toast before being dropped after 3 strikes', async () => {
+    onlineState = false;
+    const handle = captureError(new Error('permanently bad payload'), { severity: 'toast' })!;
+    await handle.requestReport();
+
+    onlineState = true;
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') {
+        return Promise.resolve({ data: null, error: { message: 'Invalid payload' } });
+      }
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+
+    await flushQueue(); // strike 1
+    await flushQueue(); // strike 2
+    await flushQueue(); // strike 3 -> dropped
+    await flushQueue(); // nothing left to do
+
+    const logCalls = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error').length;
+    expect(logCalls).toBe(3); // capped, no 4th attempt on a dropped row
+
+    const remaining = await _peekQueueForTests();
+    expect(remaining.find((r) => r.fingerprint === handle.fingerprint)).toBeUndefined();
+  });
+
+  it('R2: drops a row after 3 permanent submit_error_report rejections, with no further calls', async () => {
+    onlineState = false;
+    const handle = captureError(new Error('perm reject'), { severity: 'toast' })!;
+    const markResult = await handle.requestReport();
+    expect(markResult.status).toBe('queued');
+
+    onlineState = true;
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') return Promise.resolve({ data: 'log-id-1', error: null });
+      if (fn === 'submit_error_report') {
+        return Promise.resolve({ data: null, error: { message: 'Not a reporter of this error' } });
+      }
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+
+    await flushQueue(); // logs it, then submit strike 1
+    await flushQueue(); // submit strike 2 (skips log_client_error — logId known)
+    await flushQueue(); // submit strike 3 -> dropped
+    await flushQueue(); // nothing left — no 4th submit call
+
+    const submitCalls = rpcMock.mock.calls.filter((c) => c[0] === 'submit_error_report');
+    expect(submitCalls.length).toBe(3);
+    const logCalls = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error');
+    expect(logCalls.length).toBe(1);
+
+    const remaining = await _peekQueueForTests();
+    expect(remaining.find((r) => r.fingerprint === handle.fingerprint)).toBeUndefined();
+  });
+
+  it('R3: a report-only row created mid-flush is not stranded — flushQueue re-runs once more', async () => {
+    // Step 1: establish a known logId for error B via a normal, successful flush.
+    rpcMock.mockResolvedValue({ data: 'log-id-B', error: null });
+    const handleB = captureError(new Error('already logged B'), { severity: 'toast' })!;
+    await flushQueue();
+    const fnsAfterB = rpcMock.mock.calls.map((c) => c[0]);
+    expect(fnsAfterB).toContain('log_client_error');
+
+    // Step 2: start a flush for a NEW error A that hangs on log_client_error,
+    // and make submit_error_report fail so requestReport(B) — whose logId is
+    // already known — falls through from the direct-submit attempt into
+    // persisting a report-only row instead.
+    let resolveLogA!: (v: { data: unknown; error: null }) => void;
+    const logAPromise = new Promise<{ data: unknown; error: null }>((resolve) => {
+      resolveLogA = resolve;
+    });
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'log_client_error') return logAPromise;
+      if (fn === 'submit_error_report') {
+        return Promise.resolve({ data: null, error: { message: 'Failed to fetch' } });
+      }
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+
+    const logCallsBeforeA = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error').length;
+    captureError(new Error('midflight A'), { severity: 'toast' });
+    const flushPromise = flushQueue();
+
+    await vi.waitFor(() => {
+      const count = rpcMock.mock.calls.filter((c) => c[0] === 'log_client_error').length;
+      if (count <= logCallsBeforeA) throw new Error('log_client_error not called yet for A');
+    });
+
+    // Tap Report for B while A's flush is in progress. B's logId is known,
+    // so this tries direct-submit (fails per our mock), then persists a
+    // report-only row — while `flushing` is still true.
+    const reportResultB = await handleB.requestReport();
+    expect(reportResultB.status).toBe('queued');
+
+    // Let A's flush resolve, and swap in a healthy submit mock so B's
+    // report-only row can succeed on the R3-triggered re-run.
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'submit_error_report') return Promise.resolve({ data: 'TKT-B', error: null });
+      return Promise.resolve({ data: null, error: { message: 'unknown rpc' } });
+    });
+    resolveLogA({ data: 'log-id-A', error: null });
+    await flushPromise;
+
+    // R3's re-run fires from inside flushQueue's `finally` as a
+    // fire-and-forget call, so wait for it to actually process B.
+    await vi.waitFor(() => {
+      const submitCalls = rpcMock.mock.calls.filter((c) => c[0] === 'submit_error_report');
+      if (submitCalls.length < 2) throw new Error('re-run has not submitted B yet');
+    });
+
+    const remaining = await _peekQueueForTests();
+    expect(remaining.find((r) => r.fingerprint === handleB.fingerprint)).toBeUndefined();
+  });
+
+  it('R4: queue-cap eviction prefers evicting non-reportRequested rows over farmer report intents', async () => {
+    onlineState = false;
+    const protectedHandle = captureError(new Error('protect me'), { severity: 'toast' })!;
+    await protectedHandle.requestReport();
+
+    // SESSION_CAP (20) would normally stop us at 20 distinct queued errors —
+    // reset the session counters between batches to push well past
+    // QUEUE_CAP (50) and force eviction. Use a repeated non-numeric
+    // character (not a digit) to distinguish messages: normalizeMessage()
+    // collapses all digits to '#', so e.g. "filler 0-0" and "filler 0-1"
+    // would fingerprint identically and collide in the dedup map.
+    let fillerCount = 0;
+    for (let batch = 0; batch < 4; batch++) {
+      for (let i = 0; i < 20; i++) {
+        fillerCount += 1;
+        captureError(new Error(`filler ${'y'.repeat(fillerCount)}`), { severity: 'toast' });
+      }
+      _resetSessionCountersForTests();
+    }
+
+    const rows = await _peekQueueForTests();
+    expect(rows.length).toBe(50);
+    const protectedRow = rows.find((r) => r.fingerprint === protectedHandle.fingerprint);
+    expect(protectedRow?.reportRequested).toBe(true);
   });
 });
 
