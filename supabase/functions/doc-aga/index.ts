@@ -780,7 +780,12 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("doc-aga error:", error);
-    await logServerError("doc-aga", error);
+    try {
+      // @ts-ignore EdgeRuntime is provided by Supabase's Deno deploy runtime
+      EdgeRuntime.waitUntil(logServerError("doc-aga", error));
+    } catch {
+      void logServerError("doc-aga", error);
+    }
     return new Response(JSON.stringify({ error: error.message || "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

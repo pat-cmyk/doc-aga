@@ -29,14 +29,17 @@ export async function logServerError(
     const fingerprint = `server|${fnName}|${normalized}`.slice(0, 128);
     const nowIso = new Date().toISOString();
 
-    const { data: existing } = await admin
+    const { data: existing, error: selectErr } = await admin
       .from('client_error_logs')
       .select('id, occurrence_count, status')
       .eq('fingerprint', fingerprint)
       .maybeSingle();
+    if (selectErr) {
+      console.error('[errorLogger] select failed:', selectErr.message);
+    }
 
     if (existing) {
-      await admin
+      const { error: updateErr } = await admin
         .from('client_error_logs')
         .update({
           message: message.slice(0, 2000),
@@ -48,14 +51,20 @@ export async function logServerError(
           status: existing.status === 'resolved' ? 'new' : existing.status,
         })
         .eq('id', existing.id);
+      if (updateErr) {
+        console.error('[errorLogger] update failed:', updateErr.message);
+      }
     } else {
-      await admin.from('client_error_logs').insert({
+      const { error: insertErr } = await admin.from('client_error_logs').insert({
         fingerprint,
         severity: 'server',
         message: message.slice(0, 2000),
         stack,
         context: { function: fnName, ...context },
       });
+      if (insertErr) {
+        console.error('[errorLogger] insert failed:', insertErr.message);
+      }
     }
   } catch (logErr) {
     console.error('[errorLogger] failed to log server error:', logErr);
