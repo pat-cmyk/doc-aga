@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -56,15 +56,19 @@ export const CreateTicketDialog = ({
   const [selectedFarmId, setSelectedFarmId] = useState(linkedFarmId || "");
   const [selectedUserId, setSelectedUserId] = useState(linkedUserId || "");
 
-  // Seed prefill values each time the dialog opens
+  // Seed prefill values only on the false→true open transition — seeding on
+  // every render while open would clobber in-progress edits if the parent
+  // re-renders with the same initial* props (e.g. a data refetch).
+  const prevOpen = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpen.current) {
       setSubject(initialSubject ?? "");
       setDescription(initialDescription ?? "");
       setPriority(initialPriority ?? "medium");
       setSelectedFarmId(linkedFarmId ?? "");
       setSelectedUserId(linkedUserId ?? "");
     }
+    prevOpen.current = open;
   }, [open, initialSubject, initialDescription, initialPriority, linkedFarmId, linkedUserId]);
 
   // Fetch farms for linking
