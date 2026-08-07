@@ -95,6 +95,7 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     _severity := 'toast';
   END;
+  _severity := COALESCE(_severity, 'toast'::error_severity);
   -- 'server' severity is reserved for Edge Functions (service role inserts)
   IF _severity = 'server' THEN
     _severity := 'silent';
@@ -129,14 +130,18 @@ BEGIN
     stack = COALESCE(EXCLUDED.stack, cel.stack),
     translated_title = COALESCE(EXCLUDED.translated_title, cel.translated_title),
     context = EXCLUDED.context,
+    -- user_id tracks the LATEST reporter (per design doc); farm_id keeps the
+    -- first known farm if the new occurrence has none
     user_id = EXCLUDED.user_id,
     farm_id = COALESCE(EXCLUDED.farm_id, cel.farm_id),
-    -- distinct reporters, capped at 50
+    -- distinct reporters, capped at 50 (submit_error_report accepts anyone once full)
     seen_user_ids = CASE
       WHEN cel.seen_user_ids @> ARRAY[_uid] OR cardinality(cel.seen_user_ids) >= 50
         THEN cel.seen_user_ids
       ELSE cel.seen_user_ids || _uid
     END,
+    -- occurrence_count is client-self-reported (clamped 1-100/call); it is a
+    -- triage signal, not a verified count
     occurrence_count = cel.occurrence_count + EXCLUDED.occurrence_count,
     last_seen_at = now(),
     updated_at = now(),
@@ -177,13 +182,16 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  SELECT * INTO _log FROM client_error_logs WHERE id = _error_log_id;
+  -- FOR UPDATE serializes concurrent reports on the same error (idempotency guarantee)
+  SELECT * INTO _log FROM client_error_logs WHERE id = _error_log_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Error log not found';
   END IF;
 
-  -- Only a user who actually hit this error may report it
-  IF NOT (_log.seen_user_ids @> ARRAY[_uid]) THEN
+  -- Only a user who actually hit this error may report it. When the reporter
+  -- array is at its 50-entry cap we can no longer verify membership, so any
+  -- authenticated user is accepted (error is widespread at that point).
+  IF cardinality(_log.seen_user_ids) < 50 AND NOT (_log.seen_user_ids @> ARRAY[_uid]) THEN
     RAISE EXCEPTION 'Not a reporter of this error';
   END IF;
 
