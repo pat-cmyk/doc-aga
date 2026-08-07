@@ -11,7 +11,7 @@
  *   wrapped, failure degrades to console.error.
  * - Never call showErrorToast/translateError from here (recursion).
  */
-import { openDB, IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { toast as sonnerToast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getIsOnline, subscribeOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -40,13 +40,34 @@ interface QueuedReport {
   occurrence_count: number;
   reportRequested: boolean;
   userNote?: string;
+  /**
+   * Set when the server-side error log id is already known (this row was
+   * created purely to carry a one-tap report intent — see C1 fix below).
+   * When present, flushQueue() skips log_client_error entirely and goes
+   * straight to submit_error_report.
+   */
+  logId?: string;
+  /** Consecutive log_client_error failures for this row (see bumpAttemptsOrGiveUp). */
+  attempts?: number;
+}
+
+interface ErrorMonitorDBSchema extends DBSchema {
+  reportQueue: {
+    key: number;
+    value: QueuedReport;
+  };
 }
 
 const DEDUP_WINDOW_MS = 5 * 60 * 1000;
 const SESSION_CAP = 20;
 const QUEUE_CAP = 50;
 const DB_NAME = 'errorMonitorDB';
-const STORE = 'reportQueue';
+const STORE = 'reportQueue' as const;
+const RPC_TIMEOUT_MS = 20_000;
+const MAX_LOG_ATTEMPTS = 3;
+
+// Exported for tests only — not part of the module's behavioral contract.
+export { DEDUP_WINDOW_MS as _DEDUP_WINDOW_MS_FOR_TESTS };
 
 // The auto-generated Supabase types (types.ts) are Lovable-managed and do not
 // yet include the error-monitoring RPCs from migration
@@ -59,8 +80,39 @@ type ErrorMonitorRpc = (
 const rpc: ErrorMonitorRpc = (fn, params) =>
   (supabase.rpc as unknown as ErrorMonitorRpc)(fn, params);
 
+/** Rejects after `ms` if `p` hasn't settled — prevents a hung RPC from wedging the flusher forever. */
+function withTimeout<T>(p: PromiseLike<T>, ms = RPC_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`errorMonitor: RPC timed out after ${ms}ms`));
+    }, ms);
+    Promise.resolve(p).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
+}
+
+/** rpc() call wrapped with a timeout, normalized so callers never need a try/catch. */
+async function safeRpc(
+  fn: 'log_client_error' | 'submit_error_report',
+  params: Record<string, unknown>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  try {
+    return await withTimeout(rpc(fn, params));
+  } catch (err) {
+    return { data: null, error: { message: err instanceof Error ? err.message : String(err) } };
+  }
+}
+
 // ─── Module state ─────────────────────────────────────────────────────
-let dbPromise: Promise<IDBPDatabase> | null = null;
+let dbPromise: Promise<IDBPDatabase<ErrorMonitorDBSchema>> | null = null;
 let sessionSendCount = 0;
 let flushing = false;
 let lastHandle: CaptureHandle | null = null;
@@ -77,9 +129,9 @@ const dedup = new Map<string, { lastQueuedAt: number; pendingCount: number }>();
 const handles = new Map<string, CaptureHandle>();
 const fingerprintToLogId = new Map<string, string>();
 
-function getDb(): Promise<IDBPDatabase> {
+function getDb(): Promise<IDBPDatabase<ErrorMonitorDBSchema>> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 1, {
+    dbPromise = openDB<ErrorMonitorDBSchema>(DB_NAME, 1, {
       upgrade(db) {
         db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
       },
@@ -88,16 +140,46 @@ function getDb(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
+function showReportSuccessToast(ticketNumber: string): void {
+  sonnerToast.success('Salamat!', {
+    description: `Naipadala ang report (${ticketNumber}). Aayusin namin ito.`,
+  });
+}
+
 // ─── Fingerprinting ───────────────────────────────────────────────────
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TOKEN_SEGMENT_RE = /^[A-Za-z0-9_-]+$/;
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]+/g;
 
 export function normalizeMessage(message: string): string {
   return message
     .toLowerCase()
     .replace(UUID_RE, '<id>')
-    .replace(/"[^"]*"|'[^']*'/g, '<val>')
+    // Quoted values group variants; use `[^'\s]*` (not `[^']*`) so an
+    // apostrophe in a contraction ("don't") doesn't swallow the rest of the
+    // sentence as one giant "quoted" span.
+    .replace(/"[^"]*"|'[^'\s]*'/g, '<val>')
     .replace(/\d+/g, '#')
     .slice(0, 300);
+}
+
+/**
+ * Normalizes a route for fingerprinting and storage: UUID segments become
+ * `<id>`, and any other long opaque-looking segment (invite tokens, session
+ * ids, etc.) becomes `<token>`. The RAW route must never be stored — routes
+ * like `/invite/:token` carry a live capability.
+ */
+export function normalizeRoute(path: string): string {
+  return path
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment;
+      if (UUID_SEGMENT_RE.test(segment)) return '<id>';
+      if (segment.length > 16 && TOKEN_SEGMENT_RE.test(segment)) return '<token>';
+      return segment;
+    })
+    .join('/');
 }
 
 function hashString(input: string): string {
@@ -114,8 +196,9 @@ export function computeFingerprint(
   message: string,
   route: string,
 ): string {
-  const hash = hashString(`${errorName}|${normalizeMessage(message)}|${route}`);
-  return `${severity}|${route}|${hash}`.slice(0, 128);
+  const normalizedRoute = normalizeRoute(route);
+  const hash = hashString(`${errorName}|${normalizeMessage(message)}|${normalizedRoute}`);
+  return `${severity}|${normalizedRoute}|${hash}`.slice(0, 128);
 }
 
 // ─── Capture ──────────────────────────────────────────────────────────
@@ -129,31 +212,39 @@ export function captureError(
   },
 ): CaptureHandle | null {
   try {
-    const message =
+    const rawMessage =
       error instanceof Error ? error.message
       : typeof error === 'string' ? error
       : error && typeof error === 'object' && 'message' in error
         ? String((error as { message: unknown }).message)
       : String(error);
-    if (!message) return null;
+    if (!rawMessage) return null;
+    // Never persist a raw email address — redact before anything else touches it.
+    const message = rawMessage.replace(EMAIL_RE, '<email>');
 
     const errorName = error instanceof Error ? error.name : 'Error';
-    const route = typeof window !== 'undefined' ? window.location.pathname : '';
+    const rawRoute = typeof window !== 'undefined' ? window.location.pathname : '';
+    const route = normalizeRoute(rawRoute);
     const fingerprint = computeFingerprint(opts.severity, errorName, message, route);
 
     const existingHandle = handles.get(fingerprint) ?? null;
     const entry = dedup.get(fingerprint);
     const now = Date.now();
+    // I1: silent/crash captures must never surface via the toast handoff —
+    // only the toast layer reads takeLastCaptureHandle(); crash captures are
+    // surfaced by AppErrorBoundary via its own handle reference.
+    const isToastSeverity = opts.severity === 'toast';
 
     if (entry && now - entry.lastQueuedAt < DEDUP_WINDOW_MS) {
       // Within dedup window: count locally, flush with the next send
       entry.pendingCount += 1;
-      lastHandle = existingHandle;
+      if (isToastSeverity) lastHandle = existingHandle;
       return existingHandle;
     }
 
     if (sessionSendCount >= SESSION_CAP) {
       console.error('[errorMonitor] session cap reached, dropping:', message);
+      if (isToastSeverity) lastHandle = existingHandle;
       return existingHandle;
     }
     sessionSendCount += 1;
@@ -173,6 +264,7 @@ export function captureError(
         online: getIsOnline(),
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
         mode: import.meta.env.MODE,
+        occurred_at: new Date().toISOString(),
       },
       farm_id:
         typeof localStorage !== 'undefined'
@@ -188,10 +280,10 @@ export function captureError(
         requestReport: (note?: string) => requestReport(fingerprint, note),
       };
     handles.set(fingerprint, handle);
-    lastHandle = handle;
+    if (isToastSeverity) lastHandle = handle;
 
     const enqueued = enqueueChain.then(() => enqueue(report));
-    enqueueChain = enqueued;
+    enqueueChain = enqueued.catch(() => undefined);
     pendingAutoFlush = enqueued.then(() => {
       if (getIsOnline()) return flushQueue();
     });
@@ -206,6 +298,14 @@ export function captureError(
 /** Convenience wrapper for caught-but-not-shown errors. */
 export function reportSilentError(error: unknown, context: string): void {
   captureError(error, { severity: 'silent', context });
+}
+
+/** window.onerror/unhandledrejection classification: pure network hiccups are
+ * noise, not crashes — log them without inflating crash counts or
+ * triggering high-priority tickets. Exported for direct unit testing. */
+const NETWORK_REJECTION_RE = /failed to fetch|networkerror|load failed|abort/i;
+export function classifyRejectionSeverity(message: string): ClientErrorSeverity {
+  return NETWORK_REJECTION_RE.test(message) ? 'silent' : 'crash';
 }
 
 /** The toast layer reads the handle produced by the most recent capture. */
@@ -232,6 +332,31 @@ async function enqueue(report: QueuedReport): Promise<void> {
   }
 }
 
+/**
+ * On a log_client_error failure: bump the row's attempt counter and persist
+ * it so the entry survives to the next flush, UNLESS it's already failed
+ * MAX_LOG_ATTEMPTS times, in which case give up and drop it (logged, not
+ * silently — but the flush keeps moving instead of blocking on a poison row).
+ */
+async function bumpAttemptsOrGiveUp(
+  db: IDBPDatabase<ErrorMonitorDBSchema>,
+  entry: QueuedReport,
+  errorMessage: string,
+): Promise<'stopped' | 'dropped'> {
+  const attempts = (entry.attempts ?? 0) + 1;
+  if (attempts >= MAX_LOG_ATTEMPTS) {
+    console.error(
+      `[errorMonitor] giving up on entry after ${attempts} attempts:`,
+      errorMessage,
+    );
+    if (entry.id !== undefined) await db.delete(STORE, entry.id);
+    return 'dropped';
+  }
+  if (entry.id !== undefined) await db.put(STORE, { ...entry, attempts });
+  console.error('[errorMonitor] flush stopped:', errorMessage);
+  return 'stopped';
+}
+
 export async function flushQueue(): Promise<void> {
   if (flushing || !getIsOnline()) return;
   flushing = true;
@@ -240,41 +365,75 @@ export async function flushQueue(): Promise<void> {
     // that were queued microtasks ago but haven't hit IndexedDB yet.
     await enqueueChain;
     const db = await getDb();
-    const entries = (await db.getAll(STORE)) as QueuedReport[];
+    const entries = await db.getAll(STORE);
     for (const entry of entries) {
-      const { data, error } = await rpc('log_client_error', {
-        _payload: {
-          fingerprint: entry.fingerprint,
-          severity: entry.severity,
-          message: entry.message,
-          stack: entry.stack,
-          translated_title: entry.translated_title,
-          context: entry.context,
-          farm_id: entry.farm_id,
-          occurrence_count: entry.occurrence_count,
-        },
-      });
-      if (error) {
-        // Network/auth failure — keep remaining entries for a later flush
-        console.error('[errorMonitor] flush stopped:', error.message);
-        return;
-      }
-      const logId = typeof data === 'string' ? data : null;
-      if (logId) {
+      // C1: a report-only row already knows its server-side log id (created
+      // by requestReport() when the original row had already been flushed).
+      // Skip log_client_error entirely and go straight to submit.
+      let logId: string | null = entry.logId ?? null;
+
+      if (!logId) {
+        const { data, error } = await safeRpc('log_client_error', {
+          _payload: {
+            fingerprint: entry.fingerprint,
+            severity: entry.severity,
+            message: entry.message,
+            stack: entry.stack,
+            translated_title: entry.translated_title,
+            context: entry.context,
+            farm_id: entry.farm_id,
+            occurrence_count: entry.occurrence_count,
+          },
+        });
+        if (error) {
+          // Network/auth failure (or RPC timeout) — persist an attempt count
+          // and stop; remaining entries wait for a later flush.
+          const outcome = await bumpAttemptsOrGiveUp(db, entry, error.message);
+          if (outcome === 'stopped') return;
+          continue; // gave up on this poison row — keep flushing the rest
+        }
+        logId = typeof data === 'string' ? data : null;
+        if (!logId) {
+          // Server-side rate limit — drop the entry, nothing more to retry.
+          if (entry.id !== undefined) await db.delete(STORE, entry.id);
+          continue;
+        }
         fingerprintToLogId.set(entry.fingerprint, logId);
-        if (entry.reportRequested) {
-          const { data: ticket } = await rpc('submit_error_report', {
-            _error_log_id: logId,
-            _user_note: entry.userNote ?? null,
-          });
-          if (typeof ticket === 'string') {
-            sonnerToast.success('Salamat!', {
-              description: `Naipadala ang report (${ticket}). Aayusin namin ito.`,
+      }
+
+      // C2: re-read the row fresh by id — a Report tap that landed while
+      // log_client_error was in flight updates reportRequested/userNote in
+      // IndexedDB, but our `entry` here is a stale snapshot from getAll()
+      // above. Trust the fresh copy so that update isn't clobbered.
+      const freshEntry = entry.id !== undefined ? await db.get(STORE, entry.id) : undefined;
+      const wantsReport = freshEntry?.reportRequested ?? entry.reportRequested;
+      const note = freshEntry?.userNote ?? entry.userNote;
+
+      if (wantsReport) {
+        const { data: ticket, error: submitError } = await safeRpc('submit_error_report', {
+          _error_log_id: logId,
+          _user_note: note ?? null,
+        });
+        if (submitError) {
+          console.error('[errorMonitor] report submit failed, will retry:', submitError.message);
+          // Keep the row (now carrying the known logId) so the next flush
+          // retries the submit directly, without re-logging.
+          if (entry.id !== undefined) {
+            await db.put(STORE, {
+              ...(freshEntry ?? entry),
+              id: entry.id,
+              logId,
+              reportRequested: true,
+              userNote: note,
             });
           }
+          continue;
+        }
+        if (typeof ticket === 'string') {
+          showReportSuccessToast(ticket);
         }
       }
-      // logId === null means server-side rate limit — drop the entry
+
       if (entry.id !== undefined) await db.delete(STORE, entry.id);
     }
   } catch (flushError) {
@@ -292,24 +451,24 @@ async function requestReport(fingerprint: string, note?: string): Promise<Report
     await enqueueChain;
     const logId = fingerprintToLogId.get(fingerprint);
     if (logId && getIsOnline()) {
-      const { data, error } = await rpc('submit_error_report', {
+      const { data, error } = await safeRpc('submit_error_report', {
         _error_log_id: logId,
         _user_note: note ?? null,
       });
       if (!error && typeof data === 'string') {
         return { status: 'submitted', ticketNumber: data };
       }
-      return { status: 'failed' };
+      // Direct submit failed (offline mid-call, network hiccup, timeout) —
+      // fall through and persist the report intent so a later flush retries.
     }
 
-    // Log not yet flushed (or offline): mark queued entries so the flush
-    // submits the report right after logging.
+    // Try to mark an existing, not-yet-flushed queue row for this fingerprint.
     const db = await getDb();
     const tx = db.transaction(STORE, 'readwrite');
     let marked = false;
     let cursor = await tx.store.openCursor();
     while (cursor) {
-      const value = cursor.value as QueuedReport;
+      const value = cursor.value;
       if (value.fingerprint === fingerprint) {
         await cursor.update({ ...value, reportRequested: true, userNote: note });
         marked = true;
@@ -317,7 +476,26 @@ async function requestReport(fingerprint: string, note?: string): Promise<Report
       cursor = await cursor.continue();
     }
     await tx.done;
-    if (!marked && !logId) return { status: 'failed' };
+
+    if (!marked) {
+      if (!logId) return { status: 'failed' };
+      // C1: the original row is already gone (it was flushed and logged),
+      // but we know the server-side log id — persist a report-only row so
+      // flushQueue() can submit_error_report directly, skipping
+      // log_client_error, instead of silently losing the report intent.
+      const severity = (fingerprint.split('|')[0] as ClientErrorSeverity | undefined) ?? 'silent';
+      await enqueue({
+        fingerprint,
+        logId,
+        severity,
+        message: '(report-only)',
+        context: {},
+        occurrence_count: 0,
+        reportRequested: true,
+        userNote: note,
+      });
+    }
+
     if (getIsOnline()) void flushQueue();
     return { status: 'queued' };
   } catch (reportError) {
@@ -328,17 +506,19 @@ async function requestReport(fingerprint: string, note?: string): Promise<Report
 
 /** UI entry point for the toast/crash-screen Report button. Owns feedback toasts. */
 export async function submitOneTapReport(handle: CaptureHandle): Promise<void> {
-  const result = await handle.requestReport();
-  if (result.status === 'submitted') {
-    sonnerToast.success('Salamat!', {
-      description: `Naipadala ang report (${result.ticketNumber}). Aayusin namin ito.`,
-    });
-  } else if (result.status === 'queued') {
-    sonnerToast.success('Salamat!', {
-      description: 'Ipapadala ang report kapag may internet na. (Will send when back online.)',
-    });
-  } else {
-    sonnerToast('Hindi naipadala ang report. Subukan ulit mamaya. (Could not send report.)');
+  try {
+    const result = await handle.requestReport();
+    if (result.status === 'submitted') {
+      showReportSuccessToast(result.ticketNumber);
+    } else if (result.status === 'queued') {
+      sonnerToast.success('Salamat!', {
+        description: 'Ipapadala ang report kapag may internet na. (Will send when back online.)',
+      });
+    } else {
+      sonnerToast('Hindi naipadala ang report. Subukan ulit mamaya. (Could not send report.)');
+    }
+  } catch (err) {
+    console.error('[errorMonitor] submitOneTapReport failed:', err);
   }
 }
 
@@ -357,10 +537,9 @@ export function initErrorMonitor(): void {
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason: unknown = event.reason;
-    const msg =
-      reason instanceof Error ? reason.message : String(reason ?? '');
+    const msg = reason instanceof Error ? reason.message : String(reason ?? '');
     if (msg.includes('Failed to fetch dynamically imported module')) return;
-    captureError(reason, { severity: 'crash', context: 'unhandledrejection' });
+    captureError(reason, { severity: classifyRejectionSeverity(msg), context: 'unhandledrejection' });
   });
 
   subscribeOnlineStatus((online) => {
