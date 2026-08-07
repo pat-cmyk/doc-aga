@@ -15,7 +15,7 @@
  */
 
 import { toast as sonnerToast } from "sonner";
-import { captureError, takeLastCaptureHandle, submitOneTapReport } from "@/lib/errorMonitor";
+import { captureError, submitOneTapReport, type CaptureHandle } from "@/lib/errorMonitor";
 
 // ─── Bilingual Error Messages ─────────────────────────────────────────
 
@@ -82,26 +82,51 @@ interface TranslatedError {
 }
 
 /**
- * Core translation engine.
- * Pattern-matches raw error strings to farmer-friendly bilingual messages,
- * and reports every error to the error monitor (SSOT capture point — every
- * user-facing error message in the app flows through here).
+ * Translates and captures in one step, handing back the exact CaptureHandle
+ * (if any) produced for THIS error — never a stale handle from some earlier,
+ * unrelated call. This is the only place captureError() is invoked; callers
+ * that need the handle (showErrorToast) must take it from this return value
+ * directly, not from a module-level "last capture" channel, which is prone
+ * to mis-attribution (e.g. a legacy toast arms it and never consumes it, so
+ * a later, unrelated sonner toast picks it up instead).
  */
-export function translateError(error: unknown, context?: string): TranslatedError {
+function translateAndCapture(error: unknown, context?: string): TranslatedError & { handle: CaptureHandle | null } {
   // Always log raw error for debugging
   console.error("[translateError]", context || "", error);
   const translated = matchError(error, context);
-  captureError(error, {
+  const handle = captureError(error, {
     severity: "toast",
     context,
     translatedTitle: translated.title,
   });
+  return { ...translated, handle };
+}
+
+/**
+ * Pattern-matches a raw error to a farmer-friendly bilingual message and
+ * reports it to the error monitor (SSOT capture point — every user-facing
+ * error message in the app flows through here). Use this for anything that
+ * logs/tracks the error; for render-path display with no capture side
+ * effect, use `describeError` instead.
+ */
+export function translateError(error: unknown, context?: string): TranslatedError {
+  const { handle: _handle, ...translated } = translateAndCapture(error, context);
   return translated;
 }
 
 /**
- * Core translation engine.
- * Pattern-matches raw error strings to farmer-friendly bilingual messages.
+ * Pure translation with no capture/logging side effects — for render-path
+ * display only (e.g. inline error text that re-renders on every render,
+ * where `translateError` would spam the monitor with duplicate captures).
+ */
+export function describeError(error: unknown, context?: string): TranslatedError {
+  return matchError(error, context);
+}
+
+/**
+ * Pure pattern matcher: maps a raw error string to a farmer-friendly
+ * bilingual message. No side effects — callers that need capture/logging
+ * should go through `translateError`.
  */
 function matchError(error: unknown, context?: string): TranslatedError {
   const message = extractErrorMessage(error).toLowerCase();
@@ -188,20 +213,31 @@ function matchError(error: unknown, context?: string): TranslatedError {
 
 // ─── Toast Helpers ────────────────────────────────────────────────────
 
+// Categories where a one-tap report is support noise, not a useful signal —
+// still captured/logged for telemetry, just no Report button offered.
+const REPORT_SUPPRESSED_TITLES = new Set<string>([
+  ERROR_MESSAGES.NETWORK.title,
+  ERROR_MESSAGES.DUPLICATE.title,
+]);
+
 /**
  * Show error toast using sonner (preferred).
  * One-liner for any file — no hook needed.
- * When the error was captured by the monitor, the toast carries a one-tap
- * "I-report" action that files a pre-filled support ticket.
+ * When the error was captured by the monitor (and isn't a benign category
+ * like network hiccups or duplicate entries), the toast carries a one-tap
+ * "I-report ito" action that files a pre-filled support ticket. The handle
+ * used is always the one produced for THIS exact call — never a leftover
+ * from a previous, unrelated error.
  */
 export function showErrorToast(error: unknown, context?: string): void {
-  const { title, description } = translateError(error, context);
-  const handle = takeLastCaptureHandle();
-  if (handle) {
+  const { title, description, handle } = translateAndCapture(error, context);
+  const offerReport = handle && !REPORT_SUPPRESSED_TITLES.has(title);
+  if (offerReport) {
     sonnerToast.error(title, {
       description,
+      duration: 10000,
       action: {
-        label: "I-report",
+        label: "I-report ito",
         onClick: () => {
           void submitOneTapReport(handle);
         },

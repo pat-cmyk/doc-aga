@@ -123,7 +123,6 @@ let flushing = false;
 // row would be stranded until some unrelated future trigger. The in-progress
 // flush re-runs itself once more after finishing, exactly once, to pick it up.
 let flushAgain = false;
-let lastHandle: CaptureHandle | null = null;
 // Chains pending enqueue() calls so flushQueue() can await "everything
 // captured so far has been written" without a caller having to await
 // captureError() itself (it must stay synchronous for callers).
@@ -238,21 +237,15 @@ export function captureError(
     const existingHandle = handles.get(fingerprint) ?? null;
     const entry = dedup.get(fingerprint);
     const now = Date.now();
-    // I1: silent/crash captures must never surface via the toast handoff —
-    // only the toast layer reads takeLastCaptureHandle(); crash captures are
-    // surfaced by AppErrorBoundary via its own handle reference.
-    const isToastSeverity = opts.severity === 'toast';
 
     if (entry && now - entry.lastQueuedAt < DEDUP_WINDOW_MS) {
       // Within dedup window: count locally, flush with the next send
       entry.pendingCount += 1;
-      if (isToastSeverity) lastHandle = existingHandle;
       return existingHandle;
     }
 
     if (sessionSendCount >= SESSION_CAP) {
       console.error('[errorMonitor] session cap reached, dropping:', message);
-      if (isToastSeverity) lastHandle = existingHandle;
       return existingHandle;
     }
     sessionSendCount += 1;
@@ -264,7 +257,14 @@ export function captureError(
       fingerprint,
       severity: opts.severity,
       message: message.slice(0, 2000),
-      stack: (opts.stack ?? (error instanceof Error ? error.stack : undefined))?.slice(0, 8000),
+      // Stack traces are only meaningful (and only collected) for crashes —
+      // toast/silent captures are expected user-facing errors, not bugs to
+      // stack-trace, and skipping this for them matches the design spec
+      // ("stack: crashes only").
+      stack:
+        opts.severity === 'crash'
+          ? (opts.stack ?? (error instanceof Error ? error.stack : undefined))?.slice(0, 8000)
+          : undefined,
       translated_title: opts.translatedTitle,
       context: {
         route,
@@ -288,7 +288,6 @@ export function captureError(
         requestReport: (note?: string) => requestReport(fingerprint, note),
       };
     handles.set(fingerprint, handle);
-    if (isToastSeverity) lastHandle = handle;
 
     const enqueued = enqueueChain.then(() => enqueue(report));
     enqueueChain = enqueued.catch(() => undefined);
@@ -314,13 +313,6 @@ export function reportSilentError(error: unknown, context: string): void {
 const NETWORK_REJECTION_RE = /failed to fetch|networkerror|load failed|abort/i;
 export function classifyRejectionSeverity(message: string): ClientErrorSeverity {
   return NETWORK_REJECTION_RE.test(message) ? 'silent' : 'crash';
-}
-
-/** The toast layer reads the handle produced by the most recent capture. */
-export function takeLastCaptureHandle(): CaptureHandle | null {
-  const h = lastHandle;
-  lastHandle = null;
-  return h;
 }
 
 // ─── Queue ────────────────────────────────────────────────────────────
@@ -668,7 +660,6 @@ export async function _resetForTests(): Promise<void> {
   sessionSendCount = 0;
   flushing = false;
   flushAgain = false;
-  lastHandle = null;
   enqueueChain = Promise.resolve();
   pendingAutoFlush = Promise.resolve();
   dedup.clear();

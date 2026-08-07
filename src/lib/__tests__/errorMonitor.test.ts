@@ -27,7 +27,6 @@ import {
   classifyRejectionSeverity,
   captureError,
   reportSilentError,
-  takeLastCaptureHandle,
   flushQueue,
   _resetForTests,
   _resetSessionCountersForTests,
@@ -130,6 +129,30 @@ describe('captureError', () => {
     }));
   });
 
+  it('includes the stack trace for crash-severity captures', async () => {
+    captureError(new Error('crash boom'), { severity: 'crash' });
+    await flushQueue();
+    expect(rpcMock).toHaveBeenCalledWith('log_client_error', expect.objectContaining({
+      _payload: expect.objectContaining({ stack: expect.any(String) }),
+    }));
+  });
+
+  it('omits the stack trace for toast-severity captures (design spec: stack is crashes-only)', async () => {
+    captureError(new Error('toast boom'), { severity: 'toast' });
+    await flushQueue();
+    expect(rpcMock).toHaveBeenCalledWith('log_client_error', expect.objectContaining({
+      _payload: expect.objectContaining({ stack: undefined }),
+    }));
+  });
+
+  it('omits the stack trace for silent-severity captures', async () => {
+    captureError(new Error('silent boom'), { severity: 'silent' });
+    await flushQueue();
+    expect(rpcMock).toHaveBeenCalledWith('log_client_error', expect.objectContaining({
+      _payload: expect.objectContaining({ stack: undefined }),
+    }));
+  });
+
   it('dedups same fingerprint within the window (one RPC, accumulated count later)', async () => {
     captureError(new Error('boom'), { severity: 'toast' });
     captureError(new Error('boom'), { severity: 'toast' });
@@ -201,10 +224,11 @@ describe('captureError', () => {
     }));
   });
 
-  it('exposes the last capture handle exactly once', () => {
-    captureError(new Error('boom'), { severity: 'toast' });
-    expect(takeLastCaptureHandle()).not.toBeNull();
-    expect(takeLastCaptureHandle()).toBeNull();
+  it('returns a CaptureHandle directly from captureError (the only handoff channel)', () => {
+    const handle = captureError(new Error('boom'), { severity: 'toast' });
+    expect(handle).not.toBeNull();
+    expect(handle?.fingerprint).toBeTruthy();
+    expect(typeof handle?.requestReport).toBe('function');
   });
 
   it('I6(e): preserves a queued entry across a transport failure and sends it on the next successful flush', async () => {
@@ -506,9 +530,18 @@ describe('retry policy (R1-R4)', () => {
   });
 });
 
-describe('I1 — session cap and severity filtering of lastHandle', () => {
-  it('silent captures never populate the toast handle handoff', () => {
-    reportSilentError(new Error('silent oops'), 'background sync');
-    expect(takeLastCaptureHandle()).toBeNull();
+describe('I1 — captureError return value (the only handoff channel, no severity gating)', () => {
+  it('returns a handle for silent-severity captures too, since callers now take it directly from the return value', () => {
+    const handle = captureError(new Error('silent oops'), { severity: 'silent', context: 'background sync' });
+    expect(handle).not.toBeNull();
+  });
+
+  it('reportSilentError (the void convenience wrapper) still captures under the hood', async () => {
+    reportSilentError(new Error('silent oops 2'), 'background sync');
+    await flushQueue();
+    expect(rpcMock).toHaveBeenCalledWith(
+      'log_client_error',
+      expect.objectContaining({ _payload: expect.objectContaining({ severity: 'silent' }) }),
+    );
   });
 });
