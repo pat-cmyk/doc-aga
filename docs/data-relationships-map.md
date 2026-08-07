@@ -4,7 +4,7 @@
 >
 > _"Any code/schema/RLS/sync change without a corresponding DRM update is a failed step."_
 
-Last updated: 2026-03-05 (Government dashboard audit — canonical active animal filter)
+Last updated: 2026-08-07 (Error monitoring & one-tap error tickets — see Entry 10)
 
 ---
 
@@ -43,6 +43,8 @@ Last updated: 2026-03-05 (Government dashboard audit — canonical active animal
 | `feedback_priority` | `critical`, `high`, `medium`, `low` |
 | `feedback_sentiment` | `urgent`, `negative`, `neutral`, `positive` |
 | `feedback_status` | `submitted`, `acknowledged`, `under_review`, `action_taken`, `resolved`, `closed` |
+| `error_severity` | `toast`, `crash`, `silent`, `server` |
+| `error_log_status` | `new`, `investigating`, `resolved`, `ignored` |
 
 ### Tables by Domain
 
@@ -119,6 +121,8 @@ Last updated: 2026-03-05 (Government dashboard audit — canonical active animal
 | | `daily_farm_checklists` | Daily task checklists | `farm_id` | Farm members, government |
 | | `animal_ovr_cache` | Cached OVR (Overall Value Rating) scores | via `animal_id→animals.farm_id` | Farm members |
 | | `animal_photos` | Animal photo gallery | via `animal_id→animals.farm_id` | Farm owner/manager |
+| | `client_error_logs` | Grouped error monitoring log (one row per fingerprint) | Global | Super admin (RPC-mediated writes) |
+| | `error_report_rate` | Per-user hourly rate-limit counter for `log_client_error` | `user_id` (RPC-internal) | No policies — RPC-internal only |
 
 ---
 
@@ -446,6 +450,41 @@ Last updated: 2026-03-05 (Government dashboard audit — canonical active animal
 
 **Tenancy**: `farm_id`. Farmhands insert (own); owners/managers review.
 
+### Admin/System Domain (Error Monitoring)
+
+#### `client_error_logs`
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `id` | uuid | NO | `gen_random_uuid()` | PK |
+| `fingerprint` | text | NO | — | **UNIQUE**. `hash(severity + error name + normalized message + route)`; one row per fingerprint, upserted |
+| `severity` | `error_severity` | NO | — | Enum: `toast`, `crash`, `silent`, `server` |
+| `message` | text | NO | — | Raw error message (latest occurrence), clamped to 2000 chars server-side |
+| `stack` | text | YES | — | Crashes/server only; clamped to 8000 chars |
+| `translated_title` | text | YES | — | What the farmer saw (from `translateError`) |
+| `context` | jsonb | NO | `'{}'` | Route, `mode` (Vite build mode — no app version constant exists), user agent, online status, function name (server); dropped to `{}` server-side if >4KB |
+| `user_id` | uuid | YES | — | FK → `profiles.id`; tracks the **latest** reporter |
+| `farm_id` | uuid | YES | — | FK → `farms.id`; keeps the first known farm if a later occurrence has none |
+| `seen_user_ids` | uuid[] | NO | `'{}'` | Distinct reporters seen, **capped at 50** — once full, `submit_error_report` accepts any authenticated user as a fallback (error is presumed widespread) |
+| `occurrence_count` | integer | NO | `1` | Client-self-reported per call (clamped 1–100), summed across upserts — a triage signal, not a verified count |
+| `first_seen_at` | timestamptz | NO | `now()` | |
+| `last_seen_at` | timestamptz | NO | `now()` | |
+| `status` | `error_log_status` | NO | `'new'` | Enum: `new`, `investigating`, `resolved`, `ignored`. Regression rule: a `resolved` row that recurs flips back to `new` |
+| `linked_ticket_id` | uuid | YES | — | FK → `support_tickets.id`; set by `submit_error_report` or admin "Create Ticket" |
+| `created_at` / `updated_at` | timestamptz | NO | `now()` | |
+
+**Tenancy**: Global (not farm-scoped). **RLS**: super-admin SELECT/UPDATE/DELETE only (`is_super_admin()`); **no INSERT policy** — all client writes go through the `log_client_error` SECURITY DEFINER RPC, Edge Functions write `severity = 'server'` rows directly via the service-role client (bypasses RLS).
+
+#### `error_report_rate`
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `user_id` | uuid | NO | — | PK (composite with `hour_bucket`) |
+| `hour_bucket` | timestamptz | NO | — | PK; `date_trunc('hour', now())` at insert time |
+| `report_count` | integer | NO | `1` | Incremented per `log_client_error` call this hour |
+
+**Tenancy**: RPC-internal only — no RLS policies (table is never queried directly by clients). Rows older than 24 hours are opportunistically deleted inside `log_client_error`. Enforces the 30-reports-per-user-per-hour cap; over the cap, `log_client_error` returns `NULL` (silently drops the report client-side).
+
 _(Remaining entity specs follow same pattern — marketplace, ads, government, support, AI/voice, admin tables documented with same column-level detail.)_
 
 ---
@@ -518,6 +557,9 @@ _(Remaining entity specs follow same pattern — marketplace, ads, government, s
 | `admin_farm_edits` | `farms` | M:1 | `farm_id` | NO ACTION | — |
 | `admin_profile_edits` | `profiles` | M:1 | `profile_id` | NO ACTION | — |
 | `farms` | `profiles` | M:1 | `owner_id` | NO ACTION | — |
+| `client_error_logs` | `profiles` | M:1 | `user_id` | NO ACTION | — (latest reporter) |
+| `client_error_logs` | `farms` | M:1 | `farm_id` | NO ACTION | — |
+| `client_error_logs` | `support_tickets` | M:1 | `linked_ticket_id` | NO ACTION | — |
 
 ---
 
@@ -615,6 +657,8 @@ The "active farm" is determined via `profiles.active_farm_id`. The client sets t
 | `stats_job_runs` | Admin (`has_role()`) | — | — | — |
 | `test_results` | Admin (`has_role()`) | Admin | — | — |
 | `test_runs` | Admin (`has_role()`) | Admin | — | — |
+| `client_error_logs` | Super admin | — (RPC-only: `log_client_error`, service role) | Super admin (also RPC: `update_error_log_status`, `set_error_log_ticket`) | Super admin |
+| `error_report_rate` | — (no policies; RPC-internal) | — | — | — |
 
 ---
 
@@ -705,7 +749,7 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 
 | Function | Purpose | Tables Touched | Auth/Role Check |
 |----------|---------|---------------|-----------------|
-| `doc-aga` | AI chat assistant | `doc_aga_queries`, `doc_aga_faqs`, `animals`, `farms`, various records | User auth, farm membership |
+| `doc-aga` | AI chat assistant | `doc_aga_queries`, `doc_aga_faqs`, `animals`, `farms`, various records, `client_error_logs` (via `_shared/errorLogger.ts`, `EdgeRuntime.waitUntil`, severity `server`) | User auth, farm membership |
 | `rico` | Analytics AI assistant | All record tables, `farms`, `animals` | User auth, farm membership + government |
 | `process-animal-voice` | Voice-to-animal-data processing | `animals`, record tables | User auth, farm membership |
 | `voice-to-text` | Speech transcription | `stt_analytics` | User auth |
@@ -719,7 +763,7 @@ Per-user, per-farm, per-table tracking of last sync position. Used for increment
 | `merchant-signup` | Register merchant account | `merchants`, `user_roles` | User auth |
 | `send-team-invitation` | Send farm team invites | `farm_memberships` | Farm owner |
 | `send-user-invitation` | Send platform-role invites (admin/government/merchant/distributor/cooperative). Grants role immediately if user already exists. | `user_invitations`, `user_roles` (via `admin_assign_role`) | Super admin |
-| `calculate-daily-stats` | Compute daily farm statistics | `daily_farm_stats`, record tables | Service role (scheduled) |
+| `calculate-daily-stats` | Compute daily farm statistics | `daily_farm_stats`, record tables, `client_error_logs` (via `_shared/errorLogger.ts`, severity `server`) | Service role (scheduled) |
 | `calculate-ovr-scores` | Compute animal OVR scores | `animal_ovr_cache`, record tables | Service role |
 | `generate-predictive-insights` | AI-powered farm predictions | Record tables, `farms`, `animals` | User auth, farm membership |
 | `generate-morning-brief` | Daily morning briefing | Record tables, `farms`, `animals` | User auth, farm membership |
@@ -1843,3 +1887,61 @@ The following columns were added to **all three** invitation tables (`farm_membe
 | C) API/Edge Contracts ↔ DRM | ✅ `accept-invitation` Edge Function documented; per-type accept RPCs unchanged |
 | D) Offline/Sync ↔ DRM | ✅ Invite accept is online-only (Category C pattern); no IndexedDB changes |
 | E) Data integrity | ✅ "Bred" box double-count fixed, form parity enforced |
+
+---
+
+## Entry 10 — Error Monitoring & One-Tap Error Tickets (2026-08-07)
+
+### New Tables
+
+Added via migration `supabase/migrations/20260807000000_error_monitoring.sql`. Full column-level specs in §2 → "Admin/System Domain (Error Monitoring)".
+
+| Table | Purpose |
+|-------|---------|
+| `client_error_logs` | One row per error fingerprint (grouped/deduped). Tracks severity, message, stack, translated title, context, reporter(s), occurrence count, triage status, linked support ticket. |
+| `error_report_rate` | Per-user, per-hour counter backing the 30-reports/user/hour rate limit on `log_client_error`. |
+
+### New Enums
+
+| Enum | Values |
+|------|--------|
+| `error_severity` | `toast`, `crash`, `silent`, `server` |
+| `error_log_status` | `new`, `investigating`, `resolved`, `ignored` |
+
+### New RPCs
+
+| RPC | Signature | Security | Notes |
+|-----|-----------|----------|-------|
+| `log_client_error` | `(_payload jsonb) → uuid` | `SECURITY DEFINER`, any authenticated user | Validates + clamps payload (message ≤2000 chars, stack ≤8000, context ≤4KB), rate-limits at 30/user/hour via `error_report_rate` (returns `NULL` past the cap instead of raising), upserts `client_error_logs` by `fingerprint`. `severity = 'server'` from a client payload is coerced to `'silent'` — `server` is reserved for Edge Function service-role inserts. Regression rule: a `resolved` row that recurs flips back to `new`. |
+| `submit_error_report` | `(_error_log_id uuid, _user_note text DEFAULT NULL) → text` | `SECURITY DEFINER`, any authenticated user | The farmer one-tap report path. Deliberately bypasses `support_tickets`' super-admin-only RLS to create a pre-filled ticket on the caller's behalf. Uses `SELECT ... FOR UPDATE` on the error log row to serialize concurrent reports (idempotency guarantee) — a second report on an already-ticketed error adds an internal `ticket_comments` row instead of a duplicate ticket, and returns the existing `ticket_number`. Caller must appear in `seen_user_ids` unless the array is already at its 50-entry cap (then any authenticated user is accepted). |
+| `get_error_monitoring_summary` | `() → jsonb` | `SECURITY DEFINER`, super admin only | Returns `{ counts: { new, investigating, crashes_24h, total_24h }, groups: [...], last_updated }`. `groups` is the top 200 error groups (by `last_seen_at DESC`) joined against `farms` and `support_tickets` for display names. Backs `useErrorLogs` / `ErrorMonitoringTab` — no separate list RPC. |
+| `update_error_log_status` | `(_id uuid, _status error_log_status) → void` | `SECURITY DEFINER`, super admin only | Admin triage status change. |
+| `set_error_log_ticket` | `(_id uuid, _ticket_id uuid) → void` | `SECURITY DEFINER`, super admin only | Links an error group to a ticket created via the admin "Create Ticket" flow (as opposed to the farmer-initiated `submit_error_report` path). |
+
+### Edge Function Integration
+
+Edge Functions do **not** call `log_client_error` (that RPC is client-only). Instead, `supabase/functions/_shared/errorLogger.ts` writes `severity = 'server'` rows **directly** into `client_error_logs` using the service-role client, bypassing RLS entirely (same pattern as other service-role Edge Function writes). Wired into `doc-aga` (via `EdgeRuntime.waitUntil`, fire-and-forget so logging never delays the response) and `calculate-daily-stats`. Other functions adopt it incrementally.
+
+### RLS
+
+`client_error_logs`: super-admin SELECT/UPDATE/DELETE only; **no INSERT policy** for any role — all client-originated writes route through `log_client_error` (SECURITY DEFINER), all server-originated writes route through the service-role client. `error_report_rate`: no policies at all (RPC-internal counter table, never queried by clients directly).
+
+### Data Flow (SSOT)
+
+```
+client_error_logs → log_client_error / submit_error_report / get_error_monitoring_summary (RPCs)
+                  → errorMonitor.ts + useErrorLogs (lib/hook)
+                  → error toast "I-report ito" action, AppErrorBoundary, ErrorMonitoringTab (components)
+```
+
+See `docs/ssot-architecture.md` for the full client-side capture architecture (fingerprinting, session caps, offline queue).
+
+**Consistency Check**:
+
+| Check | Status |
+|-------|--------|
+| A) Schema ↔ DRM | ✅ New tables, enums, RPCs documented above and in §2 |
+| B) RLS ↔ DRM | ✅ Both tables RLS-enabled; no open INSERT policies; SECURITY DEFINER RPCs are the sanctioned bypass |
+| C) API/Edge Contracts ↔ DRM | ✅ `errorLogger.ts` service-role write path documented; no new Edge Functions added |
+| D) Offline/Sync ↔ DRM | ✅ Client capture queues offline in a dedicated `errorMonitorDB` IndexedDB store (not `sync_queue`, not `dataCacheDB`) — see `docs/ssot-architecture.md` |
+| E) Data integrity | ✅ Idempotent ticket creation via `FOR UPDATE` row lock; regression detection on resolved errors |

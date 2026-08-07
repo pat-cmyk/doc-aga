@@ -221,3 +221,63 @@ value and RPC writer).
 - `docs/data-relationships-map.md` — new table + RPCs
 - `docs/ssot-architecture.md` — error monitoring data flow
 - `changelog.md` — feature entry
+
+## Implementation Deviations
+
+Recorded post-implementation, after full verification (lint/test/build) and
+before governance sign-off. None of these are regressions from the spec
+above — they're places the built version is more specific, or diverges
+narrowly, from what was drafted.
+
+- **Stack captured for crashes only**, confirmed as specced (`severity =
+  'crash'`/`'server'`) — toast and silent captures never carry a stack.
+- **Context carries `mode`, not an app version.** The spec's payload list
+  includes "app version," but no app-version constant exists anywhere in the
+  codebase to source it from. `errorMonitor.ts` puts
+  `import.meta.env.MODE` (Vite build mode: `development`/`production`) in
+  `context.mode` instead. Revisit if a version constant is introduced later.
+- **Report action suppressed on two categories.** `showErrorToast()` still
+  captures `NETWORK` and `DUPLICATE` errors (telemetry value), but does not
+  offer the "I-report ito" button for them — both are noise for a support
+  ticket, not an actionable signal, and offering it would train farmers to
+  file tickets for transient connectivity blips.
+- **Session caps are per-severity, not a single global cap.** The spec's "max
+  20 error reports sent per session" became two constants:
+  `SESSION_CAP_TOAST_CRASH = 20` and `SESSION_CAP_SILENT = 10` — silent
+  errors (background retries) are noisier per-incident than user-visible
+  ones, so they get a tighter budget.
+- **Dedup window is also per-severity.** `DEDUP_WINDOW_MS = 5 * 60 * 1000`
+  (toast/crash) vs `DEDUP_WINDOW_MS_SILENT = 30 * 60 * 1000`. Silent errors
+  (e.g. sync retries) can re-fire every retry cycle of the same underlying
+  failure; a 30-minute window collapses a whole retry cycle into one
+  occurrence bump instead of resending on every attempt.
+- **Offline queue lives in a dedicated `errorMonitorDB`**, not the existing
+  `dataCacheDB` used by farm-data caches. This is deliberate: error reports
+  must survive `CacheManager.clearAllCaches()` (logout, storage-pressure
+  eviction) so a crash queued right before a cache wipe still flushes later.
+  `errorMonitorDB` is intentionally kept **outside** `CacheManager`'s blast
+  radius — do not add it to `CACHE_DEPENDENCIES`.
+- **`SystemOverview` reads counts from `get_error_monitoring_summary`**
+  rather than extending `get_system_health_metrics` as the spec's RPC section
+  suggested. Keeps the error-monitoring RPC surface self-contained (one RPC
+  owns all error-monitoring reads) instead of coupling it into the unrelated
+  system-health RPC.
+- **`showErrorToastLegacy()` call sites (56 of them) capture but have no
+  Report button.** `showErrorToastLegacy` calls `translateError` internally,
+  so every legacy shadcn-toast call site is already captured by the monitor
+  — but the legacy toast has no action slot, so none of them can offer the
+  one-tap report. Only `showErrorToast()` (sonner, the preferred API) surfaces
+  the button. Migrating call sites off the legacy toast is a possible
+  follow-up, not part of this feature.
+- **`src/lib/errorMessages.ts` has a second, unrelated `translateError`
+  export.** It predates this feature and is not part of the SSOT capture
+  path described above (that's `src/lib/errorHandling.ts`'s `translateError`).
+  It was left untouched — out of scope for this feature and no call sites
+  needed it for error-monitoring coverage.
+- **Silent-capture coverage is partial by design, not complete.** The spec
+  called out `cacheManager.ts` and "the sync queue" as starting points;
+  what's actually wired for `reportSilentError()` is
+  `syncTelemetry.recordSyncError()` (the sync path), `VoiceQuickAdd`'s two
+  catch paths, and `useSystemHealth`'s `queryFn`. Extending silent capture to
+  the remaining caught-but-unreported error sites across the app is a
+  tracked follow-up, not a gap in this feature's stated scope.

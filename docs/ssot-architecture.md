@@ -3,7 +3,7 @@
 > **Living document** — Reflects Section 5 of the Core Operating Protocol.
 > Must be kept in sync with `ARCHITECTURE.md`, `changelog.md`, and `/docs/data-relationships-map.md`.
 
-Last updated: 2026-03-05
+Last updated: 2026-08-07 (Error monitoring & one-tap error tickets — see §3.56)
 
 ---
 
@@ -92,6 +92,7 @@ These are critical synchronized data paths. Breaking any link is a blocking bug:
 | **Fertility State Machine** | `breeding_events` INSERT → DB trigger `update_animal_fertility_status` → `animals.fertility_status` + side effects (parity, VWP, services). VWP is species-specific: goat/sheep=45d, cattle/carabao=60d |
 | **Breeding Offline** | `BreedingEventActionDialog` → `offlineQueue.addToQueue(breeding_event)` → `syncBreedingEvent()` → `insertBreedingEvent()` → `breeding_events`. Cache: `RecordCache.breeding` in IndexedDB |
 | **Cooperative Aggregation** | `cooperative_memberships` (accepted farms) → SECURITY DEFINER RPCs (`get_cooperative_herd_summary`, `get_cooperative_milk_production`, `get_cooperative_health_overview`, `get_cooperative_financial_summary`) → `useCooperative` hooks → `CooperativeDashboard` tabs. **Note:** Cooperative reads are entirely via SECURITY DEFINER functions and do not touch existing farm RLS policies. |
+| **Error Monitoring** | `client_error_logs` → `log_client_error` / `submit_error_report` / `get_error_monitoring_summary` (RPCs) → `errorMonitor.ts` + `useErrorLogs` (lib/hook) → error toast Report action, `AppErrorBoundary`, `ErrorMonitoringTab` (components). See §3.57 for capture-point detail. |
 
 ---
 
@@ -192,6 +193,7 @@ queryFn: async () => {
 | `useGovernmentFeedback` | MANUAL — Government-scoped, @online-only | — |
 | `useAuditReport` | MANUAL — Admin-scoped, @online-only | — |
 | `useAnimalProfileExport` | A (COMPOSITION — reads via `getCachedAnimalDetails` + `useBioCardData` + `useAnimalExpenseSummary`; no new cache store, no new network) | inherited |
+| `useErrorLogs` | B/C style (MANUAL — admin-only, `@online-only`; not farm-level so no IndexedDB cache) | — |
 
 ---
 
@@ -226,6 +228,59 @@ snapshot" footer on the PDF and banner in the CSV.
 
 **Do NOT:** duplicate any recording/mutation logic here. This module is
 read-only and must never write back to Supabase.
+
+---
+
+## 3.56 Error Monitoring & One-Tap Error Tickets (2026-08-07)
+
+`client_error_logs` → `log_client_error` / `submit_error_report` /
+`get_error_monitoring_summary` (RPCs) → `errorMonitor.ts` + `useErrorLogs`
+(lib/hook) → error toast Report action, `AppErrorBoundary`,
+`ErrorMonitoringTab` (components). Full column/RPC spec:
+`docs/data-relationships-map.md` Entry 10.
+
+**SSOT capture point:** `translateError()` in `src/lib/errorHandling.ts` is
+the single place `captureError()` is invoked — it is called by every existing
+error toast call site with zero per-call-site changes. `describeError()` is
+the capture-free variant: same bilingual pattern-matching, but no monitor
+side effect, for render-path/inline display (e.g. text that re-renders every
+render, where `translateError` would spam duplicate captures). **Use
+`describeError` in render paths, `translateError` everywhere else.**
+`showErrorToastLegacy()` (56 call sites, shadcn `useToast`-based) calls
+`translateError` under the hood — so it still captures — but has no action
+slot to carry the "I-report ito" button; only `showErrorToast()` (sonner)
+offers the one-tap report action.
+
+**Offline queue:** lives in its own IndexedDB database, `errorMonitorDB`
+(`src/lib/errorMonitor.ts`) — deliberately **not** `dataCacheDB`. This is a
+conscious exception to the "all offline queues share the cache layer"
+convention: error reports must survive `CacheManager`'s `clearAllCaches()`
+(e.g. logout, storage-pressure eviction) so a crash report queued right
+before a cache wipe still flushes. Never register `errorMonitorDB` in
+`CacheManager.CACHE_DEPENDENCIES`.
+
+**Capture points:** `translateError` (all toasts), `<AppErrorBoundary>`
+(render crashes, severity `crash`), `window.onerror` +
+`window.onunhandledrejection` (outside React's tree), `reportSilentError()`
+(caught-but-not-shown — wired into `syncTelemetry.recordSyncError`,
+`VoiceQuickAdd`, `useSystemHealth`), and Edge Functions via
+`_shared/errorLogger.ts` (severity `server`, service-role direct insert,
+bypasses the client RPC entirely).
+
+**Noise control:** per-severity session caps (toast+crash: 20/session,
+silent: 10/session) and a fingerprint dedup window (5 min for toast/crash,
+30 min for silent — silent errors retry more aggressively, so they need a
+longer window to avoid resending every retry of the same underlying
+failure). Report action is suppressed (still captured, just no button) for
+`NETWORK` and `DUPLICATE` translated titles — those categories are noise for
+a support ticket, not a useful signal.
+
+**Read path:** `useErrorLogs` is **online-only** (Category B/C style, no
+local cache) — admin-only triage data, not farm-level, so it does not follow
+the Category A cache-first pattern.
+
+**Read more:** `docs/superpowers/specs/2026-08-07-error-monitoring-design.md`
+(design + Implementation Deviations).
 
 ---
 

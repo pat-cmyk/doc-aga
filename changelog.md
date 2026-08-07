@@ -1,46 +1,71 @@
 # Changelog
 
-## 2026-08-07 — Silent error reporting for sync, voice, and health-query failures
+## 2026-08-07 — Error monitoring & one-tap error tickets
 
-- **`src/lib/syncTelemetry.ts`** — `recordSyncError()` now calls
-  `reportSilentError(error, 'sync')` (from `src/lib/errorMonitor.ts`) as its
-  first line, so background sync failures are captured (severity: `silent`)
-  in addition to being written to `sync_analytics`.
-- **`src/components/animal-form/VoiceQuickAdd.tsx`** — Both catch paths
-  (edge-function extraction failure in `processTranscription`, and the
-  non-permission branch of `useVoiceRecording`'s `onError`) now call
-  `reportSilentError(error, 'voice transcription')` before rendering the
-  inline `describeError()` message — restores the capture that was dropped
-  when this component switched from `translateError` to `describeError`.
-- **`src/hooks/useSystemHealth.ts`** — `useQuery`'s `queryFn` now calls
-  `reportSilentError(error, 'system health query')` before re-throwing the
-  RPC error. TanStack Query v5 (installed: `^5.83.0`) removed per-query
-  `onError`, so this is done inside `queryFn` rather than in the query
-  options; it fires once per failed fetch attempt (including internal
-  retries), which is acceptable for a silent, non-blocking signal.
-- **`src/lib/__tests__/syncTelemetry.test.ts`** — Mocks `@/lib/errorMonitor`
-  and asserts `recordSyncError()` calls `reportSilentError` with the raw
-  error and `'sync'` context.
+Full-stack error monitoring: every user-facing error toast, app crash/white
+screen, silent background failure, and Edge Function failure is now captured,
+fingerprinted/grouped, and triageable from a new Admin Dashboard tab. Farmers
+can report any captured error with a single tap on a pre-filled support
+ticket — no typing required. Design spec:
+`docs/superpowers/specs/2026-08-07-error-monitoring-design.md`. Governance:
+`docs/data-relationships-map.md` Entry 10, `docs/ssot-architecture.md` §3.56.
 
-## 2026-08-07 — Root crash boundary + error-monitor boot wiring
+**Backend** — `supabase/migrations/20260807000000_error_monitoring.sql`:
+`client_error_logs` (one row per fingerprint, RLS super-admin-only, no INSERT
+policy) + `error_report_rate` (RPC-internal rate-limit counter), and five
+SECURITY DEFINER RPCs — `log_client_error` (rate-limited 30/user/hour,
+upserts by fingerprint), `submit_error_report` (creates the farmer's
+pre-filled `support_tickets` row, idempotent via `FOR UPDATE` row lock),
+`get_error_monitoring_summary`, `update_error_log_status`,
+`set_error_log_ticket`.
 
-- **`src/components/AppErrorBoundary.tsx`** — New class-based error boundary
-  wrapping `<App />` in `src/main.tsx`. Catches render crashes anywhere in the
-  tree, reports them via `captureError()` (severity: `crash`, context:
-  `render`) from `src/lib/errorMonitor.ts`, and shows a full-screen Taglish
-  recovery UI with one-tap "I-report" (`submitOneTapReport()`) and "I-reload"
-  actions. The boundary flips its own button to "Nai-report na" instead of
-  relying on the sonner toast, since `<Toaster>` (rendered inside `App`) may
-  be unmounted during a crash.
-- **`src/main.tsx`** — Calls `initErrorMonitor()` before mounting (registers
-  `window.onerror` / `unhandledrejection` listeners with stale-chunk
-  filtering and network-rejection downgrading, and subscribes to
-  connectivity changes to flush the offline report queue). Existing
-  stale-chunk reload listeners are unchanged; `initErrorMonitor()`'s own
-  listeners skip those same errors to avoid double-handling.
-- **Tests** — `src/components/__tests__/AppErrorBoundary.test.tsx` covers the
-  no-error passthrough, crash capture + recovery UI, and the report-then-flip
-  interaction, with `@/lib/errorMonitor` mocked.
+**Capture** — `src/lib/errorMonitor.ts` (new): fingerprinting (normalizes
+UUIDs/numbers so similar errors group together), per-severity session caps
+(toast+crash: 20, silent: 10), dedup windows (5 min toast/crash, 30 min
+silent), and an offline queue in its own IndexedDB database (`errorMonitorDB`
+— deliberately separate from `dataCacheDB` so it survives `clearAllCaches()`).
+`translateError()` in `src/lib/errorHandling.ts` gained a single
+`captureError()` call, instantly covering every existing error toast in the
+app with zero per-call-site changes; `describeError()` is the capture-free
+variant for render-path display. `showErrorToast()` (sonner) now carries a
+one-tap **"I-report ito"** action on captured errors (suppressed for
+`NETWORK`/`DUPLICATE` — noise, not signal). New root `<AppErrorBoundary>`
+(`src/components/AppErrorBoundary.tsx`) wraps `<App />` in `src/main.tsx`,
+catching render crashes with a full-screen Taglish recovery UI (Report +
+Reload). `window.onerror` / `unhandledrejection` listeners cover errors
+outside React's render tree. `initErrorMonitor()` is called at boot in
+`src/main.tsx`, before mounting.
+
+**Silent reporting** — `reportSilentError()` wired into
+`syncTelemetry.recordSyncError()` (background sync failures),
+`VoiceQuickAdd`'s two catch paths (restores capture dropped when that
+component switched from `translateError` to `describeError`), and
+`useSystemHealth`'s `queryFn` (TanStack Query v5 removed per-query `onError`,
+so this runs inline before re-throwing).
+
+**Server-side** — `supabase/functions/_shared/errorLogger.ts` (new): writes
+severity `server` rows directly via the service-role client, bypassing RLS.
+Wired into `doc-aga` (via `EdgeRuntime.waitUntil`, fire-and-forget) and
+`calculate-daily-stats`.
+
+**Admin** — New Operations → Errors tab: `ErrorMonitoringTab.tsx` (grouped
+list, filters, severity/status badges) + `ErrorDetailPanel.tsx` (full detail,
+status change, "Create Ticket" → existing `CreateTicketDialog` pre-filled) +
+`useErrorLogs.ts` hook (online-only, no IndexedDB cache — admin data, not
+farm-level). `SystemOverview` gained new-error and 24h-crash alert cards from
+`get_error_monitoring_summary`. Incidental fix: `CreateTicketDialog`'s linked
+farm/user `<Select>`s used a literal `value=""` "None" item, which Radix
+Select rejects (`""` is reserved to mean "cleared"); replaced with a
+`NONE_VALUE` sentinel mapped to/from the empty-string state at the edges.
+Also added `initial*` prefill props + `onCreated` callback so the new
+one-tap-report "Create Ticket" flow can open the dialog pre-filled.
+
+**Tests** — `src/lib/__tests__/errorMonitor.test.ts`,
+`src/lib/__tests__/errorHandling.test.ts`,
+`src/components/__tests__/AppErrorBoundary.test.tsx`,
+`src/components/admin/__tests__/ErrorMonitoringTab.test.tsx`,
+`src/components/admin/__tests__/CreateTicketDialog.test.tsx`, plus updates to
+`src/lib/__tests__/syncTelemetry.test.ts`.
 
 ## Unreleased — Security hardening
 
