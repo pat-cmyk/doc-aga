@@ -515,6 +515,12 @@ export async function flushQueue(): Promise<void> {
       // FIX1: never submit (or even re-log) a report captured under a
       // different user session than the one we're in now — that would
       // attribute one farmer's error to another farmer's ticket/account.
+      // CAUTION: rows captured pre-login carry userId === undefined and pass
+      // this guard, logging under whoever signs in next. That's acceptable
+      // for telemetry-only rows, but no pre-auth surface may ever set
+      // reportRequested on a row (auth pages use the legacy toast with no
+      // Report button today) — migrating an auth page to showErrorToast
+      // would reopen the shared-phone misattribution bug through this hole.
       if (entry.userId && entry.userId !== currentUserId) {
         console.warn('[errorMonitor] dropping queued report from a different user session');
         if (entry.id !== undefined) await db.delete(STORE, entry.id);

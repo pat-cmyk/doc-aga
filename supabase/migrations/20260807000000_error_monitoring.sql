@@ -180,6 +180,8 @@ $$;
 -- every reporter (see log_client_error's upsert), so without this, a farmer
 -- whose report flushes late could get a ticket linked to a different farm
 -- than their own — whichever farm most recently re-triggered the same error.
+-- Drop any earlier-draft signature so re-runs never leave two overloads behind
+DROP FUNCTION IF EXISTS public.submit_error_report(uuid, text);
 CREATE OR REPLACE FUNCTION public.submit_error_report(
   _error_log_id UUID,
   _user_note TEXT DEFAULT NULL,
@@ -264,6 +266,8 @@ $$;
 -- badge, every 60s) skip the expensive grouped-rows subquery entirely and
 -- fetch only counts + last_updated. The full admin error-monitoring screen
 -- passes true to get the row-level detail it actually renders.
+-- Drop any earlier-draft signature so re-runs never leave two overloads behind
+DROP FUNCTION IF EXISTS public.get_error_monitoring_summary();
 CREATE OR REPLACE FUNCTION public.get_error_monitoring_summary(_include_groups BOOLEAN DEFAULT true)
 RETURNS JSONB
 LANGUAGE plpgsql
