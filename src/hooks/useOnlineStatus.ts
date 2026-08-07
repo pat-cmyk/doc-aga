@@ -160,6 +160,7 @@ export function getIsOnline(): boolean {
 /**
  * Subscribe to connectivity changes outside React (SSOT: same probe as
  * useOnlineStatus). Returns an unsubscribe function.
+ * Does not fire with the current state on subscribe — call getIsOnline() first if you need it.
  */
 export function subscribeOnlineStatus(listener: (online: boolean) => void): () => void {
   ensureProbeStarted();
