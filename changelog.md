@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-07 — Root crash boundary + error-monitor boot wiring
+
+- **`src/components/AppErrorBoundary.tsx`** — New class-based error boundary
+  wrapping `<App />` in `src/main.tsx`. Catches render crashes anywhere in the
+  tree, reports them via `captureError()` (severity: `crash`, context:
+  `render`) from `src/lib/errorMonitor.ts`, and shows a full-screen Taglish
+  recovery UI with one-tap "I-report" (`submitOneTapReport()`) and "I-reload"
+  actions. The boundary flips its own button to "Nai-report na" instead of
+  relying on the sonner toast, since `<Toaster>` (rendered inside `App`) may
+  be unmounted during a crash.
+- **`src/main.tsx`** — Calls `initErrorMonitor()` before mounting (registers
+  `window.onerror` / `unhandledrejection` listeners with stale-chunk
+  filtering and network-rejection downgrading, and subscribes to
+  connectivity changes to flush the offline report queue). Existing
+  stale-chunk reload listeners are unchanged; `initErrorMonitor()`'s own
+  listeners skip those same errors to avoid double-handling.
+- **Tests** — `src/components/__tests__/AppErrorBoundary.test.tsx` covers the
+  no-error passthrough, crash capture + recovery UI, and the report-then-flip
+  interaction, with `@/lib/errorMonitor` mocked.
+
 ## Unreleased — Security hardening
 
 - **Production boot fallback.** `vite.config.ts` now injects the project's public

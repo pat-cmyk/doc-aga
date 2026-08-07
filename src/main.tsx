@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { registerSW } from 'virtual:pwa-register';
 import App from "./App.tsx";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { initErrorMonitor } from "./lib/errorMonitor";
 import "./index.css";
 
 // Auto-reload on stale dynamic import failures (after new deployments)
@@ -22,10 +24,15 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
+// Global error capture (window.onerror, unhandledrejection, queue flush)
+initErrorMonitor();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <HelmetProvider>
-      <App />
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
     </HelmetProvider>
   </StrictMode>
 );
