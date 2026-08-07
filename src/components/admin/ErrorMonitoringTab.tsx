@@ -137,7 +137,7 @@ export const ErrorMonitoringTab = () => {
                     {formatDistanceToNow(new Date(g.last_seen_at), { addSuffix: true })}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
                   {g.linked_ticket_number && (
                     <Badge variant="secondary" className="gap-1">
                       <Ticket className="h-3 w-3" />

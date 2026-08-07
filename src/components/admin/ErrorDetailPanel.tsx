@@ -54,7 +54,7 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
           {errorLog.stack && (
             <div className="space-y-1">
               <Label>Stack trace</Label>
-              <pre className="p-2 bg-muted rounded text-xs overflow-auto max-h-48">
+              <pre className="p-2 bg-muted rounded text-xs overflow-auto max-h-48 max-w-full">
                 {errorLog.stack}
               </pre>
             </div>

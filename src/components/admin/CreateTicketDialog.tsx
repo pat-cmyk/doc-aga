@@ -25,6 +25,13 @@ import { Loader2, Building2, User } from "lucide-react";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
+// Radix Select 2.x throws if any SelectItem has value="" (reserved to mean
+// "cleared, show placeholder"), and it mounts item text into a hidden
+// fragment even while closed — so a literal empty-string "None" item crashes
+// on every render, not just when opened. Use a sentinel and map it to/from
+// the "" farm/user-id state at the edges instead.
+const NONE_VALUE = "none";
+
 interface CreateTicketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -186,12 +193,15 @@ export const CreateTicketDialog = ({
                 <Building2 className="h-3 w-3" />
                 Link to Farm
               </Label>
-              <Select value={selectedFarmId} onValueChange={setSelectedFarmId}>
+              <Select
+                value={selectedFarmId || NONE_VALUE}
+                onValueChange={(v) => setSelectedFarmId(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select farm" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {farms?.map((farm) => (
                     <SelectItem key={farm.id} value={farm.id}>
                       {farm.name}
@@ -206,12 +216,15 @@ export const CreateTicketDialog = ({
                 <User className="h-3 w-3" />
                 Link to User
               </Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <Select
+                value={selectedUserId || NONE_VALUE}
+                onValueChange={(v) => setSelectedUserId(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || "Unnamed"}

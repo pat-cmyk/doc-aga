@@ -133,6 +133,31 @@ describe("ErrorMonitoringTab", () => {
     expect(updateStatusMutate).toHaveBeenCalledWith({ id: "err-1", status: "resolved" });
   });
 
+  it("keeps the sheet open and reflects the updated status after a refetch (no stale snapshot)", async () => {
+    const { rerender } = renderWithProviders(<ErrorMonitoringTab />);
+
+    fireEvent.click(screen.getByText("App crashed while saving"));
+    expect(screen.getByText("Raw message")).toBeInTheDocument();
+
+    // Simulate the 60s refetch (or a mutation's onSuccess invalidation) landing
+    // with err-1's status now "resolved" — the previously-selected group object
+    // no longer exists as-is, only a new object with the same id.
+    mockGroups = [{ ...crashGroup, status: "resolved" }, silentGroup];
+    rerender(<ErrorMonitoringTab />);
+
+    // The panel must stay open — `selected` is derived from the live `groups`
+    // array by id every render, not a frozen snapshot taken at click time.
+    expect(screen.getByText("Raw message")).toBeInTheDocument();
+
+    const statusLabel = screen.getByText("Status");
+    const statusContainer = statusLabel.parentElement as HTMLElement;
+    const trigger = within(statusContainer).getByRole("combobox");
+    fireEvent.click(trigger);
+
+    const resolvedOption = await screen.findByRole("option", { name: "Resolved" });
+    expect(resolvedOption).toHaveAttribute("data-state", "checked");
+  });
+
   it("shows an empty state when no groups match the filters", () => {
     mockGroups = [];
     renderWithProviders(<ErrorMonitoringTab />);
