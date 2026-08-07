@@ -158,6 +158,18 @@ export function getIsOnline(): boolean {
 }
 
 /**
+ * Subscribe to connectivity changes outside React (SSOT: same probe as
+ * useOnlineStatus). Returns an unsubscribe function.
+ */
+export function subscribeOnlineStatus(listener: (online: boolean) => void): () => void {
+  ensureProbeStarted();
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
+}
+
+/**
  * Non-hook accessor for connection quality.
  * Returns 'fast' (Wi-Fi/4G, <300ms), 'slow' (3G, 300-1500ms),
  * '2g' (>1500ms), or 'offline'.
