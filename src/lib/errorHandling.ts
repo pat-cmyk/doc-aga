@@ -15,6 +15,7 @@
  */
 
 import { toast as sonnerToast } from "sonner";
+import { captureError, takeLastCaptureHandle, submitOneTapReport } from "@/lib/errorMonitor";
 
 // ─── Bilingual Error Messages ─────────────────────────────────────────
 
@@ -82,12 +83,27 @@ interface TranslatedError {
 
 /**
  * Core translation engine.
- * Pattern-matches raw error strings to farmer-friendly bilingual messages.
+ * Pattern-matches raw error strings to farmer-friendly bilingual messages,
+ * and reports every error to the error monitor (SSOT capture point — every
+ * user-facing error message in the app flows through here).
  */
 export function translateError(error: unknown, context?: string): TranslatedError {
   // Always log raw error for debugging
   console.error("[translateError]", context || "", error);
+  const translated = matchError(error, context);
+  captureError(error, {
+    severity: "toast",
+    context,
+    translatedTitle: translated.title,
+  });
+  return translated;
+}
 
+/**
+ * Core translation engine.
+ * Pattern-matches raw error strings to farmer-friendly bilingual messages.
+ */
+function matchError(error: unknown, context?: string): TranslatedError {
   const message = extractErrorMessage(error).toLowerCase();
   const code = extractErrorCode(error);
 
@@ -175,10 +191,25 @@ export function translateError(error: unknown, context?: string): TranslatedErro
 /**
  * Show error toast using sonner (preferred).
  * One-liner for any file — no hook needed.
+ * When the error was captured by the monitor, the toast carries a one-tap
+ * "I-report" action that files a pre-filled support ticket.
  */
 export function showErrorToast(error: unknown, context?: string): void {
   const { title, description } = translateError(error, context);
-  sonnerToast.error(title, { description });
+  const handle = takeLastCaptureHandle();
+  if (handle) {
+    sonnerToast.error(title, {
+      description,
+      action: {
+        label: "I-report",
+        onClick: () => {
+          void submitOneTapReport(handle);
+        },
+      },
+    });
+  } else {
+    sonnerToast.error(title, { description });
+  }
 }
 
 /**

@@ -468,8 +468,8 @@ describe('retry policy (R1-R4)', () => {
     resolveLogA({ data: 'log-id-A', error: null });
     await flushPromise;
 
-    // R3's re-run fires from inside flushQueue's `finally` as a
-    // fire-and-forget call, so wait for it to actually process B.
+    // R3's re-run fires from inside flushQueue's `finally` and is awaited
+    // there, so wait for it to actually process B.
     await vi.waitFor(() => {
       const submitCalls = rpcMock.mock.calls.filter((c) => c[0] === 'submit_error_report');
       if (submitCalls.length < 2) throw new Error('re-run has not submitted B yet');

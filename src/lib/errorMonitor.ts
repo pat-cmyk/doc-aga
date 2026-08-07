@@ -359,6 +359,10 @@ async function enqueue(report: QueuedReport): Promise<void> {
 // as a "strike" — transport failures, timeouts, and anything else transient
 // are not the farmer's (or the row's) fault and must never burn an attempt,
 // or a flaky connection would silently discard queued error reports.
+// Note: before migration 20260807000000_error_monitoring.sql is deployed,
+// PostgREST returns PGRST202 ("Could not find the function") for these RPCs —
+// that message doesn't match this pattern, so it's intentionally treated as
+// transient: flushes stop and retry until the SQL runs, no data lost.
 const PERMANENT_LOG_ERROR_RE = /invalid payload|not authenticated|access denied/i;
 // R2: same idea for submit_error_report's permanent rejections.
 const PERMANENT_SUBMIT_ERROR_RE = /not a reporter|error log not found|not authenticated/i;
