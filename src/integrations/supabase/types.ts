@@ -1027,6 +1027,95 @@ export type Database = {
           },
         ]
       }
+      client_error_logs: {
+        Row: {
+          context: Json
+          created_at: string
+          farm_id: string | null
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          linked_ticket_id: string | null
+          message: string
+          occurrence_count: number
+          seen_user_ids: string[]
+          severity: Database["public"]["Enums"]["error_severity"]
+          stack: string | null
+          status: Database["public"]["Enums"]["error_log_status"]
+          translated_title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          farm_id?: string | null
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          linked_ticket_id?: string | null
+          message: string
+          occurrence_count?: number
+          seen_user_ids?: string[]
+          severity: Database["public"]["Enums"]["error_severity"]
+          stack?: string | null
+          status?: Database["public"]["Enums"]["error_log_status"]
+          translated_title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          farm_id?: string | null
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          linked_ticket_id?: string | null
+          message?: string
+          occurrence_count?: number
+          seen_user_ids?: string[]
+          severity?: Database["public"]["Enums"]["error_severity"]
+          stack?: string | null
+          status?: Database["public"]["Enums"]["error_log_status"]
+          translated_title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_error_logs_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_error_logs_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "gov_farm_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_error_logs_linked_ticket_id_fkey"
+            columns: ["linked_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_error_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coop_feed_disbursements: {
         Row: {
           category: string
@@ -1910,6 +1999,24 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      error_report_rate: {
+        Row: {
+          hour_bucket: string
+          report_count: number
+          user_id: string
+        }
+        Insert: {
+          hour_bucket: string
+          report_count?: number
+          user_id: string
+        }
+        Update: {
+          hour_bucket?: string
+          report_count?: number
+          user_id?: string
         }
         Relationships: []
       }
@@ -5259,6 +5366,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_error_monitoring_summary: {
+        Args: { _include_groups?: boolean }
+        Returns: Json
+      }
       get_faq_match_timeline: {
         Args: { p_days?: number }
         Returns: {
@@ -5963,6 +6074,7 @@ export type Database = {
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_vet: { Args: { _farm_id: string; _user_id: string }; Returns: boolean }
       leave_cooperative: { Args: { _membership_id: string }; Returns: string }
+      log_client_error: { Args: { _payload: Json }; Returns: string }
       log_user_activity: {
         Args: {
           _activity_category: string
@@ -6056,6 +6168,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_error_log_ticket: {
+        Args: { _id: string; _ticket_id: string }
+        Returns: undefined
+      }
       settle_coop_soa: {
         Args: {
           _cooperative_id: string
@@ -6063,6 +6179,17 @@ export type Database = {
           _period_start: string
         }
         Returns: string
+      }
+      submit_error_report: {
+        Args: { _error_log_id: string; _farm_id?: string; _user_note?: string }
+        Returns: string
+      }
+      update_error_log_status: {
+        Args: {
+          _id: string
+          _status: Database["public"]["Enums"]["error_log_status"]
+        }
+        Returns: undefined
       }
       update_sync_checkpoint: {
         Args: {
@@ -6084,6 +6211,8 @@ export type Database = {
         | "health_diagnosis"
         | "treatment"
         | "note"
+      error_log_status: "new" | "investigating" | "resolved" | "ignored"
+      error_severity: "toast" | "crash" | "silent" | "server"
       feedback_category:
         | "policy_concern"
         | "market_access"
@@ -6291,6 +6420,8 @@ export const Constants = {
         "treatment",
         "note",
       ],
+      error_log_status: ["new", "investigating", "resolved", "ignored"],
+      error_severity: ["toast", "crash", "silent", "server"],
       feedback_category: [
         "policy_concern",
         "market_access",
