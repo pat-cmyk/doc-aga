@@ -39,7 +39,7 @@ const PUBLIC_SUPABASE_FALLBACKS = {
   VITE_SUPABASE_URL: "https://sxorybjlxyquxteptdyk.supabase.co",
   VITE_SUPABASE_PROJECT_ID: "sxorybjlxyquxteptdyk",
   VITE_SUPABASE_PUBLISHABLE_KEY:
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InN4b3J5YmpseHlxdXh0ZXB0ZHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNjQ3ODUsImV4cCI6MjA3NDc0MDc4NX0.WalyDDm7YNNcdiZrrB3PfMUpD2Qj8ld-9SWMv5lB1cA",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4b3J5YmpseHlxdXh0ZXB0ZHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNjQ3ODUsImV4cCI6MjA3NDc0MDc4NX0.WalyDDm7YNNcdiZrrB3PfMUpD2Qj8ld-9SWMv5lB1cA",
 } as const;
 
 // https://vitejs.dev/config/
