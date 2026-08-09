@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-09 — "Copy for Claude" button on error details
+
+The admin Error Monitoring detail panel now has a one-click "Copy for Claude"
+button that copies a ready-to-paste debugging prompt (severity, route,
+occurrence stats, raw message, stack trace, linked ticket) so an admin can
+drop any captured error straight into a Claude Code session to fix it.
+New `src/lib/errorPrompt.ts` (pure builder) + tests.
+
 ## 2026-08-07 — Error monitoring & one-tap error tickets
 
 Full-stack error monitoring: every user-facing error toast, app crash/white
