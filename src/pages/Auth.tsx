@@ -22,7 +22,11 @@ const VoiceTrainingOnboarding = lazy(() => import("@/components/voice-training/V
 })));
 
 const isInviteRedirect = (path: string | null | undefined) =>
-  !!path && (path.startsWith('/invite/') || path.startsWith('/cooperative/invite/'));
+  !!path &&
+  (path.startsWith('/invite/') ||
+    path.startsWith('/cooperative/invite/') ||
+    // OAuth consent (MCP agent authorization) must return here after sign-in.
+    path.startsWith('/.lovable/oauth/consent'));
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -97,7 +101,9 @@ const Auth = () => {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/`
+        emailRedirectTo: isInviteRedirect(pendingRedirect)
+          ? `${window.location.origin}${pendingRedirect}`
+          : `${window.location.origin}/`
       }
     });
 
