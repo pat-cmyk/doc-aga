@@ -11,6 +11,9 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/.claude/worktrees/**',
+      // Deno tests (run via `deno test`, not vitest) — vitest can't resolve
+      // their https: imports and fails collection
+      'supabase/functions/**',
       // TODO: fix pre-existing circular mock dependency error
       '**/ActivityConfirmation.integration.test.tsx',
     ],
