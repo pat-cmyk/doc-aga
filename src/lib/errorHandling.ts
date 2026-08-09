@@ -28,6 +28,10 @@ export const ERROR_MESSAGES = {
     title: "Login Failed",
     description: "Wrong email or password. Please check and try again. (Mali ang email o password. Subukan ulit.)",
   },
+  CONFIG: {
+    title: "App Setup Problem",
+    description: "The app has a configuration problem — it's not your account. Please contact support. (May problema sa app setup — hindi ito kasalanan ng account mo. Kontakin ang support.)",
+  },
   ALREADY_REGISTERED: {
     title: "Already Registered",
     description: "This email is already registered. Please log in instead. (Naka-rehistro na ang email na ito. Mag-log in na lang.)",
@@ -140,6 +144,14 @@ function matchError(error: unknown, context?: string): TranslatedError {
   // 2. Invalid login credentials
   if (message.includes("invalid login credentials") || message.includes("invalid credentials")) {
     return ERROR_MESSAGES.INVALID_CREDENTIALS;
+  }
+
+  // 2a. App misconfiguration — a bad/rotated Supabase API key baked into a
+  // build fails EVERY request with this. Must be distinguishable from user
+  // error (2026-08-09 outage: corrupted key in the deploy env showed farmers
+  // the generic fallback, masking a total outage).
+  if (message.includes("invalid api key") || message.includes("supabase `anon` or `service_role` api key")) {
+    return ERROR_MESSAGES.CONFIG;
   }
 
   // 3. User already registered

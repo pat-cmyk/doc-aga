@@ -8,6 +8,11 @@ occurrence stats, raw message, stack trace, linked ticket) so an admin can
 drop any captured error straight into a Claude Code session to fix it.
 New `src/lib/errorPrompt.ts` (pure builder) + tests.
 
+Also: "Invalid API key" errors now map to a dedicated bilingual "App Setup
+Problem" message (ERROR_MESSAGES.CONFIG) instead of the generic fallback —
+a corrupted deploy-env Supabase key had made a total outage look like a
+generic per-user error.
+
 ## 2026-08-07 — Error monitoring & one-tap error tickets
 
 Full-stack error monitoring: every user-facing error toast, app crash/white
