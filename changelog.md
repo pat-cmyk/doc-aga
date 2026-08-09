@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Bug fixes
+
+- **Admin support-ticket panels no longer crash on mount.** Radix Select
+  (`@radix-ui/react-select` v2) throws when any `<SelectItem>` has
+  `value=""` — and it throws at mount, not open, because SelectContent's
+  children are rendered into a hidden DocumentFragment. Three empty-string
+  items (`TicketDetailPanel` assignee, `CreateTicketDialog` farm/user) were
+  replaced with the new `SELECT_NONE_VALUE` sentinel + `fromSelectValue()`
+  mapper (`src/lib/selectUtils.ts`). Regression test:
+  `src/components/admin/__tests__/TicketDetailPanel.test.tsx`.
+
 ## Unreleased — Security hardening
 
 - **Production boot fallback.** `vite.config.ts` now injects the project's public

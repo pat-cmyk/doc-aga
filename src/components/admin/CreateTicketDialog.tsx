@@ -24,6 +24,7 @@ import { useSupportTickets, TicketPriority } from "@/hooks/useSupportTickets";
 import { Loader2, Building2, User } from "lucide-react";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { SELECT_NONE_VALUE, fromSelectValue } from "@/lib/selectUtils";
 
 interface CreateTicketDialogProps {
   open: boolean;
@@ -159,12 +160,15 @@ export const CreateTicketDialog = ({
                 <Building2 className="h-3 w-3" />
                 Link to Farm
               </Label>
-              <Select value={selectedFarmId} onValueChange={setSelectedFarmId}>
+              <Select
+                value={selectedFarmId || SELECT_NONE_VALUE}
+                onValueChange={(v) => setSelectedFarmId(fromSelectValue(v))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select farm" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                   {farms?.map((farm) => (
                     <SelectItem key={farm.id} value={farm.id}>
                       {farm.name}
@@ -179,12 +183,15 @@ export const CreateTicketDialog = ({
                 <User className="h-3 w-3" />
                 Link to User
               </Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <Select
+                value={selectedUserId || SELECT_NONE_VALUE}
+                onValueChange={(v) => setSelectedUserId(fromSelectValue(v))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || "Unnamed"}

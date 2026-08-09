@@ -34,6 +34,7 @@ import {
 import { format } from "date-fns";
 import { useSupportTicket, useSupportTickets, TicketStatus, TicketPriority } from "@/hooks/useSupportTickets";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SELECT_NONE_VALUE, fromSelectValue } from "@/lib/selectUtils";
 
 interface TicketDetailPanelProps {
   ticketId: string | null;
@@ -193,14 +194,14 @@ export const TicketDetailPanel = ({
               <div className="space-y-1">
                 <Label className="text-xs">Assigned To</Label>
                 <Select
-                  value={ticket.assigned_to || ""}
-                  onValueChange={handleAssigneeChange}
+                  value={ticket.assigned_to || SELECT_NONE_VALUE}
+                  onValueChange={(v) => handleAssigneeChange(fromSelectValue(v))}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value={SELECT_NONE_VALUE}>Unassigned</SelectItem>
                     {admins?.map((admin) => (
                       <SelectItem key={admin.id} value={admin.id}>
                         {admin.full_name}

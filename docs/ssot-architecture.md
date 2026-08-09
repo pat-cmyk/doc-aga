@@ -25,6 +25,7 @@ Before modifying ANY field, function, or component, you MUST:
 - If the Add form and Edit form share fields, they MUST use the same constants, validation logic, and dropdown options (e.g., `availableBreeds`, `LIVESTOCK_BREEDS`, `getBreedsByLivestockType`).
 - When adding a feature to one form (Add or Edit), check if the other form needs the same update for parity.
 - All dropdowns must include a "No Data / Walang Data" option where applicable (per `ui/form-dropdown-standard` memory).
+- **Radix Select "no selection" rule:** a `<SelectItem>` must NEVER have `value=""` — Radix v2 throws at mount (SelectContent children render into a hidden DocumentFragment even while closed), crashing the whole component tree. Use `SELECT_NONE_VALUE` + `fromSelectValue()` from `src/lib/selectUtils.ts` (used by `TicketDetailPanel`, `CreateTicketDialog`).
 
 ### Shared Components Inventory (Animal Forms)
 
