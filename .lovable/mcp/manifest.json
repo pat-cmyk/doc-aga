@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://sxorybjlxyquxteptdyk.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "doc-aga",
+      "version": "0.1.0",
+      "title": "doc-aga"
+    },
+    "tools": [
+      {
+        "name": "list_farms",
+        "title": "List farms",
+        "description": "List the farms the signed-in Doc Aga user can access, with location and livestock type.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "farm_summary",
+        "title": "Farm summary",
+        "description": "Herd and production snapshot for a farm: active animal counts by life stage plus milk output over the last N days.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "farm_id": {
+              "type": "string",
+              "description": "Farm UUID from list_farms."
+            },
+            "days": {
+              "type": "number",
+              "description": "Production window in days. Defaults to 7."
+            }
+          },
+          "required": [
+            "farm_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_animals",
+        "title": "List animals",
+        "description": "List animals on a farm. Active animals only by default (not deleted, no exit date). Use list_farms first to get a farm id.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "farm_id": {
+              "type": "string",
+              "description": "Farm UUID from list_farms."
+            },
+            "include_inactive": {
+              "type": "boolean",
+              "description": "Include sold/dead/exited animals. Defaults to false."
+            },
+            "limit": {
+              "type": "number",
+              "description": "Max rows to return. Defaults to 100."
+            }
+          },
+          "required": [
+            "farm_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_animal",
+        "title": "Get animal details",
+        "description": "Get the full profile of one animal by id, including breeding, weight and lactation fields.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "animal_id": {
+              "type": "string",
+              "description": "Animal UUID from list_animals."
+            }
+          },
+          "required": [
+            "animal_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_milking_records",
+        "title": "List milking records",
+        "description": "List milk production records for a farm within a date range (YYYY-MM-DD), newest first.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "farm_id": {
+              "type": "string",
+              "description": "Farm UUID from list_farms."
+            },
+            "start_date": {
+              "type": "string",
+              "description": "Inclusive start date, YYYY-MM-DD."
+            },
+            "end_date": {
+              "type": "string",
+              "description": "Inclusive end date, YYYY-MM-DD."
+            },
+            "limit": {
+              "type": "number",
+              "description": "Max rows to return. Defaults to 100."
+            }
+          },
+          "required": [
+            "farm_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
