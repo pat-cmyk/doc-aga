@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [
     react(),
-    mcpPlugin() as unknown as PluginOption,
+    mcpPlugin(),
     mode === "development" && componentTagger(),
     // Inject the CSP <meta> into index.html for production/native builds only.
     {
@@ -129,7 +129,7 @@ export default defineConfig(({ mode }) => {
       gzipSize: true,
       brotliSize: true,
     }),
-  ].filter(Boolean),
+  ].filter(Boolean) as PluginOption[],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
