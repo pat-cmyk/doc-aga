@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -25,11 +25,23 @@ import { Loader2, Building2, User } from "lucide-react";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
+// Radix Select 2.x throws if any SelectItem has value="" (reserved to mean
+// "cleared, show placeholder"), and it mounts item text into a hidden
+// fragment even while closed — so a literal empty-string "None" item crashes
+// on every render, not just when opened. Use a sentinel and map it to/from
+// the "" farm/user-id state at the edges instead.
+const NONE_VALUE = "none";
+
 interface CreateTicketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   linkedFarmId?: string;
   linkedUserId?: string;
+  initialSubject?: string;
+  initialDescription?: string;
+  initialPriority?: TicketPriority;
+  initialTags?: string[];
+  onCreated?: (ticketId: string) => void;
 }
 
 export const CreateTicketDialog = ({
@@ -37,6 +49,11 @@ export const CreateTicketDialog = ({
   onOpenChange,
   linkedFarmId,
   linkedUserId,
+  initialSubject,
+  initialDescription,
+  initialPriority,
+  initialTags,
+  onCreated,
 }: CreateTicketDialogProps) => {
   const { createTicket } = useSupportTickets();
   const isOnline = useOnlineStatus();
@@ -45,6 +62,21 @@ export const CreateTicketDialog = ({
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [selectedFarmId, setSelectedFarmId] = useState(linkedFarmId || "");
   const [selectedUserId, setSelectedUserId] = useState(linkedUserId || "");
+
+  // Seed prefill values only on the false→true open transition — seeding on
+  // every render while open would clobber in-progress edits if the parent
+  // re-renders with the same initial* props (e.g. a data refetch).
+  const prevOpen = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpen.current) {
+      setSubject(initialSubject ?? "");
+      setDescription(initialDescription ?? "");
+      setPriority(initialPriority ?? "medium");
+      setSelectedFarmId(linkedFarmId ?? "");
+      setSelectedUserId(linkedUserId ?? "");
+    }
+    prevOpen.current = open;
+  }, [open, initialSubject, initialDescription, initialPriority, linkedFarmId, linkedUserId]);
 
   // Fetch farms for linking
   const { data: farms } = useQuery({
@@ -80,13 +112,15 @@ export const CreateTicketDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    await createTicket.mutateAsync({
+    const created = await createTicket.mutateAsync({
       subject,
       description,
       priority,
       linked_farm_id: selectedFarmId || undefined,
       linked_user_id: selectedUserId || undefined,
+      tags: initialTags,
     });
+    onCreated?.(created.id);
 
     // Reset form
     setSubject("");
@@ -159,12 +193,15 @@ export const CreateTicketDialog = ({
                 <Building2 className="h-3 w-3" />
                 Link to Farm
               </Label>
-              <Select value={selectedFarmId} onValueChange={setSelectedFarmId}>
+              <Select
+                value={selectedFarmId || NONE_VALUE}
+                onValueChange={(v) => setSelectedFarmId(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select farm" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {farms?.map((farm) => (
                     <SelectItem key={farm.id} value={farm.id}>
                       {farm.name}
@@ -179,12 +216,15 @@ export const CreateTicketDialog = ({
                 <User className="h-3 w-3" />
                 Link to User
               </Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <Select
+                value={selectedUserId || NONE_VALUE}
+                onValueChange={(v) => setSelectedUserId(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || "Unnamed"}

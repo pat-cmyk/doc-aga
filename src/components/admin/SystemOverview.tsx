@@ -1,13 +1,14 @@
 import { useSystemHealth, calculateHealthScore, getHealthStatus, getTrendIndicator } from "@/hooks/useSystemHealth";
-import { translateError } from "@/lib/errorHandling";
+import { useErrorCounts } from "@/hooks/useErrorLogs";
+import { describeError } from "@/lib/errorHandling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Users, Building2, Beef, MessageSquare, AlertTriangle, 
-  CheckCircle2, Clock, TrendingUp, Activity, Mic, 
-  RefreshCw, ExternalLink, HeartPulse, Inbox, ShieldAlert
+import {
+  Users, Building2, Beef, MessageSquare, AlertTriangle,
+  CheckCircle2, Clock, TrendingUp, Activity, Mic,
+  RefreshCw, ExternalLink, HeartPulse, Inbox, ShieldAlert, Bug
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { format, parseISO } from "date-fns";
@@ -21,6 +22,10 @@ interface SystemOverviewProps {
 
 export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) => {
   const { data: metrics, isLoading, error, refetch, dataUpdatedAt } = useSystemHealth(dataCategory);
+  // FIX5: SystemOverview only ever reads counts, not the row-level groups —
+  // useErrorCounts() polls the same RPC with _include_groups: false so this
+  // 60s poll skips the expensive grouped-rows subquery entirely.
+  const { counts: errorCounts } = useErrorCounts();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const { fontSize } = useResponsiveChart({ size: 'small' });
@@ -33,7 +38,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <ShieldAlert className="h-12 w-12 text-destructive mb-4" />
         <h3 className="text-lg font-semibold">Failed to load system metrics</h3>
-        <p className="text-sm text-muted-foreground mb-4">{translateError(error).description}</p>
+        <p className="text-sm text-muted-foreground mb-4">{describeError(error).description}</p>
         <Button onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Retry
@@ -81,7 +86,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
       </Card>
 
       {/* Critical Alerts Panel */}
-      {metrics && (metrics.support.urgent > 0 || metrics.feedback.pending > 20 || metrics.approvals.pending > 10 || metrics.stt.failed_24h > 0) && (
+      {((metrics && (metrics.support.urgent > 0 || metrics.feedback.pending > 20 || metrics.approvals.pending > 10 || metrics.stt.failed_24h > 0)) || errorCounts.new > 0) && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -91,7 +96,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              {metrics.support.urgent > 0 && (
+              {metrics && metrics.support.urgent > 0 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -102,7 +107,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.support.urgent} Urgent Ticket{metrics.support.urgent > 1 ? "s" : ""}
                 </Button>
               )}
-              {metrics.feedback.pending > 20 && (
+              {metrics && metrics.feedback.pending > 20 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -113,7 +118,7 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.feedback.pending} Pending Feedback
                 </Button>
               )}
-              {metrics.approvals.pending > 10 && (
+              {metrics && metrics.approvals.pending > 10 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -124,15 +129,27 @@ export const SystemOverview = ({ dataCategory = 'all' }: SystemOverviewProps) =>
                   {metrics.approvals.pending} Pending Approvals
                 </Button>
               )}
-              {metrics.stt.failed_24h > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+              {metrics && metrics.stt.failed_24h > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="border-destructive/50 text-destructive hover:bg-destructive/10"
                   onClick={() => navigateToTab("ai-voice")}
                 >
                   <Mic className="h-4 w-4 mr-2" />
                   {metrics.stt.failed_24h} STT Failure{metrics.stt.failed_24h > 1 ? "s" : ""} (24h)
+                </Button>
+              )}
+              {errorCounts.new > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={() => navigateToTab("operations", "errors")}
+                >
+                  <Bug className="h-4 w-4 mr-2" />
+                  {errorCounts.new} New Error{errorCounts.new > 1 ? "s" : ""}
+                  {errorCounts.crashes_24h > 0 ? ` (${errorCounts.crashes_24h} crash${errorCounts.crashes_24h > 1 ? "es" : ""} 24h)` : ""}
                 </Button>
               )}
             </div>

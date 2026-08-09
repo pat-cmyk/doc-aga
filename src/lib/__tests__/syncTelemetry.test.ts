@@ -29,6 +29,10 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+vi.mock('@/lib/errorMonitor', () => ({
+  reportSilentError: vi.fn(),
+}));
+
 // Import after mocking
 import {
   startSyncSession,
@@ -38,6 +42,7 @@ import {
   getRecentFailures,
   getActiveSession,
 } from '../syncTelemetry';
+import { reportSilentError } from '@/lib/errorMonitor';
 
 describe('syncTelemetry', () => {
   beforeEach(() => {
@@ -90,14 +95,23 @@ describe('syncTelemetry', () => {
   describe('recordSyncError', () => {
     it('should record string errors', async () => {
       const sessionId = await startSyncSession('farm-err', 'manual');
-      
+
       await expect(recordSyncError(sessionId, 'Network timeout')).resolves.not.toThrow();
     });
 
     it('should record Error objects', async () => {
       const sessionId = await startSyncSession('farm-err2', 'background');
-      
+
       await expect(recordSyncError(sessionId, new Error('Connection refused'))).resolves.not.toThrow();
+    });
+
+    it('should report to the silent error monitor', async () => {
+      const sessionId = await startSyncSession('farm-err3', 'manual');
+      const error = new Error('Connection refused');
+
+      await recordSyncError(sessionId, error);
+
+      expect(reportSilentError).toHaveBeenCalledWith(error, 'sync');
     });
   });
 

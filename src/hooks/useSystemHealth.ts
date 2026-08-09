@@ -5,6 +5,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DataCategory } from "@/types/government";
+import { reportSilentError } from "@/lib/errorMonitor";
 
 export interface SystemHealthMetrics {
   users: {
@@ -75,7 +76,14 @@ export function useSystemHealth(dataCategory: DataCategory = 'all') {
       const { data, error } = await supabase.rpc("get_system_health_metrics", {
         data_category_filter: dataCategory
       });
-      if (error) throw error;
+      // TanStack Query v5 removed per-query `onError`, so failures are
+      // reported here instead. This fires once per failed fetch attempt
+      // (including internal retries) rather than once per user-visible
+      // error — acceptable noise level for a silent, non-blocking signal.
+      if (error) {
+        reportSilentError(error, 'system health query');
+        throw error;
+      }
       return data as unknown as SystemHealthMetrics;
     },
     refetchInterval: 60000, // Auto-refresh every minute

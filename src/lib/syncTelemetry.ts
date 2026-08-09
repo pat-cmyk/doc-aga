@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { reportSilentError } from '@/lib/errorMonitor';
 
 export type SyncType = 'background' | 'manual' | 'periodic' | 'voice';
 
@@ -112,6 +113,7 @@ export async function recordSyncError(
   sessionId: string,
   error: Error | string
 ): Promise<void> {
+  reportSilentError(error, 'sync');
   const errorMessage = typeof error === 'string' ? error : error.message;
   
   try {
