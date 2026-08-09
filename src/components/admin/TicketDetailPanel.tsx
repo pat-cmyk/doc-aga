@@ -56,6 +56,12 @@ const priorityOptions: { value: TicketPriority; label: string }[] = [
   { value: "urgent", label: "Urgent" },
 ];
 
+// Radix Select v2 throws on <SelectItem value=""> even while closed, crashing
+// the whole panel on open (TKT-2608-0002). Sentinel mapped to/from null at the
+// Select boundary — same pattern as CreateTicketDialog's NONE_VALUE. Safe from
+// collisions: real assignee values are profile UUIDs.
+const UNASSIGNED_VALUE = "unassigned";
+
 export const TicketDetailPanel = ({
   ticketId,
   open,
@@ -108,7 +114,7 @@ export const TicketDetailPanel = ({
     if (!ticketId) return;
     updateTicket.mutate({
       ticketId,
-      updates: { assigned_to: assigneeId || null },
+      updates: { assigned_to: assigneeId === UNASSIGNED_VALUE ? null : assigneeId },
     });
   };
 
@@ -193,14 +199,14 @@ export const TicketDetailPanel = ({
               <div className="space-y-1">
                 <Label className="text-xs">Assigned To</Label>
                 <Select
-                  value={ticket.assigned_to || ""}
+                  value={ticket.assigned_to || UNASSIGNED_VALUE}
                   onValueChange={handleAssigneeChange}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
                     {admins?.map((admin) => (
                       <SelectItem key={admin.id} value={admin.id}>
                         {admin.full_name}
