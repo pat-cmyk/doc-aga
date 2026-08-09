@@ -7,7 +7,7 @@ vi.mock('@/lib/errorMonitor', () => ({
   captureError: vi.fn(),
 }));
 
-const requestReportMock = vi.fn<[], Promise<ReportResult>>();
+const requestReportMock = vi.fn<() => Promise<ReportResult>>();
 
 const fakeHandle: CaptureHandle = {
   fingerprint: 'crash|/|abc123',
