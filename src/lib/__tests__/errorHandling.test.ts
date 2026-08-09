@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { CaptureHandle } from '@/lib/errorMonitor';
 
-const captureErrorMock = vi.fn<[unknown, Record<string, unknown>], CaptureHandle | null>(() => null);
+const captureErrorMock = vi.fn<(error: unknown, context: Record<string, unknown>) => CaptureHandle | null>(() => null);
 const submitOneTapReportMock = vi.fn();
 vi.mock('@/lib/errorMonitor', () => ({
   captureError: (...args: unknown[]) => captureErrorMock(...(args as [unknown, Record<string, unknown>])),
