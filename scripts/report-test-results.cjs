@@ -149,10 +149,12 @@ async function sendToQADashboard(payload) {
 }
 
 async function main() {
-  // Validate environment
+  // Reporting is optional: when the dashboard secrets aren't configured
+  // (e.g. PR runs, forks, or repos without the QA dashboard wired up),
+  // skip gracefully instead of failing the whole CI job.
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !WEBHOOK_SECRET) {
-    console.error('Missing required environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, WEBHOOK_SECRET');
-    process.exit(1);
+    console.warn('Dashboard reporting skipped: SUPABASE_URL, SUPABASE_ANON_KEY, or WEBHOOK_SECRET not configured.');
+    process.exit(0);
   }
 
   // Parse test results
