@@ -47,6 +47,14 @@ describe('translateError (regression)', () => {
       .toEqual(ERROR_MESSAGES.PERMISSION_DENIED);
   });
 
+  it('maps "Invalid API key" errors to CONFIG (app misconfiguration, not user error)', () => {
+    expect(translateError(new Error('Invalid API key')))
+      .toEqual(ERROR_MESSAGES.CONFIG);
+    // Supabase sometimes phrases it as a hint about the anon key
+    expect(translateError(new Error("Double check your Supabase `anon` or `service_role` API key.")))
+      .toEqual(ERROR_MESSAGES.CONFIG);
+  });
+
   it('still falls back with context', () => {
     const result = translateError(new Error('some unknown thing'), 'saving milk record');
     expect(result.title).toBe(ERROR_MESSAGES.FALLBACK.title);

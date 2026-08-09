@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Ticket } from "lucide-react";
+import { Ticket, Clipboard, ClipboardCheck, ClipboardX } from "lucide-react";
 import { formatPHDateAndTime } from "@/lib/dateUtils";
+import { buildClaudeDebugPrompt } from "@/lib/errorPrompt";
 import { ErrorLogGroup, ErrorLogStatus, useErrorLogs } from "@/hooks/useErrorLogs";
 import { CreateTicketDialog } from "./CreateTicketDialog";
 import { severityBadgeVariant } from "./ErrorMonitoringTab";
@@ -26,11 +27,13 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
   // Ticket" again, and a retry there creates a SECOND ticket for the same
   // error. This lets the panel offer "Retry link" instead.
   const [pendingTicketId, setPendingTicketId] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   // Reset when the panel is pointed at a different error (or closed) so a
   // stale pending-link state from one error can't bleed into another.
   useEffect(() => {
     setPendingTicketId(null);
+    setCopyState("idle");
   }, [errorLog?.id]);
 
   if (!errorLog) return null;
@@ -45,6 +48,17 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
 
   const contextRoute = typeof errorLog.context?.route === "string" ? errorLog.context.route : "—";
   const contextDevice = typeof errorLog.context?.user_agent === "string" ? errorLog.context.user_agent : "—";
+
+  const copyForClaude = async () => {
+    try {
+      await navigator.clipboard.writeText(buildClaudeDebugPrompt(errorLog));
+      setCopyState("copied");
+    } catch (copyError) {
+      console.error("[ErrorDetailPanel] clipboard write failed:", copyError);
+      setCopyState("failed");
+    }
+    window.setTimeout(() => setCopyState("idle"), 2500);
+  };
 
   return (
     <Sheet open={!!errorLog} onOpenChange={(open) => !open && onClose()}>
@@ -64,6 +78,30 @@ export const ErrorDetailPanel = ({ errorLog, onClose }: ErrorDetailPanelProps) =
         </SheetHeader>
 
         <div className="space-y-4 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyForClaude}
+            className="w-full sm:w-auto"
+          >
+            {copyState === "copied" ? (
+              <>
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+                Copied — paste into Claude
+              </>
+            ) : copyState === "failed" ? (
+              <>
+                <ClipboardX className="h-4 w-4 mr-2" />
+                Copy failed — try again
+              </>
+            ) : (
+              <>
+                <Clipboard className="h-4 w-4 mr-2" />
+                Copy for Claude
+              </>
+            )}
+          </Button>
+
           <div className="space-y-1">
             <Label>Raw message</Label>
             <pre className="p-2 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">

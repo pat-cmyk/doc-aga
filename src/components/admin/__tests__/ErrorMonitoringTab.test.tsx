@@ -115,6 +115,25 @@ describe("ErrorMonitoringTab", () => {
     ).toBeInTheDocument();
   });
 
+  it("copies a Claude debugging prompt from the detail sheet", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderWithProviders(<ErrorMonitoringTab />);
+
+    fireEvent.click(screen.getByText("App crashed while saving"));
+    fireEvent.click(screen.getByRole("button", { name: /copy for claude/i }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const prompt = writeText.mock.calls[0][0] as string;
+    expect(prompt).toContain("Severity: crash");
+    expect(prompt).toContain("TypeError: cannot read properties of undefined");
+    expect(prompt).toContain("regression test");
+    expect(await screen.findByText(/copied — paste into claude/i)).toBeInTheDocument();
+  });
+
   it("calls updateStatus.mutate with the id and new status when the status select changes", async () => {
     renderWithProviders(<ErrorMonitoringTab />);
 
