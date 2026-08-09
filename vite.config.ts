@@ -4,6 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import { visualizer } from "rollup-plugin-visualizer";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 // Content-Security-Policy injected as a <meta> into the built index.html only.
 // It is applied at BUILD time (not in the Vite dev server, which needs
@@ -63,6 +64,7 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [
     react(),
+    mcpPlugin(),
     mode === "development" && componentTagger(),
     // Inject the CSP <meta> into index.html for production/native builds only.
     {

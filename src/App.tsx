@@ -45,6 +45,7 @@ const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
 const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const AdminViewFarm = lazy(() => import("./pages/AdminViewFarm"));
 const AdminAuditReport = lazy(() => import("./pages/AdminAuditReport"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -339,6 +340,7 @@ const App = () => (
                   <Route path="/farmhand" element={<FarmhandDashboard />} />
                   <Route path="/voice-training" element={<VoiceTraining />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                   <Route path="/auth/cooperative" element={<CooperativeAuth />} />
                   <Route
                     path="/cooperative"
