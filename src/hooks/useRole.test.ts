@@ -3,8 +3,22 @@ import { renderHook } from '@testing-library/react';
 import { useRole } from './useRole';
 import { supabase } from '@/integrations/supabase/client';
 
-// Mock the Supabase client
-vi.mock('@/integrations/supabase/client');
+// Mock the Supabase client WITH a factory: a bare vi.mock() automock still
+// evaluates the real client.ts, whose createClient() throws in environments
+// without VITE_SUPABASE_* env (CI has no .env) and kills collection.
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getUser: vi.fn(),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+    },
+    from: vi.fn(),
+    rpc: vi.fn(),
+  },
+}));
 
 // Helper to wait for async updates
 const waitForNextUpdate = () => new Promise(resolve => setTimeout(resolve, 0));

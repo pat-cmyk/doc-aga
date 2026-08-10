@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-09 — Fix: ticket detail panel crash on open (TKT-2608-0002)
+
+`TicketDetailPanel`'s assignee dropdown used `<SelectItem value="">` for
+"Unassigned", which Radix Select v2 throws on at mount — opening ANY ticket
+from Support Tickets crashed to the recovery screen. Fixed with an
+`UNASSIGNED_VALUE` sentinel mapped to/from `null` at the Select boundary
+(same pattern as CreateTicketDialog's earlier fix) + 2 regression tests.
+Found via the error monitoring one-tap report; fixed via its
+"Copy for Claude" prompt.
+
 ## 2026-08-09 — "Copy for Claude" button on error details
 
 The admin Error Monitoring detail panel now has a one-click "Copy for Claude"
