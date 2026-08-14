@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-08-14 — Ops: nightly demo seeding restored (cron 401 since late June)
+
+The `seed-demo-data-daily` pg_cron job had been failing with 401 on every
+nightly run since the 2026-06-27 OWASP hardening added the required
+`x-cron-secret` header to the Edge Function's cron path — the dashboard-managed
+cron job was never updated (the "manual steps required" note in that release's
+changelog entry was missed). Demo farms (incl. Estehanon Farm) had no new
+milking/feeding/health records from ~June 18 to Aug 6.
+
+**Resolution (ops only, no code changes):**
+- Rotated the `CRON_SECRET` Edge Function secret in Lovable Cloud (old value
+  was unrecoverable) on 2026-08-14.
+- Recreated the `seed-demo-data-daily` pg_cron job (jobid 20, `0 2 * * *`)
+  to send `x-cron-secret` with the new value. Verified end-to-end via
+  `net.http_post` → 200 `{"success":true, farms_processed:90, ...}`.
+- Gap window optionally backfilled via one-time SQL (milking/feeding/health
+  for demo farms, 2026-06-18..2026-08-06) + `calculate_daily_farm_stats`
+  recalc.
+
+**Notes for future maintainers:**
+- The seed-demo-data cron job lives ONLY in the dashboard (`cron.job`), not in
+  `supabase/migrations/` — any change to the function's cron auth MUST be
+  paired with rescheduling the job in the SQL Editor.
+- `process-auto-approvals` also reads `CRON_SECRET` but has NO pg_cron job
+  scheduled — if it was ever meant to run on a schedule, it currently doesn't.
+- pg_net's default 5s timeout means the cron's HTTP call to a full seeding run
+  reports a client-side timeout while the function completes server-side —
+  a NULL `status_code` in `net._http_response` for this job is not a failure.
+
 ## 2026-08-09 — Fix: ticket detail panel crash on open (TKT-2608-0002)
 
 `TicketDetailPanel`'s assignee dropdown used `<SelectItem value="">` for
