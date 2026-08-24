@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-24 — Docs: Invention 1 technical disclosure pack (patent prep)
+
+New `docs/ip/invention-1-disclosure-pack/` — a four-document, code-cited
+technical disclosure for the WIPO IAP patent agent covering Invention 1
+("Integrated Cooperative Agricultural Program with Digital Governance Layer
+Linking Government Subsidy Compliance to Real-Time Livestock Management
+Data"): system overview + full component inventory (roles, Edge Functions,
+87-table DB, RPC layer, communication links, government dashboard metric
+formulas/thresholds), ER diagrams derived from `supabase/migrations/`
+(6 mermaid diagrams + trigger provenance + 4-lane RLS model), a six-stage
+farm-log→dashboard data-flow trace with exact formulas and an end-to-end
+worked example, and an evidence-cited implemented-vs-proposed table
+(19 implemented vs 9 proposed capabilities) with the dated design timeline.
+Documentation only — no code, schema, or behavior changes.
+
 ## 2026-08-09 — Fix: ticket detail panel crash on open (TKT-2608-0002)
 
 `TicketDetailPanel`'s assignee dropdown used `<SelectItem value="">` for
