@@ -4,7 +4,7 @@ import { useCart } from "@/hooks/useCart";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { DeliveryForm } from "@/components/checkout/DeliveryForm";
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { OrderConfirmation } from "@/components/checkout/OrderConfirmation";
@@ -109,14 +109,7 @@ export default function Checkout() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="border-b bg-card pt-safe">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Marketplace
-            </Button>
-          </div>
-        </header>
+        <PageHeader title="Checkout" fallbackPath="/marketplace" />
         <main className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
@@ -136,17 +129,9 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card pt-safe">
-        <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Marketplace
-          </Button>
-        </div>
-      </header>
+      <PageHeader title="Checkout" fallbackPath="/marketplace" />
 
       <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Checkout</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">

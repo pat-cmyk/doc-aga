@@ -31,8 +31,35 @@ export function navItemsForRole(options: { isFarmhand: boolean }): FarmNavItem[]
 }
 
 export function isNavItemActive(pathname: string, item: FarmNavItem): boolean {
+  // Sub-pages (Marketplace, Orders, …) live under the More hub conceptually,
+  // so More stays highlighted there for orientation.
+  if (item.to === "/more" && subPageFor(pathname)) return true;
   const prefix = item.activePrefix ?? item.to;
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/**
+ * Shell sub-pages (UX redesign Phase 6): render with a back-titled PageHeader
+ * instead of the farm root header, keep the persistent nav, no FAB.
+ */
+export interface SubPageMeta {
+  title: string;
+  subtitle?: string;
+}
+
+export const SUB_PAGES: Record<string, SubPageMeta> = {
+  "/marketplace": { title: "Marketplace", subtitle: "Palengke" },
+  "/orders": { title: "My Orders", subtitle: "Mga order" },
+  "/messages": { title: "Messages", subtitle: "Mga mensahe" },
+  "/distributors": { title: "Find Distributors", subtitle: "Mga distributor" },
+  "/profile": { title: "Profile" },
+};
+
+export function subPageFor(pathname: string): SubPageMeta | null {
+  for (const [prefix, meta] of Object.entries(SUB_PAGES)) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return meta;
+  }
+  return null;
 }
 
 /** Root tabs: hardware back here confirms exit instead of navigating. */

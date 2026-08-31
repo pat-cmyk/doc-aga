@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingCart, ArrowLeft, Package } from "lucide-react";
+import { Search, ShoppingCart, Package } from "lucide-react";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +51,7 @@ const Marketplace = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="space-y-4">
       <RouteSeo
         title="Marketplace — Feed, supplies & livestock | Doc Aga"
         description="Browse feed, veterinary supplies, and livestock listings from verified Filipino farm distributors. Shop directly from local sellers in Taglish."
@@ -65,42 +65,25 @@ const Marketplace = () => {
         }}
       />
 
-      {/* Header */}
-      <header className="border-b bg-card sticky top-0 z-10 pt-safe">
-        <div className="container mx-auto px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-              <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="shrink-0 min-h-[44px]">
-                <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Back</span>
-              </Button>
-              <h1 className="text-lg sm:text-2xl font-bold truncate">Marketplace</h1>
-            </div>
-            <div className="flex gap-1 sm:gap-2 shrink-0">
-              <Button 
-                variant="outline" 
-                onClick={() => setCartOpen(true)} 
-                className="relative min-h-[44px] px-3 sm:px-4"
-              >
-                <ShoppingCart className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Cart</span>
-                {cart.length > 0 && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    {cart.length}
-                  </Badge>
-                )}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate("/orders")}
-                className="hidden sm:flex min-h-[44px]"
-              >
-                My Orders
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Actions row — the shell owns the page header (Phase 6) */}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setCartOpen(true)}
+          className="relative"
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          Cart
+          {cart.length > 0 && (
+            <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+              {cart.length}
+            </Badge>
+          )}
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/orders")}>
+          My Orders
+        </Button>
+      </div>
 
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
       <AddToCartDialog
@@ -111,20 +94,18 @@ const Marketplace = () => {
       />
 
       {/* Search Bar */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="relative max-w-2xl mx-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search for products, feeds, equipment..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      <div className="relative max-w-2xl">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search for products, feeds, equipment..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <div className="py-2">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
@@ -156,7 +137,7 @@ const Marketplace = () => {
             </p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };

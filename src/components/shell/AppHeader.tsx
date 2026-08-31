@@ -27,11 +27,43 @@ interface AppHeaderProps {
   pendingCount: number;
 }
 
-export function AppHeader({ pendingCount }: AppHeaderProps) {
-  const { farmId, farmName, farmLogoUrl, setFarmId, setFarmDetails } = useFarm();
+/** Desktop (md+) horizontal nav — used by AppHeader and shell sub-pages. */
+export function DesktopNavRow({ pendingCount }: { pendingCount: number }) {
   const { isFarmhand } = useUnifiedPermissions();
   const { pathname } = useLocation();
   const navItems = navItemsForRole({ isFarmhand });
+
+  return (
+    <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 pt-3">
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+            isNavItemActive(pathname, item)
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted",
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+          {item.badge && pendingCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="h-5 w-5 p-0 flex items-center justify-center text-xs"
+            >
+              {pendingCount > 9 ? "9+" : pendingCount}
+            </Badge>
+          )}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+export function AppHeader({ pendingCount }: AppHeaderProps) {
+  const { farmId, farmName, farmLogoUrl, setFarmId, setFarmDetails } = useFarm();
 
   const handleFarmChange = async (newFarmId: string) => {
     setFarmId(newFarmId);
@@ -83,31 +115,7 @@ export function AppHeader({ pendingCount }: AppHeaderProps) {
         </div>
 
         {/* Desktop nav row — replaces the old desktop TabsList */}
-        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 pt-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                isNavItemActive(pathname, item)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-              {item.badge && pendingCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="h-5 w-5 p-0 flex items-center justify-center text-xs"
-                >
-                  {pendingCount > 9 ? "9+" : pendingCount}
-                </Badge>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+        <DesktopNavRow pendingCount={pendingCount} />
       </div>
     </header>
   );

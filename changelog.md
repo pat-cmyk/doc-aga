@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 6: sub-pages join the shell (redesign complete)
+
+Marketplace, My Orders, Messages, Find Distributors, and Profile now render
+inside the farm shell: a back-titled PageHeader (replacing four different
+hand-rolled header recipes), the persistent bottom nav (with More highlighted
+for orientation; desktop keeps the horizontal nav row), and history-aware
+back — the old hard-wired `navigate("/")` back arrows are gone. No FAB on
+sub-pages. `/checkout` stays a focused full-screen flow but uses PageHeader
+too (back falls back to /marketplace).
+
+The More hub gains the mockup's one-tap Shortcuts grid (Marketplace/Palengke,
+My Orders, Messages, Distributors, Profile) below its sections.
+
+Verified at 390×844 on the demo account: More → Marketplace (PageHeader +
+persistent nav + cart row) → back lands on More; Profile renders in-shell.
+
+**This completes the Jakob's Law UX redesign (Phases 0–6).** Every farmer
+surface now lives at a real URL inside one shell with persistent navigation,
+Android back handling, one canonical flow per task, inline validation,
+48px targets, and a token ratchet holding the line in CI.
+
 ## 2026-08-31 — UX Redesign Phase 5: consistency pass (targets, tokens, language, ratchet)
 
 - **48px touch targets by default**: Button `default` 40→48px, `icon` 48px,

@@ -6,7 +6,8 @@
  * links (from notifications) land directly. Farmhands see their submissions
  * here (previously a tab on the farmhand dashboard).
  */
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ShoppingBag, ShoppingCart, MessageSquare, MapPin, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +111,33 @@ export default function MoreRoute() {
       )}
 
       {active === "settings" && canManageFarm && <ApprovalSettings farmId={farmId} />}
+
+      {/* One-tap destinations (UX redesign Phase 6) — these open as shell
+          sub-pages with a back header and the persistent bottom nav. */}
+      <div className="pt-2 border-t">
+        <p className="text-sm font-semibold mb-2">
+          Shortcuts <span className="text-xs text-muted-foreground font-normal">Mga shortcut</span>
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {[
+            { to: "/marketplace", icon: ShoppingBag, label: "Marketplace", sublabel: "Palengke" },
+            { to: "/orders", icon: ShoppingCart, label: "My Orders", sublabel: "Mga order" },
+            { to: "/messages", icon: MessageSquare, label: "Messages", sublabel: "Mga mensahe" },
+            { to: "/distributors", icon: MapPin, label: "Distributors", sublabel: "Mga distributor" },
+            { to: "/profile", icon: User, label: "Profile", sublabel: "Account at boses" },
+          ].map(({ to, icon: Icon, label, sublabel }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex flex-col justify-center gap-1.5 min-h-[84px] rounded-xl border bg-card p-3.5 transition-colors hover:bg-accent/50"
+            >
+              <Icon className="h-5 w-5 text-primary" />
+              <span className="text-sm font-semibold leading-tight">{label}</span>
+              <span className="text-xs text-muted-foreground leading-tight">{sublabel}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

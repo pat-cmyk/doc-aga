@@ -250,11 +250,7 @@ const ConditionalFloatingComponents = () => {
     '/auth/cooperative',
     '/privacy',
     '/admin',
-    '/marketplace',
     '/checkout',
-    '/distributors',
-    '/orders',
-    '/messages',
     '/invite',
   ];
   
@@ -303,14 +299,19 @@ const App = () => (
                     <Route path="/operations/:subtab" element={<OperationsRoute />} />
                     <Route path="/money" element={<MoneyRoute />} />
                     <Route path="/more" element={<MoreRoute />} />
+                    {/* Sub-pages: back-titled header + persistent nav (Phase 6) */}
+                    <Route path="/marketplace" element={<Marketplace />} />
+                    <Route path="/orders" element={<OrderHistory />} />
+                    <Route path="/messages" element={<MessagingPage />} />
+                    <Route path="/distributors" element={<DistributorFinder />} />
+                    <Route path="/profile" element={<Profile />} />
                   </Route>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/merchant" element={<MerchantAuth />} />
                   <Route path="/auth/admin" element={<AdminAuth />} />
                   <Route path="/auth/government" element={<GovernmentAuth />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route 
-                    path="/admin" 
+                  <Route
+                    path="/admin"
                     element={
                       <SuperAdminRoute>
                         <AdminDashboard />
@@ -342,11 +343,7 @@ const App = () => (
                     } 
                   />
                   <Route path="/merchant" element={<MerchantDashboard />} />
-                  <Route path="/marketplace" element={<Marketplace />} />
                   <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/distributors" element={<DistributorFinder />} />
-                  <Route path="/orders" element={<OrderHistory />} />
-                  <Route path="/messages" element={<MessagingPage />} />
                   <Route path="/invite/:token" element={<UnifiedInviteAccept />} />
                   <Route path="/invite/accept/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
                   <Route path="/invite/user/:token" element={<LegacyInviteRedirect basePath="/invite" />} />

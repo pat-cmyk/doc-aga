@@ -22,11 +22,12 @@ import { preloadAllData } from "@/lib/dataCache";
 import { roleTargetPath } from "@/lib/roleResolution";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { OfflineOnboarding } from "@/components/OfflineOnboarding";
-import { AppHeader } from "./AppHeader";
+import { AppHeader, DesktopNavRow } from "./AppHeader";
 import { AppBottomNav } from "./AppBottomNav";
 import { FloatingDock } from "./FloatingDock";
+import { PageHeader } from "./PageHeader";
 import { RecordingFlowsProvider } from "./RecordingFlowsProvider";
-import { isFocusedRoute } from "./routes";
+import { isFocusedRoute, subPageFor } from "./routes";
 
 export interface FarmShellContext {
   farmId: string;
@@ -105,6 +106,10 @@ export function FarmShell() {
     );
   }
 
+  // Sub-pages (Marketplace, Orders, Messages, Profile, Distributors):
+  // back-titled header, persistent nav, no FAB (UX redesign Phase 6).
+  const subPage = subPageFor(pathname);
+
   return (
     <RecordingFlowsProvider>
       <div
@@ -112,13 +117,23 @@ export function FarmShell() {
         className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto overflow-x-hidden max-w-full"
       >
         <PullToRefreshIndicator />
-        <AppHeader pendingCount={badgeCount} />
+        {subPage ? (
+          <>
+            <PageHeader title={subPage.title} subtitle={subPage.subtitle} fallbackPath="/more" />
+            {/* Desktop keeps the persistent nav even in page mode */}
+            <div className="container mx-auto px-4 hidden md:block">
+              <DesktopNavRow pendingCount={badgeCount} />
+            </div>
+          </>
+        ) : (
+          <AppHeader pendingCount={badgeCount} />
+        )}
         <OfflineOnboarding farmId={farmId} />
         <main className="container mx-auto px-4 py-4 sm:py-6 max-w-7xl pb-24 md:pb-safe">
           <Outlet context={context} />
         </main>
         <AppBottomNav pendingCount={badgeCount} />
-        <FloatingDock />
+        {!subPage && <FloatingDock />}
       </div>
     </RecordingFlowsProvider>
   );

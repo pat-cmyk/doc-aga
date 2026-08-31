@@ -318,6 +318,8 @@ Every farmer/farmhand screen renders inside one layout route — `src/components
 | `/more` | `shell/pages/MoreRoute` | `?tab=approvals\|submissions\|cooperative\|government\|settings`, role-filtered |
 | `/setup` | `shell/pages/SetupRoute` | First-farm creation (was inline in Dashboard) |
 | `/farmhand` | redirect → `/home` | Old notifications still target it |
+| `/marketplace` `/orders` `/messages` `/distributors` `/profile` | shell sub-pages (Phase 6) | Back-titled `PageHeader` from `SUB_PAGES` in `shell/routes.ts`; persistent nav (More highlighted); no FAB. New sub-pages register in `SUB_PAGES` — never hand-roll a header |
+| `/checkout` | outside shell | Focused flow; uses `shell/PageHeader` with `/marketplace` fallback |
 
 **SSOT rules introduced:**
 - **Role resolution** is one pure function: `resolveRoleTarget()` in `src/lib/roleResolution.ts`, consumed by `useFarmBootstrap` (shared by RoleLanding + FarmShell). Never re-implement admin/government/merchant/farmhand precedence elsewhere.
