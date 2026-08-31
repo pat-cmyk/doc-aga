@@ -11,8 +11,8 @@
  * SSOT / Reuse:
  *   - Re-uses the existing standalone dialogs that the current tab-level
  *     "+" buttons already invoke — no behavior duplication, no new hooks.
- *   - Respects `readOnly` and `useOnlineStatus` exactly like the existing
- *     tab-level buttons.
+ *   - Respects `readOnly`. Chips stay enabled offline — the recording
+ *     dialogs queue writes locally and sync when connectivity resumes.
  *
  * Farmer persona notes:
  *   - Chips are big touch targets (≥44px) with Taglish labels.
@@ -23,7 +23,6 @@ import { useState } from 'react';
 import { Milk, Scale, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { hapticSelection } from '@/lib/haptics';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { RecordSingleMilkDialog } from '@/components/milk-recording/RecordSingleMilkDialog';
 import { RecordSingleWeightDialog } from '@/components/weight-recording/RecordSingleWeightDialog';
 import { RecordSingleHealthDialog } from '@/components/health-recording/RecordSingleHealthDialog';
@@ -61,7 +60,6 @@ export function AnimalQuickActionsStrip({
   const [openMilk, setOpenMilk] = useState(false);
   const [openWeight, setOpenWeight] = useState(false);
   const [openHealth, setOpenHealth] = useState(false);
-  const isOnline = useOnlineStatus();
 
   if (readOnly) return null;
 
@@ -92,7 +90,6 @@ export function AnimalQuickActionsStrip({
             size="sm"
             className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
             onClick={() => handleOpen(setOpenMilk)}
-            disabled={!isOnline}
           >
             <Milk className="h-4 w-4 text-primary shrink-0" />
             <span className="text-xs font-medium leading-tight">
@@ -108,7 +105,6 @@ export function AnimalQuickActionsStrip({
           size="sm"
           className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
           onClick={() => handleOpen(setOpenWeight)}
-          disabled={!isOnline}
         >
           <Scale className="h-4 w-4 text-primary shrink-0" />
           <span className="text-xs font-medium leading-tight">
@@ -123,7 +119,6 @@ export function AnimalQuickActionsStrip({
           size="sm"
           className={`${buttonSizing} h-11 gap-1.5 touch-manipulation`}
           onClick={() => handleOpen(setOpenHealth)}
-          disabled={!isOnline}
         >
           <Stethoscope className="h-4 w-4 text-primary shrink-0" />
           <span className="text-xs font-medium leading-tight">
