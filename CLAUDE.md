@@ -121,9 +121,10 @@ Add/Edit forms sharing fields MUST use the same constants, validation, and dropd
 - No piecemeal CSS. Trace full DOM hierarchy first
 - Test at the viewport where the bug occurs (mobile = 390×844)
 - Browser is source of truth — never assume CSS works from code alone
-- Semantic design tokens only (no raw `text-white`/`bg-black`). Use `--background`, `--foreground`, `--primary`, etc.
+- Semantic design tokens only (no raw `text-white`/`bg-black`, no raw palette like `bg-green-500`). Status colors: `success`/`warning`/`info`/`heat`/`breeding` (+`-soft` variants); stage badges via `getLifeStageBadgeColor()`. CI enforces a ratchet (`npm run check:colors`) — raw-color count may only go DOWN, and `src/components/shell/` must stay at zero
 - All colors in HSL
-- Taglish (Tagalog + English) for farmer-facing UI. See `TAGLISH_LANGUAGE_GUIDE.md`
+- Touch targets: Button default is 48px (`lg` 56px). `compact`/`icon-sm` are ONLY for dense desktop/admin contexts — never on farmer-facing mobile screens
+- Bilingual labels: **English primary, Tagalog secondary** (decision 2026-08-31; matches farmers' FB/GCash literacy). Prefer `<BilingualLabel k="fieldKey" />` reading `src/lib/filipinoLabels.ts`; inline slash strings are "English / Tagalog". Conversational content (Doc Aga chat, briefs, voice hints) may be natural Taglish. `TAGLISH_LANGUAGE_GUIDE.md` covers VOICE/STT only, not UI copy
 
 ---
 

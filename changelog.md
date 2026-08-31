@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 5: consistency pass (targets, tokens, language, ratchet)
+
+- **48px touch targets by default**: Button `default` 40→48px, `icon` 48px,
+  `lg` 56px; new `compact`/`icon-sm` variants reserved for dense desktop/admin
+  contexts. Existing explicit sizes (`size="sm"`, `h-8 w-8` overrides) are
+  untouched, so dense screens didn't shift — verified by 390×844 screenshot
+  comparison against pre-change baselines.
+- **Semantic status tokens**: `success`/`warning`/`info` + domain accents
+  `heat`/`breeding` (each with `soft`/`soft-foreground`) in index.css +
+  Tailwind. The three worst raw-color files (FarmCashFlowSummary,
+  DashboardAlertsWidget, ProfitabilityThermometer — 80 raw classes) migrated
+  to them completely.
+- **Stage badge tones**: the 45-entry raw-pastel map in `animalStages.ts` now
+  maps stages to 10 semantic tones whose colors are SSOT tokens
+  (`--stage-*`, `--milking-*`) — same pixels, one source of truth.
+- **`bg-chart-1..5` fixed**: chart colors were never registered in Tailwind,
+  so those classes silently rendered nothing in 6 components.
+- **Language rule enforced in code**: `BilingualLabel` gains `k="fieldKey"`
+  reading the `filipinoLabels.ts` dictionary (rule documented in its header);
+  remaining Tagalog-first strings in redesign-touched files flipped to
+  English-first (AnimalForm toasts, onboarding checklist).
+- **Raw-color ratchet in CI** (`npm run check:colors`): the app shell must
+  stay raw-color-free; the src/-wide count (baseline 1648) may only go down.
+  New raw palette classes fail the build.
+
 ## 2026-08-31 — UX Redesign Phase 4: one opener per recording flow, no modal-over-modal
 
 - **`useRecordingFlows()` opener** (`shell/RecordingFlowsProvider`): every bulk
