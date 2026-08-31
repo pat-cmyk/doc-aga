@@ -37,8 +37,8 @@ export function BioCardSheet({
 
   const handleViewDetails = () => {
     onOpenChange(false);
-    // Small delay to allow drawer animation to complete
-    setTimeout(onViewFullDetails, 150);
+    // Route navigation unmounts the drawer; no animation-delay handoff needed.
+    onViewFullDetails();
   };
 
   if (!animal) return null;

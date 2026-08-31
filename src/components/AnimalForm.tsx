@@ -190,7 +190,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
         setShowSuccessScreen(false);
         if (animalId) {
           // Navigate to animal profile where all recording actions are available
-          navigate(`/animals?animalId=${animalId}`);
+          navigate(`/animals/${animalId}`);
         } else {
           onSuccess();
         }

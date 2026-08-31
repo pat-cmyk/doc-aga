@@ -203,6 +203,7 @@ const AdminViewFarm = () => {
                   farmId={farmId!}
                   readOnly={true}
                   initialSelectedAnimalId={selectedAnimalId}
+                  detailsMode="inline"
                 />
               </CardContent>
             </Card>

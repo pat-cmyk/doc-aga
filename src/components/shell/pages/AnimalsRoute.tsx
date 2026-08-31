@@ -5,7 +5,7 @@
  * ?editWeight=true) instead of Dashboard tab state, so refresh, share, and
  * hardware back all work. Phase 3 promotes the detail view to /animals/:id.
  */
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import AnimalList from "@/components/AnimalList";
 import { BarnListView } from "@/components/barns/BarnListView";
@@ -14,11 +14,17 @@ import { useFarmShellContext } from "../FarmShell";
 
 export default function AnimalsRoute() {
   const { farmId, isFarmhand } = useFarmShellContext();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
+  // Phase 2-era deep links used /animals?animalId=X; the profile is now a
+  // real route. Redirect (preserving ?editWeight=true).
   const animalId = searchParams.get("animalId");
+  if (animalId) {
+    const editWeight = searchParams.get("editWeight") === "true";
+    return <Navigate to={`/animals/${animalId}${editWeight ? "?editWeight=true" : ""}`} replace />;
+  }
+
   const weightFilter = searchParams.get("filter") === "missing-weight" ? ("missing" as const) : undefined;
-  const editWeightOnOpen = searchParams.get("editWeight") === "true";
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -34,18 +40,7 @@ export default function AnimalsRoute() {
           <CardDescription>Manage your livestock and animal records</CardDescription>
         </CardHeader>
         <CardContent>
-          <AnimalList
-            farmId={farmId}
-            readOnly={isFarmhand}
-            initialSelectedAnimalId={animalId}
-            weightFilter={weightFilter}
-            editWeightOnOpen={editWeightOnOpen}
-            onEditWeightConsumed={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete("editWeight");
-              setSearchParams(next, { replace: true });
-            }}
-          />
+          <AnimalList farmId={farmId} readOnly={isFarmhand} weightFilter={weightFilter} />
         </CardContent>
       </Card>
     </div>

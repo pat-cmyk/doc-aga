@@ -67,7 +67,7 @@ function FarmerHome() {
       <FarmDashboard
         farmId={farmId}
         onNavigateToAnimals={() => navigate("/animals")}
-        onNavigateToAnimalDetails={(animalId) => navigate(`/animals?animalId=${animalId}`)}
+        onNavigateToAnimalDetails={(animalId) => navigate(`/animals/${animalId}`)}
       />
     </div>
   );

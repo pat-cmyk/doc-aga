@@ -7,9 +7,9 @@ describe("mapLegacyDashboardUrl", () => {
   const table: Array<[legacy: string, expected: string | null]> = [
     ["", null],
     ["?utm_source=x", null],
-    ["?animalId=abc-123", "/animals?animalId=abc-123"],
-    ["?animalId=abc-123&editWeight=true", "/animals?editWeight=true&animalId=abc-123"],
-    ["?tab=animals&animalId=abc-123", "/animals?animalId=abc-123"],
+    ["?animalId=abc-123", "/animals/abc-123"],
+    ["?animalId=abc-123&editWeight=true", "/animals/abc-123?editWeight=true"],
+    ["?tab=animals&animalId=abc-123", "/animals/abc-123"],
     ["?tab=animals", "/animals"],
     ["?tab=animals&filter=missing-weight", "/animals?filter=missing-weight"],
     ["?filter=missing-weight", "/animals?filter=missing-weight"],
@@ -32,6 +32,6 @@ describe("mapLegacyDashboardUrl", () => {
   });
 
   it("prefers animalId over other params (matches old Dashboard precedence)", () => {
-    expect(mapLegacyDashboardUrl("?tab=finance&animalId=a1")).toBe("/animals?animalId=a1");
+    expect(mapLegacyDashboardUrl("?tab=finance&animalId=a1")).toBe("/animals/a1");
   });
 });

@@ -7,7 +7,7 @@
  * Route content renders through <Outlet/> with a shared context.
  */
 import { useEffect } from "react";
-import { Navigate, Outlet, useOutletContext } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useOutletContext } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 import { useFarm } from "@/contexts/FarmContext";
@@ -25,6 +25,7 @@ import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { AppHeader } from "./AppHeader";
 import { AppBottomNav } from "./AppBottomNav";
 import { FloatingDock } from "./FloatingDock";
+import { isFocusedRoute } from "./routes";
 
 export interface FarmShellContext {
   farmId: string;
@@ -41,6 +42,7 @@ export function useFarmShellContext() {
 export function FarmShell() {
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  const { pathname } = useLocation();
   const { farmId } = useFarm();
   const { isFarmhand, canManageFarm } = useUnifiedPermissions();
   const bootstrap = useFarmBootstrap();
@@ -91,6 +93,12 @@ export function FarmShell() {
     canManageFarm,
     voiceTrainingCompleted: bootstrap.voiceTrainingCompleted,
   };
+
+  // Focused flows (/animals/new, edit) render full-bleed with their own
+  // page header — no nav/FAB/pull-to-refresh to interfere with the form.
+  if (isFocusedRoute(pathname)) {
+    return <Outlet context={context} />;
+  }
 
   return (
     <div

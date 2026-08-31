@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, Search, Filter, Scale, Database, Tag, Type } from "lucide-react";
@@ -153,9 +154,17 @@ interface AnimalListProps {
   editWeightOnOpen?: boolean;
   /** Callback to clear the editWeight flag after it's consumed */
   onEditWeightConsumed?: () => void;
+  /**
+   * 'navigate' (default): opening an animal routes to /animals/:id and the add
+   * button routes to /animals/new — the farm-shell behavior.
+   * 'inline': details/form mount in place of the list — used by the admin
+   * farm drill-down, which lives outside the farm shell.
+   */
+  detailsMode?: 'navigate' | 'inline';
 }
 
-const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect, weightFilter, editWeightOnOpen, onEditWeightConsumed }: AnimalListProps) => {
+const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnimalSelect, weightFilter, editWeightOnOpen, onEditWeightConsumed, detailsMode = 'navigate' }: AnimalListProps) => {
+  const navigate = useNavigate();
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -337,10 +346,20 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
     }
   };
 
-  if (selectedAnimalId) {
-    return <AnimalDetails 
-      animalId={selectedAnimalId} 
-      farmId={farmId} 
+  // Opens an animal: route in the farm shell, in-place for the admin view.
+  const openAnimal = (animalId: string) => {
+    if (detailsMode === 'navigate') {
+      navigate(`/animals/${animalId}`);
+    } else {
+      setSelectedAnimalId(animalId);
+    }
+    onAnimalSelect?.(animalId);
+  };
+
+  if (detailsMode === 'inline' && selectedAnimalId) {
+    return <AnimalDetails
+      animalId={selectedAnimalId}
+      farmId={farmId}
       onBack={() => {
         setSelectedAnimalId(null);
         onAnimalSelect?.(null);
@@ -351,7 +370,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
     />;
   }
 
-  if (showForm) {
+  if (detailsMode === 'inline' && showForm) {
     return (
       <AnimalForm
         farmId={farmId}
@@ -461,7 +480,10 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
   return (
     <div className="space-y-4">
       {!readOnly && (
-        <Button onClick={() => setShowForm(true)} className="w-full min-h-[56px] text-base">
+        <Button
+          onClick={() => (detailsMode === 'navigate' ? navigate('/animals/new') : setShowForm(true))}
+          className="w-full min-h-[56px] text-base"
+        >
           <Plus className="h-5 w-5 mr-2" />
           Add New Animal
         </Button>
@@ -713,10 +735,9 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
               }
             };
 
-            // Handler to navigate to full details (from sheet or directly)
+            // Handler to open full details (route or in-place per detailsMode)
             const handleViewFullDetails = () => {
-              setSelectedAnimalId(animal.id);
-              onAnimalSelect?.(animal.id);
+              openAnimal(animal.id);
             };
 
             // Get OVR summary for this animal
@@ -842,8 +863,7 @@ const AnimalList = ({ farmId, initialSelectedAnimalId, readOnly = false, onAnima
         onOpenChange={setBioCardSheetOpen}
         onViewFullDetails={() => {
           if (bioCardAnimal) {
-            setSelectedAnimalId(bioCardAnimal.id);
-            onAnimalSelect?.(bioCardAnimal.id);
+            openAnimal(bioCardAnimal.id);
           }
         }}
       />

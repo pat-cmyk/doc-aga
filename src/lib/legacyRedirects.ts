@@ -32,8 +32,9 @@ export function mapLegacyDashboardUrl(search: string): string | null {
   };
 
   if (animalId) {
-    // editWeight rides along via passthrough
-    return withPassthrough("/animals", { animalId });
+    // Animal profiles are real routes since Phase 3; editWeight rides along
+    // via passthrough.
+    return withPassthrough(`/animals/${animalId}`);
   }
 
   if (filter === "missing-weight") {

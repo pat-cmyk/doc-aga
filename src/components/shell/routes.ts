@@ -46,6 +46,14 @@ export function isRootTab(pathname: string): boolean {
   return ROOT_TAB_PREFIXES.some((p) => p === "/operations" && (pathname === p || pathname.startsWith(`${p}/`)));
 }
 
+/**
+ * Focused flows: full-screen pages inside the shell that hide the app chrome
+ * (header/nav/FAB) so a stray tap can't abandon the form mid-fill.
+ */
+export function isFocusedRoute(pathname: string): boolean {
+  return pathname === "/animals/new" || /^\/animals\/[^/]+\/edit$/.test(pathname);
+}
+
 /** Farmhands only get the feed segment of Operations. */
 export const OPERATIONS_SUBTABS = ["milk", "feed", "breeding"] as const;
 export type OperationsSubtab = (typeof OPERATIONS_SUBTABS)[number];

@@ -53,6 +53,8 @@ const FarmShell = lazy(() => import("./components/shell/FarmShell").then((m) => 
 const RoleLanding = lazy(() => import("./components/shell/RoleLanding").then((m) => ({ default: m.RoleLanding })));
 const HomeRoute = lazy(() => import("./components/shell/pages/HomeRoute"));
 const AnimalsRoute = lazy(() => import("./components/shell/pages/AnimalsRoute"));
+const AnimalDetailRoute = lazy(() => import("./components/shell/pages/AnimalDetailRoute"));
+const NewAnimalRoute = lazy(() => import("./components/shell/pages/NewAnimalRoute"));
 const OperationsRoute = lazy(() => import("./components/shell/pages/OperationsRoute"));
 const MoneyRoute = lazy(() => import("./components/shell/pages/MoneyRoute"));
 const MoreRoute = lazy(() => import("./components/shell/pages/MoreRoute"));
@@ -295,6 +297,8 @@ const App = () => (
                   <Route element={<FarmShell />}>
                     <Route path="/home" element={<HomeRoute />} />
                     <Route path="/animals" element={<AnimalsRoute />} />
+                    <Route path="/animals/new" element={<NewAnimalRoute />} />
+                    <Route path="/animals/:animalId" element={<AnimalDetailRoute />} />
                     <Route path="/operations" element={<Navigate to="/operations/milk" replace />} />
                     <Route path="/operations/:subtab" element={<OperationsRoute />} />
                     <Route path="/money" element={<MoneyRoute />} />

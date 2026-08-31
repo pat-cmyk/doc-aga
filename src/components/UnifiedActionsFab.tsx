@@ -10,8 +10,7 @@ import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilk
 import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
 import { RecordBulkHealthDialog } from "@/components/health-recording/RecordBulkHealthDialog";
 import { RecordBulkBCSDialog } from "@/components/body-condition/RecordBulkBCSDialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import AnimalForm from "@/components/AnimalForm";
+import { useNavigate } from "react-router-dom";
 import { useFarm } from "@/contexts/FarmContext";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { useQueueStatus } from "@/hooks/useQueueStatus";
@@ -51,11 +50,11 @@ export function UnifiedActionsFab({
   const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
   const [isRecordHealthOpen, setIsRecordHealthOpen] = useState(false);
   const [isRecordBCSOpen, setIsRecordBCSOpen] = useState(false);
-  const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+  const navigate = useNavigate();
+
   // Get current farm ID from context
   const { farmId } = useFarm();
   const { toast } = useToast();
@@ -189,7 +188,8 @@ export function UnifiedActionsFab({
         if (onAddAnimal) {
           onAddAnimal();
         } else {
-          setIsAddAnimalOpen(true);
+          // One canonical add flow: the /animals/new page (UX redesign Phase 3)
+          navigate('/animals/new');
         }
         break;
       case 'feed':
@@ -431,28 +431,6 @@ export function UnifiedActionsFab({
         farmId={farmId}
       />
 
-      {/* Add Animal Sheet */}
-      <Sheet open={isAddAnimalOpen} onOpenChange={setIsAddAnimalOpen}>
-        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <PawPrint className="h-5 w-5" />
-              Quick Add Animal
-              <span className="text-xs text-muted-foreground ml-1">Mabilis na Pagdagdag</span>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="py-4">
-            {farmId && (
-              <AnimalForm 
-                farmId={farmId} 
-                onSuccess={() => setIsAddAnimalOpen(false)}
-                onCancel={() => setIsAddAnimalOpen(false)}
-                defaultQuickMode={true}
-              />
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </>
   );
 }

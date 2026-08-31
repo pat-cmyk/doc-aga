@@ -55,7 +55,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   const handleBreedingClick = () => {
     if (animalsNeedingCheck.length === 1) {
       // Single animal - navigate directly to profile
-      navigate(`/animals?animalId=${animalsNeedingCheck[0].id}`);
+      navigate(`/animals/${animalsNeedingCheck[0].id}`);
     } else if (animalsNeedingCheck.length > 1) {
       // Multiple animals - open selection popover
       setBreedingPopoverOpen(true);
@@ -67,7 +67,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
 
   const handleSelectAnimal = (animalId: string) => {
     setBreedingPopoverOpen(false);
-    navigate(`/animals?animalId=${animalId}`);
+    navigate(`/animals/${animalId}`);
   };
 
   const handleMarkNoHeat = (animalId: string) => {

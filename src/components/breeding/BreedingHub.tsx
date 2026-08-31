@@ -88,7 +88,7 @@ export function BreedingHub({
     if (onViewAnimalProp) {
       onViewAnimalProp(animalId);
     } else {
-      navigate(`/animals?animalId=${animalId}`);
+      navigate(`/animals/${animalId}`);
     }
   };
 
