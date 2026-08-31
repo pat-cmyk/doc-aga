@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -34,6 +33,9 @@ import { FieldError } from "@/components/ui/field-error";
 import { cn } from "@/lib/utils";
 import { GenderSelector } from "@/components/animal-form/GenderSelector";
 import { LactatingToggle } from "@/components/animal-form/LactatingToggle";
+import { BreedFields } from "@/components/animal-form/BreedFields";
+import { AcquisitionFields } from "@/components/animal-form/AcquisitionFields";
+import { ParentageFields } from "@/components/animal-form/ParentageFields";
 import { WeightHintBadge } from "@/components/ui/weight-hint-badge";
 import { getBreedsByLivestockType, type LivestockType } from "@/lib/livestockBreeds";
 import { getLivestockEmoji } from "@/lib/filipinoLabels";
@@ -142,13 +144,6 @@ export function EditAnimalDialog({
     onOpenChange(false);
   };
 
-  const getParentDisplayName = (parent: { name: string | null; ear_tag: string | null }) => {
-    if (parent.name && parent.ear_tag) {
-      return `${parent.name} (${parent.ear_tag})`;
-    }
-    return parent.name || parent.ear_tag || "Unknown";
-  };
-
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
@@ -236,70 +231,13 @@ export function EditAnimalDialog({
                   />
 
                   {/* Breed */}
-                  <div className="space-y-2">
-                    <BilingualLabel english="Breed" filipino="Lahi" htmlFor="edit-breed" />
-                    <Select
-                      value={formData.breed || "no_data"}
-                      onValueChange={(value) => setFormData(prev => ({ 
-                        ...prev, 
-                        breed: value === "no_data" ? "" : value, 
-                        breed1: "", 
-                        breed2: "" 
-                      }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select breed / Pumili ng lahi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
-                        {availableBreeds.map((breed) => (
-                          <SelectItem key={breed} value={breed}>
-                            {breed}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Mix Breed selectors */}
-                  {formData.breed === "Mix Breed" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <BilingualLabel english="First Breed" filipino="Unang Lahi" required />
-                        <Select
-                          value={formData.breed1}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
-                        >
-                          <SelectTrigger className={cn(errors.breed1 && "border-destructive focus-visible:ring-destructive")}>
-                            <SelectValue placeholder="Select first breed" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                              <SelectItem key={breed} value={breed}>{breed}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FieldError message={errors.breed1} />
-                      </div>
-                      <div className="space-y-2">
-                        <BilingualLabel english="Second Breed" filipino="Ikalawang Lahi" required />
-                        <Select
-                          value={formData.breed2}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
-                        >
-                          <SelectTrigger className={cn(errors.breed2 && "border-destructive focus-visible:ring-destructive")}>
-                            <SelectValue placeholder="Select second breed" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                              <SelectItem key={breed} value={breed}>{breed}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FieldError message={errors.breed2} />
-                      </div>
-                    </div>
-                  )}
+                  <BreedFields
+                    value={formData}
+                    onChange={(patch) => setFormData(prev => ({ ...prev, ...patch }))}
+                    availableBreeds={availableBreeds}
+                    errors={{ breed1: errors.breed1, breed2: errors.breed2 }}
+                    idPrefix="edit-"
+                  />
                 </CollapsibleContent>
               </Collapsible>
 
@@ -374,102 +312,15 @@ export function EditAnimalDialog({
                   <ChevronDown className={`h-4 w-4 transition-transform ${openSections.parentage ? "rotate-180" : ""}`} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 pt-4">
-                  {loadingParents ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      <span className="text-sm text-muted-foreground">Loading parents...</span>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Mother */}
-                      <div className="space-y-2">
-                        <BilingualLabel english="Mother" filipino="Ina" htmlFor="edit-mother" />
-                        <Select
-                          value={formData.mother_id || "none"}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select mother / Pumili ng ina" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No Data / Hindi Alam</SelectItem>
-                            {mothers.map((mother) => (
-                              <SelectItem key={mother.id} value={mother.id}>
-                                {getParentDisplayName(mother)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Father */}
-                      <div className="space-y-2">
-                        <BilingualLabel english="Father" filipino="Ama" htmlFor="edit-father" />
-                        <Select
-                          value={formData.is_father_ai ? "ai" : (formData.father_id || "none")}
-                          onValueChange={(value) => {
-                            if (value === "ai") {
-                              setFormData(prev => ({ ...prev, is_father_ai: true, father_id: "" }));
-                            } else {
-                              setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value === "none" ? "" : value }));
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select father / Pumili ng ama" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No Data / Hindi Alam</SelectItem>
-                            <SelectItem value="ai">🧬 AI / Artificial Insemination</SelectItem>
-                            {fathers.map((father) => (
-                              <SelectItem key={father.id} value={father.id}>
-                                {getParentDisplayName(father)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {formData.is_father_ai && (
-                          <div className="space-y-3 mt-2 p-3 bg-muted/30 rounded-lg">
-                            <div className="space-y-2">
-                              <BilingualLabel english="Bull Semen Brand" filipino="Brand ng Semen" htmlFor="edit-ai-bull-brand" />
-                              <Input
-                                id="edit-ai-bull-brand"
-                                value={formData.ai_bull_brand}
-                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_brand: e.target.value }))}
-                                placeholder="Enter bull semen brand"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <BilingualLabel english="Bull Reference/Name" filipino="Pangalan ng Toro" htmlFor="edit-ai-bull-reference" />
-                              <Input
-                                id="edit-ai-bull-reference"
-                                value={formData.ai_bull_reference}
-                                onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_reference: e.target.value }))}
-                                placeholder="Enter bull reference or name"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <BilingualLabel english="AI Bull Breed" filipino="Lahi ng Toro (AI)" htmlFor="edit-ai-bull-breed" />
-                              <Select
-                                value={formData.ai_bull_breed}
-                                onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
-                                  {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                                    <SelectItem key={breed} value={breed}>{breed}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  <ParentageFields
+                    value={formData}
+                    onChange={(patch) => setFormData(prev => ({ ...prev, ...patch }))}
+                    mothers={mothers}
+                    fathers={fathers}
+                    availableBreeds={availableBreeds}
+                    loading={loadingParents}
+                    idPrefix="edit-"
+                  />
                 </CollapsibleContent>
               </Collapsible>
 
@@ -573,94 +424,12 @@ export function EditAnimalDialog({
                     <ChevronDown className={`h-4 w-4 transition-transform ${openSections.acquisition ? "rotate-180" : ""}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-4 pt-4">
-                    <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                      <BilingualLabel english="How was this animal acquired?" filipino="Paano nakuha ang hayop?" />
-                      <RadioGroup
-                        value={formData.acquisition_type}
-                        onValueChange={(value) => setFormData(prev => ({ 
-                          ...prev, 
-                          acquisition_type: value,
-                          purchase_price: value === "grant" ? "" : prev.purchase_price,
-                          grant_source: value === "purchased" ? "" : prev.grant_source,
-                          grant_source_other: value === "purchased" ? "" : prev.grant_source_other
-                        }))}
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="purchased" id="edit-acquired-purchased" />
-                          <label htmlFor="edit-acquired-purchased" className="cursor-pointer">Purchased / Binili</label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="grant" id="edit-acquired-grant" />
-                          <label htmlFor="edit-acquired-grant" className="cursor-pointer">Grant / Bigay</label>
-                        </div>
-                      </RadioGroup>
-
-                      {formData.acquisition_type === "purchased" && (
-                        <div className="space-y-2">
-                          <BilingualLabel english="Purchase Price (PHP)" filipino="Halaga ng Pagbili" htmlFor="edit-purchase-price" />
-                          <Input
-                            id="edit-purchase-price"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.purchase_price}
-                            onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
-                            placeholder="e.g., 50000"
-                          />
-                        </div>
-                      )}
-
-                      {formData.acquisition_type === "grant" && (
-                        <>
-                          <div className="space-y-2">
-                            <BilingualLabel english="Grant Source" filipino="Pinagmulan ng Bigay" required htmlFor="edit-grant-source" />
-                            <Select
-                              value={formData.grant_source}
-                              onValueChange={(value) => setFormData(prev => ({ 
-                                ...prev, 
-                                grant_source: value,
-                                grant_source_other: value !== "other" ? "" : prev.grant_source_other
-                              }))}
-                            >
-                              <SelectTrigger className={cn(errors.grant_source && "border-destructive focus-visible:ring-destructive")}>
-                                <SelectValue placeholder="Select grant source" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="national_dairy_authority">National Dairy Authority (NDA)</SelectItem>
-                                <SelectItem value="local_government_unit">Local Government Unit (LGU)</SelectItem>
-                                <SelectItem value="other">Other / Iba pa</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FieldError message={errors.grant_source} />
-                          </div>
-
-                          {formData.grant_source === "other" && (
-                            <div className="space-y-2">
-                              <BilingualLabel english="Specify Source" filipino="Tukuyin ang Pinagmulan" required htmlFor="edit-grant-source-other" />
-                              <Input
-                                id="edit-grant-source-other"
-                                value={formData.grant_source_other}
-                                onChange={(e) => setFormData(prev => ({ ...prev, grant_source_other: e.target.value }))}
-                                placeholder="Enter grant source"
-                                className={cn(errors.grant_source_other && "border-destructive focus-visible:ring-destructive")}
-                              />
-                              <FieldError message={errors.grant_source_other} />
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {/* Source Farm - shown for both purchased and grant */}
-                      <div className="space-y-2">
-                        <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="edit-source-farm" />
-                        <Input
-                          id="edit-source-farm"
-                          value={formData.source_farm}
-                          onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
-                          placeholder="Enter farm name / Ilagay ang pangalan ng farm"
-                        />
-                      </div>
-                    </div>
+                    <AcquisitionFields
+                      value={formData}
+                      onChange={(patch) => setFormData(prev => ({ ...prev, ...patch }))}
+                      errors={{ grant_source: errors.grant_source, grant_source_other: errors.grant_source_other }}
+                      idPrefix="edit-"
+                    />
                   </CollapsibleContent>
                 </Collapsible>
               )}

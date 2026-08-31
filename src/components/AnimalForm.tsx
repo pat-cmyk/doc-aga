@@ -21,6 +21,9 @@ import { LactatingToggle } from "@/components/animal-form/LactatingToggle";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { WeightEstimateButton } from "@/components/animal-form/WeightEstimateButton";
 import { QuickAddToggle } from "@/components/animal-form/QuickAddToggle";
+import { BreedFields } from "@/components/animal-form/BreedFields";
+import { AcquisitionFields } from "@/components/animal-form/AcquisitionFields";
+import { ParentageFields } from "@/components/animal-form/ParentageFields";
 import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSuccessScreen";
 import { useNavigate } from "react-router-dom";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
@@ -750,157 +753,19 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
 
         {/* Acquisition Type - Hidden in Quick Mode */}
         {showField('acquisition') && formData.animal_type === "new_entrant" && (
-          <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-            <BilingualLabel english="How was this animal acquired?" filipino="Paano nakuha ang hayop?" required />
-            <RadioGroup
-              value={formData.acquisition_type}
-              onValueChange={(value) => setFormData(prev => ({ 
-                ...prev, 
-                acquisition_type: value,
-                purchase_price: value === "grant" ? "" : prev.purchase_price,
-                grant_source: value === "purchased" ? "" : prev.grant_source,
-                grant_source_other: value === "purchased" ? "" : prev.grant_source_other
-              }))}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="purchased" id="acquired_purchased" />
-                <label htmlFor="acquired_purchased" className="cursor-pointer font-normal">Purchased / Binili</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="grant" id="acquired_grant" />
-                <label htmlFor="acquired_grant" className="cursor-pointer font-normal">Grant / Bigay</label>
-              </div>
-            </RadioGroup>
-
-            {formData.acquisition_type === "purchased" && (
-              <div className="space-y-2">
-                <BilingualLabel english="Purchase Price (PHP)" filipino="Halaga ng Pagbili" htmlFor="purchase_price" />
-                <Input
-                  id="purchase_price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.purchase_price}
-                  onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
-                  placeholder="Halimbawa: 50000"
-                />
-              </div>
-            )}
-
-            {formData.acquisition_type === "grant" && (
-              <>
-                <div className="space-y-2">
-                  <BilingualLabel english="Grant Source" filipino="Pinagmulan ng Bigay" required htmlFor="grant_source" />
-                  <Select
-                    value={formData.grant_source}
-                    onValueChange={(value) => setFormData(prev => ({ 
-                      ...prev, 
-                      grant_source: value,
-                      grant_source_other: value !== "other" ? "" : prev.grant_source_other
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select grant source / Pumili ng pinagmulan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="national_dairy_authority">National Dairy Authority (NDA)</SelectItem>
-                      <SelectItem value="local_government_unit">Local Government Unit (LGU)</SelectItem>
-                      <SelectItem value="other">Other / Iba pa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.grant_source === "other" && (
-                  <div className="space-y-2">
-                    <BilingualLabel english="Specify Source" filipino="Tukuyin ang Pinagmulan" required htmlFor="grant_source_other" />
-                    <Input
-                      id="grant_source_other"
-                      value={formData.grant_source_other}
-                      onChange={(e) => setFormData(prev => ({ ...prev, grant_source_other: e.target.value }))}
-                      placeholder="Enter grant source / Ilagay ang pinagmulan"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Source Farm - shown for both purchased and grant */}
-            <div className="space-y-2">
-              <BilingualLabel english="Source Farm" filipino="Pinagmulan na Farm" htmlFor="source_farm" />
-              <Input
-                id="source_farm"
-                value={formData.source_farm}
-                onChange={(e) => setFormData(prev => ({ ...prev, source_farm: e.target.value }))}
-                placeholder="Enter farm name / Ilagay ang pangalan ng farm"
-              />
-            </div>
-          </div>
+          <AcquisitionFields
+            value={formData}
+            onChange={(patch) => setFormData(prev => ({ ...prev, ...patch }))}
+          />
         )}
         
         {/* Breed Selection - Hidden in Quick Mode */}
         {showField('breed') && formData.animal_type === "new_entrant" && (
-          <>
-            <div className="space-y-2">
-              <BilingualLabel english="Breed" filipino="Lahi" htmlFor="breed" />
-              <Select
-                value={formData.breed}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value === "no_data" ? "" : value, breed1: "", breed2: "" }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select breed / Pumili ng lahi" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
-                  {availableBreeds.map((breed) => (
-                    <SelectItem key={breed} value={breed}>
-                      {breed}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {formData.breed === "Mix Breed" && (
-              <>
-                <div className="space-y-2">
-                  <BilingualLabel english="First Breed" filipino="Unang Lahi" htmlFor="breed1" />
-                  <Select
-                    value={formData.breed1}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, breed1: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select first breed / Pumili ng unang lahi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                        <SelectItem key={breed} value={breed}>
-                          {breed}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <BilingualLabel english="Second Breed" filipino="Ikalawang Lahi" htmlFor="breed2" />
-                  <Select
-                    value={formData.breed2}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, breed2: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select second breed / Pumili ng ikalawang lahi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                        <SelectItem key={breed} value={breed}>
-                          {breed}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-          </>
+          <BreedFields
+            value={formData}
+            onChange={(patch) => setFormData(prev => ({ ...prev, ...patch }))}
+            availableBreeds={availableBreeds}
+          />
         )}
         
         {showField('breed') && formData.animal_type === "offspring" && (
@@ -947,105 +812,22 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
             <h3 className="text-sm font-semibold">
               Parent Information / Impormasyon ng Magulang {formData.animal_type === "offspring" ? "*" : "(Optional)"}
             </h3>
-            
-            <div className="space-y-2">
-              <BilingualLabel english="Mother" filipino="Ina" htmlFor="mother_id" />
-              <Select
-                value={formData.mother_id || "none"}
-                onValueChange={(value) => {
-                  setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }));
-                  clearError('mother_id');
-                }}
-              >
-                <SelectTrigger id="mother_id" className={errors.mother_id ? "border-destructive focus-visible:ring-destructive" : undefined}>
-                  <SelectValue placeholder="Select mother / Pumili ng ina" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Data / Hindi Alam</SelectItem>
-                  {mothers.map((mother) => (
-                    <SelectItem key={mother.id} value={mother.id}>
-                      {mother.name || mother.ear_tag || "Unnamed"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError message={errors.mother_id} />
-            </div>
 
-            <div className="space-y-2">
-              <BilingualLabel english="Father" filipino="Ama" htmlFor="father_id" />
-              <Select
-                value={formData.is_father_ai ? "ai" : (formData.father_id || "none")}
-                onValueChange={(value) => {
-                  if (value === "ai") {
-                    setFormData(prev => ({ ...prev, is_father_ai: true, father_id: "" }));
-                  } else {
-                    setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value === "none" ? "" : value }));
-                  }
-                  clearError('father_id');
-                }}
-              >
-                <SelectTrigger id="father_id" className={errors.father_id ? "border-destructive focus-visible:ring-destructive" : undefined}>
-                  <SelectValue placeholder="Select father / Pumili ng ama" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Data / Hindi Alam</SelectItem>
-                  <SelectItem value="ai">🧬 AI / Artificial Insemination</SelectItem>
-                  {fathers.map((father) => (
-                    <SelectItem key={father.id} value={father.id}>
-                      {father.name || father.ear_tag || "Unnamed"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError message={errors.father_id} />
-            </div>
-
-            {formData.is_father_ai && (
-              <>
-                <div className="space-y-2">
-                  <BilingualLabel english="Bull Semen Brand" filipino="Brand ng Semen" htmlFor="ai_bull_brand" />
-                  <Input
-                    id="ai_bull_brand"
-                    value={formData.ai_bull_brand}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_brand: e.target.value }))}
-                    placeholder="Enter bull semen brand"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <BilingualLabel english="Bull Reference/Name" filipino="Pangalan ng Toro" htmlFor="ai_bull_reference" />
-                  <Input
-                    id="ai_bull_reference"
-                    value={formData.ai_bull_reference}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ai_bull_reference: e.target.value }))}
-                    placeholder="Enter bull reference or name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <BilingualLabel english="Bull Breed" filipino="Lahi ng Toro" htmlFor="ai_bull_breed" />
-                  <Select
-                    value={formData.ai_bull_breed || "no_data"}
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }));
-                      clearError('ai_bull_breed');
-                    }}
-                  >
-                    <SelectTrigger id="ai_bull_breed" className={errors.ai_bull_breed ? "border-destructive focus-visible:ring-destructive" : undefined}>
-                      <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no_data">No Data / Hindi Alam</SelectItem>
-                      {availableBreeds.filter(b => b !== "Mix Breed").map((breed) => (
-                        <SelectItem key={breed} value={breed}>
-                          {breed}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldError message={errors.ai_bull_breed} />
-                </div>
-              </>
-            )}
+            <ParentageFields
+              value={formData}
+              onChange={(patch) => {
+                setFormData(prev => ({ ...prev, ...patch }));
+                Object.keys(patch).forEach(clearError);
+              }}
+              mothers={mothers}
+              fathers={fathers}
+              availableBreeds={availableBreeds}
+              errors={{
+                mother_id: errors.mother_id,
+                father_id: errors.father_id,
+                ai_bull_breed: errors.ai_bull_breed,
+              }}
+            />
           </div>
         )}
         

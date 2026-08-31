@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 7: backlog polish (form dedup, tokens, back-close)
+
+- **One source of truth for shared animal-form fields**: new
+  `animal-form/BreedFields`, `AcquisitionFields`, and `ParentageFields`
+  components consumed by BOTH the add form and the edit dialog — the Form
+  Parity Rule is now structural, not a convention. AnimalForm 1,100 → 860
+  lines; EditAnimalDialog 842 → 620. Both forms also picked up each other's
+  best details (edit's "Name (tag)" parent display and mix-breed inline
+  errors now appear in add too). 7 new component tests.
+- **Doc Aga "unification" resolved by audit, not merger**: DocAgaConsultation
+  is the voice-consultation surface (transcription-seeded, 1h TTL, feedback
+  buttons; also used by VoiceRecordButton and the merchant portal) — distinct
+  from the DocAga chat overlay by design. Documented in ssot-architecture;
+  the farmhand's inline consultation now closes on Android back.
+- **Token sweep continued**: FinancialHealthSummary, AcquisitionDistributionCard,
+  GrowthBenchmarkCard migrated (76 raw classes → 0); ratchet lowered
+  1648 → 1572. NetworkStatusBanner deliberately kept its graded ambers
+  (distinct connection states). Last Tagalog-first string flipped.
+
 ## 2026-08-31 — UX Redesign Phase 6: sub-pages join the shell (redesign complete)
 
 Marketplace, My Orders, Messages, Find Distributors, and Profile now render

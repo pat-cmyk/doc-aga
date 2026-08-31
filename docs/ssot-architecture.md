@@ -339,7 +339,12 @@ Deleted (superseded): `pages/Dashboard.tsx`, `pages/FarmhandDashboard.tsx`, `ui/
 **Phase 3 addenda (2026-08-31):**
 - `AnimalList` has a `detailsMode` prop: `'navigate'` (default — routes to `/animals/:id` and `/animals/new`) vs `'inline'` (in-place mount, used ONLY by `pages/AdminViewFarm`). New consumers must use navigate mode.
 - Add-animal validation is SSOT in `src/components/animal-form/validateAnimalForm.ts` (pure, tested); AnimalForm renders it inline via `ui/field-error.tsx`. Never add back toast-only validation.
-- `EditAnimalDialog` was audited against the plan's delete recommendation and deliberately KEPT: it is not a naive field duplicate — it owns edit-only flows (delete-with-reason, AI-parentage updates, unsaved-changes guard) via `useEditAnimalForm`, and already has inline validation. The remaining field-markup duplication with AnimalForm is backlog: extract shared field-section components (Phase 7).
+- `EditAnimalDialog` was audited against the plan's delete recommendation and deliberately KEPT: it is not a naive field duplicate — it owns edit-only flows (delete-with-reason, AI-parentage updates, unsaved-changes guard) via `useEditAnimalForm`, and already has inline validation.
+
+**Phase 7 addenda (2026-08-31):**
+- **Shared animal-form field sections** (Form Parity Rule made structural): `animal-form/BreedFields`, `AcquisitionFields`, `ParentageFields` are the SSOT for those field groups, consumed by BOTH `AnimalForm` (add) and `EditAnimalDialog` (edit). Never re-implement these fields inline — extend the shared component.
+- **Doc Aga surfaces are intentionally distinct** (backlog "unify" item resolved by audit): `DocAga.tsx` is the general chat overlay (FAB, 24h conversation TTL, chat/voice/image tabs); `farmhand/DocAgaConsultation.tsx` is the voice-consultation surface (seeds from a voice transcription via `initialQuery`, 1h TTL, feedback buttons) also used by `VoiceRecordButton` and the merchant portal. Both register with the hardware-back stack.
+- `NetworkStatusBanner` keeps raw graded ambers deliberately — its yellow/amber/orange encode distinct connection-degradation states that one `warning` token would flatten.
 
 ---
 
