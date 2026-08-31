@@ -310,7 +310,9 @@ Every farmer/farmhand screen renders inside one layout route — `src/components
 |------|---------|-------|
 | `/` | `shell/RoleLanding` | Auth gate + role router + **permanent legacy shim** mapping `/?tab=…`/`/?animalId=…` URLs (`src/lib/legacyRedirects.ts`) |
 | `/home` | `shell/pages/HomeRoute` | Farmer variant (FarmDashboard + QuickRecordActions) or farmhand variant (voice-first) by `isFarmhand` |
-| `/animals` | `shell/pages/AnimalsRoute` | Deep-link state in URL: `?animalId=`, `?filter=missing-weight`, `?editWeight=true` |
+| `/animals` | `shell/pages/AnimalsRoute` | List; `?filter=missing-weight`; `?animalId=X` redirects to `/animals/X` |
+| `/animals/:animalId` | `shell/pages/AnimalDetailRoute` | Animal profile (Phase 3); `?editWeight=true` opens entry-weight dialog; active tab persists via `#hash` + localStorage |
+| `/animals/new` | `shell/pages/NewAnimalRoute` | Focused add-animal page (no nav/FAB — `isFocusedRoute`); the ONLY add-animal surface |
 | `/operations/:subtab` | `shell/pages/OperationsRoute` | `milk\|feed\|breeding`; farmhands get `feed` only |
 | `/money` | `shell/pages/MoneyRoute` | FinanceTab |
 | `/more` | `shell/pages/MoreRoute` | `?tab=approvals\|submissions\|cooperative\|government\|settings`, role-filtered |
@@ -325,6 +327,11 @@ Every farmer/farmhand screen renders inside one layout route — `src/components
 - **Navigation is router-only**: no `window.dispatchEvent` navigation, no tab state. Legacy `/?tab=` URLs may never be produced by new code (RoleLanding's shim is for external/persisted links only).
 
 Deleted (superseded): `pages/Dashboard.tsx`, `pages/FarmhandDashboard.tsx`, `ui/bottom-nav.tsx`, `voice-training/FloatingVoiceTrainingButton.tsx` (now `shell/VoiceTrainingCard` on Home).
+
+**Phase 3 addenda (2026-08-31):**
+- `AnimalList` has a `detailsMode` prop: `'navigate'` (default — routes to `/animals/:id` and `/animals/new`) vs `'inline'` (in-place mount, used ONLY by `pages/AdminViewFarm`). New consumers must use navigate mode.
+- Add-animal validation is SSOT in `src/components/animal-form/validateAnimalForm.ts` (pure, tested); AnimalForm renders it inline via `ui/field-error.tsx`. Never add back toast-only validation.
+- `EditAnimalDialog` was audited against the plan's delete recommendation and deliberately KEPT: it is not a naive field duplicate — it owns edit-only flows (delete-with-reason, AI-parentage updates, unsaved-changes guard) via `useEditAnimalForm`, and already has inline validation. The remaining field-markup duplication with AnimalForm is backlog: extract shared field-section components (Phase 7).
 
 ---
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 3: animal routes, one add flow, inline validation
+
+- **`/animals/:animalId`** — the animal profile is a real route (was an
+  in-place mount inside AnimalList): shareable, refresh-safe, back returns to
+  the list. `?editWeight=true` still opens the entry-weight dialog; the
+  BioCardSheet's 150ms setTimeout handoff is gone. Admin farm drill-down keeps
+  the old in-place behavior via `AnimalList detailsMode="inline"`.
+- **Profile header redesigned**: one responsive DOM (no isMobile ternary); the
+  vertical 5-button stack that pushed the animal's name below the fold is now
+  a horizontal wrap action bar. Fixed two drifts the mobile/desktop split had
+  grown (desktop lacked Dry Off; desktop's due-date badge ignored urgency
+  colors). All 7 record tabs are always visible as a wrapping strip — no more
+  scroll-hidden tabs. Universal-ID copy button 20px → 44px.
+- **`/animals/new`** — one canonical add-animal page (focused: page header,
+  no bottom nav/FAB). Replaces BOTH old paths: the FAB's 90vh sheet and the
+  list's in-place form swap.
+- **Inline validation** (`validateAnimalForm`, pure + tested): every missing
+  field is shown at once next to its input with scroll-to-first-error,
+  replacing the fix-one-resubmit toast chain. Quick/Full mode is a labeled
+  segmented control instead of an ambiguous Switch.
+- **Plan deviation, deliberate:** `EditAnimalDialog` was slated for deletion
+  as a "duplicate" but the field-parity audit showed it owns edit-only flows
+  (delete-with-reason, AI-parentage updates, unsaved-changes guard) and
+  already has inline validation — deleting it would have traded working UX
+  for churn. Kept; shared field-section extraction is Phase 7 backlog.
+
+Verified on the demo account at 390×844: profile deep link renders with the
+new header/tabs, /animals/new shows both inline errors on an empty submit,
+nav hidden on the focused page. Build + 539 tests green (6 new).
+
 ## 2026-08-31 — UX Redesign Phase 2: app shell with real URL routes + Android back
 
 The spine of the Jakob's Law redesign. Every farmer/farmhand screen now lives
