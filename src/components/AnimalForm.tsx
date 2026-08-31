@@ -24,6 +24,8 @@ import { QuickAddToggle } from "@/components/animal-form/QuickAddToggle";
 import { AddAnimalSuccessScreen } from "@/components/animal-form/AddAnimalSuccessScreen";
 import { useNavigate } from "react-router-dom";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
+import { FieldError } from "@/components/ui/field-error";
+import { validateAnimalForm, ANIMAL_FORM_FIELD_IDS } from "@/components/animal-form/validateAnimalForm";
 import { labels, getLivestockEmoji } from "@/lib/filipinoLabels";
 import VoiceQuickAdd, { type ExtractedAnimalData } from "@/components/animal-form/VoiceQuickAdd";
 import { calculateLifeStage, calculateMaleStage, type AnimalStageData } from "@/lib/animalStages";
@@ -45,7 +47,15 @@ interface AnimalFormProps {
 const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFormProps) => {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
-  const [genderError, setGenderError] = useState(false);
+  // Inline validation errors (field → message), rendered next to each field
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const clearError = (field: string) =>
+    setErrors(prev => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   const [mothers, setMothers] = useState<ParentAnimal[]>([]);
   const [fathers, setFathers] = useState<ParentAnimal[]>([]);
   const [livestockType, setLivestockType] = useState<LivestockType>('cattle');
@@ -169,7 +179,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
       is_currently_lactating: false,
       estimated_days_in_milk: 60,
     });
-    setGenderError(false);
+    setErrors({});
   };
 
   const handleSuccessAction = (action: string) => {
@@ -203,54 +213,18 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.gender) {
-      setGenderError(true);
-      toast({
-        title: "Kulang ang detalye / Missing fields",
-        description: "Piliin ang kasarian ng hayop / Please select the animal's gender",
-        variant: "destructive"
-      });
-      return;
-    }
-    setGenderError(false);
-    
-    if (!formData.ear_tag) {
-      toast({
-        title: "Kulang ang detalye / Missing fields",
-        description: "Kinakailangan ang ear tag / Ear tag is required",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    // Validate offspring requirements (only in full mode or when offspring is selected)
-    if (formData.animal_type === "offspring") {
-      if (!formData.mother_id || formData.mother_id === "none") {
-        toast({
-          title: "Kulang ang detalye / Missing fields",
-          description: "Kinakailangan ang ina para sa anak / Mother is required for offspring",
-          variant: "destructive"
-        });
-        return;
-      }
-      if (!formData.is_father_ai && (!formData.father_id || formData.father_id === "none")) {
-        toast({
-          title: "Kulang ang detalye / Missing fields",
-          description: "Kinakailangan ang ama o AI / Father or AI information is required for offspring",
-          variant: "destructive"
-        });
-        return;
-      }
-      if (formData.is_father_ai && !formData.ai_bull_breed) {
-        toast({
-          title: "Kulang ang detalye / Missing fields",
-          description: "Kinakailangan ang lahi ng toro / AI bull breed is required for offspring",
-          variant: "destructive"
-        });
-        return;
-      }
+    // Inline validation: every problem is shown at once next to its field
+    // (replaces the old fix-one-resubmit toast chain).
+    const validationErrors = validateAnimalForm(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      const firstField = Object.keys(validationErrors)[0];
+      const el = document.getElementById(ANIMAL_FORM_FIELD_IDS[firstField] ?? firstField);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
     }
+    setErrors({});
 
     setCreating(true);
     
@@ -497,13 +471,13 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
     
     // Clear gender error if gender was provided
     if (data.gender) {
-      setGenderError(false);
+      clearError('gender');
     }
   };
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {!isOnline && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-md flex items-center gap-2 text-sm">
             <WifiOff className="h-4 w-4" />
@@ -616,25 +590,32 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
           <Input
             id="ear_tag"
             value={formData.ear_tag}
-            onChange={(e) => setFormData(prev => ({ ...prev, ear_tag: e.target.value }))}
+            onChange={(e) => {
+              setFormData(prev => ({ ...prev, ear_tag: e.target.value }));
+              clearError('ear_tag');
+            }}
             placeholder="Halimbawa: A001"
-            required
+            className={errors.ear_tag ? "border-destructive focus-visible:ring-destructive" : undefined}
           />
+          <FieldError message={errors.ear_tag} />
         </div>
         
         {/* Gender Selector - Always shown */}
-        <GenderSelector
-          value={formData.gender}
-          onChange={(value) => {
-            setFormData(prev => ({ 
-              ...prev, 
-              gender: value,
-              is_currently_lactating: value === "Female" ? prev.is_currently_lactating : false,
-            }));
-            setGenderError(false);
-          }}
-          error={genderError}
-        />
+        <div id="gender-field" className="space-y-2">
+          <GenderSelector
+            value={formData.gender}
+            onChange={(value) => {
+              setFormData(prev => ({
+                ...prev,
+                gender: value,
+                is_currently_lactating: value === "Female" ? prev.is_currently_lactating : false,
+              }));
+              clearError('gender');
+            }}
+            error={!!errors.gender}
+          />
+          <FieldError message={errors.gender} />
+        </div>
         
         {/* Lactating Toggle - Hidden in Quick Mode */}
         {showField('lactating') && formData.animal_type === "new_entrant" && formData.gender === "Female" && (
@@ -965,9 +946,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
               <BilingualLabel english="Mother" filipino="Ina" htmlFor="mother_id" />
               <Select
                 value={formData.mother_id || "none"}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }))}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, mother_id: value === "none" ? "" : value }));
+                  clearError('mother_id');
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="mother_id" className={errors.mother_id ? "border-destructive focus-visible:ring-destructive" : undefined}>
                   <SelectValue placeholder="Select mother / Pumili ng ina" />
                 </SelectTrigger>
                 <SelectContent>
@@ -979,6 +963,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError message={errors.mother_id} />
             </div>
 
             <div className="space-y-2">
@@ -991,9 +976,10 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                   } else {
                     setFormData(prev => ({ ...prev, is_father_ai: false, father_id: value === "none" ? "" : value }));
                   }
+                  clearError('father_id');
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="father_id" className={errors.father_id ? "border-destructive focus-visible:ring-destructive" : undefined}>
                   <SelectValue placeholder="Select father / Pumili ng ama" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1006,6 +992,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError message={errors.father_id} />
             </div>
 
             {formData.is_father_ai && (
@@ -1032,9 +1019,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                   <BilingualLabel english="Bull Breed" filipino="Lahi ng Toro" htmlFor="ai_bull_breed" />
                   <Select
                     value={formData.ai_bull_breed || "no_data"}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }))}
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ ...prev, ai_bull_breed: value === "no_data" ? "" : value }));
+                      clearError('ai_bull_breed');
+                    }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="ai_bull_breed" className={errors.ai_bull_breed ? "border-destructive focus-visible:ring-destructive" : undefined}>
                       <SelectValue placeholder="Select bull breed / Pumili ng lahi ng toro" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1046,6 +1036,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
                       ))}
                     </SelectContent>
                   </Select>
+                  <FieldError message={errors.ai_bull_breed} />
                 </div>
               </>
             )}
