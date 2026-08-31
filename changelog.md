@@ -1,6 +1,18 @@
 # Changelog
 
-## 2026-08-09 — Fix: ticket detail panel crash on open (TKT-2608-0002)
+## 2026-08-31 — New Doc Aga mascot icon (farmer-boy with straw hat)
+
+Replaced the green "A" logo with the new Doc Aga mascot (boy with straw hat
+on a cream circle) across every icon surface: in-app logo
+(`src/assets/doc-aga-logo.png`, rendered by `DocAgaLogo`), favicon
+(`favicon.png` + `favicon.ico`), PWA manifest icons (`pwa-192x192.png`,
+`pwa-512x512.png`), `apple-touch-icon.png` (now a proper 180×180), and the
+Android launcher set in `android/app` — legacy `ic_launcher.png` at all five
+densities plus adaptive-icon `ic_launcher_foreground.png` (mascot in the
+66/108dp safe zone on a transparent layer over the existing white
+`ic_launcher_background`) and `ic_launcher_monochrome.png`.
+`android/native_farmers_app` (example module) left untouched. Requires
+`npx cap sync android` + rebuild for the launcher icon to update on devices.
 
 `TicketDetailPanel`'s assignee dropdown used `<SelectItem value="">` for
 "Unassigned", which Radix Select v2 throws on at mount — opening ANY ticket
