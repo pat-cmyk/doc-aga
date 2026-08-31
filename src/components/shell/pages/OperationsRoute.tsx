@@ -27,7 +27,7 @@ export default function OperationsRoute() {
   const { farmId, isFarmhand, canManageFarm } = useFarmShellContext();
   const { subtab } = useParams<{ subtab: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [forecastData, setForecastData] = useState<any[]>([]);
+  const [forecastData, setForecastData] = useState<ReturnType<typeof generateFeedForecast>>([]);
 
   const allowed = allowedOperationsSubtabs({ isFarmhand });
   const prefillFeedType = searchParams.get("prefillFeedType") ?? undefined;

@@ -6,8 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { UnifiedActionsFab } from "./components/UnifiedActionsFab";
-import { FloatingVoiceTrainingButton } from "./components/voice-training/FloatingVoiceTrainingButton";
 import { GovernmentFab } from "./components/government/GovernmentFab";
 import { MerchantFab } from "./components/merchant/MerchantFab";
 import { CartProvider } from "./hooks/useCart";
@@ -30,7 +28,6 @@ const Auth = lazy(() => import("./pages/Auth"));
 const MerchantAuth = lazy(() => import("./pages/MerchantAuth"));
 const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const GovernmentAuth = lazy(() => import("./pages/GovernmentAuth"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const GovernmentDashboard = lazy(() => import("./pages/GovernmentDashboard"));
@@ -41,7 +38,6 @@ const DistributorFinder = lazy(() => import("./pages/DistributorFinder"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const MessagingPage = lazy(() => import("./pages/MessagingPage"));
 const AdminCreateUser = lazy(() => import("./pages/AdminCreateUser"));
-const FarmhandDashboard = lazy(() => import("./pages/FarmhandDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const VoiceTraining = lazy(() => import("./pages/VoiceTraining"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
@@ -266,30 +262,19 @@ const ConditionalFloatingComponents = () => {
 
   if (shouldHideFab) return null;
 
-  // Farm-shell routes own their floating widgets via shell/FloatingDock —
-  // mounting them here too would double the FAB.
-  const shellRoutes = ['/home', '/animals', '/operations', '/money', '/more', '/setup'];
-  if (shellRoutes.some(route => location.pathname === route || location.pathname.startsWith(route + '/'))) {
-    return null;
-  }
-  
   // Government portal gets its own FAB
   if (location.pathname.startsWith('/government')) {
     return <GovernmentFab />;
   }
-  
+
   // Merchant portal gets its own FAB
   if (location.pathname.startsWith('/merchant')) {
     return <MerchantFab />;
   }
-  
-  // Default farm FAB for all other routes
-  return (
-    <>
-      <UnifiedActionsFab />
-      <FloatingVoiceTrainingButton />
-    </>
-  );
+
+  // Farm-shell routes own their floating widgets via shell/FloatingDock;
+  // no free-floating farmer FAB anywhere else.
+  return null;
 };
 
 const App = () => (
