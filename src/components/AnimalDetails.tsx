@@ -10,7 +10,6 @@ import { ArrowLeft, Loader2, Milk, Stethoscope, Calendar, Users, Baby, Scale, Wh
 import { useToast } from "@/hooks/use-toast";
 import { showErrorToastLegacy } from "@/lib/errorHandling";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { addDays, differenceInDays, formatDistanceToNow } from "date-fns";
 import { GESTATION_DAYS } from "@/types/fertility";
 import MilkingRecords from "./MilkingRecords";
@@ -294,8 +293,7 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
   };
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
-  const isMobile = useIsMobile();
-  
+
   // Handle opening the edit weight dialog from URL params
   useEffect(() => {
     if (editWeightOnOpen && animal && !loading) {
@@ -641,85 +639,42 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
     <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
-          {isMobile ? (
-            // Mobile: Stacked layout with details below avatar
-            <div className="space-y-3">
-              {/* Row 1: Back, Avatar, Actions */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" onClick={onBack}>
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="relative">
-                    <AnimalAvatar
-                      avatarUrl={animal.avatar_url}
-                      animalName={animal.name}
-                      earTag={animal.ear_tag}
-                      livestockType={animal.livestock_type}
-                      size="lg"
-                    />
-                    {!readOnly && (
-                      uploading ? (
-                        <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        </div>
-                      ) : (
-                        <CameraPhotoInput
-                          onPhotoSelected={handleAvatarUpload}
-                          variant="secondary"
-                          size="icon"
-                          label=""
-                          disabled={!isOnline}
-                          className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
-                        />
-                      )
-                    )}
-                  </div>
-                </div>
+          {/* One responsive header (UX redesign Phase 3): identity row on top,
+              actions as a horizontal wrap bar below — the animal's name never
+              gets pushed below the fold by a vertical button stack. */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <Button variant="ghost" size="sm" onClick={onBack} aria-label="Back" className="min-h-[44px] min-w-[44px]">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="relative shrink-0">
+                <AnimalAvatar
+                  avatarUrl={animal.avatar_url}
+                  animalName={animal.name}
+                  earTag={animal.ear_tag}
+                  livestockType={animal.livestock_type}
+                  size="lg"
+                />
                 {!readOnly && (
-                  <div className="flex flex-col gap-2 items-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditAnimalDialogOpen(true)}
+                  uploading ? (
+                    <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    </div>
+                  ) : (
+                    <CameraPhotoInput
+                      onPhotoSelected={handleAvatarUpload}
+                      variant="secondary"
+                      size="icon"
+                      label=""
                       disabled={!isOnline}
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Edit All Details
-                    </Button>
-                    <ExportAnimalProfileButton
-                      animalId={animalId}
-                      farmId={farmId}
+                      className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
                     />
-                    <RecordAnimalExitDialog 
-                      animalId={animalId}
-                      animalName={animal.name || animal.ear_tag || 'Animal'}
-                      farmId={farmId}
-                      livestockType={animal.livestock_type || undefined}
-                      earTag={animal.ear_tag || undefined}
-                      onExitRecorded={onBack}
-                    />
-                    {animal.gender === 'Female' && (
-                      <DryOffAnimalButton
-                        animalId={animalId}
-                        animalName={animal.name || animal.ear_tag || 'Animal'}
-                        farmId={farmId}
-                        isCurrentlyLactating={stageData?.hasRecentMilking || animal.milking_stage?.includes('Lactation')}
-                        onSuccess={loadAnimal}
-                      />
-                    )}
-                    <RecalculateSingleAnimalButton 
-                      animalId={animalId} 
-                      onSuccess={loadAnimal}
-                    />
-                  </div>
+                  )
                 )}
               </div>
-              
-              {/* Row 2: Animal Details (full width) */}
-              <div className="space-y-1">
+              <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <CardTitle className="text-lg">{animal.name}</CardTitle>
+                  <CardTitle className="text-lg sm:text-2xl">{animal.name}</CardTitle>
                   <GenderBadge gender={animal.gender} />
                   {(() => {
                     const originInfo = getOriginBadgeInfo(animal);
@@ -731,14 +686,14 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     ) : null;
                   })()}
                   {displayLifeStage && (
-                    <StageBadge 
+                    <StageBadge
                       stage={displayLifeStage}
                       definition={getLifeStageDefinition(displayLifeStage)}
                       colorClass={getLifeStageBadgeColor(displayLifeStage)}
                     />
                   )}
                   {computedMilkingStage && (
-                    <StageBadge 
+                    <StageBadge
                       stage={computedMilkingStage}
                       definition={getMilkingStageDefinition(computedMilkingStage)}
                       colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
@@ -759,19 +714,19 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                     );
                   })()}
                 </div>
-                <CardDescription className="space-y-1 text-xs">
+                <CardDescription className="space-y-1 text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
-                    <span>{animal.breed} • Tag: {animal.ear_tag}</span>
+                    <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
                     {getCacheIcon()}
                   </div>
                   {animal.unique_code && (
                     <div className="flex items-center gap-1.5">
                       <Globe className="h-3 w-3 flex-shrink-0" />
-                      <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
+                      <code className="text-[10px] sm:text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-5 w-5 p-0"
+                        className="h-11 w-11 p-0"
                         onClick={() => {
                           navigator.clipboard.writeText(animal.unique_code!);
                           toast({
@@ -780,140 +735,56 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
                           });
                         }}
                         title="Copy Universal ID"
+                        aria-label="Copy Universal ID"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   )}
                 </CardDescription>
               </div>
             </div>
-          ) : (
-            // Desktop: Horizontal layout
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <Button variant="ghost" size="sm" onClick={onBack}>
-                  <ArrowLeft className="h-4 w-4" />
+
+            {/* Horizontal action bar (replaces the old vertical 5-button stack) */}
+            {!readOnly && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditAnimalDialogOpen(true)}
+                  disabled={!isOnline}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit All Details
                 </Button>
-                  <div className="relative">
-                    <AnimalAvatar
-                      avatarUrl={animal.avatar_url}
-                      animalName={animal.name}
-                      earTag={animal.ear_tag}
-                      livestockType={animal.livestock_type}
-                      size="xl"
-                    />
-                    {!readOnly && (
-                      uploading ? (
-                        <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center absolute -bottom-1 -right-1">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        </div>
-                      ) : (
-                        <CameraPhotoInput
-                          onPhotoSelected={handleAvatarUpload}
-                          variant="secondary"
-                          size="icon"
-                          label=""
-                          disabled={!isOnline}
-                          className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
-                        />
-                      )
-                    )}
-                  </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <CardTitle className="text-2xl truncate">{animal.name}</CardTitle>
-                    <GenderBadge gender={animal.gender} />
-                    {(() => {
-                      const originInfo = getOriginBadgeInfo(animal);
-                      return originInfo ? (
-                        <Badge variant="outline" className={`text-xs border ${originInfo.className}`}>
-                          <OriginBadgeIcon type={originInfo.iconType} />
-                          {originInfo.label}
-                        </Badge>
-                      ) : null;
-                    })()}
-                    {displayLifeStage && (
-                      <StageBadge 
-                        stage={displayLifeStage}
-                        definition={getLifeStageDefinition(displayLifeStage)}
-                        colorClass={getLifeStageBadgeColor(displayLifeStage)}
-                      />
-                    )}
-                    {computedMilkingStage && (
-                      <StageBadge 
-                        stage={computedMilkingStage}
-                        definition={getMilkingStageDefinition(computedMilkingStage)}
-                        colorClass={getMilkingStageBadgeColor(computedMilkingStage)}
-                      />
-                    )}
-                    {expectedDeliveryDate && (
-                      <Badge className="bg-green-500 hover:bg-green-600 text-xs">
-                        <Baby className="h-3 w-3 mr-1" />
-                        Due: {formatDistanceToNow(new Date(expectedDeliveryDate), { addSuffix: true })}
-                      </Badge>
-                    )}
-                  </div>
-                  <CardDescription className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">{animal.breed} • Tag: {animal.ear_tag}</span>
-                      {getCacheIcon()}
-                    </div>
-                    {animal.unique_code && (
-                      <div className="flex items-center gap-1.5">
-                        <Globe className="h-3 w-3 flex-shrink-0" />
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{animal.unique_code}</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 w-5 p-0"
-                          onClick={() => {
-                            navigator.clipboard.writeText(animal.unique_code!);
-                            toast({
-                              title: "Copied!",
-                              description: "Universal ID copied to clipboard",
-                            });
-                          }}
-                          title="Copy Universal ID"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </CardDescription>
-                </div>
-              </div>
-              {!readOnly && (
-                <div className="flex flex-col gap-2 items-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditAnimalDialogOpen(true)}
-                    disabled={!isOnline}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit All Details
-                  </Button>
-                  <ExportAnimalProfileButton
-                    animalId={animalId}
-                    farmId={farmId}
-                  />
-                  <RecordAnimalExitDialog
+                <ExportAnimalProfileButton
+                  animalId={animalId}
+                  farmId={farmId}
+                />
+                <RecordAnimalExitDialog
+                  animalId={animalId}
+                  animalName={animal.name || animal.ear_tag || 'Animal'}
+                  farmId={farmId}
+                  livestockType={animal.livestock_type || undefined}
+                  earTag={animal.ear_tag || undefined}
+                  onExitRecorded={onBack}
+                />
+                {animal.gender === 'Female' && (
+                  <DryOffAnimalButton
                     animalId={animalId}
                     animalName={animal.name || animal.ear_tag || 'Animal'}
                     farmId={farmId}
-                    livestockType={animal.livestock_type || undefined}
-                    earTag={animal.ear_tag || undefined}
-                    onExitRecorded={onBack}
-                  />
-                  <RecalculateSingleAnimalButton 
-                    animalId={animalId} 
+                    isCurrentlyLactating={stageData?.hasRecentMilking || animal.milking_stage?.includes('Lactation')}
                     onSuccess={loadAnimal}
                   />
-                </div>
-              )}
-            </div>
-          )}
+                )}
+                <RecalculateSingleAnimalButton
+                  animalId={animalId}
+                  onSuccess={loadAnimal}
+                />
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="pt-3 sm:pt-6">
           {/* Offline Indicator */}
@@ -1163,121 +1034,28 @@ const AnimalDetails = ({ animalId, farmId, onBack, editWeightOnOpen, onEditWeigh
           since each tab already has its own "+ Add record" button. */}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        {/* Mobile: Horizontal scrollable tabs with icons only */}
-        {isMobile ? (
-          <div className="relative">
-            {/* Scroll indicator gradient */}
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
-            <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide gap-1 p-1.5 flex-nowrap">
-              {isFemale && (
-                <TabsTrigger 
-                  value="milking" 
-                  className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-                >
-                  <Milk className="h-4 w-4" />
-                  <span>Milk</span>
-                </TabsTrigger>
-              )}
-              <TabsTrigger 
-                value="weight" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Scale className="h-4 w-4" />
-                <span>Weight</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="feeding" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Wheat className="h-4 w-4" />
-                <span>Feed</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="health" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Stethoscope className="h-4 w-4" />
-                <span>Health</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="ai" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Calendar className="h-4 w-4" />
-                <span>Breed</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="photos" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Image className="h-4 w-4" />
-                <span>Photos</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="costs" 
-                className="flex items-center gap-1.5 min-w-fit px-3 py-2.5 text-xs shrink-0"
-              >
-                <Wallet className="h-4 w-4" />
-                <span>Costs</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        ) : (
-          /* Desktop: Grid layout */
-          <TabsList className={`w-full p-2 sm:p-1 gap-2 sm:gap-1 h-auto grid ${isFemale ? 'grid-cols-4 sm:grid-cols-7 grid-rows-2 sm:grid-rows-1' : 'grid-cols-3 sm:grid-cols-6 grid-rows-2 sm:grid-rows-1'}`}>
-            {isFemale && (
-              <TabsTrigger 
-                value="milking" 
-                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-              >
-                <Milk className="h-5 w-5 sm:h-4 sm:w-4" />
-                <span className="text-center">Milking</span>
-              </TabsTrigger>
-            )}
-            <TabsTrigger 
-              value="weight" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
+        {/* One wrapping tab strip (UX redesign Phase 3): every tab visible on
+            every viewport — no horizontally scrolled tabs hidden off-screen. */}
+        <TabsList className="w-full h-auto flex flex-wrap justify-start gap-1 p-1.5">
+          {([
+            ...(isFemale ? [{ value: "milking", icon: Milk, label: "Milk" }] : []),
+            { value: "weight", icon: Scale, label: "Weight" },
+            { value: "feeding", icon: Wheat, label: "Feed" },
+            { value: "health", icon: Stethoscope, label: "Health" },
+            { value: "ai", icon: Calendar, label: "Breeding" },
+            { value: "photos", icon: Image, label: "Photos" },
+            { value: "costs", icon: Wallet, label: "Costs" },
+          ] as const).map(({ value, icon: TabIcon, label }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex items-center gap-1.5 min-h-[44px] px-3 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
             >
-              <Scale className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Weight</span>
+              <TabIcon className="h-4 w-4" />
+              <span>{label}</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="feeding" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Wheat className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Feeding</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="health" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Stethoscope className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Health</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="ai" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">AI/Breeding</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="photos" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Image className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Photos</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="costs" 
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[56px] sm:min-h-[48px] px-2 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:border-primary data-[state=active]:border-2"
-            >
-              <Wallet className="h-5 w-5 sm:h-4 sm:w-4" />
-              <span className="text-center">Costs</span>
-            </TabsTrigger>
-          </TabsList>
-        )}
+          ))}
+        </TabsList>
 
         {isFemale && (
           <TabsContent value="milking">
