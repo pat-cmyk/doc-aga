@@ -95,8 +95,8 @@ export default defineConfig(({ mode }) => {
         name: "Doc Aga - Farm Management System",
         short_name: "Doc Aga",
         description: "Comprehensive farm management system with AI-powered veterinary assistance, livestock tracking, and marketplace",
-        theme_color: "#10b981",
-        background_color: "#ffffff",
+        theme_color: "#117e39",
+        background_color: "#f8f8f6",
         display: "standalone",
         icons: [
           {

@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.goldenforage.docaga',
   appName: 'Doc Aga',
   bundledWebRuntime: false,
-  backgroundColor: '#FF166534',
+  backgroundColor: '#FF117E39',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
-      backgroundColor: "#166534",
+      backgroundColor: "#117e39",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,
@@ -26,7 +26,7 @@ const config: CapacitorConfig = {
     },
     LocalNotifications: {
       smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#166534",
+      iconColor: "#117e39",
     },
     Camera: {
       // Prefer non-fullscreen presentation where available (iOS sheet / Android picker)
