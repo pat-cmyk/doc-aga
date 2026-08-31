@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    a { color: hsl(142 76% 28%); } a:hover { color: hsl(142 76% 22%); }
+  </style>
+</helmet>
+<div style="width: 390px; height: 844px; background: hsl(45 15% 97%); color: hsl(145 30% 15%); position: relative; overflow: hidden; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+  <!-- Dim backdrop -->
+  <div style="position: absolute; inset: 0; background: hsl(145 30% 15% / 0.45);"></div>
+
+  <!-- Same sheet, offline state: everything stays ENABLED -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: hsl(0 0% 100%); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px hsl(145 30% 15% / 0.15); display: flex; flex-direction: column; max-height: 720px;">
+
+    <div style="display: flex; justify-content: center; padding: 10px 0 2px;">
+      <div style="width: 40px; height: 5px; border-radius: 9999px; background: hsl(145 15% 88%);"></div>
+    </div>
+
+    <!-- Offline banner: informs, never blocks -->
+    <div style="margin: 6px 20px 0; display: flex; align-items: center; gap: 10px; background: hsl(43 100% 92%); border: 1px solid hsl(43 90% 80%); border-radius: 12px; padding: 10px 14px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(33 100% 32%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20"></path><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><path d="M5 12.5a10 10 0 0 1 5.2-2.9M16.5 10.5c.9.4 1.8 1.1 2.5 1.9"></path><path d="M12 20h.01"></path></svg>
+      <div style="flex-grow: 1; display: flex; flex-direction: column;">
+        <div style="font-size: 13px; font-weight: 700; color: hsl(33 100% 32%);">Offline ka ngayon</div>
+        <div style="font-size: 11px; color: hsl(33 100% 32%);">Ise-save pa rin — awtomatikong magsi-sync</div>
+      </div>
+    </div>
+
+    <!-- Sheet header -->
+    <div style="display: flex; align-items: center; gap: 10px; padding: 12px 20px;">
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+        <div style="font-size: 18px; font-weight: 800;">Mag-record ng gatas</div>
+        <div style="font-size: 12px; color: hsl(145 20% 35%);">Record milk</div>
+      </div>
+      <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(142 45% 92%); display: flex; align-items: center; justify-content: center;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="hsl(142 76% 28%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0"></path><path d="M12 19v3"></path></svg>
+      </div>
+    </div>
+
+    <!-- Fields (identical to online) -->
+    <div style="padding: 0 20px; display: flex; flex-direction: column; gap: 14px;">
+
+      <div style="display: flex; align-items: center; gap: 10px; background: hsl(45 15% 95%); border-radius: 12px; padding: 10px 14px;">
+        <div style="width: 36px; height: 36px; border-radius: 9999px; background: hsl(200 70% 85%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: hsl(145 30% 15%);">D</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column;">
+          <div style="font-size: 14px; font-weight: 700;">Diwata</div>
+          <div style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#C-022</div>
+        </div>
+        <span style="font-size: 12px; color: hsl(142 76% 28%); font-weight: 700;">Palitan</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: baseline; gap: 6px;">
+          <span style="font-size: 13px; font-weight: 700;">Petsa</span>
+          <span style="font-size: 11px; color: hsl(145 20% 35%);">Date</span>
+        </div>
+        <div style="min-height: 48px; display: flex; align-items: center; gap: 10px; border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 0 14px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+          <span style="font-size: 14px; font-weight: 600;">Ngayon — Ago 31, 2026</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; font-weight: 700;">Session</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid hsl(145 15% 88%); border-radius: 12px; overflow: hidden;">
+          <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; background: hsl(0 0% 100%); color: hsl(145 20% 35%); font-size: 14px; font-weight: 600;">AM</div>
+          <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; background: hsl(142 76% 28%); color: hsl(0 0% 100%); font-size: 14px; font-weight: 700; border-left: 1px solid hsl(145 15% 88%); border-right: 1px solid hsl(145 15% 88%);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+            PM
+          </div>
+          <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; background: hsl(0 0% 100%); color: hsl(145 20% 35%); font-size: 13px; font-weight: 600;">Buong araw</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: baseline; gap: 6px;">
+          <span style="font-size: 13px; font-weight: 700;">Dami ng gatas</span>
+          <span style="font-size: 11px; color: hsl(145 20% 35%);">Liters</span>
+        </div>
+        <div style="min-height: 64px; display: flex; align-items: center; justify-content: space-between; border: 2px solid hsl(142 76% 28%); border-radius: 12px; padding: 0 18px;">
+          <span style="font-size: 30px; font-weight: 800;">9.0</span>
+          <span style="font-size: 16px; font-weight: 700; color: hsl(145 20% 35%);">L</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer: Save is ENABLED offline; label says what happens -->
+    <div style="display: flex; gap: 10px; padding: 16px 20px 24px; border-top: 1px solid hsl(145 15% 88%); margin-top: 16px;">
+      <div style="flex: 1 1 0; min-height: 52px; display: flex; align-items: center; justify-content: center; border: 1px solid hsl(145 15% 88%); border-radius: 12px; font-size: 15px; font-weight: 700; color: hsl(145 20% 35%); background: hsl(0 0% 100%);">Kanselahin</div>
+      <div style="flex: 2 1 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; color: hsl(0 0% 100%); background: hsl(142 76% 28%);">
+        <span style="font-size: 15px; font-weight: 700; line-height: 1.2;">I-save ang gatas</span>
+        <span style="font-size: 10px; font-weight: 600; opacity: 0.85; line-height: 1.2;">i-sy-sync mamaya</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

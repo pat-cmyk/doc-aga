@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    a { color: hsl(142 76% 28%); } a:hover { color: hsl(142 76% 22%); }
+  </style>
+</helmet>
+<div style="width: 390px; height: 844px; background: hsl(45 15% 97%); color: hsl(145 30% 15%); position: relative; overflow: hidden; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+  <!-- Page header -->
+  <div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: hsl(0 0% 100%); border-bottom: 1px solid hsl(145 15% 88%);">
+    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+      <div style="font-size: 18px; font-weight: 800;">Mga Hayop</div>
+      <div style="font-size: 12px; color: hsl(145 20% 35%);">24 na hayop · /animals</div>
+    </div>
+    <div style="min-height: 48px; display: flex; align-items: center; gap: 6px; background: hsl(142 76% 28%); color: hsl(0 0% 100%); border-radius: 12px; padding: 0 16px; font-size: 14px; font-weight: 700;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+      Magdagdag
+    </div>
+  </div>
+
+  <div style="padding: 12px 16px 100px; display: flex; flex-direction: column; gap: 12px;">
+
+    <!-- Search -->
+    <div style="display: flex; align-items: center; gap: 10px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; min-height: 48px; padding: 0 14px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="font-size: 14px; color: hsl(145 20% 35%);">Hanapin ang pangalan o tag…</span>
+    </div>
+
+    <!-- Filter chips -->
+    <div style="display: flex; gap: 8px;">
+      <span style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9999px; background: hsl(142 76% 28%); color: hsl(0 0% 100%); font-size: 13px; font-weight: 700;">Lahat</span>
+      <span style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9999px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); color: hsl(145 20% 35%); font-size: 13px; font-weight: 600;">Baka</span>
+      <span style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9999px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); color: hsl(145 20% 35%); font-size: 13px; font-weight: 600;">Kalabaw</span>
+      <span style="min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9999px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); color: hsl(145 20% 35%); font-size: 13px; font-weight: 600;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+        Salain
+      </span>
+    </div>
+
+    <!-- Animal cards: one tap opens /animals/:id -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="display: flex; align-items: center; gap: 12px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 12px 14px; min-height: 72px;">
+        <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(142 45% 92%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: hsl(142 76% 28%); flex-shrink: 0;">B</div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 700;">Bella</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#A-102</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: hsl(142 76% 28%); background: hsl(142 45% 92%); border-radius: 9999px; padding: 2px 9px;">Nagpapagatas</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%);">Holstein · 4 taon</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: hsl(145 30% 15%); background: linear-gradient(135deg, hsl(43 100% 62%), hsl(43 100% 50%)); border-radius: 8px; padding: 4px 8px;">78</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 12px 14px; min-height: 72px;">
+        <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(200 70% 85%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: hsl(145 30% 15%); flex-shrink: 0;">L</div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 700;">Luningning</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#C-014</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: hsl(33 100% 32%); background: hsl(43 100% 92%); border-radius: 9999px; padding: 2px 9px;">Buntis</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%);">Kalabaw · 6 taon</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: hsl(145 30% 15%); background: linear-gradient(135deg, hsl(0 0% 85%), hsl(0 0% 72%)); border-radius: 8px; padding: 4px 8px;">71</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 12px 14px; min-height: 72px;">
+        <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(142 45% 92%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: hsl(142 76% 28%); flex-shrink: 0;">M</div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 700;">Malakas</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#A-118</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: hsl(210 80% 35%); background: hsl(210 80% 93%); border-radius: 9999px; padding: 2px 9px;">Toro</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%);">Brahman · 3 taon</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: hsl(145 30% 15%); background: linear-gradient(135deg, hsl(43 100% 62%), hsl(43 100% 50%)); border-radius: 8px; padding: 4px 8px;">82</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 12px 14px; min-height: 72px;">
+        <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(43 100% 92%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: hsl(33 100% 32%); flex-shrink: 0;">T</div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 700;">Tala</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#A-131</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: hsl(280 70% 38%); background: hsl(280 70% 94%); border-radius: 9999px; padding: 2px 9px;">Guya</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%);">Holstein · 8 buwan</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: hsl(145 30% 15%); background: linear-gradient(135deg, hsl(30 60% 72%), hsl(30 55% 58%)); border-radius: 8px; padding: 4px 8px;">64</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; background: hsl(0 0% 100%); border: 1px solid hsl(145 15% 88%); border-radius: 12px; padding: 12px 14px; min-height: 72px;">
+        <div style="width: 48px; height: 48px; border-radius: 9999px; background: hsl(200 70% 85%); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: hsl(145 30% 15%); flex-shrink: 0;">D</div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 700;">Diwata</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%); font-family: ui-monospace, monospace;">#C-022</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: hsl(142 76% 28%); background: hsl(142 45% 92%); border-radius: 9999px; padding: 2px 9px;">Nagpapagatas</span>
+            <span style="font-size: 11px; color: hsl(145 20% 35%);">Kalabaw · 5 taon</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: hsl(145 30% 15%); background: linear-gradient(135deg, hsl(0 0% 85%), hsl(0 0% 72%)); border-radius: 8px; padding: 4px 8px;">69</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(145 20% 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav: Hayop active -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: hsl(0 0% 100%); border-top: 1px solid hsl(145 15% 88%); display: flex; padding: 6px 4px 16px;">
+    <div style="flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: hsl(145 20% 35%);">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>
+      <span style="font-size: 11px; font-weight: 600;">Bahay</span>
+    </div>
+    <div style="flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: hsl(142 76% 28%);">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6C3 6 2 5 2 3.5c1.5 0 2.6.6 3 1.6M19.5 6C21 6 22 5 22 3.5c-1.5 0-2.6.6-3 1.6"></path><path d="M7 7h10l1.6 6.2A3 3 0 0 1 15.7 17H8.3a3 3 0 0 1-2.9-3.8z"></path><ellipse cx="12" cy="19" rx="3.4" ry="2.2"></ellipse></svg>
+      <span style="font-size: 11px; font-weight: 700;">Hayop</span>
+    </div>
+    <div style="flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: hsl(145 20% 35%);">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 4V3h6v1"></path><path d="M9 10h6M9 14h6M9 18h3"></path></svg>
+      <span style="font-size: 11px; font-weight: 600;">Gawain</span>
+    </div>
+    <div style="flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: hsl(145 20% 35%);">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path></svg>
+      <span style="font-size: 11px; font-weight: 600;">Pera</span>
+    </div>
+    <div style="flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: hsl(145 20% 35%);">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+      <span style="font-size: 11px; font-weight: 600;">Iba Pa</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
