@@ -475,6 +475,12 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
     }
   };
 
+  // In-page success state replaces the form after a save (Phase 4 — the old
+  // AddAnimalSuccessScreen Sheet stacked a modal over the form).
+  if (showSuccessScreen && addedAnimalData) {
+    return <AddAnimalSuccessScreen animalData={addedAnimalData} onAction={handleSuccessAction} />;
+  }
+
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -1065,19 +1071,6 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
           </Button>
         </div>
       </form>
-      
-      {/* Success Screen */}
-      {addedAnimalData && (
-        <AddAnimalSuccessScreen
-          open={showSuccessScreen}
-          onClose={() => {
-            setShowSuccessScreen(false);
-            onSuccess();
-          }}
-          animalData={addedAnimalData}
-          onAction={handleSuccessAction}
-        />
-      )}
     </>
   );
 };

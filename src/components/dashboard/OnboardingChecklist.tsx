@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, X, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useRecordingFlows } from "@/components/shell/RecordingFlowsProvider";
 import { REVENUE_SOURCE_KEYS } from "@/lib/revenueCategories";
 
 /** Farms created before this date won't see the onboarding checklist */
@@ -31,6 +32,7 @@ interface ChecklistStep {
 
 export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklistProps) {
   const navigate = useNavigate();
+  const { openBulkRecording } = useRecordingFlows();
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(dismissedKey(farmId)) === "true");
   const [hasMilkingRecords, setHasMilkingRecords] = useState<boolean | null>(null);
   const [hasMilkSale, setHasMilkSale] = useState<boolean | null>(null);
@@ -105,7 +107,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       sublabel: "Add your first animal",
       done: animalCount > 0,
       action: () => {
-        window.dispatchEvent(new CustomEvent("open-fab-dialog", { detail: { dialog: "add-animal" } }));
+        navigate("/animals/new");
       },
     },
     {
@@ -114,7 +116,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       sublabel: "Record first milking",
       done: hasMilkingRecords === true,
       action: () => {
-        window.dispatchEvent(new CustomEvent("open-fab-dialog", { detail: { dialog: "record-milk" } }));
+        openBulkRecording("milk");
       },
     },
     {
@@ -146,7 +148,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
         navigate("/money");
       },
     },
-  ], [animalCount, hasMilkingRecords, hasMilkSale, visitedMilkTab, visitedFinance, navigate, farmId]);
+  ], [animalCount, hasMilkingRecords, hasMilkSale, visitedMilkTab, visitedFinance, navigate, farmId, openBulkRecording]);
 
   const completedCount = steps.filter(s => s.done).length;
   const allDone = completedCount === steps.length;

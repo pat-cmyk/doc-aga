@@ -328,6 +328,12 @@ Every farmer/farmhand screen renders inside one layout route — `src/components
 
 Deleted (superseded): `pages/Dashboard.tsx`, `pages/FarmhandDashboard.tsx`, `ui/bottom-nav.tsx`, `voice-training/FloatingVoiceTrainingButton.tsx` (now `shell/VoiceTrainingCard` on Home).
 
+**Phase 4 addenda (2026-08-31):**
+- **Opening a bulk recording dialog** goes through `useRecordingFlows().openBulkRecording('milk'|'feed'|'health'|'bcs')` (`shell/RecordingFlowsProvider`) — the SSOT host of one dialog instance per type. Never mount `RecordBulk*Dialog` directly in a farmer-shell component; never navigate via window CustomEvents.
+- **Single-animal dialogs** (`RecordSingle*Dialog`) stay local to animal-scoped hosts (quick-actions strip, record tabs) — they need per-animal props and also serve the admin drill-down outside the provider.
+- **Success is in-dialog/in-page**, never a second overlay: milk dialogs swap to `MilkRecordSuccessContent`; AnimalForm swaps to `AddAnimalSuccessScreen`. Post-save navigation is router-only.
+- **Overlays register with the back stack** via `useBackClose(open, close)` so Android back closes them before navigating. New sheets/dialogs in the farmer shell must adopt it.
+
 **Phase 3 addenda (2026-08-31):**
 - `AnimalList` has a `detailsMode` prop: `'navigate'` (default — routes to `/animals/:id` and `/animals/new`) vs `'inline'` (in-place mount, used ONLY by `pages/AdminViewFarm`). New consumers must use navigate mode.
 - Add-animal validation is SSOT in `src/components/animal-form/validateAnimalForm.ts` (pure, tested); AnimalForm renders it inline via `ui/field-error.tsx`. Never add back toast-only validation.

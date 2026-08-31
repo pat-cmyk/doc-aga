@@ -40,8 +40,10 @@ import { getCachedAnimals, addLocalMilkRecord, addLocalMilkInventoryRecord } fro
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { calculateMilkingStageFromDays } from "@/lib/animalStages";
 import { useFarm } from "@/contexts/FarmContext";
+import { useNavigate } from "react-router-dom";
+import { useBackClose } from "@/hooks/useBackClose";
 import { MilkQualityFields } from "./MilkQualityFields";
-import { MilkRecordSuccessScreen } from "./MilkRecordSuccessScreen";
+import { MilkRecordSuccessContent } from "./MilkRecordSuccessContent";
 import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordBulkMilkDialogProps {
@@ -64,7 +66,7 @@ export function RecordBulkMilkDialog({
   const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successData, setSuccessData] = useState<{ totalLiters: number; animalCount: number; session: string; isRejected: boolean } | null>(null);
+  const [successData, setSuccessData] = useState<{ totalLiters: number; animalCount: number; session: string; isRejected: boolean; isQueued?: boolean } | null>(null);
   const [cachedAnimals, setCachedAnimals] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -113,17 +115,27 @@ export function RecordBulkMilkDialog({
     }
   }, [open]);
 
+  const resetForm = () => {
+    setSelectedOption("");
+    setTotalLiters("");
+    setRecordDate(new Date());
+    setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
+    setMilkQuality('good');
+    setRejectionReason('');
+    setSuccessData(null);
+  };
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
-      setSelectedOption("");
-      setTotalLiters("");
-      setRecordDate(new Date());
-      setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
-      setMilkQuality('good');
-      setRejectionReason('');
+      resetForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  const navigate = useNavigate();
+  // Hardware back closes the dialog instead of navigating (Phase 4)
+  useBackClose(open, () => onOpenChange(false));
 
   // Reset selection if current selection is no longer valid after date change
   useEffect(() => {
@@ -330,12 +342,15 @@ export function RecordBulkMilkDialog({
         });
 
         hapticNotification('success');
-        
-        toast({
-          title: "✅ Milk Recorded",
-          description: `${totalLiters}L${isRejected ? ' (Rejected)' : ''} (${session}). Syncs automatically when online`,
+
+        // In-dialog success state (works offline too — that's the point)
+        setSuccessData({
+          totalLiters: totalLitersNum,
+          animalCount: splitPreview.length,
+          session,
+          isRejected,
+          isQueued: true,
         });
-        onOpenChange(false);
         return;
       }
 
@@ -408,14 +423,13 @@ export function RecordBulkMilkDialog({
       hapticNotification('success');
       playSound('success');
 
-      // Show success screen instead of just a toast
+      // Swap the dialog content to the success state (no modal-over-modal)
       setSuccessData({
         totalLiters: parseFloat(totalLiters),
         animalCount: splitPreview.length,
         session,
         isRejected,
       });
-      onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
       
@@ -438,9 +452,24 @@ export function RecordBulkMilkDialog({
   const canSubmit = selectedAnimals.length > 0 && parseFloat(totalLiters) > 0;
 
   return (
-    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        {successData ? (
+          <MilkRecordSuccessContent
+            totalLiters={successData.totalLiters}
+            animalCount={successData.animalCount}
+            session={successData.session}
+            isRejected={successData.isRejected}
+            isQueued={successData.isQueued}
+            onRecordAnother={resetForm}
+            onViewInventory={() => {
+              onOpenChange(false);
+              navigate('/operations/milk');
+            }}
+            onDone={() => onOpenChange(false)}
+          />
+        ) : (
+        <>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Milk className="h-5 w-5 text-blue-500" />
@@ -628,26 +657,10 @@ export function RecordBulkMilkDialog({
             </Button>
           </div>
         )}
+        </>
+        )}
       </DialogContent>
     </Dialog>
-
-    {successData && (
-      <MilkRecordSuccessScreen
-        open={!!successData}
-        onClose={() => setSuccessData(null)}
-        totalLiters={successData.totalLiters}
-        animalCount={successData.animalCount}
-        session={successData.session}
-        isRejected={successData.isRejected}
-        onAction={(action) => {
-          setSuccessData(null);
-          if (action === "record_another") {
-            onOpenChange(true);
-          }
-        }}
-      />
-    )}
-    </>
   );
 }
 

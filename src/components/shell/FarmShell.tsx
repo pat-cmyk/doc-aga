@@ -25,6 +25,7 @@ import { OfflineOnboarding } from "@/components/OfflineOnboarding";
 import { AppHeader } from "./AppHeader";
 import { AppBottomNav } from "./AppBottomNav";
 import { FloatingDock } from "./FloatingDock";
+import { RecordingFlowsProvider } from "./RecordingFlowsProvider";
 import { isFocusedRoute } from "./routes";
 
 export interface FarmShellContext {
@@ -97,22 +98,28 @@ export function FarmShell() {
   // Focused flows (/animals/new, edit) render full-bleed with their own
   // page header — no nav/FAB/pull-to-refresh to interfere with the form.
   if (isFocusedRoute(pathname)) {
-    return <Outlet context={context} />;
+    return (
+      <RecordingFlowsProvider>
+        <Outlet context={context} />
+      </RecordingFlowsProvider>
+    );
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto overflow-x-hidden max-w-full"
-    >
-      <PullToRefreshIndicator />
-      <AppHeader pendingCount={badgeCount} />
-      <OfflineOnboarding farmId={farmId} />
-      <main className="container mx-auto px-4 py-4 sm:py-6 max-w-7xl pb-24 md:pb-safe">
-        <Outlet context={context} />
-      </main>
-      <AppBottomNav pendingCount={badgeCount} />
-      <FloatingDock />
-    </div>
+    <RecordingFlowsProvider>
+      <div
+        ref={containerRef}
+        className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background overflow-y-auto overflow-x-hidden max-w-full"
+      >
+        <PullToRefreshIndicator />
+        <AppHeader pendingCount={badgeCount} />
+        <OfflineOnboarding farmId={farmId} />
+        <main className="container mx-auto px-4 py-4 sm:py-6 max-w-7xl pb-24 md:pb-safe">
+          <Outlet context={context} />
+        </main>
+        <AppBottomNav pendingCount={badgeCount} />
+        <FloatingDock />
+      </div>
+    </RecordingFlowsProvider>
   );
 }

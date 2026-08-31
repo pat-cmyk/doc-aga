@@ -31,8 +31,10 @@ import { addLocalMilkRecord, addLocalMilkInventoryRecord } from "@/lib/dataCache
 import { validateRecordDate } from "@/lib/recordValidation";
 import { ExtractedMilkData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
+import { useNavigate } from "react-router-dom";
+import { useBackClose } from "@/hooks/useBackClose";
 import { MilkQualityFields } from "./MilkQualityFields";
-import { MilkRecordSuccessScreen } from "./MilkRecordSuccessScreen";
+import { MilkRecordSuccessContent } from "./MilkRecordSuccessContent";
 import type { MilkQuality } from "@/constants/milkQuality";
 
 interface RecordSingleMilkDialogProps {
@@ -62,7 +64,7 @@ export function RecordSingleMilkDialog({
   const [milkQuality, setMilkQuality] = useState<MilkQuality>('good');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successData, setSuccessData] = useState<{ totalLiters: number; session: string; isRejected: boolean } | null>(null);
+  const [successData, setSuccessData] = useState<{ totalLiters: number; session: string; isRejected: boolean; isQueued?: boolean } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
@@ -72,15 +74,25 @@ export function RecordSingleMilkDialog({
     if (open) hapticImpact('light');
   }, [open]);
 
+  const resetForm = () => {
+    setLiters("");
+    setRecordDate(new Date());
+    setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
+    setMilkQuality('good');
+    setRejectionReason('');
+    setSuccessData(null);
+  };
+
   useEffect(() => {
     if (!open) {
-      setLiters("");
-      setRecordDate(new Date());
-      setSession(new Date().getHours() < 12 ? 'AM' : 'PM' as 'AM' | 'PM' | 'Full Day');
-      setMilkQuality('good');
-      setRejectionReason('');
+      resetForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  const navigate = useNavigate();
+  // Hardware back closes the dialog instead of navigating (Phase 4)
+  useBackClose(open, () => onOpenChange(false));
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) { hapticSelection(); setRecordDate(date); }
@@ -174,11 +186,13 @@ export function RecordSingleMilkDialog({
         });
 
         hapticNotification('success');
-        toast({
-          title: "✅ Milk Recorded",
-          description: `${litersNum}L${isRejected ? ' (Rejected)' : ''} (${session}). Syncs automatically when online`,
+        // In-dialog success state (works offline too — that's the point)
+        setSuccessData({
+          totalLiters: litersNum,
+          session,
+          isRejected,
+          isQueued: true,
         });
-        onOpenChange(false);
         return;
       }
 
@@ -206,13 +220,12 @@ export function RecordSingleMilkDialog({
       hapticNotification('success');
       playSound('success');
 
-      // Show success screen with next actions
+      // Swap the dialog content to the success state (no modal-over-modal)
       setSuccessData({
         totalLiters: litersNum,
         session,
         isRejected,
       });
-      onOpenChange(false);
     } catch (error) {
       console.error("Error recording milk:", error);
       queryClient.setQueryData(['milking-records', animalId], (old: any[] = []) => 
@@ -229,9 +242,24 @@ export function RecordSingleMilkDialog({
   const displayName = animalName || earTag || 'This animal';
 
   return (
-    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        {successData ? (
+          <MilkRecordSuccessContent
+            totalLiters={successData.totalLiters}
+            animalCount={1}
+            session={successData.session}
+            isRejected={successData.isRejected}
+            isQueued={successData.isQueued}
+            onRecordAnother={resetForm}
+            onViewInventory={() => {
+              onOpenChange(false);
+              navigate('/operations/milk');
+            }}
+            onDone={() => onOpenChange(false)}
+          />
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Milk className="h-5 w-5 text-blue-500" />
@@ -304,33 +332,18 @@ export function RecordSingleMilkDialog({
             onQualityChange={setMilkQuality}
             onRejectionReasonChange={setRejectionReason}
           />
-
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={handleClose} className="flex-1 min-h-[48px]" disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleSubmit} className="flex-1 min-h-[48px]" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Recording...</>) : "Record Milk"}
-            </Button>
-          </div>
         </div>
+
+        {/* Pinned footer — never scrolls out of reach on short screens */}
+        <div className="flex gap-2 pt-2 flex-shrink-0 border-t mt-2">
+          <Button variant="outline" onClick={handleClose} className="flex-1 min-h-[48px]" disabled={isSubmitting}>Cancel</Button>
+          <Button onClick={handleSubmit} className="flex-1 min-h-[48px]" disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Recording...</>) : "Record Milk"}
+          </Button>
+        </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
-
-    {successData && (
-      <MilkRecordSuccessScreen
-        open={!!successData}
-        onClose={() => setSuccessData(null)}
-        totalLiters={successData.totalLiters}
-        animalCount={1}
-        session={successData.session}
-        isRejected={successData.isRejected}
-        onAction={(action) => {
-          setSuccessData(null);
-          if (action === "record_another") {
-            onOpenChange(true);
-          }
-        }}
-      />
-    )}
-    </>
   );
 }

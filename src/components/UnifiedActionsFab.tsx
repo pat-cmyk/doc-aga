@@ -6,11 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { shouldShowTooltip, incrementTooltipView, shouldShowOnboarding, completeOnboarding } from "@/lib/localStorage";
-import { RecordBulkMilkDialog } from "@/components/milk-recording/RecordBulkMilkDialog";
-import { RecordBulkFeedDialog } from "@/components/feed-recording/RecordBulkFeedDialog";
-import { RecordBulkHealthDialog } from "@/components/health-recording/RecordBulkHealthDialog";
-import { RecordBulkBCSDialog } from "@/components/body-condition/RecordBulkBCSDialog";
 import { useNavigate } from "react-router-dom";
+import { useRecordingFlows } from "@/components/shell/RecordingFlowsProvider";
+import { useBackClose } from "@/hooks/useBackClose";
 import { useFarm } from "@/contexts/FarmContext";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
 import { useQueueStatus } from "@/hooks/useQueueStatus";
@@ -19,14 +17,6 @@ import { onQueueCapacityWarning } from "@/lib/offlineQueue";
 
 // Lazy load DocAga only when chat is opened to reduce initial bundle
 const DocAga = lazy(() => import("./DocAga"));
-
-interface UnifiedActionsFabProps {
-  onRecordMilk?: () => void;
-  onRecordHealth?: () => void;
-  onAddAnimal?: () => void;
-  onRecordFeed?: () => void;
-  onRecordBCS?: () => void;
-}
 
 const quickActions = [
   { id: 'doc-aga', label: 'Ask Doc Aga', icon: Stethoscope, color: 'bg-primary text-primary-foreground', isPrimary: true },
@@ -37,23 +27,17 @@ const quickActions = [
   { id: 'add-animal', label: 'Add Animal', icon: PawPrint, color: 'text-green-500' },
 ];
 
-export function UnifiedActionsFab({ 
-  onRecordMilk, 
-  onRecordHealth, 
-  onAddAnimal,
-  onRecordFeed,
-  onRecordBCS
-}: UnifiedActionsFabProps) {
+export function UnifiedActionsFab() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDocAgaOpen, setIsDocAgaOpen] = useState(false);
-  const [isRecordMilkOpen, setIsRecordMilkOpen] = useState(false);
-  const [isRecordFeedOpen, setIsRecordFeedOpen] = useState(false);
-  const [isRecordHealthOpen, setIsRecordHealthOpen] = useState(false);
-  const [isRecordBCSOpen, setIsRecordBCSOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { openBulkRecording } = useRecordingFlows();
+
+  // Hardware back closes the Doc Aga overlay before navigating (Phase 4)
+  useBackClose(isDocAgaOpen, () => setIsDocAgaOpen(false));
 
   // Get current farm ID from context
   const { farmId } = useFarm();
@@ -129,17 +113,6 @@ export function UnifiedActionsFab({
     };
   }, [isExpanded]);
 
-  // Listen for external dialog triggers (e.g. from OnboardingChecklist)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.dialog === 'add-animal') handleAction('add-animal');
-      if (detail?.dialog === 'record-milk') handleAction('milk');
-    };
-    window.addEventListener('open-fab-dialog', handler);
-    return () => window.removeEventListener('open-fab-dialog', handler);
-  }, [farmId]);
-
   const handleToggle = () => {
     hapticImpact('light');
     setIsExpanded(!isExpanded);
@@ -170,41 +143,23 @@ export function UnifiedActionsFab({
     }
     
     switch (actionId) {
+      // The shell's RecordingFlowsProvider hosts the one canonical dialog
+      // per record type (UX redesign Phase 4)
       case 'milk':
-        if (onRecordMilk) {
-          onRecordMilk();
-        } else {
-          setIsRecordMilkOpen(true);
-        }
+        openBulkRecording('milk');
         break;
       case 'health':
-        if (onRecordHealth) {
-          onRecordHealth();
-        } else {
-          setIsRecordHealthOpen(true);
-        }
-        break;
-      case 'add-animal':
-        if (onAddAnimal) {
-          onAddAnimal();
-        } else {
-          // One canonical add flow: the /animals/new page (UX redesign Phase 3)
-          navigate('/animals/new');
-        }
+        openBulkRecording('health');
         break;
       case 'feed':
-        if (onRecordFeed) {
-          onRecordFeed();
-        } else {
-          setIsRecordFeedOpen(true);
-        }
+        openBulkRecording('feed');
         break;
       case 'bcs':
-        if (onRecordBCS) {
-          onRecordBCS();
-        } else {
-          setIsRecordBCSOpen(true);
-        }
+        openBulkRecording('bcs');
+        break;
+      case 'add-animal':
+        // One canonical add flow: the /animals/new page (UX redesign Phase 3)
+        navigate('/animals/new');
         break;
     }
   };
@@ -402,34 +357,6 @@ export function UnifiedActionsFab({
           onClick={() => setIsDocAgaOpen(false)}
         />
       )}
-
-      {/* Record Bulk Milk Dialog */}
-      <RecordBulkMilkDialog
-        open={isRecordMilkOpen}
-        onOpenChange={setIsRecordMilkOpen}
-        farmId={farmId}
-      />
-
-      {/* Record Bulk Feed Dialog */}
-      <RecordBulkFeedDialog
-        open={isRecordFeedOpen}
-        onOpenChange={setIsRecordFeedOpen}
-        farmId={farmId}
-      />
-
-      {/* Record Bulk Health Dialog */}
-      <RecordBulkHealthDialog
-        open={isRecordHealthOpen}
-        onOpenChange={setIsRecordHealthOpen}
-        farmId={farmId}
-      />
-
-      {/* Record Bulk BCS Dialog */}
-      <RecordBulkBCSDialog
-        open={isRecordBCSOpen}
-        onOpenChange={setIsRecordBCSOpen}
-        farmId={farmId}
-      />
 
     </>
   );

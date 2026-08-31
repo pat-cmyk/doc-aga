@@ -28,6 +28,7 @@ import { Loader2, ChevronDown, RotateCcw, AlertTriangle, AlertCircle, Trash2 } f
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useBackClose } from "@/hooks/useBackClose";
 import { BilingualLabel } from "@/components/ui/bilingual-label";
 import { FieldError } from "@/components/ui/field-error";
 import { cn } from "@/lib/utils";
@@ -131,6 +132,9 @@ export function EditAnimalDialog({
       onOpenChange(false);
     }
   };
+
+  // Hardware back closes the dialog (routing through the unsaved-changes guard)
+  useBackClose(open, handleClose);
 
   const confirmClose = () => {
     setShowUnsavedWarning(false);

@@ -33,6 +33,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, addOptimisticRecords, addLocalHealthEvent } from "@/lib/dataCache";
 import { useFarm } from "@/contexts/FarmContext";
+import { useBackClose } from "@/hooks/useBackClose";
 
 interface RecordBulkHealthDialogProps {
   open: boolean;
@@ -45,6 +46,8 @@ export function RecordBulkHealthDialog({
   onOpenChange,
   farmId,
 }: RecordBulkHealthDialogProps) {
+  // Hardware back closes the dialog instead of navigating (Phase 4)
+  useBackClose(open, () => onOpenChange(false));
   const [selectedOption, setSelectedOption] = useState("");
   const [recordDate, setRecordDate] = useState<Date>(new Date());
   const [selectedCategory, setSelectedCategory] = useState("");

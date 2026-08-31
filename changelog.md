@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 4: one opener per recording flow, no modal-over-modal
+
+- **`useRecordingFlows()` opener** (`shell/RecordingFlowsProvider`): every bulk
+  recording entry point — FAB, Home 1-tap row, onboarding checklist, dashboard
+  alert/compliance widgets — now opens ONE canonical dialog instance per type
+  (milk/feed/health/BCS), hosted in the farm shell. Deleted the per-widget
+  copies (`OperationDialogs`, `useOperationDialogs`, the FAB's four instances)
+  and the last `'open-fab-dialog'` window CustomEvent.
+- **In-dialog success states**: recording milk no longer closes the dialog and
+  stacks a success Sheet on top — the same dialog swaps to a success view
+  (works offline too, with a "Saved offline — syncs automatically" note
+  replacing the old toast-and-close). "View Inventory" navigates to
+  /operations/milk through the router. `MilkRecordSuccessScreen` deleted.
+  Add-animal success is likewise in-page now (no Sheet over the form).
+- **Hardware back closes overlays first**: the four bulk dialogs, the single
+  milk dialog, the Bio-Card drawer, Edit Animal (through its unsaved-changes
+  guard), and the Doc Aga chat all register with the Phase 2 back-close stack
+  via the new `useBackClose` hook.
+- Single-milk dialog's footer is now pinned (was scrollable out of view).
+
+Verified live on the demo account at 390×844: Home quick action → one dialog
+→ submit 6L across 6 animals → in-dialog "Milk Recorded!" state → View
+Inventory lands on /operations/milk. Build + 541 tests green (2 new).
+
 ## 2026-08-31 — UX Redesign Phase 3: animal routes, one add flow, inline validation
 
 - **`/animals/:animalId`** — the animal profile is a real route (was an

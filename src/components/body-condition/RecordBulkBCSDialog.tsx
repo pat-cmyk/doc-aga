@@ -30,6 +30,7 @@ import { ResponsiveBCSContainer } from "./ResponsiveBCSContainer";
 import { VoiceRecordButton } from "@/components/ui/VoiceRecordButton";
 import { ExtractedTextData } from "@/lib/voiceFormExtractors";
 import { useFarm } from "@/contexts/FarmContext";
+import { useBackClose } from "@/hooks/useBackClose";
 import { addToQueue } from "@/lib/offlineQueue";
 import { addOptimisticRecords } from "@/lib/dataCache";
 
@@ -70,6 +71,8 @@ export function RecordBulkBCSDialog({
   onOpenChange,
   farmId,
 }: RecordBulkBCSDialogProps) {
+  // Hardware back closes the dialog instead of navigating (Phase 4)
+  useBackClose(open, () => onOpenChange(false));
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();

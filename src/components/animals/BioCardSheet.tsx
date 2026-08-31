@@ -14,6 +14,7 @@ import { useBioCardData, type BioCardAnimalData } from "@/hooks/useBioCardData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AnimalQuickActionsStrip } from "@/components/animal-details/AnimalQuickActionsStrip";
 import { useUnifiedPermissions } from "@/contexts/PermissionsContext";
+import { useBackClose } from "@/hooks/useBackClose";
 
 interface BioCardSheetProps {
   animal: BioCardAnimalData | null;
@@ -34,6 +35,9 @@ export function BioCardSheet({
   const bioData = useBioCardData(animal, farmId);
   const permissions = useUnifiedPermissions();
   const canRecord = permissions.canCreateRecords;
+
+  // Hardware back closes the drawer instead of navigating (Phase 4)
+  useBackClose(isOpen, () => onOpenChange(false));
 
   const handleViewDetails = () => {
     onOpenChange(false);

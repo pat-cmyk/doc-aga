@@ -31,8 +31,7 @@ import { useFeedExpiryAlerts, getExpiryUrgencyColor } from '@/hooks/useFeedExpir
 import { useBreedingAlerts } from '@/hooks/useBreedingAlerts';
 import { BreedingAlertsSection } from '@/components/breeding/BreedingAlertsSection';
 import { useNavigate } from 'react-router-dom';
-import { useOperationDialogs } from '@/hooks/useOperationDialogs';
-import { OperationDialogs } from '@/components/operations/OperationDialogs';
+import { useRecordingFlows } from '@/components/shell/RecordingFlowsProvider';
 
 interface DashboardAlertsWidgetProps {
   farmId: string;
@@ -48,14 +47,9 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   const { data: breedingAlerts = [] } = useBreedingAlerts(farmId);
   const markComplete = useMarkScheduleComplete();
   const navigate = useNavigate();
-  const {
-    isRecordFeedOpen,
-    isRecordMilkOpen,
-    openFeedDialog,
-    openMilkDialog,
-    setRecordFeedOpen,
-    setRecordMilkOpen,
-  } = useOperationDialogs();
+  const { openBulkRecording } = useRecordingFlows();
+  const openFeedDialog = () => openBulkRecording('feed');
+  const openMilkDialog = () => openBulkRecording('milk');
 
   const groupedAlerts = groupAlertsByType(alerts);
   const overdueCount = alerts.filter((a) => a.urgency === 'overdue').length;
@@ -348,13 +342,6 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
         </CollapsibleContent>
       </Collapsible>
 
-      <OperationDialogs
-        farmId={farmId}
-        isRecordFeedOpen={isRecordFeedOpen}
-        onRecordFeedOpenChange={setRecordFeedOpen}
-        isRecordMilkOpen={isRecordMilkOpen}
-        onRecordMilkOpenChange={setRecordMilkOpen}
-      />
     </Card>
   );
 }

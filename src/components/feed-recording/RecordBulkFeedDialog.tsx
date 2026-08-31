@@ -45,6 +45,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { getCachedAnimals, getCachedFeedInventory, addOptimisticRecords, addLocalFeedRecord, deductLocalFeedInventory } from "@/lib/dataCache";
 import { useFarm } from "@/contexts/FarmContext";
+import { useBackClose } from "@/hooks/useBackClose";
 
 interface RecordBulkFeedDialogProps {
   open: boolean;
@@ -59,6 +60,8 @@ export function RecordBulkFeedDialog({
   onOpenChange,
   farmId,
 }: RecordBulkFeedDialogProps) {
+  // Hardware back closes the dialog instead of navigating (Phase 4)
+  useBackClose(open, () => onOpenChange(false));
   const [selectedOption, setSelectedOption] = useState("");
   const [totalKg, setTotalKg] = useState("");
   const [recordDate, setRecordDate] = useState<Date>(new Date());

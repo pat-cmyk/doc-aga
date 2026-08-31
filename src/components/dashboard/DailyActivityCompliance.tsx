@@ -20,8 +20,7 @@ import {
 import { useDailyActivityCompliance } from '@/hooks/useDailyActivityCompliance';
 import { useDailyHeatMonitoring } from '@/hooks/useDailyHeatMonitoring';
 import { useHeatObservationChecks } from '@/hooks/useHeatObservationChecks';
-import { useOperationDialogs } from '@/hooks/useOperationDialogs';
-import { OperationDialogs } from '@/components/operations/OperationDialogs';
+import { useRecordingFlows } from '@/components/shell/RecordingFlowsProvider';
 import { useNavigate } from 'react-router-dom';
 
 interface DailyActivityComplianceProps {
@@ -35,14 +34,9 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   const { data: compliance, isLoading } = useDailyActivityCompliance(farmId);
   const { data: heatData } = useDailyHeatMonitoring(farmId);
   const { markAsChecked, checkedAnimalIds } = useHeatObservationChecks(farmId);
-  const {
-    isRecordFeedOpen,
-    isRecordMilkOpen,
-    openFeedDialog: handleRecordFeed,
-    openMilkDialog: handleRecordMilk,
-    setRecordFeedOpen,
-    setRecordMilkOpen,
-  } = useOperationDialogs();
+  const { openBulkRecording } = useRecordingFlows();
+  const handleRecordFeed = () => openBulkRecording('feed');
+  const handleRecordMilk = () => openBulkRecording('milk');
 
   // Combine overdue and needs observation animals, filtering out already checked ones
   const animalsNeedingCheck = [
@@ -311,13 +305,6 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
         </CollapsibleContent>
       </Collapsible>
 
-      <OperationDialogs
-        farmId={farmId}
-        isRecordFeedOpen={isRecordFeedOpen}
-        onRecordFeedOpenChange={setRecordFeedOpen}
-        isRecordMilkOpen={isRecordMilkOpen}
-        onRecordMilkOpenChange={setRecordMilkOpen}
-      />
     </Card>
   );
 }
