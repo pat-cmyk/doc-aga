@@ -28,8 +28,8 @@ export function MilkPredictionCard({ prediction }: MilkPredictionCardProps) {
   return (
     <div className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-          <Milk className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <div className="p-2 rounded-full bg-blue-100">
+          <Milk className="h-4 w-4 text-blue-600" />
         </div>
         <span className="font-medium text-sm">Milk Production</span>
       </div>

@@ -9,17 +9,17 @@ interface HealthTrendCardProps {
 export function HealthTrendCard({ prediction }: HealthTrendCardProps) {
   const riskConfig = {
     low: {
-      color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      color: 'bg-green-100 text-green-700',
       icon: CheckCircle,
       label: 'Low Risk'
     },
     medium: {
-      color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+      color: 'bg-yellow-100 text-yellow-700',
       icon: AlertTriangle,
       label: 'Medium Risk'
     },
     high: {
-      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      color: 'bg-red-100 text-red-700',
       icon: AlertCircle,
       label: 'High Risk'
     }
@@ -31,8 +31,8 @@ export function HealthTrendCard({ prediction }: HealthTrendCardProps) {
   return (
     <div className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-          <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <div className="p-2 rounded-full bg-emerald-100">
+          <Activity className="h-4 w-4 text-emerald-600" />
         </div>
         <span className="font-medium text-sm">Health Trends</span>
       </div>

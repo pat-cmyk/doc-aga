@@ -268,9 +268,9 @@ export function FeedCostAnalytics({ farmId }: FeedCostAnalyticsProps) {
       </div>
 
       {!hasCostData && (
-        <Card className="border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
+        <Card className="border-amber-300 bg-amber-50">
           <CardContent className="py-4">
-            <p className="text-sm text-amber-800 dark:text-amber-200">
+            <p className="text-sm text-amber-800">
               <strong>Note:</strong> Limited cost data available. Add cost information when recording feeds for accurate analytics.
             </p>
           </CardContent>

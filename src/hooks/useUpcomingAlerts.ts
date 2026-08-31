@@ -91,9 +91,9 @@ export function getUrgencyColor(urgency: string) {
     case 'overdue':
       return 'text-destructive bg-destructive/10 border-destructive/20';
     case 'urgent':
-      return 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-800';
+      return 'text-orange-600 bg-orange-50 border-orange-200';
     case 'soon':
-      return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-900/20 dark:border-yellow-800';
+      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
     default:
       return 'text-muted-foreground bg-muted border-border';
   }

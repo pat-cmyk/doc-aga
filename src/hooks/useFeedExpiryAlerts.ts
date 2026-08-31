@@ -71,7 +71,7 @@ export function getExpiryUrgencyColor(urgency: FeedExpiryAlert['urgency']): stri
     case 'critical':
       return 'border-destructive/50 bg-destructive/5';
     case 'warning':
-      return 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30';
+      return 'border-amber-300 bg-amber-50';
     case 'upcoming':
       return 'border-muted bg-muted/30';
     default:

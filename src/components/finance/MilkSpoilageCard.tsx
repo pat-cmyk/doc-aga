@@ -50,9 +50,9 @@ export function MilkSpoilageCard({ farmId, dateRange }: MilkSpoilageCardProps) {
   }
 
   const statusConfig = {
-    excellent: { label: '<2%', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    attention: { label: '2-5%', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-    critical: { label: '>5%', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+    excellent: { label: '<2%', color: 'bg-emerald-100 text-emerald-700' },
+    attention: { label: '2-5%', color: 'bg-yellow-100 text-yellow-700' },
+    critical: { label: '>5%', color: 'bg-red-100 text-red-700' },
   };
 
   const config = statusConfig[data.status];
@@ -78,9 +78,9 @@ export function MilkSpoilageCard({ farmId, dateRange }: MilkSpoilageCardProps) {
             <p className="text-lg font-bold">{data.rejectedLiters.toFixed(1)} L</p>
             <p className="text-xs text-muted-foreground">of {data.totalLiters.toFixed(1)} L total</p>
           </div>
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-            <p className="text-xs text-red-600 dark:text-red-400">Lost Revenue</p>
-            <p className="text-lg font-bold text-red-700 dark:text-red-300">{formatPHP(data.lostRevenue)}</p>
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-xs text-red-600">Lost Revenue</p>
+            <p className="text-lg font-bold text-red-700">{formatPHP(data.lostRevenue)}</p>
             <TrendIndicator
               current={data.rejectionRate}
               previous={data.previousRejectionRate}

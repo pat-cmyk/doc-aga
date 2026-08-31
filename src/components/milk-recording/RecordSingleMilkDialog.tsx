@@ -243,7 +243,7 @@ export function RecordSingleMilkDialog({
                 size="sm"
               />
               {!isOnline && (
-                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                   <WifiOff className="h-3 w-3" />
                   Offline
                 </span>

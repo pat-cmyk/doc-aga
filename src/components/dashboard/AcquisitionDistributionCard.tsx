@@ -99,37 +99,37 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
 
             {/* Detailed Stats */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
                 <div className="flex items-center gap-2 mb-1">
-                  <ShoppingCart className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs text-blue-700 dark:text-blue-300">Purchased</span>
+                  <ShoppingCart className="h-4 w-4 text-blue-600" />
+                  <span className="text-xs text-blue-700">Purchased</span>
                 </div>
-                <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{purchasedPercent}%</p>
+                <p className="text-lg font-bold text-blue-900">{purchasedPercent}%</p>
                 {data.averagePurchasePrice > 0 && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                  <p className="text-xs text-blue-600">
                     Avg: {formatPHP(data.averagePurchasePrice)}
                   </p>
                 )}
               </div>
 
-              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+              <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-xs text-green-700 dark:text-green-300">Grant</span>
+                  <Gift className="h-4 w-4 text-green-600" />
+                  <span className="text-xs text-green-700">Grant</span>
                 </div>
-                <p className="text-lg font-bold text-green-900 dark:text-green-100">{grantPercent}%</p>
-                <p className="text-xs text-green-600 dark:text-green-400">
+                <p className="text-lg font-bold text-green-900">{grantPercent}%</p>
+                <p className="text-xs text-green-600">
                   {data.grantCount} animals
                 </p>
               </div>
 
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <div className="flex items-center gap-2 mb-1">
-                  <Home className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs text-amber-700 dark:text-amber-300">Born on Farm</span>
+                  <Home className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs text-amber-700">Born on Farm</span>
                 </div>
-                <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{bornPercent}%</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-lg font-bold text-amber-900">{bornPercent}%</p>
+                <p className="text-xs text-amber-600">
                   {data.bornOnFarmCount} animals
                 </p>
               </div>

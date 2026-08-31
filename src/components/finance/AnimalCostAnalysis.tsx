@@ -12,13 +12,13 @@ interface AnimalCostAnalysisProps {
 }
 
 const categoryColors: Record<string, string> = {
-  "Veterinary Services": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  "Medicine & Vaccines": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  "Feed & Supplements": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  "Breeding & AI Services": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400",
-  "Equipment & Supplies": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  "Transport": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  "Other": "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+  "Veterinary Services": "bg-blue-100 text-blue-800",
+  "Medicine & Vaccines": "bg-purple-100 text-purple-800",
+  "Feed & Supplements": "bg-green-100 text-green-800",
+  "Breeding & AI Services": "bg-pink-100 text-pink-800",
+  "Equipment & Supplies": "bg-orange-100 text-orange-800",
+  "Transport": "bg-yellow-100 text-yellow-800",
+  "Other": "bg-gray-100 text-gray-800",
 };
 
 export function AnimalCostAnalysis({ farmId }: AnimalCostAnalysisProps) {

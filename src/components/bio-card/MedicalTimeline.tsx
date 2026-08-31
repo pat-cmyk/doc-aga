@@ -34,26 +34,26 @@ interface MedicalTimelineProps {
 const TYPE_CONFIG = {
   vaccination: {
     icon: Syringe,
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-100 dark:bg-green-900/30',
+    color: 'text-green-600',
+    bgColor: 'bg-green-100',
     label: 'Vaccination',
   },
   deworming: {
     icon: Pill,
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100',
     label: 'Deworming',
   },
   health: {
     icon: Stethoscope,
-    color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
     label: 'Health Check',
   },
   injection: {
     icon: Activity,
-    color: 'text-purple-600 dark:text-purple-400',
-    bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
     label: 'Treatment',
   },
   weight: {
@@ -312,12 +312,12 @@ export function MedicalTimeline({
                             {event.title}
                           </p>
                           {event.status === 'scheduled' && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">
                               Scheduled
                             </span>
                           )}
                           {event.status === 'overdue' && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
                               Overdue
                             </span>
                           )}

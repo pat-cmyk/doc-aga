@@ -330,7 +330,7 @@ export function RecordMilkSaleDialog({
                     <span>
                       {litersUsed.toFixed(1)} L
                       {litersUsed < record.liters_remaining && (
-                        <span className="text-xs ml-1 text-amber-600 dark:text-amber-400">(partial)</span>
+                        <span className="text-xs ml-1 text-amber-600">(partial)</span>
                       )}
                     </span>
                   </div>
@@ -343,7 +343,7 @@ export function RecordMilkSaleDialog({
               </div>
               
               {fifoPreview.warning && (
-                <p className="text-amber-600 dark:text-amber-400 text-sm">
+                <p className="text-amber-600 text-sm">
                   ⚠️ {fifoPreview.warning}
                 </p>
               )}

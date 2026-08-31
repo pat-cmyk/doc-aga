@@ -464,7 +464,7 @@ const Dashboard = () => {
       {voiceTrainingCompleted && (
         <div className="container mx-auto px-4 pt-3 max-w-7xl">
           <Card className={cn(
-            "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800",
+            "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
             isMobile && "shadow-lg"
           )}>
             <CardContent className={cn(
@@ -479,13 +479,13 @@ const Dashboard = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className={cn(
-                  "font-semibold text-green-900 dark:text-green-100",
+                  "font-semibold text-green-900",
                   isMobile ? "text-sm" : "text-base"
                 )}>
                   {isMobile ? "Voice Training Complete! 🎉" : "🎉 Voice Training Complete!"}
                 </h3>
                 {!isMobile && (
-                  <p className="text-sm text-green-700 dark:text-green-300">
+                  <p className="text-sm text-green-700">
                     Your AI assistant is now optimized for your voice. Try asking questions!
                   </p>
                 )}
@@ -494,7 +494,7 @@ const Dashboard = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setVoiceTrainingCompleted(false)}
-                className="text-green-700 hover:text-green-900 dark:text-green-300 h-8 w-8 shrink-0"
+                className="text-green-700 hover:text-green-900 h-8 w-8 shrink-0"
               >
                 <X className="h-4 w-4" />
               </Button>

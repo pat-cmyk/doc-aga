@@ -62,7 +62,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           bgClass: "bg-green-500/10",
           borderClass: "border-green-500/30",
           iconClass: "text-green-500",
-          labelClass: "text-green-600 dark:text-green-400",
+          labelClass: "text-green-600",
         };
       case 'good':
         return {
@@ -71,7 +71,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           bgClass: "bg-green-500/10",
           borderClass: "border-green-500/30",
           iconClass: "text-green-500",
-          labelClass: "text-green-600 dark:text-green-400",
+          labelClass: "text-green-600",
         };
       case 'warning':
         return {
@@ -80,7 +80,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           bgClass: "bg-yellow-500/10",
           borderClass: "border-yellow-500/30",
           iconClass: "text-yellow-500",
-          labelClass: "text-yellow-600 dark:text-yellow-400",
+          labelClass: "text-yellow-600",
         };
       case 'critical':
         return {
@@ -89,7 +89,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           bgClass: "bg-red-500/10",
           borderClass: "border-red-500/30",
           iconClass: "text-red-500",
-          labelClass: "text-red-600 dark:text-red-400",
+          labelClass: "text-red-600",
         };
     }
   };
@@ -173,7 +173,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Net</p>
             <p className={cn(
               "text-lg sm:text-2xl font-bold",
-              data.isProfitable ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              data.isProfitable ? "text-green-600" : "text-red-600"
             )} title={formatFull(data.netProfit)}>
               {data.netProfit >= 0 ? "+" : ""}{formatPHPCompact(data.netProfit)}
             </p>
@@ -208,7 +208,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           "rounded-lg px-3 py-2 text-sm",
           data.isProfitable ? "bg-green-500/10" : "bg-red-500/10"
         )}>
-          <span className={data.isProfitable ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
+          <span className={data.isProfitable ? "text-green-700" : "text-red-700"}>
             {data.isProfitable ? "📈" : "📉"} You're {data.isProfitable ? "making" : "losing"}{" "}
             <strong>{formatPHPCompact(Math.abs(data.dailyProfit))}/day</strong> on average
             {data.topRevenueSource && data.isProfitable && (

@@ -26,15 +26,15 @@ export function IntegrityCheckCard({ check, farmId, farmName, onFix }: Integrity
   return (
     <div className={`p-3 rounded-lg border ${
       check.passed 
-        ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' 
-        : 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+        ? 'bg-green-50 border-green-200' 
+        : 'bg-red-50 border-red-200'
     }`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {check.passed ? (
-            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
           ) : (
-            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <XCircle className="h-4 w-4 text-red-600" />
           )}
           <span className="font-medium text-sm">{check.checkName}</span>
         </div>
@@ -66,9 +66,9 @@ export function IntegrityCheckCard({ check, farmId, farmName, onFix }: Integrity
           {check.discrepancies.slice(0, 3).map((d, i) => (
             <div key={i} className="text-xs bg-background/50 p-1.5 rounded">
               <span className="text-muted-foreground">{d.field}:</span>{' '}
-              <span className="text-red-600 dark:text-red-400">Expected {d.expected}</span>
+              <span className="text-red-600">Expected {d.expected}</span>
               {' → '}
-              <span className="text-amber-600 dark:text-amber-400">Got {d.actual}</span>
+              <span className="text-amber-600">Got {d.actual}</span>
             </div>
           ))}
           {check.discrepancies.length > 3 && (

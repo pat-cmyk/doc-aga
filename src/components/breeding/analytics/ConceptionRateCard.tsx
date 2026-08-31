@@ -30,23 +30,23 @@ interface ConceptionRateCardProps {
 
 const STATUS_CONFIG = {
   excellent: {
-    color: 'text-green-600 dark:text-green-400',
-    bg: 'bg-green-50 dark:bg-green-900/20',
-    border: 'border-green-200 dark:border-green-800',
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    border: 'border-green-200',
     label: 'Excellent',
     icon: TrendingUp,
   },
   good: {
-    color: 'text-yellow-600 dark:text-yellow-400',
-    bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-    border: 'border-yellow-200 dark:border-yellow-800',
+    color: 'text-yellow-600',
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-200',
     label: 'Good',
     icon: Minus,
   },
   needs_improvement: {
-    color: 'text-red-600 dark:text-red-400',
-    bg: 'bg-red-50 dark:bg-red-900/20',
-    border: 'border-red-200 dark:border-red-800',
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
     label: 'Needs Work',
     icon: TrendingDown,
   },

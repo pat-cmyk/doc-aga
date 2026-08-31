@@ -38,12 +38,12 @@ const STATUS_CONFIG: Record<AuditStatus, { icon: React.ReactNode; label: string;
   linked: {
     icon: <CheckCircle className="h-4 w-4 text-green-600" />,
     label: 'Linked',
-    color: 'bg-green-50 dark:bg-green-950/30'
+    color: 'bg-green-50'
   },
   fresh_cut: {
     icon: <Leaf className="h-4 w-4 text-emerald-600" />,
     label: 'Fresh Cut',
-    color: 'bg-emerald-50 dark:bg-emerald-950/30'
+    color: 'bg-emerald-50'
   },
   untracked: {
     icon: <Link2Off className="h-4 w-4 text-destructive" />,
@@ -53,7 +53,7 @@ const STATUS_CONFIG: Record<AuditStatus, { icon: React.ReactNode; label: string;
   missing_cost: {
     icon: <DollarSign className="h-4 w-4 text-amber-600" />,
     label: 'No Cost',
-    color: 'bg-amber-50 dark:bg-amber-950/30'
+    color: 'bg-amber-50'
   }
 };
 

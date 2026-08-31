@@ -20,9 +20,9 @@ export function BCSIndicator({ animalId, className, showLabel = false }: BCSIndi
   const status = getBCSStatus(latestBCS.score);
 
   const colorClasses: Record<string, string> = {
-    good: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    warning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    good: 'bg-green-100 text-green-700',
+    warning: 'bg-yellow-100 text-yellow-700',
+    critical: 'bg-red-100 text-red-700',
   };
 
   return (

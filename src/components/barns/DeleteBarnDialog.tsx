@@ -45,7 +45,7 @@ export function DeleteBarnDialog({ open, onOpenChange, farmId, barn }: DeleteBar
             <p>This will remove <strong>{barn.name}</strong> from your farm.</p>
             {animalCount > 0 && (
               <div className="bg-muted p-3 rounded-md text-sm">
-                <p className="text-amber-600 dark:text-amber-400">
+                <p className="text-amber-600">
                   {animalCount} animal{animalCount !== 1 ? 's' : ''} will be unassigned from this {typeLabel}.
                 </p>
               </div>

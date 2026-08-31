@@ -94,7 +94,7 @@ export function DataCompletenessIndicator({
     switch (status) {
       case "complete":
         return {
-          color: "text-green-600 dark:text-green-400",
+          color: "text-green-600",
           bgColor: "bg-green-500/10",
           borderColor: "border-green-500/20",
           progressColor: "bg-green-500",
@@ -104,7 +104,7 @@ export function DataCompletenessIndicator({
         };
       case "almost":
         return {
-          color: "text-amber-600 dark:text-amber-400",
+          color: "text-amber-600",
           bgColor: "bg-amber-500/10",
           borderColor: "border-amber-500/20",
           progressColor: "bg-amber-500",
@@ -114,7 +114,7 @@ export function DataCompletenessIndicator({
         };
       default:
         return {
-          color: "text-orange-600 dark:text-orange-400",
+          color: "text-orange-600",
           bgColor: "bg-orange-500/10",
           borderColor: "border-orange-500/20",
           progressColor: "bg-orange-500",
@@ -327,7 +327,7 @@ export function DataCompletenessIndicator({
                     .map((item) => (
                       <span
                         key={item.key}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-xs"
                       >
                         <CheckCircle2 className="h-3 w-3" />
                         {item.label}

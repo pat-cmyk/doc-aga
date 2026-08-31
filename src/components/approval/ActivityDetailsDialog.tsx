@@ -185,7 +185,7 @@ export const ActivityDetailsDialog = ({
                     {isAnomaly && (
                       <div className="flex items-center gap-2 text-sm p-2 bg-orange-500/10 rounded border border-orange-500/20">
                         <AlertTriangle className="h-4 w-4 text-orange-500" />
-                        <span className="text-orange-700 dark:text-orange-400">
+                        <span className="text-orange-700">
                           {deviation > 0 ? '+' : ''}{deviation.toFixed(0)}% {deviation > 0 ? 'above' : 'below'} average
                         </span>
                       </div>
@@ -425,7 +425,7 @@ export const ActivityDetailsDialog = ({
                     {isSignificantChange && (
                       <div className="flex items-center gap-2 text-sm p-2 bg-orange-500/10 rounded border border-orange-500/20 mt-2">
                         <AlertTriangle className="h-4 w-4 text-orange-500" />
-                        <span className="text-orange-700 dark:text-orange-400">
+                        <span className="text-orange-700">
                           Significant weight change detected ({Math.abs(percentChange!).toFixed(0)}%)
                         </span>
                       </div>

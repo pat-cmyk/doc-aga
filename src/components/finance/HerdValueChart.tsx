@@ -55,10 +55,10 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
   
   // Determine status
   const getStatusInfo = () => {
-    if (changePercent >= 5) return { text: "Growing!", color: "text-green-600 dark:text-green-400" };
-    if (changePercent >= 0) return { text: "Steady", color: "text-amber-600 dark:text-amber-400" };
-    if (changePercent >= -5) return { text: "Watch this", color: "text-amber-600 dark:text-amber-400" };
-    return { text: "Needs attention", color: "text-red-600 dark:text-red-400" };
+    if (changePercent >= 5) return { text: "Growing!", color: "text-green-600" };
+    if (changePercent >= 0) return { text: "Steady", color: "text-amber-600" };
+    if (changePercent >= -5) return { text: "Watch this", color: "text-amber-600" };
+    return { text: "Needs attention", color: "text-red-600" };
   };
   
   const status = getStatusInfo();
@@ -107,17 +107,17 @@ export function HerdValueChart({ farmId, livestockType = "cattle" }: HerdValueCh
           {/* This Month Change - Prominent */}
           <div className={`p-3 rounded-lg ${
             isGrowth 
-              ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800" 
-              : "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800"
+              ? "bg-green-50 border border-green-200" 
+              : "bg-red-50 border border-red-200"
           }`}>
             <p className="text-xs text-muted-foreground mb-1">This Month</p>
             <div className="flex items-center gap-1">
               {isGrowth ? (
-                <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <TrendingUp className="h-4 w-4 text-green-600" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <TrendingDown className="h-4 w-4 text-red-600" />
               )}
-              <span className={`text-lg font-bold ${isGrowth ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+              <span className={`text-lg font-bold ${isGrowth ? "text-green-700" : "text-red-700"}`}>
                 {isGrowth ? "+" : ""}{formatPHPCompact(changeAmount)}
               </span>
             </div>

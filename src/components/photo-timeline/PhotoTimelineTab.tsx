@@ -59,14 +59,14 @@ export function PhotoTimelineTab({ animalId, animalName, farmId, readOnly = fals
 
   const getMilestoneColor = (type: string | null): string => {
     const colors: Record<string, string> = {
-      registration: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      first_heat: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-      breeding: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-      pregnancy_confirmed: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-      birth: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      weaning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-      first_milking: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-      checkup: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+      registration: 'bg-blue-100 text-blue-700',
+      first_heat: 'bg-orange-100 text-orange-700',
+      breeding: 'bg-pink-100 text-pink-700',
+      pregnancy_confirmed: 'bg-purple-100 text-purple-700',
+      birth: 'bg-green-100 text-green-700',
+      weaning: 'bg-yellow-100 text-yellow-700',
+      first_milking: 'bg-cyan-100 text-cyan-700',
+      checkup: 'bg-gray-100 text-gray-700',
     };
     return colors[type || ''] || 'bg-muted text-muted-foreground';
   };

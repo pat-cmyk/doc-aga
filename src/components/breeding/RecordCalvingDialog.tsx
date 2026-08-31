@@ -410,7 +410,7 @@ export function RecordCalvingDialog({
         {showPlacentaCheck ? (
           /* Post-calving placenta check */
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="font-medium text-sm">
                 Lumabas ba ang inunan? / Did the placenta come out?
               </p>
@@ -480,7 +480,7 @@ export function RecordCalvingDialog({
                 required
               />
               {calvingDateWarning && (
-                <div className="flex items-start gap-1.5 mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                <div className="flex items-start gap-1.5 mt-1.5 text-xs text-amber-600">
                   <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                   <span>{calvingDateWarning}</span>
                 </div>

@@ -124,7 +124,7 @@ export function ActivityTimeline({ farmId }: ActivityTimelineProps) {
           animalName: animal?.name || animal?.ear_tag || null,
           details: `${record.liters}L (${record.session})`,
           icon: <Milk className="h-4 w-4" />,
-          iconBg: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+          iconBg: 'bg-blue-100 text-blue-600'
         });
       });
 
@@ -143,7 +143,7 @@ export function ActivityTimeline({ farmId }: ActivityTimelineProps) {
           animalName: animal?.name || animal?.ear_tag || null,
           details: record.kilograms ? `${record.kilograms}kg ${record.feed_type || ''}`.trim() : record.feed_type || null,
           icon: <Wheat className="h-4 w-4" />,
-          iconBg: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+          iconBg: 'bg-green-100 text-green-600'
         });
       });
 
@@ -160,7 +160,7 @@ export function ActivityTimeline({ farmId }: ActivityTimelineProps) {
           animalName: animal?.name || animal?.ear_tag || null,
           details: record.diagnosis || record.treatment || null,
           icon: <Stethoscope className="h-4 w-4" />,
-          iconBg: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+          iconBg: 'bg-red-100 text-red-600'
         });
       });
 
@@ -177,7 +177,7 @@ export function ActivityTimeline({ farmId }: ActivityTimelineProps) {
           animalName: animal?.name || animal?.ear_tag || null,
           details: record.medicine_name ? `${record.medicine_name} ${record.dosage || ''}`.trim() : null,
           icon: <Syringe className="h-4 w-4" />,
-          iconBg: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+          iconBg: 'bg-purple-100 text-purple-600'
         });
       });
 

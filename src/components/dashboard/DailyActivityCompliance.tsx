@@ -112,9 +112,9 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   const breedingNeedsAttention = animalsNeedingCheck.length;
 
   const getMilkingStatusColor = () => {
-    if (milkingCompliancePercent >= 80) return 'text-green-600 dark:text-green-400';
-    if (milkingCompliancePercent >= 50) return 'text-amber-600 dark:text-amber-400';
-    return 'text-red-600 dark:text-red-400';
+    if (milkingCompliancePercent >= 80) return 'text-green-600';
+    if (milkingCompliancePercent >= 50) return 'text-amber-600';
+    return 'text-red-600';
   };
 
   return (
@@ -148,8 +148,8 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                   className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                      <Milk className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <div className="p-1.5 rounded-full bg-blue-100">
+                      <Milk className="h-3.5 w-3.5 text-blue-600" />
                     </div>
                     <span className="text-xs font-medium text-muted-foreground">Milking</span>
                   </div>
@@ -163,7 +163,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                     className="h-1.5 mt-2"
                   />
                   {milkingCompliancePercent === 100 && (
-                    <div className="flex items-center gap-1 mt-1.5 text-green-600 dark:text-green-400">
+                    <div className="flex items-center gap-1 mt-1.5 text-green-600">
                       <CheckCircle2 className="h-3 w-3" />
                       <span className="text-xs">Done</span>
                     </div>
@@ -177,14 +177,14 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                 className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30">
-                    <Wheat className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                  <div className="p-1.5 rounded-full bg-green-100">
+                    <Wheat className="h-3.5 w-3.5 text-green-600" />
                   </div>
                   <span className="text-xs font-medium text-muted-foreground">Feeding</span>
                 </div>
                 {hasFeedingToday ? (
                   <>
-                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                    <div className="flex items-center gap-1 text-green-600">
                       <CheckCircle2 className="h-4 w-4" />
                       <span className="text-sm font-semibold">Done</span>
                     </div>
@@ -192,7 +192,7 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                   </>
                 ) : (
                   <>
-                    <span className="text-lg font-bold text-amber-600 dark:text-amber-400">0</span>
+                    <span className="text-lg font-bold text-amber-600">0</span>
                     <p className="text-xs text-muted-foreground mt-1">Not recorded</p>
                   </>
                 )}
@@ -207,21 +207,21 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
                       className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30">
-                          <Heart className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                        <div className="p-1.5 rounded-full bg-rose-100">
+                          <Heart className="h-3.5 w-3.5 text-rose-600" />
                         </div>
                         <span className="text-xs font-medium text-muted-foreground">Breeding</span>
                       </div>
                       {breedingNeedsAttention > 0 ? (
                         <>
-                          <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                          <span className="text-lg font-bold text-amber-600">
                             {breedingNeedsAttention}
                           </span>
                           <p className="text-xs text-muted-foreground mt-1">Need observation</p>
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                          <div className="flex items-center gap-1 text-green-600">
                             <CheckCircle2 className="h-4 w-4" />
                             <span className="text-sm font-semibold">On track</span>
                           </div>
@@ -293,8 +293,8 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
               {farmhandActivity.length > 0 && (
                 <div className="p-3 rounded-lg border bg-card text-left">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                      <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    <div className="p-1.5 rounded-full bg-purple-100">
+                      <Users className="h-3.5 w-3.5 text-purple-600" />
                     </div>
                     <span className="text-xs font-medium text-muted-foreground">Team</span>
                   </div>

@@ -588,7 +588,7 @@ const GovernmentDashboard = () => {
                   </Button>
                 </CollapsibleTrigger>
                 {comparisonMode && (
-                  <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+                  <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
                     Comparing
                   </Badge>
                 )}
@@ -602,7 +602,7 @@ const GovernmentDashboard = () => {
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
                             PRIMARY
                           </Badge>
                           <CardTitle className="text-base sm:text-lg">Dataset</CardTitle>
@@ -633,7 +633,7 @@ const GovernmentDashboard = () => {
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-base sm:text-lg">Comparison Dataset</CardTitle>
-                          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+                          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
                             COMPARISON
                           </Badge>
                         </div>

@@ -51,9 +51,9 @@ export function IntegrityFarmRow({
   const getStatusBadge = () => {
     switch (result.status) {
       case 'healthy':
-        return <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Healthy</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-700">Healthy</Badge>;
       case 'warning':
-        return <Badge variant="outline" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{result.failedCount} Warning</Badge>;
+        return <Badge variant="outline" className="bg-amber-100 text-amber-700">{result.failedCount} Warning</Badge>;
       case 'critical':
         return <Badge variant="destructive">{result.failedCount} Critical</Badge>;
     }

@@ -14,26 +14,26 @@ interface StatusAuraProps {
 
 const auraStyles: Record<StatusAuraType, { ring: string; glow: string; animate?: string }> = {
   green: {
-    ring: 'ring-green-500/50 dark:ring-green-400/50',
+    ring: 'ring-green-500/50',
     glow: 'shadow-[0_0_12px_rgba(34,197,94,0.3)]',
   },
   yellow: {
-    ring: 'ring-yellow-500/50 dark:ring-yellow-400/50',
+    ring: 'ring-yellow-500/50',
     glow: 'shadow-[0_0_12px_rgba(234,179,8,0.3)]',
     animate: 'animate-pulse-glow',
   },
   orange: {
-    ring: 'ring-orange-500/50 dark:ring-orange-400/50',
+    ring: 'ring-orange-500/50',
     glow: 'shadow-[0_0_12px_rgba(249,115,22,0.4)]',
     animate: 'animate-pulse-warning',
   },
   red: {
-    ring: 'ring-red-500/60 dark:ring-red-400/60',
+    ring: 'ring-red-500/60',
     glow: 'shadow-[0_0_16px_rgba(239,68,68,0.5)]',
     animate: 'animate-pulse-warning',
   },
   purple: {
-    ring: 'ring-purple-500/50 dark:ring-purple-400/50',
+    ring: 'ring-purple-500/50',
     glow: 'shadow-[0_0_12px_rgba(168,85,247,0.4)]',
   },
 };
@@ -78,11 +78,11 @@ const statusLabels: Record<StatusAuraType, { en: string; tl: string; icon: React
 };
 
 const badgeVariants: Record<StatusAuraType, string> = {
-  green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  green: 'bg-green-100 text-green-700',
+  yellow: 'bg-yellow-100 text-yellow-700',
+  orange: 'bg-orange-100 text-orange-700',
+  red: 'bg-red-100 text-red-700',
+  purple: 'bg-purple-100 text-purple-700',
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {

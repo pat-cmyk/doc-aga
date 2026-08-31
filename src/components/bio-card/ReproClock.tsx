@@ -111,7 +111,7 @@ export function ReproClock({
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={circumference * (1 - gestationProgress)}
-            className="text-pink-500 dark:text-pink-400"
+            className="text-pink-500"
             transform={`rotate(-90 ${center} ${center})`}
           />
           
@@ -128,7 +128,7 @@ export function ReproClock({
         </svg>
         
         <div className="text-center mt-2">
-          <p className="text-xs font-medium text-pink-600 dark:text-pink-400">
+          <p className="text-xs font-medium text-pink-600">
             Buntis / Pregnant
           </p>
           <p className="text-xs text-muted-foreground">
@@ -235,8 +235,8 @@ export function ReproClock({
           strokeWidth={config.strokeWidth + 2}
           strokeLinecap="round"
           className={cn(
-            "text-green-500/40 dark:text-green-400/40",
-            reproStatus.isInBreedingWindow && "text-green-500 dark:text-green-400 animate-pulse"
+            "text-green-500/40",
+            reproStatus.isInBreedingWindow && "text-green-500 animate-pulse"
           )}
         />
         
@@ -257,7 +257,7 @@ export function ReproClock({
           r={config.dotSize}
           className={cn(
             "fill-primary",
-            reproStatus.isInBreedingWindow && "fill-green-500 dark:fill-green-400"
+            reproStatus.isInBreedingWindow && "fill-green-500"
           )}
         >
           <animate
@@ -296,7 +296,7 @@ export function ReproClock({
       <div className="text-center mt-2">
         <p className="text-xs font-medium">
           {reproStatus.isInBreedingWindow ? (
-            <span className="text-green-600 dark:text-green-400">
+            <span className="text-green-600">
               🔥 Breeding Window
             </span>
           ) : (

@@ -83,7 +83,7 @@ export function ExpenseList({ farmId, canManage, dateRange }: ExpenseListProps) 
   return (
     <>
       {!isOnline && expenses && expenses.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-md mb-2">
+        <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-md mb-2">
           <WifiOff className="h-3.5 w-3.5 shrink-0" />
           <span>Offline — showing saved data</span>
         </div>

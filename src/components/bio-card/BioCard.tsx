@@ -263,9 +263,9 @@ export function BioCard({
                       <span className="text-muted-foreground">Status:</span>
                       <span className={cn(
                         "ml-1 font-medium",
-                        bioData.growthBenchmark.status === 'on_track' && "text-green-600 dark:text-green-400",
-                        bioData.growthBenchmark.status === 'below' && "text-orange-600 dark:text-orange-400",
-                        bioData.growthBenchmark.status === 'above' && "text-blue-600 dark:text-blue-400"
+                        bioData.growthBenchmark.status === 'on_track' && "text-green-600",
+                        bioData.growthBenchmark.status === 'below' && "text-orange-600",
+                        bioData.growthBenchmark.status === 'above' && "text-blue-600"
                       )}>
                         {bioData.growthBenchmark.status?.replace('_', ' ') ?? 'N/A'}
                       </span>

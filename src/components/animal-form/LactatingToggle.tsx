@@ -21,16 +21,16 @@ export function LactatingToggle({
   const stage = calculateMilkingStageFromDays(null, daysInMilk) || "Early Lactation";
   
   const stageColors: Record<string, string> = {
-    "Early Lactation": "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
-    "Mid-Lactation": "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
-    "Late Lactation": "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
+    "Early Lactation": "bg-green-100 text-green-800 border-green-200",
+    "Mid-Lactation": "bg-amber-100 text-amber-800 border-amber-200",
+    "Late Lactation": "bg-orange-100 text-orange-800 border-orange-200",
   };
 
   return (
     <div className={cn(
       "rounded-lg border-2 transition-all duration-200",
       isLactating 
-        ? "border-primary bg-primary/5 dark:bg-primary/10" 
+        ? "border-primary bg-primary/5" 
         : "border-border bg-muted/30"
     )}>
       {/* Toggle Header */}
@@ -88,9 +88,9 @@ export function LactatingToggle({
             {/* Stage markers */}
             <div className="flex justify-between text-[10px] text-muted-foreground px-1">
               <span>0</span>
-              <span className="text-green-600 dark:text-green-400">Early (0-100)</span>
-              <span className="text-amber-600 dark:text-amber-400">Mid (101-200)</span>
-              <span className="text-orange-600 dark:text-orange-400">Late (201-305)</span>
+              <span className="text-green-600">Early (0-100)</span>
+              <span className="text-amber-600">Mid (101-200)</span>
+              <span className="text-orange-600">Late (201-305)</span>
             </div>
           </div>
 

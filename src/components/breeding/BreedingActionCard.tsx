@@ -21,8 +21,8 @@ interface BreedingActionCardProps {
 
 const URGENCY_STYLES = {
   now: 'border-l-4 border-l-destructive bg-destructive/5',
-  today: 'border-l-4 border-l-orange-500 bg-orange-50 dark:bg-orange-950/20',
-  soon: 'border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-950/20',
+  today: 'border-l-4 border-l-orange-500 bg-orange-50',
+  soon: 'border-l-4 border-l-yellow-500 bg-yellow-50',
   upcoming: 'border-l-4 border-l-muted-foreground/30',
 };
 

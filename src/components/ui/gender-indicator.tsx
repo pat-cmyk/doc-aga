@@ -43,8 +43,8 @@ export function GenderBadge({ gender, className }: GenderIndicatorProps) {
       className={cn(
         "text-xs border",
         isFemale 
-          ? "bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-500/30" 
-          : "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+          ? "bg-pink-500/15 text-pink-700 border-pink-500/30" 
+          : "bg-blue-500/15 text-blue-700 border-blue-500/30",
         className
       )}
     >

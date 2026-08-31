@@ -143,7 +143,7 @@ export function CooperativeMembershipCard() {
     <div className="space-y-2">
       {/* Active Membership */}
       {accepted.map((m) => (
-        <Card key={m.id} className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30">
+        <Card key={m.id} className="border-blue-200 bg-blue-50/50">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-blue-500 h-8 w-8 flex items-center justify-center shrink-0">
@@ -157,7 +157,7 @@ export function CooperativeMembershipCard() {
                   Miyembro ng Cooperative / Cooperative Member
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:text-blue-400">
+              <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
                 Active
               </Badge>
             </div>
@@ -204,7 +204,7 @@ export function CooperativeMembershipCard() {
 
       {/* Pending Invitations */}
       {pending.map((m) => (
-        <Card key={m.id} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+        <Card key={m.id} className="border-amber-200 bg-amber-50/50">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-amber-500 h-8 w-8 flex items-center justify-center shrink-0">

@@ -11,10 +11,10 @@ interface Props {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  roughage: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
-  concentrates: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100",
-  minerals: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
-  supplements: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100",
+  roughage: "bg-green-100 text-green-800",
+  concentrates: "bg-amber-100 text-amber-800",
+  minerals: "bg-blue-100 text-blue-800",
+  supplements: "bg-purple-100 text-purple-800",
 };
 
 export const CoopFeedInventory = ({ cooperativeId }: Props) => {

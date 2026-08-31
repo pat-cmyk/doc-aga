@@ -185,8 +185,8 @@ export function getGapUrgencyColor(urgency: DataGapAlert['urgency']) {
     case 'critical':
       return 'text-destructive bg-destructive/10 border-destructive/30';
     case 'warning':
-      return 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800';
+      return 'text-amber-600 bg-amber-50 border-amber-200';
     default:
-      return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800';
+      return 'text-blue-600 bg-blue-50 border-blue-200';
   }
 }

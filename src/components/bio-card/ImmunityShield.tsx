@@ -129,9 +129,9 @@ export function ImmunityShield({
             strokeWidth={2}
             className={cn(
               "text-muted-foreground",
-              immunityStatus.level === 100 && "text-green-600 dark:text-green-400",
-              immunityStatus.level === 50 && "text-yellow-600 dark:text-yellow-400",
-              immunityStatus.level === 0 && "text-red-600 dark:text-red-400"
+              immunityStatus.level === 100 && "text-green-600",
+              immunityStatus.level === 50 && "text-yellow-600",
+              immunityStatus.level === 0 && "text-red-600"
             )}
           />
           
@@ -167,9 +167,9 @@ export function ImmunityShield({
       )}>
         <p className={cn(
           "font-medium text-sm",
-          immunityStatus.level === 100 && "text-green-600 dark:text-green-400",
-          immunityStatus.level === 50 && "text-yellow-600 dark:text-yellow-400",
-          immunityStatus.level === 0 && "text-red-600 dark:text-red-400"
+          immunityStatus.level === 100 && "text-green-600",
+          immunityStatus.level === 50 && "text-yellow-600",
+          immunityStatus.level === 0 && "text-red-600"
         )}>
           {statusConfig.label}
         </p>

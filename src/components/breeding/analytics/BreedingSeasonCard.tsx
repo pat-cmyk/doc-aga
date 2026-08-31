@@ -56,11 +56,11 @@ export function BreedingSeasonCard({
   const isWetSeason = breedingSeason.seasonName.toLowerCase().includes('wet');
   const SeasonIcon = isWetSeason ? CloudRain : Sun;
   const seasonColor = isWetSeason 
-    ? 'text-blue-600 dark:text-blue-400' 
-    : 'text-amber-600 dark:text-amber-400';
+    ? 'text-blue-600' 
+    : 'text-amber-600';
   const seasonBg = isWetSeason 
-    ? 'bg-blue-50 dark:bg-blue-900/20' 
-    : 'bg-amber-50 dark:bg-amber-900/20';
+    ? 'bg-blue-50' 
+    : 'bg-amber-50';
   
   // Conception rate status
   const getConceptionStatus = (rate: number) => {
@@ -154,7 +154,7 @@ export function BreedingSeasonCard({
             <div 
               className={cn(
                 "flex-1 flex items-center justify-center text-[10px] font-medium transition-colors",
-                !isWetSeason ? "bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200" : "bg-muted-foreground/10"
+                !isWetSeason ? "bg-amber-200 text-amber-800" : "bg-muted-foreground/10"
               )}
             >
               Dry
@@ -163,7 +163,7 @@ export function BreedingSeasonCard({
             <div 
               className={cn(
                 "flex-1 flex items-center justify-center text-[10px] font-medium transition-colors",
-                isWetSeason ? "bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200" : "bg-muted-foreground/10"
+                isWetSeason ? "bg-blue-200 text-blue-800" : "bg-muted-foreground/10"
               )}
             >
               Wet

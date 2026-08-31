@@ -100,7 +100,7 @@ export function BioCardSummary({
                     variant="text"
                   />
                   {bioData.activeAlerts.length > 0 && (
-                    <span className="text-xs text-orange-600 dark:text-orange-400">
+                    <span className="text-xs text-orange-600">
                       {bioData.activeAlerts.length} alert
                       {bioData.activeAlerts.length !== 1 ? "s" : ""}
                     </span>

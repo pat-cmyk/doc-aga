@@ -40,9 +40,9 @@ export function HeatHistoryTab({ animalId, farmId, animalName, gender }: HeatHis
 
   const getIntensityBadge = (intensity: string | null) => {
     const colors: Record<string, string> = {
-      weak: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-      normal: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-      strong: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      weak: 'bg-yellow-100 text-yellow-700',
+      normal: 'bg-orange-100 text-orange-700',
+      strong: 'bg-red-100 text-red-700',
     };
     return colors[intensity || 'normal'] || colors.normal;
   };
@@ -125,7 +125,7 @@ export function HeatHistoryTab({ animalId, farmId, animalName, gender }: HeatHis
                       {formatDistanceToNow(new Date(record.detected_at), { addSuffix: true })}
                     </p>
                     {record.optimal_breeding_start && (
-                      <div className="flex items-center gap-1 mt-2 text-sm text-green-600 dark:text-green-400">
+                      <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
                         <Target className="h-4 w-4" />
                         Optimal breeding: {format(new Date(record.optimal_breeding_start), 'MMM d, h:mm a')} - {format(new Date(record.optimal_breeding_end!), 'h:mm a')}
                       </div>

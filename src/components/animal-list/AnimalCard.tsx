@@ -91,9 +91,9 @@ export const AnimalCard = ({
     if (!statusDot) return "";
     switch (statusDot) {
       case 'red':
-        return "border-l-4 border-l-red-500 dark:border-l-red-400";
+        return "border-l-4 border-l-red-500";
       case 'yellow':
-        return "border-l-4 border-l-yellow-500 dark:border-l-yellow-400";
+        return "border-l-4 border-l-yellow-500";
       default:
         return "";
     }

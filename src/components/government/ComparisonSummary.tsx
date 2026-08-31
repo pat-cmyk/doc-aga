@@ -53,7 +53,7 @@ const ChangeIndicator = ({ change }: { change: MetricChange }) => {
   const isPositive = change.absolute > 0;
   const Icon = isPositive ? ArrowUp : ArrowDown;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
-  const colorClass = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+  const colorClass = isPositive ? "text-green-600" : "text-red-600";
   
   const isSignificant = Math.abs(change.percentage) >= 20;
   const trendLabel = isSignificant 
@@ -157,8 +157,8 @@ export const ComparisonSummary = ({
         {/* Metadata Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Primary Dataset */}
-          <div className="border rounded-lg p-4 space-y-2 bg-blue-50/50 dark:bg-blue-950/20">
-            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
+          <div className="border rounded-lg p-4 space-y-2 bg-blue-50/50">
+            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
               PRIMARY DATASET
             </Badge>
             <div className="space-y-1">
@@ -172,8 +172,8 @@ export const ComparisonSummary = ({
           </div>
 
           {/* Comparison Dataset */}
-          <div className="border rounded-lg p-4 space-y-2 bg-orange-50/50 dark:bg-orange-950/20">
-            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300">
+          <div className="border rounded-lg p-4 space-y-2 bg-orange-50/50">
+            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
               COMPARISON DATASET
             </Badge>
             <div className="space-y-1">

@@ -293,7 +293,7 @@ export function FeedMilkToAnimalDialog({
             <Info className="h-4 w-4" />
             <AlertDescription>
               Available: <strong>{totalAvailable.toLocaleString("en-PH", { maximumFractionDigits: 1 })} L</strong>
-              {stockType === 'rejected' && <span className="text-amber-600 dark:text-amber-400 ml-1">(rejected)</span>}
+              {stockType === 'rejected' && <span className="text-amber-600 ml-1">(rejected)</span>}
             </AlertDescription>
           </Alert>
 
@@ -348,7 +348,7 @@ export function FeedMilkToAnimalDialog({
                     <span>
                       {litersUsed.toFixed(1)} L
                       {litersUsed < record.liters_remaining && (
-                        <span className="text-xs ml-1 text-amber-600 dark:text-amber-400">(partial)</span>
+                        <span className="text-xs ml-1 text-amber-600">(partial)</span>
                       )}
                     </span>
                   </div>
@@ -359,7 +359,7 @@ export function FeedMilkToAnimalDialog({
               </div>
 
               {fifoPreview.warning && (
-                <p className="text-amber-600 dark:text-amber-400 text-sm">⚠️ {fifoPreview.warning}</p>
+                <p className="text-amber-600 text-sm">⚠️ {fifoPreview.warning}</p>
               )}
 
               {/* Cost display */}

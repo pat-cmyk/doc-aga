@@ -270,8 +270,8 @@ export function EditAIRecordDialog({
 
           {/* Pregnancy Status Info */}
           {record.pregnancy_confirmed && (
-            <div className="p-3 bg-green-50 dark:bg-green-950 rounded-md">
-              <p className="text-sm text-green-700 dark:text-green-300">
+            <div className="p-3 bg-green-50 rounded-md">
+              <p className="text-sm text-green-700">
                 ✓ Pregnancy confirmed - use the Confirm Pregnancy dialog to update pregnancy status
               </p>
             </div>

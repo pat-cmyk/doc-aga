@@ -131,7 +131,7 @@ export function MorningBriefCard({ farmId }: MorningBriefCardProps) {
                 <ul className="space-y-1">
                   {brief.alerts.map((alert, i) => (
                     <li key={i} className="text-sm flex items-start gap-2">
-                      <Badge variant="outline" className="text-xs shrink-0 border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400">
+                      <Badge variant="outline" className="text-xs shrink-0 border-orange-300 text-orange-700">
                         !
                       </Badge>
                       <span>{alert}</span>

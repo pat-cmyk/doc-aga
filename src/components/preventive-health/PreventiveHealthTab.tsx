@@ -191,10 +191,10 @@ function ScheduleCard({ schedule, onComplete, onSkip, isHistory }: ScheduleCardP
 
   const getStatusBadge = () => {
     if (schedule.status === 'completed') {
-      return <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Completed</Badge>;
+      return <Badge variant="secondary" className="bg-green-100 text-green-700">Completed</Badge>;
     }
     if (schedule.status === 'skipped') {
-      return <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Skipped</Badge>;
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-600">Skipped</Badge>;
     }
     if (isOverdue) {
       return <Badge variant="destructive">Overdue</Badge>;
@@ -203,7 +203,7 @@ function ScheduleCard({ schedule, onComplete, onSkip, isHistory }: ScheduleCardP
       return <Badge className="bg-orange-500">Today</Badge>;
     }
     if (isDueTomorrow) {
-      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Tomorrow</Badge>;
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">Tomorrow</Badge>;
     }
     return <Badge variant="outline">Scheduled</Badge>;
   };
@@ -214,7 +214,7 @@ function ScheduleCard({ schedule, onComplete, onSkip, isHistory }: ScheduleCardP
         isOverdue
           ? 'border-destructive/50 bg-destructive/5'
           : isDueToday
-          ? 'border-orange-300 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
+          ? 'border-orange-300 bg-orange-50'
           : 'border-border bg-card'
       }`}
     >
@@ -222,8 +222,8 @@ function ScheduleCard({ schedule, onComplete, onSkip, isHistory }: ScheduleCardP
         <div
           className={`p-2 rounded-full ${
             schedule.schedule_type === 'vaccination'
-              ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-              : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+              ? 'bg-blue-100 text-blue-600'
+              : 'bg-purple-100 text-purple-600'
           }`}
         >
           {schedule.schedule_type === 'vaccination' ? (

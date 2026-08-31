@@ -47,7 +47,7 @@ export function ExpiryBadge({ expiryDate, className }: ExpiryBadgeProps) {
     return (
       <Badge 
         variant="outline" 
-        className={`border-amber-500 text-amber-600 dark:text-amber-400 ${className}`}
+        className={`border-amber-500 text-amber-600 ${className}`}
       >
         <Clock className="h-3 w-3 mr-1" />
         {daysUntil}d left

@@ -26,30 +26,30 @@ export function GrowthBenchmarkCard({ animalId, animalData }: GrowthBenchmarkCar
   const statusConfig = {
     on_track: {
       icon: TrendingUp,
-      color: 'text-green-600 dark:text-green-400',
-      bg: 'bg-green-50 dark:bg-green-950/20',
-      badge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      badge: 'bg-green-100 text-green-700',
       label: 'On Track',
     },
     above: {
       icon: TrendingUp,
-      color: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-50 dark:bg-blue-950/20',
-      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+      badge: 'bg-blue-100 text-blue-700',
       label: 'Above Expected',
     },
     below: {
       icon: TrendingDown,
-      color: 'text-yellow-600 dark:text-yellow-400',
-      bg: 'bg-yellow-50 dark:bg-yellow-950/20',
-      badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50',
+      badge: 'bg-yellow-100 text-yellow-700',
       label: 'Below Expected',
     },
     critical: {
       icon: AlertTriangle,
-      color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-950/20',
-      badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      color: 'text-red-600',
+      bg: 'bg-red-50',
+      badge: 'bg-red-100 text-red-700',
       label: 'Critical',
     },
   };
@@ -129,10 +129,10 @@ export function GrowthBenchmarkCard({ animalId, animalData }: GrowthBenchmarkCar
               {benchmark.adgStatus && (
                 <p className={cn(
                   "text-xs font-medium capitalize",
-                  benchmark.adgStatus === 'excellent' && "text-green-600 dark:text-green-400",
-                  benchmark.adgStatus === 'good' && "text-blue-600 dark:text-blue-400",
-                  benchmark.adgStatus === 'fair' && "text-yellow-600 dark:text-yellow-400",
-                  benchmark.adgStatus === 'poor' && "text-red-600 dark:text-red-400"
+                  benchmark.adgStatus === 'excellent' && "text-green-600",
+                  benchmark.adgStatus === 'good' && "text-blue-600",
+                  benchmark.adgStatus === 'fair' && "text-yellow-600",
+                  benchmark.adgStatus === 'poor' && "text-red-600"
                 )}>
                   {benchmark.adgStatus} ({benchmark.adgPercentOfExpected}% of expected)
                 </p>

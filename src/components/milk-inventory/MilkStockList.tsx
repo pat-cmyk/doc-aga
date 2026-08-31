@@ -159,7 +159,7 @@ export function MilkStockList({ farmId, data, isLoading, canManage = true, stock
           </div>
 
           {oldestAge > 3 && (
-            <div className="mt-4 flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm">
+            <div className="mt-4 flex items-center gap-2 text-amber-600 text-sm">
               <AlertTriangle className="h-4 w-4" />
               <span>Oldest milk: {oldestAge} days old - Sell older stock first</span>
             </div>

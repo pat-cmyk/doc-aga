@@ -49,7 +49,7 @@ export function BreedingAlertsSection({
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className={`p-1.5 rounded-full ${criticalCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400'}`}>
+        <div className={`p-1.5 rounded-full ${criticalCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-pink-100 text-pink-600'}`}>
           <Heart className="h-4 w-4" />
         </div>
         <span className="text-sm font-medium">Breeding Alerts</span>
@@ -68,7 +68,7 @@ export function BreedingAlertsSection({
             icon={<Flame className="h-4 w-4" />}
             alerts={grouped.in_heat}
             maxAlerts={maxAlertsPerType}
-            iconColor="text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400"
+            iconColor="text-orange-600 bg-orange-100"
             onViewAnimal={handleViewAnimal}
             onAction={onScheduleAI}
             actionLabel="Schedule AI"
@@ -83,7 +83,7 @@ export function BreedingAlertsSection({
             icon={<Search className="h-4 w-4" />}
             alerts={grouped.preg_check_due}
             maxAlerts={maxAlertsPerType}
-            iconColor="text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400"
+            iconColor="text-purple-600 bg-purple-100"
             onViewAnimal={handleViewAnimal}
             onAction={onConfirmPregnancy}
             actionLabel="Confirm"
@@ -98,7 +98,7 @@ export function BreedingAlertsSection({
             icon={<Calendar className="h-4 w-4" />}
             alerts={grouped.proestrus}
             maxAlerts={maxAlertsPerType}
-            iconColor="text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+            iconColor="text-blue-600 bg-blue-100"
             onViewAnimal={handleViewAnimal}
           />
         )}
@@ -111,7 +111,7 @@ export function BreedingAlertsSection({
             icon={<CheckCircle className="h-4 w-4" />}
             alerts={grouped.vwp_ending}
             maxAlerts={maxAlertsPerType}
-            iconColor="text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400"
+            iconColor="text-green-600 bg-green-100"
             onViewAnimal={handleViewAnimal}
           />
         )}
@@ -124,7 +124,7 @@ export function BreedingAlertsSection({
             icon={<AlertTriangle className="h-4 w-4" />}
             alerts={grouped.repeat_breeder}
             maxAlerts={maxAlertsPerType}
-            iconColor="text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400"
+            iconColor="text-amber-600 bg-amber-100"
             onViewAnimal={handleViewAnimal}
           />
         )}

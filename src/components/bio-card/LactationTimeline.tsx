@@ -154,8 +154,8 @@ export function LactationTimeline({
           {trend && (
             <span className={cn(
               "text-xs",
-              trend === 'up' && "text-green-600 dark:text-green-400",
-              trend === 'down' && "text-red-600 dark:text-red-400",
+              trend === 'up' && "text-green-600",
+              trend === 'down' && "text-red-600",
               trend === 'stable' && "text-muted-foreground"
             )}>
               {trend === 'up' ? '📈' : trend === 'down' ? '📉' : '→'}

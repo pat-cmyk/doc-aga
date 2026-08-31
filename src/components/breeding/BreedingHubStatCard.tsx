@@ -62,7 +62,7 @@ export function BreedingHubStatCard({
         </span>
       )}
       {badge && (
-        <span className="text-[9px] font-medium text-amber-600 dark:text-amber-400 mt-0.5 text-center leading-tight">
+        <span className="text-[9px] font-medium text-amber-600 mt-0.5 text-center leading-tight">
           {badge}
         </span>
       )}

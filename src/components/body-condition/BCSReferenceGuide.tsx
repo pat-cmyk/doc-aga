@@ -311,7 +311,7 @@ export const BCSReferenceGuide: React.FC<BCSReferenceGuideProps> = ({
                 <li key={idx} className="flex items-start gap-2 text-sm">
                   <span className={cn(
                     'flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold',
-                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    'bg-blue-100 text-blue-700'
                   )}>
                     {idx + 1}
                   </span>
@@ -327,7 +327,7 @@ export const BCSReferenceGuide: React.FC<BCSReferenceGuideProps> = ({
                 <li key={idx} className="flex items-start gap-2 text-sm">
                   <span className={cn(
                     'flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold',
-                    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    'bg-amber-100 text-amber-700'
                   )}>
                     {idx + 1}
                   </span>

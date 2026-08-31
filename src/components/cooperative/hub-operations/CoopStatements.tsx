@@ -188,17 +188,17 @@ export const CoopStatements = ({ cooperativeId }: Props) => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+                  <div className="rounded-lg bg-blue-50 p-3">
                     <p className="text-xs text-muted-foreground">Milk Revenue</p>
                     <p className="text-lg font-bold">₱{soaPreview.total_milk_value.toLocaleString()}</p>
                     <p className="text-xs">{soaPreview.total_milk_liters.toFixed(1)}L</p>
                   </div>
-                  <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-950">
+                  <div className="rounded-lg bg-amber-50 p-3">
                     <p className="text-xs text-muted-foreground">Feed Cost</p>
                     <p className="text-lg font-bold">₱{soaPreview.total_feed_cost.toLocaleString()}</p>
                     <p className="text-xs">{soaPreview.total_feed_kg.toFixed(1)}kg</p>
                   </div>
-                  <div className={`rounded-lg p-3 ${soaPreview.net_balance >= 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}`}>
+                  <div className={`rounded-lg p-3 ${soaPreview.net_balance >= 0 ? "bg-green-50" : "bg-red-50"}`}>
                     <p className="text-xs text-muted-foreground">Net Balance</p>
                     <p className={`text-lg font-bold ${soaPreview.net_balance >= 0 ? "text-green-600" : "text-red-600"}`}>
                       {soaPreview.net_balance >= 0 ? "+" : ""}₱{soaPreview.net_balance.toLocaleString()}

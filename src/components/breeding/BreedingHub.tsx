@@ -104,8 +104,8 @@ export function BreedingHub({
       {/* Header with Quick Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-pink-100 dark:bg-pink-900/30">
-            <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+          <div className="p-2 rounded-full bg-pink-100">
+            <Heart className="h-5 w-5 text-pink-600" />
           </div>
           <div>
             <h2 className="text-lg font-semibold">Breeding Hub</h2>
@@ -169,8 +169,8 @@ export function BreedingHub({
               description={FERTILITY_STATUS_CONFIG.open_cycling.description}
               descriptionTagalog={FERTILITY_STATUS_CONFIG.open_cycling.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.open_cycling.icon}
-              colorClass="text-green-600 dark:text-green-400"
-              bgClass="bg-green-50 dark:bg-green-900/20"
+              colorClass="text-green-600"
+              bgClass="bg-green-50"
               onClick={() => setSelectedStatus('open_cycling')}
             />
             <BreedingHubStatCard
@@ -179,8 +179,8 @@ export function BreedingHub({
               description={FERTILITY_STATUS_CONFIG.in_heat.description}
               descriptionTagalog={FERTILITY_STATUS_CONFIG.in_heat.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.in_heat.icon}
-              colorClass="text-orange-600 dark:text-orange-400"
-              bgClass="bg-orange-50 dark:bg-orange-900/20"
+              colorClass="text-orange-600"
+              bgClass="bg-orange-50"
               isHighlighted={stats.inHeat > 0}
               onClick={() => setSelectedStatus('in_heat')}
             />
@@ -190,8 +190,8 @@ export function BreedingHub({
               description="Animals that have been bred and are awaiting pregnancy confirmation"
               descriptionTagalog="Mga hayop na na-breed at naghihintay ng kumpirmasyon ng pagbubuntis"
               icon="🧬"
-              colorClass="text-blue-600 dark:text-blue-400"
-              bgClass="bg-blue-50 dark:bg-blue-900/20"
+              colorClass="text-blue-600"
+              bgClass="bg-blue-50"
               isHighlighted={stats.pregCheckDue > 0}
               badge={stats.pregCheckDue > 0 ? `${stats.pregCheckDue} preg check due` : undefined}
               onClick={() => setSelectedStatus('bred_pipeline')}
@@ -202,8 +202,8 @@ export function BreedingHub({
               description={FERTILITY_STATUS_CONFIG.confirmed_pregnant.description}
               descriptionTagalog={FERTILITY_STATUS_CONFIG.confirmed_pregnant.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.confirmed_pregnant.icon}
-              colorClass="text-pink-600 dark:text-pink-400"
-              bgClass="bg-pink-50 dark:bg-pink-900/20"
+              colorClass="text-pink-600"
+              bgClass="bg-pink-50"
               onClick={() => setSelectedStatus('confirmed_pregnant')}
             />
             <BreedingHubStatCard
@@ -212,8 +212,8 @@ export function BreedingHub({
               description={FERTILITY_STATUS_CONFIG.fresh_postpartum.description}
               descriptionTagalog={FERTILITY_STATUS_CONFIG.fresh_postpartum.descriptionTagalog}
               icon={FERTILITY_STATUS_CONFIG.fresh_postpartum.icon}
-              colorClass="text-teal-600 dark:text-teal-400"
-              bgClass="bg-teal-50 dark:bg-teal-900/20"
+              colorClass="text-teal-600"
+              bgClass="bg-teal-50"
               onClick={() => setSelectedStatus('fresh_postpartum')}
             />
             <BreedingHubStatCard

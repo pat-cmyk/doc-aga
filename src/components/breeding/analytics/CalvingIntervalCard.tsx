@@ -40,18 +40,18 @@ export function CalvingIntervalCard({
   
   const statusConfig = {
     optimal: {
-      color: 'text-green-600 dark:text-green-400',
-      bg: 'bg-green-50 dark:bg-green-900/20',
+      color: 'text-green-600',
+      bg: 'bg-green-50',
       label: 'Optimal',
     },
     acceptable: {
-      color: 'text-yellow-600 dark:text-yellow-400',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50',
       label: 'Acceptable',
     },
     too_long: {
-      color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-900/20',
+      color: 'text-red-600',
+      bg: 'bg-red-50',
       label: 'Too Long',
     },
   };
@@ -136,7 +136,7 @@ export function CalvingIntervalCard({
         {/* Longest Intervals */}
         {longestIntervalAnimals.length > 0 && (
           <div className="border-t pt-3">
-            <div className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 mb-2">
+            <div className="flex items-center gap-1 text-xs font-medium text-orange-600 mb-2">
               <AlertTriangle className="h-3 w-3" />
               Longest Intervals
             </div>

@@ -384,15 +384,15 @@ export function HealthTimeline({
                       isOverdue
                         ? 'border-destructive/50 bg-destructive/5'
                         : isDueToday
-                        ? 'border-orange-300 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20'
+                        ? 'border-orange-300 bg-orange-50'
                         : 'border-border bg-card'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`p-2 rounded-full ${
                         event.metadata.schedule_type === 'vaccination'
-                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                          : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-purple-100 text-purple-600'
                       }`}>
                         {event.metadata.schedule_type === 'vaccination' ? (
                           <Syringe className="h-4 w-4" />
@@ -413,7 +413,7 @@ export function HealthTimeline({
                       ) : isDueToday ? (
                         <Badge className="bg-orange-500">Today</Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Tomorrow</Badge>
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">Tomorrow</Badge>
                       )}
                       {!readOnly && (
                         <div className="flex gap-1">
@@ -481,10 +481,10 @@ export function HealthTimeline({
                                   <Badge variant="destructive" className="text-[10px]">Overdue</Badge>
                                 )}
                                 {event.metadata.status === 'completed' && (
-                                  <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Done</Badge>
+                                  <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">Done</Badge>
                                 )}
                                 {event.metadata.status === 'skipped' && (
-                                  <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Skipped</Badge>
+                                  <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600">Skipped</Badge>
                                 )}
                                 {/* Action buttons */}
                                 {!readOnly && isHealthVisit && (

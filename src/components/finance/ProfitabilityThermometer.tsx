@@ -75,8 +75,8 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <div
             className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${
               isProfitable
-                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
             }`}
           >
             {isProfitable ? (
@@ -100,7 +100,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <p className="text-sm text-muted-foreground">Net Position</p>
           <p
             className={`text-3xl font-bold ${
-              isProfitable ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              isProfitable ? "text-green-600" : "text-red-600"
             }`}
           >
             {netPosition >= 0 ? "+" : ""}
@@ -158,15 +158,15 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
 
         {/* Breakdown Cards */}
         <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-            <p className="text-xs text-red-600 dark:text-red-400 font-medium">Costs (Input)</p>
-            <p className="text-lg font-bold text-red-700 dark:text-red-300">
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-xs text-red-600 font-medium">Costs (Input)</p>
+            <p className="text-lg font-bold text-red-700">
               {formatPHP(data?.operationalCosts || 0)}
             </p>
           </div>
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <p className="text-xs text-green-600 dark:text-green-400 font-medium">Output</p>
-            <p className="text-lg font-bold text-green-700 dark:text-green-300">
+          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-xs text-green-600 font-medium">Output</p>
+            <p className="text-lg font-bold text-green-700">
               {formatPHP(data?.totalOutput || 0)}
             </p>
           </div>
@@ -191,7 +191,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           {(spoilageData?.lostRevenue || 0) > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>🥛 Milk Rejected (Lost Revenue)</span>
-              <span className="font-medium text-red-600 dark:text-red-400">
+              <span className="font-medium text-red-600">
                 -{formatPHP(spoilageData?.lostRevenue || 0)}
               </span>
             </div>
@@ -213,8 +213,8 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
         <div
           className={`mt-4 p-3 rounded-lg ${
             isProfitable
-              ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-              : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+              ? "bg-green-50 border border-green-200"
+              : "bg-red-50 border border-red-200"
           }`}
         >
           <p className="text-sm">

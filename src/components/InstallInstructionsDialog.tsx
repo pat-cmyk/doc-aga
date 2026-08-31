@@ -74,8 +74,8 @@ export function InstallInstructionsDialog({
           ))}
         </div>
 
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-          <p className="text-xs text-amber-800 dark:text-amber-200">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p className="text-xs text-amber-800">
             <strong>Note:</strong> You may need to enable "Install unknown apps" in your
             phone's Settings → Security for your browser or Files app.
           </p>

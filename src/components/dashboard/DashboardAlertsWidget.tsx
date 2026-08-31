@@ -114,7 +114,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   }
 
   return (
-    <Card className={`mb-4 ${hasDataGaps || hasCriticalExpiry || breedingCriticalCount > 0 ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300 dark:border-orange-800' : ''}`}>
+    <Card className={`mb-4 ${hasDataGaps || hasCriticalExpiry || breedingCriticalCount > 0 ? 'border-destructive/50' : overdueCount > 0 ? 'border-destructive/50' : urgentCount > 0 ? 'border-orange-300' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
@@ -144,7 +144,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
             {dataGapAlerts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`p-1.5 rounded-full ${dataGapAlerts.some(a => a.urgency === 'critical') ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                  <div className={`p-1.5 rounded-full ${dataGapAlerts.some(a => a.urgency === 'critical') ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600'}`}>
                     <CalendarX2 className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-medium">Missing Records</span>
@@ -159,7 +159,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                       className={`flex items-center justify-between p-3 rounded-lg border ${getGapUrgencyColor(alert.urgency)}`}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className={`p-1 rounded-full ${alert.urgency === 'critical' ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                        <div className={`p-1 rounded-full ${alert.urgency === 'critical' ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600'}`}>
                           {alert.alertType === 'milking_gap' ? <Milk className="h-4 w-4" /> : <Wheat className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0">
@@ -189,7 +189,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
             {feedExpiryAlerts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`p-1.5 rounded-full ${hasCriticalExpiry ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                  <div className={`p-1.5 rounded-full ${hasCriticalExpiry ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-600'}`}>
                     <Package className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-medium">Expiring Feed Stock</span>
@@ -224,7 +224,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   {feedExpiryAlerts.length > 3 && (
                     <button
                       onClick={() => navigate('/?tab=operations&subtab=feed')}
-                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                      className="text-xs text-amber-600 hover:underline"
                     >
                       +{feedExpiryAlerts.length - 3} more items
                     </button>
@@ -246,7 +246,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                 alerts={groupedAlerts.vaccination}
                 onComplete={handleQuickComplete}
                 onViewAnimal={handleViewAnimal}
-                iconColor="text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+                iconColor="text-blue-600 bg-blue-100"
               />
             )}
 
@@ -258,7 +258,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                 alerts={groupedAlerts.deworming}
                 onComplete={handleQuickComplete}
                 onViewAnimal={handleViewAnimal}
-                iconColor="text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400"
+                iconColor="text-purple-600 bg-purple-100"
               />
             )}
 
@@ -269,7 +269,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                 icon={<Baby className="h-4 w-4" />}
                 alerts={groupedAlerts.delivery}
                 onViewAnimal={handleViewAnimal}
-                iconColor="text-pink-600 bg-pink-100 dark:bg-pink-900/30 dark:text-pink-400"
+                iconColor="text-pink-600 bg-pink-100"
               />
             )}
 
@@ -277,7 +277,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
             {missingWeightCount > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 rounded-full text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400">
+                  <div className="p-1.5 rounded-full text-amber-600 bg-amber-100">
                     <Scale className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-medium">Weight Data Incomplete</span>
@@ -305,23 +305,23 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   {animalsMissingWeight.map((animal) => (
                     <div
                       key={animal.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
+                      className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50"
                     >
                       <button
                         onClick={() => handleViewAnimal(animal.id)}
                         className="flex-1 text-left min-h-[44px] active:opacity-70 transition-opacity"
                       >
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate max-w-[180px]">
+                        <p className="text-sm font-medium text-amber-900 truncate max-w-[180px]">
                           {animal.name || animal.ear_tag || 'Unnamed animal'}
                         </p>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                        <p className="text-xs text-amber-600 mt-0.5">
                           Missing entry weight
                         </p>
                       </button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-11 w-11 shrink-0 ml-2 active:scale-95 transition-transform text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                        className="h-11 w-11 shrink-0 ml-2 active:scale-95 transition-transform text-amber-700 hover:bg-amber-100"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEditAnimalWeight(animal.id);
@@ -336,7 +336,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   {missingWeightCount > 3 && (
                     <button
                       onClick={handleViewAnimalsWithMissingWeight}
-                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                      className="text-xs text-amber-600 hover:underline"
                     >
                       +{missingWeightCount - 3} more animals
                     </button>

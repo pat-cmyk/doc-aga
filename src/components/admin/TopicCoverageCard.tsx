@@ -77,7 +77,7 @@ export const TopicCoverageCard = ({ queries }: TopicCoverageCardProps) => {
                     </TableCell>
                     <TableCell className="text-center">{topic.count}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      <Badge variant="secondary" className="bg-green-100 text-green-800">
                         {topic.matched}
                       </Badge>
                     </TableCell>

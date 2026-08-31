@@ -40,20 +40,20 @@ export function HeatDetectionRateCard({
   
   const statusConfig = {
     excellent: {
-      color: 'text-green-600 dark:text-green-400',
-      bg: 'bg-green-50 dark:bg-green-900/20',
+      color: 'text-green-600',
+      bg: 'bg-green-50',
       progressColor: 'bg-green-500',
       label: 'Excellent',
     },
     good: {
-      color: 'text-yellow-600 dark:text-yellow-400',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50',
       progressColor: 'bg-yellow-500',
       label: 'Good',
     },
     needs_improvement: {
-      color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-900/20',
+      color: 'text-red-600',
+      bg: 'bg-red-50',
       progressColor: 'bg-red-500',
       label: 'Needs Work',
     },

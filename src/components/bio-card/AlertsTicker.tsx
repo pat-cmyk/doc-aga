@@ -18,9 +18,9 @@ const alertIcons: Record<string, React.ComponentType<{ className?: string }>> = 
 };
 
 const alertColors: Record<string, string> = {
-  overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800',
-  urgent: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800',
-  upcoming: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
+  overdue: 'bg-red-100 text-red-700 border-red-200',
+  urgent: 'bg-orange-100 text-orange-700 border-orange-200',
+  upcoming: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   default: 'bg-muted text-muted-foreground border-border',
 };
 

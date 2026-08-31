@@ -242,8 +242,8 @@ export function FarmRecordHeatDialog({ open, onOpenChange, animals, farmId }: Fa
             </div>
 
             {standingHeat && (
-              <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 p-3 text-sm">
-                <p className="font-medium text-orange-700 dark:text-orange-400">
+              <div className="rounded-lg bg-orange-50 p-3 text-sm">
+                <p className="font-medium text-orange-700">
                   Optimal breeding window: 12-30 hours from now
                 </p>
               </div>

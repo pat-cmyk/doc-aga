@@ -254,10 +254,10 @@ export function getBreedingAlertColor(urgency: BreedingAlertUrgency): string {
     case 'critical':
       return 'text-destructive bg-destructive/10 border-destructive/20';
     case 'warning':
-      return 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-800';
+      return 'text-orange-600 bg-orange-50 border-orange-200';
     case 'info':
     default:
-      return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800';
+      return 'text-blue-600 bg-blue-50 border-blue-200';
   }
 }
 

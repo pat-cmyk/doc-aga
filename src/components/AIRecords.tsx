@@ -461,8 +461,8 @@ const AIRecords = ({ animalId, farmId, animalName, gender, livestockType, animal
                     {r.semen_code && <p className="text-sm text-muted-foreground">Semen Code: <span className="font-mono">{r.semen_code}</span></p>}
                     {r.notes && <p className="text-sm text-muted-foreground">Notes: {r.notes}</p>}
                     {r.pregnancy_confirmed && r.expected_delivery_date && (
-                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-md">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                      <div className="mt-2 p-2 bg-green-50 rounded-md">
+                        <p className="text-sm font-medium text-green-700">
                           Expected Delivery: {new Date(r.expected_delivery_date).toLocaleDateString()}
                         </p>
                       </div>

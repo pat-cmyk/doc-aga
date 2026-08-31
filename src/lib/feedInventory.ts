@@ -143,14 +143,14 @@ export function getStatusColor(status: 'healthy' | 'warning' | 'critical' | 'sur
   switch (status) {
     case 'healthy':
     case 'surplus':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      return 'bg-green-100 text-green-800';
     case 'warning':
     case 'sufficient':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      return 'bg-yellow-100 text-yellow-800';
     case 'critical':
     case 'deficit':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      return 'bg-red-100 text-red-800';
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+      return 'bg-gray-100 text-gray-800';
   }
 }

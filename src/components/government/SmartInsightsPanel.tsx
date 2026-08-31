@@ -123,9 +123,9 @@ export const SmartInsightsPanel = ({ dateFrom, dateTo, region, dataCategory }: S
   }
 
   const typeColors: any = {
-    critical: "border-red-500 bg-red-50 dark:bg-red-950",
-    warning: "border-orange-500 bg-orange-50 dark:bg-orange-950",
-    info: "border-blue-500 bg-blue-50 dark:bg-blue-950",
+    critical: "border-red-500 bg-red-50",
+    warning: "border-orange-500 bg-orange-50",
+    info: "border-blue-500 bg-blue-50",
   };
 
   return (

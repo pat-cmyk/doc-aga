@@ -23,9 +23,9 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
           onClick={() => onChange("Female")}
           className={cn(
             "relative flex flex-col items-center justify-center gap-2 p-4 min-h-[80px] rounded-lg border-2 transition-all duration-200",
-            "hover:border-pink-400 hover:bg-pink-50 dark:hover:bg-pink-950/20",
+            "hover:border-pink-400 hover:bg-pink-50",
             value === "Female" 
-              ? "border-pink-500 bg-pink-50 dark:bg-pink-950/30 ring-2 ring-pink-500/20" 
+              ? "border-pink-500 bg-pink-50 ring-2 ring-pink-500/20" 
               : "border-border bg-background",
             error && !value && "border-destructive"
           )}
@@ -35,7 +35,7 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
             "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
             value === "Female" 
               ? "bg-pink-500 text-white" 
-              : "bg-pink-100 text-pink-600 dark:bg-pink-900/50 dark:text-pink-400"
+              : "bg-pink-100 text-pink-600"
           )}>
             <svg 
               viewBox="0 0 24 24" 
@@ -55,13 +55,13 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
           <div className="text-center">
             <span className={cn(
               "block text-sm font-semibold",
-              value === "Female" ? "text-pink-700 dark:text-pink-300" : "text-foreground"
+              value === "Female" ? "text-pink-700" : "text-foreground"
             )}>
               Female
             </span>
             <span className={cn(
               "block text-xs",
-              value === "Female" ? "text-pink-600 dark:text-pink-400" : "text-muted-foreground"
+              value === "Female" ? "text-pink-600" : "text-muted-foreground"
             )}>
               Babae
             </span>
@@ -83,9 +83,9 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
           onClick={() => onChange("Male")}
           className={cn(
             "relative flex flex-col items-center justify-center gap-2 p-4 min-h-[80px] rounded-lg border-2 transition-all duration-200",
-            "hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20",
+            "hover:border-blue-400 hover:bg-blue-50",
             value === "Male" 
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-500/20" 
+              ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20" 
               : "border-border bg-background",
             error && !value && "border-destructive"
           )}
@@ -95,7 +95,7 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
             "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
             value === "Male" 
               ? "bg-blue-500 text-white" 
-              : "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
+              : "bg-blue-100 text-blue-600"
           )}>
             <svg 
               viewBox="0 0 24 24" 
@@ -115,13 +115,13 @@ export function GenderSelector({ value, onChange, error }: GenderSelectorProps) 
           <div className="text-center">
             <span className={cn(
               "block text-sm font-semibold",
-              value === "Male" ? "text-blue-700 dark:text-blue-300" : "text-foreground"
+              value === "Male" ? "text-blue-700" : "text-foreground"
             )}>
               Male
             </span>
             <span className={cn(
               "block text-xs",
-              value === "Male" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+              value === "Male" ? "text-blue-600" : "text-muted-foreground"
             )}>
               Lalaki
             </span>

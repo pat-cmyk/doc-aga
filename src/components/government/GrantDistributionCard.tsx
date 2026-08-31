@@ -47,22 +47,22 @@ export function GrantDistributionCard({ region, province, municipality, dataCate
 
         {/* Summary Stats */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-            <p className="text-xs text-green-700 dark:text-green-300">Grant Recipients</p>
-            <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+            <p className="text-xs text-green-700">Grant Recipients</p>
+            <p className="text-2xl font-bold text-green-900">
               {data.totalGrantAnimals.toLocaleString()}
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
               {data.grantPercentage.toFixed(1)}% of herd
             </Badge>
           </div>
-          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-blue-700 dark:text-blue-300">Purchased Animals</p>
-            <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <p className="text-xs text-blue-700">Purchased Animals</p>
+            <p className="text-2xl font-bold text-blue-900">
               {data.totalPurchasedAnimals.toLocaleString()}
             </p>
             {data.avgPurchasePrice > 0 && (
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-xs text-blue-600 mt-1">
                 Avg: ₱{data.avgPurchasePrice.toLocaleString()}
               </p>
             )}

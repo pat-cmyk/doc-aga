@@ -80,7 +80,7 @@ export function BreedingStatusAnimalList({
                   </div>
                   <div className="flex items-center gap-1.5 ml-2 shrink-0">
                     {animal.gender?.toLowerCase() !== 'female' ? (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-600 dark:text-blue-400">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-600">
                         ♂ Lalaki
                       </Badge>
                     ) : animal.fertility_status && FERTILITY_STATUS_CONFIG[animal.fertility_status] && (
@@ -122,9 +122,9 @@ function DaysOpenBadge({ animal }: { animal: BreedingAnimal }) {
       variant="outline"
       className={cn(
         'text-[10px] px-1.5 py-0 font-mono',
-        daysOpen < 100 && 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
-        daysOpen >= 100 && daysOpen < 150 && 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800',
-        daysOpen >= 150 && 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800',
+        daysOpen < 100 && 'bg-green-50 text-green-700 border-green-200',
+        daysOpen >= 100 && daysOpen < 150 && 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        daysOpen >= 150 && 'bg-red-50 text-red-700 border-red-200',
       )}
       title={`${daysOpen} days since last calving (Days Open)`}
     >
