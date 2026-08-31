@@ -69,11 +69,12 @@ Search the codebase before creating ANY new component, hook, or utility. Reuse i
 
 | Component | Location |
 |-----------|----------|
-| `BilingualLabel` | `src/components/animal-form/BilingualLabel.tsx` |
+| `BilingualLabel` | `src/components/ui/bilingual-label.tsx` |
 | `GenderSelector` | `src/components/animal-form/GenderSelector.tsx` |
 | `LactatingToggle` | `src/components/animal-form/LactatingToggle.tsx` |
-| `WeightHintBadge` | `src/components/animal-form/WeightHintBadge.tsx` |
+| `WeightHintBadge` | `src/components/ui/weight-hint-badge.tsx` |
 | `AnimalAvatar` | `src/components/ui/animal-avatar.tsx` |
+| App shell (header/nav/back/bootstrap) | `src/components/shell/` — new farmer screens go INSIDE the `FarmShell` layout route; nav items are SSOT in `shell/routes.ts` (see `docs/ssot-architecture.md` §3.7) |
 | 70+ shadcn/ui components | `src/components/ui/` |
 
 ### SSOT Hooks (use these, don't create alternatives)

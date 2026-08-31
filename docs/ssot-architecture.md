@@ -300,6 +300,34 @@ AI chat components use persistent conversation IDs stored in `localStorage` via 
 
 ---
 
+## 3.7 Farm App Shell & URL Routing (2026-08-31, UX Redesign Phase 2)
+
+Every farmer/farmhand screen renders inside one layout route — `src/components/shell/FarmShell.tsx` — instead of the old `pages/Dashboard.tsx` state-driven tab shell. The shell is the SSOT for header, bottom nav, floating widgets, pull-to-refresh, Android back handling, and farm bootstrap.
+
+**Route tree (farmer + farmhand share it; content varies by role):**
+
+| Path | Renders | Notes |
+|------|---------|-------|
+| `/` | `shell/RoleLanding` | Auth gate + role router + **permanent legacy shim** mapping `/?tab=…`/`/?animalId=…` URLs (`src/lib/legacyRedirects.ts`) |
+| `/home` | `shell/pages/HomeRoute` | Farmer variant (FarmDashboard + QuickRecordActions) or farmhand variant (voice-first) by `isFarmhand` |
+| `/animals` | `shell/pages/AnimalsRoute` | Deep-link state in URL: `?animalId=`, `?filter=missing-weight`, `?editWeight=true` |
+| `/operations/:subtab` | `shell/pages/OperationsRoute` | `milk\|feed\|breeding`; farmhands get `feed` only |
+| `/money` | `shell/pages/MoneyRoute` | FinanceTab |
+| `/more` | `shell/pages/MoreRoute` | `?tab=approvals\|submissions\|cooperative\|government\|settings`, role-filtered |
+| `/setup` | `shell/pages/SetupRoute` | First-farm creation (was inline in Dashboard) |
+| `/farmhand` | redirect → `/home` | Old notifications still target it |
+
+**SSOT rules introduced:**
+- **Role resolution** is one pure function: `resolveRoleTarget()` in `src/lib/roleResolution.ts`, consumed by `useFarmBootstrap` (shared by RoleLanding + FarmShell). Never re-implement admin/government/merchant/farmhand precedence elsewhere.
+- **Nav items** live only in `src/components/shell/routes.ts` (`FARM_NAV_ITEMS`, `navItemsForRole`, `isRootTab`). AppBottomNav (mobile) and AppHeader's desktop row both render from it.
+- **Hardware back**: `useAndroidBackButton` + the overlay registry in `src/lib/backClose.ts`. Overlays that should close on Android back register via `registerBackHandler()`.
+- **New farmer screens** must be children of the FarmShell layout route and read `useFarmShellContext()` (farmId, user, isFarmhand, canManageFarm) — do not re-run session/farm queries per page.
+- **Navigation is router-only**: no `window.dispatchEvent` navigation, no tab state. Legacy `/?tab=` URLs may never be produced by new code (RoleLanding's shim is for external/persisted links only).
+
+Deleted (superseded): `pages/Dashboard.tsx`, `pages/FarmhandDashboard.tsx`, `ui/bottom-nav.tsx`, `voice-training/FloatingVoiceTrainingButton.tsx` (now `shell/VoiceTrainingCard` on Home).
+
+---
+
 
 ## 4. Governance Documents
 

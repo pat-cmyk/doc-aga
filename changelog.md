@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 2: app shell with real URL routes + Android back
+
+The spine of the Jakob's Law redesign. Every farmer/farmhand screen now lives
+at a real URL inside one layout route (`src/components/shell/FarmShell.tsx`)
+instead of React state on `/`:
+
+- **Routes:** `/home`, `/animals` (`?animalId=`, `?filter=`, `?editWeight=`),
+  `/operations/milk|feed|breeding`, `/money`, `/more?tab=…`, `/setup`. `/` is
+  now `RoleLanding` (auth gate + role router + a permanent legacy shim that
+  maps old `/?tab=…` / `/?animalId=…` URLs — notifications and bookmarks keep
+  working). `/farmhand` redirects to `/home`; the shell renders the farmhand
+  variant by role.
+- **Persistent bottom nav on every farm screen** (NavLink-driven, role-
+  filtered: farmhands see no Money); desktop gets an equivalent header nav row.
+  One responsive DOM — the old `isMobile` ternary header (which flashed desktop
+  layout on first mobile paint) is gone.
+- **Android hardware back finally implemented** (`useAndroidBackButton` — the
+  app previously had no Capacitor backButton listener, so back always exited):
+  open overlay closes → sub-page goes back through history → root tab asks
+  "Press back again to exit / Pindutin ulit para lumabas".
+- **Owner/farmhand parity:** owners now get the farmhand's 1-tap Record
+  Milk/Feed/Health row on Home (`shell/QuickRecordActions`).
+- **Voice-training FAB** (pulsing, bottom-left) replaced by a dismissible Home
+  card (`shell/VoiceTrainingCard`).
+- **24 internal producers** of legacy `/?tab=` links converted to real routes.
+- **Deleted:** `pages/Dashboard.tsx` (701), `pages/FarmhandDashboard.tsx`
+  (326), `ui/bottom-nav.tsx`, `FloatingVoiceTrainingButton.tsx`.
+- Known scope notes: farmhand voice recording no longer receives a selected
+  animal id from the list page (voice extraction still resolves the animal by
+  name); farmhand Ops shows feed only (parity with the old farmhand tabs).
+
+42 new unit tests (legacy-redirect table, role-resolution matrix, back-button
+policy, nav filtering/active state). Verified in-browser on the demo account:
+all five tabs render with live data at 390×844, legacy deep link
+`/?tab=operations&subtab=feed` lands on `/operations/feed`, history back
+walks Operations → More. Governance: `docs/ssot-architecture.md` §3.7 added;
+CLAUDE.md stale shared-component paths corrected.
+
 ## 2026-08-31 — UX Redesign Phase 1: zero-risk cleanup (Jakob's Law alignment)
 
 First phase of the farmer/farmhand UX redesign (plan: Jakob's Law alignment —
