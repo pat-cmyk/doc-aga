@@ -52,6 +52,16 @@ const CooperativeAuth = lazy(() => import("./pages/CooperativeAuth"));
 const CooperativeDashboard = lazy(() => import("./pages/CooperativeDashboard"));
 const UnifiedInviteAccept = lazy(() => import("./pages/UnifiedInviteAccept"));
 
+// Farm shell (UX redesign Phase 2): layout route + URL-routed farm screens
+const FarmShell = lazy(() => import("./components/shell/FarmShell").then((m) => ({ default: m.FarmShell })));
+const RoleLanding = lazy(() => import("./components/shell/RoleLanding").then((m) => ({ default: m.RoleLanding })));
+const HomeRoute = lazy(() => import("./components/shell/pages/HomeRoute"));
+const AnimalsRoute = lazy(() => import("./components/shell/pages/AnimalsRoute"));
+const OperationsRoute = lazy(() => import("./components/shell/pages/OperationsRoute"));
+const MoneyRoute = lazy(() => import("./components/shell/pages/MoneyRoute"));
+const MoreRoute = lazy(() => import("./components/shell/pages/MoreRoute"));
+const SetupRoute = lazy(() => import("./components/shell/pages/SetupRoute"));
+
 // Redirect shim: legacy invite paths → unified /invite/:token when flag is on
 function LegacyInviteRedirect({ basePath }: { basePath: string }) {
   const { token } = useParams<{ token: string }>();
@@ -250,11 +260,18 @@ const ConditionalFloatingComponents = () => {
     '/invite',
   ];
   
-  const shouldHideFab = noFabRoutes.some(route => 
+  const shouldHideFab = noFabRoutes.some(route =>
     location.pathname === route || location.pathname.startsWith(route + '/')
   );
-  
+
   if (shouldHideFab) return null;
+
+  // Farm-shell routes own their floating widgets via shell/FloatingDock —
+  // mounting them here too would double the FAB.
+  const shellRoutes = ['/home', '/animals', '/operations', '/money', '/more', '/setup'];
+  if (shellRoutes.some(route => location.pathname === route || location.pathname.startsWith(route + '/'))) {
+    return null;
+  }
   
   // Government portal gets its own FAB
   if (location.pathname.startsWith('/government')) {
@@ -289,6 +306,15 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/setup" element={<SetupRoute />} />
+                  <Route element={<FarmShell />}>
+                    <Route path="/home" element={<HomeRoute />} />
+                    <Route path="/animals" element={<AnimalsRoute />} />
+                    <Route path="/operations" element={<Navigate to="/operations/milk" replace />} />
+                    <Route path="/operations/:subtab" element={<OperationsRoute />} />
+                    <Route path="/money" element={<MoneyRoute />} />
+                    <Route path="/more" element={<MoreRoute />} />
+                  </Route>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/merchant" element={<MerchantAuth />} />
                   <Route path="/auth/admin" element={<AdminAuth />} />
