@@ -375,58 +375,88 @@ export function calculateMilkingStageFromDays(
  * // Calf → blue, Breeding Heifer → purple, Mature Cow → green
  * ```
  */
+/**
+ * Semantic stage tones (UX redesign Phase 5). Colors are SSOT tokens in
+ * src/index.css (--stage-*-bg/fg/br); classes below are full literals so
+ * Tailwind's JIT can see them. One tone per stage of life, shared by every
+ * species.
+ */
+type StageTone =
+  | "newborn"
+  | "young"
+  | "juvenile"
+  | "breeding"
+  | "pregnant"
+  | "new-mother"
+  | "mature-mother"
+  | "young-male"
+  | "mature-male"
+  | "unknown";
+
+const STAGE_TONE_CLASSES: Record<StageTone, string> = {
+  "newborn": "bg-[hsl(var(--stage-newborn-bg))] text-[hsl(var(--stage-newborn-fg))] border-[hsl(var(--stage-newborn-br))]",
+  "young": "bg-[hsl(var(--stage-young-bg))] text-[hsl(var(--stage-young-fg))] border-[hsl(var(--stage-young-br))]",
+  "juvenile": "bg-[hsl(var(--stage-juvenile-bg))] text-[hsl(var(--stage-juvenile-fg))] border-[hsl(var(--stage-juvenile-br))]",
+  "breeding": "bg-[hsl(var(--stage-breeding-bg))] text-[hsl(var(--stage-breeding-fg))] border-[hsl(var(--stage-breeding-br))]",
+  "pregnant": "bg-[hsl(var(--stage-pregnant-bg))] text-[hsl(var(--stage-pregnant-fg))] border-[hsl(var(--stage-pregnant-br))]",
+  "new-mother": "bg-[hsl(var(--stage-new-mother-bg))] text-[hsl(var(--stage-new-mother-fg))] border-[hsl(var(--stage-new-mother-br))]",
+  "mature-mother": "bg-[hsl(var(--stage-mature-mother-bg))] text-[hsl(var(--stage-mature-mother-fg))] border-[hsl(var(--stage-mature-mother-br))]",
+  "young-male": "bg-[hsl(var(--stage-young-male-bg))] text-[hsl(var(--stage-young-male-fg))] border-[hsl(var(--stage-young-male-br))]",
+  "mature-male": "bg-[hsl(var(--stage-mature-male-bg))] text-[hsl(var(--stage-mature-male-fg))] border-[hsl(var(--stage-mature-male-br))]",
+  "unknown": "bg-[hsl(var(--stage-unknown-bg))] text-[hsl(var(--stage-unknown-fg))] border-[hsl(var(--stage-unknown-br))]",
+};
+
+const STAGE_TONES: Record<string, StageTone> = {
+  // Cattle
+  "Calf": "newborn",
+  "Heifer Calf": "young",
+  "Yearling Heifer": "juvenile",
+  "Breeding Heifer": "breeding",
+  "Pregnant Heifer": "pregnant",
+  "First-Calf Heifer": "new-mother",
+  "Mature Cow": "mature-mother",
+  "Bull Calf": "young",
+  "Young Bull": "young-male",
+  "Mature Bull": "mature-male",
+
+  // Carabao
+  "Carabao Calf": "newborn",
+  "Young Carabao": "young",
+  "Breeding Carabao": "breeding",
+  "Pregnant Carabao": "pregnant",
+  "First-Time Mother": "new-mother",
+  "Mature Carabao": "mature-mother",
+  "Young Bull Carabao": "young-male",
+  "Mature Bull Carabao": "mature-male",
+
+  // Goats
+  "Kid": "newborn",
+  "Buckling": "young",
+  "Doeling": "young",
+  "Young Doe": "young",
+  "Breeding Doe": "breeding",
+  "Pregnant Doe": "pregnant",
+  "First Freshener": "new-mother",
+  "Mature Doe": "mature-mother",
+  "Young Buck": "young-male",
+  "Buck": "mature-male",
+
+  // Sheep
+  "Lamb": "newborn",
+  "Ram Lamb": "young",
+  "Ewe Lamb": "young",
+  "Young Ewe": "young",
+  "Breeding Ewe": "breeding",
+  "Pregnant Ewe": "pregnant",
+  "First-Time Mother Ewe": "new-mother",
+  "Mature Ewe": "mature-mother",
+  "Young Ram": "young-male",
+  "Mature Ram": "mature-male",
+};
+
 export function getLifeStageBadgeColor(stage: string | null): string {
-  if (!stage) return "bg-gray-100 text-gray-800 border-gray-200";
-
-  const stageColors: Record<string, string> = {
-    // Cattle
-    "Calf": "bg-pink-100 text-pink-800 border-pink-200",
-    "Heifer Calf": "bg-blue-100 text-blue-800 border-blue-200",
-    "Yearling Heifer": "bg-indigo-100 text-indigo-800 border-indigo-200",
-    "Breeding Heifer": "bg-purple-100 text-purple-800 border-purple-200",
-    "Pregnant Heifer": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "First-Calf Heifer": "bg-green-100 text-green-800 border-green-200",
-    "Mature Cow": "bg-emerald-100 text-emerald-800 border-emerald-200",
-    "Bull Calf": "bg-blue-100 text-blue-800 border-blue-200",
-    "Young Bull": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Mature Bull": "bg-teal-100 text-teal-800 border-teal-200",
-    
-    // Carabao
-    "Carabao Calf": "bg-pink-100 text-pink-800 border-pink-200",
-    "Young Carabao": "bg-blue-100 text-blue-800 border-blue-200",
-    "Breeding Carabao": "bg-purple-100 text-purple-800 border-purple-200",
-    "Pregnant Carabao": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "First-Time Mother": "bg-green-100 text-green-800 border-green-200",
-    "Mature Carabao": "bg-emerald-100 text-emerald-800 border-emerald-200",
-    "Young Bull Carabao": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Mature Bull Carabao": "bg-teal-100 text-teal-800 border-teal-200",
-    
-    // Goats
-    "Kid": "bg-pink-100 text-pink-800 border-pink-200",
-    "Buckling": "bg-blue-100 text-blue-800 border-blue-200",
-    "Doeling": "bg-blue-100 text-blue-800 border-blue-200",
-    "Young Doe": "bg-blue-100 text-blue-800 border-blue-200",
-    "Breeding Doe": "bg-purple-100 text-purple-800 border-purple-200",
-    "Pregnant Doe": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "First Freshener": "bg-green-100 text-green-800 border-green-200",
-    "Mature Doe": "bg-emerald-100 text-emerald-800 border-emerald-200",
-    "Young Buck": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Buck": "bg-teal-100 text-teal-800 border-teal-200",
-    
-    // Sheep
-    "Lamb": "bg-pink-100 text-pink-800 border-pink-200",
-    "Ram Lamb": "bg-blue-100 text-blue-800 border-blue-200",
-    "Ewe Lamb": "bg-blue-100 text-blue-800 border-blue-200",
-    "Young Ewe": "bg-blue-100 text-blue-800 border-blue-200",
-    "Breeding Ewe": "bg-purple-100 text-purple-800 border-purple-200",
-    "Pregnant Ewe": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "First-Time Mother Ewe": "bg-green-100 text-green-800 border-green-200",
-    "Mature Ewe": "bg-emerald-100 text-emerald-800 border-emerald-200",
-    "Young Ram": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Mature Ram": "bg-teal-100 text-teal-800 border-teal-200",
-  };
-
-  return stageColors[stage] || "bg-gray-100 text-gray-800 border-gray-200";
+  const tone: StageTone = (stage && STAGE_TONES[stage]) || "unknown";
+  return STAGE_TONE_CLASSES[tone];
 }
 
 /**
@@ -523,17 +553,18 @@ export function calculateMaleStage(data: AnimalStageData): string | null {
  * ```
  */
 export function getMilkingStageBadgeColor(stage: string | null): string {
+  // Tokens in src/index.css (--milking-*); literal classes for Tailwind JIT.
   switch (stage) {
     case "Early Lactation":
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-[hsl(var(--milking-early-bg))] text-[hsl(var(--milking-early-fg))]";
     case "Mid-Lactation":
-      return "bg-teal-100 text-teal-800";
+      return "bg-[hsl(var(--milking-mid-bg))] text-[hsl(var(--milking-mid-fg))]";
     case "Late Lactation":
-      return "bg-amber-100 text-amber-800";
+      return "bg-[hsl(var(--milking-late-bg))] text-[hsl(var(--milking-late-fg))]";
     case "Dry Period":
-      return "bg-slate-100 text-slate-800";
+      return "bg-[hsl(var(--milking-dry-bg))] text-[hsl(var(--milking-dry-fg))]";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "bg-[hsl(var(--stage-unknown-bg))] text-[hsl(var(--stage-unknown-fg))]";
   }
 }
 

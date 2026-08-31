@@ -349,7 +349,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
         });
 
         toast({
-          title: "Nai-save Offline ✅ / Saved Offline",
+          title: "Saved Offline ✅ / Nai-save Offline",
           description: getOfflineMessage('animal'),
           duration: 5000,
         });
@@ -366,7 +366,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
         setShowSuccessScreen(true);
       } catch (error: any) {
         toast({
-          title: "May error / Error",
+          title: "Error / May error",
           description: translateError(error),
           variant: "destructive",
         });
@@ -432,7 +432,7 @@ const AnimalForm = ({ farmId, onSuccess, onCancel, defaultQuickMode }: AnimalFor
     setCreating(false);
     if (error) {
       toast({
-        title: "May error sa pagdagdag / Error creating animal",
+        title: "Error creating animal / May error sa pagdagdag",
         description: translateError(error),
         variant: "destructive"
       });

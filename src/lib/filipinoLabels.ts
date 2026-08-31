@@ -1,4 +1,14 @@
-// English-Filipino bilingual labels for the Animal Form
+// SSOT dictionary for bilingual UI copy (labels, options, common phrases).
+//
+// LANGUAGE RULE (decided 2026-08-31, UX redesign): **English primary,
+// Tagalog secondary.** Pilot farmers' UI literacy comes from English-labeled
+// apps (Facebook, WhatsApp, GCash), so English leads in labels and controls;
+// Tagalog is the smaller support line. Inline slash strings follow the same
+// order: "English / Tagalog". Conversational content (Doc Aga chat, morning
+// brief, voice hints) may stay natural Taglish — the rule is for labels.
+//
+// Prefer consuming entries via <BilingualLabel k="earTag" /> over inline
+// strings so copy lives in one place.
 // Format: { english: "Primary", filipino: "Subtitle" }
 
 export const labels = {

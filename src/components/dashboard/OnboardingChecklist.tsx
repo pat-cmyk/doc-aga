@@ -103,8 +103,8 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
   const steps: ChecklistStep[] = useMemo(() => [
     {
       id: "add_animal",
-      label: "Mag-dagdag ng hayop",
-      sublabel: "Add your first animal",
+      label: "Add your first animal",
+      sublabel: "Mag-dagdag ng hayop",
       done: animalCount > 0,
       action: () => {
         navigate("/animals/new");
@@ -112,8 +112,8 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
     },
     {
       id: "record_milk",
-      label: "I-record ang gatas",
-      sublabel: "Record first milking",
+      label: "Record first milking",
+      sublabel: "I-record ang gatas",
       done: hasMilkingRecords === true,
       action: () => {
         openBulkRecording("milk");
@@ -121,8 +121,8 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
     },
     {
       id: "check_inventory",
-      label: "Tingnan ang milk stock",
-      sublabel: "Check milk inventory",
+      label: "Check milk inventory",
+      sublabel: "Tingnan ang milk stock",
       done: visitedMilkTab,
       action: () => {
         localStorage.setItem(visitedMilkKey(farmId), "true");
@@ -131,8 +131,8 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
     },
     {
       id: "record_sale",
-      label: "I-record ang benta",
-      sublabel: "Record first sale",
+      label: "Record first sale",
+      sublabel: "I-record ang benta",
       done: hasMilkSale === true,
       action: () => {
         navigate("/operations/milk?highlight=milk-species");
@@ -140,8 +140,8 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
     },
     {
       id: "view_earnings",
-      label: "Tingnan ang kita",
-      sublabel: "View your earnings",
+      label: "View your earnings",
+      sublabel: "Tingnan ang kita",
       done: visitedFinance,
       action: () => {
         localStorage.setItem(visitedFinanceKey(farmId), "true");

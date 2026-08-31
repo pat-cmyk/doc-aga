@@ -64,37 +64,37 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
         return {
           icon: CircleCheck,
           label: "Excellent",
-          bgClass: "bg-green-500/10",
-          borderClass: "border-green-500/30",
-          iconClass: "text-green-500",
-          labelClass: "text-green-600",
+          bgClass: "bg-success/10",
+          borderClass: "border-success/30",
+          iconClass: "text-success",
+          labelClass: "text-success",
         };
       case "good":
         return {
           icon: CircleCheck,
           label: "Profitable",
-          bgClass: "bg-green-500/10",
-          borderClass: "border-green-500/30",
-          iconClass: "text-green-500",
-          labelClass: "text-green-600",
+          bgClass: "bg-success/10",
+          borderClass: "border-success/30",
+          iconClass: "text-success",
+          labelClass: "text-success",
         };
       case "warning":
         return {
           icon: CircleAlert,
           label: "Near Breakeven",
-          bgClass: "bg-yellow-500/10",
-          borderClass: "border-yellow-500/30",
-          iconClass: "text-yellow-500",
-          labelClass: "text-yellow-600",
+          bgClass: "bg-warning/10",
+          borderClass: "border-warning/30",
+          iconClass: "text-warning",
+          labelClass: "text-warning",
         };
       case "critical":
         return {
           icon: CircleX,
           label: "Loss",
-          bgClass: "bg-red-500/10",
-          borderClass: "border-red-500/30",
-          iconClass: "text-red-500",
-          labelClass: "text-red-600",
+          bgClass: "bg-destructive/10",
+          borderClass: "border-destructive/30",
+          iconClass: "text-destructive",
+          labelClass: "text-destructive",
         };
     }
   };
@@ -110,11 +110,11 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
 
   const getTrendClass = (value: number, isExpense = false) => {
     if (isExpense) {
-      if (value > 0) return "text-red-500";
-      if (value < 0) return "text-green-500";
+      if (value > 0) return "text-destructive";
+      if (value < 0) return "text-success";
     } else {
-      if (value > 0) return "text-green-500";
-      if (value < 0) return "text-red-500";
+      if (value > 0) return "text-success";
+      if (value < 0) return "text-destructive";
     }
     return "text-muted-foreground";
   };
@@ -180,8 +180,8 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
               className={cn(
                 "text-3xl sm:text-4xl font-bold",
                 healthData.isProfitable
-                  ? "text-green-600"
-                  : "text-red-600"
+                  ? "text-success"
+                  : "text-destructive"
               )}
               title={formatFull(healthData.netProfit)}
             >
@@ -227,7 +227,7 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
               {hasSpoilage && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">🥛 Milk Rejected (Lost)</span>
-                  <span className="font-medium text-red-600">
+                  <span className="font-medium text-destructive">
                     -{formatPHP(spoilageData!.lostRevenue)}
                   </span>
                 </div>
@@ -281,7 +281,7 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
             <span
               className={cn(
                 "text-sm font-bold",
-                healthData.breakevenProgress >= 100 ? "text-green-600" : "text-muted-foreground"
+                healthData.breakevenProgress >= 100 ? "text-success" : "text-muted-foreground"
               )}
             >
               {healthData.breakevenProgress.toFixed(0)}%
@@ -291,7 +291,7 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
             value={progressValue}
             className={cn(
               "h-2",
-              healthData.breakevenProgress >= 100 ? "[&>div]:bg-green-500" : "[&>div]:bg-primary"
+              healthData.breakevenProgress >= 100 ? "[&>div]:bg-success" : "[&>div]:bg-primary"
             )}
           />
         </div>
@@ -307,8 +307,8 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
                 className={cn(
                   "text-sm font-bold",
                   profitData.unrealizedGain >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
+                    ? "text-success"
+                    : "text-destructive"
                 )}
               >
                 {profitData.unrealizedGain >= 0 ? "+" : ""}
@@ -326,14 +326,14 @@ export function FarmCashFlowSummary({ farmId, dateRange }: FarmCashFlowSummaryPr
         <div
           className={cn(
             "rounded-lg px-3 py-2 text-sm",
-            healthData.isProfitable ? "bg-green-500/10" : "bg-red-500/10"
+            healthData.isProfitable ? "bg-success/10" : "bg-destructive/10"
           )}
         >
           <span
             className={
               healthData.isProfitable
-                ? "text-green-700"
-                : "text-red-700"
+                ? "text-success"
+                : "text-destructive"
             }
           >
             {healthData.isProfitable ? "✅" : "⚠️"}{" "}
@@ -376,7 +376,7 @@ function InsightText({
   if (milkRevenue > 0) {
     parts.push(
       <span key="milk">
-        {" "}You earned <strong className="text-green-600">{formatPHPCompact(milkRevenue)}</strong> from milk sales.
+        {" "}You earned <strong className="text-success">{formatPHPCompact(milkRevenue)}</strong> from milk sales.
       </span>
     );
   } else if (topRevenueSource && isProfitable) {
@@ -386,7 +386,7 @@ function InsightText({
   if (unrealizedGain > 0) {
     parts.push(
       <span key="herd">
-        {" "}Herd grew by <strong className="text-green-600">{formatPHPCompact(unrealizedGain)}</strong>.
+        {" "}Herd grew by <strong className="text-success">{formatPHPCompact(unrealizedGain)}</strong>.
       </span>
     );
   }

@@ -51,6 +51,44 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Semantic status tokens (UX redesign Phase 5) — see src/index.css
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+          soft: "hsl(var(--success-soft))",
+          "soft-foreground": "hsl(var(--success-soft-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+          soft: "hsl(var(--warning-soft))",
+          "soft-foreground": "hsl(var(--warning-soft-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+          soft: "hsl(var(--info-soft))",
+          "soft-foreground": "hsl(var(--info-soft-foreground))",
+        },
+        heat: {
+          DEFAULT: "hsl(var(--heat))",
+          soft: "hsl(var(--heat-soft))",
+          "soft-foreground": "hsl(var(--heat-soft-foreground))",
+        },
+        breeding: {
+          DEFAULT: "hsl(var(--breeding))",
+          soft: "hsl(var(--breeding-soft))",
+          "soft-foreground": "hsl(var(--breeding-soft-foreground))",
+        },
+        // Species chart colors — defined in index.css since the start but never
+        // registered, so bg-chart-N / text-chart-N silently rendered nothing
+        chart: {
+          "1": "hsl(var(--chart-1))",
+          "2": "hsl(var(--chart-2))",
+          "3": "hsl(var(--chart-3))",
+          "4": "hsl(var(--chart-4))",
+          "5": "hsl(var(--chart-5))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

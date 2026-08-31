@@ -98,6 +98,49 @@ All colors MUST be HSL.
     --earth-brown: 33 30% 45%;
     --harvest-gold: 43 100% 50%;
     --sky-blue: 200 70% 85%;
+
+    /* Semantic status tokens (UX redesign Phase 5) — registered in
+       tailwind.config.ts. `soft` = tinted chip/panel background with its own
+       readable foreground. Use these instead of raw palette classes
+       (bg-green-*, text-amber-*, …) for good/bad/warn/info states. */
+    --success: 142 71% 35%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 141 84% 93%;
+    --success-soft-foreground: 143 64% 24%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 48 96% 89%;
+    --warning-soft-foreground: 28 73% 26%;
+    --info: 221 83% 53%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 214 95% 93%;
+    --info-soft-foreground: 226 71% 40%;
+    /* Domain accents: heat detection (pink) and breeding (purple) */
+    --heat: 333 71% 51%;
+    --heat-soft: 326 78% 95%;
+    --heat-soft-foreground: 336 74% 35%;
+    --breeding: 271 81% 56%;
+    --breeding-soft: 269 100% 95%;
+    --breeding-soft-foreground: 273 67% 39%;
+
+    /* Life-stage badge tones (SSOT consumed by src/lib/animalStages.ts via
+       arbitrary-value classes). One identity hue per stage of life; values
+       match the pastel chips the pilot farmers already know. */
+    --stage-newborn-bg: 326 78% 95%;      --stage-newborn-fg: 336 74% 35%;      --stage-newborn-br: 326 85% 90%;
+    --stage-young-bg: 214 95% 93%;        --stage-young-fg: 226 71% 40%;        --stage-young-br: 213 97% 87%;
+    --stage-juvenile-bg: 226 100% 94%;    --stage-juvenile-fg: 244 55% 41%;     --stage-juvenile-br: 228 96% 89%;
+    --stage-breeding-bg: 269 100% 95%;    --stage-breeding-fg: 273 67% 39%;     --stage-breeding-br: 269 100% 92%;
+    --stage-pregnant-bg: 55 97% 88%;      --stage-pregnant-fg: 32 81% 29%;      --stage-pregnant-br: 53 98% 77%;
+    --stage-new-mother-bg: 141 84% 93%;   --stage-new-mother-fg: 143 64% 24%;   --stage-new-mother-br: 141 79% 85%;
+    --stage-mature-mother-bg: 149 80% 90%; --stage-mature-mother-fg: 163 88% 20%; --stage-mature-mother-br: 152 76% 80%;
+    --stage-young-male-bg: 185 96% 90%;   --stage-young-male-fg: 194 70% 27%;   --stage-young-male-br: 186 94% 82%;
+    --stage-mature-male-bg: 167 85% 89%;  --stage-mature-male-fg: 176 69% 22%;  --stage-mature-male-br: 168 84% 78%;
+    --stage-unknown-bg: 220 14% 96%;      --stage-unknown-fg: 217 33% 17%;      --stage-unknown-br: 220 13% 91%;
+    /* Milking-stage badge tones */
+    --milking-early-bg: 149 80% 90%;      --milking-early-fg: 163 88% 20%;
+    --milking-mid-bg: 167 85% 89%;        --milking-mid-fg: 176 69% 22%;
+    --milking-late-bg: 48 96% 89%;        --milking-late-fg: 28 73% 26%;
+    --milking-dry-bg: 210 40% 96%;        --milking-dry-fg: 217 33% 17%;
     
     --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 65% 45%));
     --gradient-earth: linear-gradient(180deg, hsl(45 15% 97%), hsl(142 45% 92%));

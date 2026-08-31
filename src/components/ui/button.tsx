@@ -17,10 +17,15 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-10 px-4 py-2",
+        // 48px default: gloves-on outdoor app — 44px is the floor, not the target
+        // (UX redesign Phase 5). Use compact/icon-sm ONLY in dense desktop
+        // contexts (admin tables), never on farmer-facing mobile screens.
+        default: "h-12 px-4 py-2",
         sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        lg: "h-14 rounded-md px-8",
+        icon: "h-12 w-12",
+        compact: "h-10 px-4 py-2",
+        "icon-sm": "h-10 w-10",
       },
     },
     defaultVariants: {

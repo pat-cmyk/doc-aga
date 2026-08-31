@@ -75,8 +75,8 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <div
             className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${
               isProfitable
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+                ? "bg-success-soft text-success"
+                : "bg-destructive/10 text-destructive"
             }`}
           >
             {isProfitable ? (
@@ -100,7 +100,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           <p className="text-sm text-muted-foreground">Net Position</p>
           <p
             className={`text-3xl font-bold ${
-              isProfitable ? "text-green-600" : "text-red-600"
+              isProfitable ? "text-success" : "text-destructive"
             }`}
           >
             {netPosition >= 0 ? "+" : ""}
@@ -158,15 +158,15 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
 
         {/* Breakdown Cards */}
         <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-            <p className="text-xs text-red-600 font-medium">Costs (Input)</p>
-            <p className="text-lg font-bold text-red-700">
+          <div className="p-3 bg-destructive/5 rounded-lg border border-destructive/20">
+            <p className="text-xs text-destructive font-medium">Costs (Input)</p>
+            <p className="text-lg font-bold text-destructive">
               {formatPHP(data?.operationalCosts || 0)}
             </p>
           </div>
-          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-            <p className="text-xs text-green-600 font-medium">Output</p>
-            <p className="text-lg font-bold text-green-700">
+          <div className="p-3 bg-success-soft/60 rounded-lg border border-success/20">
+            <p className="text-xs text-success font-medium">Output</p>
+            <p className="text-lg font-bold text-success">
               {formatPHP(data?.totalOutput || 0)}
             </p>
           </div>
@@ -191,7 +191,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
           {(spoilageData?.lostRevenue || 0) > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>🥛 Milk Rejected (Lost Revenue)</span>
-              <span className="font-medium text-red-600">
+              <span className="font-medium text-destructive">
                 -{formatPHP(spoilageData?.lostRevenue || 0)}
               </span>
             </div>
@@ -200,7 +200,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
             <span>📈 Herd Value Growth</span>
             <span
               className={`font-medium ${
-                (data?.unrealizedGain || 0) >= 0 ? "text-green-600" : "text-red-600"
+                (data?.unrealizedGain || 0) >= 0 ? "text-success" : "text-destructive"
               }`}
             >
               {(data?.unrealizedGain || 0) >= 0 ? "+" : ""}
@@ -213,8 +213,8 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
         <div
           className={`mt-4 p-3 rounded-lg ${
             isProfitable
-              ? "bg-green-50 border border-green-200"
-              : "bg-red-50 border border-red-200"
+              ? "bg-success-soft/60 border border-success/20"
+              : "bg-destructive/5 border border-destructive/20"
           }`}
         >
           <p className="text-sm">
@@ -225,7 +225,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
             {(data?.unrealizedGain || 0) > 0 && (
               <>
                 Your herd grew by{" "}
-                <span className="font-medium text-green-600">
+                <span className="font-medium text-success">
                   {formatPHP(data?.unrealizedGain || 0)}
                 </span>{" "}
                 in value
@@ -233,7 +233,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
                   <>
                     {" "}
                     and you sold{" "}
-                    <span className="font-medium text-green-600">
+                    <span className="font-medium text-success">
                       {formatPHP(data?.milkRevenue || 0)}
                     </span>{" "}
                     in milk
@@ -245,7 +245,7 @@ export function ProfitabilityThermometer({ farmId, dateRange }: ProfitabilityThe
             {(data?.unrealizedGain || 0) <= 0 && (data?.milkRevenue || 0) > 0 && (
               <>
                 You earned{" "}
-                <span className="font-medium text-green-600">
+                <span className="font-medium text-success">
                   {formatPHP(data?.milkRevenue || 0)}
                 </span>{" "}
                 from milk sales.
