@@ -42,7 +42,7 @@ export function BreedingAlertsSection({
   const criticalCount = alerts.filter(a => a.urgency === 'critical').length;
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/?tab=animals&animalId=${animalId}`);
+    navigate(`/animals?animalId=${animalId}`);
   };
 
   return (

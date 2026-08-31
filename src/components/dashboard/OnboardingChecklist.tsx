@@ -124,7 +124,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       done: visitedMilkTab,
       action: () => {
         localStorage.setItem(visitedMilkKey(farmId), "true");
-        navigate("/?tab=operations&subtab=milk");
+        navigate("/operations/milk");
       },
     },
     {
@@ -133,7 +133,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       sublabel: "Record first sale",
       done: hasMilkSale === true,
       action: () => {
-        navigate("/?tab=operations&subtab=milk&highlight=milk-species");
+        navigate("/operations/milk?highlight=milk-species");
       },
     },
     {
@@ -143,7 +143,7 @@ export function OnboardingChecklist({ farmId, totalAnimals }: OnboardingChecklis
       done: visitedFinance,
       action: () => {
         localStorage.setItem(visitedFinanceKey(farmId), "true");
-        navigate("/?tab=finance");
+        navigate("/money");
       },
     },
   ], [animalCount, hasMilkingRecords, hasMilkSale, visitedMilkTab, visitedFinance, navigate, farmId]);

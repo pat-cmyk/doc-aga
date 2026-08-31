@@ -55,19 +55,19 @@ export function DailyActivityCompliance({ farmId }: DailyActivityComplianceProps
   const handleBreedingClick = () => {
     if (animalsNeedingCheck.length === 1) {
       // Single animal - navigate directly to profile
-      navigate(`/?tab=animals&animalId=${animalsNeedingCheck[0].id}`);
+      navigate(`/animals?animalId=${animalsNeedingCheck[0].id}`);
     } else if (animalsNeedingCheck.length > 1) {
       // Multiple animals - open selection popover
       setBreedingPopoverOpen(true);
     } else {
       // No animals need attention - go to breeding tab
-      navigate('/?tab=operations&subtab=breeding');
+      navigate('/operations/breeding');
     }
   };
 
   const handleSelectAnimal = (animalId: string) => {
     setBreedingPopoverOpen(false);
-    navigate(`/?tab=animals&animalId=${animalId}`);
+    navigate(`/animals?animalId=${animalId}`);
   };
 
   const handleMarkNoHeat = (animalId: string) => {

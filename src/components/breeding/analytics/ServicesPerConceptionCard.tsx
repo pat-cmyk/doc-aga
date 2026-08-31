@@ -141,7 +141,7 @@ export function ServicesPerConceptionCard({
               {repeatBreeders.slice(0, 3).map((animal) => (
                 <button
                   key={animal.id}
-                  onClick={() => navigate(`/?tab=animals&animalId=${animal.id}`)}
+                  onClick={() => navigate(`/animals?animalId=${animal.id}`)}
                   className="flex justify-between w-full text-sm hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
                 >
                   <span className="truncate">

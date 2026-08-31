@@ -82,7 +82,7 @@ export function DataCompletenessIndicator({
           onNavigateToTab("animals");
         }
         // Update URL to trigger weight filter
-        navigate("/?tab=animals&filter=missing-weight");
+        navigate("/animals?filter=missing-weight");
       } else if (onNavigateToTab && item.actionTarget) {
         onNavigateToTab(item.actionTarget);
       }

@@ -3,7 +3,7 @@
  *
  * Replaces the old pages/Dashboard.tsx double duty of auth-gate + role router.
  * Resolves the session's role target and redirects to the right surface,
- * mapping legacy pre-shell URLs (/?tab=..., /?animalId=...) onto the new
+ * mapping legacy pre-shell URLs (with ?tab= / ?animalId= queries) onto the new
  * route tree first — those URLs live on in notifications and bookmarks.
  */
 import { Navigate, useLocation } from "react-router-dom";

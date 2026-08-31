@@ -36,7 +36,7 @@ export function BreedingStatusAnimalList({
 
   const handleSelect = (animalId: string) => {
     onClose();
-    navigate(`/?tab=animals&animalId=${animalId}`);
+    navigate(`/animals?animalId=${animalId}`);
   };
 
   return (

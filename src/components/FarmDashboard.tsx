@@ -43,7 +43,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
   // Quick action handlers
   const handleRecordMilk = () => {
     // Navigate to Operations tab with Milk sub-tab
-    navigate('/?tab=operations&subtab=milk');
+    navigate('/operations/milk');
   };
 
   const handleRecordHealth = () => {
@@ -52,7 +52,7 @@ const FarmDashboard = ({ farmId, onNavigateToAnimals, onNavigateToAnimalDetails 
 
   const handleLogActivity = () => {
     // Navigate to farmhand dashboard for voice activity logging
-    navigate('/?tab=operations');
+    navigate('/operations/milk');
   };
 
   // Memoize date calculations

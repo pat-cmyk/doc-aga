@@ -78,15 +78,15 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
   };
 
   const handleViewAnimal = (animalId: string) => {
-    navigate(`/?tab=animals&animalId=${animalId}`);
+    navigate(`/animals?animalId=${animalId}`);
   };
 
   const handleViewAnimalsWithMissingWeight = () => {
-    navigate('/?tab=animals&filter=missing-weight');
+    navigate('/animals?filter=missing-weight');
   };
 
   const handleEditAnimalWeight = (animalId: string) => {
-    navigate(`/?tab=animals&animalId=${animalId}&editWeight=true`);
+    navigate(`/animals?animalId=${animalId}&editWeight=true`);
   };
 
   if (isLoading) {
@@ -204,7 +204,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                       className={`flex items-center justify-between p-3 rounded-lg border ${getExpiryUrgencyColor(alert.urgency)}`}
                     >
                       <button
-                        onClick={() => navigate('/?tab=operations&subtab=feed')}
+                        onClick={() => navigate('/operations/feed')}
                         className="flex-1 text-left min-h-[44px] active:opacity-70 transition-opacity"
                       >
                         <p className="text-sm font-medium truncate max-w-[180px]">
@@ -223,7 +223,7 @@ export function DashboardAlertsWidget({ farmId }: DashboardAlertsWidgetProps) {
                   ))}
                   {feedExpiryAlerts.length > 3 && (
                     <button
-                      onClick={() => navigate('/?tab=operations&subtab=feed')}
+                      onClick={() => navigate('/operations/feed')}
                       className="text-xs text-amber-600 hover:underline"
                     >
                       +{feedExpiryAlerts.length - 3} more items

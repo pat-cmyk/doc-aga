@@ -81,7 +81,7 @@ export function BreedingAnimalSearchDialog({
       onOpenChange(false);
       setSelectedAnimal(null);
       setSearchTerm('');
-      navigate(`/?tab=animals&animalId=${selectedAnimal.id}`);
+      navigate(`/animals?animalId=${selectedAnimal.id}`);
     }
   };
 
