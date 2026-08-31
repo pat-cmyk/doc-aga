@@ -1,8 +1,6 @@
 export { BioCard, BioCardSkeleton } from './BioCard';
 export { OVRScore } from '@/components/ui/ovr-score';
 export type { OVRTier, OVRTrend, OVRBreakdown } from '@/components/ui/ovr-score';
-/** @deprecated Use OVRScore directly */
-export { OVRBadge } from './OVRBadge';
 export { StatusAura, StatusBadge } from './StatusAura';
 export { PerformanceRadar } from './PerformanceRadar';
 export { TrendSparkline } from './TrendSparkline';

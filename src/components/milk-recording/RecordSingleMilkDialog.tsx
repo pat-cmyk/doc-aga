@@ -325,15 +325,8 @@ export function RecordSingleMilkDialog({
         isRejected={successData.isRejected}
         onAction={(action) => {
           setSuccessData(null);
-          if (action === "view_inventory") {
-            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
-          } else if (action === "record_another") {
+          if (action === "record_another") {
             onOpenChange(true);
-          } else if (action === "record_sale") {
-            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('open-milk-sale'));
-            }, 300);
           }
         }}
       />

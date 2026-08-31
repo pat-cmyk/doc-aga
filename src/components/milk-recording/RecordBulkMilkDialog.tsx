@@ -641,17 +641,8 @@ export function RecordBulkMilkDialog({
         isRejected={successData.isRejected}
         onAction={(action) => {
           setSuccessData(null);
-          if (action === "view_inventory") {
-            // Already on operations tab, just need to scroll/navigate to inventory
-            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
-          } else if (action === "record_another") {
+          if (action === "record_another") {
             onOpenChange(true);
-          } else if (action === "record_sale") {
-            window.dispatchEvent(new CustomEvent('navigate-subtab', { detail: 'milk' }));
-            // Small delay to let tab switch, then open sale dialog
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('open-milk-sale'));
-            }, 300);
           }
         }}
       />

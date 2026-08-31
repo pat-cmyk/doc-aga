@@ -26,7 +26,6 @@ import { cacheOfflineConfirmations } from "./lib/offlineAudioConfirmations";
 import { PermissionOnboarding } from "./components/permissions/PermissionOnboarding";
 
 // Lazy load page components for code splitting
-const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const MerchantAuth = lazy(() => import("./pages/MerchantAuth"));
 const AdminAuth = lazy(() => import("./pages/AdminAuth"));
