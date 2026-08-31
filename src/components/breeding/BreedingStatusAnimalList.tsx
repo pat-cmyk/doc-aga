@@ -69,7 +69,7 @@ export function BreedingStatusAnimalList({
                     <span className="text-sm font-medium truncate">
                       {animal.name || 'Unnamed'}
                       {animal.gender?.toLowerCase() !== 'female' && (
-                        <span className="ml-1 text-blue-500" title="Lalaki / Male">♂</span>
+                        <span className="ml-1 text-blue-500" title="Male / Lalaki">♂</span>
                       )}
                     </span>
                     {animal.ear_tag && (

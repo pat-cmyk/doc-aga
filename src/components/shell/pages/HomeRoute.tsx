@@ -19,6 +19,7 @@ import DocAgaConsultation from "@/components/farmhand/DocAgaConsultation";
 import { useFarmShellContext } from "../FarmShell";
 import { QuickRecordActions } from "../QuickRecordActions";
 import { VoiceTrainingCard } from "../VoiceTrainingCard";
+import { useBackClose } from "@/hooks/useBackClose";
 
 function VoiceTrainingCompleteBanner() {
   const [dismissed, setDismissed] = useState(false);
@@ -76,6 +77,10 @@ function FarmerHome() {
 function FarmhandHome() {
   const { farmId } = useFarmShellContext();
   const [showDocAga, setShowDocAga] = useState(false);
+
+  // The inline consultation replaces the home content; Android back closes
+  // it instead of leaving /home (Phase 7)
+  useBackClose(showDocAga, () => setShowDocAga(false));
 
   if (showDocAga) {
     return (

@@ -22,7 +22,7 @@ const SRC = join(ROOT, "src");
 const STRICT_DIRS = [join(SRC, "components", "shell")];
 
 /** Count must not exceed this. Lower it as files get migrated. */
-const RATCHET_BASELINE = 1648;
+const RATCHET_BASELINE = 1572;
 
 const PALETTE =
   "(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)";

@@ -56,17 +56,17 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
         <CardContent className="pt-0 pb-3">
           <div className="flex gap-4 text-sm">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <div className="w-3 h-3 rounded-full bg-info" />
               <span className="text-muted-foreground">Purchased</span>
               <Badge variant="secondary" className="text-xs">{data.purchasedCount}</Badge>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <div className="w-3 h-3 rounded-full bg-success" />
               <span className="text-muted-foreground">Grant</span>
               <Badge variant="secondary" className="text-xs">{data.grantCount}</Badge>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <div className="w-3 h-3 rounded-full bg-warning" />
               <span className="text-muted-foreground">Born</span>
               <Badge variant="secondary" className="text-xs">{data.bornOnFarmCount}</Badge>
             </div>
@@ -79,19 +79,19 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
             <div className="h-3 rounded-full overflow-hidden flex bg-muted">
               {data.purchasedCount > 0 && (
                 <div
-                  className="bg-blue-500 h-full transition-all"
+                  className="bg-info h-full transition-all"
                   style={{ width: `${purchasedPercent}%` }}
                 />
               )}
               {data.grantCount > 0 && (
                 <div
-                  className="bg-green-500 h-full transition-all"
+                  className="bg-success h-full transition-all"
                   style={{ width: `${grantPercent}%` }}
                 />
               )}
               {data.bornOnFarmCount > 0 && (
                 <div
-                  className="bg-amber-500 h-full transition-all"
+                  className="bg-warning h-full transition-all"
                   style={{ width: `${bornPercent}%` }}
                 />
               )}
@@ -99,37 +99,37 @@ export function AcquisitionDistributionCard({ farmId }: AcquisitionDistributionC
 
             {/* Detailed Stats */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <div className="p-3 rounded-lg bg-info-soft/60 border border-info/20">
                 <div className="flex items-center gap-2 mb-1">
-                  <ShoppingCart className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs text-blue-700">Purchased</span>
+                  <ShoppingCart className="h-4 w-4 text-info" />
+                  <span className="text-xs text-info">Purchased</span>
                 </div>
-                <p className="text-lg font-bold text-blue-900">{purchasedPercent}%</p>
+                <p className="text-lg font-bold text-info-soft-foreground">{purchasedPercent}%</p>
                 {data.averagePurchasePrice > 0 && (
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-info">
                     Avg: {formatPHP(data.averagePurchasePrice)}
                   </p>
                 )}
               </div>
 
-              <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+              <div className="p-3 rounded-lg bg-success-soft/60 border border-success/20">
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="h-4 w-4 text-green-600" />
-                  <span className="text-xs text-green-700">Grant</span>
+                  <Gift className="h-4 w-4 text-success" />
+                  <span className="text-xs text-success">Grant</span>
                 </div>
-                <p className="text-lg font-bold text-green-900">{grantPercent}%</p>
-                <p className="text-xs text-green-600">
+                <p className="text-lg font-bold text-success-soft-foreground">{grantPercent}%</p>
+                <p className="text-xs text-success">
                   {data.grantCount} animals
                 </p>
               </div>
 
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="p-3 rounded-lg bg-warning-soft/60 border border-warning/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <Home className="h-4 w-4 text-amber-600" />
-                  <span className="text-xs text-amber-700">Born on Farm</span>
+                  <Home className="h-4 w-4 text-warning" />
+                  <span className="text-xs text-warning">Born on Farm</span>
                 </div>
-                <p className="text-lg font-bold text-amber-900">{bornPercent}%</p>
-                <p className="text-xs text-amber-600">
+                <p className="text-lg font-bold text-warning-soft-foreground">{bornPercent}%</p>
+                <p className="text-xs text-warning">
                   {data.bornOnFarmCount} animals
                 </p>
               </div>

@@ -59,37 +59,37 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
         return {
           icon: CircleCheck,
           label: "Excellent",
-          bgClass: "bg-green-500/10",
-          borderClass: "border-green-500/30",
-          iconClass: "text-green-500",
-          labelClass: "text-green-600",
+          bgClass: "bg-success/10",
+          borderClass: "border-success/30",
+          iconClass: "text-success",
+          labelClass: "text-success",
         };
       case 'good':
         return {
           icon: CircleCheck,
           label: "Profitable",
-          bgClass: "bg-green-500/10",
-          borderClass: "border-green-500/30",
-          iconClass: "text-green-500",
-          labelClass: "text-green-600",
+          bgClass: "bg-success/10",
+          borderClass: "border-success/30",
+          iconClass: "text-success",
+          labelClass: "text-success",
         };
       case 'warning':
         return {
           icon: CircleAlert,
           label: "Near Breakeven",
-          bgClass: "bg-yellow-500/10",
-          borderClass: "border-yellow-500/30",
-          iconClass: "text-yellow-500",
-          labelClass: "text-yellow-600",
+          bgClass: "bg-warning/10",
+          borderClass: "border-warning/30",
+          iconClass: "text-warning",
+          labelClass: "text-warning",
         };
       case 'critical':
         return {
           icon: CircleX,
           label: "Loss",
-          bgClass: "bg-red-500/10",
-          borderClass: "border-red-500/30",
-          iconClass: "text-red-500",
-          labelClass: "text-red-600",
+          bgClass: "bg-destructive/10",
+          borderClass: "border-destructive/30",
+          iconClass: "text-destructive",
+          labelClass: "text-destructive",
         };
     }
   };
@@ -106,11 +106,11 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
   const getTrendClass = (value: number, isExpense = false) => {
     // For expenses, down is good (green), up is bad (red)
     if (isExpense) {
-      if (value > 0) return "text-red-500";
-      if (value < 0) return "text-green-500";
+      if (value > 0) return "text-destructive";
+      if (value < 0) return "text-success";
     } else {
-      if (value > 0) return "text-green-500";
-      if (value < 0) return "text-red-500";
+      if (value > 0) return "text-success";
+      if (value < 0) return "text-destructive";
     }
     return "text-muted-foreground";
   };
@@ -167,13 +167,13 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
           <div className={cn(
             "rounded-lg p-3 text-center border",
             data.isProfitable 
-              ? "bg-green-500/10 border-green-500/30" 
-              : "bg-red-500/10 border-red-500/30"
+              ? "bg-success/10 border-success/30" 
+              : "bg-destructive/10 border-destructive/30"
           )}>
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Net</p>
             <p className={cn(
               "text-lg sm:text-2xl font-bold",
-              data.isProfitable ? "text-green-600" : "text-red-600"
+              data.isProfitable ? "text-success" : "text-destructive"
             )} title={formatFull(data.netProfit)}>
               {data.netProfit >= 0 ? "+" : ""}{formatPHPCompact(data.netProfit)}
             </p>
@@ -189,7 +189,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
             <span className="text-muted-foreground">Breakeven Progress</span>
             <span className={cn(
               "font-medium",
-              data.breakevenProgress >= 100 ? "text-green-600" : "text-muted-foreground"
+              data.breakevenProgress >= 100 ? "text-success" : "text-muted-foreground"
             )}>
               {data.breakevenProgress.toFixed(0)}%
             </span>
@@ -198,7 +198,7 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
             value={progressValue} 
             className={cn(
               "h-2",
-              data.breakevenProgress >= 100 ? "[&>div]:bg-green-500" : "[&>div]:bg-primary"
+              data.breakevenProgress >= 100 ? "[&>div]:bg-success" : "[&>div]:bg-primary"
             )}
           />
         </div>
@@ -206,9 +206,9 @@ export function FinancialHealthSummary({ farmId, dateRange }: FinancialHealthSum
         {/* Daily insight */}
         <div className={cn(
           "rounded-lg px-3 py-2 text-sm",
-          data.isProfitable ? "bg-green-500/10" : "bg-red-500/10"
+          data.isProfitable ? "bg-success/10" : "bg-destructive/10"
         )}>
-          <span className={data.isProfitable ? "text-green-700" : "text-red-700"}>
+          <span className={data.isProfitable ? "text-success" : "text-destructive"}>
             {data.isProfitable ? "📈" : "📉"} You're {data.isProfitable ? "making" : "losing"}{" "}
             <strong>{formatPHPCompact(Math.abs(data.dailyProfit))}/day</strong> on average
             {data.topRevenueSource && data.isProfitable && (

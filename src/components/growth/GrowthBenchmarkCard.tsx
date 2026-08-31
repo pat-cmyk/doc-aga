@@ -26,30 +26,30 @@ export function GrowthBenchmarkCard({ animalId, animalData }: GrowthBenchmarkCar
   const statusConfig = {
     on_track: {
       icon: TrendingUp,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-      badge: 'bg-green-100 text-green-700',
+      color: 'text-success',
+      bg: 'bg-success-soft/60',
+      badge: 'bg-success-soft text-success',
       label: 'On Track',
     },
     above: {
       icon: TrendingUp,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      badge: 'bg-blue-100 text-blue-700',
+      color: 'text-info',
+      bg: 'bg-info-soft/60',
+      badge: 'bg-info-soft text-info',
       label: 'Above Expected',
     },
     below: {
       icon: TrendingDown,
-      color: 'text-yellow-600',
-      bg: 'bg-yellow-50',
-      badge: 'bg-yellow-100 text-yellow-700',
+      color: 'text-warning',
+      bg: 'bg-warning-soft/60',
+      badge: 'bg-warning-soft text-warning',
       label: 'Below Expected',
     },
     critical: {
       icon: AlertTriangle,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
-      badge: 'bg-red-100 text-red-700',
+      color: 'text-destructive',
+      bg: 'bg-destructive/5',
+      badge: 'bg-destructive/10 text-destructive',
       label: 'Critical',
     },
   };
@@ -129,10 +129,10 @@ export function GrowthBenchmarkCard({ animalId, animalData }: GrowthBenchmarkCar
               {benchmark.adgStatus && (
                 <p className={cn(
                   "text-xs font-medium capitalize",
-                  benchmark.adgStatus === 'excellent' && "text-green-600",
-                  benchmark.adgStatus === 'good' && "text-blue-600",
-                  benchmark.adgStatus === 'fair' && "text-yellow-600",
-                  benchmark.adgStatus === 'poor' && "text-red-600"
+                  benchmark.adgStatus === 'excellent' && "text-success",
+                  benchmark.adgStatus === 'good' && "text-info",
+                  benchmark.adgStatus === 'fair' && "text-warning",
+                  benchmark.adgStatus === 'poor' && "text-destructive"
                 )}>
                   {benchmark.adgStatus} ({benchmark.adgPercentOfExpected}% of expected)
                 </p>
