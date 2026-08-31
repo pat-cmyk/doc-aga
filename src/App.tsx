@@ -150,11 +150,11 @@ const SyncHandler = () => {
           const data = notification.notification.extra;
           
           if (data?.failed) {
-            navigate('/farmhand');
+            navigate('/home');
           } else if (data?.type === 'animal_form') {
-            navigate('/');
+            navigate('/home');
           } else if (data?.type === 'voice_activity') {
-            navigate('/farmhand');
+            navigate('/home');
           }
         });
       });
@@ -305,7 +305,7 @@ const App = () => (
               <StorageNotice />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<RoleLanding />} />
                   <Route path="/setup" element={<SetupRoute />} />
                   <Route element={<FarmShell />}>
                     <Route path="/home" element={<HomeRoute />} />
@@ -362,7 +362,8 @@ const App = () => (
                   <Route path="/invite/accept/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
                   <Route path="/invite/user/:token" element={<LegacyInviteRedirect basePath="/invite" />} />
                   <Route path="/admin/create-user" element={<AdminCreateUser />} />
-                  <Route path="/farmhand" element={<FarmhandDashboard />} />
+                  {/* Pre-shell farmhand URL — lives on in old notifications */}
+                  <Route path="/farmhand" element={<Navigate to="/home" replace />} />
                   <Route path="/voice-training" element={<VoiceTraining />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
