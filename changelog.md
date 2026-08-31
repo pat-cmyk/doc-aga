@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-08-31 — UX Redesign Phase 1: zero-risk cleanup (Jakob's Law alignment)
+
+First phase of the farmer/farmhand UX redesign (plan: Jakob's Law alignment —
+new app shell with real URL routes, persistent bottom nav, Android back
+handling; mockups gate Phase 2). This phase is the risk-free groundwork:
+
+- **Dead code removed (~1,900 lines):** unrouted `pages/Index.tsx`; orphaned
+  `InviteAccept`/`UserInviteAccept`/`CooperativeInviteAccept` pages (superseded
+  by `UnifiedInviteAccept`); unused `ui/sidebar.tsx`, `App.css`,
+  `dashboard/DailyChecklist` (+ its only-consumer hook `useDailyChecklist`),
+  `PredictiveInsightsWidget`, deprecated OVRBadge/OVRIndicator shims.
+- **Dead event navigation removed:** the milk dialogs' post-save
+  `navigate-subtab`/`open-milk-sale` CustomEvent dispatches had no listeners
+  anywhere — post-save navigation silently did nothing. Phase 4 replaces
+  these with real router navigation.
+- **Offline paradox fixed:** the animal quick-record chips (Milk/Weight/
+  Health) were disabled when offline even though their dialogs fully support
+  offline queueing. Chips now stay enabled offline.
+- **Dark mode stripped:** 609 `dark:` utilities + the `.dark` token block were
+  unreachable (no ThemeProvider ever adds the class) — removed with zero
+  rendered change. Reversible via git if ever prioritized.
+- **Brand chrome aligned:** PWA `theme_color`/Android splash/notification
+  colors unified to `#117e39` (exact sRGB of `--primary`); PWA
+  `background_color` now matches the `--background` cream.
+
+Verified: production build + 491 tests green; zero remaining `dark:` usages.
+
 ## 2026-08-09 — Fix: ticket detail panel crash on open (TKT-2608-0002)
 
 `TicketDetailPanel`'s assignee dropdown used `<SelectItem value="">` for
